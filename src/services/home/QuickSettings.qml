@@ -613,7 +613,8 @@ StatCard {
                 Item {
                     id: btw
                     width: parent.width - 13 - 13 - parent.spacing * 2
-                    height: 20; anchors.verticalCenter: parent.verticalCenter
+                    height: 30; anchors.verticalCenter: parent.verticalCenter
+                    anchors.bottomMargin: 30
                     readonly property int thumbD: 14
 
                     Rectangle {
@@ -628,7 +629,7 @@ StatCard {
                             Behavior on width { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
                         }
                         MouseArea {
-                            anchors.fill: parent; cursorShape: Qt.SizeHorCursor
+                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                             function _c(mx) {
                                 return Math.max(0.0, Math.min(1.0,
                                     (mx - btw.thumbD/2) / (btrack.width - btw.thumbD)))
@@ -636,11 +637,12 @@ StatCard {
                             onPressed:         root._setBright(_c(mouseX))
                             onPositionChanged: if (pressed) root._setBright(_c(mouseX))
                         }
-                        WheelHandler {
-                            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                            onWheel: function(e) {
-                                root._setBright(root._brightVal + (e.angleDelta.y > 0 ? 0.05 : -0.05))
-                            }
+                        }
+
+                     WheelHandler {
+                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                        onWheel: function(e) {
+                            root._setBright(root._brightVal + (e.angleDelta.y > 0 ? 0.05 : -0.05))
                         }
                     }
                     Rectangle {
