@@ -115,7 +115,7 @@ Item {
                     delegate: DeviceRow {
                         width:     parent.width
                         label:     root.deviceName(modelData)
-                        isDefault: root.sink?.ready && modelData.name === root.sink.name
+                        isDefault: root.sink?.ready && modelData.name === root.sink.name || false
                         onClicked: Pipewire.preferredDefaultAudioSink = modelData
                     }
                 }
@@ -140,7 +140,7 @@ Item {
                     delegate: DeviceRow {
                         width:     parent.width
                         label:     root.deviceName(modelData)
-                        isDefault: root.source?.ready && modelData.name === root.source.name
+                        isDefault: root.source?.ready && modelData.name === root.source.name || false
                         onClicked: Pipewire.preferredDefaultAudioSource = modelData
                     }
                 }
