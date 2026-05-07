@@ -51,40 +51,45 @@ PanelWindow {
         id: hoverCloseTimer
         interval: Popups.hoverCloseDelay * 2
         onTriggered: {
-            if (!Popups.wallpaperTriggerHovered && !root.selfHovered) {
+            if (root.allowHover && !Popups.wallpaperTriggerHovered && !root.selfHovered) {
                 Popups.wallpaperOpen = false
             }
         }
     }
 
     onSelfHoveredChanged: {
-        if (!selfHovered && !Popups.wallpaperTriggerHovered) {
-            hoverCloseTimer.restart()
-        } else {
-            hoverCloseTimer.stop()
+        if (root.allowHover) {
+            if (!selfHovered && !Popups.wallpaperTriggerHovered) {
+                hoverCloseTimer.restart()
+            } else {
+                hoverCloseTimer.stop()
+            }
         }
     }
 
-    // ── Trigger hover — open on hover, schedule close on leave ───────────────
     Connections {
         target: Popups
         function onWallpaperTriggerHoveredChanged() {
-            if (Popups.wallpaperTriggerHovered && root.allowHover) {
-                hoverCloseTimer.stop()
-                if (!Popups.wallpaperOpen) {
-                    closeTimer.stop()
-                    root.windowVisible       = true
-                    Popups.wallpaperOpen     = true
-                    WallpaperService.refresh()
-                    WallpaperService.previewWall   = ""
-                    content.schemePopupOpen        = false
-                    content.folderMode             = false
-                    content.appliedScheme          = WallpaperService.scheme
-                    searchInput.text               = ""
-                    searchInput.forceActiveFocus()
+            if (Popups.wallpaperTriggerHovered) {
+                if (root.allowHover) {
+                    hoverCloseTimer.stop()
+                    if (!Popups.wallpaperOpen) {
+                        closeTimer.stop()
+                        root.windowVisible             = true
+                        Popups.wallpaperOpen           = true
+                        WallpaperService.refresh()
+                        WallpaperService.previewWall   = ""
+                        content.schemePopupOpen        = false
+                        content.folderMode             = false
+                        content.appliedScheme          = WallpaperService.scheme
+                        searchInput.text               = ""
+                        searchInput.forceActiveFocus()
+                    }
                 }
-            } else if (!root.selfHovered) {
-                hoverCloseTimer.restart()
+            } else {
+                if (root.allowHover && !root.selfHovered) {
+                    hoverCloseTimer.restart()
+                }
             }
         }
 
@@ -146,11 +151,6 @@ PanelWindow {
 
         Behavior on width  { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
         Behavior on height { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
-
-        // Track whether user is hovering inside the popup itself
-        HoverHandler {
-            onHoveredChanged: root.selfHovered = hovered
-        }
 
         PopupShape {
             anchors.fill: parent
@@ -677,6 +677,17 @@ PanelWindow {
                 enabled: content.schemePopupOpen
                 onTapped: content.schemePopupOpen = false
             }
+        }
+    }
+
+    Item {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom:           parent.bottom
+        width:                    sizer.width
+        height:                   sizer.height + Theme.borderWidth
+
+        HoverHandler {
+            onHoveredChanged: root.selfHovered = hovered
         }
     }
 }
