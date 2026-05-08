@@ -109,9 +109,9 @@ QtObject {
             "bash", "-c",
             "awww img --transition-type grow --transition-step 200 --transition-duration 1.2 --transition-fps 60 --transition-pos bottom \"" + path + "\" " +
             "&& ln -sf \"" + path + "\" ~/.curr_wall " +
-            "&& if [[ \"" + path + "\" == *.gif ]]; then " +
-            "rm -f ~/.curr_wall_static.jpg && magick \"" + path + "[0]\" ~/.curr_wall_static.jpg; " +
-            "else ln -sf \"" + path + "\" ~/.curr_wall_static.jpg; fi " +
+            "&& (if [[ \"" + path + "\" == *.gif ]]; then " +
+            "rm -f ~/.curr_wall_static.jpg; magick \"" + path + "[0]\" ~/.curr_wall_static.jpg || true; " +
+            "else ln -sf \"" + path + "\" ~/.curr_wall_static.jpg; fi) " +
             "&& matugen image \"$(readlink -f ~/.curr_wall)\" --source-color-index 0 --type scheme-" + root.scheme
         ]
         applyProc.running = true
