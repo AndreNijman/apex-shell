@@ -21,6 +21,7 @@ QtObject {
 
     // ── State ─────────────────────────────────────────────────────────────────
     property var    wallpapers:   []
+    property var    _tempWalls:   []
     property string currentWall:  ""
     property string previewWall:  ""
     property string scheme:       "content"
@@ -28,7 +29,7 @@ QtObject {
     property string wallpaperDir: "~/Pictures/Wallpapers"
 
     readonly property var schemes: [
-        "content", "tonal-spot", "fidelity","fruit-salad", "neutral", "monochrome"
+        "content", "tonal-spot", "fidelity", "fruit-salad", "neutral", "monochrome"
     ]
 
     // Emitted when the full apply pipeline exits cleanly (exitCode === 0).
@@ -37,7 +38,7 @@ QtObject {
     // ── File listing ──────────────────────────────────────────────────────────
     function refresh() {
         if (listProc.running) return
-        root.wallpapers = []
+        root._tempWalls = [] // Clear the temp array, not the live one yet
         listProc.running = true
     }
 
@@ -51,8 +52,12 @@ QtObject {
         stdout: SplitParser {
             onRead: function(line) {
                 var t = line.trim()
-                if (t !== "") root.wallpapers = root.wallpapers.concat([t])
+                if (t !== "") root._tempWalls.push(t)
             }
+        }
+        onExited: function() {
+            // Push everything to the UI at once
+            root.wallpapers = root._tempWalls
         }
     }
 
