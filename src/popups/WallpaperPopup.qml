@@ -129,11 +129,22 @@ PanelWindow {
             for (var i = 0; i < walls.length; i++) {
                 if (walls[i] === target) {
                     WallpaperService.previewWall = target
+                    
+                    wallGrid.targetCenterIndex = i
+                    centerLockTimer.restart()
+                    
+                    wallGrid.forceLayout()
                     wallGrid.positionViewAtIndex(i, ListView.Center)
                     return
                 }
             }
         }
+    }
+    
+    Timer {
+        id: centerLockTimer
+        interval: Theme.animDuration
+        onTriggered: wallGrid.targetCenterIndex = -1
     }
 
     Item {
@@ -190,6 +201,17 @@ PanelWindow {
                  WallpaperService.scheme !== content.appliedScheme)
 
             opacity: Popups.wallpaperOpen ? 1 : 0
+            
+            transform: Translate {
+                y: Popups.wallpaperOpen ? 0 : 40
+                Behavior on y {
+                    NumberAnimation {
+                        duration: Theme.animDuration
+                        easing.type: Easing.OutExpo 
+                    }
+                }
+            }
+            
             Behavior on opacity {
                 NumberAnimation {
                     duration: Popups.wallpaperOpen
@@ -200,6 +222,15 @@ PanelWindow {
 
             ListView {
                 id: wallGrid
+                
+                property int targetCenterIndex: -1
+                
+                onWidthChanged: {
+                    if (Popups.wallpaperOpen && targetCenterIndex !== -1 && count > targetCenterIndex) {
+                        positionViewAtIndex(targetCenterIndex, ListView.Center)
+                    }
+                }
+
                 anchors.top:          parent.top
                 anchors.left:         parent.left
                 anchors.right:        parent.right
@@ -233,7 +264,6 @@ PanelWindow {
                     height: isPreview? wallGrid.height : wallGrid.height - 14
 
                     Behavior on width  { NumberAnimation { duration: 120; easing.type: Easing.InOutCubic } }
-			        Behavior on height { NumberAnimation { duration: 120; easing.type: Easing.InOutCubic } }
                     
                     required property string modelData
                     required property int    index
@@ -253,7 +283,7 @@ PanelWindow {
                             anchors.right:  parent.right
                             anchors.top:    parent.top
                             height:         parent.height - cardDelegate.labelH
-                            source:         "file://" + modelData
+                            source: modelData.indexOf("://") !== -1 ? modelData : "file://" + modelData
                             fillMode:       Image.PreserveAspectCrop
                             asynchronous:   true
                             cache:          true
@@ -315,8 +345,13 @@ PanelWindow {
                     TapHandler {
                         onTapped: {
                             content.schemePopupOpen = false
-                            WallpaperService.previewWall = cardDelegate.isPreview
-                                ? "" : cardDelegate.modelData
+                            if (cardDelegate.isPreview) {
+                                content.appliedScheme = WallpaperService.scheme
+                                WallpaperService.apply(cardDelegate.modelData)
+                                Popups.wallpaperOpen = false
+                            } else {
+                                WallpaperService.previewWall = cardDelegate.modelData
+                            }
                         }
                     }
                 }
@@ -430,10 +465,19 @@ PanelWindow {
                                 Keys.onReturnPressed: {
                                     var walls = content.filteredWallpapers
                                     if (!walls || walls.length === 0) return
-                                    var target = walls.length === 1
-                                        ? walls[0]
-                                        : WallpaperService.previewWall
-                                    if (target === "") return
+
+                                    // Check if our current preview is actually in the search results
+                                    var previewInSearch = false
+                                    for (var i = 0; i < walls.length; i++) {
+                                        if (walls[i] === WallpaperService.previewWall) {
+                                            previewInSearch = true
+                                            break
+                                        }
+                                    }
+
+                                    // Apply the preview if it's in the results, otherwise grab the top result
+                                    var target = previewInSearch ? WallpaperService.previewWall : walls[0]
+                                    
                                     content.appliedScheme = WallpaperService.scheme
                                     WallpaperService.apply(target)
                                     Popups.wallpaperOpen = false
@@ -463,6 +507,32 @@ PanelWindow {
                                     idx = (idx < 0 || idx >= walls.length - 1) ? 0 : idx + 1
                                     WallpaperService.previewWall = walls[idx]
                                     wallGrid.positionViewAtIndex(idx, ListView.Center)
+                                }
+                                
+                                Keys.onEscapePressed: {
+                                    if (searchInput.text !== "") {
+                                        var target = WallpaperService.previewWall !== "" 
+                                            ? WallpaperService.previewWall 
+                                            : WallpaperService.currentWall
+                                        
+                                        var walls = WallpaperService.wallpapers
+                                        var idx = 0
+                                        for (var i = 0; i < walls.length; i++) {
+                                            if (walls[i] === target) {
+                                                idx = i
+                                                break
+                                            }
+                                        }
+                        
+                                        searchInput.text = ""
+                                        
+                                        wallGrid.forceLayout()
+                                        
+                                        wallGrid.positionViewAtIndex(idx, ListView.Center)
+                                        
+                                    } else {
+                                        Popups.closeAll()
+                                    }
                                 }
                             }
                         }
