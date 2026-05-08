@@ -21,7 +21,7 @@ QtObject {
 
     // ── State ─────────────────────────────────────────────────────────────────
     property var    wallpapers:   []
-    property var    _tempWalls:   []
+    property var    tempWalls:   []
     property string currentWall:  ""
     property string previewWall:  ""
     property string scheme:       "content"
@@ -38,7 +38,7 @@ QtObject {
     // ── File listing ──────────────────────────────────────────────────────────
     function refresh() {
         if (listProc.running) return
-        root._tempWalls = [] // Clear the temp array, not the live one yet
+        root.tempWalls = [] // Clear the temp array, not the live one yet
         listProc.running = true
     }
 
@@ -52,12 +52,12 @@ QtObject {
         stdout: SplitParser {
             onRead: function(line) {
                 var t = line.trim()
-                if (t !== "") root._tempWalls.push(t)
+                if (t !== "") root.tempWalls.push(t)
             }
         }
         onExited: function() {
             // Push everything to the UI at once
-            root.wallpapers = root._tempWalls
+            root.wallpapers = root.tempWalls
         }
     }
 
