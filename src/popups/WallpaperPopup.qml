@@ -253,7 +253,7 @@ PanelWindow {
                             anchors.right:  parent.right
                             anchors.top:    parent.top
                             height:         parent.height - cardDelegate.labelH
-                            source:         "file://" + modelData
+                            source: modelData.indexOf("://") !== -1 ? modelData : "file://" + modelData
                             fillMode:       Image.PreserveAspectCrop
                             asynchronous:   true
                             cache:          true
