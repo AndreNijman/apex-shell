@@ -21,6 +21,7 @@ QtObject {
 
     // ── State ─────────────────────────────────────────────────────────────────
     property var    wallpapers:   []
+    property var    tempWalls:   []
     property string currentWall:  ""
     property string previewWall:  ""
     property string scheme:       "content"
@@ -28,7 +29,7 @@ QtObject {
     property string wallpaperDir: "~/Pictures/Wallpapers"
 
     readonly property var schemes: [
-        "content", "tonal-spot", "fidelity","fruit-salad", "neutral", "monochrome"
+        "content", "tonal-spot", "fidelity", "fruit-salad", "neutral", "monochrome"
     ]
 
     // Emitted when the full apply pipeline exits cleanly (exitCode === 0).
@@ -37,7 +38,7 @@ QtObject {
     // ── File listing ──────────────────────────────────────────────────────────
     function refresh() {
         if (listProc.running) return
-        root.wallpapers = []
+        root.tempWalls = [] // Clear the temp array, not the live one yet
         listProc.running = true
     }
 
@@ -51,8 +52,12 @@ QtObject {
         stdout: SplitParser {
             onRead: function(line) {
                 var t = line.trim()
-                if (t !== "") root.wallpapers = root.wallpapers.concat([t])
+                if (t !== "") root.tempWalls.push(t)
             }
+        }
+        onExited: function() {
+            // Push everything to the UI at once
+            root.wallpapers = root.tempWalls
         }
     }
 
@@ -104,9 +109,9 @@ QtObject {
             "bash", "-c",
             "awww img --transition-type grow --transition-step 200 --transition-duration 1.2 --transition-fps 60 --transition-pos bottom \"" + path + "\" " +
             "&& ln -sf \"" + path + "\" ~/.curr_wall " +
-            "&& if [[ \"" + path + "\" == *.gif ]]; then " +
-            "rm -f ~/.curr_wall_static.jpg && magick \"" + path + "[0]\" ~/.curr_wall_static.jpg; " +
-            "else ln -sf \"" + path + "\" ~/.curr_wall_static.jpg; fi " +
+            "&& (if [[ \"" + path + "\" == *.gif ]]; then " +
+            "rm -f ~/.curr_wall_static.jpg; magick \"" + path + "[0]\" ~/.curr_wall_static.jpg || true; " +
+            "else ln -sf \"" + path + "\" ~/.curr_wall_static.jpg; fi) " +
             "&& matugen image \"$(readlink -f ~/.curr_wall)\" --source-color-index 0 --type scheme-" + root.scheme
         ]
         applyProc.running = true
