@@ -160,10 +160,7 @@ PanelWindow {
             }
         }
 
-
-        // ── Bottom border — centered region only, click + hover for wallpaper ─
-        // Only a fixed-width centered strip triggers the wallpaper popup.
-        // Full-width taps on the rest of the border do nothing.
+        // ── Bottom border — centered 420px zone: wallpaper hover + tap ────────
         Item {
             visible:                  root.edge === "bottom"
             anchors.horizontalCenter: parent.horizontalCenter
@@ -176,7 +173,28 @@ PanelWindow {
             }
 
             TapHandler {
-                onTapped: Popups.wallpaperOpen = !Popups.wallpaperOpen
+                onTapped: {
+                    var next = !Popups.wallpaperOpen
+                    Popups.closeAll()
+                    Popups.wallpaperOpen = next
+                }
+            }
+        }
+
+        // ── Bottom border — right corner 80px zone: clipboard tap ─────────────
+        Item {
+            visible:        root.edge === "bottom"
+            anchors.right:  parent.right
+            anchors.top:    parent.top
+            anchors.bottom: parent.bottom
+            width:          80
+
+            TapHandler {
+                onTapped: {
+                    var next = !Popups.clipboardOpen
+                    Popups.closeAll()
+                    Popups.clipboardOpen = next
+                }
             }
         }
     }

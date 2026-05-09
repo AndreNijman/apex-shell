@@ -1,7 +1,7 @@
 import QtQuick
 import "../"
 
-// Draws a popup background that "melts" into whichever edge it's attached to.
+// Draws a popup background that "melts" into whichever edge(s) it's attached to.
 Canvas {
     id: root
 
@@ -89,6 +89,43 @@ Canvas {
             ctx.arcTo(w - fw, 0, w - fw, r, r)        // normal top-right
             ctx.lineTo(w - fw, h - fh)
             ctx.quadraticCurveTo(w - fw, h, w, h)     // outward flare bottom-right
+            ctx.closePath()
+            break
+
+        case "bottom-right":
+            // Popup sits in the bottom-right screen corner.
+            // Canvas: (popupWidth + fw) × (popupHeight + fh)
+            //
+            // Body top edge at y=fh, body left edge at x=fw.
+            // Right and bottom edges are flush with screen borders.
+            //
+            // fw pixels on LEFT  → bottom-left flare zone
+            // fh pixels on TOP   → top-right flare zone
+            //
+            // Flares:
+            //   top-right:   concave melt into right border
+            //   bottom-left: concave melt into bottom border
+            //   top-left:    normal convex rounded corner
+            //   bottom-right: square — both border strips physically cover it
+            //
+            // Content safe zone: x ≥ fw, y ≥ fh  (margins handle both flare corners)
+
+            // 1. Start top edge just after top-left radius
+            ctx.moveTo(fw + r, fh)
+            // 2. Top edge rightward to the flare start
+            ctx.lineTo(w - fw, fh)
+            // 3. Top-right flare: concave melt into the right border
+            ctx.quadraticCurveTo(w, fh, w, 0)
+            // 4. Right edge straight down (flush with right screen border)
+            ctx.lineTo(w, h)
+            // 5. Bottom edge straight left (flush with bottom screen border)
+            ctx.lineTo(0, h)
+            // 6. Bottom-left flare: concave melt into the bottom border
+            ctx.quadraticCurveTo(fw, h, fw, h - fh)
+            // 7. Left edge straight up to the top-left corner
+            ctx.lineTo(fw, fh + r)
+            // 8. Top-left: standard convex rounded corner
+            ctx.arcTo(fw, fh, fw + r, fh, r)
             ctx.closePath()
             break
         }

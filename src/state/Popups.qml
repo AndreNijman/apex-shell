@@ -12,6 +12,7 @@ QtObject {
     property bool wallpaperOpen:     false
     property bool notificationToastOpen:    false
     property bool quickOpen: false
+    property bool clipboardOpen:     false
 
     // ── Dashboard — per-page width (px, content only, excluding fw padding) ───
     property int dashboardPageWidth: 900
@@ -60,6 +61,7 @@ QtObject {
     readonly property bool anyOpen: audioOpen || networkOpen || batteryOpen
                                     || notificationsOpen || archMenuOpen
                                     || dashboardOpen || wallpaperOpen || quickOpen
+                                    || clipboardOpen
 
     function closeAll() {
         audioOpen         = false
@@ -69,6 +71,7 @@ QtObject {
         archMenuOpen      = false
         dashboardOpen     = false
         wallpaperOpen     = false
-        quickOpen           = false
+        quickOpen         = false
+        clipboardOpen     = false
     }
 }
