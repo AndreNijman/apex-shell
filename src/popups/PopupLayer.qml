@@ -31,6 +31,9 @@ Item {
     // Bottom border → slides up
     WallpaperPopup {}
 
+    // Bottom-right corner → clipboard history + emoji
+    ClipboardPopup {}
+
     // ── TopBar-anchored popups ───────────────────────────────
 
     // Right notch — audio
@@ -61,5 +64,4 @@ Item {
     }
 
     NetworkPopup {}
-    // SysTrayPopup { anchorWindow: root.topBar }
 }
