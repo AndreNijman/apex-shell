@@ -1,36 +1,34 @@
 # Brain Shell
 
-A modular session shell for Hyprland, built on Quickshell.
+A modular session shell for Hyprland, built on Quickshell. 
 
-## Devlog 8: Network Popup, Dashboard Apps, and Massive Bug Squashing
+## Devlog 9: Clipboard History, QuickControl, and v0.1.0 Prep
 
 **Core Additions**
-
-- **Network Popup:** Built a fully functional three-tab panel covering Wi-Fi, Bluetooth, and VPN (WireGuard). Features include inline password entry requiring `WlrKeyboardFocus.OnDemand`, a pulsating `ScanRings` animation during scans, and interactive Bluetooth pairing via a `bluetoothctl` stdin pipe.
-- **Kanban Board:** The Kanban dashboard tab is now fully wired, fixing an input focus bug and saving state persistently.
-- **App Launcher:** Added a new dashboard tab that runs `list_apps.py` to parse installed `.desktop` files, resolve icon themes, and launch applications as detached processes.
+* **Clipboard History:** Fully functional clipboard manager backed by `cliphist` and `wl-copy`/`wl-paste`. Requires two `exec-once` lines in the Hyprland config to capture both text and images. The popup features live search filtering, arrow key navigation, and a clear-all function.
+* **QuickControl Panel:** A new hover-open panel accessible from the right-center border strip for quick brightness and master volume adjustments. This surface acts as a fast, one-handed control that coexists independently from the full click-to-open `AudioPopup`.
+* **Layout Cycling:** The `LayoutDisplayer` module now supports mouse interaction. You can cycle through available Hyprland layouts using left/right clicks or the scroll wheel.
 
 **Compositor & Rendering Fixes**
-
-- **Dashboard Masking:** Corrected the mask proxy geometry to eliminate a dead zone at the notch-to-panel junction, ensuring the click-to-close behavior works accurately.
-- **Notification Alignment:** Unified the widths of notification toasts and the list popup through `Theme` constants to prevent visual misalignment when both are active.
-- **TopBar Margin:** Resolved a stale top margin that was causing a one-pixel gap between the bar and the screen edge on certain compositor setups.
+* **WallpaperPopup Polish:** Implemented batched scan results to prevent UI thrashing on large directories, fixed URI scheme duplication, and added double-tap to apply. Added an invisible filler item to eliminate hover-flicker loops.
+* **Notch Geometry:** Corrected the clickable space inside the center notch.
+* **TabSwitcher Cleanup:** Adjusted the height of the TabSwitcher in the ArchMenu for better layout, added urgent workspace visual effects, and removed the left accent bar from the active tab.
 
 **Architecture Refactoring**
-
-- **User Data Consolidation:** Moved `tasks.json`, `wallpaper.json`, and `screenrec.json` from scattered config paths into a unified `src/user_data/` directory to cleanly manage runtime-mutable data.
-- **QuickSettings Synchronization:** Fixed a race condition where rapid toggling caused state desyncs against in-flight commands. The Dark Mode toggle is now fully implemented, updating Matugen, `gsettings`, and GTK 3/4 settings simultaneously.
-- **Widget Polish:** Added a Cava source selector to `PlayerCard` and refactored its bar rendering to remove rounding artifacts. Implemented a midnight rollover timer fix for the `CalendarCard` and added a smooth scaling animation for selected tiles in the wallpaper picker.
+* **Unified Animations:** Animation durations are now pulled dynamically from `Theme.qml` instead of being hardcoded.
+* **Border Configuration:** Refactored Theme and Border properties to improve system configuration.
+* **Dashboard Routing:** Updated the default page property in `Dashboard.qml` to open directly to the 'home' tab instead of 'stats'. Added reset functionality to the TabSwitcher to enhance Dashboard close behavior.
 
 ---
 
 ## Current Architecture Status
 
-- **Centralized Popups:** `shell.qml` handles the anchor windows, but passes them to `PopupLayer.qml`, which acts as the single source of truth for instantiating all popup windows.
-- **Universal Animations:** Slide-in/out and hover-to-open logic are standardized across the shell via `PopupSlide.qml`.
-- **State Management:** Local state stays local unless needed elsewhere. Cross-cutting variables live in `ShellState.qml`, and theme variables stream dynamically through `Theme.qml` via the `ColorLoader` watcher.
+* **Centralized Popups:** `shell.qml` handles the anchor windows, but passes them to `PopupLayer.qml`, which acts as the single source of truth for instantiating all popup windows.
+* **Universal Animations:** Slide-in/out and hover-to-open logic are standardized across the shell via `PopupSlide.qml`.
+* **State Management:** Local state stays local unless needed elsewhere. Cross-cutting variables live in `ShellState.qml`, and theme variables stream dynamically through `Theme.qml` via the `ColorLoader` watcher.
 
-## Roadmap / Up Next
+## Roadmap / Up Next (Approaching v0.1.0 Release)
 
-- **Dashboard Config Tab:** Currently a placeholder, slated for post-completion scope.
-- **App Launcher Enhancements:** Adding a pinned or recent applications row to supplement the current search-only grid.
+* **Release Milestone:** The shell is rapidly approaching its v0.1.0 release milestone.
+* **Config Tab:** Building the unified GUI to manage border-hover popup assignments, animation durations, and feature toggles.
+* **Keybind Wiring:** Documenting and mapping Hyprland keybinds (including the clipboard toggle) to the shell.
