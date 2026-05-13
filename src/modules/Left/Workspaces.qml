@@ -48,7 +48,7 @@ Rectangle {
                 idx = (idx - 1 + occupied.length) % occupied.length;
             }
             
-            Hyprland.dispatch(`workspace ${occupied[idx]}`);
+            Hyprland.dispatch(`hl.dsp.focus({ workspace = "${occupied[idx]}" })`);
         }
     }   
     Connections {
@@ -59,7 +59,7 @@ Rectangle {
 		//	console.log("RawEvent_name: "+ event.name)
 		//	console.log("RawEvent_data: "+ event.data)
             // 1. Handle Scratchpad Toggle
-            if (event.name === "activespecial") {
+            if (event.name === "activespecial" || event.name === "activespecialv2") {
                 // Event data format: "workspaceName,monitorName"
                 // Example: "special:magic,eDP-1" or ",eDP-1" (closed)
                 const wsName = event.data.split(',')[0];
@@ -143,7 +143,7 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: Hyprland.dispatch(`workspace ${index + 1}`)
+                    onClicked: Hyprland.dispatch(`hl.dsp.focus({ workspace = "${index + 1}" })`)
                 }
             }
         }
@@ -172,7 +172,7 @@ Rectangle {
         
         MouseArea {
             anchors.fill: parent
-            onClicked: Hyprland.dispatch("togglespecialworkspace magic")
+            onClicked: Hyprland.dispatch('hl.dsp.workspace.toggle_special("magic")')
         }
     }
 }
