@@ -111,7 +111,8 @@ Item {
         let newLayout = availableLayouts[idx]
 
         // 1. Run the hyprctl command silently
-        setLayoutProc.command = ["hyprctl", "keyword", "general:layout", newLayout]
+        //setLayoutProc.command = ["hyprctl", "keyword", "general:layout", newLayout]
+        setLayoutProc.command = ["hyprctl", "eval", `hl.config({ general = { layout = "${newLayout}" } })`]
         setLayoutProc.running = true
 
         // 2. Optimistically update the UI instantly (no waiting for IPC/Timer)

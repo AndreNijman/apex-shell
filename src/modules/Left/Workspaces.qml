@@ -48,6 +48,7 @@ Rectangle {
                 idx = (idx - 1 + occupied.length) % occupied.length;
             }
             
+            //Hyprland.dispatch(`workspace ${occupied[idx]}`);
             Hyprland.dispatch(`hl.dsp.focus({ workspace = "${occupied[idx]}" })`);
         }
     }   
@@ -143,6 +144,7 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
+                    //onClicked: Hyprland.dispatch(`workspace ${index + 1}`)
                     onClicked: Hyprland.dispatch(`hl.dsp.focus({ workspace = "${index + 1}" })`)
                 }
             }
@@ -172,6 +174,7 @@ Rectangle {
         
         MouseArea {
             anchors.fill: parent
+            //onClicked: Hyprland.dispatch("togglespecialworkspace magic")
             onClicked: Hyprland.dispatch('hl.dsp.workspace.toggle_special("magic")')
         }
     }
