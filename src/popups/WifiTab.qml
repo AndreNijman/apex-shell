@@ -180,16 +180,19 @@ Item {
     }
 
     function _forget(ssid) {
-        if (actionProc.running) return
-        _forgetSsid = ""
+        actionProc.running = false;
+        _forgetSsid = "";
+    
         actionProc.command = [
             "bash", "-c",
-            "uuid=$(nmcli -g UUID,802-11-wireless.ssid con show 2>/dev/null" +
-            " | awk -F: -v s=\"$1\" '$2==s{print $1;exit}');" +
-            " [ -n \"$uuid\" ] && nmcli con delete uuid \"$uuid\" 2>/dev/null",
+            "for uuid in $(nmcli -g UUID,TYPE connection show | awk -F: '$2==\"802-11-wireless\"{print $1}'); do " +
+            "if [ \"$(nmcli -g 802-11-wireless.ssid connection show \"$uuid\" 2>/dev/null)\" = \"$1\" ]; then " +
+            "nmcli connection delete \"$uuid\"; " +
+            "fi; done",
             "--", ssid
-        ]
-        actionProc.running = false; actionProc.running = true
+        ];
+    
+        actionProc.running = true;
     }
 
     function _connectFirst(ssid) {
@@ -403,6 +406,7 @@ Item {
                 anchors { left: parent.left; right: parent.right; top: parent.top; topMargin: 8 }
                 implicitHeight: 32
                 opacity: netRow.isForgetPending ? 1 : 0
+                visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: 150 } }
                 Rectangle {
                     anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
@@ -435,6 +439,7 @@ Item {
                 anchors { left: parent.left; right: parent.right; top: parent.top; topMargin: 8 }
                 implicitHeight: 40
                 opacity: netRow.isExpanded ? 1 : 0
+                visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: 150 } }
                 Row {
                     anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
