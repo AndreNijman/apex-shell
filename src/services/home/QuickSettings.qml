@@ -455,21 +455,22 @@ StatCard {
         } else { readGapsIn.running = false; readGapsIn.running = true }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Filter  (hyprshade)
+// ─────────────────────────────────────────────────────────────────────────
+    //  Filter  (Native Hyprland Lua)
     //
-    //  Tile click: runs `hyprshade ls`, opens picker popup above the tile.
+    //  Tile click: runs bash `find`, opens picker popup above the tile.
     //  Picker has "Off" at top + all available shaders.
-    //  Selecting a shader: `hyprshade on <name>` and stores in currentFilter.
-    //  Selecting the active shader or "Off": `hyprshade off`, clears currentFilter.
+    //  Selecting a shader: resolves absolute path and uses `hyprctl eval hl.config()`
+    //  Selecting the active shader or "Off": clears the shader in Hyprland.
     // ─────────────────────────────────────────────────────────────────────────
     property string currentFilter:    ""
     property var    filterList:       []
     property bool   filterPickerOpen: false
+    
+    // Add your standard shader directories here (space-separated)
+    property string shaderPaths: "~/.config/hypr/shaders ~/.local/share/hypr/shaders /usr/share/hyprshade/shaders"
 
-    // Read the actual active shader from Hyprland on startup and after wallpaper change.
-    // Hyprland stores the full path; normalize to the stem (filename without extension)
-    // so it matches what hyprshade ls returns, enabling correct picker highlighting.
+    // Check process stays exactly the same — it already reads cleanly from Hyprland!
     Process {
         id: filterCheckProc
         command: ["bash", "-c",
@@ -491,7 +492,6 @@ StatCard {
         id: filterApplyProc
         command: []
         running: false
-        // Re-check confirmed state after apply — hyprshade may normalise the name differently
         onRunningChanged: if (!running) {
             filterCheckProc.running = false
             filterCheckProc.running = true
@@ -500,17 +500,32 @@ StatCard {
 
     function _filterApply(name) {
         var turningOff = (name === "" || name === root.currentFilter)
-        filterApplyProc.command = turningOff
-            ? ["hyprshade", "off"]
-            : ["hyprshade", "on", name]
-        // Optimistic update — confirmed by filterCheckProc after proc exits
-        root.currentFilter  = turningOff ? "" : name
-        filterApplyProc.running = false
-        filterApplyProc.running = true
-        root.filterPickerOpen   = false
+        root.currentFilter = turningOff ? "" : name
+
+        var damageCmd = ` && hyprctl dispatch 'hl.dsp.dpms({ action = "disable" })' && hyprctl dispatch 'hl.dsp.dpms({ action = "enable" })'`
+
+        if (turningOff) {
+            filterApplyProc.command = ["bash", "-c",
+                "hyprctl eval \"hl.config({ decoration = { screen_shader = '' } })\"" + damageCmd]
+        } else {
+            var resolveCmd =
+                "TARGET=$(find " + root.shaderPaths +
+                " -maxdepth 1 -type f \\( -name '" + name + ".glsl' -o -name '" + name + ".frag' \\)" +
+                " 2>/dev/null | head -n 1); "
+            var applyCmd =
+                "if [ -n \"$TARGET\" ]; then" +
+                " hyprctl eval \"hl.config({ decoration = { screen_shader = '$TARGET' } })\"" +
+                damageCmd +
+                "; fi"
+
+            filterApplyProc.command = ["bash", "-c", resolveCmd + applyCmd]
     }
 
-    // Wallpaper change resets the shader — re-check actual state
+    filterApplyProc.running = false
+    filterApplyProc.running = true
+    root.filterPickerOpen = false
+}
+
     Connections {
         target: WallpaperService
         function onWallpaperApplied(path) {
@@ -519,7 +534,6 @@ StatCard {
         }
     }
 
-    // Close filter picker when dashboard closes
     Connections {
         target: Popups
         function onDashboardOpenChanged() {
@@ -529,7 +543,8 @@ StatCard {
 
     Process {
         id: filterListProc
-        command: ["hyprshade", "ls"]
+        // Replaces `hyprshade ls` by searching your directories and stripping the file extensions
+        command: ["bash", "-c", "find " + root.shaderPaths + " -maxdepth 1 -type f \\( -name '*.glsl' -o -name '*.frag' \\) 2>/dev/null | rev | cut -d/ -f1 | rev | sed 's/\\.[^.]*$//' | sort -u"]
         running: false
         stdout: SplitParser {
             onRead: function(l) {
