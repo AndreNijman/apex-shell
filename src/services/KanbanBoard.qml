@@ -16,6 +16,7 @@ import "../components"
 
 Item {
     id: root
+    focus: true
 
     // ── Persistent state ──────────────────────────────────────────────────────
     property var    _tasks:    []
@@ -422,10 +423,11 @@ Item {
                                         var t = text.trim()
                                         if (t !== "") root._addTask(colItem.cIdx, t)
                                         colItem.draftOpen = false; text = ""
+                                        root.forceActiveFocus()
                                     }
 
                                     Keys.onReturnPressed: function(ev) { commit(); ev.accepted = true }
-                                    Keys.onEscapePressed: function(ev) { colItem.draftOpen = false; text = ""; ev.accepted = true }
+                                    Keys.onEscapePressed: function(ev) { colItem.draftOpen = false; text = ""; ev.accepted = true; root.forceActiveFocus() }
                                     onActiveFocusChanged: if (!activeFocus && colItem.draftOpen) commit()
                                 }
                             }
