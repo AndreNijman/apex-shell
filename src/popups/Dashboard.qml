@@ -40,8 +40,12 @@ PanelWindow {
         Popups.dashboardPageWidth = (w !== undefined) ? w : 900
     }
 
-    onPageChanged: _applyPageWidth(page)
-
+    onPageChanged: {
+        _applyPageWidth(page)
+        if (Popups.dashboardOpen && typeof pageArea !== "undefined") {
+            pageArea.forceActiveFocus()
+        }
+    }
     // ── Surface config ────────────────────────────────────────────────────────
     color:   "transparent"
     visible: windowVisible
@@ -77,6 +81,7 @@ PanelWindow {
                 closeTimer.stop()
                 root.windowVisible = true
                 root._applyPageWidth(root.page)
+                pageArea.forceActiveFocus()
             } else {
                 closeTimer.restart()
             }
@@ -161,6 +166,9 @@ PanelWindow {
 
                 // ── Page area ─────────────────────────────────────────────────
                 Item {
+                    id: pageArea
+                    focus: true
+                    
                     width:  parent.width
                     height: parent.height - tabBar.height
 
@@ -198,6 +206,8 @@ PanelWindow {
                             font.pixelSize: 16
                         }
                     }
+                    
+                    Keys.onEscapePressed: Popups.dashboardOpen = false
                 }
             }
         }
