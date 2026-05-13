@@ -11,6 +11,7 @@ import "../"
 StatCard {
     id: root
     padding: 0
+    focus: true
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Brightness
@@ -848,6 +849,19 @@ StatCard {
         id: filterPicker
         visible:  root.filterPickerOpen
         z:        20
+        
+        onVisibleChanged: {
+            if (visible) {
+                forceActiveFocus()
+            } else {
+                root.forceActiveFocus()
+            }
+        }
+
+        Keys.onEscapePressed: function(event) {
+            root.filterPickerOpen = false
+            event.accepted = true // <--- Prevents the dashboard from closing
+        }
 
         anchors {
             right:        parent.right

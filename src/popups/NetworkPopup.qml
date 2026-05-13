@@ -89,6 +89,8 @@ PanelWindow {
             flareWidth:   root.fw
             flareHeight:  root.fh
         }
+        
+        Keys.onEscapePressed: Popups.networkOpen = false
 
         Item {
             id: contentArea
