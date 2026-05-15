@@ -175,9 +175,9 @@ Item {
                             Item {
                                 id: eyeBtn; anchors { right: parent.right;
                                 verticalCenter: parent.verticalCenter }
-                                width: 28; height: 2
+                                width: 28; height: 28
                                 Rectangle { anchors.fill: parent; radius: 6; color: eyeH.hovered ? Qt.rgba(1,1,1,0.08) : "transparent" }
-                                Text { anchors.centerIn: parent; text: root._showPass ? "󰺋" : "󰛑"; font.pixelSize: 13; color: root._showPass ? Theme.active : Qt.rgba(1,1,1,0.28) }
+                                Text { anchors.centerIn: parent; text: root._showPass ? "" : ""; font.pixelSize: 13; color: root._showPass ? Theme.active : Qt.rgba(1,1,1,0.28) }
                                 HoverHandler { id: eyeH; cursorShape: Qt.PointingHandCursor }
                                 MouseArea { anchors.fill: parent; onClicked: root._showPass = !root._showPass }
                             }

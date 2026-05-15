@@ -286,6 +286,7 @@ Item {
         readonly property bool isExpanded:      root._expandSsid   === net.ssid
         readonly property bool isConnecting:    root._connectingTo === net.ssid
         readonly property bool needsPassword:   !!root._needsPassword[net.ssid]
+        property bool _showPass: false
         width: parent?.width ?? 0
         height: baseRow.height + expandArea.height
 
@@ -453,11 +454,29 @@ Item {
                         text: "Password…"; font.pixelSize: 12; color: Qt.rgba(1,1,1,0.22); visible: passInput.text === "" }
                         TextInput {
                             id: passInput
-                            anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
+                            // Updated anchors to make room for the eye button
+                            anchors { left: parent.left; leftMargin: 10; right: eyeBtn.left; rightMargin: 6; top: parent.top; bottom: parent.bottom }
                             verticalAlignment: TextInput.AlignVCenter; color: Theme.text; font.pixelSize: 12
-                            echoMode: TextInput.Password
+                            // Toggle echoMode based on state
+                            echoMode: netRow._showPass ? TextInput.Normal : TextInput.Password
                             selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35); clip: true
                             Keys.onReturnPressed: { if (text.length > 0) root._connectWithPassword(netRow.net.ssid, text) }
+                        }
+
+                        // Added Show Password Button
+                        Item {
+                            id: eyeBtn
+                            anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+                            width: 28; height: 28
+                            Rectangle { anchors.fill: parent; radius: 6; color: eyeH.hovered ? Qt.rgba(1,1,1,0.08) : "transparent" }
+                            Text { 
+                                anchors.centerIn: parent
+                                text: netRow._showPass ? "" : ""
+                                font.pixelSize: 13
+                                color: netRow._showPass ? Theme.active : Qt.rgba(1,1,1,0.28) 
+                            }
+                            HoverHandler { id: eyeH; cursorShape: Qt.PointingHandCursor }
+                            MouseArea { anchors.fill: parent; onClicked: netRow._showPass = !netRow._showPass }
                         }
                     }
                 }
