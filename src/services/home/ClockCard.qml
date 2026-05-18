@@ -429,6 +429,7 @@ StatCard {
                                 onClicked: {
                                     var total = timerTimeInput.hours * 3600
                                               + timerTimeInput.minutes * 60
+                                    root._addTimerOpen = false
                                     if (total > 0) {
                                         root._timerTotal   = total
                                         root._timerLeft    = total
@@ -437,7 +438,6 @@ StatCard {
                                         root._syncState()
                                         timerCanvas.requestPaint()
                                     }
-                                    root._addTimerOpen = false
                                 }
                             }
                         }
