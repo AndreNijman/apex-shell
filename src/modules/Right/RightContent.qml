@@ -8,20 +8,19 @@ Item {
     id: root
 
     // Expand to fill the notch when notifications or network popup are open.
-    implicitWidth: Popups.notificationsOpen
-                   ? Theme.notificationsWidth
-                   : Popups.networkOpen
-                       ? Theme.networkPopupWidth
-                       : Popups.notificationToastOpen
-                           ? Theme.notificationToastWidth
-                           :
-                       contentRow.implicitWidth
+    implicitWidth: Popups.notificationToastOpen ? Theme.notificationToastWidth : contentRow.implicitWidth
+
+    //Behavior on implicitWidth {
+    //    NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
+    //}
     implicitHeight: contentRow.implicitHeight
 
     // ── Normal content — fades out when any right popup opens ─────────────────
     Row {
         id: contentRow
-        anchors.centerIn: parent
+        //anchors.centerIn: parent
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
         spacing: 6
 
         opacity: (Popups.notificationsOpen || Popups.networkOpen) ? 0 : 1
