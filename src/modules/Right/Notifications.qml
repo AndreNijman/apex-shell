@@ -14,5 +14,6 @@ IconBtn {
         var next = !Popups.notificationsOpen
         Popups.closeAll()
         Popups.notificationsOpen = next
+        console.log(Audio.HoverHandler.hovered)
     }
 }
