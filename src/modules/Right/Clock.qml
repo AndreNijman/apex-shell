@@ -4,7 +4,8 @@ import "../../"
 Text {
     id: clock
     text: Qt.formatDateTime(new Date(), "hh:mm")
-    color: Theme.text
+    color: clockHov.hovered ? Theme.active : Theme.text
+    Behavior on color { ColorAnimation { duration: 120 } }
     font.bold: true
     anchors.verticalCenter: parent.verticalCenter
     font.pixelSize: 16
@@ -27,6 +28,7 @@ Text {
         }
     ]
 
+    HoverHandler { id: clockHov }
     MouseArea {
         anchors.fill: parent
         acceptedButtons:     Qt.LeftButton | Qt.RightButton

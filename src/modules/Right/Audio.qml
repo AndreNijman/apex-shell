@@ -45,13 +45,23 @@ Item {
             Behavior on color { ColorAnimation { duration: 120 } }
         }
 
-        Text {
-            text:           root.pct + "%"
-            color:          hov.hovered ? Theme.active : Theme.text
-            font.pixelSize: 12
+        Item {
+            id: pctWrapper
+            property bool show: root.showPercentage || hov.hovered
+            implicitWidth: show ? pctText.implicitWidth + 2 : 0
+            implicitHeight: pctText.implicitHeight
+            clip: true
             anchors.verticalCenter: parent.verticalCenter
-            visible:        root.showPercentage || hov.hovered
-            Behavior on color { ColorAnimation { duration: 120 } }
+            Behavior on implicitWidth { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
+        
+            Text {
+                id: pctText
+                text:           root.pct + "%"
+                color:          hov.hovered ? Theme.active : Theme.text
+                font.pixelSize: 12
+                anchors.verticalCenter: parent.verticalCenter
+                Behavior on color { ColorAnimation { duration: 120 } }
+            }
         }
     }
 
