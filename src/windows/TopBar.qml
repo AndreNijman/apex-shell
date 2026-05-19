@@ -57,18 +57,10 @@ PanelWindow {
     }
 
     // Width matches sizer open width: popupWidth + notchRadius (fw) in both popups
-    property int rWidth: Popups.notificationsOpen
-        ? Theme.notificationsWidth + Theme.notchRadius
-        : Popups.networkOpen
-            ? Theme.networkPopupWidth + Theme.notchRadius
-            : Math.max(
-                Theme.rNotchMinWidth,
-                Math.min(Theme.rNotchMaxWidth,
-                         rightContent.implicitWidth + Theme.notchPadding * 2)
-              )
-    Behavior on rWidth {
-        NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
-    }
+    property int rWidth: Math.max(
+        Theme.rNotchMinWidth,
+        Math.min(Theme.rNotchMaxWidth, rightContent.implicitWidth + Theme.notchPadding * 2)
+    )
 
     // ── Border strip (focus mode) ────────────────────────────────────────────
     // Painted behind the notch content layer. Visible only when focus mode
@@ -90,6 +82,26 @@ PanelWindow {
         Behavior on opacity {
             NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
         }
+        
+        states: [
+        State {
+            name: "notifications"
+            when: Popups.notificationsOpen
+            PropertyChanges { target: root; rWidth: Theme.notificationsWidth + Theme.notchRadius }
+        },
+        State {
+            name: "network"
+            when: Popups.networkOpen && !Popups.notificationsOpen
+            PropertyChanges { target: root; rWidth: Theme.networkPopupWidth + Theme.notchRadius }
+        }
+    ]
+
+    transitions: [
+        Transition {
+            // This animation ONLY runs when switching between popups and the base state.
+            NumberAnimation { property: "rWidth"; duration: Theme.animDuration; easing.type: Easing.InOutCubic }
+        }
+    ]
 
         SeamlessBarShape {
             id: barShape
@@ -128,10 +140,14 @@ PanelWindow {
             width:         root.rWidth
             height:        Theme.notchHeight
             anchors.right: parent.right
+            
+            clip: true
 
             RightContent {
                 id: rightContent
-                anchors.centerIn: parent
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.rightMargin: Theme.notchPadding
             }
         }
     }

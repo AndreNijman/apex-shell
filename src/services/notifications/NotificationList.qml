@@ -216,7 +216,7 @@ Item {
             Column {
                 id:     textCol
                 // Leave room for dismiss button
-                width:  cardRow.width - iconArea.width - cardRow.spacing - dismissBtn.width - 4
+                width: cardRow.width - iconArea.width - dismissBtn.width - (cardRow.spacing * 2)
                 spacing: 3
 
                 // App name
