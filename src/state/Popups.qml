@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import "../"
 
 QtObject {
     // ── Per-popup open state ───────────────────────────────────────────────────
@@ -30,8 +31,8 @@ QtObject {
     property bool quickTriggerHovered: false
 
     // ── Universal popup behavior settings ─────────────────────────────────────
-    property int  slideDuration:   260
-    property int  hoverCloseDelay: 180
+    property int  slideDuration:   Theme.animDuration
+    property int  hoverCloseDelay: Theme.animDuration + 200   // delay after hover leaves before closing
 
     // ── Confirm dialog ────────────────────────────────────────────────────────
     property bool   confirmOpen:    false
