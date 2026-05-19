@@ -201,7 +201,7 @@ PanelWindow {
                         visible:      root.page === "config"
                         Text {
                             anchors.centerIn: parent
-                            text:  "⚙️ Config"
+                            text:  "Config Coming Soon!"
                             color: Qt.rgba(1,1,1,0.3)
                             font.pixelSize: 16
                         }
