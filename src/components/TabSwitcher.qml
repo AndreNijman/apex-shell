@@ -144,49 +144,88 @@ Item {
 	}
 
 	// ── VERTICAL layout — Column ──────────────────────────────────────────────
-	Column {
-		id: vCol
-		anchors.centerIn: parent
-		visible: root.orientation === "vertical"
-
-		// Distribute tabs evenly: gap = (totalHeight - allTabHeights) / gaps
-		// Tab height is fixed at 60px to match original ArchMenu style.
-		readonly property int tabH: 60
-		spacing: root.model.length > 1
-		? (root.height - root.model.length * tabH) / (root.model.length - 1)
-		: 0
-
-		Repeater {
-			model: root.orientation === "vertical" ? root.model : []
-
-			delegate: Rectangle {
-				id: vTab
-				readonly property bool isActive: root.currentPage === modelData.key
-
-				width:  40
-				height: vCol.tabH
-				radius: Theme.cornerRadius * 2
-
-				color: vTab.isActive
-				? Theme.active
-				: (vHov.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
-
-				Behavior on color { ColorAnimation { duration: 120 } }
-
-				Text {
-					anchors.centerIn: parent
-					text:            modelData.icon
-					font.pixelSize:  16
-					color: vTab.isActive ? Theme.background : Theme.text
-					Behavior on color { ColorAnimation { duration: 120 } }
-				}
-
-				HoverHandler { id: vHov; cursorShape: Qt.PointingHandCursor }
-				MouseArea {
-					anchors.fill: parent
-					onClicked:    root.pageChanged(modelData.key)
-				}
-			}
-		}
+	    Column {
+	        id: vCol
+	        anchors.centerIn: parent
+	        visible: root.orientation === "vertical"
+	        width:   root.width
+	
+	        readonly property int tabH: 60
+	        spacing: root.model.length > 1
+	            ? (root.height - root.model.length * tabH) / (root.model.length - 1)
+	            : 0
+	
+	        readonly property bool hasLabels:
+	            root.model.length > 0 &&
+	            root.model[0].label !== undefined &&
+	            root.model[0].label !== ""
+	
+	        Repeater {
+	            model: root.orientation === "vertical" ? root.model : []
+	
+	            delegate: Rectangle {
+	                id: vTab
+	                readonly property bool isActive: root.currentPage === modelData.key
+	
+	                width:  vCol.width
+	                height: vCol.tabH
+	                radius: Theme.cornerRadius * 2
+	
+	                color: vTab.isActive
+	                    ? Theme.active
+	                    : (vHov.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
+	
+	                Behavior on color { ColorAnimation { duration: 120 } }
+	
+	                // Icon-only (no label)
+	                Text {
+	                    visible:          !vCol.hasLabels
+	                    anchors.centerIn: parent
+	                    text:             modelData.icon
+	                    font.pixelSize:   16
+	                    color: vTab.isActive ? Theme.background : Theme.text
+	                    Behavior on color { ColorAnimation { duration: 120 } }
+	                }
+	
+	                // Icon + label row
+	                Row {
+	                    visible: vCol.hasLabels
+	                    anchors {
+	                        left:           parent.left
+	                        leftMargin:     16
+	                        verticalCenter: parent.verticalCenter
+	                    }
+	                    spacing: 12
+	
+	                    Text {
+	                        text:           modelData.icon
+	                        font.pixelSize: 15
+	                        anchors.verticalCenter: parent.verticalCenter
+	                        color: vTab.isActive
+	                            ? Theme.background
+	                            : (vHov.hovered ? Qt.rgba(1, 1, 1, 0.80) : Qt.rgba(1, 1, 1, 0.42))
+	                        Behavior on color { ColorAnimation { duration: 120 } }
+	                    }
+	
+	                    Text {
+	                        text:           modelData.label ?? ""
+	                        font.pixelSize: 12
+	                        font.weight:    vTab.isActive ? Font.Medium : Font.Normal
+	                        anchors.verticalCenter: parent.verticalCenter
+	                        color: vTab.isActive
+	                            ? Theme.background
+	                            : (vHov.hovered ? Qt.rgba(1, 1, 1, 0.80) : Qt.rgba(1, 1, 1, 0.42))
+	                        Behavior on color { ColorAnimation { duration: 120 } }
+	                    }
+	                }
+	
+	                HoverHandler { id: vHov; cursorShape: Qt.PointingHandCursor }
+	                MouseArea {
+	                    anchors.fill: parent
+	                    onClicked:    root.pageChanged(modelData.key)
+	                }
+	            }
+	        }
+	    }
 	}
-}
+
