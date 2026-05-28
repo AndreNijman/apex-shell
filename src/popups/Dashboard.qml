@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import "../shapes"
 import "../components"
@@ -87,6 +88,94 @@ PanelWindow {
             }
         }
     }
+    
+    // ── IPC handlers for external toggle requests ─────────────────────────────
+    IpcHandler {
+        target: "dashboard-home"
+        function toggle() {
+            if(Popups.anyOpen && !Popups.dashboardOpen){
+                Popups.closeAll()
+                Popups.dashboardOpen = true
+                root.page = "home"
+            } else if(Popups.dashboardOpen && root.page != "home") {
+                root.page = "home"
+            } else if(Popups.dashboardOpen && root.page == "home") {
+                Popups.dashboardOpen = false
+            } else {
+                Popups.dashboardOpen = !Popups.dashboardOpen
+                root.page = "home"
+            }
+        }
+    }
+    IpcHandler {
+        target: "dashboard-stats"
+        function toggle() {
+            if(Popups.anyOpen && !Popups.dashboardOpen){
+                Popups.closeAll()
+                Popups.dashboardOpen = true
+                root.page = "stats"
+            } else if(Popups.dashboardOpen && root.page != "stats") {
+                root.page = "stats"
+            } else if(Popups.dashboardOpen && root.page == "stats") {
+                Popups.dashboardOpen = false
+            } else {
+                Popups.dashboardOpen = !Popups.dashboardOpen
+                root.page = "stats"
+            }
+        }
+    }
+    IpcHandler {
+        target: "dashboard-kanban"
+        function toggle() {
+            if(Popups.anyOpen && !Popups.dashboardOpen){
+                Popups.closeAll()
+                Popups.dashboardOpen = true
+                root.page = "kanban"
+            } else if(Popups.dashboardOpen && root.page != "kanban") {
+                root.page = "kanban"
+            } else if(Popups.dashboardOpen && root.page == "kanban") {
+                Popups.dashboardOpen = false
+            } else {
+                Popups.dashboardOpen = !Popups.dashboardOpen
+                root.page = "kanban"
+            }
+        }
+    }
+    IpcHandler {
+        target: "dashboard-launcher"
+        function toggle() {
+            if(Popups.anyOpen && !Popups.dashboardOpen){
+                Popups.closeAll()
+                Popups.dashboardOpen = true
+                root.page = "launcher"
+            } else if(Popups.dashboardOpen && root.page != "launcher") {
+                root.page = "launcher"
+            } else if(Popups.dashboardOpen && root.page == "launcher") {
+                Popups.dashboardOpen = false
+            } else {
+                Popups.dashboardOpen = !Popups.dashboardOpen
+                root.page = "launcher"
+            }
+        }
+    }
+    IpcHandler {
+        target: "dashboard-config"
+        function toggle() {
+            if(Popups.anyOpen && !Popups.dashboardOpen){
+                Popups.closeAll()
+                Popups.dashboardOpen = true
+                root.page = "config"
+            } else if(Popups.dashboardOpen && root.page != "config") {
+                root.page = "config"
+            } else if(Popups.dashboardOpen && root.page == "config") {
+                Popups.dashboardOpen = false
+            } else {
+                Popups.dashboardOpen = !Popups.dashboardOpen
+                root.page = "config"
+            }
+        }
+    }
+    
 
     Timer {
         id: closeTimer
@@ -199,11 +288,10 @@ PanelWindow {
                     Item {
                         anchors.fill: parent
                         visible:      root.page === "config"
-                        Text {
-                            anchors.centerIn: parent
-                            text:  "Config Coming Soon!"
-                            color: Qt.rgba(1,1,1,0.3)
-                            font.pixelSize: 16
+                        Item {
+                            anchors.fill: parent
+                            visible:      root.page === "config"
+                            ShellConfig { anchors.fill: parent }
                         }
                     }
                     

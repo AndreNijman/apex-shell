@@ -34,6 +34,7 @@ ShellRoot {
                     rightBorder:  rightBorder
                     bottomBorder: bottomBorder
                 }
+                property var _keybinds: KeybindService
             }
         }
     }
