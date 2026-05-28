@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import "../shapes"
 import "../services"
 import "../components"
@@ -52,6 +53,19 @@ PopupWindow {
 		width:   sizer.width
 		height:  sizer.height
 	}
+	
+	// ── IPC Handle ─────────────────────────────────────────────
+	IpcHandler {
+    	target: "PowerMenu-toggle"
+    	function toggle() {
+			if(Popups.anyOpen && !Popups.archMenuOpen) {
+				Popups.closeAll()
+				Popups.archMenuOpen = true
+			} else {
+				Popups.archMenuOpen = !Popups.archMenuOpen
+			}
+    	}
+    }
 
 	PopupSlide {
 		id: slide
@@ -61,19 +75,6 @@ PopupWindow {
 		triggerHovered:   Popups.archMenuTriggerHovered
 		open:             Popups.archMenuOpen
 		onCloseRequested: Popups.archMenuOpen = false
-
-		Connections {
-			target: Popups
-			function onArchMenuOpenChanged() {
-				if (!Popups.archMenuOpen) archResetTimer.restart()
-			}
-		}
-
-		Timer {
-			id: archResetTimer
-			interval: Theme.animDuration + 20
-			onTriggered: switcher.reset()
-		}
 
 		Item {
 			id: sizer
@@ -105,33 +106,9 @@ PopupWindow {
 					topMargin:    root.fh + 6
 					bottomMargin: root.fh + 6
 				}
-
-				Row {
-					anchors.fill: parent
-					spacing: 8
-
-					// ── Tab switcher — left side ───────────────────────────────
-					TabSwitcher {
-						id: switcher
-						orientation: "vertical"
-						height: parent.height/1.5
-						anchors.verticalCenter: parent.verticalCenter
-						model: [
-							{ key: "power",       icon: "⏻" },
-							{ key: "stats",       icon: "≡" },
-						]
-						currentPage: root.page
-						onPageChanged: function(key) { root.page = key }
-					}
-
-					Rectangle {
-						width: 1; height: parent.height
-						color: Qt.rgba(1, 1, 1, 0.1)
-					}
-
-					// ── Page content ──────────────────────────────────────────
+					//── Page content ──────────────────────────────────────────
 					Item {
-						width:  parent.width - switcher.implicitWidth - 1 - parent.spacing * 2
+						width:  parent.width
 						height: parent.height
 						clip:   true
 
@@ -143,17 +120,6 @@ PopupWindow {
 								width: parent.width
 							}
 						}
-
-						PopupPage {
-							anchors.fill: parent
-							visible: root.page === "stats"
-
-							SystemStats {
-								width:  parent.width
-								height: root.contentHeight - root.fh * 2 - 12 - 16
-							}
-						}
-					}
 				}
 			}
 		}

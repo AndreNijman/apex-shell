@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import "../components"
 import "../shapes/"
@@ -62,6 +63,19 @@ PopupWindow {
         id:       closeTimer
         interval: root.animDuration + 20
         onTriggered: root.windowVisible = false
+    }
+    
+    // ── IPC Handle ─────────────────────────────────────────────
+	IpcHandler {
+    	target: "notification-toggle"
+        function toggle() {
+            if(Popups.anyOpen && !Popups.notificationsOpen) {
+                Popups.closeAll()
+                Popups.notificationsOpen = true
+            } else {
+                Popups.notificationsOpen = !Popups.notificationsOpen
+            }
+        }
     }
 
     // ── Sizer ─────────────────────────────────────────────────
