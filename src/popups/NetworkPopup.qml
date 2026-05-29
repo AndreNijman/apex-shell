@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import "../shapes"
 import "../components"
@@ -37,6 +38,68 @@ PanelWindow {
         y:      0
         width:  sizer.width
         height: sizer.height
+    }
+
+    // ── IPC Handle ─────────────────────────────────────────────
+	IpcHandler {
+    	target: "wifi-toggle"
+    	function toggle() {
+            if(Popups.anyOpen && !Popups.networkOpen) {
+                Popups.closeAll()
+                root.page = "wifi"
+                Popups.networkOpen = true
+            } else if (Popups.networkOpen && root.page != "wifi") {
+                root.page = "wifi"
+            } else {
+                Popups.networkOpen = !Popups.networkOpen
+                root.page = "wifi"
+            }
+    	}
+    }
+    IpcHandler {
+    	target: "bluetooth-toggle"
+    	function toggle() {
+            if(Popups.anyOpen && !Popups.networkOpen) {
+                Popups.closeAll()
+                root.page = "bluetooth"
+                Popups.networkOpen = true
+            } else if (Popups.networkOpen && root.page != "bluetooth") {
+                root.page = "bluetooth"
+            } else {
+                Popups.networkOpen = !Popups.networkOpen
+                root.page = "bluetooth"
+            }
+    	}
+    }
+    IpcHandler {
+    	target: "vpn-toggle"
+    	function toggle() {
+    	    if(Popups.anyOpen && !Popups.networkOpen) {
+                Popups.closeAll()
+                root.page = "vpn"
+                Popups.networkOpen = true
+            } else if (Popups.networkOpen && root.page != "vpn") {
+                root.page = "vpn"
+            } else {
+                Popups.networkOpen = !Popups.networkOpen
+                root.page = "vpn"
+            }
+    	}
+    }
+    IpcHandler {
+    	target: "hotspot-toggle"
+    	function toggle() {
+    	    if(Popups.anyOpen && !Popups.networkOpen) {
+                Popups.closeAll()
+                root.page = "hotspot"
+                Popups.networkOpen = true
+            } else if (Popups.networkOpen && root.page != "hotspot") {
+                root.page = "hotspot"
+            } else {
+                Popups.networkOpen = !Popups.networkOpen
+    	        root.page = "hotspot"
+    	    }
+    	}
     }
 
     // ── Visibility gate ───────────────────────────────────────────────────────

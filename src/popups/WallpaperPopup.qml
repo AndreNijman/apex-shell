@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Effects
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import "../shapes"
 import "../components"
@@ -145,6 +146,19 @@ PanelWindow {
         id: centerLockTimer
         interval: Theme.animDuration
         onTriggered: wallGrid.targetCenterIndex = -1
+    }
+    
+    // ── IPC Handle ─────────────────────────────────────────────
+	IpcHandler {
+    	target: "wallpaper-toggle"
+        function toggle() {
+            if(Popups.anyOpen && !Popups.wallpaperOpen) {
+                Popups.closeAll()
+                Popups.wallpaperOpen = true
+            } else {
+                Popups.wallpaperOpen = !Popups.wallpaperOpen
+            }
+        }
     }
 
     Item {
