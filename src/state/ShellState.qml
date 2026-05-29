@@ -1,5 +1,7 @@
 pragma Singleton
 import QtQuick
+import Quickshell.Io
+import "../."
 
 // Global shell state.
 //
@@ -36,4 +38,24 @@ QtObject {
     // This avoids the 5s poll lag when a device disconnects or adapter toggles.
     property bool btPowered:   false   // adapter is on
     property bool btConnected: false   // at least one device connected
+
+    // ── Keybind Interception / Hyprland Submap Controller ─────────────────────
+    
+    property Process submapProcess: Process {}
+
+    property Connections keybindListener: Connections {
+        target: KeybindService 
+        
+        function onIsCapturingChanged() {
+            if (KeybindService.isCapturing) {
+                // Enter passthrough mode (disables Hyprland binds)
+                submapProcess.command = ["hyprctl", "dispatch", "hl.dsp.submap('BrainShell_clean')"]
+            } else {
+                // Exit passthrough mode (re-enables Hyprland binds)
+                submapProcess.command = ["hyprctl", "dispatch", "hl.dsp.submap('reset')"]
+            }
+            
+            submapProcess.running = true
+        }
+    }
 }

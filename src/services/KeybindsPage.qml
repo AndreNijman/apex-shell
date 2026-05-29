@@ -5,10 +5,41 @@ import "../"
 Item {
     id: root
 
-    // One row can be in capture mode at a time
+    // ── Capture state ─────────────────────────────────────────────────────────
     property string _capturing: ""
+    readonly property bool anyCapturing: _capturing !== ""
 
-    // Groups computed from defaults (stable, doesn't need to react)
+    // Keep KeybindService in sync so external handlers can observe it.
+    // In ShellState / Popups, watch KeybindService.isCapturing and dispatch:
+    //   true  →  hyprctl dispatch submap, clean
+    //   false →  hyprctl dispatch submap, reset
+    onAnyCapturingChanged: KeybindService.isCapturing = anyCapturing
+
+    // ── Pending changes ───────────────────────────────────────────────────────
+    property var  _pending:   ({})
+    readonly property bool hasPending: Object.keys(_pending).length > 0
+
+    function _addPending(action, mods, key) {
+        var copy = Object.assign({}, _pending)
+        copy[action] = { mods: mods, key: key }
+        _pending = copy
+    }
+
+    function _clearPending(action) {
+        var copy = Object.assign({}, _pending)
+        delete copy[action]
+        _pending = copy
+    }
+
+    function _applyPending() {
+        var ks = Object.keys(_pending)
+        for (var i = 0; i < ks.length; i++)
+            KeybindService.updateBinding(ks[i], _pending[ks[i]].mods, _pending[ks[i]].key)
+        _pending = {}
+        KeybindService.saveAndReload()
+    }
+
+    // ── Groups ────────────────────────────────────────────────────────────────
     readonly property var _groups: {
         var groups = {}; var order = []
         var defs = KeybindService._defaults
@@ -21,8 +52,75 @@ Item {
         return order.map(function(g) { return { name: g, actions: groups[g] } })
     }
 
+    // ── Save banner ───────────────────────────────────────────────────────────
+    Rectangle {
+        id: _saveBanner
+        anchors { top: parent.top; left: parent.left; right: parent.right }
+        height: root.hasPending ? 44 : 0
+        clip:   true
+        color:  Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.07)
+        border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.20)
+        border.width: root.hasPending ? 1 : 0
+        radius: 8
+
+        Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+        Row {
+            anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 10 }
+            spacing: 8
+            visible: root.hasPending
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: {
+                    var n = Object.keys(root._pending).length
+                    return n + " unsaved change" + (n > 1 ? "s" : "")
+                }
+                font.pixelSize: 11
+                color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.70)
+            }
+
+            // Discard
+            Rectangle {
+                width: 62; height: 26; radius: 7
+                color: _discardH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
+                border.color: Qt.rgba(1,1,1,0.13); border.width: 1
+                Behavior on color { ColorAnimation { duration: 100 } }
+                Text { anchors.centerIn: parent; text: "Discard"; font.pixelSize: 10
+                    color: Qt.rgba(1,1,1,0.48) }
+                HoverHandler { id: _discardH; cursorShape: Qt.PointingHandCursor }
+                MouseArea { anchors.fill: parent; onClicked: root._pending = {} }
+            }
+
+            // Save
+            Rectangle {
+                width: 62; height: 26; radius: 7
+                color: _saveH.hovered
+                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28)
+                    : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
+                border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.42)
+                border.width: 1
+                Behavior on color { ColorAnimation { duration: 100 } }
+                Text { anchors.centerIn: parent; text: "Save"; font.pixelSize: 10
+                    font.weight: Font.Medium; color: Theme.active }
+                HoverHandler { id: _saveH; cursorShape: Qt.PointingHandCursor }
+                MouseArea { anchors.fill: parent; onClicked: root._applyPending() }
+            }
+        }
+    }
+
+    // ── Scrollable list ───────────────────────────────────────────────────────
     Flickable {
-        anchors { fill: parent; margins: 12 }
+        anchors {
+            top:         _saveBanner.bottom
+            left:        parent.left
+            right:       parent.right
+            bottom:      parent.bottom
+            leftMargin:  12
+            rightMargin: 12
+            bottomMargin: 12
+            topMargin:   6
+        }
         contentWidth:   width
         contentHeight:  _col.implicitHeight + 16
         clip:           true
@@ -50,7 +148,6 @@ Item {
                     width:   _col.width
                     spacing: 2
 
-                    // Group header
                     Item {
                         width:  parent.width
                         height: index > 0 ? 30 : 16
@@ -67,12 +164,17 @@ Item {
                     Repeater {
                         model: modelData.actions
                         delegate: BindRow {
+                            id: _br
                             required property string modelData
-                            width:      _col.width
-                            action:     modelData
-                            isCapturing: root._capturing === modelData
-                            onRequestCapture:  root._capturing = modelData
-                            onReleaseCapture:  root._capturing = ""
+                            width:        _col.width
+                            action:       modelData
+                            isCapturing:  root._capturing === modelData
+                            pendingCombo: root._pending[modelData] || null
+                            onRequestCapture: root._capturing = modelData
+                            onReleaseCapture: root._capturing = ""
+                            onCaptureAccepted: function(newMods, newKey) {
+                                root._addPending(_br.action, newMods, newKey)
+                            }
                         }
                     }
                 }
@@ -84,29 +186,58 @@ Item {
     component BindRow: Item {
         id: br
 
-        property string action:     ""
+        property string action:      ""
         property bool   isCapturing: false
+        property var    pendingCombo: null   // { mods, key } or null
 
         signal requestCapture()
         signal releaseCapture()
+        signal captureAccepted(string newMods, string newKey)
 
-        // Capture state
+        // Capture internals
         property int    _pressedMods: 0
         property string _liveMods:    ""
         property string capturedMods: ""
         property string capturedKey:  ""
 
-        // Derived from service
+        // Derived from service + pending
         readonly property var    _b:         KeybindService.keybinds[action]
         readonly property var    _def:       KeybindService._defaults[action]
-        readonly property bool   _isDefault: !!_b && !!_def && _b.mods === _def.mods && _b.key === _def.key
-        readonly property string _bindText:  _b ? (_b.mods ? _b.mods + " + " + _b.key : _b.key) : "..."
+        readonly property bool   _isPending: br.pendingCombo !== null && br.pendingCombo !== undefined
+        readonly property bool   _isDefault: {
+            if (!br._def) return true
+            var m = br._isPending ? br.pendingCombo.mods : (br._b ? br._b.mods : "")
+            var k = br._isPending ? br.pendingCombo.key  : (br._b ? br._b.key  : "")
+            return m === br._def.mods && k === br._def.key
+        }
+        readonly property string _bindText: br._b
+            ? (br._b.mods ? br._b.mods + " + " + br._b.key : br._b.key) : "..."
+        // Show pending value in the pill when set
+        readonly property string _pillText: br._isPending
+            ? (br.pendingCombo.mods ? br.pendingCombo.mods + " + " + br.pendingCombo.key
+                                    : br.pendingCombo.key)
+            : br._bindText
         readonly property bool   _savedDupe: KeybindService.isDuplicate(action)
 
-        // Local conflict check for the currently captured combo
+        readonly property bool _interactive: root._capturing === "" || br.isCapturing
+
+        // Live conflict: service binds → pending map → Hyprland binds (in that order)
         readonly property string _conflictLabel: {
-            if (!capturedKey) return ""
-            return KeybindService.wouldConflict(action, capturedMods, capturedKey)
+            if (!br.capturedKey) return ""
+            var c = KeybindService.wouldConflict(br.action, br.capturedMods, br.capturedKey)
+            if (c !== "") return c
+            // Cross-check against other pending entries
+            var combo = br.capturedMods + "+" + br.capturedKey
+            var pkeys = Object.keys(root._pending)
+            for (var i = 0; i < pkeys.length; i++) {
+                if (pkeys[i] === br.action) continue
+                var p = root._pending[pkeys[i]]
+                if (p.mods + "+" + p.key === combo) {
+                    var lbl = KeybindService.keybinds[pkeys[i]]
+                    return (lbl ? lbl.label : pkeys[i]) + " (pending)"
+                }
+            }
+            return KeybindService.wouldConflictHypr(br.action, br.capturedMods, br.capturedKey)
         }
         readonly property bool _hasConflict: _conflictLabel !== ""
 
@@ -120,6 +251,7 @@ Item {
                 br._liveMods    = ""
                 br.capturedMods = ""
                 br.capturedKey  = ""
+                KeybindService.loadHyprBinds()   // refresh for conflict detection
                 Qt.callLater(function() { _captureArea.forceActiveFocus() })
             }
         }
@@ -140,11 +272,11 @@ Item {
             Behavior on color { ColorAnimation { duration: 120 } }
         }
 
-        // ── Invisible focus target for key capture ─────────────────────────────
+        // ── Invisible focus target for key capture ────────────────────────────
         Item {
             id: _captureArea
             anchors.fill: parent
-            focus: br.isCapturing
+            focus:   br.isCapturing
             visible: br.isCapturing
 
             Keys.onPressed: function(event) {
@@ -163,16 +295,39 @@ Item {
                     if (!br.capturedKey) br._liveMods = _mods(event.modifiers)
                     return
                 }
-                // Plain Escape = cancel
+                // Bare Escape = cancel without saving
                 if (event.key === Qt.Key_Escape && br._pressedMods === Qt.NoModifier) {
                     br.releaseCapture()
                     return
                 }
                 var k = _keyName(event.key)
                 if (k !== "") {
-                    br.capturedMods = _mods(br._pressedMods)
+                    var m = _mods(br._pressedMods)
+                    br.capturedMods = m
                     br.capturedKey  = k
+                    // Auto-accept when valid: has mods, no service conflict,
+                    // no pending-map conflict, no Hyprland conflict
+                    if (m !== ""
+                        && KeybindService.wouldConflict(br.action, m, k) === ""
+                        && KeybindService.wouldConflictHypr(br.action, m, k) === ""
+                        && !_hasPendingConflict(m, k)) {
+                        br.captureAccepted(m, k)
+                        br.releaseCapture()
+                    }
+                    // else: stay open, show conflict warning
                 }
+            }
+
+            // Returns true if mods+key collides with any OTHER pending entry
+            function _hasPendingConflict(mods, key) {
+                var combo = mods + "+" + key
+                var pkeys = Object.keys(root._pending)
+                for (var i = 0; i < pkeys.length; i++) {
+                    if (pkeys[i] === br.action) continue
+                    var p = root._pending[pkeys[i]]
+                    if (p.mods + "+" + p.key === combo) return true
+                }
+                return false
             }
         }
 
@@ -213,29 +368,55 @@ Item {
                     Text { anchors.centerIn: parent; text: "↺"; font.pixelSize: 11
                         color: _rstH.hovered ? Theme.active : Qt.rgba(1,1,1,0.28) }
                     HoverHandler { id: _rstH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent
-                        onClicked: KeybindService.resetBinding(br.action) }
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: br._interactive
+                        onClicked: {
+                            if (br._isPending) {
+                                // If the saved value is already default, just drop pending
+                                var def = KeybindService._defaults[br.action]
+                                if (br._b && br._b.mods === def.mods && br._b.key === def.key)
+                                    root._clearPending(br.action)
+                                else
+                                    root._addPending(br.action, def.mods, def.key)
+                            } else {
+                                // No pending → immediate save (reset is always safe)
+                                KeybindService.resetBinding(br.action)
+                            }
+                        }
+                    }
                 }
 
-                // Binding pill — click to enter capture
+                // Binding pill — amber tint when a pending change is staged
                 Rectangle {
                     height: 24; radius: 6
                     width:  _pillT.implicitWidth + 18
-                    color: _pillH.hovered
+                    color: (_pillH.hovered && br._interactive)
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
                         : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08)
-                    border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.24)
+                    border.color: br._isPending
+                        ? Qt.rgba(1.0, 0.74, 0.22, 0.55)
+                        : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.24)
                     border.width: 1
-                    Behavior on color { ColorAnimation { duration: 100 } }
+                    opacity: br._interactive ? 1.0 : 0.4
+                    Behavior on color        { ColorAnimation { duration: 100 } }
+                    Behavior on border.color { ColorAnimation { duration: 150 } }
+                    Behavior on opacity      { NumberAnimation { duration: 120 } }
+
                     Text {
                         id: _pillT
                         anchors.centerIn: parent
-                        text:           br._bindText
+                        text:           br._pillText
                         font.pixelSize: 10; font.family: "JetBrains Mono"
-                        color:          Theme.active
+                        color: br._isPending ? Qt.rgba(1.0, 0.74, 0.22, 1.0) : Theme.active
+                        Behavior on color { ColorAnimation { duration: 150 } }
                     }
-                    HoverHandler { id: _pillH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent; onClicked: br.requestCapture() }
+                    HoverHandler { id: _pillH; cursorShape: br._interactive ? Qt.PointingHandCursor : Qt.ArrowCursor }
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: br._interactive
+                        onClicked: br.requestCapture()
+                    }
                 }
             }
         }
@@ -247,7 +428,7 @@ Item {
             spacing: 0
             visible: br.isCapturing
 
-            // Row 1: label + capture pill + confirm/cancel
+            // Row 1: label + live capture pill + cancel
             Item {
                 width: parent.width; height: 36
 
@@ -262,7 +443,7 @@ Item {
                     anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                     spacing: 6
 
-                    // Live capture display
+                    // Live capture pill
                     Rectangle {
                         height: 24; radius: 6
                         width:  Math.max(120, _capT.implicitWidth + 18)
@@ -293,30 +474,8 @@ Item {
                         }
                     }
 
-                    // Confirm (hidden when no key or conflict)
+                    // Cancel — Escape also cancels
                     Rectangle {
-                        visible: br.capturedKey !== "" && !br._hasConflict
-                        width: 28; height: 24; radius: 6
-                        color: _cfH.hovered
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.24)
-                            : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.10)
-                        border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30)
-                        border.width: 1
-                        Behavior on color { ColorAnimation { duration: 100 } }
-                        Text { anchors.centerIn: parent; text: "✓"; font.pixelSize: 12; color: Theme.active }
-                        HoverHandler { id: _cfH; cursorShape: Qt.PointingHandCursor }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                KeybindService.updateBinding(br.action, br.capturedMods, br.capturedKey)
-                                br.releaseCapture()
-                            }
-                        }
-                    }
-
-                    // Cancel
-                    Rectangle {
-                        visible: br.capturedKey !== ""
                         width: 28; height: 24; radius: 6
                         color: _cnH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
                         Behavior on color { ColorAnimation { duration: 100 } }
@@ -328,7 +487,7 @@ Item {
                 }
             }
 
-            // Row 2: conflict warning (animated in/out)
+            // Row 2: conflict warning (fades in when there's a conflict)
             Item {
                 width: parent.width; height: 22
                 opacity: (br.capturedKey !== "" && br._hasConflict) ? 1 : 0
@@ -359,7 +518,7 @@ Item {
             if (flags & Qt.ShiftModifier)   p.push("SHIFT")
             if (flags & Qt.ControlModifier) p.push("CTRL")
             if (flags & Qt.AltModifier)     p.push("ALT")
-            return p.join(" ")
+            return p.join(" + ")
         }
 
         function _keyName(k) {
