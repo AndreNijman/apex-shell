@@ -20,3 +20,5 @@ singleton WallpaperService 1.0 WallpaperService.qml
 singleton ScreenRecService 1.0 ScreenRecService.qml
 KanbanBoard KanbanBoard.qml
 AppLauncher AppLauncher.qml
+ShellConfig ShellConfig.qml
+KeybindsPage KeybindsPage.qml

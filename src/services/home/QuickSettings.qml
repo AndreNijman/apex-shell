@@ -455,6 +455,27 @@ StatCard {
             restoreGaps.running = false; restoreGaps.running = true
         } else { readGapsIn.running = false; readGapsIn.running = true }
     }
+    
+    // ── IPC Handle ─────────────────────────────────────────────
+	IpcHandler {
+    	target: "screenrec-on"
+        function toggle() {
+            if (ScreenRecService.recording) {
+                 ScreenRecService.stopRecording()
+             } else if (ShellState.screenRecord) {
+                 ScreenRecService.cancelSetup()
+             } else {
+                 Popups.closeAll()
+                 ShellState.screenRecord = true
+             }
+        }
+    }
+    IpcHandler {
+        target: "focus-toggle"
+        function toggle() {
+                root._focusToggle()
+        }
+    }
 
 // ─────────────────────────────────────────────────────────────────────────
     //  Filter  (Native Hyprland Lua)
