@@ -9,7 +9,7 @@ import '../services/'
 import "../"
 
 // Dashboard — PanelWindow required for TextInput keyboard focus on Wayland.
-// Uses WlrKeyboardFocus.OnDemand so TextInputs inside pages receive key events.
+// Uses WlrKeyboardFocus.Exclusive so TextInputs inside pages receive key events.
 //
 // Positioning mirrors the original PopupWindow behaviour: the sizer's top sits
 // exactly at the notch-bar bottom (topMargin: Theme.notchHeight), so there is
@@ -59,7 +59,7 @@ PanelWindow {
     exclusionMode:  ExclusionMode.Ignore
 
     WlrLayershell.layer:         WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
 
     // ── Mask — input/paint region limited to sizer only ──────────────────────
     mask: Region { item: maskProxy }
