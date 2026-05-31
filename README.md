@@ -1,34 +1,43 @@
 # Brain Shell
 
-A modular session shell for Hyprland, built on Quickshell. 
+A modular session shell for Hyprland, built on Quickshell.
 
-## Devlog 9: Clipboard History, QuickControl, and v0.1.0 Prep
+## Devlog 10: Keybind Engine, Lua Migration, and Bug Squashing
 
 **Core Additions**
-* **Clipboard History:** Fully functional clipboard manager backed by `cliphist` and `wl-copy`/`wl-paste`. Requires two `exec-once` lines in the Hyprland config to capture both text and images. The popup features live search filtering, arrow key navigation, and a clear-all function.
-* **QuickControl Panel:** A new hover-open panel accessible from the right-center border strip for quick brightness and master volume adjustments. This surface acts as a fast, one-handed control that coexists independently from the full click-to-open `AudioPopup`.
-* **Layout Cycling:** The `LayoutDisplayer` module now supports mouse interaction. You can cycle through available Hyprland layouts using left/right clicks or the scroll wheel.
 
-**Compositor & Rendering Fixes**
-* **WallpaperPopup Polish:** Implemented batched scan results to prevent UI thrashing on large directories, fixed URI scheme duplication, and added double-tap to apply. Added an invisible filler item to eliminate hover-flicker loops.
-* **Notch Geometry:** Corrected the clickable space inside the center notch.
-* **TabSwitcher Cleanup:** Adjusted the height of the TabSwitcher in the ArchMenu for better layout, added urgent workspace visual effects, and removed the left accent bar from the active tab.
+- **Keybind Editor:** Created a full in-shell keybind editor via `KeybindsPage.qml` and the `KeybindService.qml` singleton. It captures keystrokes on key release without needing a confirm button. It detects conflicts with both shell binds and live Hyprland binds. It isolates key captures from compositor shortcuts using a `BrainShell_clean` submap.
 
-**Architecture Refactoring**
-* **Unified Animations:** Animation durations are now pulled dynamically from `Theme.qml` instead of being hardcoded.
-* **Border Configuration:** Refactored Theme and Border properties to improve system configuration.
-* **Dashboard Routing:** Updated the default page property in `Dashboard.qml` to open directly to the 'home' tab instead of 'stats'. Added reset functionality to the TabSwitcher to enhance Dashboard close behavior.
+- **Dynamic Lua Config:** The `KeybindService` generates a Hyprland Lua keybind block, appends it to the shell's config, and automatically calls `hyprctl reload` after a 300 ms delay.
+
+**Architecture & Under-the-Hood Changes**
+
+- **Hyprland Lua Migration:** The Hyprland configuration was migrated from the legacy `hyprland.conf` format to the v0.55 Lua API. IPC dispatchers and workspace events were updated to the new `hl.dsp.*` syntax.
+
+- **Screen Recorder Backend:** The screen recording dependency was switched from `wl-screenrec` to `wf-recorder` because it is actively maintained and available in the `extra` repo.
+
+- **Shader Decoupling:** The shader tile was decoupled from `hyprshade`. It now lists `.glsl` files directly from `~/.config/hypr/shaders/` and applies them using `hyprctl keyword decoration:screen_shader`.
+
+**Bug Fixes & Polish**
+
+- **Notification Fixes:** Stored notifications are marked on first receipt so they no longer re-fire and trigger toasts upon Quickshell reloads.
+
+- **Network Panel Polish:** Added an eye icon to toggle password visibility in the Wi-Fi tab. Fixed a bug where the Forget command failed on SSIDs with colons or special characters by using a robust `awk` pipeline. Fixed the Hotspot tab's eye button height from 2 to 28 so it is properly clickable.
+
+- **UI/UX Tweaks:** The `ClockCard`'s manual time input panel now properly collapses immediately after confirming a custom timer. The Dashboard page area now requests global focus on open, ensuring the Escape key reliably closes the dashboard from any tab.
 
 ---
 
 ## Current Architecture Status
 
-* **Centralized Popups:** `shell.qml` handles the anchor windows, but passes them to `PopupLayer.qml`, which acts as the single source of truth for instantiating all popup windows.
-* **Universal Animations:** Slide-in/out and hover-to-open logic are standardized across the shell via `PopupSlide.qml`.
-* **State Management:** Local state stays local unless needed elsewhere. Cross-cutting variables live in `ShellState.qml`, and theme variables stream dynamically through `Theme.qml` via the `ColorLoader` watcher.
+- **Centralized Popups:** `shell.qml` handles the anchor windows, but passes them to `PopupLayer.qml`, which acts as the single source of truth for instantiating all popup windows.
+- **Universal Animations:** Slide-in/out and hover-to-open logic are standardized across the shell via `PopupSlide.qml`.
+- **State Management:** Local state stays local unless needed elsewhere. Cross-cutting variables live in `ShellState.qml`, and theme variables stream dynamically through `Theme.qml` via the `ColorLoader` watcher.
 
-## Roadmap / Up Next (Approaching v0.1.0 Release)
+## Roadmap / Up Next
 
-* **Release Milestone:** The shell is rapidly approaching its v0.1.0 release milestone.
-* **Config Tab:** Building the unified GUI to manage border-hover popup assignments, animation durations, and feature toggles.
-* **Keybind Wiring:** Documenting and mapping Hyprland keybinds (including the clipboard toggle) to the shell.
+- **Dashboard Config Tab:** Finishing the remaining configuration sub-tabs (Appearance, Layout & Behavior, Data & Storage, Misc) to complete the dashboard settings UI.
+- **Auto Updater:** Building and integrating an automatic update mechanism for the shell.
+- **Isolated Configs:** Matugen, Hyprland modifications and config changes will be isolated to the Shell to keep the user's config untouched.
+- **General Polish:** Making further improvements and stability fixes as the project approaches the v0.1.0 release candidate.
+- **Post-v0.1.0 Scope:** Unifying the border-hover popup configuration into a single runtime management layer. Adding a pinned or recent row to the App Launcher.
