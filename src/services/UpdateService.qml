@@ -142,9 +142,9 @@ QtObject {
         _saveProc.running = true
     }
 
-    // ── Step 1: fetch origin/testing_2 ──────────────────────────────────────────
+    // ── Step 1: fetch origin/main ──────────────────────────────────────────
     property var _fetchProc: Process {
-        command: ["git", "-C", root._dir, "fetch", "origin", "testing_2", "--quiet"]
+        command: ["git", "-C", root._dir, "fetch", "origin", "main", "--quiet"]
         running: false
         onExited: function(code) {
             if (code !== 0) {
@@ -160,7 +160,7 @@ QtObject {
     // ── Step 2: count commits behind ──────────────────────────────────────
     property var _countProc: Process {
         command: ["bash", "-c",
-            "git -C '" + root._dir + "' rev-list --count HEAD..origin/testing_2 2>/dev/null"]
+            "git -C '" + root._dir + "' rev-list --count HEAD..origin/main 2>/dev/null"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
@@ -180,7 +180,7 @@ QtObject {
     property var _logProc: Process {
         command: ["bash", "-c",
             "git -C '" + root._dir +
-            "' log HEAD..origin/testing_2 --oneline --no-decorate 2>/dev/null"]
+            "' log HEAD..origin/main --oneline --no-decorate 2>/dev/null"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
@@ -196,7 +196,7 @@ QtObject {
 
     // ── Git pull ───────────────────────────────────────────────────────────
     property var _pullProc: Process {
-        command: ["git", "-C", root._dir, "pull", "origin", "testing_2"]
+        command: ["git", "-C", root._dir, "pull", "origin", "main"]
         running: false
         onExited: function(code) {
             root.updating = false
@@ -220,7 +220,7 @@ QtObject {
         command: ["bash", "-c",
             // stash with || true so an empty worktree doesn't abort the whole chain
             "git -C '" + root._dir + "' stash push -m 'brain-shell-pre-update' 2>/dev/null || true; " +
-            "git -C '" + root._dir + "' pull origin testing_2 2>&1"]
+            "git -C '" + root._dir + "' pull origin main 2>&1"]
         running: false
         onExited: function(code) {
             root.updating = false
@@ -231,7 +231,7 @@ QtObject {
                 root.updateSuccess   = true
             } else {
                 root.hasConflict = false
-                root.lastError   = "Stash + pull failed. Try manually: git pull origin testing_2"
+                root.lastError   = "Stash + pull failed. Try manually: git pull origin main"
             }
         }
     }
