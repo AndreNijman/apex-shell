@@ -25,12 +25,30 @@ PanelWindow {
     WlrLayershell.layer:         WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
 
-    visible: UpdateService.showPopup
+    property bool windowVisible: false
+    visible: windowVisible
+    
+    Connections {
+        target: UpdateService
+        function onShowPopupChanged() {
+            if (UpdateService.showPopup) {
+                root.windowVisible = true
+            } else {
+                closeTimer.restart()
+            }
+        }
+    }
+    
+    Timer {
+        id: closeTimer
+        interval: 20
+        onTriggered: if (!UpdateService.showPopup) root.windowVisible = false
+    }
 
     // Auto-dismiss success state after 10s
     Timer {
         interval: 10000
-        running:  UpdateService.updateSuccess && root.visible
+        running:  UpdateService.updateSuccess && root.windowVisible
         onTriggered: UpdateService.dismiss()
     }
 
