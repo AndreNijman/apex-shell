@@ -95,6 +95,24 @@ PanelWindow {
                  : Theme.active
             Behavior on color { ColorAnimation { duration: 200 } }
         }
+        Item {
+            visible: !UpdateService.updating
+            anchors { top: parent.top; right: parent.right; topMargin: 8; rightMargin: 8 }
+            width: 24; height: 24
+        
+            Rectangle {
+                anchors.fill: parent; radius: 6
+                color: xHov.hovered ? Qt.rgba(1,1,1,0.10) : "transparent"
+                Behavior on color { ColorAnimation { duration: 100 } }
+            }
+            Text {
+                anchors.centerIn: parent
+                text: "✕"; font.pixelSize: 11
+                color: Qt.rgba(1,1,1,0.35)
+            }
+            HoverHandler { id: xHov; cursorShape: Qt.PointingHandCursor }
+            MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
+        }
 
         Column {
             id: cardCol
