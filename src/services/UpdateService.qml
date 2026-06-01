@@ -27,6 +27,42 @@ QtObject {
     property int    commitsBehind:   0
     property var    commitMessages:  []
     property string lastError:       ""
+    property int _pingAttempts:    0
+    property int _pingMaxAttempts: 12
+    
+    property var _pingRetryTimer: Timer {
+        interval: 5000
+        repeat:   false
+        onTriggered: root._pingCheck()
+    }
+    
+    property var _pingProc: Process {
+        command: ["ping", "-c", "1", "-W", "3", "1.1.1.1"]
+        running: false
+        onExited: function(code) {
+            if (code === 0) {
+                root._pingAttempts = 0
+                root.check()
+            } else {
+                root._pingAttempts++
+                if (root._pingAttempts < root._pingMaxAttempts) {
+                    root._pingRetryTimer.restart()
+                } else {
+                    root._pingAttempts = 0  // silent cancel
+                }
+            }
+        }
+    }
+    
+    function _startConnectivityCheck() {
+        root._pingAttempts = 0
+        root._pingCheck()
+    }
+    
+    function _pingCheck() {
+        root._pingProc.running = false
+        root._pingProc.running = true
+    }
 
     // Popup is only shown when autoUpdate is enabled
     readonly property bool showPopup:
@@ -48,7 +84,7 @@ QtObject {
         interval: 30000
         repeat:   false
         running:  false
-        onTriggered: root.check()
+        onTriggered: root._startConnectivityCheck()
     }
 
     // ── Config: init → read → arm timer ───────────────────────────────────
@@ -106,9 +142,9 @@ QtObject {
         _saveProc.running = true
     }
 
-    // ── Step 1: fetch origin/main ──────────────────────────────────────────
+    // ── Step 1: fetch origin/testing_2 ──────────────────────────────────────────
     property var _fetchProc: Process {
-        command: ["git", "-C", root._dir, "fetch", "origin", "main", "--quiet"]
+        command: ["git", "-C", root._dir, "fetch", "origin", "testing_2", "--quiet"]
         running: false
         onExited: function(code) {
             if (code !== 0) {
@@ -124,7 +160,7 @@ QtObject {
     // ── Step 2: count commits behind ──────────────────────────────────────
     property var _countProc: Process {
         command: ["bash", "-c",
-            "git -C '" + root._dir + "' rev-list --count HEAD..origin/main 2>/dev/null"]
+            "git -C '" + root._dir + "' rev-list --count HEAD..origin/testing_2 2>/dev/null"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
@@ -144,7 +180,7 @@ QtObject {
     property var _logProc: Process {
         command: ["bash", "-c",
             "git -C '" + root._dir +
-            "' log HEAD..origin/main --oneline --no-decorate 2>/dev/null"]
+            "' log HEAD..origin/testing_2 --oneline --no-decorate 2>/dev/null"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
@@ -160,7 +196,7 @@ QtObject {
 
     // ── Git pull ───────────────────────────────────────────────────────────
     property var _pullProc: Process {
-        command: ["git", "-C", root._dir, "pull", "origin", "main"]
+        command: ["git", "-C", root._dir, "pull", "origin", "testing_2"]
         running: false
         onExited: function(code) {
             root.updating = false
@@ -184,7 +220,7 @@ QtObject {
         command: ["bash", "-c",
             // stash with || true so an empty worktree doesn't abort the whole chain
             "git -C '" + root._dir + "' stash push -m 'brain-shell-pre-update' 2>/dev/null || true; " +
-            "git -C '" + root._dir + "' pull origin main 2>&1"]
+            "git -C '" + root._dir + "' pull origin testing_2 2>&1"]
         running: false
         onExited: function(code) {
             root.updating = false
@@ -195,7 +231,7 @@ QtObject {
                 root.updateSuccess   = true
             } else {
                 root.hasConflict = false
-                root.lastError   = "Stash + pull failed. Try manually: git pull origin main"
+                root.lastError   = "Stash + pull failed. Try manually: git pull origin testing_2"
             }
         }
     }
