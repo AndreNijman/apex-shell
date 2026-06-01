@@ -1,0 +1,265 @@
+pragma Singleton
+import QtQuick
+import Quickshell
+import Quickshell.Io
+import "../"
+
+// UpdateService — startup update checker (30s delay).
+// Persistent autoUpdate preference stored in src/user_data/update_prefs.json.
+//
+// Dev test (never pushed — user_data/ is git-ignored):
+//   touch src/user_data/.dev_update_test
+//   → triggers a fake update popup immediately on next shell start, skipping the 30s delay.
+//   rm src/user_data/.dev_update_test  → back to normal.
+
+QtObject {
+    id: root
+
+    // ── Persistent preference ──────────────────────────────────────────────
+    property bool autoUpdate: true
+
+    // ── Live state (drives UpdatePopup) ───────────────────────────────────
+    property bool   checking:        false
+    property bool   updating:        false
+    property bool   updateAvailable: false
+    property bool   hasConflict:     false
+    property bool   updateSuccess:   false
+    property int    commitsBehind:   0
+    property var    commitMessages:  []
+    property string lastError:       ""
+
+    // Popup is only shown when autoUpdate is enabled
+    readonly property bool showPopup:
+        autoUpdate && (
+            updateAvailable ||
+            updating ||
+            hasConflict ||
+            updateSuccess ||
+            (lastError !== "" && !checking)
+        )
+
+    // ── Paths ──────────────────────────────────────────────────────────────
+    readonly property string _dir:        Quickshell.shellDir
+    readonly property string _cfgPath:    Quickshell.shellDir + "/src/user_data/update_prefs.json"
+    readonly property string _testMarker: Quickshell.shellDir + "/src/user_data/.dev_update_test"
+
+    // ── Startup: 30s delay ─────────────────────────────────────────────────
+    property var _startTimer: Timer {
+        interval: 30000
+        repeat:   false
+        running:  false
+        onTriggered: root.check()
+    }
+
+    // ── Config: init → read → arm timer ───────────────────────────────────
+    property var _initProc: Process {
+        command: ["bash", "-c",
+            // Ensure pref file exists
+            "[ -f '" + root._cfgPath + "' ] || " +
+            "(mkdir -p \"$(dirname '" + root._cfgPath + "')\" && " +
+            "printf '%s' '{\"autoUpdate\":true}' > '" + root._cfgPath + "'); " +
+            // Dev test marker check
+            "[ -f '" + root._testMarker + "' ] && printf '__DEV__\\n'; " +
+            // Emit prefs
+            "cat '" + root._cfgPath + "'"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var raw = text.trim()
+
+                if (raw.indexOf("__DEV__") >= 0) {
+                    root.autoUpdate      = true
+                    root.commitsBehind   = 3
+                    root.commitMessages  = [
+                        "abc1234 feat: config tab — keybind editor wired",
+                        "def5678 fix: notification popup width alignment",
+                        "ghi9012 chore: remove debug console.log calls"
+                    ]
+                    root.updateAvailable = true
+                    return
+                }
+
+                try {
+                    var cfgPart = raw
+                    // raw may contain __DEV__ prefix on its own line; strip it
+                    var jsonStart = cfgPart.indexOf("{")
+                    if (jsonStart >= 0) cfgPart = cfgPart.substring(jsonStart)
+                    var o = JSON.parse(cfgPart)
+                    if (typeof o.autoUpdate === "boolean")
+                        root.autoUpdate = o.autoUpdate
+                } catch(e) {}
+
+                if (root.autoUpdate) root._startTimer.start()
+            }
+        }
+    }
+
+    // ── Config: save ──────────────────────────────────────────────────────
+    property var _saveProc: Process { command: []; running: false }
+
+    function _saveConfig() {
+        var json = JSON.stringify({ autoUpdate: root.autoUpdate })
+        _saveProc.command = ["bash", "-c",
+            "printf '%s' '" + json.replace(/'/g, "'\\''") +
+            "' > '" + root._cfgPath + "'"]
+        _saveProc.running = false
+        _saveProc.running = true
+    }
+
+    // ── Step 1: fetch origin/main ──────────────────────────────────────────
+    property var _fetchProc: Process {
+        command: ["git", "-C", root._dir, "fetch", "origin", "main", "--quiet"]
+        running: false
+        onExited: function(code) {
+            if (code !== 0) {
+                root.checking  = false
+                root.lastError = "Could not reach remote. Check your connection."
+                return
+            }
+            _countProc.running = false
+            _countProc.running = true
+        }
+    }
+
+    // ── Step 2: count commits behind ──────────────────────────────────────
+    property var _countProc: Process {
+        command: ["bash", "-c",
+            "git -C '" + root._dir + "' rev-list --count HEAD..origin/main 2>/dev/null"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var n = parseInt(text.trim())
+                root.commitsBehind = isNaN(n) ? 0 : n
+                if (root.commitsBehind > 0) {
+                    _logProc.running = false
+                    _logProc.running = true
+                } else {
+                    root.checking = false
+                }
+            }
+        }
+    }
+
+    // ── Step 3: read commit log ────────────────────────────────────────────
+    property var _logProc: Process {
+        command: ["bash", "-c",
+            "git -C '" + root._dir +
+            "' log HEAD..origin/main --oneline --no-decorate 2>/dev/null"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var lines = text.trim()
+                    .split("\n")
+                    .filter(function(l) { return l.trim() !== "" })
+                root.commitMessages  = lines
+                root.checking        = false
+                root.updateAvailable = true
+            }
+        }
+    }
+
+    // ── Git pull ───────────────────────────────────────────────────────────
+    property var _pullProc: Process {
+        command: ["git", "-C", root._dir, "pull", "origin", "main"]
+        running: false
+        onExited: function(code) {
+            root.updating = false
+            if (code === 0) {
+                root.updateAvailable = false
+                root.hasConflict     = false
+                root.lastError       = ""
+                root.updateSuccess   = true
+            } else {
+                // fetch succeeded earlier, so failure = local changes conflict
+                root.hasConflict = true
+                root.lastError   = ""
+            }
+        }
+    }
+
+    // ── Stash local changes, then pull ────────────────────────────────────
+    // stash pop is intentionally omitted — shell reloads after update anyway.
+    // User can `git stash pop` manually if they want changes back.
+    property var _stashPullProc: Process {
+        command: ["bash", "-c",
+            // stash with || true so an empty worktree doesn't abort the whole chain
+            "git -C '" + root._dir + "' stash push -m 'brain-shell-pre-update' 2>/dev/null || true; " +
+            "git -C '" + root._dir + "' pull origin main 2>&1"]
+        running: false
+        onExited: function(code) {
+            root.updating = false
+            if (code === 0) {
+                root.updateAvailable = false
+                root.hasConflict     = false
+                root.lastError       = ""
+                root.updateSuccess   = true
+            } else {
+                root.hasConflict = false
+                root.lastError   = "Stash + pull failed. Try manually: git pull origin main"
+            }
+        }
+    }
+
+    // ── Reload shell ───────────────────────────────────────────────────────
+    property var _reloadProc: Process {
+        command: ["qs", "reload"]
+        running: false
+    }
+
+    // ── Public API ─────────────────────────────────────────────────────────
+
+    function check() {
+        if (root.checking || root.updating) return
+        root.checking        = true
+        root.lastError       = ""
+        root.updateAvailable = false
+        root.updateSuccess   = false
+        root.hasConflict     = false
+        _fetchProc.running   = false
+        _fetchProc.running   = true
+    }
+
+    function applyUpdate() {
+        if (root.updating) return
+        root.updating        = true
+        root.hasConflict     = false
+        root.lastError       = ""
+        root.updateSuccess   = false
+        _pullProc.running    = false
+        _pullProc.running    = true
+    }
+
+    function stashAndUpdate() {
+        if (root.updating) return
+        root.updating            = true
+        root.hasConflict         = false
+        root.lastError           = ""
+        root.updateSuccess       = false
+        _stashPullProc.running   = false
+        _stashPullProc.running   = true
+    }
+
+    function dismiss() {
+        root.updateAvailable = false
+        root.hasConflict     = false
+        root.lastError       = ""
+        root.updateSuccess   = false
+    }
+
+    function disableAutoUpdate() {
+        root.autoUpdate      = false
+        root.updateAvailable = false
+        root.hasConflict     = false
+        root.lastError       = ""
+        root.updateSuccess   = false
+        root._startTimer.stop()
+        _saveConfig()
+    }
+
+    function reloadShell() {
+        _reloadProc.running = false
+        _reloadProc.running = true
+    }
+
+    Component.onCompleted: _initProc.running = true
+}
