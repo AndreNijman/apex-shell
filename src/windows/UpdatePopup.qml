@@ -47,7 +47,7 @@ PanelWindow {
 
     // Auto-dismiss success state after 10s
     Timer {
-        interval: 10000
+        interval: 3000
         running:  UpdateService.updateSuccess && root.windowVisible
         onTriggered: UpdateService.dismiss()
     }
@@ -359,38 +359,17 @@ PanelWindow {
                     lineHeight:     1.45
                 }
 
-                Row {
-                    spacing: 8
-
-                    // Reload Shell
-                    Rectangle {
-                        width: 108; height: 30; radius: 8
-                        color: rlH.hovered
-                            ? Qt.rgba(166/255, 227/255, 161/255, 0.22)
-                            : Qt.rgba(166/255, 227/255, 161/255, 0.10)
-                        border.color: Qt.rgba(166/255, 227/255, 161/255, 0.35); border.width: 1
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                        Text {
-                            anchors.centerIn: parent
-                            text:           "Reload Shell"
-                            font.pixelSize: 11; font.weight: Font.Medium
-                            color:          "#a6e3a1"
-                        }
-                        HoverHandler { id: rlH; cursorShape: Qt.PointingHandCursor }
-                        MouseArea { anchors.fill: parent; onClicked: UpdateService.reloadShell() }
-                    }
-
-                    // Dismiss
-                    Rectangle {
-                        width: 72; height: 30; radius: 8
-                        color:        dmH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
-                        border.color: Qt.rgba(1,1,1,0.09); border.width: 1
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                        Text { anchors.centerIn: parent; text: "Dismiss"; font.pixelSize: 11; color: Qt.rgba(1,1,1,0.52) }
-                        HoverHandler { id: dmH; cursorShape: Qt.PointingHandCursor }
-                        MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
-                    }
+                // Dismiss
+                Rectangle {
+                    width: 72; height: 30; radius: 8
+                    color:        dmH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
+                    border.color: Qt.rgba(1,1,1,0.09); border.width: 1
+                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Text { anchors.centerIn: parent; text: "Dismiss"; font.pixelSize: 11; color: Qt.rgba(1,1,1,0.52) }
+                    HoverHandler { id: dmH; cursorShape: Qt.PointingHandCursor }
+                    MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
                 }
+
 
                 Text {
                     text:           "Auto-dismissing in a few seconds…"
