@@ -6,12 +6,6 @@ import "../"
 
 // UpdateService — startup update checker (30s delay).
 // Persistent autoUpdate preference stored in src/user_data/update_prefs.json.
-//
-// Dev test (never pushed — user_data/ is git-ignored):
-//   touch src/user_data/.dev_update_test
-//   → triggers a fake update popup immediately on next shell start, skipping the 30s delay.
-//   rm src/user_data/.dev_update_test  → back to normal.
-
 QtObject {
     id: root
 
@@ -24,6 +18,7 @@ QtObject {
     property bool   updateAvailable: false
     property bool   hasConflict:     false
     property bool   updateSuccess:   false
+    
     property int    commitsBehind:   0
     property var    commitMessages:  []
     property string lastError:       ""
@@ -77,7 +72,6 @@ QtObject {
     // ── Paths ──────────────────────────────────────────────────────────────
     readonly property string _dir:        Quickshell.shellDir
     readonly property string _cfgPath:    Quickshell.shellDir + "/src/user_data/update_prefs.json"
-    readonly property string _testMarker: Quickshell.shellDir + "/src/user_data/.dev_update_test"
 
     // ── Startup: 30s delay ─────────────────────────────────────────────────
     property var _startTimer: Timer {
@@ -93,34 +87,14 @@ QtObject {
             // Ensure pref file exists
             "[ -f '" + root._cfgPath + "' ] || " +
             "(mkdir -p \"$(dirname '" + root._cfgPath + "')\" && " +
-            "printf '%s' '{\"autoUpdate\":true}' > '" + root._cfgPath + "'); " +
-            // Dev test marker check
-            "[ -f '" + root._testMarker + "' ] && printf '__DEV__\\n'; " +
+            "printf '%s' '{\"autoUpdate\":true}' > '" + root._cfgPath + "');\n" +
             // Emit prefs
             "cat '" + root._cfgPath + "'"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
-                var raw = text.trim()
-
-                if (raw.indexOf("__DEV__") >= 0) {
-                    root.autoUpdate      = true
-                    root.commitsBehind   = 3
-                    root.commitMessages  = [
-                        "abc1234 feat: config tab — keybind editor wired",
-                        "def5678 fix: notification popup width alignment",
-                        "ghi9012 chore: remove debug console.log calls"
-                    ]
-                    root.updateAvailable = true
-                    return
-                }
-
                 try {
-                    var cfgPart = raw
-                    // raw may contain __DEV__ prefix on its own line; strip it
-                    var jsonStart = cfgPart.indexOf("{")
-                    if (jsonStart >= 0) cfgPart = cfgPart.substring(jsonStart)
-                    var o = JSON.parse(cfgPart)
+                    var o = JSON.parse(text.trim())
                     if (typeof o.autoUpdate === "boolean")
                         root.autoUpdate = o.autoUpdate
                 } catch(e) {}
@@ -236,12 +210,6 @@ QtObject {
         }
     }
 
-    // ── Reload shell ───────────────────────────────────────────────────────
-    property var _reloadProc: Process {
-        command: ["qs", "reload"]
-        running: false
-    }
-
     // ── Public API ─────────────────────────────────────────────────────────
 
     function check() {
@@ -290,11 +258,6 @@ QtObject {
         root.updateSuccess   = false
         root._startTimer.stop()
         _saveConfig()
-    }
-
-    function reloadShell() {
-        _reloadProc.running = false
-        _reloadProc.running = true
     }
 
     Component.onCompleted: _initProc.running = true
