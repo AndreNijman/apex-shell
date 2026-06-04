@@ -41,13 +41,8 @@ PanelWindow {
         Popups.dashboardPageWidth = (w !== undefined) ? w : 900
     }
 
-    onPageChanged: {
-        _applyPageWidth(page)
-        if (Popups.dashboardOpen && typeof pageArea !== "undefined") {
-            pageArea.forceActiveFocus()
-        }
-    }
-    // ── Surface config ────────────────────────────────────────────────────────
+    onPageChanged: _applyPageWidth(page)
+
     color:   "transparent"
     visible: windowVisible
 
@@ -56,13 +51,12 @@ PanelWindow {
     anchors.right: true
     anchors.bottom: true
 
-    implicitHeight: Theme.notchHeight + Theme.dashboardHeight
-    exclusionMode:  ExclusionMode.Ignore
+    exclusionMode: ExclusionMode.Ignore
 
     WlrLayershell.layer:         WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
-    
-    // ── Window visibility gate ────────────────────────────────────────────────
+    // Exclusive focus only when fully open and visible.
+    WlrLayershell.keyboardFocus: (windowVisible && Popups.dashboardOpen) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+
     property bool windowVisible: false
 
     Connections {
@@ -72,7 +66,6 @@ PanelWindow {
                 closeTimer.stop()
                 root.windowVisible = true
                 root._applyPageWidth(root.page)
-                pageArea.forceActiveFocus()
             } else {
                 closeTimer.restart()
             }
@@ -176,11 +169,10 @@ PanelWindow {
         }
     }
 
-    Item {
+    // ── Backdrop — closes popup when clicking outside the sizer ──────────────
+    MouseArea {
         anchors.fill: parent
-        TapHandler {
-            onTapped: Popups.dashboardOpen = false // or wallpaperOpen = false
-        }
+        onClicked:    Popups.dashboardOpen = false
     }
 
     // ── Sizer ─────────────────────────────────────────────────────────────────
@@ -198,10 +190,14 @@ PanelWindow {
 
         Behavior on width  { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
         Behavior on height { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
+        
+        MouseArea {
+            anchors.fill: parent
+            onClicked:    {}
+        }
 
         // ── Background ────────────────────────────────────────────────────────
         PopupShape {
-            id: bg
             anchors.fill: parent
             attachedEdge: "top"
             color:        Theme.background
@@ -241,11 +237,11 @@ PanelWindow {
                     width:       parent.width
                     currentPage: root.page
                     model: [
-                        { key: "home",     icon: "󰋜",  label: "Home"   },
-                        { key: "stats",    icon: "󰻠",  label: "System" },
-                        { key: "kanban",   icon: "󰄬",  label: "Tasks"  },
-                        { key: "launcher", icon: "󱓞",  label: "Apps"   },
-                        { key: "config",   icon: "󰒓",  label: "Config" },
+                        { key: "home",     icon: "󰋜", label: "Home"   },
+                        { key: "stats",    icon: "󰻠", label: "System" },
+                        { key: "kanban",   icon: "󰄬", label: "Tasks"  },
+                        { key: "launcher", icon: "󱓞", label: "Apps"   },
+                        { key: "config",   icon: "󰒓", label: "Config" },
                     ]
                     onPageChanged: function(key) { root.page = key }
                 }
