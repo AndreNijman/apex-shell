@@ -286,7 +286,7 @@ echo ""
 
 
 # CONFIGURATION SETUP
-
+log_info "Setting up Brain Shell configuration..."
 
 CONFIG_BRAIN_SHELL="$HOME/.config/Brain_Shell"
 USER_DATA_DIR="$CONFIG_BRAIN_SHELL/user_data"
@@ -298,6 +298,7 @@ mkdir -p "$USER_DATA_DIR"
 
 echo "{\"configProvider\": \"$CONFIG_TYPE\"}" > "$USER_DATA_DIR/config_Provider.json"
 
+log_success "Configuration directories created and config_Provider.json set."
 
 # COMPLETION MESSAGE
 
