@@ -35,7 +35,7 @@ jobs:
             wf-recorder cava imagemagick wtype lm_sensors util-linux
             hyprsunset hyprlock hyprpolkitagent hypridle
             xdg-desktop-portal-hyprland ttf-jetbrains-mono-nerd
-            ttf-nerd-fonts-symbols-common hyprshutdown
+            ttf-nerd-fonts-symbols-common hyprshutdown cliphist
           )
           FAILED=()
           for pkg in "${PACMAN_DEPS[@]}"; do
@@ -61,8 +61,6 @@ jobs:
             envycontrol
             auto-cpufreq
             nbfc-linux
-            cliphist-git
-            hyprshutdown
             grimblast-git
           )
           FAILED=()
