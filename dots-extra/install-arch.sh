@@ -175,6 +175,7 @@ if [[ "$AUR_HELPER" != "none" ]]; then
         "nbfc-linux"
         "cliphist"
         "hyprshutdown"
+        "grimblast-git"
     )
     
     for pkg in "${AUR_DEPS[@]}"; do
