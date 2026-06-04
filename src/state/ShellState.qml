@@ -49,13 +49,23 @@ QtObject {
         function onIsCapturingChanged() {
             if (KeybindService.isCapturing) {
                 // Enter passthrough mode (disables Hyprland binds)
-                submapProcess.command = ["hyprctl", "dispatch", "hl.dsp.submap('BrainShell_clean')"]
+                if (configProvider === "lua") {
+                    submapProcess.command = ["hyprctl", "dispatch", "hl.dsp.submap('BrainShell_clean')"]
+                } else {
+                    submapProcess.command = ["hyprctl", "dispatch", "submap", "BrainShell_clean"]
+                }
             } else {
                 // Exit passthrough mode (re-enables Hyprland binds)
-                submapProcess.command = ["hyprctl", "dispatch", "hl.dsp.submap('reset')"]
+                if (configProvider === "lua") {
+                    submapProcess.command = ["hyprctl", "dispatch", "hl.dsp.submap('reset')"]
+                } else {
+                    submapProcess.command = ["hyprctl", "dispatch", "submap", "reset"]
+                }
             }
             
             submapProcess.running = true
         }
     }
+    
+    property string configProvider: "lua"
 }
