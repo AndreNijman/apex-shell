@@ -152,7 +152,7 @@ fi
 log_info "Executing distro-specific installer..."
 echo ""
 
-bash "$DISTRO_INSTALLER" "$HYPRLAND_CONF" "$BACKUP_DIR"
+bash "$DISTRO_INSTALLER" "$HYPRLAND_CONF" "$BACKUP_DIR" "$CONFIG_TYPE"
 
 echo ""
 log_success "Brain Shell installation complete!"
