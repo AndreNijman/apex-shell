@@ -289,12 +289,12 @@ echo ""
 log_info "Setting up Brain Shell configuration..."
 
 CONFIG_BRAIN_SHELL="$HOME/.config/Brain_Shell"
-USER_DATA_DIR="$CONFIG_BRAIN_SHELL/user_data"
+USER_DATA_DIR="$CONFIG_BRAIN_SHELL/src/user_data"
 
 mkdir -p "$CONFIG_BRAIN_SHELL"
 mkdir -p "$HOME/.config/hypr/shaders"
 mkdir -p "$HOME/.config/matugen/templates"
-mkdir -p "src/$USER_DATA_DIR"
+mkdir -p "$USER_DATA_DIR"
 
 echo "{\"configProvider\": \"$CONFIG_TYPE\"}" > "$USER_DATA_DIR/src/config_Provider.json"
 
