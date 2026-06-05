@@ -1,4 +1,5 @@
 pragma Singleton
+import Quickshell
 import QtQuick
 import Quickshell.Io
 import "../."
@@ -15,6 +16,8 @@ import "../."
 // VPN               — written by VPNTab; read by Network.qml for bar icon
 
 QtObject {
+    id: root
+
     property int topBarLWidth: 0
     property int topBarCWidth: 0
     property int topBarRWidth: 0
@@ -68,4 +71,31 @@ QtObject {
     }
     
     property string configProvider: "lua"
+    
+    // Watch the JSON file written by the installer
+    property var _providerFile: FileView {
+        id: providerFile
+        path: Quickshell.env("HOME") + "/.config/Brain_Shell/src/user_data/config_Provider.json"
+        watchChanges: true
+        
+        onFileChanged: {
+            reload()
+        }
+        
+        onLoaded: {
+            _parse(providerFile.text())
+        }
+    }
+    
+    function _parse(jsonString) {
+        if (!jsonString || jsonString === "") return;
+        try {
+            let data = JSON.parse(jsonString)
+            if (data.configProvider) {
+                root.configProvider = data.configProvider
+            }
+        } catch (e) {
+            console.error("Brain Shell: Failed to parse config_Provider.json")
+        }
+    }
 }
