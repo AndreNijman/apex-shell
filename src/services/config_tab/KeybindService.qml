@@ -8,10 +8,11 @@ import "../../"
 QtObject {
     id: root
 
-    readonly property string _shellDir: Quickshell.env("HOME") + "/.config/Brain_Shell"
-    readonly property string _luaPath:  _shellDir + "/Brain_ShellKeybinds.lua"
-    readonly property string _confPath: _shellDir + "/Brain_ShellKeybinds.conf"
-    readonly property string _jsonPath: _shellDir + "/src/user_data/keybinds.json"
+    readonly property string _shellDir: Quickshell.shellDir
+    readonly property string _configDir: Quickshell.env("HOME") + "/.config/Brain_Shell"
+    readonly property string _luaPath:  _configDir + "/Brain_ShellKeybinds.lua"
+    readonly property string _confPath: _configDir + "/Brain_ShellKeybinds.conf"
+    readonly property string _jsonPath: _configDir + "/src/user_data/keybinds.json"
     
     property string configProvider: ShellState.configProvider
 
