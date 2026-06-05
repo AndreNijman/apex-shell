@@ -47,7 +47,7 @@
 ### One line installer
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Brainitech/Brain_Shell/refs/heads/feat/Dual_Config_Support/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Brainitech/Brain_Shell/refs/heads/main/install.sh | bash
 ```
 
 ### Manual installation
