@@ -115,6 +115,9 @@ PACMAN_DEPS=(
     # System tools
     "pipewire"
     "pipewire-pulse"
+    "playerctl"
+    "mpv-playerctl"
+    "mpd-playerctl"
     "wireplumber"
     "networkmanager"
     "bluez"

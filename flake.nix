@@ -23,6 +23,9 @@
           pipewire
           pipewire-pulse
           wireplumber
+          playerctl
+          mpv-mpris
+          mpd-mpris
 
           # Network / Bluetooth
           networkmanager
