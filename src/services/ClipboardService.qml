@@ -12,7 +12,7 @@ QtObject {
     property bool loading: false
 
     readonly property string _pinsPath:
-        Quickshell.shellDir + "/src/user_data/clipboard_pins.json"
+        Quickshell.env("HOME") + "/.config/Brain_Shell/src/user_data/clipboard_pins.json"
 
     // ── Pins: load ─────────────────────────────────────────────────────────────
     property var _loadPinsProc: Process {
