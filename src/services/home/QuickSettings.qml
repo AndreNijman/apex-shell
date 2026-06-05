@@ -180,7 +180,7 @@ StatCard {
     property string _hsWifiIface:  "wlan0"
 
     readonly property string _hsCfgPath:
-        Quickshell.shellDir + "/src/user_data/hotspot.json"
+        Quickshell.env("HOME") + "/.config/Brain_Shell/src/user_data/hotspot.json"
 
     // Load config on startup
     Process {
