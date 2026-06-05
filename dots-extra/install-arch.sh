@@ -17,6 +17,8 @@ NC='\033[0m'
 # Parameters from main installer
 HYPRLAND_CONF="$1"
 BACKUP_DIR="$2"
+CONFIG_TYPE="$3"
+REPO_DIR="$HOME/.local/src/Brain_Shell"
 
 # Logging functions
 log_info() {
@@ -116,8 +118,8 @@ PACMAN_DEPS=(
     "pipewire"
     "pipewire-pulse"
     "playerctl"
-    "mpv-playerctl"
-    "mpd-playerctl"
+    "mpv-mpris"
+    "mpd-mpris"
     "wireplumber"
     "networkmanager"
     "bluez"
@@ -218,30 +220,8 @@ log_success "System services configured."
 echo ""
 
 
-# CLONE BRAIN SHELL REPOSITORY
-
-
-log_info "Cloning Brain Shell repository..."
-
-REPO_DIR="$HOME/.local/src"
-mkdir -p "$REPO_DIR"
-
-if [[ -d "$REPO_DIR/Brain_Shell" ]]; then
-    log_warn "Brain Shell repo already exists. Updating..."
-    cd "$REPO_DIR/Brain_Shell"
-    git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true
-else
-    log_info "Cloning from GitHub..."
-    cd "$REPO_DIR"
-    git clone https://github.com/Brainitech/Brain_Shell.git
-fi
-
-log_success "Repository cloned/updated to: $REPO_DIR/Brain_Shell"
-echo ""
-
 
 # UPDATE HYPRLAND CONFIG
-
 
 log_info "Updating Hyprland configuration..."
 
@@ -306,20 +286,19 @@ echo ""
 
 
 # CONFIGURATION SETUP
-
-
-log_info "Setting up configuration directories..."
+log_info "Setting up Brain Shell configuration..."
 
 CONFIG_BRAIN_SHELL="$HOME/.config/Brain_Shell"
-mkdir -p "$CONFIG_BRAIN_SHELL"
+USER_DATA_DIR="$CONFIG_BRAIN_SHELL/src/user_data"
 
-# Create default config directories if they don't exist
+mkdir -p "$CONFIG_BRAIN_SHELL"
 mkdir -p "$HOME/.config/hypr/shaders"
 mkdir -p "$HOME/.config/matugen/templates"
+mkdir -p "$USER_DATA_DIR"
 
-log_success "Configuration directories created."
-echo ""
+echo "{\"configProvider\": \"$CONFIG_TYPE\"}" > "$USER_DATA_DIR/config_Provider.json"
 
+log_success "Configuration directories created and config_Provider.json set."
 
 # COMPLETION MESSAGE
 

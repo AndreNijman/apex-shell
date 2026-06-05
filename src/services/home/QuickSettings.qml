@@ -180,7 +180,7 @@ StatCard {
     property string _hsWifiIface:  "wlan0"
 
     readonly property string _hsCfgPath:
-        Quickshell.shellDir + "/src/user_data/hotspot.json"
+        Quickshell.env("HOME") + "/.config/Brain_Shell/src/user_data/hotspot.json"
 
     // Load config on startup
     Process {
@@ -524,29 +524,36 @@ StatCard {
         var turningOff = (name === "" || name === root.currentFilter)
         root.currentFilter = turningOff ? "" : name
 
-        var damageCmd = ` && hyprctl dispatch 'hl.dsp.dpms({ action = "disable" })' && hyprctl dispatch 'hl.dsp.dpms({ action = "enable" })'`
+        var isLua = ShellState.configProvider === "lua"
+
+        // Handle DPMS toggling based on provider
+        var damageCmd = isLua 
+            ? ` && hyprctl dispatch 'hl.dsp.dpms({ action = "disable" })' && hyprctl dispatch 'hl.dsp.dpms({ action = "enable" })'`
+            : ` && hyprctl dispatch dpms off && hyprctl dispatch dpms on`
 
         if (turningOff) {
-            filterApplyProc.command = ["bash", "-c",
-                "hyprctl eval \"hl.config({ decoration = { screen_shader = '' } })\"" + damageCmd]
+            var offCmd = isLua 
+                ? "hyprctl eval \"hl.config({ decoration = { screen_shader = '' } })\""
+                : "hyprctl keyword decoration:screen_shader '[[EMPTY]]'"
+                
+            filterApplyProc.command = ["bash", "-c", offCmd + damageCmd]
         } else {
             var resolveCmd =
                 "TARGET=$(find " + root.shaderPaths +
                 " -maxdepth 1 -type f \\( -name '" + name + ".glsl' -o -name '" + name + ".frag' \\)" +
                 " 2>/dev/null | head -n 1); "
-            var applyCmd =
-                "if [ -n \"$TARGET\" ]; then" +
-                " hyprctl eval \"hl.config({ decoration = { screen_shader = '$TARGET' } })\"" +
-                damageCmd +
-                "; fi"
+                
+            var onCmd = isLua
+                ? "if [ -n \"$TARGET\" ]; then hyprctl eval \"hl.config({ decoration = { screen_shader = '$TARGET' } })\"" + damageCmd + "; fi"
+                : "if [ -n \"$TARGET\" ]; then hyprctl keyword decoration:screen_shader \"$TARGET\"" + damageCmd + "; fi"
 
-            filterApplyProc.command = ["bash", "-c", resolveCmd + applyCmd]
+            filterApplyProc.command = ["bash", "-c", resolveCmd + onCmd]
+        }
+
+        filterApplyProc.running = false
+        filterApplyProc.running = true
+        root.filterPickerOpen = false
     }
-
-    filterApplyProc.running = false
-    filterApplyProc.running = true
-    root.filterPickerOpen = false
-}
 
     Connections {
         target: WallpaperService
