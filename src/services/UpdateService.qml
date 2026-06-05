@@ -73,8 +73,8 @@ QtObject {
         )
 
     // ── Paths ──────────────────────────────────────────────────────────────
-    readonly property string _dir:        Quickshell.shellDir
-    readonly property string _cfgPath:    Quickshell.shellDir + "/src/user_data/update_prefs.json"
+    readonly property string _dir:        Quickshell.env("HOME") + "/.config/Brain_Shell"
+    readonly property string _cfgPath:    root._dir + "/src/user_data/update_prefs.json"
 
     // ── Startup: 30s delay ─────────────────────────────────────────────────
     property var _startTimer: Timer {

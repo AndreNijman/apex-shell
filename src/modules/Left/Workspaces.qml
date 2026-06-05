@@ -5,6 +5,27 @@ import "../../"
 
 Rectangle {
     id: root
+    
+    // ── Config Provider ────────────────────────────────────────────────
+    property string configProvider: ShellState.configProvider
+    
+    // ── Workspace Dispatch Function ────────────────────────────────────
+    function dispatchWorkspace(wsTarget, isSpecialToggle = false) {
+        if (root.configProvider === "lua") {
+            if (isSpecialToggle) {
+                Hyprland.dispatch(`hl.dsp.workspace.toggle_special("${wsTarget}")`);
+            } else {
+                Hyprland.dispatch(`hl.dsp.focus({ workspace = "${wsTarget}" })`);
+            }
+        } else {
+            // Default to 'conf' (Hyprland IPC style)
+            if (isSpecialToggle) {
+                Hyprland.dispatch(`togglespecialworkspace ${wsTarget}`);
+            } else {
+                Hyprland.dispatch(`workspace ${wsTarget}`);
+            }
+        }
+    }
 
     // --- 1. Capsule Container ---
     color: Theme.wsBackground
@@ -49,7 +70,7 @@ Rectangle {
             }
             
             //Hyprland.dispatch(`workspace ${occupied[idx]}`);
-            Hyprland.dispatch(`hl.dsp.focus({ workspace = "${occupied[idx]}" })`);
+            root.dispatchWorkspace(occupied[idx]);
         }
     }   
     Connections {
@@ -75,7 +96,8 @@ Rectangle {
             }
         }
     }
-
+    
+    
     // --- 3. Workspace Dots ---
     Row {
         id: workspaceRow
@@ -145,7 +167,7 @@ Rectangle {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     //onClicked: Hyprland.dispatch(`workspace ${index + 1}`)
-                    onClicked: Hyprland.dispatch(`hl.dsp.focus({ workspace = "${index + 1}" })`)
+                    onClicked: root.dispatchWorkspace(index + 1)
                 }
             }
         }
@@ -175,7 +197,7 @@ Rectangle {
         MouseArea {
             anchors.fill: parent
             //onClicked: Hyprland.dispatch("togglespecialworkspace magic")
-            onClicked: Hyprland.dispatch('hl.dsp.workspace.toggle_special("magic")')
+            onClicked:  root.dispatchWorkspace("magic", true)
         }
     }
 }

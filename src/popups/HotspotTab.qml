@@ -17,7 +17,7 @@ Item {
     property bool   _dirty:     false   // unsaved changes
 
     readonly property string _cfgPath:
-        Quickshell.shellDir + "/src/user_data/hotspot.json"
+        Quickshell.env("HOME") + "/.config/Brain_Shell/src/user_data/hotspot.json"
 
     // ── Load ──────────────────────────────────────────────────────────────────
     Process {

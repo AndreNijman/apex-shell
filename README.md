@@ -44,13 +44,14 @@
   Installation
 </h2>
 
+### One line installer
 
-### One line installer 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Brainitech/Brain_Shell/refs/heads/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Brainitech/Brain_Shell/refs/heads/feat/Dual_Config_Support/install.sh | bash
 ```
 
 ### Manual installation
+
 ```bash
 git clone https://github.com/Brainitech/Brain_Shell.git
 cd Brain_Shell
@@ -58,6 +59,7 @@ cd Brain_Shell
 ```
 
 The installer automatically:
+
 - ✓ Detects your Linux distribution
 - ✓ Backs up your entire `~/.config`
 - ✓ Installs all required dependencies
@@ -165,6 +167,7 @@ The installer automatically:
 </h2>
 
 ### Current (v0.1.0)
+
 - [x] Core shell framework
 - [x] System monitoring dashboard
 - [x] Keybind editor with live conflict detection
@@ -177,6 +180,7 @@ The installer automatically:
 - [x] Professional installer (Arch/NixOS)
 
 ### Upcoming (Post-v0.1.0)
+
 - [ ] Auto-update mechanism
 - [ ] Additional theme options
 - [ ] App launcher enhancements (pinned/recent)
@@ -197,16 +201,19 @@ The installer automatically:
 ### Devlog 10 Highlights
 
 **Core Additions**
+
 - Keybind Editor with in-shell capture and live conflict detection
 - Dynamic Lua config generation with automatic reload
 - IPC dispatcher integration for keybind execution
 
 **Architecture Updates**
+
 - Hyprland Lua migration (v0.55+ API)
 - Screen recorder backend switched to wf-recorder
 - Shader system decoupled from hyprshade
 
 **Bug Fixes & Polish**
+
 - Fixed notification re-firing on reload
 - Network panel improvements (password visibility toggle, special character handling)
 - Improved dashboard focus management

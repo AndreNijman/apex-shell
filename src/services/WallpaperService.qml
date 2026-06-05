@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import Quickshell
 import Quickshell.Io
 
 // ============================================================
@@ -16,8 +17,7 @@ QtObject {
     id: root
 
     // ── Config path — src/user_data/wallpaper.json (relative to this file) ──────
-    readonly property string configPath: Qt.resolvedUrl("../user_data/wallpaper.json")
-                                            .toString().replace(/^file:\/\//, "")
+    readonly property string configPath: Quickshell.env("HOME") + "/.config/Brain_Shell/src/user_data/wallpaper.json"
 
     // ── State ─────────────────────────────────────────────────────────────────
     property var    wallpapers:   []
