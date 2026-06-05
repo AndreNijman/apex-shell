@@ -296,7 +296,7 @@ mkdir -p "$HOME/.config/hypr/shaders"
 mkdir -p "$HOME/.config/matugen/templates"
 mkdir -p "$USER_DATA_DIR"
 
-echo "{\"configProvider\": \"$CONFIG_TYPE\"}" > "$USER_DATA_DIR/src/config_Provider.json"
+echo "{\"configProvider\": \"$CONFIG_TYPE\"}" > "$USER_DATA_DIR/config_Provider.json"
 
 log_success "Configuration directories created and config_Provider.json set."
 
