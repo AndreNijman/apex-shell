@@ -297,18 +297,31 @@ QtObject {
     }
 
     function _buildCmd() {
-        var ts  = Qt.formatDateTime(new Date(), "yyyyMMdd_HHmmss")
-        root._currentFile = "$HOME/Videos/screen_recordings/" + ts + ".mp4"
-        var cmd = "mkdir -p $HOME/Videos/screen_recordings && " +
-                  "wf-recorder -c libx264rgb" +
-                  " -f " + root._currentFile
-        if (root._pendingGeometry !== "")
-            cmd += " -g '" + root._pendingGeometry + "'"
-        // Use --audio=DEVICE (matches wf-recorder working script convention)
-        if ((root.audioMic || root.audioSystem) && root._resolvedAudioDevice !== "")
-            cmd += " --audio=" + root._resolvedAudioDevice
-        return cmd
-    }
+    var ts  = Qt.formatDateTime(new Date(), "yyyyMMdd_HHmmss")
+    root._currentFile = "$HOME/Videos/screen_recordings/" + ts + ".mp4"
+    
+    var cmd = "mkdir -p $HOME/Videos/screen_recordings && " +
+              "wf-recorder -c libx264" +
+              " -x yuv420p" +
+              " -r 30" +                       // Limit FPS to 30
+              " -p preset=fast" +              // Faster encoding speed
+              " -p crf=26" +                   // Lower quality/smaller size
+              " -p profile=main" +             // Maximum web/Discord compatibility
+              " -p color_range=tv" +           // Fixes washed out blacks/whites
+              " -p colorspace=bt709" +         // Tags the correct HD color matrix
+              " -p color_primaries=bt709" +
+              " -p color_trc=bt709" +
+              " -f " + root._currentFile
+              
+    if (root._pendingGeometry !== "")
+        cmd += " -g '" + root._pendingGeometry + "'"
+        
+    // Use --audio=DEVICE (matches wf-recorder working script convention) [cite: 48]
+    if ((root.audioMic || root.audioSystem) && root._resolvedAudioDevice !== "")
+        cmd += " --audio=" + root._resolvedAudioDevice
+        
+    return cmd
+}
 
     function _launch() {
         _recProc.command = ["bash", "-c", root._buildCmd()]
