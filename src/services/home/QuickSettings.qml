@@ -490,7 +490,7 @@ StatCard {
     property bool   filterPickerOpen: false
     
     // Add your standard shader directories here (space-separated)
-    property string shaderPaths: "~/.config/hypr/shaders ~/.local/share/hypr/shaders /usr/share/hyprshade/shaders"
+    property string shaderPaths: "~/.config/hypr/shaders ~/.local/share/hypr/shaders /usr/share/hyprshade/shaders ~/.local/src/Brain_Shell/src/config/shaders ~/.config/quickshell/src/config/shaders"
 
     // Check process stays exactly the same — it already reads cleanly from Hyprland!
     Process {
