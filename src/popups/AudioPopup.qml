@@ -48,53 +48,6 @@ PopupWindow {
 	implicitWidth:  maxWidth
 	implicitHeight: popupHeight
 	
-	// ── IPC Handle ─────────────────────────────────────────────
-	IpcHandler {
-    	target: "audioOut-toggle"
-    	function toggle() {
-			if(Popups.anyOpen && !Popups.audioOpen) {
-				Popups.closeAll()
-				audioControl.page = "output"
-				Popups.audioOpen = true
-			} else if (Popups.audioOpen && audioControl.page != "output") {
-				audioControl.page = "output"
-			} else {
-				Popups.audioOpen = !Popups.audioOpen
-				audioControl.page = "output"
-			}
-    	}
-    }
-	IpcHandler {
-    	target: "audioMix-toggle"
-    	function toggle() {
-			if(Popups.anyOpen && !Popups.audioOpen) {
-				Popups.closeAll()
-				audioControl.page = "mixer"
-				Popups.audioOpen = true
-			} else if (Popups.audioOpen && audioControl.page != "mixer") {
-				audioControl.page = "mixer"
-			} else {
-				Popups.audioOpen = !Popups.audioOpen
-				audioControl.page = "mixer"
-			}
-    	}
-    }
-	IpcHandler {
-    	target: "audioIn-toggle"
-    	function toggle() {
-			if(Popups.anyOpen && !Popups.audioOpen) {
-				Popups.closeAll()
-				audioControl.page = "input"
-				Popups.audioOpen = true
-			} else if (Popups.audioOpen && audioControl.page != "input") {
-				audioControl.page = "input"
-			} else {
-				Popups.audioOpen = !Popups.audioOpen
-				audioControl.page = "input"
-			}
-    	}
-    }
-
 	PopupSlide {
 		id: slide
 		anchors.fill: parent
@@ -108,7 +61,12 @@ PopupWindow {
 			target: Popups
 			function onAudioOpenChanged() {
 				if (!Popups.audioOpen) audioResetTimer.restart()
+                else audioControl.page = Popups.audioPage
 			}
+
+            function onAudioPageChanged() {
+                audioControl.page = Popups.audioPage
+            }
 		}
 
 		Timer {

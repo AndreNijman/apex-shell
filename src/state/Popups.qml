@@ -15,11 +15,15 @@ QtObject {
     property bool quickOpen: false
     property bool clipboardOpen:     false
 
-    // ── Dashboard — per-page width (px, content only, excluding fw padding) ───
-    property int dashboardPageWidth: 900
+    // ── Dashboard — per-page state ───────────────────────────────────────────
+    property int    dashboardPageWidth: 900
+    property string dashboardPage:      "home"
     
+    // ── Audio popup — per-page state ─────────────────────────────────────────
+    property string audioPage: "output"
+
     // ── Network popup — per-page content (string key) ─────────────────────────
-    property string networkPage: ""
+    property string networkPage: "wifi"
 
     // ── Per-popup trigger hover state ─────────────────────────────────────────
     property bool archMenuTriggerHovered: false

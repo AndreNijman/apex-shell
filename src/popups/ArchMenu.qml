@@ -54,19 +54,6 @@ PopupWindow {
 		height:  sizer.height
 	}
 	
-	// ── IPC Handle ─────────────────────────────────────────────
-	IpcHandler {
-    	target: "PowerMenu-toggle"
-    	function toggle() {
-			if(Popups.anyOpen && !Popups.archMenuOpen) {
-				Popups.closeAll()
-				Popups.archMenuOpen = true
-			} else {
-				Popups.archMenuOpen = !Popups.archMenuOpen
-			}
-    	}
-    }
-
 	PopupSlide {
 		id: slide
 		anchors.fill: parent

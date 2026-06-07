@@ -137,18 +137,6 @@ PanelWindow {
         onTriggered: wallGrid.targetCenterIndex = -1
     }
 
-    IpcHandler {
-        target: "wallpaper-toggle"
-        function toggle() {
-            if (Popups.anyOpen && !Popups.wallpaperOpen) {
-                Popups.closeAll()
-                Popups.wallpaperOpen = true
-            } else {
-                Popups.wallpaperOpen = !Popups.wallpaperOpen
-            }
-        }
-    }
-
     MouseArea {
         anchors.fill: parent
         onClicked:    Popups.wallpaperOpen = false
