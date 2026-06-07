@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "../"
 
 // ============================================================
 // WallpaperService — wallpaper list + apply pipeline
@@ -17,7 +18,8 @@ QtObject {
     id: root
 
     // ── Config path — src/user_data/wallpaper.json (relative to this file) ──────
-    readonly property string configPath: Quickshell.env("HOME") + "/.config/Brain_Shell/src/user_data/wallpaper.json"
+    readonly property string configPath: Qt.resolvedUrl("../user_data/wallpaper.json")
+                                            .toString().replace(/^file:\/\//, "")
 
     // ── State ─────────────────────────────────────────────────────────────────
     property var    wallpapers:   []
@@ -112,19 +114,51 @@ QtObject {
             "&& (if [[ \"" + path + "\" == *.gif ]]; then " +
             "rm -f ~/.curr_wall_static.jpg; magick \"" + path + "[0]\" ~/.curr_wall_static.jpg || true; " +
             "else ln -sf \"" + path + "\" ~/.curr_wall_static.jpg; fi) " +
-            "&& matugen image \"$(readlink -f ~/.curr_wall)\" --source-color-index 0 --type scheme-" + root.scheme
+            "&& matugen image \"$(readlink -f ~/.curr_wall_static.jpg)\" -c \"" + Quickshell.shellDir + "/src/config/matugen.toml\" --source-color-index 0 --type scheme-" + root.scheme + " " +
+            "&& matugen image \"$(readlink -f ~/.curr_wall)\" --source-color-index 0 --type scheme-" + root.scheme + " || true"
         ]
         applyProc.running = true
     }
-
-    property var applyProc: Process {
+    
+    property Process applyProc: Process {
         onExited: function(exitCode, exitStatus) {
             root.applying = false
             if (exitCode === 0) {
                 root.wallpaperApplied(root.currentWall)
                 root.saveConfig()
+
+                // Trigger border update after wallpaper application finishes
+                updateBorders()
             }
         }
+    }
+
+    // New function to update borders based on config provider
+    function updateBorders() {
+        // Strip '#' from the colors (assuming QML hex format #RRGGBB)
+        let primary = String(Theme.active).replace('#', '')
+        
+
+        // Build command based on config provider
+        if (ShellState.configProvider === "lua") {
+            // Using hl.config with RGB strings in Lua
+            borderUpdateProc.command = [
+                "bash", "-c",
+                "hyprctl eval 'hl.config({ general = { [\"col.active_border\"] = { colors = { \"rgb(" + primary + ")\" } } } })'"
+            ]
+        } else {
+            // Using hyprctl keyword for .conf
+            borderUpdateProc.command = [
+                "bash", "-c",
+                "hyprctl keyword general:col.active_border \"rgb(" + primary + ")"
+            ]
+        }
+        
+        borderUpdateProc.running = true
+    }
+
+    property Process borderUpdateProc: Process {
+        command: []
     }
 
     // Read config first (sets currentWall/wallpaperDir/scheme), then refresh()

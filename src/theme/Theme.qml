@@ -3,79 +3,65 @@ import QtQuick
 import "."
 
 QtObject {
-    // ── Color loader — watches matugen output and updates live ────────────────
-    property var _loader: ColorLoader { id: loader }
+    // ── Bindings to Modular Singletons ────────────────────────────────────────
+    // Note: property alias cannot point to other singletons, so we use direct bindings.
+    
+    // Colors
+    property color background: Colors.background
+    property color active:     Colors.active
+    property color text:       Colors.text
+    property color subtext:    Colors.subtext
+    property color icon:       Colors.icon
+    property color border:     Colors.border
+    property color iconFont:   Colors.iconFont
 
-    // ── Colors — bound to loader, update automatically when matugen runs ──────
-    property color background: loader.background
-    property color active:     loader.active
-    property color text:       loader.text
-    property color subtext:    loader.subtext
-    property color icon:       loader.icon
-    property color border:     loader.border
-    property color iconFont:   loader.iconFont
+    property color wsBackground: Colors.wsBackground
+    property color wsActive:     Colors.wsActive
+    property color wsOccupied:   Colors.wsOccupied
+    property color wsEmpty:      Colors.wsEmpty
+    property color wsOverlay:    Colors.wsOverlay
+    property color wsUrgent:     Colors.wsUrgent
 
-    // --- Workspace Visuals ---
-    property color wsBackground: "#20000000"
-    property color wsActive:     "#FFFFFF"
-    property color wsOccupied:   "#80FFFFFF"
-    property color wsEmpty:      "#30FFFFFF"
-    property color wsOverlay:    "#CC1e1e2e"
-    property color wsUrgent:     "#fa6b94"
+    // Metrics
+    property bool barEnabled: Metrics.barEnabled
+    
+    property int borderWidth:   Metrics.borderWidth
+    property int cornerRadius:  Metrics.cornerRadius
+    property int notchRadius:   Metrics.notchRadius
+    property int notchHeight:   Metrics.notchHeight
+    property int exclusionGap:  Metrics.exclusionGap
+    property int spacing:       Metrics.spacing
 
-    // --Bar Toggle--
-    property bool barEnabled: false
+    property int notchPadding:           Metrics.notchPadding
+    property int notchHorizontalPadding: Metrics.notchHorizontalPadding
+    property int notchVerticalPadding:   Metrics.notchVerticalPadding
+    property int notchSideMargin:        Metrics.notchSideMargin
 
-    // -- Bar Sizes --
-    property int borderWidth:   6
-    property int cornerRadius:  17
-    property int notchRadius:   15
-    property int notchHeight:   40
-    property int exclusionGap:  34
-    property int spacing:       10
+    property int lNotchMinWidth: Metrics.lNotchMinWidth
+    property int lNotchMaxWidth: Metrics.lNotchMaxWidth
+    property int cNotchMinWidth: Metrics.cNotchMinWidth
+    property int cNotchMaxWidth: Metrics.cNotchMaxWidth
+    property int rNotchMinWidth: Metrics.rNotchMinWidth
+    property int rNotchMaxWidth: Metrics.rNotchMaxWidth
 
-    // -- Notch Content Padding --
-    // Space added around the content inside each notch
-    property int notchPadding:           16   // horizontal padding each side
-    property int notchHorizontalPadding: 20
-    property int notchVerticalPadding:   10
-    property int notchSideMargin:        10
+    property int dashboardWidth:  Metrics.dashboardWidth
+    property int dashboardHeight: Metrics.dashboardHeight
 
-    // -- Notch Width Constraints --
-    // Each notch sizes itself to its content, clamped between min and max.
-    property int lNotchMinWidth: 180
-    property int lNotchMaxWidth: 360
+    property int notificationsWidth: Metrics.notificationsWidth
+    property int notificationToastWidth: Metrics.notificationToastWidth
+    property int networkPopupWidth:  Metrics.networkPopupWidth
 
-    property int cNotchMinWidth: 300
-    property int cNotchMaxWidth: 360
+    property int popupMinWidth:   Metrics.popupMinWidth
+    property int popupMaxWidth:   Metrics.popupMaxWidth
+    property int popupMinHeight:   Metrics.popupMinHeight
+    property int popupMaxHeight:  Metrics.popupMaxHeight
+    property int popupPadding:     Metrics.popupPadding
 
-    property int rNotchMinWidth: 200
-    property int rNotchMaxWidth: 360
+    property int wsDotSize:     Metrics.wsDotSize
+    property int wsActiveWidth: Metrics.wsActiveWidth
+    property int wsSpacing:     Metrics.wsSpacing
+    property int wsPadding:     Metrics.wsPadding
+    property int wsRadius:      Metrics.wsRadius
 
-    // -- Dashboard Dimensions --
-    // Target size the center notch expands to when the dashboard is open.
-    property int dashboardWidth:  900
-    property int dashboardHeight: 520
-
-    // -- Notifications Popup Width --
-    property int notificationsWidth: 400
-    property int notificationToastWidth: notificationsWidth / 1.2
-    property int networkPopupWidth:  480
-
-    // -- Popup Size Constraints --
-    property int popupMinWidth:   160
-    property int popupMaxWidth:   420
-    property int popupMinHeight:   80
-    property int popupMaxHeight:  520
-    property int popupPadding:     16
-
-    // -- Workspace Dot Sizes --
-    property int wsDotSize:     10
-    property int wsActiveWidth: 24
-    property int wsSpacing:     6
-    property int wsPadding:     8
-    property int wsRadius:      16
-
-    // -- Animations --
-    property int animDuration: 320
+    property int animDuration: Metrics.animDuration
 }
