@@ -65,19 +65,6 @@ PopupWindow {
         onTriggered: root.windowVisible = false
     }
     
-    // ── IPC Handle ─────────────────────────────────────────────
-	IpcHandler {
-    	target: "notification-toggle"
-        function toggle() {
-            if(Popups.anyOpen && !Popups.notificationsOpen) {
-                Popups.closeAll()
-                Popups.notificationsOpen = true
-            } else {
-                Popups.notificationsOpen = !Popups.notificationsOpen
-            }
-        }
-    }
-
     // ── Sizer ─────────────────────────────────────────────────
     // Anchored top-right so it grows leftward + downward from
     // the right notch — mirroring how Dashboard grows from center.

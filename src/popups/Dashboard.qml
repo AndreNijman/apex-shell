@@ -25,7 +25,7 @@ PanelWindow {
     readonly property int fh: Theme.notchRadius
     readonly property int animDuration: Theme.animDuration
 
-    property string page: "home"
+    property string page: Popups.dashboardPage
 
     // ── Per-page content widths ───────────────────────────────────────────────
     readonly property var _pageWidths: ({
@@ -70,96 +70,12 @@ PanelWindow {
                 closeTimer.restart()
             }
         }
-    }
-    
-    // ── IPC handlers for external toggle requests ─────────────────────────────
-    IpcHandler {
-        target: "dashboard-home"
-        function toggle() {
-            if(Popups.anyOpen && !Popups.dashboardOpen){
-                Popups.closeAll()
-                Popups.dashboardOpen = true
-                root.page = "home"
-            } else if(Popups.dashboardOpen && root.page != "home") {
-                root.page = "home"
-            } else if(Popups.dashboardOpen && root.page == "home") {
-                Popups.dashboardOpen = false
-            } else {
-                Popups.dashboardOpen = !Popups.dashboardOpen
-                root.page = "home"
-            }
-        }
-    }
-    IpcHandler {
-        target: "dashboard-stats"
-        function toggle() {
-            if(Popups.anyOpen && !Popups.dashboardOpen){
-                Popups.closeAll()
-                Popups.dashboardOpen = true
-                root.page = "stats"
-            } else if(Popups.dashboardOpen && root.page != "stats") {
-                root.page = "stats"
-            } else if(Popups.dashboardOpen && root.page == "stats") {
-                Popups.dashboardOpen = false
-            } else {
-                Popups.dashboardOpen = !Popups.dashboardOpen
-                root.page = "stats"
-            }
-        }
-    }
-    IpcHandler {
-        target: "dashboard-kanban"
-        function toggle() {
-            if(Popups.anyOpen && !Popups.dashboardOpen){
-                Popups.closeAll()
-                Popups.dashboardOpen = true
-                root.page = "kanban"
-            } else if(Popups.dashboardOpen && root.page != "kanban") {
-                root.page = "kanban"
-            } else if(Popups.dashboardOpen && root.page == "kanban") {
-                Popups.dashboardOpen = false
-            } else {
-                Popups.dashboardOpen = !Popups.dashboardOpen
-                root.page = "kanban"
-            }
-        }
-    }
-    IpcHandler {
-        target: "dashboard-launcher"
-        function toggle() {
-            if(Popups.anyOpen && !Popups.dashboardOpen){
-                Popups.closeAll()
-                Popups.dashboardOpen = true
-                root.page = "launcher"
-            } else if(Popups.dashboardOpen && root.page != "launcher") {
-                root.page = "launcher"
-            } else if(Popups.dashboardOpen && root.page == "launcher") {
-                Popups.dashboardOpen = false
-            } else {
-                Popups.dashboardOpen = !Popups.dashboardOpen
-                root.page = "launcher"
-            }
-        }
-    }
-    IpcHandler {
-        target: "dashboard-config"
-        function toggle() {
-            if(Popups.anyOpen && !Popups.dashboardOpen){
-                Popups.closeAll()
-                Popups.dashboardOpen = true
-                root.page = "config"
-            } else if(Popups.dashboardOpen && root.page != "config") {
-                root.page = "config"
-            } else if(Popups.dashboardOpen && root.page == "config") {
-                Popups.dashboardOpen = false
-            } else {
-                Popups.dashboardOpen = !Popups.dashboardOpen
-                root.page = "config"
-            }
-        }
-    }
-    
 
+        function onDashboardPageChanged() {
+            root.page = Popups.dashboardPage
+        }
+    }
+    
     Timer {
         id: closeTimer
         interval: root.animDuration + 20
@@ -243,7 +159,7 @@ PanelWindow {
                         { key: "launcher", icon: "󱓞", label: "Apps"   },
                         { key: "config",   icon: "󰒓", label: "Config" },
                     ]
-                    onPageChanged: function(key) { root.page = key }
+                    onPageChanged: function(key) { Popups.dashboardPage = key }
                 }
 
                 // ── Page area ─────────────────────────────────────────────────
