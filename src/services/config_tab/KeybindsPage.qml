@@ -210,6 +210,7 @@ Item {
         // Derived from service + pending
         readonly property var    _b:         KeybindService.keybinds[action]
         readonly property var    _def:       KeybindService._defaults[action]
+        readonly property bool _isUnbound: br._pillText === "Unbound"
         readonly property bool   _isPending: br.pendingCombo !== null && br.pendingCombo !== undefined
         readonly property bool   _isDefault: {
             if (!br._def) return true
@@ -354,7 +355,7 @@ Item {
                 anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                 text:           br._b ? br._b.label : br.action
                 font.pixelSize: 12
-                color:          br._savedDupe ? "#f87171" : Qt.rgba(1, 1, 1, 0.68)
+                color:          br._savedDupe ? "#f87171" : (br._isUnbound ? Qt.rgba(1, 1, 1, 0.35) : Qt.rgba(1, 1, 1, 0.68))
                 Behavior on color { ColorAnimation { duration: 120 } }
             }
 
@@ -421,14 +422,23 @@ Item {
                 Rectangle {
                     height: 24; radius: 6
                     width:  _pillT.implicitWidth + 18
-                    color: (_pillH.hovered && br._interactive)
-                        ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
-                        : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08)
-                    border.color: br._isPending
-                        ? Qt.rgba(1.0, 0.74, 0.22, 0.55)
-                        : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.24)
+                    
+                    color: br._isUnbound
+                        ? Qt.rgba(1, 1, 1, 0.04)
+                        : ((_pillH.hovered && br._interactive)
+                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
+                            : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08))
+                            
+                    border.color: br._isUnbound
+                        ? Qt.rgba(1, 1, 1, 0.1)
+                        : (br._isPending
+                            ? Qt.rgba(1.0, 0.74, 0.22, 0.55)
+                            : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.24))
+                            
                     border.width: 1
-                    opacity: br._interactive ? 1.0 : 0.4
+                    
+                    opacity: br._interactive ? (br._isUnbound ? 0.7 : 1.0) : 0.4
+                    
                     Behavior on color        { ColorAnimation { duration: 100 } }
                     Behavior on border.color { ColorAnimation { duration: 150 } }
                     Behavior on opacity      { NumberAnimation { duration: 120 } }
@@ -438,7 +448,12 @@ Item {
                         anchors.centerIn: parent
                         text:           br._pillText
                         font.pixelSize: 10; font.family: "JetBrains Mono"
-                        color: br._isPending ? Qt.rgba(1.0, 0.74, 0.22, 1.0) : Theme.active
+                        font.italic:    br._isUnbound 
+                        
+                        color: br._isUnbound 
+                            ? Qt.rgba(1, 1, 1, 0.45) 
+                            : (br._isPending ? Qt.rgba(1.0, 0.74, 0.22, 1.0) : Theme.active)
+                            
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
                     HoverHandler { id: _pillH; cursorShape: br._interactive ? Qt.PointingHandCursor : Qt.ArrowCursor }
