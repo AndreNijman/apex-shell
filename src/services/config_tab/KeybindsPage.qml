@@ -32,10 +32,17 @@ Item {
         _pending = copy
     }
 
-    function _applyPending() {
+	function _applyPending() {
         var ks = Object.keys(_pending)
-        for (var i = 0; i < ks.length; i++)
-            KeybindService.updateBinding(ks[i], _pending[ks[i]].mods, _pending[ks[i]].key)
+        for (var i = 0; i < ks.length; i++) {
+            var m = _pending[ks[i]].mods
+            var k = _pending[ks[i]].key
+            if (m === "" && k === "") {
+                KeybindService.unbindBinding(ks[i])
+            } else {
+                KeybindService.updateBinding(ks[i], m, k)
+            }
+        }
         _pending = {}
         KeybindService.saveAndReload()
     }
@@ -210,14 +217,19 @@ Item {
             var k = br._isPending ? br.pendingCombo.key  : (br._b ? br._b.key  : "")
             return m === br._def.mods && k === br._def.key
         }
-        readonly property string _bindText: br._b
-            ? (br._b.mods ? br._b.mods + " + " + br._b.key : br._b.key) : "..."
+        readonly property string _bindText: {
+            if (!br._b || br._b.key === "") return "Unbound"
+            return br._b.mods ? br._b.mods + " + " + br._b.key : br._b.key
+        }
         // Show pending value in the pill when set
-        readonly property string _pillText: br._isPending
-            ? (br.pendingCombo.mods ? br.pendingCombo.mods + " + " + br.pendingCombo.key
-                                    : br.pendingCombo.key)
-            : br._bindText
-        readonly property bool   _savedDupe: KeybindService.isDuplicate(action)
+        readonly property string _pillText: {
+            if (br._isPending) {
+                if (br.pendingCombo.key === "") return "Unbound"
+                return br.pendingCombo.mods ? br.pendingCombo.mods + " + " + br.pendingCombo.key : br.pendingCombo.key
+            }
+            return br._bindText
+		}
+		readonly property bool   _savedDupe: KeybindService.isDuplicate(action)
 
         readonly property bool _interactive: root._capturing === "" || br.isCapturing
 
@@ -357,6 +369,24 @@ Item {
                     text:           "⚠ " + KeybindService.conflictsWith(br.action)
                     font.pixelSize: 9
                     color:          Qt.rgba(248/255, 113/255, 113/255, 0.75)
+                }
+
+				// Clear bind
+                Rectangle {
+                    visible: br._pillText !== "Unbound"
+                    width: 22; height: 22; radius: 6
+                    color: _clrH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
+                    Behavior on color { ColorAnimation { duration: 100 } }
+                    Text { anchors.centerIn: parent; text: "󰩺"; font.pixelSize: 11
+                        color: _clrH.hovered ? "#ff4444" : Qt.rgba(1,1,1,0.28) }
+                    HoverHandler { id: _clrH; cursorShape: Qt.PointingHandCursor }
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: br._interactive
+                        onClicked: {
+                            root._addPending(br.action, "", "")
+                        }
+                    }
                 }
 
                 // Reset to default

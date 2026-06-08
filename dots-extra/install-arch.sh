@@ -284,6 +284,88 @@ fi
 
 echo ""
 
+# ==============================================================================
+# KEYBIND CONFLICT DETECTION
+# ==============================================================================
+log_info "Checking for Hyprland keybind conflicts..."
+
+python3 << 'EOF'
+import subprocess, json, os
+
+# Brain Shell's exact defaults
+defaults = {
+    "dashboard-home": {"mods": "SUPER", "key": "D", "label": "Dashboard: System"},
+    "dashboard-stats": {"mods": "CTRL + SHIFT", "key": "ESCAPE", "label": "Dashboard: Home"},
+    "dashboard-kanban": {"mods": "SUPER", "key": "Z", "label": "Dashboard: Tasks"},
+    "dashboard-launcher": {"mods": "SUPER", "key": "Q", "label": "Dashboard: Apps"},
+    "dashboard-config": {"mods": "SUPER", "key": "C", "label": "Dashboard: Config"},
+    "PowerMenu-toggle": {"mods": "SUPER", "key": "ESCAPE", "label": "Arch Menu"},
+    "notification-toggle": {"mods": "SUPER", "key": "N", "label": "Notifications"},
+    "wallpaper-toggle": {"mods": "SUPER", "key": "W", "label": "Wallpaper"},
+    "clipboard-toggle": {"mods": "SUPER", "key": "V", "label": "Clipboard"},
+    "wifi-toggle": {"mods": "SUPER + ALT", "key": "W", "label": "Network: Wi-Fi"},
+    "bluetooth-toggle": {"mods": "SUPER + ALT", "key": "B", "label": "Network: Bluetooth"},
+    "vpn-toggle": {"mods": "SUPER + ALT", "key": "G", "label": "Network: VPN"},
+    "hotspot-toggle": {"mods": "SUPER + ALT", "key": "H", "label": "Network: Hotspot"},
+    "audioOut-toggle": {"mods": "SUPER", "key": "A", "label": "Audio: Output"},
+    "audioIn-toggle": {"mods": "SUPER + ALT", "key": "I", "label": "Audio: Input"},
+    "audioMix-toggle": {"mods": "SUPER", "key": "M", "label": "Audio: Mixer"},
+    "focus-toggle": {"mods": "SUPER", "key": "B", "label": "Focus Mode"},
+    "screenrec-on": {"mods": "ALT", "key": "F9", "label": "Screen Record"}
+}
+
+def mods_to_mask(mods_str):
+    mask = 0
+    parts = [p.strip().upper() for p in mods_str.split('+')]
+    if "SUPER" in parts: mask |= 64
+    if "SHIFT" in parts: mask |= 1
+    if "CTRL" in parts: mask |= 4
+    if "ALT" in parts: mask |= 8
+    return mask
+
+try:
+    hypr_binds_json = subprocess.check_output(["hyprctl", "binds", "-j"], stderr=subprocess.DEVNULL).decode('utf-8')
+    hypr_binds = json.loads(hypr_binds_json)
+except Exception:
+    print("\033[1;33m[WARN]\033[0m Could not connect to Hyprland. Skipping conflict check.")
+    exit(0)
+
+conflicts_found = False
+unbound_config = {}
+
+for action, data in defaults.items():
+    mask = mods_to_mask(data["mods"])
+    key = data["key"].lower()
+    
+    for hb in hypr_binds:
+        if hb.get("submap", "") != "": continue
+        if hb.get("mouse"): continue
+        
+        # Match modifier mask and exact key
+        if hb.get("modmask") == mask and str(hb.get("key", "")).lower() == key:
+            if not conflicts_found:
+                print("\n\033[0;31m[!] KEYBIND CONFLICTS DETECTED\033[0m")
+                print("The following Brain Shell defaults conflict with your active Hyprland configuration:")
+                conflicts_found = True
+            
+            desc = hb.get("dispatcher", "") + (" " + hb.get("arg", "") if hb.get("arg") else "")
+            print(f"  - {data['mods']} + {data['key']} ({data['label']}) -> Used by: {desc}")
+            
+            # Queue this bind to be explicitly wiped
+            unbound_config[action] = {"mods": "", "key": ""}
+            break
+
+if conflicts_found:
+    config_path = os.path.expanduser("~/.config/Brain_Shell/src/user_data/keybinds.json")
+    
+    with open(config_path, 'w') as f:
+        json.dump(unbound_config, f, indent=2)
+        
+    print("\n\033[1;33m[ACTION TAKEN]\033[0m These conflicting binds have been left unbound in Brain Shell.")
+    print("You can manually assign them a new key combination in the Dashboard > Config tab later.\n")
+else:
+    print("\033[0;32m[✓]\033[0m No keybind conflicts detected.")
+EOF
 
 # CONFIGURATION SETUP
 log_info "Setting up Brain Shell configuration..."
