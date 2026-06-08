@@ -18,8 +18,7 @@ QtObject {
     id: root
 
     // ── Config path — src/user_data/wallpaper.json (relative to this file) ──────
-    readonly property string configPath: Qt.resolvedUrl("../user_data/wallpaper.json")
-                                            .toString().replace(/^file:\/\//, "")
+	readonly property string configPath: Quickshell.env("HOME") + "/.config/Brain_Shell/src/user_data/wallpaper.json"
 
     // ── State ─────────────────────────────────────────────────────────────────
     property var    wallpapers:   []
@@ -115,7 +114,7 @@ QtObject {
             "rm -f ~/.curr_wall_static.jpg; magick \"" + path + "[0]\" ~/.curr_wall_static.jpg || true; " +
             "else ln -sf \"" + path + "\" ~/.curr_wall_static.jpg; fi) " +
             "&& matugen image \"$(readlink -f ~/.curr_wall_static.jpg)\" -c \"" + Quickshell.shellDir + "/src/config/matugen.toml\" --source-color-index 0 --type scheme-" + root.scheme + " " +
-            "&& matugen image \"$(readlink -f ~/.curr_wall)\" --source-color-index 0 --type scheme-" + root.scheme + " || true"
+            "&& matugen image \"$(readlink -f ~/.curr_wall_static.jpg)\" --source-color-index 0 --type scheme-" + root.scheme + " || true"
         ]
         applyProc.running = true
     }
