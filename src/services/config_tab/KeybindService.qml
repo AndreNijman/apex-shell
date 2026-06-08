@@ -248,6 +248,18 @@ QtObject {
         saveAndReload()
     }
 
+	// Allows the UI to explicitly unbind an action (or preserve installer unbinds)
+    function unbindBinding(action) {
+        var old = root.keybinds[action]
+        if (!old) return
+        
+        var copy = Object.assign({}, root.keybinds)
+        copy[action] = { mods: "", key: "", label: old.label, group: old.group }
+        root.keybinds = copy
+        
+        saveAndReload()
+    }
+
     // ── File generation ───────────────────────────────────────────────────────
     property var _writeProc: Process { command: []; running: false }
 
