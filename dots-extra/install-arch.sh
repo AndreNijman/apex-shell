@@ -239,8 +239,8 @@ if [[ -f "$HYPRLAND_CONF" ]]; then
         cat << 'EOF' >> "$HYPRLAND_CONF"
 
 # Brain Shell Autostarts
-exec-once = hypridle
 exec-once = awww-daemon
+exec-once = hypridle -c $HOME/.local/src/Brain_Shell/src/config/hypridle.conf
 exec-once = quickshell -c $HOME/.local/src/Brain_Shell/.
 exec-once = systemctl --user start hyprpolkitagent
 exec-once = wl-paste --type text --watch cliphist store
@@ -269,8 +269,8 @@ if [[ -f "$HYPRLAND_LUA" ]]; then
 
 -- Brain Shell Autostarts
 hl.on("hyprland.start", function()
-    hl.exec_cmd("hypridle")
     hl.exec_cmd("awww-daemon")
+    hl.exec_cmd("hypridle -c " .. os.getenv("HOME") .. "/.local/src/Brain_Shell/src/config/hypridle.conf")
     hl.exec_cmd("quickshell -c " .. os.getenv("HOME") .. "/.local/src/Brain_Shell")
     hl.exec_cmd("systemctl --user start hyprpolkitagent")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
@@ -295,6 +295,9 @@ mkdir -p "$CONFIG_BRAIN_SHELL"
 mkdir -p "$HOME/.config/hypr/shaders"
 mkdir -p "$HOME/.config/matugen/templates"
 mkdir -p "$USER_DATA_DIR"
+mkdir -p "$HOME/.config/hypr"
+
+cp -n "$HOME/.local/src/Brain_Shell/src/config/hypridle.conf" "$HOME/.config/hypr/"
 
 echo "{\"configProvider\": \"$CONFIG_TYPE\"}" > "$USER_DATA_DIR/config_Provider.json"
 

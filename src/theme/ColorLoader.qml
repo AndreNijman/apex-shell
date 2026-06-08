@@ -2,7 +2,7 @@ import QtQuick
 import Quickshell.Io
 
 // ============================================================
-// ColorLoader — watches ~/.cache/brain-shell/colors.json
+// ColorsLoader — watches ~/.cache/brain-shell/colors.json
 // and exposes parsed color properties.
 //
 // Not a singleton. Instantiated as a property inside Theme.qml.
