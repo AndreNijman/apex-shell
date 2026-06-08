@@ -284,6 +284,26 @@ fi
 
 echo ""
 
+# CONFIGURATION SETUP
+log_info "Setting up Brain Shell configuration..."
+
+CONFIG_BRAIN_SHELL="$HOME/.config/Brain_Shell"
+USER_DATA_DIR="$CONFIG_BRAIN_SHELL/src/user_data"
+
+mkdir -p "$CONFIG_BRAIN_SHELL"
+mkdir -p "$HOME/.config/hypr/shaders"
+mkdir -p "$HOME/.config/matugen/templates"
+mkdir -p "$USER_DATA_DIR"
+mkdir -p "$HOME/.config/hypr"
+
+cp -n "$HOME/.local/src/Brain_Shell/src/config/hypridle.conf" "$HOME/.config/hypr/"
+
+echo "{\"configProvider\": \"$CONFIG_TYPE\"}" > "$USER_DATA_DIR/config_Provider.json"
+echo "{}" > "$USER_DATA_DIR/keybinds.json"
+
+log_success "Configuration directories created and config_Provider.json set."
+
+
 # ==============================================================================
 # KEYBIND CONFLICT DETECTION
 # ==============================================================================
@@ -366,24 +386,6 @@ if conflicts_found:
 else:
     print("\033[0;32m[✓]\033[0m No keybind conflicts detected.")
 EOF
-
-# CONFIGURATION SETUP
-log_info "Setting up Brain Shell configuration..."
-
-CONFIG_BRAIN_SHELL="$HOME/.config/Brain_Shell"
-USER_DATA_DIR="$CONFIG_BRAIN_SHELL/src/user_data"
-
-mkdir -p "$CONFIG_BRAIN_SHELL"
-mkdir -p "$HOME/.config/hypr/shaders"
-mkdir -p "$HOME/.config/matugen/templates"
-mkdir -p "$USER_DATA_DIR"
-mkdir -p "$HOME/.config/hypr"
-
-cp -n "$HOME/.local/src/Brain_Shell/src/config/hypridle.conf" "$HOME/.config/hypr/"
-
-echo "{\"configProvider\": \"$CONFIG_TYPE\"}" > "$USER_DATA_DIR/config_Provider.json"
-
-log_success "Configuration directories created and config_Provider.json set."
 
 # COMPLETION MESSAGE
 
