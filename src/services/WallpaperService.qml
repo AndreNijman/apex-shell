@@ -150,7 +150,7 @@ QtObject {
             // Using hyprctl keyword for .conf
             borderUpdateProc.command = [
                 "bash", "-c",
-                "hyprctl keyword general:col.active_border \"rgb(" + primary + ")"
+                "hyprctl keyword general:col.active_border \"rgb(" + primary + ")\""
             ]
         }
         

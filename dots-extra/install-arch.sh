@@ -295,6 +295,9 @@ mkdir -p "$CONFIG_BRAIN_SHELL"
 mkdir -p "$HOME/.config/hypr/shaders"
 mkdir -p "$HOME/.config/matugen/templates"
 mkdir -p "$USER_DATA_DIR"
+mkdir -p "$HOME/.config/hypr"
+
+cp -n "$HOME/.local/src/Brain_Shell/src/config/hypridle.conf" "$HOME/.config/hypr/"
 
 echo "{\"configProvider\": \"$CONFIG_TYPE\"}" > "$USER_DATA_DIR/config_Provider.json"
 
