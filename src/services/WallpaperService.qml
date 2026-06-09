@@ -79,7 +79,7 @@ QtObject {
                 } catch(e) {}
             }
             if (root.currentWall === "") {
-                var defaultWall = Quickshell.shellDir + "/src/assets/wallpapers/brain_shell_default-0.png"
+                var defaultWall = Quickshell.shellDir + "/src/assets/wallpapers/brain-shell-default-0.png"
                 root.apply(defaultWall)
             }
             root.refresh()
