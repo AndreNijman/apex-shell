@@ -58,19 +58,6 @@ PanelWindow {
                 root.windowVisible = false
         }
     }
-
-    // ── IPC Handle ─────────────────────────────────────────────
-	IpcHandler {
-    	target: "clipboard-toggle"
-    	function toggle() {
-            if(Popups.anyOpen && !Popups.clipboardOpen) {
-                Popups.closeAll()
-                Popups.clipboardOpen = true
-            } else {
-                Popups.clipboardOpen = !Popups.clipboardOpen
-            }
-        }
-    }
     
     Item {
         id: sizer

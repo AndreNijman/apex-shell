@@ -35,8 +35,7 @@ QtObject {
         var json = JSON.stringify(root.pinned)
         _savePinsProc.command = ["bash", "-c",
             "mkdir -p \"$(dirname '" + root._pinsPath + "')\" && " +
-            "printf '%s' '" + json.replace(/\\/g, "\\\\").replace(/'/g, "'\\''") +
-            "' > '" + root._pinsPath + "'"]
+            "printf '%s' '" + json.replace(/'/g, "'\\''") + "' > '" + root._pinsPath + "'"]
         _savePinsProc.running = false
         _savePinsProc.running = true
     }
@@ -129,8 +128,8 @@ QtObject {
     // - id:        cliphist row ID at pin time (used for deleteEntry; may be stale after wipe)
     // - timestamp: epoch ms
 
-    property string _pendingPinId:      ""
-    property string _pendingPinPreview: ""
+    property var  _pinQueue: []
+    property bool _isDecodingPin: false
 
     property var _decodeProc: Process {
         command: []
@@ -138,28 +137,41 @@ QtObject {
         stdout: StdioCollector {
             onStreamFinished: {
                 var decoded = text.trim()
-                if (decoded === "" || root._pendingPinId === "") return
-                // Deduplicate by decoded text
-                var list = root.pinned.filter(function(p) { return p.text !== decoded })
-                list.unshift({
-                    text:      decoded,
-                    preview:   root._pendingPinPreview,
-                    id:        root._pendingPinId,
-                    timestamp: new Date().getTime()
-                })
-                root.pinned             = list
-                root._pendingPinId      = ""
-                root._pendingPinPreview = ""
-                root._savePins()
+                if (decoded !== "" && root._pinQueue.length > 0) {
+                    var currentItem = root._pinQueue[0]
+                    var list = root.pinned.filter(function(p) { return p.text !== decoded })
+                    list.unshift({
+                        text:      decoded,
+                        preview:   currentItem.preview,
+                        id:        currentItem.id,
+                        timestamp: new Date().getTime()
+                    })
+                    root.pinned = list
+                    root._savePins()
+                }
+
+                if (root._pinQueue.length > 0) {
+                    root._pinQueue.shift()
+                }
+
+                root._isDecodingPin = false
+                root._processNextPin()
             }
         }
     }
 
-    // pinEntry: id = cliphist row id, preview = the preview string shown in the list
     function pinEntry(id, preview) {
-        root._pendingPinId      = id
-        root._pendingPinPreview = preview
-        _decodeProc.command = ["bash", "-c", "cliphist decode '" + id + "' 2>/dev/null"]
+        root._pinQueue.push({ id: id, preview: preview })
+        root._processNextPin()
+    }
+
+    function _processNextPin() {
+        if (root._isDecodingPin || root._pinQueue.length === 0) return
+
+        root._isDecodingPin = true
+        var nextItem = root._pinQueue[0]
+
+        _decodeProc.command = ["bash", "-c", "cliphist decode '" + nextItem.id + "' 2>/dev/null"]
         _decodeProc.running = false
         _decodeProc.running = true
     }
@@ -169,21 +181,6 @@ QtObject {
         list.splice(index, 1)
         root.pinned = list
         root._savePins()
-    }
-
-    // Returns true if a history entry (matched by its preview string) is currently pinned.
-    // Used by HistoryTab to filter duplicates from the history section.
-    function isPinnedPreview(preview) {
-        if (!preview) return false
-        var trimmed = preview.trim()
-        for (var i = 0; i < root.pinned.length; i++) {
-            var p = root.pinned[i]
-            // Match by stored preview (exact) or by pinned text prefix (for long entries
-            // whose cliphist preview is a truncation of the full decoded text)
-            if (p.preview && p.preview === trimmed) return true
-            if (p.text    && (p.text === trimmed || p.text.startsWith(trimmed))) return true
-        }
-        return false
     }
 
     // ── Wipe unpinned history ──────────────────────────────────────────────────

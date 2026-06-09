@@ -38,10 +38,18 @@ Item {
     }
 
     function deviceName(node) {
+        if (!node) return "Unknown"
         return node.nickname || node.description || node.name || "Unknown"
     }
 
-    property string page: "output"
+    property string page: Popups.audioPage
+
+    Connections {
+        target: Popups
+        function onAudioPageChanged() {
+            root.page = Popups.audioPage
+        }
+    }
 
     Row {
         anchors.fill: parent
@@ -60,22 +68,22 @@ Item {
 
                 ChannelColumn {
                     width:  parent.width
-                    label:  root.sink?.ready ? root.deviceName(root.sink) : "Output"
+                    label:  (root.sink && root.sink.ready) ? root.deviceName(root.sink) : "Output"
                     icon: {
-                        if (!root.sink?.ready)           return "󰕾"
+                        if (!root.sink || !root.sink.ready)           return "󰕾"
                         if (root.sink.audio.muted)        return "󰖁"
                         if (root.sink.audio.volume > 0.6) return "󰕾"
                         if (root.sink.audio.volume > 0.2) return "󰖀"
                         return "󰕿"
                     }
-                    value:  root.sink?.ready ? root.sink.audio.volume : 0
-                    muted:  root.sink?.audio.muted ?? false
-                    active: root.sink?.ready ?? false
+                    value:  (root.sink && root.sink.ready) ? root.sink.audio.volume : 0
+                    muted:  (root.sink && root.sink.audio) ? root.sink.audio.muted : false
+                    active: (root.sink && root.sink.ready) || false
                     onVolumeChanged: function(v) {
-                        if (root.sink?.ready) root.sink.audio.volume = v
+                        if (root.sink && root.sink.ready) root.sink.audio.volume = v
                     }
                     onMuteToggled: {
-                        if (root.sink?.ready)
+                        if (root.sink && root.sink.ready)
                             root.sink.audio.muted = !root.sink.audio.muted
                     }
                 }
@@ -88,16 +96,16 @@ Item {
 
                 ChannelColumn {
                     width:  parent.width
-                    label:  root.source?.ready ? root.deviceName(root.source) : "Input"
-                    icon:   root.source?.audio.muted ? "󰍭" : "󰍬"
-                    value:  root.source?.ready ? root.source.audio.volume : 0
-                    muted:  root.source?.audio.muted ?? false
-                    active: root.source?.ready ?? false
+                    label:  (root.source && root.source.ready) ? root.deviceName(root.source) : "Input"
+                    icon:   (root.source && root.source.audio && root.source.audio.muted) ? "󰍭" : "󰍬"
+                    value:  (root.source && root.source.ready) ? root.source.audio.volume : 0
+                    muted:  (root.source && root.source.audio) ? root.source.audio.muted : false
+                    active: (root.source && root.source.ready) || false
                     onVolumeChanged: function(v) {
-                        if (root.source?.ready) root.source.audio.volume = v
+                        if (root.source && root.source.ready) root.source.audio.volume = v
                     }
                     onMuteToggled: {
-                        if (root.source?.ready)
+                        if (root.source && root.source.ready)
                             root.source.audio.muted = !root.source.audio.muted
                     }
                 }
@@ -115,7 +123,7 @@ Item {
                     delegate: DeviceRow {
                         width:     parent.width
                         label:     root.deviceName(modelData)
-                        isDefault: root.sink?.ready && modelData.name === root.sink.name || false
+                        isDefault: (root.sink && root.sink.ready && modelData.name === root.sink.name) || false
                         onClicked: Pipewire.preferredDefaultAudioSink = modelData
                     }
                 }
@@ -140,7 +148,7 @@ Item {
                     delegate: DeviceRow {
                         width:     parent.width
                         label:     root.deviceName(modelData)
-                        isDefault: root.source?.ready && modelData.name === root.source.name || false
+                        isDefault: (root.source && root.source.ready && modelData.name === root.source.name) || false
                         onClicked: Pipewire.preferredDefaultAudioSource = modelData
                     }
                 }
@@ -173,7 +181,7 @@ Item {
                 { key: "mixer",  icon: "󰾝" },
             ]
             currentPage: root.page
-            onPageChanged: function(key) { root.page = key }
+            onPageChanged: function(key) { Popups.audioPage = key }
         }
     }
 
@@ -229,7 +237,7 @@ Item {
                     // Fill bar
                     Rectangle {
                         anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
-                        height: Math.max(radius * 2, parent.height * col.value)
+                        height: Math.max(parent.radius * 2, parent.height * col.value)
                         radius: parent.radius
                         color:  col.muted ? Qt.rgba(1,1,1,0.15) : Theme.active
                         Behavior on color  { ColorAnimation  { duration: 150 } }

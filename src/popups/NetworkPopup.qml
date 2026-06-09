@@ -14,7 +14,7 @@ PanelWindow {
     readonly property int fw:          Theme.notchRadius
     readonly property int fh:          Theme.notchRadius
 
-    property string page: "wifi"
+    property string page: Popups.networkPage
 
     anchors.right: true
     anchors.top:   true
@@ -40,68 +40,6 @@ PanelWindow {
         height: sizer.height
     }
 
-    // ── IPC Handle ─────────────────────────────────────────────
-	IpcHandler {
-    	target: "wifi-toggle"
-    	function toggle() {
-            if(Popups.anyOpen && !Popups.networkOpen) {
-                Popups.closeAll()
-                root.page = "wifi"
-                Popups.networkOpen = true
-            } else if (Popups.networkOpen && root.page != "wifi") {
-                root.page = "wifi"
-            } else {
-                Popups.networkOpen = !Popups.networkOpen
-                root.page = "wifi"
-            }
-    	}
-    }
-    IpcHandler {
-    	target: "bluetooth-toggle"
-    	function toggle() {
-            if(Popups.anyOpen && !Popups.networkOpen) {
-                Popups.closeAll()
-                root.page = "bluetooth"
-                Popups.networkOpen = true
-            } else if (Popups.networkOpen && root.page != "bluetooth") {
-                root.page = "bluetooth"
-            } else {
-                Popups.networkOpen = !Popups.networkOpen
-                root.page = "bluetooth"
-            }
-    	}
-    }
-    IpcHandler {
-    	target: "vpn-toggle"
-    	function toggle() {
-    	    if(Popups.anyOpen && !Popups.networkOpen) {
-                Popups.closeAll()
-                root.page = "vpn"
-                Popups.networkOpen = true
-            } else if (Popups.networkOpen && root.page != "vpn") {
-                root.page = "vpn"
-            } else {
-                Popups.networkOpen = !Popups.networkOpen
-                root.page = "vpn"
-            }
-    	}
-    }
-    IpcHandler {
-    	target: "hotspot-toggle"
-    	function toggle() {
-    	    if(Popups.anyOpen && !Popups.networkOpen) {
-                Popups.closeAll()
-                root.page = "hotspot"
-                Popups.networkOpen = true
-            } else if (Popups.networkOpen && root.page != "hotspot") {
-                root.page = "hotspot"
-            } else {
-                Popups.networkOpen = !Popups.networkOpen
-    	        root.page = "hotspot"
-    	    }
-    	}
-    }
-
     // ── Visibility gate ───────────────────────────────────────────────────────
     property bool windowVisible: false
     visible: windowVisible
@@ -118,6 +56,10 @@ PanelWindow {
             } else {
                 closeTimer.restart()
             }
+        }
+
+        function onNetworkPageChanged() {
+            root.page = Popups.networkPage
         }
     }
 
@@ -229,7 +171,7 @@ PanelWindow {
                     { key: "vpn",       icon: "󰦝", label: "VPN"       },
                     { key: "hotspot",   icon: "󰀃", label: "Hotspot"   },
                 ]
-                onPageChanged: function(key) { root.page = key }
+                onPageChanged: function(key) { Popups.networkPage = key }
             }
         }
     }
