@@ -8,6 +8,7 @@ ShellRoot {
     // Force-instantiate lazy singletons that need startup behavior
     property var _keybinds:   KeybindService
     property var _updater:    UpdateService
+    property var _ipc:        IpcManager
 
     Variants {
         model: Quickshell.screens
