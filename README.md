@@ -29,7 +29,7 @@
 <h2>Showcase</h2>
 
 <div align="center">
-  <video src="https://github.com/user-attachments/assets/bef57fee-6014-478d-816e-c0454c5d1fe5" controls="controls" muted="muted" style="max-width: 100%; height: auto;"></video>
+  <video src="https://github.com/user-attachments/assets/93a0697e-c531-4510-b2f0-a59a4b6072b4" controls="controls" muted="muted" style="max-width: 100%; height: auto;"></video>
 </div>
 
 ---
