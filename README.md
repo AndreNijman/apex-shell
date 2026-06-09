@@ -26,6 +26,14 @@
 
 ---
 
+<h2>Showcase</h2>
+
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/bef57fee-6014-478d-816e-c0454c5d1fe5" controls="controls" muted="muted" style="max-width: 100%; height: auto;"></video>
+</div>
+
+---
+
 <h2 align="center">Features</h2>
 
 - **Modular Setup** — Unintrusive setup
