@@ -160,6 +160,10 @@ QtObject {
         command: []
     }
 
-    // Read config first (sets currentWall/wallpaperDir/scheme), then refresh()
-    Component.onCompleted: readConfigProc.running = true
+    Component.onCompleted: {
+        readConfigProc.running = true
+        if (Theme.active && String(Theme.active).trim() !== "") {
+            updateBorders()
+        }
+    }
 }
