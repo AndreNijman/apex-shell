@@ -398,7 +398,7 @@ log_info "Initializing cache directories..."
 mkdir -p "$HOME/.cache/brain-shell"
 touch "$HOME/.cache/brain-shell/colors.json"
 mkdir -p "$HOME/Pictures/Wallpapers"
-cp -r "$REPO_DIR/src/assets/wallpapers"/* "$HOME/Pictures/Wallpapers/" 2>/dev/null || true
+cp -n -r "$REPO_DIR/src/assets/wallpapers"/* "$HOME/Pictures/Wallpapers/" 2>/dev/null || true
 
 log_ok "Cache directories initialized"
 
