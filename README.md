@@ -19,7 +19,8 @@
   <a href="https://github.com/Brainitech/Brain_Shell/issues">
     <img src="https://img.shields.io/github/issues/Brainitech/Brain_Shell?style=for-the-badge&logo=bilibili&color=5E81AC&logoColor=D9E0EE&labelColor=252733" />
   </a>
-  <img src ="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscordapp.com%2Fapi%2Finvites%2FBV8UduvABx%3Fwith_counts%3Dtrue&query=approximate_member_count&style=for-the-badge&logo=discord&logoColor=ffffff&label=discord&labelColor=101418&color=96f1f1&link=https%3A%2F%2Fdiscord.gg%2FBGDCFCmMBk(https://discord.gg/BV8UduvABx)"
+  <img src ="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscordapp.com%2Fapi%2Finvites%2FBV8UduvABx%3Fwith_counts%3Dtrue&query=approximate_member_count&style=for-the-badge&logo=discord&logoColor=ffffff&label=discord&labelColor=101418&color=96f1f1&link=https%3A%2F%2Fdiscord.gg%2FBGDCFCmMBk(https://discord.gg/BV8UduvABx)">
+  </img>
 </p>
 
 ---
