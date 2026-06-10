@@ -183,7 +183,7 @@ QtObject {
     }
 
     property var btToggle: IpcHandler {
-        target: "bt-toggle"
+        target: "bluetooth-toggle"
         function toggle() {
             if(Popups.anyOpen && !Popups.networkOpen) {
                 Popups.closeAll()
@@ -238,8 +238,8 @@ QtObject {
 
     // ── Misc Toggles ─────────────────────────────────────────
 
-    property var notifications: IpcHandler {
-        target: "notifications-toggle"
+    property var notification: IpcHandler {
+        target: "notification-toggle"
         function toggle() {
             var next = !Popups.notificationsOpen
             Popups.closeAll()
