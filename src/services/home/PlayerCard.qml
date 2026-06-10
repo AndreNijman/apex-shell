@@ -456,7 +456,7 @@ Item {
 
     // ── Cava bars — independent, always flush with the card bottom ────────────
     Item {
-        anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+        anchors { left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: 7; rightMargin: 7; bottomMargin: 4 }
         height: 32
         Row {
             anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
