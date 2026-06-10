@@ -81,7 +81,7 @@ The installer automatically:
 - ✓ Backs up your entire `~/.config`
 - ✓ Installs all required dependencies
 - ✓ Clones the repository to `~/.local/src/Brain_Shell`
-- ✓ Updates your Hyprland config
+- ✓ Updates your Hyprland config to auto-start Brain_Shell and required dependencies
 - ✓ Creates configuration directories
 
 **After installation, restart Hyprland for changes to take effect.**
@@ -231,6 +231,7 @@ Brain Shell is actively developed and welcomes contributions!
 - Found a bug? → [Open an issue](https://github.com/Brainitech/Brain_Shell/issues)
 - Have an idea? → [Start a discussion](https://github.com/Brainitech/Brain_Shell/discussions)
 - Want to contribute? → Fork, branch, and submit a pull request
+- Want to join the community? → [Join Discord](https://discord.com/invite/BV8UduvABx)
 
 ---
 
@@ -245,6 +246,21 @@ Brain Shell is actively developed and welcomes contributions!
 - **[Celestial Shell](https://github.com/caelestia-dots/shell)** & **[AX-Shell](https://github.com/Axenide/ax-shell)** — For the inspiration
 - **[NotCandy001](https://github.com/notcandy001)** — For the installer
 - **All the Testers & Contributors** — For their time put into testing and suggesting fixes.
+
+---
+<h2>
+  Brain Cells Collected
+</h2>
+
+<div align="center">
+  <a href="https://www.star-history.com/?repos=Brainitech%2FBrain_Shell&type=date&legend=top-left">
+   <picture>
+     <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Brainitech/Brain_Shell&type=date&theme=dark&legend=top-left" />
+     <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Brainitech/Brain_Shell&type=date&legend=top-left" />
+     <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Brainitech/Brain_Shell&type=date&legend=top-left" />
+   </picture>
+  </a>
+</div>
 
 ---
 
