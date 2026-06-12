@@ -224,7 +224,7 @@ Item {
                     running: titleMetrics.width > titleText.parent.width && root.isPlaying
                     from: titleText.parent.width
                     to: -titleMetrics.width
-                    duration: (titleMetrics.width + titleText.parent.width) * 20 
+                    duration: Math.max(0, (titleMetrics.width + titleText.parent.width) * 20)
                     loops: Animation.Infinite
                 }
                 onTextChanged: marqueeAnim.restart()
