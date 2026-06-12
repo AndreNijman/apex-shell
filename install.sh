@@ -3,7 +3,7 @@
 #  Brain Shell — Main Installer
 #  github.com/Brainitech/Brain_Shell  v0.1.0
 # ─────────────────────────────────────────────────────────────────────────────
-
+# Hesitation is Defeat — Isshin Ashina
 set -eo pipefail
 
 # ── Colors ────────────────────────────────────────────────────────────────────

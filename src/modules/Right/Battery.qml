@@ -10,6 +10,8 @@ Item {
     implicitWidth:  status.implicitWidth
     implicitHeight: status.implicitHeight
 
+    visible: status.visible
+
     BatteryStatus {
         id:               status
         anchors.centerIn: parent
