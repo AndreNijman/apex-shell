@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/version-0.1.0-8D748C?style=for-the-badge&logoColor=D9E0EE&labelColor=252733" alt="Version 0.1.0" />
   <br>
   <img src="https://img.shields.io/badge/hyprland-v0.55+-5E81AC?style=for-the-badge&logoColor=D9E0EE&labelColor=252733" alt="Hyprland v0.55+" />
-  <img src="https://img.shields.io/badge/quickshell-framework-A1C999?style=for-the-badge&logoColor=D9E0EE&labelColor=252733" alt="Quickshell Framework" />
+  <img src="https://img.shields.io/badge/framework-quickshell-A1C999?style=for-the-badge&logoColor=D9E0EE&labelColor=252733" alt="Quickshell Framework" />
   <br>
   <a href="https://github.com/Brainitech/Brain_Shell/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/Brainitech/Brain_Shell?style=for-the-badge&color=A1C999&logo=opensourceinitiative&logoColor=D9E0EE&labelColor=252733" alt="License" />
@@ -20,7 +20,7 @@
     <img src="https://img.shields.io/github/issues/Brainitech/Brain_Shell?style=for-the-badge&logo=github&color=5E81AC&logoColor=D9E0EE&labelColor=252733" alt="Issues" />
   </a>
   <a href="https://discord.gg/BV8UduvABx">
-    <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscordapp.com%2Fapi%2Finvites%2FBV8UduvABx%3Fwith_counts%3Dtrue&query=approximate_member_count&style=for-the-badge&logo=discord&logoColor=ffffff&label=discord&labelColor=101418&color=96f1f1" alt="Discord Invite" />
+    <img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscordapp.com%2Fapi%2Finvites%2FBV8UduvABx%3Fwith_counts%3Dtrue&query=approximate_member_count&style=for-the-badge&logo=discord&logoColor=D9E0EE&label=discord&labelColor=252733&color=7289DA" alt="Discord Invite" />
   </a>
 </p>
 
@@ -81,7 +81,7 @@ The installer automatically:
 - ✓ Backs up your entire `~/.config`
 - ✓ Installs all required dependencies
 - ✓ Clones the repository to `~/.local/src/Brain_Shell`
-- ✓ Updates your Hyprland config
+- ✓ Updates your Hyprland config to auto-start Brain_Shell and required dependencies
 - ✓ Creates configuration directories
 
 **After installation, restart Hyprland for changes to take effect.**
@@ -214,11 +214,12 @@ Known Issues
 
 - **Multi-Monitor Scaling:** Global scaling across mixed-resolution monitors (e.g., 4K paired with 1080p) is currently inconsistent. UI elements may appear misproportioned or poorly sized on non-1080p screens.
 
-- **Input Focus Delays:** The App Launcher and Wallpaper popups occasionally fail to capture keyboard focus immediately upon opening. A slight mouse movement is currently required to force focus activation.
-
 - **Top Bar Clipping:** Elements within the right notch may become visually clipped if the system tray is expanded and contains an excessive number of active items.
 
 - **Shutdown Menu (Hyprshutdown) State:** Canceling a shutdown or logout action can sometimes leave the Hyprland session in an empty state with most applications unintentionally closed. It may also occasionally struggle to terminate all running apps smoothly.
+
+> [!WARNING]  
+> **NixOS & Flakes Support:** The current NixOS installation pipeline and Flake implementation are highly experimental and currently known to be broken. This is actively under testing and will be properly addressed in an upcoming patch. If you are on NixOS, manual configuration is currently required.
 
 ---
 
@@ -231,6 +232,7 @@ Brain Shell is actively developed and welcomes contributions!
 - Found a bug? → [Open an issue](https://github.com/Brainitech/Brain_Shell/issues)
 - Have an idea? → [Start a discussion](https://github.com/Brainitech/Brain_Shell/discussions)
 - Want to contribute? → Fork, branch, and submit a pull request
+- Want to join the community? → [Join Discord](https://discord.com/invite/BV8UduvABx)
 
 ---
 
@@ -245,6 +247,22 @@ Brain Shell is actively developed and welcomes contributions!
 - **[Celestial Shell](https://github.com/caelestia-dots/shell)** & **[AX-Shell](https://github.com/Axenide/ax-shell)** — For the inspiration
 - **[NotCandy001](https://github.com/notcandy001)** — For the installer
 - **All the Testers & Contributors** — For their time put into testing and suggesting fixes.
+
+---
+
+<h2>
+  Brain Cells Collected
+</h2>
+
+<div align="center">
+  <a href="https://www.star-history.com/?repos=Brainitech%2FBrain_Shell&type=date&legend=top-left">
+   <picture>
+     <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Brainitech/Brain_Shell&type=date&theme=dark&legend=top-left" />
+     <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Brainitech/Brain_Shell&type=date&legend=top-left" />
+     <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Brainitech/Brain_Shell&type=date&legend=top-left" />
+   </picture>
+  </a>
+</div>
 
 ---
 

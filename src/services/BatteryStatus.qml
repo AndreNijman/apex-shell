@@ -12,6 +12,7 @@ Item {
 
     // ── UPower data ──────────────────────────────────────────────────────────
     readonly property var  bat:      UPower.displayDevice
+    visible: bat.ready && bat.isLaptopBattery
     readonly property real pct:      bat.ready ? Math.round(bat.percentage * 100) : 0
     readonly property bool charging: bat.ready
                                      ? (bat.state === UPowerDeviceState.Charging ||
