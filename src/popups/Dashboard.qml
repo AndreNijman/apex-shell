@@ -54,8 +54,15 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
 
     WlrLayershell.layer:         WlrLayer.Overlay
-    // Exclusive focus only when fully open and visible.
-    WlrLayershell.keyboardFocus: (windowVisible && Popups.dashboardOpen) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+
+    property bool wantsFocus: false
+    WlrLayershell.keyboardFocus: wantsFocus ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+
+    Timer {
+        id: focusGrabTimer
+        interval: 15
+        onTriggered: if (windowVisible && Popups.dashboardOpen) root.wantsFocus = true
+    }
 
     property bool windowVisible: false
 
@@ -66,13 +73,12 @@ PanelWindow {
                 closeTimer.stop()
                 root.windowVisible = true
                 root._applyPageWidth(root.page)
+                focusGrabTimer.restart() // Delay the grab slightly
             } else {
+                root.wantsFocus = false // Release instantly
+                focusGrabTimer.stop()
                 closeTimer.restart()
             }
-        }
-
-        function onDashboardPageChanged() {
-            root.page = Popups.dashboardPage
         }
     }
     

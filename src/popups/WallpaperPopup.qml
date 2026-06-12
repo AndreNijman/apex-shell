@@ -22,8 +22,18 @@ PanelWindow {
     color:         "transparent"
 
     WlrLayershell.layer:         WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: (windowVisible && Popups.wallpaperOpen) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
+    property bool wantsFocus: false
+    WlrLayershell.keyboardFocus: wantsFocus ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+
+    Timer {
+        id: focusGrabTimer
+        interval: 15
+        onTriggered: {
+            if (windowVisible && Popups.wallpaperOpen) root.wantsFocus = true
+        }
+    }
+    
     readonly property int panelWidth:  980
     readonly property int panelHeight: 420
     readonly property int fw:          Theme.notchRadius
@@ -77,6 +87,7 @@ PanelWindow {
                         content.folderMode           = false
                         content.appliedScheme        = WallpaperService.scheme
                         searchInput.text             = ""
+                        focusGrabTimer.restart()
                         searchInput.forceActiveFocus()
                         focusTimer.restart()
                     }
@@ -97,9 +108,12 @@ PanelWindow {
                 content.folderMode           = false
                 content.appliedScheme        = WallpaperService.scheme
                 searchInput.text             = ""
+                focusGrabTimer.restart()
                 searchInput.forceActiveFocus()
                 focusTimer.restart()
             } else {
+                root.wantsFocus = false
+                focusGrabTimer.stop()
                 closeTimer.restart()
             }
         }
