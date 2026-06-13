@@ -2,6 +2,7 @@ pragma Singleton
 import Quickshell
 import QtQuick
 import Quickshell.Io
+import Quickshell.Services.UPower
 import "../."
 
 // Global shell state.
@@ -41,6 +42,24 @@ QtObject {
     // This avoids the 5s poll lag when a device disconnects or adapter toggles.
     property bool btPowered:   false   // adapter is on
     property bool btConnected: false   // at least one device connected
+
+    // ── Hardware Detection ──────────────────────────────────────────
+    property bool hasBattery: false
+    
+    function _checkBattery() {
+        if (UPower.displayDevice && UPower.displayDevice.ready) {
+            hasBattery = UPower.displayDevice.isLaptopBattery
+        }
+    }
+    
+    Component.onCompleted: _checkBattery()
+    
+    property var _batConn: Connections {
+        target: UPower.displayDevice
+        function onReadyChanged() {
+            _checkBattery()
+        }
+    }
 
     // ── Keybind Interception / Hyprland Submap Controller ─────────────────────
     
