@@ -55,6 +55,7 @@ log_ok "Linux confirmed"
 # Distro
 DISTRO_TYPE=""
 if [[ -f /etc/os-release ]]; then
+    # shellcheck disable=SC1091
     source /etc/os-release
     case "${ID:-}" in
         arch|manjaro|garuda|cachyos|endeavouros)
@@ -120,7 +121,7 @@ if [[ -d "$HYPR_DIR" ]]; then
     cp -r "$HYPR_DIR" "$BACKUP_DIR/"
     log_ok "Backed up: ~/.config/hypr → $BACKUP_DIR"
 else
-    log_warn "~/.config/hypr not found — nothing to back up."
+    log_warn "$HOME/.config/hypr not found — nothing to back up."
 fi
 
 

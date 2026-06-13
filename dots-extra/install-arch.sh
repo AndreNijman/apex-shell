@@ -383,7 +383,7 @@ mkdir -p "$USER_DATA" \
 
 # Copy hypridle config; -n = do not overwrite if already customised
 if cp -n "$REPO_DIR/src/config/hypridle.conf" "$HOME/.config/hypr/" 2>/dev/null; then
-    log_ok "hypridle.conf → ~/.config/hypr/"
+    log_ok "hypridle.conf → $HOME/.config/hypr/"
 else
     log_info "hypridle.conf already exists — not overwritten"
 fi
@@ -473,7 +473,7 @@ for action, info in conflicts.items():
     print(f"    {'':24}  already used by: {info['used_by']}\n")
     unbound[action] = {"mods": "", "key": ""}
 
-config_path = os.path.expanduser("~/.config/Brain_Shell/src/user_data/keybinds.json")
+config_path = os.path.expanduser("$HOME/.config/Brain_Shell/src/user_data/keybinds.json")
 with open(config_path, "w") as f:
     json.dump(unbound, f, indent=2)
 

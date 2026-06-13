@@ -2,9 +2,9 @@ name: Brain Shell CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 jobs:
   # ─────────────────────────────────────────────
@@ -82,9 +82,9 @@ jobs:
 
       - name: Lint install.sh
         run: |
-          pacman -S --needed --noconfirm bash
-          bash -n install.sh
-          echo "✓ install.sh syntax OK"
+          pacman -S --needed --noconfirm shellcheck
+          shellcheck install.sh
+          echo "✓ install.sh passed ShellCheck"
 
       - name: Lint dots-extra/install-arch.sh
         run: |
@@ -94,13 +94,13 @@ jobs:
       - name: Lint dots-extra/validate-install.sh
         run: |
           bash -n dots-extra/validate-install.sh
-          echo "✓ validate-install.sh syntax OK"
+          echo "✓ validate-install.sh passed ShellCheck"
 
       - name: Lint shell scripts in src/scripts/
         run: |
           bash -n src/scripts/GfxSwitch.sh
           bash -n src/scripts/PowerControl.sh
-          echo "✓ src/scripts/ syntax OK"
+          echo "✓ src/scripts/ passed ShellCheck"
 
       - name: Check Python list_apps.py syntax
         run: |
