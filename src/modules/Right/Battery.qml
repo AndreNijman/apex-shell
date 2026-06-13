@@ -9,7 +9,7 @@ Item {
 
     implicitWidth:  status.implicitWidth
     implicitHeight: status.implicitHeight
-
+    
     visible: ShellState.hasBattery
 
     BatteryStatus {
