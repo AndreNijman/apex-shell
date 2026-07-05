@@ -126,6 +126,9 @@ PanelWindow {
             radius:       Theme.cornerRadius
             flareWidth:   root.fw
             flareHeight:  root.fh
+            // Start the melt at the top strip's bottom edge (tangent blend —
+            // no kink where the flare leaves the thin bar line).
+            edgeOffset:   Theme.borderWidth
         }
 
         // ── Content ───────────────────────────────────────────────────────────
