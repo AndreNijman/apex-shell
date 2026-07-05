@@ -58,17 +58,17 @@ Item {
             Item {
                 anchors.fill: parent
                 visible: root._page === "appearance"
-                Text { anchors.centerIn: parent; text: "Appearance Coming Soon!"; font.pixelSize: 13; color: Qt.rgba(1,1,1,0.12) }
+                AppearancePage { anchors.fill: parent }
             }
             Item {
                 anchors.fill: parent
                 visible: root._page === "layout"
-                Text { anchors.centerIn: parent; text: "Layout & Behavior Coming Soon!"; font.pixelSize: 13; color: Qt.rgba(1,1,1,0.12) }
+                LayoutPage { anchors.fill: parent }
             }
             Item {
                 anchors.fill: parent
                 visible: root._page === "data"
-                Text { anchors.centerIn: parent; text: "Data & Storage Coming Soon! "; font.pixelSize: 13; color: Qt.rgba(1,1,1,0.12) }
+                DataPage { anchors.fill: parent }
             }
             Item {
                 anchors.fill: parent
@@ -78,7 +78,7 @@ Item {
             Item {
                 anchors.fill: parent
                 visible: root._page === "misc"
-                Text { anchors.centerIn: parent; text: "Misc Coming Soon!"; font.pixelSize: 13; color: Qt.rgba(1,1,1,0.12) }
+                MiscPage { anchors.fill: parent }
             }
         }
     }
