@@ -111,7 +111,7 @@ CfgScroll {
                     SettingsService.set("reduceMotion",       false)
                     SettingsService.set("animDuration",       320)
                     SettingsService.set("spacing",            10)
-                    SettingsService.set("exclusionGap",       30)
+                    SettingsService.set("exclusionGap",       34)
                     SettingsService.set("dashboardHeight",    520)
                     SettingsService.set("notificationsWidth", 400)
                 }

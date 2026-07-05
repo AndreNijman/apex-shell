@@ -443,7 +443,7 @@ StatCard {
         onRunningChanged: if (!running) applyFocusGaps.running = true }
     Process { id: applyFocusGaps
         command: ["bash", "-c",
-            "hyprctl keyword general:gaps_in 0 && hyprctl keyword general:gaps_out 10"]
+            "hyprctl keyword general:gaps_in 0 && hyprctl keyword general:gaps_out 6"]
         running: false; onRunningChanged: if (!running) ShellState.focusMode = true }
     Process { id: restoreGaps; command: []; running: false
         onRunningChanged: if (!running) ShellState.focusMode = false }
