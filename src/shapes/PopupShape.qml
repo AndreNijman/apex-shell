@@ -12,14 +12,22 @@ Canvas {
 
     property string attachedEdge: "top"
     property color color: Theme.background
-    
+
     // Normal corner radius for the edges away from the notch
     property int radius: Theme.cornerRadius
-    
+
     // Custom dimensions for the outward "melt" (concave corners)
     // Increase flareHeight to make the corners "higher" / stretch further
     property int flareWidth: Theme.cornerRadius
     property int flareHeight: Theme.cornerRadius
+
+    // Inset of the flare start from the attached edge. Set this to the border
+    // strip thickness (Theme.borderWidth) when the popup melts into one of the
+    // screen-edge strips: the flare then starts at the strip's INNER edge with
+    // a matching tangent, so the junction blends smoothly instead of kinking
+    // out of the strip at a steep angle. The uncovered sliver between the
+    // window edge and the flare start shows the strip behind (same colour).
+    property int edgeOffset: 0
 
     onWidthChanged:        requestPaint()
     onHeightChanged:       requestPaint()
@@ -27,6 +35,7 @@ Canvas {
     onColorChanged:        requestPaint()
     onFlareWidthChanged:   requestPaint()
     onFlareHeightChanged:  requestPaint()
+    onEdgeOffsetChanged:   requestPaint()
 
     onPaint: {
         var ctx = getContext("2d")
@@ -37,6 +46,7 @@ Canvas {
         var r = radius
         var fw = flareWidth
         var fh = flareHeight
+        var off = edgeOffset
 
         ctx.beginPath()
         ctx.fillStyle = root.color
@@ -73,14 +83,33 @@ Canvas {
 
         case "top":
             // Body inset by fw on Left/Right. Flare stretches horizontally by fw, vertically by fh.
-            ctx.moveTo(0, 0)
-            ctx.quadraticCurveTo(fw, 0, fw, fh)       // outward flare top-left
+            // Flares start `off` below the window top, tangent to the bar
+            // strip's bottom edge, so the melt blends smoothly out of it.
+            ctx.moveTo(0, off)
+            ctx.quadraticCurveTo(fw, off, fw, off + fh)   // outward flare top-left
             ctx.lineTo(fw, h - r)
-            ctx.arcTo(fw, h, fw + r, h, r)            // normal bottom-left
+            ctx.arcTo(fw, h, fw + r, h, r)                // normal bottom-left
             ctx.lineTo(w - fw - r, h)
-            ctx.arcTo(w - fw, h, w - fw, h - r, r)    // normal bottom-right
-            ctx.lineTo(w - fw, fh)
-            ctx.quadraticCurveTo(w - fw, 0, w, 0)     // outward flare top-right
+            ctx.arcTo(w - fw, h, w - fw, h - r, r)        // normal bottom-right
+            ctx.lineTo(w - fw, off + fh)
+            ctx.quadraticCurveTo(w - fw, off, w, off)     // outward flare top-right
+            ctx.closePath()
+            break
+
+        case "pill-right":
+            // Card hanging directly below the top-right notch pill, same width
+            // as the expanded pill. The top edge is flush with the pill bottom
+            // (same colour → invisible join). The rounded top-left corner meets
+            // the pill's rounded bottom-left corner in a smooth S-curve waist.
+            // The right edge runs flush with the screen edge, continuing the
+            // pill's right edge over the border strip.
+            ctx.moveTo(0, r)
+            ctx.arcTo(0, 0, r, 0, r)          // top-left corner (S-waist w/ pill)
+            ctx.lineTo(w, 0)                   // flush under the pill
+            ctx.lineTo(w, h - r)               // right edge, flush with screen
+            ctx.arcTo(w, h, w - r, h, r)       // bottom-right corner
+            ctx.lineTo(r, h)
+            ctx.arcTo(0, h, 0, h - r, r)       // bottom-left corner
             ctx.closePath()
             break
 
