@@ -75,21 +75,6 @@ PanelWindow {
         }
     }
 
-    // ── Popup fill ────────────────────────────────────────────────────────────
-    // The notch bar is three separate islands with transparent gaps, so the
-    // wallpaper shows between them. When any popup/dashboard is open, fill those
-    // gaps with the bar colour (behind the notch shape, so the notches are
-    // unchanged) — this removes the wallpaper line beside the popup. Fades out
-    // when everything is closed, restoring the floating-island look.
-    Rectangle {
-        anchors.fill: parent
-        color:   Theme.background
-        opacity: (Popups.anyOpen && !ShellState.focusMode) ? 1 : 0
-        Behavior on opacity {
-            NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
-        }
-    }
-
     // ── Notch content (fades out in focus mode) ──────────────────────────────
     Item {
         anchors.fill: parent

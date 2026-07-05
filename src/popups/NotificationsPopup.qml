@@ -22,27 +22,25 @@ PopupWindow {
     implicitWidth:  popupWidth +fw
     implicitHeight: maxHeight
 
+    // Right-aligned directly under the expanded right pill: the window top sits
+    // exactly at the pill's bottom edge, so the pill-right shape's flush top
+    // joins the pill with no wallpaper sliver.
+    // Edges.Bottom grows downward horizontally centred on the anchor point, so
+    // the point is the desired popup centre-x — its right edge lands flush at
+    // the screen edge, its left edge at the expanded pill's left edge.
     anchor.window: root.anchorWindow
     anchor.rect: Qt.rect(
-        (anchorWindow.width - Theme.notificationsWidth / 2)-(fw/2),
+        anchorWindow.width - root.implicitWidth / 2,
+        Theme.notchHeight,
         0,
-        Theme.notificationsWidth,
-        Theme.notchHeight
+        0
     )
     anchor.gravity:    Edges.Bottom
     anchor.adjustment: PopupAdjustment.None
-    
-    Item {
-    id:      maskProxy
-    x:       root.implicitWidth - sizer.width-root.fw
-    y:       -root.fh
-    width:   sizer.width
-    height:  sizer.height
-    }
 
     color:   "transparent"
     visible: windowVisible
-    mask: Region { item: maskProxy }
+    mask: Region { item: sizer }
 
     // ── Visibility gate ───────────────────────────────────────
     // Window stays alive until the close animation finishes.
@@ -74,38 +72,36 @@ PopupWindow {
         anchors.right: parent.right
         clip:          true
 
-        // Width: rNotchMinWidth → notificationsWidth  (+ fw for flare region)
+        // Width: rNotchMinWidth → notificationsWidth  (matches the pill width)
         width: Popups.notificationsOpen
                ? Theme.notificationsWidth + root.fw
                : Theme.rNotchMinWidth + root.fw
 
-        // Height: fh (invisible sliver) → full content height
+        // Height: collapsed → full content height (top is flush with the pill)
         height: Popups.notificationsOpen
-                ? notifList.height + Theme.popupPadding * 2 + root.fh
-                : root.fh
+                ? notifList.height + Theme.popupPadding * 2
+                : 0
 
         Behavior on width  { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
         Behavior on height { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
 
         // ── Background ─────────────────────────────────────────
+        // Flush-top card merging into the pill above (S-waist at the left join).
         PopupShape {
             anchors.fill: parent
-            attachedEdge: "right"
+            attachedEdge: "pill-right"
             color:        Theme.background
             radius:       Theme.cornerRadius
-            flareWidth:   root.fw
-            flareHeight:  root.fh
         }
 
         // ── Content ────────────────────────────────────────────
-        // Inset clear of the flare region.
         // Fades in slowly after expansion, fades out fast on close.
         Item {
             anchors {
                 fill:         parent
-                topMargin:    root.fh + 4
-                leftMargin:   root.fw + 4
-                rightMargin:  4
+                topMargin:    Theme.popupPadding
+                leftMargin:   Theme.popupPadding
+                rightMargin:  Theme.popupPadding
                 bottomMargin: 4
             }
 
