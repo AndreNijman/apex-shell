@@ -11,19 +11,23 @@ PopupWindow {
 
 	required property var anchorWindow
 
-	readonly property int toastWidth: Theme.notificationToastWidth+(fw/2)
+	readonly property int toastWidth: Theme.notificationToastWidth
 	readonly property int fw: Theme.notchRadius
 	readonly property int fh: Theme.notchRadius
 
 	implicitWidth:  toastWidth + fw
 	implicitHeight: 180
 
+	// Standardised pill-popup anchor (same as NotificationsPopup): the window
+	// top sits at the pill's bottom edge; Edges.Bottom grows downward centred
+	// on the anchor point, so the point is the desired card centre-x — the
+	// card's right edge lands flush at the screen edge.
 	anchor.window: root.anchorWindow
 	anchor.rect: Qt.rect(
-		root.anchorWindow.width - toastWidth/2-fw+1,
-		-Theme.notchHeight-20,
-		toastWidth,
-		Theme.notchHeight
+		root.anchorWindow.width - root.implicitWidth / 2,
+		Theme.notchHeight,
+		0,
+		0
 	)
 	anchor.gravity:    Edges.Bottom
 	anchor.adjustment: PopupAdjustment.None
@@ -104,24 +108,23 @@ PopupWindow {
 		clip:           true
 
 
-		width: root.showing 
-		? root.toastWidth + root.fw 
+		width: root.showing
+		? root.toastWidth + root.fw
 		: root.fw
 
-		height: root.showing 
-		? (cardCol.y + cardCol.implicitHeight + 24 + root.fh) 
-		: root.fh
+		height: root.showing
+		? (cardCol.y + cardCol.implicitHeight + 24)
+		: 0
 
 		Behavior on width  { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
 		Behavior on height { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
 
+		// Flush-top card merging into the pill above (S-waist at the left join)
 		PopupShape {
 			anchors.fill: parent
-			attachedEdge: "right"
+			attachedEdge: "pill-right"
 			color:        Theme.background
 			radius:       Theme.cornerRadius
-			flareWidth:   root.fw
-			flareHeight:  root.fh
 		}
 
 		Rectangle {
@@ -129,9 +132,9 @@ PopupWindow {
 				right:        parent.right
 				top:          parent.top
 				bottom:       parent.bottom
-				topMargin:    fh*1.2
-				bottomMargin: fh*1.2
-				rightMargin:  root.fw
+				topMargin:    12
+				bottomMargin: 12
+				rightMargin:  10
 			}
 			width:  3
 			radius: 2
@@ -153,7 +156,7 @@ PopupWindow {
 				id: progressBar
 				anchors {
 					right:       parent.right
-					rightMargin: root.fw
+					rightMargin: 14
 					bottom:      cardCol.bottom
 					bottomMargin: -10
 				}
@@ -194,12 +197,12 @@ PopupWindow {
 				id: cardCol
 				anchors {
 					left:       parent.left;  leftMargin:  14
-					right:      parent.right; rightMargin: root.fw + 6
+					right:      parent.right; rightMargin: 14
 
 				}
 				spacing: 2
 				bottomPadding: 10
-				y: root.fh + 6
+				y: 10
 				// No fixed height — sizes to content
 
 				Row {
