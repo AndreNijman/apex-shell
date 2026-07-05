@@ -21,12 +21,18 @@ Canvas {
     property int topBorderWidth:  Theme.borderWidth
     property color color:         Theme.background
 
-    onWidthChanged:       requestPaint()
-    onHeightChanged:      requestPaint()
-    onLeftWidthChanged:   requestPaint()
-    onCenterWidthChanged: requestPaint()
-    onRightWidthChanged:  requestPaint()
-    onColorChanged:       requestPaint()
+    // Right notch bottom-left corner radius. TopBar animates this to 0 while a
+    // pill-popup hangs under the right notch, so the pill's left edge runs
+    // straight into the popup's square top-left corner — one merged shape.
+    property real rightBottomRadius: radius
+
+    onWidthChanged:             requestPaint()
+    onHeightChanged:            requestPaint()
+    onLeftWidthChanged:         requestPaint()
+    onCenterWidthChanged:       requestPaint()
+    onRightWidthChanged:        requestPaint()
+    onColorChanged:             requestPaint()
+    onRightBottomRadiusChanged: requestPaint()
 
     onPaint: {
         var ctx = getContext("2d");
@@ -82,9 +88,10 @@ Canvas {
         // ============================
         // 5. RIGHT NOTCH
         // ============================
+        var rb = root.rightBottomRadius
         ctx.arcTo(rightStart, b, rightStart, b + r, r);
-        ctx.lineTo(rightStart, h - r);
-        ctx.arcTo(rightStart, h, rightStart + r, h, r);
+        ctx.lineTo(rightStart, h - rb);
+        ctx.arcTo(rightStart, h, rightStart + rb, h, rb);
         ctx.lineTo(w, h);
 
         // ============================
