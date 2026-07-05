@@ -19,6 +19,10 @@ PanelWindow {
     anchors.right: true
     anchors.top:   true
 
+    // Standardised pill-popup geometry (same as NotificationsPopup): the window
+    // top sits at the pill's bottom edge; the card hangs flush under the pill.
+    margins.top: Theme.notchHeight
+
     // Window height = popup content only — sizer starts at y:0
     implicitWidth:  popupWidth + fw
     implicitHeight: popupHeight
@@ -29,16 +33,8 @@ PanelWindow {
     WlrLayershell.layer:         WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
 
-    // Mask tracks sizer — limits input region to visible content only
-    mask: Region { item: maskProxy }
-
-    Item {
-        id: maskProxy
-        x:      root.implicitWidth - sizer.width
-        y:      0
-        width:  sizer.width
-        height: sizer.height
-    }
+    // Input region limited to the visible card
+    mask: Region { item: sizer }
 
     // ── Visibility gate ───────────────────────────────────────────────────────
     property bool windowVisible: false
@@ -70,15 +66,16 @@ PanelWindow {
     }
 
     // ── Sizer — clip container, grows downward from y:0 ──────────────────────
+    // Width matches the expanded pill (networkPopupWidth + notchRadius), flush
+    // to the screen's right edge — the pill-right shape joins the pill above.
     Item {
         id: sizer
         anchors.right: parent.right
-        anchors.rightMargin: Theme.borderWidth
         y: 0
         clip: true
 
         width: Popups.networkOpen
-               ? root.popupWidth + 9
+               ? root.popupWidth + root.fw
                : Theme.rNotchMinWidth + root.fw
 
         height: Popups.networkOpen ? root.popupHeight : 0
@@ -88,23 +85,21 @@ PanelWindow {
 
         PopupShape {
             anchors.fill: parent
-            attachedEdge: "right"
+            attachedEdge: "pill-right"
             color:        Theme.background
             radius:       Theme.cornerRadius
-            flareWidth:   root.fw
-            flareHeight:  root.fh
         }
-        
+
         Keys.onEscapePressed: Popups.networkOpen = false
 
         Item {
             id: contentArea
             anchors {
                 fill:         parent
-                topMargin:    Theme.notchHeight
-                leftMargin:   root.fw
-                rightMargin:  root.fw/2
-                bottomMargin: root.fh + Theme.cornerRadius
+                topMargin:    Theme.popupPadding
+                leftMargin:   Theme.popupPadding
+                rightMargin:  Theme.popupPadding
+                bottomMargin: Theme.popupPadding
             }
 
             opacity: Popups.networkOpen ? 1 : 0
