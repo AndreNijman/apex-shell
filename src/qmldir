@@ -8,3 +8,4 @@ singleton CavaService 1.0 services/CavaService.qml
 singleton ClipboardService 1.0 services/ClipboardService.qml
 singleton KeybindService 1.0 services/config_tab/KeybindService.qml
 singleton UpdateService 1.0 services/UpdateService.qml
+singleton SettingsService 1.0 services/SettingsService.qml

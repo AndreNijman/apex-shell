@@ -1,17 +1,23 @@
 pragma Singleton
 import QtQuick
+import "../services"
 
+// Metrics — geometry & timing tokens.
+//
+// The user-tunable subset is bound to SettingsService (persisted to
+// settings.json and edited from Config → Appearance / Layout & Behavior), so
+// changing a value there reflows the live shell. The rest stay constant.
 QtObject {
-    // --Bar Toggle--
-    property bool barEnabled: false
+    // --Bar Toggle-- (Config → Layout & Behavior)
+    property bool barEnabled: SettingsService.barEnabled
 
-    // -- Bar Sizes --
-    property int borderWidth:   6
-    property int cornerRadius:  17
-    property int notchRadius:   15
-    property int notchHeight:   40
-    property int exclusionGap:  34
-    property int spacing:       10
+    // -- Bar Sizes -- (Config → Appearance)
+    property int borderWidth:   SettingsService.borderWidth
+    property int cornerRadius:  SettingsService.cornerRadius
+    property int notchRadius:   SettingsService.notchRadius
+    property int notchHeight:   SettingsService.notchHeight
+    property int exclusionGap:  SettingsService.exclusionGap
+    property int spacing:       SettingsService.spacing
 
     // -- Notch Content Padding --
     // Space added around the content inside each notch
@@ -31,13 +37,13 @@ QtObject {
     property int rNotchMinWidth: 180
     property int rNotchMaxWidth: 360
 
-    // -- Dashboard Dimensions --
+    // -- Dashboard Dimensions -- (Config → Layout & Behavior)
     // Target size the center notch expands to when the dashboard is open.
-    property int dashboardWidth:  900
-    property int dashboardHeight: 520
+    property int dashboardWidth:  SettingsService.dashboardWidth
+    property int dashboardHeight: SettingsService.dashboardHeight
 
-    // -- Notifications Popup Width --
-    property int notificationsWidth: 400
+    // -- Notifications Popup Width -- (Config → Layout & Behavior)
+    property int notificationsWidth: SettingsService.notificationsWidth
     property int notificationToastWidth: notificationsWidth / 1.2
     property int networkPopupWidth:  480
 
@@ -55,6 +61,6 @@ QtObject {
     property int wsPadding:     8
     property int wsRadius:      16
 
-    // -- Animations --
-    property int animDuration: 320
+    // -- Animations -- (Config → Layout & Behavior; 0 when Reduce Motion is on)
+    property int animDuration: SettingsService.effectiveAnim
 }
