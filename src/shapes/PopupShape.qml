@@ -5,6 +5,11 @@ import "../"
 Canvas {
     id: root
 
+    // Multisample so the "melt" curves render crisp, not stair-stepped.
+    layer.enabled: true
+    layer.samples:  8
+    layer.smooth:   true
+
     property string attachedEdge: "top"
     property color color: Theme.background
     

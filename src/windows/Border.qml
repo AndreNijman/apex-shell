@@ -38,7 +38,12 @@ PanelWindow {
         Canvas {
             id: shape
             anchors.fill: parent
-            
+
+            // Multisample so the rounded frame corners are crisp, not pixelly.
+            layer.enabled: true
+            layer.samples:  8
+            layer.smooth:   true
+
             onWidthChanged:  requestPaint()
             onHeightChanged: requestPaint()
 
