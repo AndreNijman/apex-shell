@@ -1,0 +1,6 @@
+# matugen writes this from colors.conf.template at runtime; it hardcodes the
+# current machine's absolute wallpaper path, so it must not be committed.
+/src/config/colors.conf
+
+# Runtime UI preferences written by the shell
+/src/user_data/update_prefs.json

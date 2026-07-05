@@ -2,94 +2,40 @@ import QtQuick
 import "../../"
 import "../../components"
 
+// Power Profile panel — 5 named tiers (Ultra Max … Power Saver), backed by
+// PowerProfileService. The GPU Mode (envycontrol Integrated/Hybrid) selector was
+// removed: this machine has only the Radeon 780M iGPU, no NVIDIA dGPU.
 Item {
     id: root
 
-    required property var cpuFreqService
-    required property var envyService
+    required property var powerProfileService
 
     Column {
         anchors.centerIn: parent
-        spacing:          16
+        spacing:          12
+
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text:           "Power Profile"
+            font.pixelSize: 11
+            font.weight:    Font.Medium
+            color:          Qt.rgba(1, 1, 1, 0.4)
+        }
 
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 8
+            spacing: 6
 
-            // Label + lock icon hinting auto-cpufreq manages this
-            Row {
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 5
-
-                Text {
-                    text:           "󰌾"
-                    font.pixelSize: 11
-                    color:          Qt.rgba(1, 1, 1, 0.25)
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-                Text {
-                    text:           "Power Profile"
-                    font.pixelSize: 11
-                    font.weight:    Font.Medium
-                    color:          Qt.rgba(1, 1, 1, 0.4)
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-            }
-
-            Row {
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 6
+            Repeater {
+                model: root.powerProfileService.profiles
 
                 ProfileButton {
-                    label:     root.cpuFreqService.activeProfile === "performance" ? "Performance" : "Power Saver"
-                    active:    true
+                    required property var modelData
+                    label:     modelData.label
+                    active:    root.powerProfileService.current === modelData.id
                     enabled:   true
+                    onClicked: root.powerProfileService.setProfile(modelData.id)
                 }
-            }
-        }
-
-        Rectangle {
-            anchors.horizontalCenter: parent.horizontalCenter
-            width:  200
-            height: 1
-            color:  Qt.rgba(1, 1, 1, 0.07)
-        }
-
-        Column {
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 8
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text:           "GPU Mode"
-                font.pixelSize: 11
-                font.weight:    Font.Medium
-                color:          Qt.rgba(1, 1, 1, 0.4)
-            }
-
-            Row {
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 6
-
-                ProfileButton {
-                    label:     "Integrated"
-                    active:    root.envyService.currentMode === "integrated"
-                    enabled:   !root.envyService.busy
-                    onClicked: root.envyService.switchMode("integrated")
-                }
-                ProfileButton {
-                    label:     "Hybrid"
-                    active:    root.envyService.currentMode === "hybrid"
-                    enabled:   !root.envyService.busy
-                    onClicked: root.envyService.switchMode("hybrid")
-                }
-            }
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text:           "GPU mode switch requires a reboot"
-                font.pixelSize: 10
-                color:          Qt.rgba(1, 1, 1, 0.25)
             }
         }
     }
