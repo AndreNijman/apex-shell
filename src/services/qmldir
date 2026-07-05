@@ -10,6 +10,7 @@ GpuService ./system/GpuService.qml
 EnvyControlService ./system/EnvyControlService.qml
 CpuService ./system/CpuService.qml
 CpuFreqService ./system/CpuFreqService.qml
+PowerProfileService ./system/PowerProfileService.qml
 DiskService ./system/DiskService.qml
 ThermalService ./system/ThermalService.qml
 FanControl ./system/FanControl.qml

@@ -1,10 +1,33 @@
 [config]
-# Mandatory config section for matugen
+# Mandatory config section for matugen.
+# All template paths are ABSOLUTE so they resolve regardless of matugen's CWD:
+# WallpaperService runs `matugen image ... -c <shellDir>/src/config/matugen.toml`
+# via `bash -c` without changing directory.
 
+# -- Brain_Shell QML colour contract -> ~/.cache/brain-shell/colors.json -------
+# ColorLoader.qml watches this file and reads:
+#   background, active, text, subtext, border, iconFont
 [templates.brain_shell]
-input_path = './brain-shell-colors.json.example'
-output_path = '~/.cache/brain-shell/colors.json'
+input_path = '/home/andre/.local/src/Brain_Shell/src/config/brain-shell-colors.json.example'
+output_path = '/home/andre/.cache/brain-shell/colors.json'
 
+# -- Hyprland window-border colours -> ~/.config/hypr/brain-shell-colors.conf --
+# Sourced by ~/.config/hypr/hyprland.conf for $primary/$surface/$surface_bright/etc.
+# (Was the RELATIVE 'colors.conf' -> written next to matugen's CWD; the real
+#  target never updated. THIS was the window-border-colour bug.)
 [templates.hyprland_colors]
-input_path = "colors.conf.template"
-output_path = "colors.conf"
+input_path = '/home/andre/.local/src/Brain_Shell/src/config/colors.conf.template'
+output_path = '/home/andre/.config/hypr/brain-shell-colors.conf'
+
+# -- hyprlock colours -> source-tree colors.conf ------------------------------
+# hyprlock.conf sources exactly ~/.local/src/Brain_Shell/src/config/colors.conf,
+# so render the same template there too to keep the lock screen theme in sync.
+[templates.hyprlock_colors]
+input_path = '/home/andre/.local/src/Brain_Shell/src/config/colors.conf.template'
+output_path = '/home/andre/.local/src/Brain_Shell/src/config/colors.conf'
+
+# -- Optional terminal palette -> ~/.config/ghostty/brain-shell-colors --------
+[templates.ghostty]
+input_path = '/home/andre/.local/src/Brain_Shell/src/config/ghostty-colors.template'
+output_path = '/home/andre/.config/ghostty/brain-shell-colors'
+
