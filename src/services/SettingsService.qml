@@ -27,7 +27,7 @@ QtObject {
     // Layout & behavior
     property bool barEnabled:        false
     property int  spacing:           10
-    property int  exclusionGap:      30
+    property int  exclusionGap:      34
     property int  animDuration:      320
     property bool reduceMotion:      false
     property int  dashboardWidth:    900
@@ -47,7 +47,7 @@ QtObject {
     ]
     readonly property var _defaults: ({
         cornerRadius: 17, borderWidth: 6, notchRadius: 15, notchHeight: 40,
-        barEnabled: false, spacing: 10, exclusionGap: 30, animDuration: 320,
+        barEnabled: false, spacing: 10, exclusionGap: 34, animDuration: 320,
         reduceMotion: false, dashboardWidth: 900, dashboardHeight: 520,
         notificationsWidth: 400
     })
