@@ -5,6 +5,11 @@ Canvas {
     id: root
     anchors.fill: parent
 
+    // Multisample the canvas so the notch curves are crisp, not stair-stepped.
+    layer.enabled: true
+    layer.samples:  8
+    layer.smooth:   true
+
     // These are set by TopBar.qml with the real clamped widths.
     // They default to the Theme constraints so the shape is never empty.
     property int leftWidth:   Theme.lNotchMinWidth
