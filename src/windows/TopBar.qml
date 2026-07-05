@@ -115,6 +115,15 @@ PanelWindow {
             leftWidth:   root.lWidth
             centerWidth: root.cWidth
             rightWidth:  root.rWidth
+
+            // Un-round the right notch's bottom-left corner while a pill-popup
+            // hangs under it, so pill + popup merge into one straight edge.
+            rightBottomRadius: (Popups.notificationsOpen || Popups.networkOpen
+                                || Popups.notificationToastOpen)
+                ? 0 : Theme.notchRadius
+            Behavior on rightBottomRadius {
+                NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
+            }
         }
 
         Item {

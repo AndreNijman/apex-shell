@@ -99,12 +99,12 @@ Canvas {
         case "pill-right":
             // Card hanging directly below the top-right notch pill, same width
             // as the expanded pill. The top edge is flush with the pill bottom
-            // (same colour → invisible join). The rounded top-left corner meets
-            // the pill's rounded bottom-left corner in a smooth S-curve waist.
-            // The right edge runs flush with the screen edge, continuing the
-            // pill's right edge over the border strip.
-            ctx.moveTo(0, r)
-            ctx.arcTo(0, 0, r, 0, r)          // top-left corner (S-waist w/ pill)
+            // and the top-left corner is SQUARE: the pill un-rounds its
+            // bottom-left corner while a popup is open (SeamlessBarShape),
+            // so pill + card share one continuous straight left edge — a true
+            // single-shape merge with nothing peeking through. The right edge
+            // runs flush with the screen edge; bottom corners are rounded.
+            ctx.moveTo(0, 0)                   // square top-left, straight into the pill
             ctx.lineTo(w, 0)                   // flush under the pill
             ctx.lineTo(w, h - r)               // right edge, flush with screen
             ctx.arcTo(w, h, w - r, h, r)       // bottom-right corner
