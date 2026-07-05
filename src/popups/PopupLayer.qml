@@ -54,8 +54,10 @@ Item {
         anchorWindow: root.topBar
     }
 
+    // Standardised pill-popup: anchored to the top bar like NotificationsPopup,
+    // so the card's flush top lands exactly at the pill's bottom edge.
     NotificationToast {
-        anchorWindow: root.rightBorder
+        anchorWindow: root.topBar
     }
 
     // Screen recorder strip options — appears below center notch on hover

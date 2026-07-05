@@ -97,7 +97,8 @@ PanelWindow {
         State {
             name: "toast"
             when: Popups.notificationToastOpen && !Popups.notificationsOpen && !Popups.networkOpen
-            PropertyChanges { target: root; rWidth: Theme.notificationToastWidth + Theme.notchRadius + Theme.notchPadding -3 }
+            // Matches the toast card width exactly (standardised pill-popup)
+            PropertyChanges { target: root; rWidth: Theme.notificationToastWidth + Theme.notchRadius }
         }
     ]
 
