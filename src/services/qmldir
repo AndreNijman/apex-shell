@@ -12,14 +12,17 @@ CpuService ./system/CpuService.qml
 CpuFreqService ./system/CpuFreqService.qml
 PowerProfileService ./system/PowerProfileService.qml
 DiskService ./system/DiskService.qml
-ThermalService ./system/ThermalService.qml
-FanControl ./system/FanControl.qml
 DashHome home/DashHome.qml
 singleton NotificationService 1.0 ./notifications/NotificationService.qml
 NotificationList ./notifications/NotificationList.qml
 singleton WallpaperService 1.0 WallpaperService.qml
 singleton ScreenRecService 1.0 ScreenRecService.qml
+singleton SettingsService 1.0 SettingsService.qml
 KanbanBoard KanbanBoard.qml
 AppLauncher AppLauncher.qml
 ShellConfig ./config_tab/ShellConfig.qml
 KeybindsPage ./config_tab/KeybindsPage.qml
+AppearancePage ./config_tab/pages/AppearancePage.qml
+LayoutPage ./config_tab/pages/LayoutPage.qml
+DataPage ./config_tab/pages/DataPage.qml
+MiscPage ./config_tab/pages/MiscPage.qml

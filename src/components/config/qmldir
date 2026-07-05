@@ -1,0 +1,10 @@
+CfgScroll     CfgScroll.qml
+CfgSection    CfgSection.qml
+CfgRow        CfgRow.qml
+CfgSwitch     CfgSwitch.qml
+CfgSlider     CfgSlider.qml
+CfgButton     CfgButton.qml
+CfgSegmented  CfgSegmented.qml
+CfgSwatch     CfgSwatch.qml
+CfgTextField  CfgTextField.qml
+CfgTile       CfgTile.qml

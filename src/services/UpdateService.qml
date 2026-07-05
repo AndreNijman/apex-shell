@@ -274,6 +274,15 @@ QtObject {
         root.updateSuccess   = false
     }
 
+    // Symmetric setter for the Config → Misc toggle (persists + (re)arms timer).
+    function setAutoUpdate(v) {
+        console.log("UpdateService: setAutoUpdate(" + v + ")")
+        root.autoUpdate = v
+        _saveConfig()
+        if (v) root._startTimer.restart()
+        else   root._startTimer.stop()
+    }
+
     function disableAutoUpdate() {
         console.log("UpdateService: disableAutoUpdate() triggered")
         root.autoUpdate      = false
