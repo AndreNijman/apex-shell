@@ -9,15 +9,12 @@ Item {
     CpuService         { id: cpu;     active: root.visible }
     MemService         { id: mem;     active: root.visible }
     NetService         { id: net;     active: root.visible }
-    ThermalService     { id: thermal; active: root.visible }
-    FanControl         { id: fan }
     DiskService        { id: disk;    active: root.visible }
-    EnvyControlService { id: envy }
-    CpuFreqService     { id: cpuFreq }
+    CpuFreqService      { id: cpuFreq }
+    PowerProfileService { id: powerProfile }
     GpuService {
-        id:       gpu
-        active:   root.visible
-        envyMode: envy.currentMode
+        id:     gpu
+        active: root.visible
     }
 
     Column {
@@ -37,7 +34,7 @@ Item {
             spacing: 8
 
             StatCard {
-                width:  (parent.width - parent.spacing * 3) / 4
+                width:  (parent.width - parent.spacing * 2) / 3
                 height: parent.height
                 Speedometer {
                     anchors.centerIn: parent
@@ -51,7 +48,7 @@ Item {
             }
 
             StatCard {
-                width:  (parent.width - parent.spacing * 3) / 4
+                width:  (parent.width - parent.spacing * 2) / 3
                 height: parent.height
                 Speedometer {
                     anchors.centerIn: parent
@@ -65,67 +62,23 @@ Item {
             }
 
             StatCard {
-                width:  (parent.width - parent.spacing * 3) / 4
+                width:  (parent.width - parent.spacing * 2) / 3
                 height: parent.height
                 Speedometer {
                     anchors.centerIn: parent
                     label:       "iGPU"
-                    percent:     gpu.igpu.freqPercent
-                    centerText:  gpu.igpu.freqPercent + "%"
+                    percent:     gpu.igpu.usagePercent
+                    centerText:  gpu.igpu.usagePercent + "%"
                     bottomText:  gpu.igpu.curMhz
                     active:      true
                     accentColor: "#89dceb"
-                }
-            }
-
-            StatCard {
-                width:  (parent.width - parent.spacing * 3) / 4
-                height: parent.height
-                Speedometer {
-                    anchors.centerIn: parent
-                    label:       "dGPU"
-                    percent:     gpu.dgpu.active ? gpu.dgpu.usagePercent : 0
-                    centerText:  gpu.dgpu.active ? (gpu.dgpu.usagePercent + "%") : "0%"
-                    bottomText:  gpu.dgpu.active ? (gpu.dgpu.usedVram + " / " + gpu.dgpu.totalVram) : ""
-                    active:      gpu.dgpu.active
-                    accentColor: "#a6e3a1"
-                }
-            }
-        }
-        
-        Row{
-            width:   parent.width
-            height:  100
-            spacing: 8
-            // Thermal strip
-            StatCard {
-                width:   (parent.width-parent.spacing)/2
-                height:  parent.height
-                padding: 6
-    
-                TempPanel {
-                    anchors.fill: parent
-                    service:      thermal
-                    dgpuActive:   gpu.dgpu.active
-                }
-            }
-            
-            // Fan control strip
-            StatCard {
-                width:   (parent.width-parent.spacing)/2
-                height:  parent.height
-                padding: 6
-                
-                FanPanel {
-                    anchors.fill: parent
-                    service:      fan
                 }
             }
         }
         // Net | Disk | Power
         Row {
             width:   parent.width
-            height:  parent.height - speedoRow.height - 100 - parent.spacing 
+            height:  parent.height - speedoRow.height - parent.spacing 
             spacing: 8
 
             // Network — narrow, only 3 rows
@@ -153,9 +106,8 @@ Item {
                 width:  parent.width - Math.round(parent.width * 0.20) - Math.round(parent.width * 0.35) - parent.spacing * 2
                 height: parent.height
                 PowerPanel {
-                    anchors.fill:   parent
-                    cpuFreqService: cpuFreq
-                    envyService:    envy
+                    anchors.fill:        parent
+                    powerProfileService: powerProfile
                 }
             }
         }

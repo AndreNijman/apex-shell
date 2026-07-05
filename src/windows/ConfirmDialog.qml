@@ -87,12 +87,12 @@ PanelWindow {
                 break
             case "lock":
                 Popups.cancelConfirm()
-                proc.pendingCmd = ["loginctl", "lock-session"]
+                proc.pendingCmd = ["bash", powerScript, "lock"]
                 proc.running = true
                 break
             case "suspend":
                 Popups.cancelConfirm()
-                proc.pendingCmd = ["systemctl", "suspend"]
+                proc.pendingCmd = ["bash", powerScript, "suspend"]
                 proc.running = true
                 break
             case "gpu-switch-envy":

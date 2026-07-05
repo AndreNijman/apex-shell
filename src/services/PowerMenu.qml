@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import "../"
 
@@ -66,8 +67,8 @@ Column {
 
     function runDirect(action) {
         switch (action) {
-            case "lock":    runner.pendingCmd = ["loginctl", "lock-session"];    break
-            case "suspend": runner.pendingCmd = ["systemctl", "suspend"];        break
+            case "lock":    runner.pendingCmd = ["bash", Quickshell.shellDir + "/src/scripts/PowerControl.sh", "lock"];    break
+            case "suspend": runner.pendingCmd = ["bash", Quickshell.shellDir + "/src/scripts/PowerControl.sh", "suspend"]; break
         }
         runner.running = true
         Popups.archMenuOpen = false

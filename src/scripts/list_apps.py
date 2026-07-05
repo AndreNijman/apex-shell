@@ -2,10 +2,32 @@
 import os, json, re, configparser
 
 def main():
-    dirs = [
-        "/usr/share/applications",
-        os.path.expanduser("~/.local/share/applications")
+    # Build the app dir list from the XDG base-dir spec so we pick up flatpak
+    # exports (/var/lib/flatpak/exports/share, ~/.local/share/flatpak/exports/
+    # share) and everything else on XDG_DATA_DIRS. The old hard-coded list only
+    # had /usr/share + ~/.local/share, so flatpak apps (Modrinth, etc.) were
+    # never listed. Order follows the spec: XDG_DATA_HOME first (user overrides
+    # win via the `seen` de-dupe), then XDG_DATA_DIRS in order.
+    data_home = os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
+    data_dirs = os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share"
+
+    bases = [data_home] + data_dirs.split(":")
+    # Belt-and-suspenders: ensure flatpak exports are present even if
+    # XDG_DATA_DIRS is unset/stripped in the launching environment.
+    bases += [
+        "/var/lib/flatpak/exports/share",
+        os.path.expanduser("~/.local/share/flatpak/exports/share"),
     ]
+
+    dirs = []
+    for base in bases:
+        base = base.strip()
+        if not base:
+            continue
+        d = os.path.join(base, "applications")
+        if d not in dirs:
+            dirs.append(d)
+
     apps, seen = [], set()
 
     for d in dirs:
