@@ -3,11 +3,12 @@ import Quickshell.Io
 import "../"
 import "../components"
 
-// VPNTab — WireGuard connections via nmcli.
+// VPNTab — WireGuard connections via nmcli + the sing-box VLESS/Reality tunnel.
 //
 // Rules:
 //  • Only one connection active at a time. Requesting a new one disconnects
 //    the current first (in the same bash command so there is no gap).
+//    sing-box and WireGuard are mutually exclusive too.
 //  • No autoconnect: all WireGuard profiles have connection.autoconnect disabled
 //    on first load to prevent boot reconnect.
 //  • Kill switch: adds an nftables rule that drops all non-WireGuard traffic
@@ -15,6 +16,14 @@ import "../components"
 //  • Notifications: notify-send on connect, disconnect, and failure.
 //  • ShellState.vpnActive / vpnConnecting / vpnName reflect current status
 //    so the bar icon can react.
+//
+// sing-box backend (Void / runit):
+//  • runit service /etc/sv/sing-box with a `down` file — never autostarts;
+//    toggled on demand via `sudo -n sv up|down sing-box` (wheel NOPASSWD).
+//  • /etc/sing-box/config.json — VLESS/Reality tun (sb-tun, auto/strict route).
+//  • Connect = sv up → wait for the sb-tun device → verify egress via the
+//    tunnel (api.ipify.org). If egress fails the service is rolled back down
+//    automatically so traffic is never left black-holed.
 
 Item {
     id: root
@@ -26,6 +35,11 @@ Item {
     property bool   _killSwitch:   false  // persisted in-memory; toggle in UI
     property string _pendingName:  ""     // name being connected (for notif)
     property string _activeName:   ""     // currently active connection name
+
+    // ── sing-box state ────────────────────────────────────────────────────────
+    property bool   _sbActive:  false
+    property bool   _sbBusy:    false
+    property string _sbEgress:  ""       // egress IP through the tunnel
 
     // ── Disable autoconnect for all WireGuard profiles on first load ──────────
     // Runs once at startup. Safe to re-run (idempotent nmcli modify).
@@ -178,6 +192,118 @@ Item {
         }
     }
 
+    // ── sing-box: status ──────────────────────────────────────────────────────
+    Process {
+        id: sbStatusProc
+        running: false
+        command: ["bash", "-c", "sudo -n sv status sing-box 2>&1"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var up = text.trim().indexOf("run:") === 0
+                if (root._sbActive !== up) root._sbActive = up
+                if (!up) root._sbEgress = ""
+                root._syncShellState()
+            }
+        }
+    }
+
+    // ── sing-box: connect ─────────────────────────────────────────────────────
+    // Downs any WireGuard first, brings the service up, waits for the sb-tun
+    // device, then verifies real egress through the tunnel. Any failure rolls
+    // the service back down so traffic is never left black-holed.
+    Process {
+        id: sbConnectProc
+        running: false
+        command: []
+        stdout: StdioCollector { id: sbConnectOut }
+
+        onExited: function(code, status) {
+            root._sbBusy = false
+            if (code === 0) {
+                var m = sbConnectOut.text.match(/EGRESS:([0-9a-fA-F.:]+)/)
+                root._sbEgress = m ? m[1] : ""
+                root._sbActive = true
+                root._notify(
+                    "VPN Connected",
+                    "󰖂  sing-box tunnel is up.\nEgress: " + (root._sbEgress || "unknown"),
+                    "normal"
+                )
+            } else {
+                root._sbActive = false
+                root._sbEgress = ""
+                var out  = sbConnectOut.text
+                var why  = out.indexOf("SV_UP_FAIL") >= 0 ? "Could not start the sing-box service."
+                         : out.indexOf("TUN_FAIL")   >= 0 ? "Tunnel device never appeared."
+                         : out.indexOf("NO_EGRESS")  >= 0 ? "No traffic through the tunnel — rolled back."
+                         : "Unknown failure."
+                root._notify("VPN Failed", "sing-box: " + why, "critical")
+            }
+            root._syncShellState()
+            root._refresh()
+        }
+    }
+
+    // ── sing-box: disconnect ──────────────────────────────────────────────────
+    Process {
+        id: sbDisconnectProc
+        running: false
+        command: ["bash", "-c", "sudo -n sv down sing-box"]
+        onExited: function(code, status) {
+            root._sbBusy   = false
+            root._sbActive = false
+            root._sbEgress = ""
+            root._notify("VPN Disconnected", "󰖂  sing-box tunnel is down.", "low")
+            root._syncShellState()
+            root._refresh()
+        }
+    }
+
+    function _sbConnect() {
+        if (sbConnectProc.running || sbDisconnectProc.running
+            || connectProc.running || disconnectProc.running) return
+        root._sbBusy = true
+        ShellState.vpnConnecting = true
+        ShellState.vpnName       = "sing-box"
+        sbConnectProc.command = ["bash", "-c",
+            // 1. Mutual exclusion: down all active WireGuard connections
+            "nmcli -g NAME,TYPE connection show --active" +
+            " | awk -F: '$2==\"wireguard\"{print $1}'" +
+            " | xargs -r -I {} nmcli connection down \"{}\"; " +
+            // 2. Bring the service up
+            "sudo -n sv up sing-box || { echo SV_UP_FAIL; exit 1; }; " +
+            // 3. Wait for the tun device
+            "for i in $(seq 1 14); do sleep 0.5; ip link show sb-tun >/dev/null 2>&1 && break; done; " +
+            "ip link show sb-tun >/dev/null 2>&1 || { sudo -n sv down sing-box; echo TUN_FAIL; exit 1; }; " +
+            // 4. Verify egress through the tunnel (auto_route is live now)
+            "sleep 1; EG=$(curl -s -m 8 https://api.ipify.org || true); " +
+            "if [ -z \"$EG\" ]; then sudo -n sv down sing-box; echo NO_EGRESS; exit 1; fi; " +
+            "echo \"EGRESS:$EG\""]
+        sbConnectProc.running = false
+        sbConnectProc.running = true
+    }
+
+    function _sbDisconnect() {
+        if (sbConnectProc.running || sbDisconnectProc.running) return
+        root._sbBusy = true
+        sbDisconnectProc.running = false
+        sbDisconnectProc.running = true
+    }
+
+    // ShellState from the combined WireGuard + sing-box picture
+    function _syncShellState() {
+        var wgActive = root._connections.some(function(c) { return c.active })
+        if (root._sbActive && !wgActive) {
+            ShellState.vpnActive     = true
+            ShellState.vpnConnecting = false
+            ShellState.vpnName       = "sing-box"
+        } else if (!wgActive && !root._sbActive
+                   && !connectProc.running && !sbConnectProc.running) {
+            ShellState.vpnActive     = false
+            ShellState.vpnConnecting = false
+            if (ShellState.vpnName === "sing-box") ShellState.vpnName = ""
+        }
+    }
+
     // ── Kill switch — nmcli only, no pkexec/nftables ──────────────────────────
     // When enabled: downs all active WireGuard connections via nmcli.
     // No root required. Toggle reflects immediately in UI.
@@ -223,6 +349,11 @@ Item {
     // ── Logic ─────────────────────────────────────────────────────────────────
 
     function _refresh() {
+        // sing-box status is cheap — poll it on every refresh
+        if (!sbConnectProc.running && !sbDisconnectProc.running) {
+            sbStatusProc.running = false
+            sbStatusProc.running = true
+        }
         if (wgProc.running) return
         root._loading  = true
         root._buf      = []
@@ -245,15 +376,18 @@ Item {
     }
 
     function _applyKillSwitch() {
-        // Down all active WireGuard connections via nmcli — no root needed
+        // Down the sing-box tunnel + all active WireGuard connections
         killSwitchProc.command = ["bash", "-c",
+            "sudo -n sv down sing-box 2>/dev/null; " +
             "nmcli -g NAME,TYPE connection show --active" +
             " | awk -F: '$2==\"wireguard\" {print $1}'" +
             " | xargs -r -I {} nmcli connection down \"{}\""]
         killSwitchProc.running = false
         killSwitchProc.running = true
 
-        // Update ShellState immediately
+        // Update state immediately
+        root._sbActive = false
+        root._sbEgress = ""
         ShellState.vpnActive     = false
         ShellState.vpnConnecting = false
         ShellState.vpnName       = ""
@@ -290,12 +424,15 @@ Item {
 
         connectProc._name = name
 
-        // Down any active WireGuard first (using the reliable nmcli pattern),
-        // then bring up the requested connection
-        var downCmd = "nmcli -g NAME,TYPE connection show --active" +
+        // Down the sing-box tunnel and any active WireGuard first (mutual
+        // exclusion), then bring up the requested connection
+        var downCmd = "sudo -n sv down sing-box 2>/dev/null; " +
+            "nmcli -g NAME,TYPE connection show --active" +
             " | awk -F: '$2==\"wireguard\" {print $1}'" +
             " | xargs -r -I {} nmcli connection down \"{}\""
 
+        root._sbActive = false
+        root._sbEgress = ""
         connectProc.command = ["bash", "-c",
             downCmd + "; nmcli con up \"" + name + "\" 2>&1"]
         connectProc.running = false
@@ -434,6 +571,124 @@ Item {
 
             Column {
                 id: conCol; width: parent.width; height: implicitHeight; spacing: 6
+
+                // ── Tunnel section — sing-box ─────────────────────────────
+                Item {
+                    width: parent.width; height: tLbl.implicitHeight + 4
+                    Text {
+                        id: tLbl; text: "TUNNEL"
+                        font.pixelSize: 9; font.weight: Font.Bold; font.letterSpacing: 1.2
+                        color: root._sbActive
+                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
+                            : Qt.rgba(1,1,1,0.25)
+                    }
+                }
+
+                // sing-box row
+                Item {
+                    id: sbRow
+                    width: conCol.width - 2; x: 1; height: 54
+
+                    Rectangle {
+                        id: sbCard; anchors.fill: parent; radius: Theme.cornerRadius
+                        color: root._sbActive
+                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08)
+                            : sbHov.hovered ? Qt.rgba(1,1,1,0.04) : "transparent"
+                        border.color: root._sbActive
+                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22)
+                            : Qt.rgba(1,1,1,0.07)
+                        border.width: 1
+                        Behavior on color        { ColorAnimation { duration: 200 } }
+                        Behavior on border.color { ColorAnimation { duration: 200 } }
+                    }
+
+                    Row {
+                        anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
+                        spacing: 12
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "󰖂"; font.pixelSize: 20
+                            color: root._sbActive
+                                ? Theme.active
+                                : root._sbBusy
+                                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
+                                    : Qt.rgba(1,1,1,0.28)
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                        }
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter; spacing: 4
+
+                            Row {
+                                spacing: 8
+                                Text {
+                                    text: "sing-box"; font.pixelSize: 13
+                                    font.weight: root._sbActive ? Font.Medium : Font.Normal
+                                    color: root._sbActive ? Theme.text : Qt.rgba(1,1,1,0.65)
+                                }
+                                Rectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: sbTag.implicitWidth + 10; height: 15; radius: 4
+                                    color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.10)
+                                    border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.25)
+                                    border.width: 1
+                                    Text {
+                                        id: sbTag; anchors.centerIn: parent
+                                        text: "VLESS · Reality"; font.pixelSize: 8
+                                        font.family: "JetBrains Mono"
+                                        color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7)
+                                    }
+                                }
+                            }
+                            Text {
+                                font.pixelSize: 10
+                                text: root._sbBusy
+                                    ? (root._sbActive ? "Disconnecting…" : "Connecting…")
+                                    : root._sbActive
+                                        ? ("Connected" + (root._sbEgress !== "" ? "  ·  " + root._sbEgress : ""))
+                                        : "Disconnected"
+                                color: root._sbBusy
+                                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.60)
+                                    : root._sbActive ? Theme.active : Qt.rgba(1,1,1,0.32)
+                                Behavior on color { ColorAnimation { duration: 200 } }
+                            }
+                        }
+                    }
+
+                    // Right: spinner or status dot
+                    Item {
+                        anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
+                        width: 28; height: 28
+
+                        Text {
+                            anchors.centerIn: parent; visible: root._sbBusy
+                            text: "○"; font.pixelSize: 16; color: Theme.active
+                            SequentialAnimation on opacity {
+                                running: root._sbBusy; loops: Animation.Infinite
+                                NumberAnimation { to: 0.15; duration: 450 }
+                                NumberAnimation { to: 1.0;  duration: 450 }
+                            }
+                        }
+                        Rectangle {
+                            anchors.centerIn: parent; visible: !root._sbBusy
+                            width: 10; height: 10; radius: 5
+                            color: root._sbActive
+                                ? Theme.active
+                                : sbHov.hovered ? Qt.rgba(1,1,1,0.35) : Qt.rgba(1,1,1,0.18)
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                        }
+                    }
+
+                    HoverHandler { id: sbHov; cursorShape: Qt.PointingHandCursor }
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: !root._sbBusy
+                        onClicked: root._sbActive ? root._sbDisconnect() : root._sbConnect()
+                    }
+                }
+
+                Item { width: parent.width; height: 6 }
 
                 // Active section
                 Item {
