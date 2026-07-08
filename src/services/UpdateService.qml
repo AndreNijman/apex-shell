@@ -22,6 +22,8 @@ QtObject {
     property int    commitsBehind:   0
     property var    commitMessages:  []
     property string lastError:       ""
+    // Stranded stashes in the shell repo (surfaced as a warning in UpdatePopup).
+    property int    stashCount:      0
     property int _pingAttempts:    0
     property int _pingMaxAttempts: 12
     
@@ -205,19 +207,45 @@ QtObject {
         }
     }
 
-    // ── Stash local changes, then pull ────────────────────────────────────
-    // stash pop is intentionally omitted — shell reloads after update anyway.
-    // User can `git stash pop` manually if they want changes back.
+    // ── Stash local changes, pull, then restore the stash ─────────────────
+    // Flow: stash push → pull → stash apply. On clean apply we drop the stash;
+    // on a conflicting apply we reset the (now conflicted, unmerged) worktree
+    // back to the freshly-pulled HEAD, KEEP the stash so nothing is lost, and
+    // notify the user. `reset --hard` is used rather than `checkout -- .`
+    // because checkout cannot clear unmerged paths (conflict markers survive).
+    // If the pull itself fails we pop the stash back so the tree is unchanged.
+    // Exit codes: 0 = restored/clean · 10 = update applied, changes kept in
+    // stash (user notified) · anything else = pull failed.
     property var _stashPullProc: Process {
         command: ["bash", "-c",
-            // stash with || true so an empty worktree doesn't abort the whole chain
-            "git -C '" + root._dir + "' stash push -m 'brain-shell-pre-update' 2>/dev/null || true; " +
-            "git -C '" + root._dir + "' pull origin main 2>&1"]
+            "D='" + root._dir + "'; STASHED=0; " +
+            // Only mark STASHED when git actually created a stash entry.
+            "git -C \"$D\" stash push -m 'brain-shell-pre-update' 2>/dev/null | grep -q 'Saved working directory' && STASHED=1; " +
+            "if git -C \"$D\" pull origin main 2>&1; then " +
+            "  if [ \"$STASHED\" = 1 ]; then " +
+            "    if git -C \"$D\" stash apply 2>/dev/null; then " +
+            "      git -C \"$D\" stash drop 2>/dev/null; " +
+            "    else " +
+            // Conflicting apply — discard the half-applied tree, keep the stash.
+            "      git -C \"$D\" reset --hard 2>/dev/null; " +
+            "      notify-send --app-name='Brain Shell' --urgency=critical --icon=dialog-warning 'Brain Shell Updated' 'Your local changes conflicted with the update and were kept in git stash. Run: git stash pop to recover them.'; " +
+            "      exit 10; " +
+            "    fi; " +
+            "  fi; " +
+            "  exit 0; " +
+            "else " +
+            // Pull failed — restore the pre-update tree so nothing is stranded.
+            "  [ \"$STASHED\" = 1 ] && git -C \"$D\" stash pop 2>/dev/null; " +
+            "  exit 3; " +
+            "fi"]
         running: false
         onExited: function(code) {
             root.updating = false
-            if (code === 0) {
-                console.log("UpdateService: git stash + pull successful.")
+            if (code === 0 || code === 10) {
+                if (code === 10)
+                    console.log("UpdateService: stash + pull done — local changes kept in stash (user notified).")
+                else
+                    console.log("UpdateService: git stash + pull successful (local changes restored).")
                 root.updateAvailable = false
                 root.hasConflict     = false
                 root.lastError       = ""
@@ -226,6 +254,20 @@ QtObject {
                 console.log("UpdateService: git stash + pull failed with code " + code)
                 root.hasConflict = false
                 root.lastError   = "Stash + pull failed. Try manually: git pull origin main"
+            }
+            root.refreshStashCount()
+        }
+    }
+
+    // ── Count stranded stashes in the shell repo ──────────────────────────
+    property var _stashListProc: Process {
+        command: ["bash", "-c",
+            "git -C '" + root._dir + "' stash list 2>/dev/null | wc -l"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var n = parseInt(text.trim())
+                root.stashCount = isNaN(n) ? 0 : n
             }
         }
     }
@@ -272,6 +314,12 @@ QtObject {
         root.hasConflict     = false
         root.lastError       = ""
         root.updateSuccess   = false
+    }
+
+    // Refresh stashCount from the shell repo (called when the popup opens).
+    function refreshStashCount() {
+        _stashListProc.running = false
+        _stashListProc.running = true
     }
 
     // Symmetric setter for the Config → Misc toggle (persists + (re)arms timer).
