@@ -235,18 +235,21 @@ Item {
         root._actionMac = mac; root._pairingMac = ""
         actionProc.command = pin !== ""
             ? ["bash", "-c",
-                "(echo 'default-agent'; echo 'trust " + mac + "'; echo 'pair " + mac + "'; sleep 1; echo '" + pin + "'; sleep 4) | timeout 12 bluetoothctl 2>/dev/null"]
+                "(echo 'default-agent'; echo \"trust $1\"; echo \"pair $1\"; sleep 1; printf '%s\\n' \"$2\"; sleep 4) | timeout 12 bluetoothctl 2>/dev/null",
+                "--", mac, pin]
             : ["bash", "-c",
-                "(echo 'default-agent'; echo 'trust " + mac + "'; echo 'pair " + mac + "'; sleep 1; echo 'yes'; sleep 4) | timeout 12 bluetoothctl 2>/dev/null"]
+                "(echo 'default-agent'; echo \"trust $1\"; echo \"pair $1\"; sleep 1; echo 'yes'; sleep 4) | timeout 12 bluetoothctl 2>/dev/null",
+                "--", mac]
         actionProc.running = false; actionProc.running = true
     }
 
     function _remove(mac) {
         root._removeMac = ""; root._removingMac = mac
         removeProc.command = ["bash", "-c",
-            "bluetoothctl untrust " + mac + " 2>/dev/null; " +
-            "bluetoothctl disconnect " + mac + " 2>/dev/null; " +
-            "bluetoothctl remove " + mac + " 2>/dev/null"]
+            "bluetoothctl untrust \"$1\" 2>/dev/null; " +
+            "bluetoothctl disconnect \"$1\" 2>/dev/null; " +
+            "bluetoothctl remove \"$1\" 2>/dev/null",
+            "--", mac]
         removeProc.running = false; removeProc.running = true
     }
 
