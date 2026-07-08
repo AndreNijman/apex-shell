@@ -32,6 +32,7 @@ PanelWindow {
         target: UpdateService
         function onShowPopupChanged() {
             if (UpdateService.showPopup) {
+                UpdateService.refreshStashCount()
                 root.windowVisible = true
             } else {
                 closeTimer.restart()
@@ -171,6 +172,18 @@ PanelWindow {
             Rectangle {
                 width: parent.width; height: 1
                 color: Qt.rgba(1, 1, 1, 0.07)
+            }
+
+            // ── Stranded stash warning (shown in any state) ───────────────────
+            Text {
+                visible:        UpdateService.stashCount > 0
+                width:          parent.width
+                text:           UpdateService.stashCount + " stashed change-set" +
+                                (UpdateService.stashCount === 1 ? "" : "s") +
+                                " — git stash pop to recover"
+                font.pixelSize: 10
+                color:          "#f5c47a"
+                wrapMode:       Text.WordWrap
             }
 
             // ── AVAILABLE ─────────────────────────────────────────────────────
