@@ -192,8 +192,8 @@ QtObject {
         }
         var json = JSON.stringify(out, null, 2)
         _saveProc.command = ["bash", "-c",
-            "mkdir -p \"$(dirname '" + root._jsonPath + "')\" && " +
-            "printf '%s' '" + json.replace(/'/g, "'\\''") + "' > '" + root._jsonPath + "'"]
+            "mkdir -p \"$(dirname \"$2\")\" && printf '%s' \"$1\" > \"$2\"",
+            "--", json, root._jsonPath]
         _saveProc.running = false
         _saveProc.running = true
         root._writeFiles()
@@ -266,14 +266,13 @@ QtObject {
     function _writeFiles() {
         var lua = _genLua()
         var conf = _genConf()
-        var le  = lua.replace(/\\/g, "\\\\").replace(/'/g, "'\\''")
-        var ce  = conf.replace(/\\/g, "\\\\").replace(/'/g, "'\\''")
-        
-        // Write both files so the user has them regardless of what they switch to
+
+        // Write both files so the user has them regardless of what they switch to.
+        // Contents + paths go in as positional args, never spliced into the script.
         _writeProc.command = ["bash", "-c",
-            "printf '%s' '" + le + "' > '" + root._luaPath + "' && " +
-            "printf '%s' '" + ce + "' > '" + root._confPath + "'"]
-            
+            "printf '%s' \"$1\" > \"$3\" && printf '%s' \"$2\" > \"$4\"",
+            "--", lua, conf, root._luaPath, root._confPath]
+
         _writeProc.running = false
         _writeProc.running = true
     }

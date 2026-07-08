@@ -34,8 +34,8 @@ QtObject {
     function _savePins() {
         var json = JSON.stringify(root.pinned)
         _savePinsProc.command = ["bash", "-c",
-            "mkdir -p \"$(dirname '" + root._pinsPath + "')\" && " +
-            "printf '%s' '" + json.replace(/'/g, "'\\''") + "' > '" + root._pinsPath + "'"]
+            "mkdir -p \"$(dirname \"$2\")\" && printf '%s' \"$1\" > \"$2\"",
+            "--", json, root._pinsPath]
         _savePinsProc.running = false
         _savePinsProc.running = true
     }
@@ -91,7 +91,7 @@ QtObject {
 
     function copyText(t) {
         _copyProc.command = ["bash", "-c",
-            "printf '%s' '" + t.replace(/\\/g, "\\\\").replace(/'/g, "'\\''") + "' | wl-copy"]
+            "printf '%s' \"$1\" | wl-copy", "--", t]
         _copyProc.running = false
         _copyProc.running = true
     }
