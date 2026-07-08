@@ -97,7 +97,8 @@ Item {
         var s = JSON.stringify({ tasks: _tasks, nextId: _nextId })
         wrProc.command = [
             "bash", "-c",
-            "printf '%s' '" + s.replace(/'/g, "'\\''") + "' > '" + _filePath + "'"
+            "printf '%s' \"$1\" > \"$2\"",
+            "--", s, _filePath
         ]
         wrProc.running = false; wrProc.running = true
     }

@@ -50,7 +50,7 @@ Item {
     function _save() {
         var j = JSON.stringify({ ssid: root._ssid, password: root._password })
         saveProc.command = ["bash", "-c",
-            "printf '%s' '" + j.replace(/'/g, "'\\''") + "' > '" + root._cfgPath + "'"]
+            "printf '%s' \"$1\" > \"$2\"", "--", j, root._cfgPath]
         saveProc.running = false; saveProc.running = true
     }
 

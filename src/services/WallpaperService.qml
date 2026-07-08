@@ -46,9 +46,10 @@ QtObject {
     property var listProc: Process {
         command: [
             "bash", "-c",
-            "find " + root.wallpaperDir + " -maxdepth 1 -type f " +
+            "find \"$1\" -maxdepth 1 -type f " +
             "\\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' " +
-            "-o -iname '*.gif' -o -iname '*.webp' \\) | sort"
+            "-o -iname '*.gif' -o -iname '*.webp' \\) | sort",
+            "--", root.wallpaperDir.replace(/^~(?=\/|$)/, Quickshell.env("HOME"))
         ]
         stdout: SplitParser {
             onRead: function(line) {
@@ -93,12 +94,11 @@ QtObject {
             wallpaperDir: root.wallpaperDir,
             scheme:       root.scheme
         })
-        // Use printf so the content is never misinterpreted as shell commands.
-        // Single-quote the config path (paths rarely contain single quotes).
+        // JSON and path go in as positional args, never spliced into the script.
         saveConfigProc.command = [
             "bash", "-c",
-            "mkdir -p \"$(dirname '" + root.configPath + "')\" && " +
-            "printf '%s' '" + json.replace(/'/g, "'\\''") + "' > '" + root.configPath + "'"
+            "mkdir -p \"$(dirname \"$2\")\" && printf '%s' \"$1\" > \"$2\"",
+            "--", json, root.configPath
         ]
         saveConfigProc.running = true
     }
@@ -112,13 +112,14 @@ QtObject {
         root.currentWall = path
         applyProc.command = [
             "bash", "-c",
-            "awww img --transition-type grow --transition-step 200 --transition-duration 1.2 --transition-fps 60 --transition-pos bottom \"" + path + "\" " +
-            "&& ln -sf \"" + path + "\" ~/.curr_wall " +
-            "&& (if [[ \"" + path + "\" == *.gif ]]; then " +
-            "rm -f ~/.curr_wall_static.jpg; magick \"" + path + "[0]\" ~/.curr_wall_static.jpg || true; " +
-            "else ln -sf \"" + path + "\" ~/.curr_wall_static.jpg; fi) " +
-            "&& matugen image \"$(readlink -f ~/.curr_wall_static.jpg)\" -c \"" + Quickshell.shellDir + "/src/config/matugen.toml\" --source-color-index 0 --type scheme-" + root.scheme + " " +
-            "&& matugen image \"$(readlink -f ~/.curr_wall_static.jpg)\" --source-color-index 0 --type scheme-" + root.scheme + " || true"
+            "awww img --transition-type grow --transition-step 200 --transition-duration 1.2 --transition-fps 60 --transition-pos bottom \"$1\" " +
+            "&& ln -sf \"$1\" ~/.curr_wall " +
+            "&& (if [[ \"$1\" == *.gif ]]; then " +
+            "rm -f ~/.curr_wall_static.jpg; magick \"$1[0]\" ~/.curr_wall_static.jpg || true; " +
+            "else ln -sf \"$1\" ~/.curr_wall_static.jpg; fi) " +
+            "&& matugen image \"$(readlink -f ~/.curr_wall_static.jpg)\" -c \"$2\" --source-color-index 0 --type \"scheme-$3\" " +
+            "&& matugen image \"$(readlink -f ~/.curr_wall_static.jpg)\" --source-color-index 0 --type \"scheme-$3\" || true",
+            "--", path, Quickshell.shellDir + "/src/config/matugen.toml", root.scheme
         ]
         applyProc.running = true
     }
