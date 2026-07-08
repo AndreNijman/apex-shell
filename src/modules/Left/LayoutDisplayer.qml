@@ -24,7 +24,12 @@ import "../../"
 Item {
     id: root
 
-    implicitWidth:  26
+    // niri is scrollable-tiling and has no master/dwindle layout concept, so the
+    // whole indicator hides (and its hyprctl polling stops) off Hyprland.
+    readonly property bool isHyprland: Compositor.isHyprland
+
+    visible:        isHyprland
+    implicitWidth:  isHyprland ? 26 : 0
     implicitHeight: 26
 
     // ── State ────────────────────────────────────────────────────────────────
@@ -72,6 +77,7 @@ Item {
     }
 
     function refresh() {
+        if (!root.isHyprland) return   // no hyprctl on niri
         if (!queryProc.running) queryProc.running = true
     }
 
@@ -81,6 +87,7 @@ Item {
 
     Connections {
         target: Hyprland
+        enabled: root.isHyprland
 
         // Quickshell emits (name, data) for raw events
         function onRawEvent(event) {
@@ -94,7 +101,7 @@ Item {
     // but no window event follows (e.g. switch layout on an empty workspace).
     Timer {
         interval: 4000
-        running:  true
+        running:  root.isHyprland
         repeat:   true
         onTriggered: root.refresh()
     }

@@ -82,12 +82,22 @@ PanelWindow {
     
         Connections {
         target: Hyprland
-        
+        enabled: !Compositor.isNiri
+
         // Quickshell emits (name, data) for raw events
         function onRawEvent(event) {
             if (event.name === "workspace" || event.name === "activemonitor" || event.name === "activespecial" || event.name === "openwindow") {
                 Popups.closeAll();
             }
         }
+    }
+
+    // niri equivalent: dismiss popups when the focused workspace or window changes
+    // (mirrors the workspace / openwindow / activemonitor auto-close above).
+    Connections {
+        target: NiriService
+        enabled: Compositor.isNiri
+        function onFocusedWorkspaceIdChanged() { Popups.closeAll(); }
+        function onFocusedWindowIdChanged()    { Popups.closeAll(); }
     }
 }

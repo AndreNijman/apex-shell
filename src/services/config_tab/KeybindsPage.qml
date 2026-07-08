@@ -456,11 +456,21 @@ Item {
                             
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
-                    HoverHandler { id: _pillH; cursorShape: br._interactive ? Qt.PointingHandCursor : Qt.ArrowCursor }
+                    // Live key capture needs a Hyprland submap to suppress binds
+                    // while recording; niri has no equivalent, so capture is
+                    // disabled there (manual editing of keybinds.json / the
+                    // generated .kdl still works).
+                    ToolTip.visible: Compositor.isNiri && _pillH.hovered
+                    ToolTip.text:    "Live capture is Hyprland-only.\nEdit keybinds.json or Brain_ShellKeybinds.kdl by hand on niri."
+
+                    HoverHandler { id: _pillH; cursorShape: (br._interactive && !Compositor.isNiri) ? Qt.PointingHandCursor : Qt.ArrowCursor }
                     MouseArea {
                         anchors.fill: parent
                         enabled: br._interactive
-                        onClicked: br.requestCapture()
+                        onClicked: {
+                            if (Compositor.isNiri) return   // capture unsupported on niri
+                            br.requestCapture()
+                        }
                     }
                 }
             }

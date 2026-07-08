@@ -139,6 +139,10 @@ QtObject {
 
     // New function to update borders based on config provider
     function updateBorders() {
+        // niri manages its own borders (config.kdl) and has no hyprctl — skip
+        // silently so there's no error spam on every wallpaper apply.
+        if (Compositor.isNiri) return
+
         // Strip '#' from the colors (assuming QML hex format #RRGGBB)
         let primary = String(Theme.active).replace('#', '')
         

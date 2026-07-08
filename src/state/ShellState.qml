@@ -73,6 +73,10 @@ QtObject {
         target: KeybindService 
         
         function onIsCapturingChanged() {
+            // Submaps are a Hyprland concept; niri has no passthrough mode and
+            // key capture is disabled there, so never issue hyprctl on niri.
+            if (Compositor.isNiri) return
+
             if (KeybindService.isCapturing) {
                 // Enter passthrough mode (disables Hyprland binds)
                 if (configProvider === "lua") {
