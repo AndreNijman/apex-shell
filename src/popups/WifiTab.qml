@@ -199,8 +199,9 @@ Item {
         _connectingTo = ssid; _expandSsid = ""
         connectProc._ssid = ssid
         connectProc.command = ["bash", "-c",
-            "nmcli con up id \"" + ssid + "\" 2>&1 ||" +
-            " nmcli dev wifi connect \"" + ssid + "\" 2>&1"]
+            "nmcli con up id \"$1\" 2>&1 ||" +
+            " nmcli dev wifi connect \"$1\" 2>&1",
+            "--", ssid]
         connectProc.running = false; connectProc.running = true
     }
 
@@ -210,7 +211,8 @@ Item {
         delete np[ssid]
         root._needsPassword = np
         passProc.command = ["bash", "-c",
-            "nmcli dev wifi connect \"" + ssid + "\" password \"" + password + "\" 2>/dev/null"]
+            "nmcli dev wifi connect \"$1\" password \"$2\" 2>/dev/null",
+            "--", ssid, password]
         passProc.running = false; passProc.running = true
     }
 
