@@ -2,12 +2,10 @@ PowerMenu    PowerMenu.qml
 SystemStats  ./system/SystemStats.qml
 BatteryStatus  BatteryStatus.qml
 BatteryWarning BatteryWarning.qml
-EnvyControl ./system/EnvyControl.qml
 AudioControl AudioControl.qml
 MemService ./system/MemService.qml
 NetService ./system/NetService.qml
 GpuService ./system/GpuService.qml
-EnvyControlService ./system/EnvyControlService.qml
 CpuService ./system/CpuService.qml
 CpuFreqService ./system/CpuFreqService.qml
 PowerProfileService ./system/PowerProfileService.qml
