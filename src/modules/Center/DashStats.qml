@@ -70,7 +70,7 @@ Item {
                     percent:     gpu.igpu.usagePercent
                     centerText:  gpu.igpu.usagePercent + "%"
                     bottomText:  gpu.igpu.curMhz
-                    active:      true
+                    active:      gpu.available
                     accentColor: "#89dceb"
                 }
             }
