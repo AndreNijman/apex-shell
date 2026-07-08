@@ -140,25 +140,12 @@ StatCard {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  Caffeine  (systemd-inhibit)
+    //  Caffeine  (Wayland idle-inhibit — inhibitors live in the TopBar windows)
     // ─────────────────────────────────────────────────────────────────────────
-    property bool caffeineOn: false
+    readonly property bool caffeineOn: ShellState.caffeine
 
-    Process { id: caffeineCheck
-        command: ["bash", "-c", "pgrep -f 'systemd-inhibit.*Caffeine'"]; running: false
-        stdout: SplitParser { onRead: function(l) { if (l.trim() !== "") root.caffeineOn = true } } }
-    Process { id: caffeineProc
-        command: ["systemd-inhibit","--what=idle:sleep",
-                  "--who=Brain Shell","--why=Caffeine mode","sleep","infinity"]
-        running: false }
-    Process { id: caffeineKill
-        command: ["bash", "-c", "pkill -f 'systemd-inhibit.*Caffeine'"]; running: false
-        onRunningChanged: if (!running) root.caffeineOn = false }
     function _caffeineToggle() {
-        if (root.caffeineOn) {
-            caffeineProc.running = false
-            caffeineKill.running = false; caffeineKill.running = true
-        } else { caffeineProc.running = true; root.caffeineOn = true }
+        ShellState.caffeine = !ShellState.caffeine
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -596,7 +583,6 @@ StatCard {
         brightRead.running      = true
         _wifiPoll(); _btPoll()
         nlCheck.running         = true
-        caffeineCheck.running   = true
         hotspotCheck.running    = true
         airplaneCheck.running   = true
         filterCheckProc.running = true
