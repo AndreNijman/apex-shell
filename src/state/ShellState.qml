@@ -9,7 +9,7 @@ import "../."
 //
 // WiFi / Bluetooth  — owned by QuickSettings (nmcli / bluetoothctl)
 // Night Light       — owned by QuickSettings (hyprsunset)
-// Caffeine          — owned by QuickSettings (systemd-inhibit)
+// Caffeine          — toggled by QuickSettings; TopBar holds the Wayland idle inhibitors
 // Hotspot           — owned by QuickSettings (nmcli hotspot)
 // Airplane Mode     — owned by QuickSettings (rfkill)
 // Focus Mode        — owned by QuickSettings; TopBar reacts to hide + zero gaps
@@ -29,6 +29,10 @@ QtObject {
     property bool screenRecord: false
     property bool hotspot:      false
     property bool airplane:     false
+
+    // Caffeine — while true, IdleInhibitors in each TopBar window keep the
+    // compositor's idle timers (hypridle: dim/lock/dpms/suspend) from firing.
+    property bool caffeine:     false
 
     // WiFi — false when radio is off OR hotspot is using the interface
     property bool wifiOn:       false

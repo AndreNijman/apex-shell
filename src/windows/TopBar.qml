@@ -1,4 +1,5 @@
 import Quickshell
+import Quickshell.Wayland
 import QtQuick
 import "../components"
 import "../modules/Center/"
@@ -23,6 +24,14 @@ PanelWindow {
     Binding { target: ShellState; property: "topBarLWidth"; value: root.lWidth }
     Binding { target: ShellState; property: "topBarCWidth"; value: root.cWidth }
     Binding { target: ShellState; property: "topBarRWidth"; value: root.rWidth }
+
+    // ── Caffeine — Wayland idle-inhibit while ShellState.caffeine is on ───────
+    // One inhibitor per bar window (always mapped); any active inhibitor stops
+    // the compositor's idle timers, so hypridle never dims/locks/suspends.
+    IdleInhibitor {
+        window:  root
+        enabled: ShellState.caffeine
+    }
 
     // ── Height shrinks to a border strip in focus mode ───────────────────────
     // Safe to animate on PanelWindow (anchored, no position jank).
