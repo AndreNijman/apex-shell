@@ -6,6 +6,8 @@ import "./src/"
 
 ShellRoot {
     // Force-instantiate lazy singletons that need startup behavior
+    property var _compositor: Compositor
+    property var _niri:       NiriService
     property var _keybinds:   KeybindService
     property var _updater:    UpdateService
     property var _ipc:        IpcManager

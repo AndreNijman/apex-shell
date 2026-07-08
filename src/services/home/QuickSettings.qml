@@ -13,6 +13,13 @@ StatCard {
     padding: 0
     focus: true
 
+    // ── Compositor gating ─────────────────────────────────────────────────────
+    // hyprsunset (Night Light) and the hl.config screen_shader (Filter) are
+    // Hyprland-only; those tiles hide on niri. Focus Mode keeps the bar-shrink
+    // (ShellState.focusMode) but skips the hyprctl gap calls on niri.
+    readonly property bool isHyprland: Compositor.isHyprland
+    readonly property bool isNiri:     Compositor.isNiri
+
     // ─────────────────────────────────────────────────────────────────────────
     //  Brightness
     // ─────────────────────────────────────────────────────────────────────────
@@ -435,6 +442,11 @@ StatCard {
     Process { id: restoreGaps; command: []; running: false
         onRunningChanged: if (!running) ShellState.focusMode = false }
     function _focusToggle() {
+        // niri has no compositor gaps to toggle — just flip the bar-shrink state.
+        if (root.isNiri) {
+            ShellState.focusMode = !ShellState.focusMode
+            return
+        }
         if (ShellState.focusMode) {
             restoreGaps.command = ["bash", "-c",
                 "hyprctl keyword general:gaps_in "  + root._savedGapsIn  +
@@ -530,6 +542,7 @@ StatCard {
 
     Connections {
         target: WallpaperService
+        enabled: root.isHyprland   // screen_shader lives in Hyprland only
         function onWallpaperApplied(path) {
             filterCheckProc.running = false
             filterCheckProc.running = true
@@ -582,10 +595,10 @@ StatCard {
     Component.onCompleted: {
         brightRead.running      = true
         _wifiPoll(); _btPoll()
-        nlCheck.running         = true
+        if (root.isHyprland) nlCheck.running = true   // hyprsunset — Hyprland only
         hotspotCheck.running    = true
         airplaneCheck.running   = true
-        filterCheckProc.running = true
+        if (root.isHyprland) filterCheckProc.running = true   // screen_shader — Hyprland only
         hsCfgLoadProc.running   = true
         hsIfaceProc.running     = true
         hsActiveCheckProc.running = true
@@ -791,6 +804,9 @@ StatCard {
                         onToggled: root._hotspotToggle()
                     }
                     TglBtn {
+                        // hyprsunset is Hyprland-specific — hide on niri (wlsunset
+                        // would be the niri-world tool; not wired up here).
+                        visible: root.isHyprland
                         width: tileGrid.btnW; height: tileGrid.btnH
                         on: root.nightLightOn; icon: "󰖐"; label: "Night Light"
                         onToggled: root._nightLightToggle()
@@ -828,8 +844,10 @@ StatCard {
                             }
                         }
                     }
-                    // Filter tile — opens picker, does not toggle directly
+                    // Filter tile — opens picker, does not toggle directly.
+                    // Uses hyprctl screen_shader (hl.config) — Hyprland only.
                     TglBtn {
+                        visible: root.isHyprland
                         width: tileGrid.btnW; height: tileGrid.btnH
                         on:       root.currentFilter !== ""
                         icon:     "󱡓"

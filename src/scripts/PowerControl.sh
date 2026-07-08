@@ -10,7 +10,10 @@ HYPRLOCK_CONF="${HYPRLOCK_CONF:-$HOME/.local/src/Brain_Shell/src/config/hyprlock
 case "$1" in
     shutdown) exec loginctl poweroff ;;
     reboot)   exec loginctl reboot ;;
-    logout)   exec hyprctl dispatch exit ;;          # quit Hyprland → back to GDM
+    logout)
+        # niri: `niri msg action quit --skip-confirmation`; Hyprland: dispatch exit.
+        if [ -n "$NIRI_SOCKET" ]; then exec niri msg action quit --skip-confirmation
+        else exec hyprctl dispatch exit; fi ;;             # quit compositor → back to GDM
     suspend)  exec loginctl suspend ;;
     # Native Quickshell lock screen (windows/Lockscreen.qml via the "lockscreen"
     # IPC target). Unlock is PAM-only — there is no unlock IPC.

@@ -5,12 +5,21 @@ import "../../"
 
 Rectangle {
     id: root
-    
+
     // ── Config Provider ────────────────────────────────────────────────
     property string configProvider: ShellState.configProvider
-    
+
+    // ── Compositor ─────────────────────────────────────────────────────
+    // View is neutral; data + actions come from Hyprland or NiriService.
+    readonly property bool isNiri: Compositor.isNiri
+
     // ── Workspace Dispatch Function ────────────────────────────────────
     function dispatchWorkspace(wsTarget, isSpecialToggle = false) {
+        // niri: focus by 1-based workspace index (special workspaces don't exist).
+        if (root.isNiri) {
+            NiriService.focusWorkspace(wsTarget)
+            return
+        }
         if (root.configProvider === "lua") {
             if (isSpecialToggle) {
                 Hyprland.dispatch(`hl.dsp.workspace.toggle_special("${wsTarget}")`);
@@ -37,7 +46,7 @@ Rectangle {
 
     // --- 2. LOGIC: Raw Event Listener ---
     property bool isScratchpad: false
-    
+
     property bool scrollBusy: false
 
     Timer {
@@ -46,7 +55,7 @@ Rectangle {
         repeat:   false
         onTriggered: root.scrollBusy = false
     }
-    
+
     // ---Wheel: cycle through occupied workspaces ---
     WheelHandler {
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
@@ -54,6 +63,20 @@ Rectangle {
             if (root.scrollBusy) return; // Ignore if still in cooldown
             root.scrollBusy = true;
             scrollCooldown.restart();
+
+            // niri: cycle the live workspace list by position (idx order).
+            if (root.isNiri) {
+                let wss = NiriService.workspaces;
+                if (wss.length === 0) return;
+                let cur = wss.findIndex(w => w.isActive);
+                if (cur === -1) cur = 0;
+                // Inverted scroll: Up goes Prev, Down goes Next
+                if (event.angleDelta.y < 0) cur = (cur + 1) % wss.length;
+                else                        cur = (cur - 1 + wss.length) % wss.length;
+                root.dispatchWorkspace(wss[cur].idx);
+                return;
+            }
+
             // Fetch and sort occupied workspace IDs numerically
             let occupied = Hyprland.workspaces.values.map(w => w.id).sort((a, b) => a - b);
             if (occupied.length === 0) return; // Safety check
@@ -68,14 +91,15 @@ Rectangle {
             } else {
                 idx = (idx - 1 + occupied.length) % occupied.length;
             }
-            
+
             //Hyprland.dispatch(`workspace ${occupied[idx]}`);
             root.dispatchWorkspace(occupied[idx]);
         }
-    }   
+    }
     Connections {
         target: Hyprland
-        
+        enabled: !root.isNiri   // Hyprland raw events are meaningless on niri
+
         // Quickshell emits (name, data) for raw events
         function onRawEvent(event) {
 		//	console.log("RawEvent_name: "+ event.name)
@@ -85,19 +109,19 @@ Rectangle {
                 // Event data format: "workspaceName,monitorName"
                 // Example: "special:magic,eDP-1" or ",eDP-1" (closed)
                 const wsName = event.data.split(',')[0];
-                
+
                 // If name is not empty, scratchpad is open.
                 root.isScratchpad = (wsName !== "");
             }
-            
+
             // 2. Reset when switching to a normal workspace
             if (event.name === "destroyworkspace") {
                 root.isScratchpad = false;
             }
         }
     }
-    
-    
+
+
     // --- 3. Workspace Dots ---
     Row {
         id: workspaceRow
@@ -107,16 +131,17 @@ Rectangle {
         // Logic: Fade out dots when Scratchpad is active
         opacity: root.isScratchpad ? 0 : 1
         scale:   root.isScratchpad ? 0.8 : 1
-        visible: opacity > 0 
+        visible: opacity > 0
 
         Behavior on opacity { NumberAnimation { duration: 200 } }
         Behavior on scale   { NumberAnimation { duration: 200 } }
 
+        // ── Hyprland dots — fixed workspaces 1..10 (unchanged behaviour) ──
         Repeater {
-            model: 10 
+            model: root.isNiri ? 0 : 10
             delegate: Rectangle {
                 id: dot
-                
+
                 property var ws: Hyprland.workspaces.values.find(w => w.id === index + 1)
                 property bool isActive: Hyprland.focusedWorkspace?.id === (index + 1)
                 property bool isOccupied: ws !== undefined
@@ -126,7 +151,7 @@ Rectangle {
                 height: Theme.wsDotSize
                 radius: height / 2
                 width: isActive ? Theme.wsActiveWidth : Theme.wsDotSize
-                
+
                 color: {
                     if (isActive)   return Theme.wsActive
                     if (isUrgent)   return Theme.wsUrgent
@@ -171,29 +196,71 @@ Rectangle {
                 }
             }
         }
+
+        // ── niri dots — dynamic from the live workspace list ──
+        // niri has no fixed count and no special workspace; one dot per existing
+        // workspace, highlighting the active one on its output.
+        Repeater {
+            model: root.isNiri ? NiriService.workspaces : 0
+            delegate: Rectangle {
+                id: ndot
+
+                required property var  modelData
+
+                property bool isActive: modelData.isActive
+                property bool isUrgent: modelData.isUrgent
+
+                height: Theme.wsDotSize
+                radius: height / 2
+                width: isActive ? Theme.wsActiveWidth : Theme.wsDotSize
+
+                color: {
+                    if (isActive) return Theme.wsActive
+                    if (isUrgent) return Theme.wsUrgent
+                    return Theme.wsOccupied     // every niri workspace here is occupied
+                }
+
+                Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
+                Behavior on color { ColorAnimation { duration: 200 } }
+
+                SequentialAnimation {
+                    running: ndot.isUrgent && !ndot.isActive
+                    loops:   Animation.Infinite
+                    NumberAnimation { target: ndot; property: "scale"; to: 1.35; duration: 400; easing.type: Easing.InOutSine }
+                    NumberAnimation { target: ndot; property: "scale"; to: 1.0;  duration: 400; easing.type: Easing.InOutSine }
+                }
+                onIsUrgentChanged: { if (!isUrgent) scale = 1.0 }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.dispatchWorkspace(ndot.modelData.idx)
+                }
+            }
+        }
     }
 
-    // --- 4. Scratchpad Overlay ---
+    // --- 4. Scratchpad Overlay --- (Hyprland only — niri has no special workspace)
     Rectangle {
         id: overlay
         anchors.fill: parent
         radius: root.radius
         color: Theme.wsOverlay
         z: 99
-        
+
         // Logic: Fade in overlay when Scratchpad is active
-        visible: opacity > 0
+        visible: !root.isNiri && opacity > 0
         opacity: root.isScratchpad ? 1 : 0
-        
+
         Behavior on opacity { NumberAnimation { duration: 200 } }
-        
+
         Text {
             anchors.centerIn: parent
-            text: "" 
+            text: ""
             color: "#FFFFFF"
             font.pixelSize: 14
         }
-        
+
         MouseArea {
             anchors.fill: parent
             //onClicked: Hyprland.dispatch("togglespecialworkspace magic")

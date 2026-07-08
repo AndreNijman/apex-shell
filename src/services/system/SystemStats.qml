@@ -49,8 +49,10 @@ Item {
             "printf 'Distro: %s\\n' \"${PRETTY_NAME:-Linux}\"; " +
             "printf 'Kernel: %s\\n' \"$(uname -r)\"; " +
             "hv=$(hyprctl version 2>/dev/null | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1); " +
+            "nv=$(niri --version 2>/dev/null | grep -oE '[0-9]+\\.[0-9]+(\\.[0-9]+)?' | head -n1); " +
             "if [ -n \"$hv\" ]; then printf 'WM: Hyprland %s\\n' \"$hv\"; " +
             "elif [ -n \"$HYPRLAND_INSTANCE_SIGNATURE\" ]; then printf 'WM: Hyprland\\n'; " +
+            "elif [ -n \"$NIRI_SOCKET\" ]; then if [ -n \"$nv\" ]; then printf 'WM: niri %s\\n' \"$nv\"; else printf 'WM: niri\\n'; fi; " +
             "else printf 'WM: %s\\n' \"${XDG_CURRENT_DESKTOP:-Wayland}\"; fi; " +
             "printf 'Uptime: %s\\n' \"$(uptime -p | sed 's/up //; s/ hours\\?/h/; s/ minutes\\?/m/; s/ days\\?/d/; s/, / /g')\"; " +
             "if command -v xbps-query >/dev/null 2>&1; then printf 'Packages: %s\\n' \"$(xbps-query -l 2>/dev/null | wc -l)\"; " +

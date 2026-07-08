@@ -103,6 +103,51 @@ CfgScroll {
         }
     }
 
+    // ── Compositor ────────────────────────────────────────────────────────────
+    CfgSection {
+        title: "Compositor"
+
+        CfgRow {
+            label:     "Active"
+            hoverable: false
+            Text {
+                text:        Compositor.name + (Compositor.overrideName === "" ? "  ·  auto" : "  ·  override")
+                font.family: "JetBrains Mono"
+                font.pixelSize: 11
+                color:       Theme.active
+            }
+        }
+
+        Text {
+            x:        10
+            width:    parent.width - 20
+            text:     "Detected " + Compositor.detected + " from the environment. Choose which compositor Brain_Shell targets — Auto follows detection. Hyprland-only features (layout indicator, night light, shader filter, special workspace) degrade automatically on niri."
+            font.pixelSize: 10
+            color:    Qt.rgba(1,1,1,0.4)
+            wrapMode: Text.WordWrap
+        }
+        Item { width: parent.width; height: 8 }
+
+        Item {
+            width:  parent.width
+            height: compSeg.implicitHeight
+
+            CfgSegmented {
+                id: compSeg
+                x:     10
+                width: parent.width - 20
+                options: [
+                    { value: "auto",     label: "Auto"     },
+                    { value: "hyprland", label: "Hyprland" },
+                    { value: "niri",     label: "niri"     }
+                ]
+                value: Compositor.overrideName === "" ? "auto" : Compositor.overrideName
+                onSelected: function(v) { Compositor.setOverride(v) }
+            }
+        }
+        Item { width: parent.width; height: 4 }
+    }
+
     // ── Updates ───────────────────────────────────────────────────────────────
     CfgSection {
         title: "Updates"
