@@ -341,22 +341,31 @@ QtObject {
         if (root.captureTarget === "screen") {
             root._resolveAudio()
         } else if (root.captureTarget === "window") {
-            _windowPickerProc.command = [
-                "bash", "-c",
-                "hyprctl clients -j | python3 -c \"" +
-                "import sys,json; ws=json.load(sys.stdin); " +
-                "[print(str(w['at'][0])+','+str(w['at'][1])+' '+str(w['size'][0])+'x'+str(w['size'][1])) " +
-                "for w in ws if w['mapped']]\" | slurp"
-            ]
+            // Hyprland feeds slurp the window boxes so you can click a window;
+            // niri has no hyprctl, so fall back to plain interactive slurp (draw
+            // the region). Both emit the same "x,y WxH" geometry.
+            _windowPickerProc.command = Compositor.isNiri
+                ? ["slurp"]
+                : [
+                    "bash", "-c",
+                    "hyprctl clients -j | python3 -c \"" +
+                    "import sys,json; ws=json.load(sys.stdin); " +
+                    "[print(str(w['at'][0])+','+str(w['at'][1])+' '+str(w['size'][0])+'x'+str(w['size'][1])) " +
+                    "for w in ws if w['mapped']]\" | slurp"
+                ]
             _windowPickerProc.running = false
             _windowPickerProc.running = true
         } else {
-            _regionPickerProc.command = [
-                "bash", "-c",
-                "hyprctl monitors -j | python3 -c \"" +
-                "import sys,json; ms=json.load(sys.stdin); " +
-                "[print(str(m['x'])+','+str(m['y'])+' '+str(m['width'])+'x'+str(m['height'])) for m in ms]\" | slurp"
-            ]
+            // Hyprland feeds slurp the monitor boxes; niri falls back to plain
+            // interactive slurp. Same "x,y WxH" output either way.
+            _regionPickerProc.command = Compositor.isNiri
+                ? ["slurp"]
+                : [
+                    "bash", "-c",
+                    "hyprctl monitors -j | python3 -c \"" +
+                    "import sys,json; ms=json.load(sys.stdin); " +
+                    "[print(str(m['x'])+','+str(m['y'])+' '+str(m['width'])+'x'+str(m['height'])) for m in ms]\" | slurp"
+                ]
             _regionPickerProc.running = false
             _regionPickerProc.running = true
         }

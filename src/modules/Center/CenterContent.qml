@@ -42,7 +42,11 @@ Item {
 
 	property string activeTitle: "Desktop"
 
-	// ── App name helper ───────────────────────────────────────────────────────    
+	// Compositor — Hyprland drives the title via hyprctl + raw events; niri drives
+	// it from NiriService's focused-window event stream.
+	readonly property bool isNiri: Compositor.isNiri
+
+	// ── App name helper ───────────────────────────────────────────────────────
 	// 2. Process to fetch the initialTitle
 	property var _titleProc: Process {
 		command: ["hyprctl", "activewindow", "-j"]
@@ -86,6 +90,7 @@ Item {
 
 	Connections{
 		target: Hyprland
+		enabled: !root.isNiri
 		// 3. Your Raw Event Monitor
 		function onRawEvent(event) {
 			// 3. Trigger title fetch on any window/workspace focus change
@@ -97,6 +102,14 @@ Item {
 			}
 		}
 	}
+
+	// niri: mirror the focused-window title from NiriService's event stream.
+	Connections {
+		target: NiriService
+		enabled: root.isNiri
+		function onFocusedTitleChanged() { root.activeTitle = NiriService.focusedTitle }
+	}
+	Component.onCompleted: if (root.isNiri) root.activeTitle = NiriService.focusedTitle
 
 	// ── Dynamic item list ─────────────────────────────────────────────────────
 	property var  _items:         ["title"]
