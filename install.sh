@@ -63,11 +63,14 @@ if [[ -f /etc/os-release ]]; then
             DISTRO_TYPE="arch"
             ;;
         nixos)
-            log_ok "Distro: NixOS"
-            DISTRO_TYPE="nix"
+            echo ""
+            log_error "NixOS is not currently supported by this installer."
+            log_info "The NixOS pipeline and Nix flake are known to be broken (see README)."
+            log_info "Manual configuration is required on NixOS for now."
+            exit 1
             ;;
         *)
-            die "Unsupported distro: ${ID:-unknown}. Supported: Arch-based, NixOS."
+            die "Unsupported distro: ${ID:-unknown}. Supported: Arch-based."
             ;;
     esac
 else

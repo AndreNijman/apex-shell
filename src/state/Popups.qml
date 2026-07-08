@@ -6,7 +6,6 @@ QtObject {
     // ── Per-popup open state ───────────────────────────────────────────────────
     property bool audioOpen:         false
     property bool networkOpen:       false
-    property bool batteryOpen:       false
     property bool notificationsOpen: false
     property bool archMenuOpen:      false
     property bool dashboardOpen:     false
@@ -29,7 +28,6 @@ QtObject {
     property bool archMenuTriggerHovered: false
     property bool audioTriggerHovered:         false
     property bool networkTriggerHovered:       false
-    property bool batteryTriggerHovered:       false
     property bool notificationsTriggerHovered: false
     property bool wallpaperTriggerHovered:     false
     property bool quickTriggerHovered: false
@@ -63,7 +61,7 @@ QtObject {
     }
 
     // ── Global state ──────────────────────────────────────────────────────────
-    readonly property bool anyOpen: audioOpen || networkOpen || batteryOpen
+    readonly property bool anyOpen: audioOpen || networkOpen
                                     || notificationsOpen || archMenuOpen
                                     || dashboardOpen || wallpaperOpen || quickOpen
                                     || clipboardOpen
@@ -71,7 +69,6 @@ QtObject {
     function closeAll() {
         audioOpen         = false
         networkOpen       = false
-        batteryOpen       = false
         notificationsOpen = false
         archMenuOpen      = false
         dashboardOpen     = false

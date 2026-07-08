@@ -17,13 +17,4 @@ Item {
         anchors.centerIn: parent
         showPercentage:   parent.showPercentage
     }
-
-    MouseArea {
-        anchors.fill: parent
-        onClicked: {
-            var next = !Popups.batteryOpen
-            Popups.closeAll()
-            Popups.batteryOpen = next
-        }
-    }
 }
