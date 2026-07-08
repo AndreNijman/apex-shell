@@ -12,6 +12,10 @@ case "$1" in
     reboot)   exec loginctl reboot ;;
     logout)   exec hyprctl dispatch exit ;;          # quit Hyprland → back to GDM
     suspend)  exec loginctl suspend ;;
-    lock)     pidof hyprlock >/dev/null 2>&1 || exec setsid -f hyprlock -c "$HYPRLOCK_CONF" ;;
+    # Native Quickshell lock screen (windows/Lockscreen.qml via the "lockscreen"
+    # IPC target). Unlock is PAM-only — there is no unlock IPC.
+    lock)     exec qs ipc -c "$HOME/.local/src/Brain_Shell" call lockscreen lock ;;
+    # Fallback: external hyprlock (kept for reference / emergencies)
+    # lock)     pidof hyprlock >/dev/null 2>&1 || exec setsid -f hyprlock -c "$HYPRLOCK_CONF" ;;
     *)        echo "usage: PowerControl.sh {shutdown|reboot|logout|suspend|lock}" >&2; exit 1 ;;
 esac

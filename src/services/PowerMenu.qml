@@ -66,8 +66,14 @@ Column {
     }
 
     function runDirect(action) {
+        // Lock routes through shared state (engages windows/Lockscreen.qml
+        // instantly) rather than spawning hyprlock. No external round-trip.
+        if (action === "lock") {
+            LockState.locked = true
+            Popups.archMenuOpen = false
+            return
+        }
         switch (action) {
-            case "lock":    runner.pendingCmd = ["bash", Quickshell.shellDir + "/src/scripts/PowerControl.sh", "lock"];    break
             case "suspend": runner.pendingCmd = ["bash", Quickshell.shellDir + "/src/scripts/PowerControl.sh", "suspend"]; break
         }
         runner.running = true
