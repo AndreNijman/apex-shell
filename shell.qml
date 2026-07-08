@@ -42,7 +42,15 @@ ShellRoot {
                     rightBorder:  rightBorder
                     bottomBorder: bottomBorder
                 }
+
+                // Volume / brightness / mic OSD — transient top-centre pill
+                Osd { screen: modelData }
             }
         }
     }
+
+    // ── Native session lock ──────────────────────────────────
+    // Top-level (NOT per-screen): WlSessionLock manages one surface per
+    // output itself. Engages when LockState.locked is set.
+    Lockscreen {}
 }
