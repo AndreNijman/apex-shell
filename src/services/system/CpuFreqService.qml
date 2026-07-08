@@ -4,7 +4,7 @@ import Quickshell.Io
 // Tracks auto-cpufreq daemon status, the kernel governor, and current freq.
 //
 // Reading strategy:
-//   1. systemctl is-active auto-cpufreq         → daemonActive
+//   1. pgrep auto-cpufreq (init-agnostic)       → daemonActive
 //   2. cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
 //      → reads ALL cores, picks the dominant governor
 //      → activeProfile: "performance" | "powersave"
@@ -32,7 +32,7 @@ QtObject {
 
     // ── Daemon status check ───────────────────────────────────────────────────
     property var _daemonProc: Process {
-        command: ["systemctl", "is-active", "auto-cpufreq"]
+        command: ["sh", "-c", "pgrep -x auto-cpufreq >/dev/null && echo active || echo inactive"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
