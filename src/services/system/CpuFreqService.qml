@@ -112,8 +112,9 @@ QtObject {
 
         var gov = (profile === "performance") ? "performance" : "powersave"
         _setProc.command = [
-            "sh", "-c",
-            "echo " + gov + " | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor"
+            "pkexec", "sh", "-c",
+            "echo \"$1\" | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null",
+            "--", gov
         ]
         _setProc.running = false
         _setProc.running = true
