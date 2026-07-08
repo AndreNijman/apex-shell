@@ -2,8 +2,9 @@ import QtQuick
 import Quickshell.Io
 import "../../"
 
-// Parses fastfetch output into key/value rows and renders them styled.
-// Each line from fastfetch is "Key: Value" — we split on ": " (first occurrence).
+// Gathers system info natively (no fastfetch dependency) into key/value rows
+// and renders them styled. The collector script emits one "Key: Value" line per
+// field — we split on ": " (first occurrence).
 
 Item {
     id: root
@@ -15,7 +16,7 @@ Item {
 
     function reload() {
         root.rows = []
-        ff.running = true
+        statsProc.running = true
     }
 
     // Strip ANSI escape codes just in case
@@ -39,14 +40,28 @@ Item {
         return result
     }
 
+    // Native collector — one lightweight shell invocation emits "Key: Value"
+    // lines. All values come from fixed system commands (no data interpolation).
     Process {
-        id: ff
-        command: ["fastfetch", "-c", "systemstats"]
+        id: statsProc
+        command: ["bash", "-c",
+            ". /etc/os-release 2>/dev/null; " +
+            "printf 'Distro: %s\\n' \"${PRETTY_NAME:-Linux}\"; " +
+            "printf 'Kernel: %s\\n' \"$(uname -r)\"; " +
+            "hv=$(hyprctl version 2>/dev/null | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1); " +
+            "if [ -n \"$hv\" ]; then printf 'WM: Hyprland %s\\n' \"$hv\"; " +
+            "elif [ -n \"$HYPRLAND_INSTANCE_SIGNATURE\" ]; then printf 'WM: Hyprland\\n'; " +
+            "else printf 'WM: %s\\n' \"${XDG_CURRENT_DESKTOP:-Wayland}\"; fi; " +
+            "printf 'Uptime: %s\\n' \"$(uptime -p | sed 's/up //; s/ hours\\?/h/; s/ minutes\\?/m/; s/ days\\?/d/; s/, / /g')\"; " +
+            "if command -v xbps-query >/dev/null 2>&1; then printf 'Packages: %s\\n' \"$(xbps-query -l 2>/dev/null | wc -l)\"; " +
+            "elif command -v pacman >/dev/null 2>&1; then printf 'Packages: %s\\n' \"$(pacman -Qq 2>/dev/null | wc -l)\"; " +
+            "elif command -v dpkg-query >/dev/null 2>&1; then printf 'Packages: %s\\n' \"$(dpkg-query -f '.\\n' -W 2>/dev/null | wc -l)\"; fi; " +
+            "printf 'Hostname: %s\\n' \"$(cat /etc/hostname 2>/dev/null || uname -n)\""]
         running: true
 
         stdout: StdioCollector {
-            id: ffOut
-            onStreamFinished: root.rows = root.parse(ffOut.text)
+            id: statsOut
+            onStreamFinished: root.rows = root.parse(statsOut.text)
         }
     }
 
