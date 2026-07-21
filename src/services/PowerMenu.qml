@@ -32,6 +32,16 @@ Column {
             action:  "reboot"
         },
         {
+            label:   "Windows ",
+            icon:    "󰖳",
+            danger:  false,
+            confirm: true,
+            title:   "Boot into Windows?",
+            message: "Your computer will restart into Windows. Save your work before continuing. It will boot back into Linux the next time.",
+            label2:  "Restart to Windows",
+            action:  "windows"
+        },
+        {
             label:   "Log Out  ",
             icon:    "󰍃",
             danger:  true,
@@ -39,7 +49,7 @@ Column {
             title:   "Log Out?",
             message: "You will be logged out of your session. Save your work before continuing.",
             label2:  "Log Out",
-            action:  "logout" 
+            action:  "logout"
         },
         {
             label:   "Lock        ",
