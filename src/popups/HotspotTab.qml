@@ -11,13 +11,13 @@ import "../components"
 Item {
     id: root
 
-    property string _ssid:      "BrainShell"
+    property string _ssid:      "ApexShell"
     property string _password:  "changeme1"
     property bool   _showPass:  false
     property bool   _dirty:     false   // unsaved changes
 
     readonly property string _cfgPath:
-        Quickshell.env("HOME") + "/.config/Brain_Shell/src/user_data/hotspot.json"
+        Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/hotspot.json"
 
     // ── Load ──────────────────────────────────────────────────────────────────
     Process {
@@ -25,7 +25,7 @@ Item {
         command: ["bash", "-c",
             "[ -f '" + root._cfgPath + "' ] || " +
             "(mkdir -p \"$(dirname '" + root._cfgPath + "')\" && " +
-            "printf '%s' '{\"ssid\":\"BrainShell\",\"password\":\"changeme1\"}' " +
+            "printf '%s' '{\"ssid\":\"ApexShell\",\"password\":\"changeme1\"}' " +
             "> '" + root._cfgPath + "'); " +
             "cat '" + root._cfgPath + "'"]
         running: false

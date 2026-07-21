@@ -461,7 +461,7 @@ Item {
                     // disabled there (manual editing of keybinds.json / the
                     // generated .kdl still works).
                     ToolTip.visible: Compositor.isNiri && _pillH.hovered
-                    ToolTip.text:    "Live capture is Hyprland-only.\nEdit keybinds.json or Brain_ShellKeybinds.kdl by hand on niri."
+                    ToolTip.text:    "Live capture is Hyprland-only.\nEdit keybinds.json or ApexShellKeybinds.kdl by hand on niri."
 
                     HoverHandler { id: _pillH; cursorShape: (br._interactive && !Compositor.isNiri) ? Qt.PointingHandCursor : Qt.ArrowCursor }
                     MouseArea {

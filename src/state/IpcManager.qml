@@ -301,7 +301,7 @@ QtObject {
     // External entry point for the native lock screen (windows/Lockscreen.qml).
     // Invoked by scripts/PowerControl.sh, hypridle's lock_cmd, and
     // `loginctl lock-session` → all via:
-    //   qs ipc -c "$HOME/.local/src/Brain_Shell" call lockscreen lock
+    //   qs ipc -c "$HOME/.local/src/apex-shell" call lockscreen lock
     //
     // SECURITY: unlock() is intentionally a no-op. Unlocking over IPC would be
     // a trivial lock bypass — the ONLY path back to unlocked is a successful
