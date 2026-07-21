@@ -74,8 +74,40 @@ The installer automatically:
 - ✓ Updates your Hyprland config to auto-start APEX Shell and required dependencies
 - ✓ Renders a portable matugen config (no hardcoded paths) into `~/.config/apex-shell/matugen.toml`
 - ✓ Creates configuration directories
+- ✓ Installs a tightly scoped polkit rule for passwordless sing-box VPN toggling (only when sing-box is present)
 
 **After installation, restart Hyprland for changes to take effect.**
+
+---
+
+<h2>
+  VPN (sing-box) control plane
+</h2>
+
+The VPN tab controls the [sing-box](https://sing-box.sagernet.org/) VLESS/Reality
+tunnel through **systemd**: `systemctl start|stop sing-box.service` to
+connect/disconnect and `systemctl is-active sing-box.service` to read status.
+
+To keep the toggle password-free without granting broad `sudo`, APEX Shell ships
+a tightly scoped **polkit** rule at
+[`dots-extra/polkit/49-apex-shell-singbox.rules`](dots-extra/polkit/49-apex-shell-singbox.rules).
+It authorizes `start` / `stop` / `restart` of **only** `sing-box.service`
+(`org.freedesktop.systemd1.manage-units`) for an active local session — nothing
+else. Reading status needs no rule (it is an unprivileged query).
+
+The Arch installer drops it into `/etc/polkit-1/rules.d/` automatically when
+sing-box is detected. To install it by hand on any systemd host:
+
+```bash
+sudo install -Dm644 dots-extra/polkit/49-apex-shell-singbox.rules \
+     /etc/polkit-1/rules.d/49-apex-shell-singbox.rules
+```
+
+polkitd hot-reloads `rules.d/`, so it takes effect immediately — no restart. On
+image-based systems (e.g. APEX-OS) ship it read-only under
+`/usr/share/polkit-1/rules.d/` instead. APEX Shell assumes `sing-box.service` is
+installed **disabled** (it never autostarts) with its config at
+`/etc/sing-box/config.json`.
 
 ---
 
