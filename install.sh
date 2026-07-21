@@ -1,7 +1,7 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  Brain Shell — Main Installer
-#  github.com/Brainitech/Brain_Shell  v0.1.0
+#  APEX Shell — Main Installer
+#  github.com/AndreNijman/apex-shell  v0.1.0
 # ─────────────────────────────────────────────────────────────────────────────
 # Hesitation is Defeat — Isshin Ashina
 set -eo pipefail
@@ -18,7 +18,7 @@ log_warn()  { echo -e "  ${YELLOW}⚠${NC} $1"; }
 log_error() { echo -e "  ${RED}✗${NC} $1" >&2; }
 die()       { echo ""; log_error "$1"; exit 1; }
 
-TOTAL_STEPS=5
+TOTAL_STEPS=6
 step() {
     echo ""
     echo -e "${BOLD}${CYAN}  [$1/$TOTAL_STEPS]  $2${NC}"
@@ -39,7 +39,7 @@ echo " ▒███▒▒▒▒▒███ ▒███▒▒▒▒▒███
 echo " ▒███    ▒███ ▒███    ▒███  ▒███    ▒███  ▒███  ▒███  ▒▒█████     ███    ▒███ ▒███    ▒███  ▒███ ▒   █ ▒███      █ ▒███      █"
 echo " ███████████  █████   █████ █████   █████ █████ █████  ▒▒█████   ▒▒█████████  █████   █████ ██████████ ███████████ ███████████"
 echo -e "${NC}"
-echo -e "  ${DIM}v0.1.0  ·  github.com/Brainitech/Brain_Shell${NC}"
+echo -e "  ${DIM}v0.1.0  ·  github.com/AndreNijman/apex-shell${NC}"
 echo ""
 
 
@@ -117,7 +117,7 @@ fi
 step 2 "Backup"
 
 BACKUP_TS=$(date +%Y%m%d_%H%M%S)
-BACKUP_DIR="$HOME/.config.backup-${BACKUP_TS}-Brain_Shell"
+BACKUP_DIR="$HOME/.config.backup-${BACKUP_TS}-apex-shell"
 mkdir -p "$BACKUP_DIR"
 
 if [[ -d "$HYPR_DIR" ]]; then
@@ -134,7 +134,7 @@ fi
 step 3 "Repository"
 
 REPO_PARENT="$HOME/.local/src"
-REPO_DIR="$REPO_PARENT/Brain_Shell"
+REPO_DIR="$REPO_PARENT/apex-shell"
 mkdir -p "$REPO_PARENT"
 
 if [[ -d "$REPO_DIR/.git" ]]; then
@@ -145,7 +145,7 @@ if [[ -d "$REPO_DIR/.git" ]]; then
     log_ok "Repository updated: $REPO_DIR"
 else
     log_info "Cloning from GitHub..."
-    git clone -b main https://github.com/Brainitech/Brain_Shell.git "$REPO_DIR"
+    git clone -b main https://github.com/AndreNijman/apex-shell.git "$REPO_DIR"
     log_ok "Repository cloned: $REPO_DIR"
 fi
 
@@ -164,20 +164,42 @@ bash "$DISTRO_INSTALLER" "$HYPRLAND_CONF" "$BACKUP_DIR" "$CONFIG_TYPE"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STEP 5 — Done
+# STEP 5 — Theming Config (portable matugen paths)
 # ══════════════════════════════════════════════════════════════════════════════
-step 5 "Done"
+# matugen does NOT expand ~ or environment variables in template input/output
+# paths, so they must be absolute. We ship src/config/matugen.toml.in with
+# @SRCDIR@ / @HOME@ placeholders and render the real config here — keeping the
+# repo free of any hardcoded username or install location.
+step 5 "Theming Config"
+
+MATUGEN_TEMPLATE="$REPO_DIR/src/config/matugen.toml.in"
+MATUGEN_CONFIG="$HOME/.config/apex-shell/matugen.toml"
+
+if [[ -f "$MATUGEN_TEMPLATE" ]]; then
+    mkdir -p "$(dirname "$MATUGEN_CONFIG")"
+    sed -e "s|@SRCDIR@|$REPO_DIR|g" -e "s|@HOME@|$HOME|g" \
+        "$MATUGEN_TEMPLATE" > "$MATUGEN_CONFIG"
+    log_ok "matugen config rendered → $MATUGEN_CONFIG"
+else
+    log_warn "matugen template not found: $MATUGEN_TEMPLATE"
+fi
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STEP 6 — Done
+# ══════════════════════════════════════════════════════════════════════════════
+step 6 "Done"
 
 echo ""
-log_ok "Brain Shell is installed."
+log_ok "APEX Shell is installed."
 echo ""
-echo -e "  ${BOLD}Restart Hyprland to activate Brain Shell:${NC}"
+echo -e "  ${BOLD}Restart Hyprland to activate APEX Shell:${NC}"
 log_info "Log out and log back in  ${DIM}(recommended)${NC}"
 log_info "hyprctl dispatch exit"
 log_info "Ctrl+Alt+Q               ${DIM}(if configured)${NC}"
 echo ""
 echo -e "  ${BOLD}Paths:${NC}"
-log_info "Config:  ~/.config/Brain_Shell"
+log_info "Config:  ~/.config/apex-shell"
 log_info "Source:  $REPO_DIR"
 echo ""
 
