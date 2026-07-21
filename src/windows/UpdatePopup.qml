@@ -165,7 +165,7 @@ PanelWindow {
                         : UpdateService.hasConflict   ? "Conflict Detected"
                         : UpdateService.lastError !== "" && !UpdateService.updating
                                                       ? "Update Failed"
-                        : "Brain Shell Update Available"
+                        : "APEX Shell Update Available"
                 }
             }
 
