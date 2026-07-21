@@ -14,7 +14,7 @@ import Quickshell.Io
 //   neither                         → "hyprland"  (safe default — degrades nothing)
 //
 // Manual override: the optional "compositor" key in
-//   ~/.config/Brain_Shell/src/user_data/config_Provider.json
+//   ~/.config/apex-shell/src/user_data/config_Provider.json
 // wins over detection. Values: "hyprland" | "niri" | "auto"/"" (= use detection).
 // Written by the Config → Misc page through setOverride(); the sibling
 // "configProvider" key (read by ShellState) is preserved on every write.
@@ -49,7 +49,7 @@ QtObject {
 
     // ── config_Provider.json (override persistence) ───────────────────────────
     readonly property string _cfgPath:
-        Quickshell.env("HOME") + "/.config/Brain_Shell/src/user_data/config_Provider.json"
+        Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/config_Provider.json"
 
     // Last parsed file contents — cloned on write so sibling keys never drop.
     property var _cfgData: ({})
@@ -70,7 +70,7 @@ QtObject {
             root.overrideName = (data.compositor === "hyprland" || data.compositor === "niri")
                                 ? data.compositor : ""
         } catch (e) {
-            console.error("Brain Shell: Compositor failed to parse config_Provider.json")
+            console.error("APEX Shell: Compositor failed to parse config_Provider.json")
         }
     }
 
