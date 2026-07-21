@@ -18,7 +18,12 @@ QtObject {
     id: root
 
     // ── Config path — src/user_data/wallpaper.json (relative to this file) ──────
-	readonly property string configPath: Quickshell.env("HOME") + "/.config/Brain_Shell/src/user_data/wallpaper.json"
+	readonly property string configPath: Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/wallpaper.json"
+
+    // ── Rendered matugen config — matugen can't expand ~/env in template paths,
+    //    so the shipped src/config/matugen.toml.in is rendered (with the live
+    //    $HOME + shell dir) into this real config that matugen actually reads. ──
+    readonly property string matugenConfig: Quickshell.env("HOME") + "/.config/apex-shell/matugen.toml"
 
     // ── State ─────────────────────────────────────────────────────────────────
     property var    wallpapers:   []
@@ -80,7 +85,7 @@ QtObject {
                 } catch(e) {}
             }
             if (root.currentWall === "") {
-                var defaultWall = Quickshell.shellDir + "/src/assets/wallpapers/brain-shell-default-0.png"
+                var defaultWall = Quickshell.shellDir + "/src/assets/wallpapers/apex-shell-default-0.png"
                 root.apply(defaultWall)
             }
             root.refresh()
@@ -112,14 +117,20 @@ QtObject {
         root.currentWall = path
         applyProc.command = [
             "bash", "-c",
+            // Render the portable matugen.toml.in template into the real config
+            // matugen reads — substitute the live shell dir ($2) and $HOME. This
+            // is idempotent and keeps the paths correct wherever the shell lives.
+            "CFG=\"$HOME/.config/apex-shell/matugen.toml\"; " +
+            "mkdir -p \"$(dirname \"$CFG\")\" && " +
+            "sed -e \"s|@SRCDIR@|$2|g\" -e \"s|@HOME@|$HOME|g\" \"$2/src/config/matugen.toml.in\" > \"$CFG\" && " +
             "awww img --transition-type grow --transition-step 200 --transition-duration 1.2 --transition-fps 60 --transition-pos bottom \"$1\" " +
             "&& ln -sf \"$1\" ~/.curr_wall " +
             "&& (if [[ \"$1\" == *.gif ]]; then " +
             "rm -f ~/.curr_wall_static.jpg; magick \"$1[0]\" ~/.curr_wall_static.jpg || true; " +
             "else ln -sf \"$1\" ~/.curr_wall_static.jpg; fi) " +
-            "&& matugen image \"$(readlink -f ~/.curr_wall_static.jpg)\" -c \"$2\" --source-color-index 0 --type \"scheme-$3\" " +
+            "&& matugen image \"$(readlink -f ~/.curr_wall_static.jpg)\" -c \"$CFG\" --source-color-index 0 --type \"scheme-$3\" " +
             "&& matugen image \"$(readlink -f ~/.curr_wall_static.jpg)\" --source-color-index 0 --type \"scheme-$3\" || true",
-            "--", path, Quickshell.shellDir + "/src/config/matugen.toml", root.scheme
+            "--", path, Quickshell.shellDir, root.scheme
         ]
         applyProc.running = true
     }
