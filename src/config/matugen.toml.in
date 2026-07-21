@@ -1,0 +1,39 @@
+[config]
+# Mandatory config section for matugen.
+#
+# TEMPLATE — this file is NOT read by matugen directly. matugen does NOT expand
+# `~` or environment variables in template input_path/output_path, so every
+# path below must be ABSOLUTE. The two placeholders are substituted into a real
+# config at ~/.config/apex-shell/matugen.toml:
+#   @SRCDIR@ -> the APEX Shell source directory (e.g. ~/.local/src/apex-shell)
+#   @HOME@   -> your home directory
+# The substitution is done by install.sh at install time and by
+# WallpaperService.qml at runtime (both use the live $HOME / shell dir), which
+# is what keeps these paths portable across users and install locations.
+
+# -- APEX Shell QML colour contract -> ~/.cache/apex-shell/colors.json --------
+# ColorLoader.qml watches this file and reads:
+#   background, active, text, subtext, border, iconFont
+[templates.apex_shell]
+input_path = '@SRCDIR@/src/config/apex-shell-colors.json.example'
+output_path = '@HOME@/.cache/apex-shell/colors.json'
+
+# -- Hyprland window-border colours -> ~/.config/hypr/apex-shell-colors.conf --
+# Sourced by ~/.config/hypr/hyprland.conf for $primary/$surface/$surface_bright/etc.
+# (Was the RELATIVE 'colors.conf' -> written next to matugen's CWD; the real
+#  target never updated. THIS was the window-border-colour bug.)
+[templates.hyprland_colors]
+input_path = '@SRCDIR@/src/config/colors.conf.template'
+output_path = '@HOME@/.config/hypr/apex-shell-colors.conf'
+
+# -- hyprlock colours -> source-tree colors.conf ------------------------------
+# hyprlock.conf sources exactly <srcdir>/src/config/colors.conf,
+# so render the same template there too to keep the lock screen theme in sync.
+[templates.hyprlock_colors]
+input_path = '@SRCDIR@/src/config/colors.conf.template'
+output_path = '@SRCDIR@/src/config/colors.conf'
+
+# -- Optional terminal palette -> ~/.config/ghostty/apex-shell-colors ---------
+[templates.ghostty]
+input_path = '@SRCDIR@/src/config/ghostty-colors.template'
+output_path = '@HOME@/.config/ghostty/apex-shell-colors'
