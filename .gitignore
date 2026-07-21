@@ -4,3 +4,5 @@
 
 # Runtime UI preferences written by the shell
 /src/user_data/update_prefs.json
+
+.claude/

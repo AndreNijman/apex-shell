@@ -3,22 +3,22 @@ import Quickshell
 import Quickshell.Io
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PowerProfileService — apex-shell front-end for Andre's `powermode` tool
-// (the same backend his GNOME `ultra-power@andre.local` extension drives).
+// PowerProfileService — APEX Shell front-end for apexd, the APEX-OS power daemon
+// (D-Bus org.apexos.Apexd1.Power). Set goes through the `apex` CLI, which calls
+// SetTier over D-Bus; apexd applies the governor/EPP/platform_profile for the
+// tier (+ the RyzenAdj reapply loop on ultra-max where the profile enables it)
+// and authorizes the call via polkit — passwordless for the active local user.
 //
-//   /usr/local/bin/powermode {ultra-max|ultra|performance|balanced|power-saver}
-//   current mode is written to /run/powermode/mode (by powermode + its monitor)
-//
-// ultra / ultra-max layer extras on top of power-profiles-daemon's performance
-// profile (pinned CPU floor, GPU dpm high, ASPM off, + a 62 W RyzenAdj reapply
-// loop for ultra-max). powermode self-escalates via passwordless sudo, so we just
-// invoke it directly — exactly like the GNOME extension's Gio.Subprocess call.
+// The five tier IDs are exactly apexd's (ultra-max … power-saver). The current
+// tier is read from the D-Bus `Tier` property via busctl and polled, so apexd's
+// AC↔battery auto-switching (it changes tier on plug/unplug) is reflected in the
+// UI regardless of which surface set it. If apexd is not running, reads fail
+// silently and the last/optimistic value stands.
 // ─────────────────────────────────────────────────────────────────────────────
 QtObject {
     id: root
 
-    // Order matches the GNOME picker: Ultra-Max on top, then down to Power Saver.
-    // `id` is the powermode CLI arg AND the value written to /run/powermode/mode.
+    // High→low, matching apexd's tier ladder and the historical picker order.
     readonly property var profiles: [
         { "id": "ultra-max",   "label": "Ultra-Max"         },
         { "id": "ultra",       "label": "Ultra Performance" },
@@ -29,25 +29,41 @@ QtObject {
 
     property string current: "balanced"
 
-    // Watch /run/powermode/mode — the single source of truth, shared with the
-    // GNOME extension, so the active tier stays correct no matter which UI sets it.
-    property var _file: FileView {
-        id: modeFile
-        path: "/run/powermode/mode"
-        watchChanges: true
-        onFileChanged: reload()
-        onLoaded: {
-            var t = modeFile.text().trim()
-            if (t !== "") root.current = t
-        }
+    // set: `apex tier <id>` → apexd SetTier (D-Bus, polkit-authorized). Refresh
+    // from the daemon once the call returns so the UI settles on the real value.
+    property var _setProc: Process {
+        command: []
+        running: false
+        onExited: root._refresh()
     }
-
-    property var _setProc: Process { command: []; running: false }
-
     function setProfile(id) {
-        root.current = id                                   // optimistic; /run confirms
-        _setProc.command = ["/usr/local/bin/powermode", id]
+        root.current = id                       // optimistic; the daemon confirms
+        _setProc.command = ["apex", "tier", id]
         _setProc.running = false
         _setProc.running = true
     }
+
+    // read: busctl get-property prints `s "ultra"`; pull the quoted value.
+    property var _getProc: Process {
+        command: ["busctl", "--system", "get-property",
+                  "org.apexos.Apexd1", "/org/apexos/Apexd1",
+                  "org.apexos.Apexd1.Power", "Tier"]
+        running: false
+        stdout: SplitParser {
+            onRead: function(line) {
+                var m = line.match(/"([^"]+)"/)
+                if (m && m[1] !== "") root.current = m[1]
+            }
+        }
+    }
+    function _refresh() { _getProc.running = false; _getProc.running = true }
+
+    // Poll so apexd-side changes (AC/battery autoswitch, `apex` CLI, another
+    // surface) propagate to this UI within a few seconds.
+    property var _poll: Timer {
+        interval: 4000; running: true; repeat: true
+        onTriggered: root._refresh()
+    }
+
+    Component.onCompleted: _refresh()
 }
