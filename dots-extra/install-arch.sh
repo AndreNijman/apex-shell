@@ -1,6 +1,6 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  Brain Shell — Arch Linux Installer
+#  APEX Shell — Arch Linux Installer
 #  Invoked by install.sh:  $1=HYPRLAND_CONF  $2=BACKUP_DIR  $3=CONFIG_TYPE
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -10,7 +10,7 @@ set -eo pipefail
 HYPRLAND_CONF="${1:?Missing arg: HYPRLAND_CONF path}"
 BACKUP_DIR="${2:?Missing arg: BACKUP_DIR}"
 CONFIG_TYPE="${3:?Missing arg: CONFIG_TYPE (conf|lua)}"
-REPO_DIR="$HOME/.local/src/Brain_Shell"
+REPO_DIR="$HOME/.local/src/apex-shell"
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 RED='\033[0;31m';   GREEN='\033[0;32m';  YELLOW='\033[1;33m'
@@ -284,7 +284,7 @@ fi
 
 # quickshell is non-negotiable
 if ! "$AUR_HELPER" -Q quickshell &>/dev/null 2>&1; then
-    die "quickshell failed to install. Brain Shell cannot run without it."
+    die "quickshell failed to install. APEX Shell cannot run without it."
 fi
 
 
@@ -318,15 +318,15 @@ _svc_user   wireplumber
 step 5 "Hyprland Config"
 
 # Marker used to detect whether the block was already appended
-_MARKER="quickshell.*Brain_Shell"
+_MARKER="quickshell.*apex-shell"
 
 _append_conf() {
     cat << 'EOF' >> "$1"
 
-# Brain Shell Autostarts
+# APEX Shell Autostarts
 exec-once = awww-daemon
-exec-once = hypridle -c $HOME/.local/src/Brain_Shell/src/config/hypridle.conf
-exec-once = quickshell -c $HOME/.local/src/Brain_Shell/.
+exec-once = hypridle -c $HOME/.local/src/apex-shell/src/config/hypridle.conf
+exec-once = quickshell -c $HOME/.local/src/apex-shell/.
 exec-once = systemctl --user start hyprpolkitagent
 exec-once = wl-paste --type text --watch cliphist store
 exec-once = wl-paste --type image --watch cliphist store
@@ -336,11 +336,11 @@ EOF
 _append_lua() {
     cat << 'EOF' >> "$1"
 
--- Brain Shell Autostarts
+-- APEX Shell Autostarts
 hl.on("hyprland.start", function()
     hl.exec_cmd("awww-daemon")
-    hl.exec_cmd("hypridle -c " .. os.getenv("HOME") .. "/.local/src/Brain_Shell/src/config/hypridle.conf")
-    hl.exec_cmd("quickshell -c " .. os.getenv("HOME") .. "/.local/src/Brain_Shell")
+    hl.exec_cmd("hypridle -c " .. os.getenv("HOME") .. "/.local/src/apex-shell/src/config/hypridle.conf")
+    hl.exec_cmd("quickshell -c " .. os.getenv("HOME") .. "/.local/src/apex-shell")
     hl.exec_cmd("systemctl --user start hyprpolkitagent")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
@@ -358,8 +358,8 @@ else
             ;;
         lua)
             # Extra safety backup before touching a Lua config
-            cp "$HYPRLAND_CONF" "${HYPRLAND_CONF}.pre-brain-shell"
-            log_info "Safety backup: ${HYPRLAND_CONF}.pre-brain-shell"
+            cp "$HYPRLAND_CONF" "${HYPRLAND_CONF}.pre-apex-shell"
+            log_info "Safety backup: ${HYPRLAND_CONF}.pre-apex-shell"
             _append_lua "$HYPRLAND_CONF"
             log_ok "Autostart block appended to hyprland.lua"
             ;;
@@ -371,11 +371,11 @@ fi
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STEP 6 — Brain Shell Config & Keybind Check
+# STEP 6 — APEX Shell Config & Keybind Check
 # ══════════════════════════════════════════════════════════════════════════════
-step 6 "Brain Shell Config"
+step 6 "APEX Shell Config"
 
-USER_DATA="$HOME/.config/Brain_Shell/src/user_data"
+USER_DATA="$HOME/.config/apex-shell/src/user_data"
 
 mkdir -p "$USER_DATA" \
          "$HOME/.config/hypr/shaders" \
@@ -395,8 +395,8 @@ log_ok "Config dirs created"
 log_ok "config_Provider.json  →  $CONFIG_TYPE"
 
 log_info "Initializing cache directories..."
-mkdir -p "$HOME/.cache/brain-shell"
-touch "$HOME/.cache/brain-shell/colors.json"
+mkdir -p "$HOME/.cache/apex-shell"
+touch "$HOME/.cache/apex-shell/colors.json"
 mkdir -p "$HOME/Pictures/Wallpapers"
 cp -n -r "$REPO_DIR/src/assets/wallpapers"/* "$HOME/Pictures/Wallpapers/" 2>/dev/null || true
 
@@ -473,11 +473,11 @@ for action, info in conflicts.items():
     print(f"    {'':24}  already used by: {info['used_by']}\n")
     unbound[action] = {"mods": "", "key": ""}
 
-config_path = os.path.expanduser("$HOME/.config/Brain_Shell/src/user_data/keybinds.json")
+config_path = os.path.expanduser("$HOME/.config/apex-shell/src/user_data/keybinds.json")
 with open(config_path, "w") as f:
     json.dump(unbound, f, indent=2)
 
-print("  \033[1;33m⚠\033[0m  Conflicting binds left unbound in Brain Shell.")
+print("  \033[1;33m⚠\033[0m  Conflicting binds left unbound in APEX Shell.")
 print("       Re-assign them: Dashboard  →  Config  →  Keybinds\n")
 PYEOF
 

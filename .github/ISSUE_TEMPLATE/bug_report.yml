@@ -1,5 +1,5 @@
 name: Bug Report
-description: Create a report to help fix a bug in Brain Shell
+description: Create a report to help fix a bug in APEX Shell
 labels: ["bug", "needs-triage"]
 body:
   - type: markdown
@@ -31,7 +31,7 @@ body:
     attributes:
       label: Logs / Screenshots
       description: Please paste any relevant Quickshell logs or drag-and-drop screenshots here.name: Bug Report
-description: Create a report to help fix a bug in Brain Shell
+description: Create a report to help fix a bug in APEX Shell
 labels: ["bug", "needs-triage"]
 body:
   - type: markdown

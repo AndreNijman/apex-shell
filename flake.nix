@@ -1,5 +1,5 @@
 {
-  description = "Brain Shell — Modular Quickshell/QML desktop shell for Hyprland";
+  description = "APEX Shell — Modular Quickshell/QML desktop shell for Hyprland";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -85,9 +85,9 @@
           (nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
         ];
 
-        # ── The Brain Shell package ────────────────────────────────────────
-        brain-shell = pkgs.stdenv.mkDerivation {
-          pname   = "brain-shell";
+        # ── The APEX Shell package ────────────────────────────────────────
+        apex-shell = pkgs.stdenv.mkDerivation {
+          pname   = "apex-shell";
           version = "0.1.0";
 
           src = ./.;
@@ -98,12 +98,12 @@
           installPhase = ''
             runHook preInstall
 
-            mkdir -p $out/share/brain-shell
-            cp -r . $out/share/brain-shell/
+            mkdir -p $out/share/apex-shell
+            cp -r . $out/share/apex-shell/
 
             mkdir -p $out/bin
-            makeWrapper ${pkgs.quickshell}/bin/quickshell $out/bin/brain-shell \
-              --add-flags "-c $out/share/brain-shell" \
+            makeWrapper ${pkgs.quickshell}/bin/quickshell $out/bin/apex-shell \
+              --add-flags "-c $out/share/apex-shell" \
               --set  QT_QPA_PLATFORMTHEME qt6ct \
               --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}
 
@@ -112,10 +112,10 @@
 
           meta = with pkgs.lib; {
             description  = "A modular Quickshell/QML desktop shell for Hyprland";
-            homepage     = "https://github.com/Brainitech/Brain_Shell";
+            homepage     = "https://github.com/AndreNijman/apex-shell";
             license      = licenses.mit;
             platforms    = platforms.linux;
-            mainProgram  = "brain-shell";
+            mainProgram  = "apex-shell";
           };
         };
 
@@ -123,23 +123,23 @@
       {
         # ── Packages ───────────────────────────────────────────────────────
         packages = {
-          default     = brain-shell;
-          brain-shell = brain-shell;
+          default     = apex-shell;
+          apex-shell = apex-shell;
         };
 
         # ── Dev shell (nix develop) ────────────────────────────────────────
         devShells.default = pkgs.mkShell {
-          name = "brain-shell-dev";
+          name = "apex-shell-dev";
 
           buildInputs = runtimeDeps ++ devDeps ++ fonts;
 
           shellHook = ''
             export QT_QPA_PLATFORMTHEME=qt6ct
-            export BRAIN_SHELL_ROOT="$(pwd)"
+            export APEX_SHELL_ROOT="$(pwd)"
 
             echo ""
-            echo "  Brain Shell dev environment"
-            echo "  Run:  quickshell -c \$BRAIN_SHELL_ROOT"
+            echo "  APEX Shell dev environment"
+            echo "  Run:  quickshell -c \$APEX_SHELL_ROOT"
             echo "  Lint: shellcheck install.sh dots-extra/install-arch.sh"
             echo ""
           '';
@@ -147,24 +147,24 @@
 
         # ── NixOS module ───────────────────────────────────────────────────
         nixosModules.default = { config, lib, pkgs, ... }:
-          let cfg = config.programs.brain-shell;
+          let cfg = config.programs.apex-shell;
           in {
-            options.programs.brain-shell = {
-              enable = lib.mkEnableOption "Brain Shell desktop shell";
+            options.programs.apex-shell = {
+              enable = lib.mkEnableOption "APEX Shell desktop shell";
 
               autostart = lib.mkOption {
                 type    = lib.types.bool;
                 default = true;
-                description = "Add brain-shell to Hyprland exec-once.";
+                description = "Add apex-shell to Hyprland exec-once.";
               };
             };
 
             config = lib.mkIf cfg.enable {
-              environment.systemPackages = [ brain-shell ];
+              environment.systemPackages = [ apex-shell ];
 
               wayland.windowManager.hyprland.settings = lib.mkIf cfg.autostart {
                 exec-once = [
-                  "brain-shell"
+                  "apex-shell"
                   "hypridle"
                   "awww-daemon"
                   "systemctl --user start hyprpolkitagent"
@@ -177,7 +177,7 @@
 
         # ── Checks (run by `nix flake check`) ─────────────────────────────
         checks = {
-          build = brain-shell;
+          build = apex-shell;
         };
       }
     );

@@ -1,4 +1,4 @@
-name: Brain Shell CI
+name: APEX Shell CI
 
 on:
   push:
@@ -183,7 +183,7 @@ jobs:
             'devShells':    'devShells' in content,
             'nixosModules': 'nixosModules' in content,
             'description':  'description' in content,
-            'brain-shell':  'brain-shell' in content,
+            'apex-shell':  'apex-shell' in content,
           }
           failed = []
           for key, ok in checks.items():
@@ -216,7 +216,7 @@ jobs:
             "install.sh"
             "dots-extra/install-arch.sh"
             "dots-extra/validate-install.sh"
-            "src/config/brain-shell-colors.json.example"
+            "src/config/apex-shell-colors.json.example"
             "src/theme/Theme.qml"
             "src/theme/ColorLoader.qml"
             "src/state/ShellState.qml"
