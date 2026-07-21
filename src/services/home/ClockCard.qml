@@ -48,7 +48,7 @@ StatCard {
     }
 
     function _notify(title, body) {
-        notifyProc.command = ["notify-send", "-a", "Brain Shell", "-i", "alarm", title, body]
+        notifyProc.command = ["notify-send", "-a", "APEX Shell", "-i", "alarm", title, body]
         notifyProc.running = false
         notifyProc.running = true
     }

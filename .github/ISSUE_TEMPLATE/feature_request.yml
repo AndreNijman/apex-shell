@@ -1,10 +1,10 @@
 name: Feature Request
-description: Suggest an idea for Brain Shell
+description: Suggest an idea for APEX Shell
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
-      value: Have an idea to make Brain Shell better? Let us know! (Note to save time, please check Discord to see if this has been suggested already).
+      value: Have an idea to make APEX Shell better? Let us know! (Note to save time, please check Discord to see if this has been suggested already).
   - type: textarea
     id: description
     attributes:
