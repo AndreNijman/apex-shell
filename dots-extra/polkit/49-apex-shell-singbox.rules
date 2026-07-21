@@ -1,0 +1,40 @@
+// APEX Shell — passwordless sing-box.service control
+// ─────────────────────────────────────────────────────────────────────────────
+// The VPN tab (src/popups/VPNTab.qml) toggles the sing-box VLESS/Reality tunnel
+// with `systemctl start|stop sing-box.service`. This polkit rule lets an active
+// local session do exactly that with no password prompt — and NOTHING else.
+//
+// Scope is deliberately tight:
+//   • action  : org.freedesktop.systemd1.manage-units  (the systemd verb action)
+//   • unit    : sing-box.service ONLY  (action.lookup("unit"))
+//   • verbs   : start / stop / restart  (action.lookup("verb"))
+//   • subject : must be a local, active session  (subject.local && subject.active)
+//
+// Reading status (`systemctl is-active sing-box.service`) needs no rule — it is
+// an unprivileged query. This grants management of the one unit and no others,
+// so it is a much smaller surface than a blanket `sudo systemctl` NOPASSWD entry.
+//
+// Install (regular systemd host):
+//   sudo install -Dm644 dots-extra/polkit/49-apex-shell-singbox.rules \
+//        /etc/polkit-1/rules.d/49-apex-shell-singbox.rules
+// polkitd hot-reloads rules.d on change — no daemon restart required.
+//
+// Image builds (e.g. APEX-OS): ship it read-only under
+//   /usr/share/polkit-1/rules.d/49-apex-shell-singbox.rules
+//
+// The `49-` prefix orders this before the distro default (usually 50-*.rules),
+// so the explicit YES is reached before any fallback.
+
+polkit.addRule(function (action, subject) {
+    if (action.id !== "org.freedesktop.systemd1.manage-units")
+        return;
+
+    var unit = action.lookup("unit");
+    var verb = action.lookup("verb");
+
+    if (unit === "sing-box.service" &&
+        (verb === "start" || verb === "stop" || verb === "restart") &&
+        subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});

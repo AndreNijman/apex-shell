@@ -311,6 +311,27 @@ _svc_user   pipewire
 _svc_user   pipewire-pulse
 _svc_user   wireplumber
 
+# ── sing-box VPN control plane (polkit) ──────────────────────────────────────
+# The VPN tab toggles the sing-box tunnel with `systemctl start|stop
+# sing-box.service` and needs that to be password-free. Install the tightly
+# scoped polkit rule (start/stop of ONLY sing-box.service, active local session)
+# — but only when sing-box is actually present, so it is a no-op for everyone
+# else. polkitd hot-reloads rules.d, so no restart is needed.
+POLKIT_RULE_SRC="$REPO_DIR/dots-extra/polkit/49-apex-shell-singbox.rules"
+POLKIT_RULE_DST="/etc/polkit-1/rules.d/49-apex-shell-singbox.rules"
+if [[ -f "$POLKIT_RULE_SRC" ]]; then
+    if command -v sing-box &>/dev/null \
+       || systemctl list-unit-files sing-box.service &>/dev/null; then
+        if sudo install -Dm644 "$POLKIT_RULE_SRC" "$POLKIT_RULE_DST" 2>/dev/null; then
+            log_ok   "polkit: passwordless sing-box start/stop → $POLKIT_RULE_DST"
+        else
+            log_warn "polkit: could not install sing-box rule (VPN tab will prompt for a password)"
+        fi
+    else
+        log_info "sing-box not detected — skipping VPN polkit rule (install sing-box, then re-run to enable passwordless toggling)"
+    fi
+fi
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # STEP 5 — Hyprland Config
