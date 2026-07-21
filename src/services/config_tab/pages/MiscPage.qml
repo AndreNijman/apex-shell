@@ -17,7 +17,7 @@ CfgScroll {
     property string version: "…"
 
     property var _verProc: Process {
-        command: ["bash", "-c", "git -C ~/.local/src/Brain_Shell describe --tags --always 2>/dev/null"]
+        command: ["bash", "-c", "git -C ~/.local/src/apex-shell describe --tags --always 2>/dev/null"]
         running: false
         stdout: SplitParser {
             onRead: function(line) { if (line.trim() !== "") root.version = line.trim() }
@@ -66,13 +66,13 @@ CfgScroll {
                     spacing: 2
 
                     Text {
-                        text:        "Brain_Shell"
+                        text:        "APEX Shell"
                         font.pixelSize: 16
                         font.weight: Font.Medium
                         color:       Theme.text
                     }
                     Text {
-                        text:        root.version + "  ·  Void / AMD fork"
+                        text:        root.version + "  ·  APEX-OS"
                         font.pixelSize: 10
                         color:       Qt.rgba(1,1,1,0.4)
                         font.family: "JetBrains Mono"
@@ -83,11 +83,11 @@ CfgScroll {
 
         CfgRow {
             label:       "Repository"
-            description: "github.com/AndreNijman/brain-shell-void"
+            description: "github.com/AndreNijman/apex-shell"
             CfgButton {
                 label: "Open"
                 icon:  "󰈺"
-                onClicked: root.openPath("https://github.com/AndreNijman/brain-shell-void")
+                onClicked: root.openPath("https://github.com/AndreNijman/apex-shell")
             }
         }
 
@@ -99,6 +99,21 @@ CfgScroll {
                 font.family: "JetBrains Mono"
                 font.pixelSize: 11
                 color:       Theme.active
+            }
+        }
+    }
+
+    // ── Credits ─────────────────────────────────────────────────────────────
+    CfgSection {
+        title: "Credits"
+
+        CfgRow {
+            label:       "Inspired by Brain_Shell"
+            description: "Originally derived from Brain_Shell by Brainitech (MIT)"
+            CfgButton {
+                label: "Open"
+                icon:  "󰈺"
+                onClicked: root.openPath("https://github.com/Brainitech/Brain_Shell")
             }
         }
     }
@@ -121,7 +136,7 @@ CfgScroll {
         Text {
             x:        10
             width:    parent.width - 20
-            text:     "Detected " + Compositor.detected + " from the environment. Choose which compositor Brain_Shell targets — Auto follows detection. Hyprland-only features (layout indicator, night light, shader filter, special workspace) degrade automatically on niri."
+            text:     "Detected " + Compositor.detected + " from the environment. Choose which compositor APEX Shell targets — Auto follows detection. Hyprland-only features (layout indicator, night light, shader filter, special workspace) degrade automatically on niri."
             font.pixelSize: 10
             color:    Qt.rgba(1,1,1,0.4)
             wrapMode: Text.WordWrap
