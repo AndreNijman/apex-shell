@@ -17,12 +17,16 @@ import "../components"
 //  • ShellState.vpnActive / vpnConnecting / vpnName reflect current status
 //    so the bar icon can react.
 //
-// sing-box backend (Void / runit):
-//  • runit service /etc/sv/sing-box with a `down` file — never autostarts;
-//    toggled on demand via `sudo -n sv up|down sing-box` (wheel NOPASSWD).
+// sing-box backend (systemd):
+//  • system service sing-box.service — shipped disabled so it never autostarts;
+//    toggled on demand via `systemctl start|stop sing-box.service`.
+//  • Passwordless without sudo: a polkit rule (dots-extra/polkit/
+//    49-apex-shell-singbox.rules) lets an active local session start/stop ONLY
+//    this unit (org.freedesktop.systemd1.manage-units scoped to
+//    sing-box.service). Status is read with `systemctl is-active` (no auth).
 //  • /etc/sing-box/config.json — VLESS/Reality tun (sb-tun, auto/strict route).
-//  • Connect = sv up → wait for the sb-tun device → verify egress via the
-//    tunnel (api.ipify.org). If egress fails the service is rolled back down
+//  • Connect = systemctl start → wait for the sb-tun device → verify egress via
+//    the tunnel (api.ipify.org). If egress fails the service is stopped again
 //    automatically so traffic is never left black-holed.
 
 Item {
@@ -196,10 +200,13 @@ Item {
     Process {
         id: sbStatusProc
         running: false
-        command: ["bash", "-c", "sudo -n sv status sing-box 2>&1"]
+        // is-active is a read-only query — no polkit/sudo needed. Prints
+        // "active" when the unit is up; inactive/failed/activating/unknown
+        // (all treated as down) otherwise.
+        command: ["systemctl", "is-active", "sing-box.service"]
         stdout: StdioCollector {
             onStreamFinished: {
-                var up = text.trim().indexOf("run:") === 0
+                var up = text.trim() === "active"
                 if (root._sbActive !== up) root._sbActive = up
                 if (!up) root._sbEgress = ""
                 root._syncShellState()
@@ -247,7 +254,7 @@ Item {
     Process {
         id: sbDisconnectProc
         running: false
-        command: ["bash", "-c", "sudo -n sv down sing-box"]
+        command: ["systemctl", "stop", "sing-box.service"]
         onExited: function(code, status) {
             root._sbBusy   = false
             root._sbActive = false
@@ -269,14 +276,14 @@ Item {
             "nmcli -g NAME,TYPE connection show --active" +
             " | awk -F: '$2==\"wireguard\"{print $1}'" +
             " | xargs -r -I {} nmcli connection down \"{}\"; " +
-            // 2. Bring the service up
-            "sudo -n sv up sing-box || { echo SV_UP_FAIL; exit 1; }; " +
+            // 2. Bring the service up (polkit-authorized, no password)
+            "systemctl start sing-box.service || { echo SV_UP_FAIL; exit 1; }; " +
             // 3. Wait for the tun device
             "for i in $(seq 1 14); do sleep 0.5; ip link show sb-tun >/dev/null 2>&1 && break; done; " +
-            "ip link show sb-tun >/dev/null 2>&1 || { sudo -n sv down sing-box; echo TUN_FAIL; exit 1; }; " +
+            "ip link show sb-tun >/dev/null 2>&1 || { systemctl stop sing-box.service; echo TUN_FAIL; exit 1; }; " +
             // 4. Verify egress through the tunnel (auto_route is live now)
             "sleep 1; EG=$(curl -s -m 8 https://api.ipify.org || true); " +
-            "if [ -z \"$EG\" ]; then sudo -n sv down sing-box; echo NO_EGRESS; exit 1; fi; " +
+            "if [ -z \"$EG\" ]; then systemctl stop sing-box.service; echo NO_EGRESS; exit 1; fi; " +
             "echo \"EGRESS:$EG\""]
         sbConnectProc.running = false
         sbConnectProc.running = true
@@ -378,7 +385,7 @@ Item {
     function _applyKillSwitch() {
         // Down the sing-box tunnel + all active WireGuard connections
         killSwitchProc.command = ["bash", "-c",
-            "sudo -n sv down sing-box 2>/dev/null; " +
+            "systemctl stop sing-box.service 2>/dev/null; " +
             "nmcli -g NAME,TYPE connection show --active" +
             " | awk -F: '$2==\"wireguard\" {print $1}'" +
             " | xargs -r -I {} nmcli connection down \"{}\""]
@@ -426,7 +433,7 @@ Item {
 
         // Down the sing-box tunnel and any active WireGuard first (mutual
         // exclusion), then bring up the requested connection
-        var downCmd = "sudo -n sv down sing-box 2>/dev/null; " +
+        var downCmd = "systemctl stop sing-box.service 2>/dev/null; " +
             "nmcli -g NAME,TYPE connection show --active" +
             " | awk -F: '$2==\"wireguard\" {print $1}'" +
             " | xargs -r -I {} nmcli connection down \"{}\""
