@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Brain Shell — Post-Installation Validator
+# APEX Shell — Post-Installation Validator
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -61,7 +61,7 @@ check_package() {
 }
 
 clear
-echo "Brain Shell — Post-Installation Validator"
+echo "APEX Shell — Post-Installation Validator"
 echo "Verify all dependencies are installed"
 echo ""
 
@@ -142,10 +142,10 @@ echo "# CONFIGURATION FILES"
 if [[ -f "$HOME/.config/hypr/hyprland.conf" ]]; then
     log_installed "Hyprland config"
     
-    if grep -q "quickshell.*-c.*Brain_Shell" "$HOME/.config/hypr/hyprland.conf"; then
-        log_installed "Brain Shell exec-once in hyprland.conf"
+    if grep -q "quickshell.*-c.*apex-shell" "$HOME/.config/hypr/hyprland.conf"; then
+        log_installed "APEX Shell exec-once in hyprland.conf"
     else
-        log_missing "Brain Shell exec-once in hyprland.conf"
+        log_missing "APEX Shell exec-once in hyprland.conf"
     fi
 else
     log_missing "Hyprland config"
@@ -154,25 +154,25 @@ fi
 if [[ -f "$HOME/.config/hypr/hyprland.lua" ]]; then
     log_installed "Hyprland Lua config"
     
-    if grep -q "quickshell.*Brain_Shell" "$HOME/.config/hypr/hyprland.lua"; then
-        log_installed "Brain Shell exec-once in hyprland.lua"
+    if grep -q "quickshell.*apex-shell" "$HOME/.config/hypr/hyprland.lua"; then
+        log_installed "APEX Shell exec-once in hyprland.lua"
     else
-        log_optional "Brain Shell exec-once in hyprland.lua (optional)"
+        log_optional "APEX Shell exec-once in hyprland.lua (optional)"
     fi
 else
     log_optional "Hyprland Lua config (optional)"
 fi
 
-if [[ -d "$HOME/.local/src/Brain_Shell" ]]; then
-    log_installed "Brain Shell repository"
+if [[ -d "$HOME/.local/src/apex-shell" ]]; then
+    log_installed "APEX Shell repository"
 else
-    log_missing "Brain Shell repository"
+    log_missing "APEX Shell repository"
 fi
 
-if [[ -d "$HOME/.config/Brain_Shell" ]]; then
-    log_installed "Brain Shell config directory"
+if [[ -d "$HOME/.config/apex-shell" ]]; then
+    log_installed "APEX Shell config directory"
 else
-    log_missing "Brain Shell config directory"
+    log_missing "APEX Shell config directory"
 fi
 
 echo ""

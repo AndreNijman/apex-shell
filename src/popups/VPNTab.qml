@@ -365,7 +365,7 @@ Item {
         // urgency: "low" | "normal" | "critical"
         notifyProc.command = [
             "notify-send",
-            "--app-name=Brain Shell",
+            "--app-name=APEX Shell",
             "--urgency=" + urgency,
             "--icon=network-vpn",
             title,

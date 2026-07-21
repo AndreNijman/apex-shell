@@ -3,7 +3,7 @@ import Quickshell
 import Quickshell.Io
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PowerProfileService — Brain_Shell front-end for Andre's `powermode` tool
+// PowerProfileService — apex-shell front-end for Andre's `powermode` tool
 // (the same backend his GNOME `ultra-power@andre.local` extension drives).
 //
 //   /usr/local/bin/powermode {ultra-max|ultra|performance|balanced|power-saver}
