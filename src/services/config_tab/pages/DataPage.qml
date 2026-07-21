@@ -159,8 +159,8 @@ CfgScroll {
             Row {
                 x:       10
                 spacing: 8
-                CfgButton { label: "Config";     icon: "󰉋"; onClicked: root.openPath("~/.config/Brain_Shell") }
-                CfgButton { label: "Cache";      icon: "󰉋"; onClicked: root.openPath("~/.cache/brain-shell") }
+                CfgButton { label: "Config";     icon: "󰉋"; onClicked: root.openPath("~/.config/apex-shell") }
+                CfgButton { label: "Cache";      icon: "󰉋"; onClicked: root.openPath("~/.cache/apex-shell") }
                 CfgButton { label: "Wallpapers"; icon: "󰉋"; onClicked: root.openPath(WallpaperService.wallpaperDir) }
             }
         }

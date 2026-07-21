@@ -1,4 +1,4 @@
-# Brain_Shell theme — matugen-generated. bg/fg/cursor + NEUTRALS only; the warm
+# APEX Shell theme — matugen-generated. bg/fg/cursor + NEUTRALS only; the warm
 # accent palette (1-6, 9-14) is set statically in ~/.config/ghostty/config.
 background = {{colors.surface.default.hex}}
 foreground = {{colors.on_surface.default.hex}}

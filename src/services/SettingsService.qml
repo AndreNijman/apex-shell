@@ -5,7 +5,7 @@ import Quickshell.Io
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SettingsService — single source of truth for user-tunable shell metrics &
-// behavior. Persisted to  ~/.config/Brain_Shell/src/user_data/settings.json.
+// behavior. Persisted to  ~/.config/apex-shell/src/user_data/settings.json.
 //
 // Metrics.qml binds its configurable properties to these, so any change here
 // reflows the live shell (border radius, notch size, animation speed, …) and
@@ -82,7 +82,7 @@ QtObject {
     // ── State ─────────────────────────────────────────────────────────────────
     property bool _loaded: false
     readonly property string _cfgPath:
-        Quickshell.env("HOME") + "/.config/Brain_Shell/src/user_data/settings.json"
+        Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/settings.json"
 
     // ── Setters (clamp + persist) ─────────────────────────────────────────────
     // The UI calls set(key, value); bindings update live, then a debounced write.
