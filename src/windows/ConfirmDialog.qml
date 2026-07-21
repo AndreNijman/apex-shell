@@ -15,6 +15,7 @@ import "../services/"
 //   "logout"          → hyprshutdown
 //   "lock"            → loginctl lock-session
 //   "suspend"         → systemctl suspend
+//   "windows"         → sudo -n caelestia-boot-windows (arm EFI BootNext + reboot)
 //   "gpu-switch-envy" → pkexec scripts/GfxSwitch.sh <mode>, then systemctl reboot
 //                       GfxSwitch.sh prints "authenticated" after pkexec auth succeeds,
 //                       which triggers the processing card before envycontrol runs.
@@ -95,6 +96,11 @@ PanelWindow {
                 proc.pendingCmd = ["bash", powerScript, "suspend"]
                 proc.running = true
                 break
+            case "windows":
+                Popups.cancelConfirm()
+                proc.pendingCmd = ["bash", powerScript, "windows"]
+                proc.running = true
+                break
             case "gpu-switch-envy":
                 // Capture mode BEFORE cancelConfirm() clears Popups state.
                 const gfxMode   = Popups.confirmGfxMode
@@ -150,6 +156,7 @@ PanelWindow {
                     switch (Popups.confirmAction) {
                         case "shutdown":        return "⏻"
                         case "reboot":          return "↺"
+                        case "windows":         return "󰖳"
                         case "logout":          return "⎋"
                         case "gpu-switch-envy": return "⚠️"
                         default:                return "⚠️"
