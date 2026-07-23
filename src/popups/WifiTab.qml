@@ -139,7 +139,7 @@ Item {
         }
     }
 
-    Process { id: nmtuiProc; command: ["kitty", "--title", "nmtui", "nmtui"]; running: false }
+    Process { id: nmtuiProc; command: ["alacritty", "--title", "nmtui", "-e", "nmtui"]; running: false }
 
     Process {
         id: radioProc; command: []; running: false
