@@ -409,8 +409,28 @@ else
     log_info "hypridle.conf already exists — not overwritten"
 fi
 
-printf '{"configProvider": "%s"}\n' "$CONFIG_TYPE" > "$USER_DATA/config_Provider.json"
-printf '{}\n'                                       > "$USER_DATA/keybinds.json"
+# Merge rather than truncate: config_Provider.json also carries the "compositor"
+# override written by the Config → Misc page, and a plain `>` redirect dropped it
+# on every re-run.
+CONFIG_TYPE="$CONFIG_TYPE" USER_DATA="$USER_DATA" python3 - <<'PYEOF'
+import json, os
+path = os.path.join(os.environ["USER_DATA"], "config_Provider.json")
+data = {}
+try:
+    with open(path) as f:
+        loaded = json.load(f)
+    if isinstance(loaded, dict):
+        data = loaded
+except Exception:
+    pass
+data["configProvider"] = os.environ["CONFIG_TYPE"]
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+PYEOF
+
+# Never clobber existing keybinds: re-running the installer to pick up an update
+# used to wipe every custom shortcut.
+[ -f "$USER_DATA/keybinds.json" ] || printf '{}\n' > "$USER_DATA/keybinds.json"
 
 log_ok "Config dirs created"
 log_ok "config_Provider.json  →  $CONFIG_TYPE"
@@ -494,7 +514,17 @@ for action, info in conflicts.items():
     print(f"    {'':24}  already used by: {info['used_by']}\n")
     unbound[action] = {"mods": "", "key": ""}
 
-config_path = os.path.expanduser("$HOME/.config/apex-shell/src/user_data/keybinds.json")
+# NOTE: this heredoc is quoted (<< 'PYEOF'), so bash does not expand $HOME, and
+# os.path.expanduser only expands "~" — never "$HOME". The old
+# expanduser("$HOME/...") therefore produced a RELATIVE path, open() raised
+# FileNotFoundError, and the "|| log_warn" on the heredoc swallowed it. Every
+# detected conflict was printed and then silently discarded, leaving users with
+# a double-bound desktop and a benign-looking warning.
+config_path = os.path.join(
+    os.environ.get("HOME", os.path.expanduser("~")),
+    ".config/apex-shell/src/user_data/keybinds.json",
+)
+os.makedirs(os.path.dirname(config_path), exist_ok=True)
 with open(config_path, "w") as f:
     json.dump(unbound, f, indent=2)
 

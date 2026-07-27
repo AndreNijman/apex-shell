@@ -44,7 +44,10 @@ QtObject {
     // ── Governor reader (all cores) ───────────────────────────────────────────
     // Picks dominant governor, then maps it to "performance" or "powersave".
     property var _govProc: Process {
-        command: ["sh", "-c", "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor"]
+        // 2>/dev/null: VMs, containers and kernels without CONFIG_CPU_FREQ have
+        // no cpufreq directory at all, so the glob stays literal and cat would
+        // otherwise print an error on every 2s tick for the whole session.
+        command: ["sh", "-c", "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor 2>/dev/null"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
@@ -76,7 +79,7 @@ QtObject {
     // ── Current frequency reader (all cores) ─────────────────────────────────
     // scaling_cur_freq is in kHz. Average across all cores → format as GHz.
     property var _freqProc: Process {
-        command: ["sh", "-c", "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq"]
+        command: ["sh", "-c", "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {

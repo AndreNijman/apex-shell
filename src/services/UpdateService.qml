@@ -75,7 +75,9 @@ QtObject {
         )
 
     // ── Paths ──────────────────────────────────────────────────────────────
-    readonly property string _dir:        Quickshell.env("HOME") + "/.local/src/apex-shell"
+    // The live checkout is wherever shell.qml was loaded from — never assume
+    // ~/.local/src/apex-shell, which is only the default install location.
+    readonly property string _dir:        Quickshell.shellDir
     readonly property string _cfgPath:    Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/update_prefs.json"
 
     // ── Startup: 30s delay ─────────────────────────────────────────────────
