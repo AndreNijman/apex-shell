@@ -117,7 +117,6 @@ Item {
                 text:           "󰂚"
                 color:          Qt.rgba(1, 1, 1, 0.15)
                 font.pixelSize: 28
-                font.family:    Theme.iconFont
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
