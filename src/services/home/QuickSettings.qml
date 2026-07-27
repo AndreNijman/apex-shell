@@ -171,7 +171,10 @@ StatCard {
     property string hotspotLabel:  ""    // sublabel: "Active" | "Not on ethernet" | ""
     property string _hsSSID:       "ApexShell"
     property string _hsPassword:   "changeme1"
-    property string _hsWifiIface:  "wlan0"
+    // Empty until hsIfaceProc resolves the real device. It used to default to
+    // "wlan0", so the first hotspot toggle on a wlp*-named card (or on a machine
+    // with no wireless at all) ran nmcli against a device that does not exist.
+    property string _hsWifiIface:  ""
 
     readonly property string _hsCfgPath:
         Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/hotspot.json"
@@ -284,7 +287,8 @@ StatCard {
                 ShellState.wifiOn  = false
             } else {
                 root.hotspotOn    = false
-                root.hotspotLabel = "Failed"
+                // exit 2 = no wireless interface on this machine at all.
+                root.hotspotLabel = (code === 2) ? "No Wi-Fi device" : "Failed"
                 ShellState.hotspot = false
                 hsLabelResetTimer.restart()
             }
@@ -349,22 +353,27 @@ StatCard {
     }
 
     function _hsDoStart() {
-        var ssid = root._hsSSID
-        var pass = root._hsPassword
-        var iface = root._hsWifiIface
+        // SSID / password / interface go in as positional args so they are never
+        // spliced into the script. The interface is re-resolved here if startup
+        // detection has not landed yet, and a machine with no wireless device at
+        // all now fails fast with "No Wi-Fi" instead of running nmcli against a
+        // nonexistent "wlan0".
         hsStartProc.command = ["bash", "-c",
+            "IFACE=\"$3\"; " +
+            "[ -n \"$IFACE\" ] || IFACE=$(nmcli -g DEVICE,TYPE dev 2>/dev/null " +
+            "| awk -F: '$2==\"wifi\"{print $1; exit}'); " +
+            "[ -n \"$IFACE\" ] || exit 2; " +
             // Silently bring the wifi radio up if it was off (ethernet-only scenario).
             // nmcli needs the radio enabled before it can create an AP connection.
             "nmcli radio wifi on 2>/dev/null; " +
             "sleep 1; " +
-            // Disconnect whatever is currently on the interface 
-            "nmcli device disconnect \"" + iface + "\" 2>/dev/null; " +
+            // Disconnect whatever is currently on the interface
+            "nmcli device disconnect \"$IFACE\" 2>/dev/null; " +
             "nmcli con delete ApexShellHotspot 2>/dev/null; " +
             "nmcli device wifi hotspot " +
-                "ifname \"" + iface + "\" " +
-                "ssid \"" + ssid + "\" " +
-                "password \"" + pass + "\" " +
-                "con-name ApexShellHotspot 2>&1"]
+                "ifname \"$IFACE\" ssid \"$1\" password \"$2\" " +
+                "con-name ApexShellHotspot 2>&1",
+            "--", root._hsSSID, root._hsPassword, root._hsWifiIface]
         hsStartProc.running = false; hsStartProc.running = true
     }
 
@@ -442,8 +451,9 @@ StatCard {
     Process { id: restoreGaps; command: []; running: false
         onRunningChanged: if (!running) ShellState.focusMode = false }
     function _focusToggle() {
-        // niri has no compositor gaps to toggle — just flip the bar-shrink state.
-        if (root.isNiri) {
+        // Only Hyprland exposes gaps via hyprctl; everything else just flips
+        // the bar-shrink state (positive guard, so sway/KDE take this path too).
+        if (!root.isHyprland) {
             ShellState.focusMode = !ShellState.focusMode
             return
         }
@@ -509,6 +519,10 @@ StatCard {
     }
 
     function _filterApply(name) {
+        // screen_shader is Hyprland-only and this function had no guard at all,
+        // so it fired hyprctl on niri and on any third compositor.
+        if (!root.isHyprland) return
+
         var turningOff = (name === "" || name === root.currentFilter)
         root.currentFilter = turningOff ? "" : name
 
