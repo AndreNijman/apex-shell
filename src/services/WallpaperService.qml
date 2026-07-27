@@ -121,15 +121,28 @@ QtObject {
             // matugen reads — substitute the live shell dir ($2) and $HOME. This
             // is idempotent and keeps the paths correct wherever the shell lives.
             "CFG=\"$HOME/.config/apex-shell/matugen.toml\"; " +
-            "mkdir -p \"$(dirname \"$CFG\")\" && " +
-            "sed -e \"s|@SRCDIR@|$2|g\" -e \"s|@HOME@|$HOME|g\" \"$2/src/config/matugen.toml.in\" > \"$CFG\" && " +
-            "awww img --transition-type grow --transition-step 200 --transition-duration 1.2 --transition-fps 60 --transition-pos bottom \"$1\" " +
-            "&& ln -sf \"$1\" ~/.curr_wall " +
-            "&& (if [[ \"$1\" == *.gif ]]; then " +
-            "rm -f ~/.curr_wall_static.jpg; magick \"$1[0]\" ~/.curr_wall_static.jpg || true; " +
-            "else ln -sf \"$1\" ~/.curr_wall_static.jpg; fi) " +
-            "&& matugen image \"$(readlink -f ~/.curr_wall_static.jpg)\" -c \"$CFG\" --source-color-index 0 --type \"scheme-$3\" " +
-            "&& matugen image \"$(readlink -f ~/.curr_wall_static.jpg)\" --source-color-index 0 --type \"scheme-$3\" || true",
+            "mkdir -p \"$(dirname \"$CFG\")\" || exit 1; " +
+            "sed -e \"s|@SRCDIR@|$2|g\" -e \"s|@HOME@|$HOME|g\" \"$2/src/config/matugen.toml.in\" > \"$CFG\" || exit 1; " +
+            // Wallpaper daemon is discovered at runtime: awww (the APEX default,
+            // AUR-only) → swww (upstream). Having neither is no longer fatal:
+            // previously the `&&` chain aborted yet the trailing `|| true` still
+            // reported success, so the wallpaper AND the generated palette were
+            // silently skipped. Now the symlink + matugen theming always run.
+            "SETTER=\"\"; for S in awww swww; do " +
+            "if command -v \"$S\" >/dev/null 2>&1; then SETTER=\"$S\"; break; fi; done; " +
+            "[ -n \"$SETTER\" ] && \"$SETTER\" img --transition-type grow --transition-step 200 --transition-duration 1.2 --transition-fps 60 --transition-pos bottom \"$1\"; " +
+            "ln -sf \"$1\" ~/.curr_wall || exit 1; " +
+            "if [[ \"$1\" == *.gif ]]; then " +
+            "rm -f ~/.curr_wall_static.jpg; " +
+            // ImageMagick 7 ships `magick`, ImageMagick 6 only `convert`.
+            "if command -v magick >/dev/null 2>&1; then magick \"$1[0]\" ~/.curr_wall_static.jpg || true; " +
+            "elif command -v convert >/dev/null 2>&1; then convert \"$1[0]\" ~/.curr_wall_static.jpg || true; fi; " +
+            "else ln -sf \"$1\" ~/.curr_wall_static.jpg; fi; " +
+            "STATIC=\"$(readlink -f ~/.curr_wall_static.jpg)\"; " +
+            "if command -v matugen >/dev/null 2>&1; then " +
+            "matugen image \"$STATIC\" -c \"$CFG\" --source-color-index 0 --type \"scheme-$3\" || true; " +
+            "matugen image \"$STATIC\" --source-color-index 0 --type \"scheme-$3\" || true; " +
+            "fi; exit 0",
             "--", path, Quickshell.shellDir, root.scheme
         ]
         applyProc.running = true
