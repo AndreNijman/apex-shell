@@ -13,11 +13,18 @@ QtObject {
     property bool active: true
     property var  disks:  []
 
+    // Pseudo-filesystems are excluded by TYPE rather than by requiring a
+    // "/dev/..." source. The old `grep '^/dev/'` dropped every root that is not
+    // a plain block device — composefs/ostree (APEX-OS's own base), ZFS
+    // ("rpool/ROOT"), btrfs subvolumes and network mounts all vanished, leaving
+    // the disk card blank or showing only /boot.
     property var _proc: Process {
         command: [
             "sh", "-c",
-            "df -BM --output=source,size,used,pcent,target 2>/dev/null" +
-            " | grep '^/dev/' | grep -v 'tmpfs\\|loop'"
+            "df -BM --output=source,fstype,size,used,pcent,target" +
+            " -x tmpfs -x devtmpfs -x efivarfs -x squashfs -x overlay -x ramfs" +
+            " -x autofs -x fuse.portal -x fuse.gvfsd-fuse -x nsfs -x binfmt_misc" +
+            " 2>/dev/null | tail -n +2"
         ]
         running: false
         stdout: StdioCollector {
@@ -40,21 +47,36 @@ QtObject {
     function _parse(text) {
         var lines  = text.trim().split("\n")
         var result = []
+        var seen   = {}          // source → index in result (dedupe)
 
         for (var i = 0; i < lines.length; i++) {
+            if (lines[i].trim() === "") continue
             var parts = lines[i].trim().split(/\s+/)
-            // source  size  used  pcent  target
-            if (parts.length < 5) continue
+            // source  fstype  size  used  pcent  target
+            if (parts.length < 6) continue
 
             var source = parts[0]
-            var total  = parts[1]   // e.g. "230004M"
-            var used   = parts[2]   // e.g. "180000M"
-            var pct    = parts[3]   // e.g. "78%"
-            var mount  = parts[4]
+            var total  = parts[2]   // e.g. "230004M"
+            var used   = parts[3]   // e.g. "180000M"
+            var pct    = parts[4]   // e.g. "78%"
+            // Mountpoints may contain spaces (e.g. /run/media/u/My Disk), and
+            // target is the last column, so re-join everything after pcent.
+            var mount  = parts.slice(5).join(" ")
 
             // Shorten source: /dev/nvme0n1p2 → nvme0n1p2, /dev/sda1 → sda1
             var shortSource = source.replace("/dev/", "")
 
+            // One physical device can be mounted many times (btrfs subvolumes,
+            // ostree bind-mounts). Keep a single row per device, preferring the
+            // shallowest mountpoint so "/" wins over "/var/home".
+            if (seen.hasOwnProperty(source)) {
+                var prev = result[seen[source]]
+                if (mount.length >= prev.mount.length) continue
+                prev.mount = mount
+                continue
+            }
+
+            seen[source] = result.length
             result.push({
                 source:   shortSource,
                 mount:    mount,
