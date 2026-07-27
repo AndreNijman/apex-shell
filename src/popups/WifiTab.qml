@@ -139,7 +139,28 @@ Item {
         }
     }
 
-    Process { id: nmtuiProc; command: ["alacritty", "--title", "nmtui", "-e", "nmtui"]; running: false }
+    // nmtui needs a terminal. Rather than hardcoding one emulator, honour
+    // $TERMINAL, then xdg-terminal-exec (the freedesktop spec helper), then the
+    // common emulators. Every one of these takes `-e CMD` except foot/wezterm,
+    // which are invoked without it.
+    Process {
+        id: nmtuiProc
+        command: ["bash", "-c",
+            "for t in \"$TERMINAL\" xdg-terminal-exec alacritty kitty ghostty foot wezterm " +
+            "gnome-terminal konsole xfce4-terminal xterm; do " +
+            "  [ -n \"$t\" ] || continue; " +
+            "  command -v \"$t\" >/dev/null 2>&1 || continue; " +
+            "  case \"$t\" in " +
+            "    xdg-terminal-exec) exec \"$t\" nmtui ;; " +
+            "    foot|wezterm)      exec \"$t\" nmtui ;; " +
+            "    *)                 exec \"$t\" -e nmtui ;; " +
+            "  esac; " +
+            "done; " +
+            "notify-send -a 'APEX Shell' 'No terminal found' " +
+            "'Install a terminal emulator or set $TERMINAL to use the advanced Wi-Fi editor.' " +
+            "2>/dev/null; exit 127"]
+        running: false
+    }
 
     Process {
         id: radioProc; command: []; running: false
