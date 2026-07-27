@@ -475,7 +475,10 @@ StatCard {
     property bool   filterPickerOpen: false
     
     // Add your standard shader directories here (space-separated)
-    property string shaderPaths: "~/.config/hypr/shaders ~/.local/share/hypr/shaders /usr/share/hyprshade/shaders ~/.local/src/apex-shell/src/config/shaders ~/.config/quickshell/src/config/shaders"
+    // Shell-owned shaders are resolved from Quickshell.shellDir so they are found
+    // wherever the shell is checked out, not only at ~/.local/src/apex-shell.
+    property string shaderPaths: "~/.config/hypr/shaders ~/.local/share/hypr/shaders /usr/share/hyprshade/shaders "
+                                 + "'" + Quickshell.shellDir + "/src/config/shaders'"
 
     // Check process stays exactly the same — it already reads cleanly from Hyprland!
     Process {
