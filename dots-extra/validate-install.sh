@@ -177,11 +177,11 @@ fi
 
 echo ""
 echo "# BACKUPS"
-BACKUP_COUNT=$(ls -d $HOME/.config.backup-* 2>/dev/null | wc -l)
+BACKUP_COUNT=$(ls -d "$HOME"/.config.backup-* 2>/dev/null | wc -l)
 
 if [[ $BACKUP_COUNT -gt 0 ]]; then
     log_info "Found $BACKUP_COUNT config backup(s)"
-    ls -d $HOME/.config.backup-* 2>/dev/null | while read backup; do
+    ls -d "$HOME"/.config.backup-* 2>/dev/null | while read -r backup; do
         echo -e "  ${BLUE}→${NC} ${backup##*/}"
     done
 else
