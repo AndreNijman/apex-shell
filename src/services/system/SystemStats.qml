@@ -57,7 +57,11 @@ Item {
             "printf 'Uptime: %s\\n' \"$(uptime -p | sed 's/up //; s/ hours\\?/h/; s/ minutes\\?/m/; s/ days\\?/d/; s/, / /g')\"; " +
             "if command -v xbps-query >/dev/null 2>&1; then printf 'Packages: %s\\n' \"$(xbps-query -l 2>/dev/null | wc -l)\"; " +
             "elif command -v pacman >/dev/null 2>&1; then printf 'Packages: %s\\n' \"$(pacman -Qq 2>/dev/null | wc -l)\"; " +
-            "elif command -v dpkg-query >/dev/null 2>&1; then printf 'Packages: %s\\n' \"$(dpkg-query -f '.\\n' -W 2>/dev/null | wc -l)\"; fi; " +
+            "elif command -v dpkg-query >/dev/null 2>&1; then printf 'Packages: %s\\n' \"$(dpkg-query -f '.\\n' -W 2>/dev/null | wc -l)\"; " +
+            // Fedora / RHEL / openSUSE — APEX-OS's own base is Fedora bootc, so
+            // without this branch the Packages row is simply missing there.
+            "elif command -v rpm >/dev/null 2>&1; then printf 'Packages: %s\\n' \"$(rpm -qa 2>/dev/null | wc -l)\"; " +
+            "elif command -v flatpak >/dev/null 2>&1; then printf 'Packages: %s\\n' \"$(flatpak list --app 2>/dev/null | wc -l)\"; fi; " +
             "printf 'Hostname: %s\\n' \"$(cat /etc/hostname 2>/dev/null || uname -n)\""]
         running: true
 
