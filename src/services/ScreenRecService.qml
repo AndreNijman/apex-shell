@@ -275,8 +275,19 @@ QtObject {
             if (!root._discarding && savedFile !== "") {
                 // Normal stop — notify with interactive action buttons.
                 // FILE/"$FILE" expands $HOME correctly inside bash.
+                //
+                // The file is verified before claiming success: exitCode was
+                // never checked, so a missing wf-recorder (bash exits ~127
+                // immediately) still produced a "Recording Saved" notification,
+                // complete with View Folder / Open in MPV buttons, for a file
+                // that was never created.
                 _notifyProc.command = ["bash", "-c",
                     "FILE=\"" + savedFile + "\"; " +
+                    "if [ ! -s \"$FILE\" ]; then " +
+                    "notify-send --app-name 'ScreenRec' --icon 'dialog-error'" +
+                    " 'Recording failed' " +
+                    "'No output file was produced. Is wf-recorder installed?'; " +
+                    "exit 0; fi; " +
                     "DIR=\"$(dirname \"$FILE\")\"; " +
                     "ACTION=$(notify-send" +
                     " --app-name 'ScreenRec'" +
