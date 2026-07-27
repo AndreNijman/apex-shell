@@ -26,12 +26,28 @@ QtObject {
     // ── Environment probes ────────────────────────────────────────────────────
     readonly property string _hyprSig:  Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE") || ""
     readonly property string _niriSock: Quickshell.env("NIRI_SOCKET") || ""
+    readonly property string _desktop:  (Quickshell.env("XDG_CURRENT_DESKTOP") || "").toLowerCase()
 
     // Auto-detected compositor from the environment.
+    //
+    // The neither-branch used to return "hyprland", commented "degrades
+    // nothing". It degrades plenty: on sway, river, KDE Wayland or GNOME every
+    // isHyprland consumer went live, so LayoutDisplayer polled `hyprctl -j
+    // activeworkspace` every 4s forever and KeybindService appended include
+    // lines to a Hyprland config at startup. It now returns "" (unknown) so
+    // Hyprland-only paths stay off. XDG_CURRENT_DESKTOP is consulted first so a
+    // shell launched from a systemd unit that did not inherit
+    // HYPRLAND_INSTANCE_SIGNATURE is still recognised.
     readonly property string detected:
-        _hyprSig  !== "" ? "hyprland"
-      : _niriSock !== "" ? "niri"
-      :                    "hyprland"
+        _hyprSig  !== ""                 ? "hyprland"
+      : _niriSock !== ""                 ? "niri"
+      : _desktop.indexOf("hyprland") >= 0 ? "hyprland"
+      : _desktop.indexOf("niri")     >= 0 ? "niri"
+      :                                    ""
+
+    // False when the shell is running under something that is neither Hyprland
+    // nor niri — the signal for "skip compositor-specific behaviour entirely".
+    readonly property bool isKnown: name !== ""
 
     // Manual override loaded from config_Provider.json ("" / "auto" = detect).
     property string overrideName: ""

@@ -17,7 +17,8 @@ CfgScroll {
     property string version: "…"
 
     property var _verProc: Process {
-        command: ["bash", "-c", "git -C ~/.local/src/apex-shell describe --tags --always 2>/dev/null"]
+        command: ["bash", "-c", "git -C \"$1\" describe --tags --always 2>/dev/null",
+                  "--", Quickshell.shellDir]
         running: false
         stdout: SplitParser {
             onRead: function(line) { if (line.trim() !== "") root.version = line.trim() }

@@ -275,8 +275,19 @@ QtObject {
             if (!root._discarding && savedFile !== "") {
                 // Normal stop — notify with interactive action buttons.
                 // FILE/"$FILE" expands $HOME correctly inside bash.
+                //
+                // The file is verified before claiming success: exitCode was
+                // never checked, so a missing wf-recorder (bash exits ~127
+                // immediately) still produced a "Recording Saved" notification,
+                // complete with View Folder / Open in MPV buttons, for a file
+                // that was never created.
                 _notifyProc.command = ["bash", "-c",
                     "FILE=\"" + savedFile + "\"; " +
+                    "if [ ! -s \"$FILE\" ]; then " +
+                    "notify-send --app-name 'ScreenRec' --icon 'dialog-error'" +
+                    " 'Recording failed' " +
+                    "'No output file was produced. Is wf-recorder installed?'; " +
+                    "exit 0; fi; " +
                     "DIR=\"$(dirname \"$FILE\")\"; " +
                     "ACTION=$(notify-send" +
                     " --app-name 'ScreenRec'" +
@@ -344,7 +355,7 @@ QtObject {
             // Hyprland feeds slurp the window boxes so you can click a window;
             // niri has no hyprctl, so fall back to plain interactive slurp (draw
             // the region). Both emit the same "x,y WxH" geometry.
-            _windowPickerProc.command = Compositor.isNiri
+            _windowPickerProc.command = !Compositor.isHyprland
                 ? ["slurp"]
                 : [
                     "bash", "-c",
@@ -358,7 +369,7 @@ QtObject {
         } else {
             // Hyprland feeds slurp the monitor boxes; niri falls back to plain
             // interactive slurp. Same "x,y WxH" output either way.
-            _regionPickerProc.command = Compositor.isNiri
+            _regionPickerProc.command = !Compositor.isHyprland
                 ? ["slurp"]
                 : [
                     "bash", "-c",

@@ -9,7 +9,13 @@
 # on legacy elogind hosts (e.g. Void/runit) where systemctl is absent.
 # See ~/Projects/apex-logs/30-power-actions-loginctl.md
 
-HYPRLOCK_CONF="${HYPRLOCK_CONF:-$HOME/.local/src/apex-shell/src/config/hyprlock.conf}"
+# Resolve the shell checkout from this script's own location (src/scripts/ →
+# repo root) rather than assuming ~/.local/src/apex-shell, which is only the
+# default install path. Keeps `lock` working for system-wide and relocated
+# installs.
+SHELL_DIR="${APEX_SHELL_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)}"
+
+HYPRLOCK_CONF="${HYPRLOCK_CONF:-$SHELL_DIR/src/config/hyprlock.conf}"
 
 # power <verb>  — verb is poweroff|reboot|suspend (same name in systemctl/loginctl)
 power() {
@@ -32,10 +38,15 @@ case "$1" in
     # variable (Windows Boot Manager, resolved dynamically) and reboots; BootNext
     # is consumed after one boot, so the machine returns to the default next time.
     # Runs via the dedicated NOPASSWD sudoers rule, so no password prompt is needed.
-    windows)  exec sudo -n /usr/local/bin/caelestia-boot-windows ;;
+    windows)
+        if [ ! -x /usr/local/bin/caelestia-boot-windows ]; then
+            echo "PowerControl.sh: no Windows boot helper installed (/usr/local/bin/caelestia-boot-windows)." >&2
+            exit 1
+        fi
+        exec sudo -n /usr/local/bin/caelestia-boot-windows ;;
     # Native Quickshell lock screen (windows/Lockscreen.qml via the "lockscreen"
     # IPC target). Unlock is PAM-only — there is no unlock IPC.
-    lock)     exec qs ipc -c "$HOME/.local/src/apex-shell" call lockscreen lock ;;
+    lock)     exec qs ipc -c "$SHELL_DIR" call lockscreen lock ;;
     # Fallback: external hyprlock (kept for reference / emergencies)
     # lock)     pidof hyprlock >/dev/null 2>&1 || exec setsid -f hyprlock -c "$HYPRLOCK_CONF" ;;
     *)        echo "usage: PowerControl.sh {shutdown|reboot|logout|suspend|lock|windows}" >&2; exit 1 ;;
