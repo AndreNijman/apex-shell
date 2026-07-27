@@ -221,7 +221,9 @@ QtObject {
     function reload() {
         // niri live-reloads its config (and any included file) on change, and has
         // no `hyprctl reload` — skip the Hyprland reload entirely.
-        if (Compositor.isNiri) return
+        // Positive guard: `hyprctl reload` must not fire on niri OR on a
+        // third compositor where isNiri is also false.
+        if (!Compositor.isHyprland) return
         _reloadTimer.restart()
     }
 

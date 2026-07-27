@@ -56,7 +56,10 @@ QtObject {
         }
     }
     
-    Component.onCompleted: _checkBattery()
+    Component.onCompleted: {
+        _checkBattery()
+        providerProbe.running = true
+    }
     
     property var _batConn: Connections {
         target: UPower.displayDevice
@@ -74,8 +77,9 @@ QtObject {
         
         function onIsCapturingChanged() {
             // Submaps are a Hyprland concept; niri has no passthrough mode and
-            // key capture is disabled there, so never issue hyprctl on niri.
-            if (Compositor.isNiri) return
+            // key capture is disabled there. Positive guard, so this also stays
+            // off on compositors that are neither Hyprland nor niri.
+            if (!Compositor.isHyprland) return
 
             if (KeybindService.isCapturing) {
                 // Enter passthrough mode (disables Hyprland binds)
@@ -97,8 +101,38 @@ QtObject {
         }
     }
     
-    property string configProvider: "lua"
-    
+    // Which Hyprland config dialect the shell writes and dispatches.
+    //
+    // Defaults to "conf" — Hyprland's own default format. This used to default
+    // to "lua", which silently broke everyone who did not run install-arch.sh:
+    // config_Provider.json is written ONLY by that script, so a manual clone, a
+    // non-Arch install, or a wiped ~/.config left the value at "lua" while the
+    // user's config was stock text. KeybindService._ensureInclude() then took
+    // the lua branch, found no ~/.config/hypr/hyprland.lua, appended nothing,
+    // and the user got a working-looking Keybinds page with zero live shortcuts
+    // and no error anywhere. Workspace clicks, layout cycling, the Filter tile
+    // and keybind-capture passthrough all failed the same way.
+    property string configProvider: "conf"
+
+    // Set once config_Provider.json supplies a value, so the filesystem probe
+    // below never overrides an explicit installer/user choice.
+    property bool _providerFromFile: false
+
+    // Fallback detection for every install path that writes no JSON.
+    property var _providerProbe: Process {
+        id: providerProbe
+        command: ["bash", "-c",
+            "[ -f \"$HOME/.config/hypr/hyprland.lua\" ] && echo lua || echo conf"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (root._providerFromFile) return
+                var v = text.trim()
+                if (v === "lua" || v === "conf") root.configProvider = v
+            }
+        }
+    }
+
     // Watch the JSON file written by the installer
     property var _providerFile: FileView {
         id: providerFile
@@ -119,7 +153,8 @@ QtObject {
         try {
             let data = JSON.parse(jsonString)
             if (data.configProvider) {
-                root.configProvider = data.configProvider
+                root.configProvider     = data.configProvider
+                root._providerFromFile  = true
             }
         } catch (e) {
             console.error("APEX Shell: Failed to parse config_Provider.json")
