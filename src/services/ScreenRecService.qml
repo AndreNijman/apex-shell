@@ -344,7 +344,7 @@ QtObject {
             // Hyprland feeds slurp the window boxes so you can click a window;
             // niri has no hyprctl, so fall back to plain interactive slurp (draw
             // the region). Both emit the same "x,y WxH" geometry.
-            _windowPickerProc.command = Compositor.isNiri
+            _windowPickerProc.command = !Compositor.isHyprland
                 ? ["slurp"]
                 : [
                     "bash", "-c",
@@ -358,7 +358,7 @@ QtObject {
         } else {
             // Hyprland feeds slurp the monitor boxes; niri falls back to plain
             // interactive slurp. Same "x,y WxH" output either way.
-            _regionPickerProc.command = Compositor.isNiri
+            _regionPickerProc.command = !Compositor.isHyprland
                 ? ["slurp"]
                 : [
                     "bash", "-c",
