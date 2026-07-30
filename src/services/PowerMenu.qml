@@ -67,6 +67,47 @@ Column {
         },
     ]
 
+    // Windows is offered ONLY when a bootable Windows actually exists.
+    //
+    // The button used to be shown unconditionally, which was misleading in two
+    // different ways: on a Linux-only machine it advertised an OS that is not
+    // there, and on a machine where Windows was removed but its EFI boot entry was
+    // left behind (which is what Windows does when its partition is deleted) it
+    // offered to reboot into a loader that no longer exists.
+    //
+    // The privileged helper answers that question properly — it resolves the boot
+    // entry's ESP and confirms the Windows loader is present, rather than trusting
+    // the entry's existence — so the decision is delegated to it via --check rather
+    // than guessed at here. --check never touches NVRAM and never reboots.
+    //
+    // Failure closed: no helper, no sudoers rule, or a non-zero exit all leave this
+    // false and the row simply absent. A shell running on a distro that ships no
+    // helper therefore hides the button instead of showing a broken one.
+    property bool windowsAvailable: false
+
+    // windowsAvailable is read into a local FIRST, in the binding's own scope,
+    // rather than only inside the filter callback. QML captures binding
+    // dependencies by recording property reads during evaluation, and while the
+    // callback does run synchronously here, keeping the read at this level makes
+    // the dependency unambiguous — so the row appears the moment the probe
+    // resolves, instead of the binding never re-evaluating.
+    readonly property var visibleActions: {
+        const showWindows = root.windowsAvailable
+        return root.actions.filter(a => a.action !== "windows" || showWindows)
+    }
+
+    // Probed once at startup rather than on every menu open: --check mounts an ESP
+    // read-only to verify the loader, which is not something to redo each time the
+    // menu is toggled.
+    Process {
+        id: windowsProbe
+        running: true
+        command: ["bash", Quickshell.shellDir + "/src/scripts/PowerControl.sh", "windows-check"]
+        onExited: function(code) {
+            root.windowsAvailable = (code === 0)
+        }
+    }
+
     // Direct runner for non-confirm actions
     Process {
         id: runner
@@ -91,7 +132,7 @@ Column {
     }
 
     Repeater {
-        model: root.actions
+        model: root.visibleActions
 
         delegate: Rectangle {
             width:  root.width
