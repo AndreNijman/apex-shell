@@ -15,7 +15,9 @@ import "../services/"
 //   "logout"          → hyprshutdown
 //   "lock"            → loginctl lock-session
 //   "suspend"         → systemctl suspend
-//   "windows"         → sudo -n caelestia-boot-windows (arm EFI BootNext + reboot)
+//   "windows"         → PowerControl.sh windows (verify Windows, arm EFI BootNext,
+//                       reboot). PowerMenu only offers this when its
+//                       "windows-check" probe found a bootable Windows.
 //   "gpu-switch-envy" → pkexec scripts/GfxSwitch.sh <mode>, then systemctl reboot
 //                       GfxSwitch.sh prints "authenticated" after pkexec auth succeeds,
 //                       which triggers the processing card before envycontrol runs.

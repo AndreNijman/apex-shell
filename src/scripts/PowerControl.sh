@@ -35,19 +35,34 @@ case "$1" in
         else exec hyprctl dispatch exit; fi ;;             # quit compositor → back to greeter
     suspend)  power suspend ;;
     # One-shot reboot into Windows. The root-owned helper arms the EFI BootNext
-    # variable (Windows Boot Manager, resolved dynamically) and reboots; BootNext
-    # is consumed after one boot, so the machine returns to the default next time.
-    # Runs via the dedicated NOPASSWD sudoers rule, so no password prompt is needed.
-    windows)
-        if [ ! -x /usr/local/bin/caelestia-boot-windows ]; then
-            echo "PowerControl.sh: no Windows boot helper installed (/usr/local/bin/caelestia-boot-windows)." >&2
+    # variable (Windows Boot Manager, resolved and VERIFIED dynamically) and
+    # reboots; BootNext is consumed after one boot, so the machine returns to the
+    # default next time. Runs via a NOPASSWD sudoers rule, so no password prompt is
+    # needed — a compositor-spawned script could not answer one.
+    #
+    # This used to hardcode /usr/local/bin/caelestia-boot-windows, inherited from
+    # the project this was forked from. Nothing in this repo has ever installed a
+    # helper there — not install.sh, not dots-extra — so the button was dead for
+    # every user of this shell, on every distro. On APEX-OS it could never work
+    # even in principle: /usr is read-only there and /usr/local is redirected to
+    # per-machine state, so no image can deliver a file to that path.
+    # APEX_WINDOWS_HELPER is the supported override for packagers who put it
+    # somewhere else.
+    windows|windows-check)
+        HELPER="${APEX_WINDOWS_HELPER:-/usr/libexec/apex-boot-windows}"
+        if [ ! -x "$HELPER" ]; then
+            # windows-check is a capability probe: stay quiet and just report "no",
+            # so a shell on a distro without the helper simply hides the button.
+            [ "$1" = "windows-check" ] && exit 1
+            echo "PowerControl.sh: no Windows boot helper at $HELPER (set APEX_WINDOWS_HELPER to override)." >&2
             exit 1
         fi
-        exec sudo -n /usr/local/bin/caelestia-boot-windows ;;
+        [ "$1" = "windows-check" ] && exec sudo -n "$HELPER" --check
+        exec sudo -n "$HELPER" ;;
     # Native Quickshell lock screen (windows/Lockscreen.qml via the "lockscreen"
     # IPC target). Unlock is PAM-only — there is no unlock IPC.
     lock)     exec qs ipc -c "$SHELL_DIR" call lockscreen lock ;;
     # Fallback: external hyprlock (kept for reference / emergencies)
     # lock)     pidof hyprlock >/dev/null 2>&1 || exec setsid -f hyprlock -c "$HYPRLOCK_CONF" ;;
-    *)        echo "usage: PowerControl.sh {shutdown|reboot|logout|suspend|lock|windows}" >&2; exit 1 ;;
+    *)        echo "usage: PowerControl.sh {shutdown|reboot|logout|suspend|lock|windows|windows-check}" >&2; exit 1 ;;
 esac
