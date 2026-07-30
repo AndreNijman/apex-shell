@@ -40,14 +40,18 @@ case "$1" in
     # default next time. Runs via a NOPASSWD sudoers rule, so no password prompt is
     # needed — a compositor-spawned script could not answer one.
     #
-    # This used to hardcode /usr/local/bin/caelestia-boot-windows, inherited from
-    # the project this was forked from. Nothing in this repo has ever installed a
-    # helper there — not install.sh, not dots-extra — so the button was dead for
-    # every user of this shell, on every distro. On APEX-OS it could never work
-    # even in principle: /usr is read-only there and /usr/local is redirected to
-    # per-machine state, so no image can deliver a file to that path.
-    # APEX_WINDOWS_HELPER is the supported override for packagers who put it
-    # somewhere else.
+    # This used to hardcode a helper under /usr/local/bin, named after the project
+    # this was forked from. Nothing in this repo has ever installed a helper there —
+    # not install.sh, not dots-extra — so the button was dead for every user of this
+    # shell, on every distro. On APEX-OS it could never work even in principle:
+    # /usr is read-only there and /usr/local is redirected to per-machine state, so
+    # no image can deliver a file to that path. APEX_WINDOWS_HELPER is the supported
+    # override for packagers who put the helper somewhere else.
+    #
+    # The old name is deliberately not written out here: apex-os greps a vendored
+    # copy of this file to prove the dead path is gone, and a mention in a comment
+    # would either fail that check or be rewritten by its migration sed, turning
+    # this explanation into a false statement.
     windows|windows-check)
         HELPER="${APEX_WINDOWS_HELPER:-/usr/libexec/apex-boot-windows}"
         if [ ! -x "$HELPER" ]; then
