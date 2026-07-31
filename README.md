@@ -34,7 +34,7 @@ The standard desktop shell of APEX-OS — a dynamic, highly modular Wayland shel
 - **App Launcher** — Dropdown App Launcher
 - **Keybinds** — Set your own keybinds for each popup
 - **Theming Engine** — Live wallpaper-synced color updates
-- **Network Manager** — WiFi, Bluetooth, VPN integration
+- **Network Manager** — WiFi (incl. WPA2-Enterprise/802.1X), Bluetooth, VPN integration
 - **Notifications** — DBus Notifications via libnotify
 - **Audio Control** — PipeWire volume & device management
 - **Screen Recorder** — Built-in recording with wf-recorder
