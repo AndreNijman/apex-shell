@@ -4,7 +4,10 @@ import "../"
 import "../components"
 
 // WifiTab
-// Connect → attempt without password → if "secret" in stderr → expand field inline.
+// Connect → attempt without credentials → on failure expand fields inline.
+// Enterprise (802.1X) networks get a username field and are saved as a
+// PEAP/MSCHAPv2 profile; nmcli autoconnects it afterwards — the common
+// school/university setup. Exotic EAP configs remain available via nmtui.
 // Off overlay is a direct child of root Item (z:2), not inside Column — no overflow.
 
 Item {
@@ -70,16 +73,18 @@ Item {
                 var inUse   = inUseStr.trim() === "*"
                 var signal  = parseInt(signalStr.trim()) || 0
                 var secured = security.trim() !== "" && security.trim() !== "--"
+                // nmcli prints enterprise security as e.g. "WPA2 802.1X"
+                var enterprise = security.trim().indexOf("802.1X") >= 0
                 var nets = root._networks.slice()
                 var found = false
                 for (var i = 0; i < nets.length; i++) {
                     if (nets[i].ssid === ssid) {
                         if (inUse || signal > nets[i].signal)
-                            nets[i] = { ssid: ssid, signal: signal, secured: secured, inUse: inUse }
+                            nets[i] = { ssid: ssid, signal: signal, secured: secured, inUse: inUse, enterprise: enterprise }
                         found = true; break
                     }
                 }
-                if (!found) nets.push({ ssid: ssid, signal: signal, secured: secured, inUse: inUse })
+                if (!found) nets.push({ ssid: ssid, signal: signal, secured: secured, inUse: inUse, enterprise: enterprise })
                 root._networks = nets
             }
         }
@@ -119,9 +124,20 @@ Item {
         id: passProc
         command: []
         running: false
-        onRunningChanged: if (!running) {
+        property string _ssid: ""
+        stderr: StdioCollector { id: passStderr }
+        onExited: function(code, status) {
+            if (code !== 0 && passProc._ssid !== "") {
+                // Failed — re-expand the row so the user can fix and retry
+                var np = Object.assign({}, root._needsPassword)
+                np[passProc._ssid] = true
+                root._needsPassword = np
+                root._expandSsid    = passProc._ssid
+            } else {
+                root._expandSsid = ""
+            }
+            passProc._ssid     = ""
             root._connectingTo = ""
-            root._expandSsid   = ""
             root._scan(false)
         }
     }
@@ -231,9 +247,32 @@ Item {
         var np = Object.assign({}, root._needsPassword)
         delete np[ssid]
         root._needsPassword = np
+        passProc._ssid = ssid
         passProc.command = ["bash", "-c",
             "nmcli dev wifi connect \"$1\" password \"$2\" 2>/dev/null",
             "--", ssid, password]
+        passProc.running = false; passProc.running = true
+    }
+
+    // WPA2-Enterprise (802.1X): school/university networks are almost always
+    // PEAP/MSCHAPv2. `con add` saves a profile (nmcli autoconnects it from
+    // then on), so subsequent connections are automatic. Any stale profile
+    // from a failed earlier attempt is replaced first.
+    function _connectEnterprise(ssid, identity, password) {
+        _connectingTo = ssid; _expandSsid = ""
+        var np = Object.assign({}, root._needsPassword)
+        delete np[ssid]
+        root._needsPassword = np
+        passProc._ssid = ssid
+        passProc.command = ["bash", "-c",
+            "nmcli con delete \"$1\" 2>/dev/null; " +
+            "nmcli con add type wifi con-name \"$1\" ssid \"$1\" -- " +
+            "wifi-sec.key-mgmt wpa-eap " +
+            "802-1x.eap peap " +
+            "802-1x.phase2-auth mschapv2 " +
+            "802-1x.identity \"$2\" " +
+            "802-1x.password \"$3\"",
+            "--", ssid, identity, password]
         passProc.running = false; passProc.running = true
     }
 
@@ -344,7 +383,8 @@ Item {
                 }
                 Text {
                     visible: netRow.needsPassword && !netRow.isCurrent
-                    text: "Password required"; font.pixelSize: 10
+                    text: netRow.net.enterprise ? "Enterprise login required" : "Password required"
+                    font.pixelSize: 10
                     color: Qt.rgba(245/255,196/255,122/255,0.80)
                 }
                 Text { visible: netRow.isCurrent; text: "Connected"; font.pixelSize: 10; color: Theme.active }
@@ -408,10 +448,16 @@ Item {
                         anchors.fill: parent
                         onClicked: {
                             root._forgetSsid = ""
-                            if (netRow.isExpanded && passInput.text !== "")
-                                root._connectWithPassword(netRow.net.ssid, passInput.text)
-                            else
+                            if (netRow.isExpanded && passInput.text !== "") {
+                                if (netRow.net.enterprise) {
+                                    if (userInput.text !== "")
+                                        root._connectEnterprise(netRow.net.ssid, userInput.text, passInput.text)
+                                } else {
+                                    root._connectWithPassword(netRow.net.ssid, passInput.text)
+                                }
+                            } else {
                                 root._connectFirst(netRow.net.ssid)
+                            }
                         }
                     }
                 }
@@ -461,15 +507,32 @@ Item {
             Item {
                 id: passRow
                 anchors { left: parent.left; right: parent.right; top: parent.top; topMargin: 8 }
-                implicitHeight: 40
+                implicitHeight: netRow.net.enterprise ? 80 : 40
                 opacity: netRow.isExpanded ? 1 : 0
                 visible: opacity > 0
                 Behavior on opacity { NumberAnimation { duration: 150 } }
-                Row {
+                Column {
                     anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                     spacing: 8
+                    // Username — enterprise (802.1X) networks only
                     Rectangle {
-                        width: parent.width - parent.spacing; height: 32; radius: 8
+                        visible: netRow.net.enterprise
+                        width: parent.width; height: visible ? 32 : 0; radius: 8
+                        color: Qt.rgba(1,1,1,0.06)
+                        border.color: userInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55) : Qt.rgba(1,1,1,0.12)
+                        border.width: 1; Behavior on border.color { ColorAnimation { duration: 120 } }
+                        Text { anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
+                        text: "Username…"; font.pixelSize: 12; color: Qt.rgba(1,1,1,0.22); visible: userInput.text === "" }
+                        TextInput {
+                            id: userInput
+                            anchors { left: parent.left; leftMargin: 10; right: parent.right; rightMargin: 10; top: parent.top; bottom: parent.bottom }
+                            verticalAlignment: TextInput.AlignVCenter; color: Theme.text; font.pixelSize: 12
+                            selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35); clip: true
+                            Keys.onReturnPressed: { if (text.length > 0 && passInput.text.length > 0) root._connectEnterprise(netRow.net.ssid, text, passInput.text) }
+                        }
+                    }
+                    Rectangle {
+                        width: parent.width; height: 32; radius: 8
                         color: Qt.rgba(1,1,1,0.06)
                         border.color: passInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55) : Qt.rgba(1,1,1,0.12)
                         border.width: 1; Behavior on border.color { ColorAnimation { duration: 120 } }
@@ -483,7 +546,14 @@ Item {
                             // Toggle echoMode based on state
                             echoMode: netRow._showPass ? TextInput.Normal : TextInput.Password
                             selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35); clip: true
-                            Keys.onReturnPressed: { if (text.length > 0) root._connectWithPassword(netRow.net.ssid, text) }
+                            Keys.onReturnPressed: {
+                                if (text.length === 0) return
+                                if (netRow.net.enterprise) {
+                                    if (userInput.text.length > 0) root._connectEnterprise(netRow.net.ssid, userInput.text, text)
+                                } else {
+                                    root._connectWithPassword(netRow.net.ssid, text)
+                                }
+                            }
                         }
 
                         // Added Show Password Button
@@ -505,12 +575,12 @@ Item {
                 }
             }
 
-            onVisibleChanged: { if (visible && netRow.isExpanded) Qt.callLater(function() { passInput.forceActiveFocus() }) }
+            onVisibleChanged: { if (visible && netRow.isExpanded) Qt.callLater(function() { (netRow.net.enterprise ? userInput : passInput).forceActiveFocus() }) }
         }
 
         onIsExpandedChanged: {
-            if (isExpanded) Qt.callLater(function() { passInput.forceActiveFocus() })
-            else            passInput.text = ""
+            if (isExpanded) Qt.callLater(function() { (netRow.net.enterprise ? userInput : passInput).forceActiveFocus() })
+            else { passInput.text = ""; userInput.text = "" }
         }
 
         HoverHandler { id: rHov; enabled: !netRow.isCurrent }
