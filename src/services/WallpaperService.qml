@@ -142,6 +142,18 @@ QtObject {
             "if command -v matugen >/dev/null 2>&1; then " +
             "matugen image \"$STATIC\" -c \"$CFG\" --source-color-index 0 --type \"scheme-$3\" || true; " +
             "matugen image \"$STATIC\" --source-color-index 0 --type \"scheme-$3\" || true; " +
+            "fi; " +
+            // Publish the new wallpaper to the LOGIN / LOCK SCREEN. Without
+            // this the greeter stays on the shipped default forever: it runs as
+            // the `greetd` system user, outside any session, and cannot read a
+            // mode-0700 home directory — so it needs a copy somewhere it may
+            // read. The root helper does exactly that and nothing else; see
+            // /usr/libexec/apex-greet-wallpaper. `sudo -n` never prompts, and
+            // the whole thing is best-effort: on a machine without the helper
+            // (a non-APEX-OS host running this shell) the wallpaper still
+            // applies exactly as before.
+            "if [ -x /usr/libexec/apex-greet-wallpaper ]; then " +
+            "sudo -n /usr/libexec/apex-greet-wallpaper >/dev/null 2>&1 || true; " +
             "fi; exit 0",
             "--", path, Quickshell.shellDir, root.scheme
         ]
