@@ -6,12 +6,48 @@ import Quickshell.Services.Mpris
 import "../"
 
 // Single cava process shared by CenterContent and PlayerCard.
-// 32 bars at 30fps. isPlaying mirrors the active MPRIS player state.
+// 32 bars at 30fps, ON DEMAND — see below.
+//
+// ── WHY THIS IS GATED (it used to run 24/7) ─────────────────────────────────
+// `running: true` was hardcoded and `isPlaying` was computed and then never
+// read, so cava captured the audio monitor and emitted 30 frames/sec forever:
+// while idle, while the visualiser was off-screen, and — the case that hurt —
+// for the entire duration of a game.
+//
+// Games are the worst case because they always produce audio, so cava always
+// had real signal. Every frame replaced `bars` with a NEW array, and both
+// consumers used it directly as a Repeater model, which rebuilds all 32
+// delegates. Two consumers x 32 delegates x 30 fps is ~1900 QML object
+// create/destroys per second, each carrying a 50 ms height animation that could
+// never finish because its object was destroyed after 33 ms. All of it
+// repainting a layer-shell surface that the compositor then had to composite
+// over the game.
+//
+// Now the process only runs when something both wants the bars AND there is a
+// player producing them. A game is not an MPRIS player, so during gaming cava
+// does not run at all: no process, no PipeWire capture stream, no repaints.
+//
+// NOTE the deliberate behaviour change: the visualiser now follows MPRIS rather
+// than "any sound the machine makes". Anything with an MPRIS player (Firefox,
+// mpv, Spotify, playerctl-visible players) still drives it; a bare `aplay` or a
+// game no longer does.
 
 QtObject {
     id: root
 
     readonly property int barCount: 32
+
+    // ── Demand, declared not counted ─────────────────────────────────────────
+    // One flag per consumer, assigned declaratively. A single `subscribers++/--`
+    // counter looks tidier and drifts in practice: it misses the initial value,
+    // double-fires when an item is reparented or unmapped, and never decrements
+    // on destruction. A drifted counter fails SILENTLY in both directions —
+    // cava that never starts, or cava that never stops — which is precisely the
+    // bug class being removed here.
+    property bool centerWants: false
+    property bool dashWants:   false
+
+    readonly property bool wanted: root.isPlaying && (root.centerWants || root.dashWants)
 
     property var bars: (function() {
         var a = []; for (var i = 0; i < 32; i++) a.push(0); return a
@@ -27,6 +63,16 @@ QtObject {
         return false
     }
 
+    // Flatten the bars when cava stops, so the visualiser does not freeze
+    // mid-waveform on whatever frame happened to arrive last.
+    onWantedChanged: {
+        if (!root.wanted) {
+            var z = []
+            for (var i = 0; i < root.barCount; i++) z.push(0)
+            root.bars = z
+        }
+    }
+
     property var _proc: Process {
         command: [
             "bash", "-c",
@@ -38,7 +84,7 @@ QtObject {
             "> /tmp/apex_shell/cava_shared.ini && " +
             "exec cava -p /tmp/apex_shell/cava_shared.ini 2>/dev/null"
         ]
-        running: true
+        running: root.wanted
         stdout: SplitParser {
             onRead: function(line) {
                 var t = line.trim()

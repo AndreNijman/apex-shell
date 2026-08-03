@@ -2,6 +2,7 @@ pragma Singleton
 import Quickshell
 import QtQuick
 import Quickshell.Io
+import Quickshell.Wayland
 import Quickshell.Services.UPower
 import "../."
 
@@ -33,6 +34,47 @@ QtObject {
     // Caffeine — while true, IdleInhibitors in each TopBar window keep the
     // compositor's idle timers (hypridle: dim/lock/dpms/suspend) from firing.
     property bool caffeine:     false
+
+    // ── Fullscreen window tracking (bar + borders unmap for it) ──────────────
+    // The bar and the three border strips are layer-shell surfaces on layer
+    // `top`, which the compositor draws ABOVE a fullscreen window. So a game
+    // paid for compositing four extra surfaces on every single frame, forever,
+    // and anything that repainted one of them (the cava visualiser, a clock
+    // tick) forced a recomposite between the game's own frames.
+    //
+    // Setting `visible: false` on a Quickshell PanelWindow genuinely UNMAPS the
+    // layer surface — verified on hardware by watching `hyprctl layers` while
+    // toggling a popup (4 -> 5 -> 4) — so there is nothing left for the
+    // compositor to draw.
+    //
+    // ToplevelManager is wlr-foreign-toplevel-management, NOT a Hyprland
+    // interface: this has to keep working under niri, which the base ships as a
+    // selectable session.
+    //
+    // Exposed as the toplevel itself rather than a bool so each bar can check
+    // whether the fullscreen window is on ITS screen; a fullscreen game on one
+    // monitor should not blank the bar on another.
+    readonly property var activeFullscreenToplevel: {
+        var t = ToplevelManager.activeToplevel
+        return (t && t.fullscreen) ? t : null
+    }
+
+    /// Whether the bar on `screenName` should unmap. Popups are separate windows
+    /// anchored to the bar, so never unmap it while one is open — that would
+    /// leave a popup parented to a surface that no longer exists.
+    function fullscreenCovers(screenName) {
+        var t = root.activeFullscreenToplevel
+        if (!t)             return false
+        if (Popups.anyOpen) return false
+        var ss = t.screens
+        // An empty/unknown screen list means the compositor did not tell us; the
+        // safe reading is "it covers this output", because the alternative is
+        // leaving the bar over a fullscreen game.
+        if (!ss || ss.length === 0) return true
+        for (var i = 0; i < ss.length; i++)
+            if (ss[i] && ss[i].name === screenName) return true
+        return false
+    }
 
     // WiFi — false when radio is off OR hotspot is using the interface
     property bool wifiOn:       false

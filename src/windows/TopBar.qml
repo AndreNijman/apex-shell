@@ -15,6 +15,13 @@ PanelWindow {
 
     color: "transparent"
 
+    // Unmap the whole bar while a fullscreen window owns this output. This is a
+    // layer-shell surface on layer `top`, so the compositor draws it OVER a
+    // fullscreen game and pays to composite it on every frame. `visible: false`
+    // really does unmap the surface (verified against `hyprctl layers`), so the
+    // compositor has nothing to draw instead of something invisible to draw.
+    visible: !ShellState.fullscreenCovers(root.screenName)
+
     anchors {
         top:   true
         left:  true
