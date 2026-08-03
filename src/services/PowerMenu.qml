@@ -42,6 +42,16 @@ Column {
             action:  "windows"
         },
         {
+            label:   "Gaming  ",
+            icon:    "󰊴",
+            danger:  false,
+            confirm: true,
+            title:   "Enter Gaming Mode?",
+            message: "You will be logged out and returned to the login screen with Gaming Mode selected. Steam Big Picture then runs inside gamescope, with no desktop compositing over the game. Save your work before continuing.",
+            label2:  "Enter Gaming Mode",
+            action:  "gamingmode"
+        },
+        {
             label:   "Log Out  ",
             icon:    "󰍃",
             danger:  true,
@@ -85,6 +95,18 @@ Column {
     // helper therefore hides the button instead of showing a broken one.
     property bool windowsAvailable: false
 
+    // Gaming Mode is offered ONLY on an image that actually ships it.
+    //
+    // Same posture as the Windows row, and for the same reason: this shell also
+    // runs on the Daily edition and on non-APEX machines, where the gamescope
+    // session does not exist. Advertising a button that logs you out and then
+    // cannot start anything would be worse than not showing it.
+    //
+    // Both halves are required — the session file (so the greeter has something
+    // to select) AND the switch helper (so the choice can be recorded). Failure
+    // closed: anything unexpected leaves this false and the row absent.
+    property bool gamingModeAvailable: false
+
     // windowsAvailable is read into a local FIRST, in the binding's own scope,
     // rather than only inside the filter callback. QML captures binding
     // dependencies by recording property reads during evaluation, and while the
@@ -93,7 +115,10 @@ Column {
     // resolves, instead of the binding never re-evaluating.
     readonly property var visibleActions: {
         const showWindows = root.windowsAvailable
-        return root.actions.filter(a => a.action !== "windows" || showWindows)
+        const showGaming  = root.gamingModeAvailable
+        return root.actions.filter(a =>
+            (a.action !== "windows"     || showWindows) &&
+            (a.action !== "gamingmode"  || showGaming))
     }
 
     // Probed once at startup rather than on every menu open: --check mounts an ESP
@@ -105,6 +130,18 @@ Column {
         command: ["bash", Quickshell.shellDir + "/src/scripts/PowerControl.sh", "windows-check"]
         onExited: function(code) {
             root.windowsAvailable = (code === 0)
+        }
+    }
+
+    // Probed once at startup, like the Windows check. Cheap: two file tests.
+    Process {
+        id: gamingProbe
+        running: true
+        command: ["sh", "-c",
+            "test -x /usr/libexec/apex-session-select " +
+            "&& test -f /usr/share/wayland-sessions/apex-gaming.desktop"]
+        onExited: function(code) {
+            root.gamingModeAvailable = (code === 0)
         }
     }
 

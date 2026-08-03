@@ -15,6 +15,8 @@ import "../services/"
 //   "logout"          → hyprshutdown
 //   "lock"            → loginctl lock-session
 //   "suspend"         → systemctl suspend
+//   "gamingmode"      → PowerControl.sh gamingmode (record the greeter's next
+//                       session as apex-gaming, then end this session)
 //   "windows"         → PowerControl.sh windows (verify Windows, arm EFI BootNext,
 //                       reboot). PowerMenu only offers this when its
 //                       "windows-check" probe found a bootable Windows.
@@ -96,6 +98,14 @@ PanelWindow {
             case "suspend":
                 Popups.cancelConfirm()
                 proc.pendingCmd = ["bash", powerScript, "suspend"]
+                proc.running = true
+                break
+            // Gaming Mode: records the greeter's next session, then ends this
+            // one. Routed through PowerControl.sh like every other power action
+            // so the privileged call lives in one place.
+            case "gamingmode":
+                Popups.cancelConfirm()
+                proc.pendingCmd = ["bash", powerScript, "gamingmode"]
                 proc.running = true
                 break
             case "windows":
