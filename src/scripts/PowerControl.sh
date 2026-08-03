@@ -34,6 +34,35 @@ case "$1" in
         if [ -n "$NIRI_SOCKET" ]; then exec niri msg action quit --skip-confirmation
         else exec hyprctl dispatch exit; fi ;;             # quit compositor → back to greeter
     suspend)  power suspend ;;
+    # ── Enter Gaming Mode ────────────────────────────────────────────────────
+    # Record the session the greeter should preselect, then end this session so
+    # the greeter comes back with "APEX Gaming Mode" already chosen. One password
+    # entry and gamescope + Steam Big Picture takes the display, with no desktop
+    # compositor in the path.
+    #
+    # The write has to be privileged: the greeter's memory lives in
+    # /var/lib/apex-greet, which is owned by the `greetd` user. The helper is
+    # reached through a dedicated NOPASSWD sudoers rule and validates the session
+    # id against the .desktop files actually installed, so nothing here hands it
+    # a path. APEX_SESSION_HELPER is the override for packagers.
+    #
+    # Fails LOUDLY rather than logging you out into nothing: if the helper is
+    # missing or refuses, the session is left exactly as it was. The shell only
+    # offers this row when both the helper and the session file exist, so this is
+    # the belt to that braces.
+    gamingmode)
+        helper="${APEX_SESSION_HELPER:-/usr/libexec/apex-session-select}"
+        if [ ! -x "$helper" ]; then
+            echo "gaming mode: no session helper at $helper" >&2; exit 1
+        fi
+        exec sudo -n "$helper" apex-gaming --switch ;;
+    # Leave Gaming Mode: same mechanism, pointed back at the desktop session.
+    desktopmode)
+        helper="${APEX_SESSION_HELPER:-/usr/libexec/apex-session-select}"
+        if [ ! -x "$helper" ]; then
+            echo "desktop mode: no session helper at $helper" >&2; exit 1
+        fi
+        exec sudo -n "$helper" hyprland --switch ;;
     # One-shot reboot into Windows. The root-owned helper arms the EFI BootNext
     # variable (Windows Boot Manager, resolved and VERIFIED dynamically) and
     # reboots; BootNext is consumed after one boot, so the machine returns to the

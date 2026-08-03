@@ -18,6 +18,12 @@ PanelWindow {
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
 
+    // The three border strips are layer-shell surfaces on `top` too — three MORE
+    // surfaces the compositor draws over a fullscreen game, purely decorative.
+    // Unmap them with the bar. See ShellState.fullscreenCovers.
+    property string screenName: screen ? screen.name : ""
+    visible: !ShellState.fullscreenCovers(root.screenName)
+
     anchors {
         left: (edge === "left" || edge === "bottom")
         right: (edge === "right" || edge === "bottom")

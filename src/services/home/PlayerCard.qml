@@ -103,6 +103,15 @@ Item {
 
     readonly property real _progress: root.length > 0 ? root._pos / root.length : 0
 
+    // Tell CavaService the dash visualiser is on screen. The dash is a popup, so
+    // this is false whenever it is closed — which is nearly always. Declarative
+    // rather than a counter, for the reason spelled out in CavaService.
+    Binding {
+        target:   CavaService
+        property: "dashWants"
+        value:    root.visible
+    }
+
     // ── Shared cava bars (32 bars from CavaService) ───────────────────────────
     readonly property int _cavaBars: 32
     readonly property var _bars: CavaService.bars
@@ -492,20 +501,28 @@ Item {
             anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
             spacing: 2
             readonly property real barW: Math.max(1, (parent.width - spacing * (root._cavaBars - 1)) / root._cavaBars)
+            // model is the COUNT, not the array — see the note in
+            // CenterContent. `bars` is replaced with a new array 30x/sec and a
+            // Repeater cannot diff an array model, so this used to destroy and
+            // rebuild all 32 delegates every frame, in addition to the 32
+            // CenterContent was already rebuilding. Fixed count -> the delegates
+            // persist and only the height binding re-evaluates. The per-delegate
+            // Behavior is dropped for the same reason as there: a 50 ms
+            // animation restarted every 33 ms never finished.
             Repeater {
-                model: root._bars
+                model: CavaService.barCount
                 delegate: Item {
-                    required property int modelData
                     required property int index
                     width: parent.barW; height: 32
                     Rectangle {
                         anchors.bottom: parent.bottom
                         width:  parent.width
-                        readonly property real _amp: root.isPlaying ? (modelData / 100) : 0
+                        readonly property real _amp: root.isPlaying
+                            ? ((root._bars[parent.index] !== undefined ? root._bars[parent.index] : 0) / 100)
+                            : 0
                         height: Math.max(2, _amp * 32)
                         radius: width / 2
                         color:  Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.25 + _amp * 0.65)
-                        Behavior on height { NumberAnimation { duration: 50; easing.type: Easing.OutCubic } }
                     }
                 }
             }

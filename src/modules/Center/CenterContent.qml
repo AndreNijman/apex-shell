@@ -281,10 +281,22 @@ Item {
 
 				// ── Music ──────────────────────────────────────────────────────
 				Item {
+					id: musicItem
 					anchors.fill: parent
 					anchors.leftMargin: root.fw/2
 					anchors.rightMargin: root.fw/2
 					visible:      modelData === "music"
+
+					// Tell CavaService whether these bars are actually on screen.
+					// Declarative, so it cannot drift out of sync the way an
+					// increment/decrement counter does. When the carousel is on
+					// another card — or the whole bar is hidden for a fullscreen
+					// window — cava has no reason to be running.
+					Binding {
+						target:   CavaService
+						property: "centerWants"
+						value:    musicItem.visible && root.visible
+					}
 
 					readonly property int artSize: 20
 					readonly property int artPad:   7
@@ -356,24 +368,33 @@ Item {
 								anchors.fill: parent
 								spacing:      barsArea._barSpacing
 
+								// model is the COUNT, not the array. CavaService replaces
+								// `bars` with a new array 30 times a second, and a Repeater
+								// cannot diff an array model — it destroyed and rebuilt all
+								// 32 delegates every frame. Binding to a fixed count keeps
+								// the delegates alive for the lifetime of the bar and lets
+								// each one's height binding re-evaluate on its own, which is
+								// what the scene graph is good at.
+								//
+								// The per-delegate `Behavior on height` is gone with it: a
+								// 50 ms animation restarted every 33 ms never reached its
+								// target, and cava already smooths via noise_reduction = 77.
 								Repeater {
-									model: root._bars
+									model: root._cavaBars
 									delegate: Item {
-										required property int modelData
+										required property int index
 										width:  barsArea._barW
 										height: barsArea.height
-										readonly property real _amp: modelData / 100.0
+										readonly property real _amp:
+											(root._bars[index] !== undefined ? root._bars[index] : 0) / 100.0
 										Rectangle {
 											anchors.centerIn: parent
 											width:  barsArea._barW
-											height: Math.max(2, _amp * barsArea._maxBarH * 2)
+											height: Math.max(2, parent._amp * barsArea._maxBarH * 2)
 											radius: width / 2
 											color:  Qt.rgba(
 												Theme.active.r, Theme.active.g, Theme.active.b,
-												0.28 + _amp * 0.72)
-												Behavior on height {
-													NumberAnimation { duration: 50; easing.type: Easing.OutCubic }
-												}
+												0.28 + parent._amp * 0.72)
 											}
 										}
 									}
