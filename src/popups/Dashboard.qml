@@ -20,6 +20,9 @@ PanelWindow {
 
     // Kept so existing instantiation sites that pass anchorWindow: … still compile.
     required property var anchorWindow
+    readonly property string screenName: anchorWindow.screen ? anchorWindow.screen.name : ""
+    readonly property bool open: Popups.dashboardOpen && Popups.dashboardScreen === screenName
+    screen: anchorWindow.screen
 
     readonly property int fw: Theme.notchRadius
     readonly property int fh: Theme.notchRadius
@@ -61,24 +64,21 @@ PanelWindow {
     Timer {
         id: focusGrabTimer
         interval: 15
-        onTriggered: if (windowVisible && Popups.dashboardOpen) root.wantsFocus = true
+        onTriggered: if (windowVisible && root.open) root.wantsFocus = true
     }
 
     property bool windowVisible: false
 
-    Connections {
-        target: Popups
-        function onDashboardOpenChanged() {
-            if (Popups.dashboardOpen) {
-                closeTimer.stop()
-                root.windowVisible = true
-                root._applyPageWidth(root.page)
-                focusGrabTimer.restart() // Delay the grab slightly
-            } else {
-                root.wantsFocus = false // Release instantly
-                focusGrabTimer.stop()
-                closeTimer.restart()
-            }
+    onOpenChanged: {
+        if (root.open) {
+            closeTimer.stop()
+            root.windowVisible = true
+            root._applyPageWidth(root.page)
+            focusGrabTimer.restart() // Delay the grab slightly
+        } else {
+            root.wantsFocus = false // Release instantly
+            focusGrabTimer.stop()
+            closeTimer.restart()
         }
     }
     
@@ -107,8 +107,8 @@ PanelWindow {
         anchors.horizontalCenter: parent.horizontalCenter
         clip: true
 
-        width:  Popups.dashboardOpen ? Popups.dashboardPageWidth + 2 * root.fw : Theme.cNotchMinWidth + 2 * root.fw
-        height: Popups.dashboardOpen ? Theme.dashboardHeight : Theme.notchHeight / 2
+        width:  root.open ? Popups.dashboardPageWidth + 2 * root.fw : Theme.cNotchMinWidth + 2 * root.fw
+        height: root.open ? Theme.dashboardHeight : Theme.notchHeight / 2
 
         Behavior on width  { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
         Behavior on height { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
@@ -142,10 +142,10 @@ PanelWindow {
                 bottomMargin: 8
             }
 
-            opacity: Popups.dashboardOpen ? 1 : 0
+            opacity: root.open ? 1 : 0
             Behavior on opacity {
                 NumberAnimation {
-                    duration: Popups.dashboardOpen
+                    duration: root.open
                         ? root.animDuration * 0.5
                         : root.animDuration * 0.15
                 }
