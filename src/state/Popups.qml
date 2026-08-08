@@ -9,6 +9,7 @@ QtObject {
     property bool notificationsOpen: false
     property bool archMenuOpen:      false
     property bool dashboardOpen:     false
+    property string dashboardScreen: ""
     property bool wallpaperOpen:     false
     property bool notificationToastOpen:    false
     property bool quickOpen: false

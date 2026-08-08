@@ -61,7 +61,7 @@ PanelWindow {
 
     // cWidth uses Popups.dashboardPageWidth when the dashboard is open,
     // so the center notch tracks the active tab's declared width.
-    property int cWidth: Popups.dashboardOpen
+    property int cWidth: Popups.dashboardOpen && Popups.dashboardScreen === root.screenName
         ? Popups.dashboardPageWidth
         : Math.max(
             Theme.cNotchMinWidth,
@@ -162,6 +162,7 @@ PanelWindow {
 
             CenterContent {
                 id: centerContent
+                screenName: root.screenName
                 anchors.centerIn: parent
             }
         }

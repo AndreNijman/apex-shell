@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import "../"
 
 // ─────────────────────────────────────────────────────────────
@@ -15,95 +16,63 @@ QtObject {
     id: root
 
     // ── Dashboard Toggles ────────────────────────────────────
-    
+
+    function focusedScreenName() {
+        if (Compositor.isHyprland && Hyprland.focusedMonitor)
+            return Hyprland.focusedMonitor.name
+
+        if (Compositor.isNiri) {
+            var workspaces = NiriService.workspaces
+            for (var i = 0; i < workspaces.length; i++)
+                if (workspaces[i].id === NiriService.focusedWorkspaceId)
+                    return workspaces[i].output
+        }
+
+        return Quickshell.screens.length > 0 ? Quickshell.screens[0].name : ""
+    }
+
+    function toggleDashboard(page) {
+        if (Popups.anyOpen && !Popups.dashboardOpen) {
+            Popups.closeAll()
+            Popups.dashboardScreen = focusedScreenName()
+            Popups.dashboardPage = page
+            Popups.dashboardOpen = true
+        } else if (Popups.dashboardOpen && Popups.dashboardPage !== page) {
+            Popups.dashboardPage = page
+        } else {
+            var next = !Popups.dashboardOpen
+            Popups.closeAll()
+            if (next) {
+                Popups.dashboardScreen = focusedScreenName()
+                Popups.dashboardPage = page
+            }
+            Popups.dashboardOpen = next
+        }
+    }
+
     property var dashboardHome: IpcHandler {
         target: "dashboard-home"
-        function toggle() {
-            if(Popups.anyOpen && !Popups.dashboardOpen){
-                Popups.closeAll()
-                Popups.dashboardOpen = true
-                Popups.dashboardPage = "home"
-            } else if(Popups.dashboardOpen && Popups.dashboardPage != "home") {
-                Popups.dashboardPage = "home"
-            } else {
-                var next = !Popups.dashboardOpen
-                Popups.closeAll()
-                Popups.dashboardOpen = next
-                if (next) Popups.dashboardPage = "home"
-            }
-        }
+        function toggle() { root.toggleDashboard("home") }
     }
 
     property var dashboardStats: IpcHandler {
         target: "dashboard-stats"
-        function toggle() {
-            if(Popups.anyOpen && !Popups.dashboardOpen){
-                Popups.closeAll()
-                Popups.dashboardOpen = true
-                Popups.dashboardPage = "stats"
-            } else if(Popups.dashboardOpen && Popups.dashboardPage != "stats") {
-                Popups.dashboardPage = "stats"
-            } else {
-                var next = !Popups.dashboardOpen
-                Popups.closeAll()
-                Popups.dashboardOpen = next
-                if (next) Popups.dashboardPage = "stats"
-            }
-        }
+        function toggle() { root.toggleDashboard("stats") }
     }
 
     property var dashboardKanban: IpcHandler {
         target: "dashboard-kanban"
-        function toggle() {
-            if(Popups.anyOpen && !Popups.dashboardOpen){
-                Popups.closeAll()
-                Popups.dashboardOpen = true
-                Popups.dashboardPage = "kanban"
-            } else if(Popups.dashboardOpen && Popups.dashboardPage != "kanban") {
-                Popups.dashboardPage = "kanban"
-            } else {
-                var next = !Popups.dashboardOpen
-                Popups.closeAll()
-                Popups.dashboardOpen = next
-                if (next) Popups.dashboardPage = "kanban"
-            }
-        }
+        function toggle() { root.toggleDashboard("kanban") }
     }
 
     property var dashboardLauncher: IpcHandler {
         target: "dashboard-launcher"
-        function toggle() {
-            if(Popups.anyOpen && !Popups.dashboardOpen){
-                Popups.closeAll()
-                Popups.dashboardOpen = true
-                Popups.dashboardPage = "launcher"
-            } else if(Popups.dashboardOpen && Popups.dashboardPage != "launcher") {
-                Popups.dashboardPage = "launcher"
-            } else {
-                var next = !Popups.dashboardOpen
-                Popups.closeAll()
-                Popups.dashboardOpen = next
-                if (next) Popups.dashboardPage = "launcher"
-            }
-        }
+        function toggle() { root.toggleDashboard("launcher") }
     }
 
     property var dashboardConfig: IpcHandler {
         target: "dashboard-config"
-        function toggle() {
-            if(Popups.anyOpen && !Popups.dashboardOpen){
-                Popups.closeAll()
-                Popups.dashboardOpen = true
-                Popups.dashboardPage = "config"
-            } else if(Popups.dashboardOpen && Popups.dashboardPage != "config") {
-                Popups.dashboardPage = "config"
-            } else {
-                var next = !Popups.dashboardOpen
-                Popups.closeAll()
-                Popups.dashboardOpen = next
-                if (next) Popups.dashboardPage = "config"
-            }
-        }
+        function toggle() { root.toggleDashboard("config") }
     }
 
     // ── Audio Toggles ────────────────────────────────────────
