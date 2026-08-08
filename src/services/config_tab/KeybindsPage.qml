@@ -318,10 +318,9 @@ Item {
                     var m = _mods(br._pressedMods)
                     br.capturedMods = m
                     br.capturedKey  = k
-                    // Auto-accept when valid: has mods, no service conflict,
+                    // Auto-accept when valid: no service conflict,
                     // no pending-map conflict, no Hyprland conflict
-                    if (m !== ""
-                        && KeybindService.wouldConflict(br.action, m, k) === ""
+                    if (KeybindService.wouldConflict(br.action, m, k) === ""
                         && KeybindService.wouldConflictHypr(br.action, m, k) === ""
                         && !_hasPendingConflict(m, k)) {
                         br.captureAccepted(m, k)
