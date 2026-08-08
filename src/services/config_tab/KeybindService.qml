@@ -26,14 +26,19 @@ QtObject {
 
     // ── Defaults ──────────────────────────────────────────────────────────────
     readonly property var _defaults: ({
-        "dashboard-home":     { mods: "SUPER",        key: "D",      label: "Dashboard: System",    group: "Dashboard"      },
-        "dashboard-stats":    { mods: "CTRL + SHIFT",  key: "ESCAPE", label: "Dashboard: Home",      group: "Dashboard"      },
+        "app-terminal":       { mods: "SUPER",         key: "T",      label: "Terminal",              group: "Applications", type: "exec",     command: "$terminal" },
+        "window-close":       { mods: "SUPER",         key: "Q",      label: "Quit Window",           group: "Applications", type: "dispatch", dispatcher: "killactive", arg: "" },
+        "app-browser":        { mods: "SUPER",         key: "W",      label: "Browser",               group: "Applications", type: "exec",     command: "$browser" },
+        "app-files":          { mods: "SUPER",         key: "E",      label: "File Manager",          group: "Applications", type: "exec",     command: "$fileManager" },
+        "session-lock":       { mods: "SUPER",         key: "L",      label: "Lock Screen",           group: "Applications", type: "exec",     command: "$qsIpc lockscreen lock" },
+        "dashboard-home":     { mods: "SUPER",         key: "D",      label: "Dashboard: Home",       group: "Dashboard"      },
+        "dashboard-stats":    { mods: "CTRL + SHIFT",  key: "ESCAPE", label: "Dashboard: System",     group: "Dashboard"      },
         "dashboard-kanban":   { mods: "SUPER",        key: "Z",      label: "Dashboard: Tasks",     group: "Dashboard"      },
-        "dashboard-launcher": { mods: "SUPER",        key: "Q",      label: "Dashboard: Apps",      group: "Dashboard"      },
+        "dashboard-launcher": { mods: "ALT",          key: "SPACE",  label: "Dashboard: Apps",      group: "Dashboard"      },
         "dashboard-config":   { mods: "SUPER",        key: "C",      label: "Dashboard: Config",    group: "Dashboard"      },
-        "PowerMenu-toggle":   { mods: "SUPER",        key: "ESCAPE", label: "Arch Menu",            group: "Popups"         },
+        "PowerMenu-toggle":   { mods: "SUPER",        key: "ESCAPE", label: "Power Menu",           group: "Popups"         },
         "notification-toggle":{ mods: "SUPER",        key: "N",      label: "Notifications",        group: "Popups"         },
-        "wallpaper-toggle":   { mods: "SUPER",        key: "W",      label: "Wallpaper",            group: "Popups"         },
+        "wallpaper-toggle":   { mods: "SUPER + SHIFT", key: "W",      label: "Wallpaper",            group: "Popups"         },
         "clipboard-toggle":   { mods: "SUPER",        key: "V",      label: "Clipboard",            group: "Popups"         },
         "wifi-toggle":        { mods: "SUPER + ALT",   key: "W",      label: "Network: Wi-Fi",       group: "Network Tabs"   },
         "bluetooth-toggle":   { mods: "SUPER + ALT",   key: "B",      label: "Network: Bluetooth",   group: "Network Tabs"   },
@@ -44,6 +49,42 @@ QtObject {
         "audioMix-toggle":    { mods: "SUPER",        key: "M",      label: "Audio: Mixer",         group: "Audio Tabs"     },
         "focus-toggle":       { mods: "SUPER",        key: "B",      label: "Focus Mode",           group: "Quick Settings" },
         "screenrec-on":       { mods: "ALT",          key: "F9",     label: "Screen Record",        group: "Quick Settings" },
+        "screenshot-area":    { mods: "",             key: "PRINT",  label: "Screenshot Area",      group: "Window Management", type: "exec", command: "grimblast copy area" },
+        "screenshot-screen":  { mods: "SUPER",        key: "PRINT",  label: "Screenshot Screen",    group: "Window Management", type: "exec", command: "grimblast copy screen" },
+        "window-fullscreen":  { mods: "SUPER",        key: "F",      label: "Toggle Fullscreen",    group: "Window Management", type: "dispatch", dispatcher: "fullscreen", arg: "0" },
+        "window-floating":    { mods: "SUPER + SHIFT", key: "SPACE",  label: "Toggle Floating",      group: "Window Management", type: "dispatch", dispatcher: "togglefloating", arg: "" },
+        "window-pseudo":      { mods: "SUPER",        key: "P",      label: "Toggle Pseudotile",    group: "Window Management", type: "dispatch", dispatcher: "pseudo", arg: "" },
+        "window-split":       { mods: "SUPER",        key: "J",      label: "Toggle Split",         group: "Window Management", type: "dispatch", dispatcher: "togglesplit", arg: "" },
+        "focus-left":         { mods: "SUPER",        key: "LEFT",   label: "Focus Left",           group: "Window Management", type: "dispatch", dispatcher: "movefocus", arg: "l" },
+        "focus-right":        { mods: "SUPER",        key: "RIGHT",  label: "Focus Right",          group: "Window Management", type: "dispatch", dispatcher: "movefocus", arg: "r" },
+        "focus-up":           { mods: "SUPER",        key: "UP",     label: "Focus Up",             group: "Window Management", type: "dispatch", dispatcher: "movefocus", arg: "u" },
+        "focus-down":         { mods: "SUPER",        key: "DOWN",   label: "Focus Down",           group: "Window Management", type: "dispatch", dispatcher: "movefocus", arg: "d" },
+        "move-left":          { mods: "SUPER + SHIFT", key: "LEFT",   label: "Move Window Left",     group: "Window Management", type: "dispatch", dispatcher: "movewindow", arg: "l" },
+        "move-right":         { mods: "SUPER + SHIFT", key: "RIGHT",  label: "Move Window Right",    group: "Window Management", type: "dispatch", dispatcher: "movewindow", arg: "r" },
+        "move-up":            { mods: "SUPER + SHIFT", key: "UP",     label: "Move Window Up",       group: "Window Management", type: "dispatch", dispatcher: "movewindow", arg: "u" },
+        "move-down":          { mods: "SUPER + SHIFT", key: "DOWN",   label: "Move Window Down",     group: "Window Management", type: "dispatch", dispatcher: "movewindow", arg: "d" },
+        "workspace-1":        { mods: "SUPER",         key: "1",      label: "Workspace 1",          group: "Workspaces", type: "dispatch", dispatcher: "workspace", arg: "1" },
+        "workspace-2":        { mods: "SUPER",         key: "2",      label: "Workspace 2",          group: "Workspaces", type: "dispatch", dispatcher: "workspace", arg: "2" },
+        "workspace-3":        { mods: "SUPER",         key: "3",      label: "Workspace 3",          group: "Workspaces", type: "dispatch", dispatcher: "workspace", arg: "3" },
+        "workspace-4":        { mods: "SUPER",         key: "4",      label: "Workspace 4",          group: "Workspaces", type: "dispatch", dispatcher: "workspace", arg: "4" },
+        "workspace-5":        { mods: "SUPER",         key: "5",      label: "Workspace 5",          group: "Workspaces", type: "dispatch", dispatcher: "workspace", arg: "5" },
+        "workspace-6":        { mods: "SUPER",         key: "6",      label: "Workspace 6",          group: "Workspaces", type: "dispatch", dispatcher: "workspace", arg: "6" },
+        "workspace-7":        { mods: "SUPER",         key: "7",      label: "Workspace 7",          group: "Workspaces", type: "dispatch", dispatcher: "workspace", arg: "7" },
+        "workspace-8":        { mods: "SUPER",         key: "8",      label: "Workspace 8",          group: "Workspaces", type: "dispatch", dispatcher: "workspace", arg: "8" },
+        "workspace-9":        { mods: "SUPER",         key: "9",      label: "Workspace 9",          group: "Workspaces", type: "dispatch", dispatcher: "workspace", arg: "9" },
+        "workspace-10":       { mods: "SUPER",         key: "0",      label: "Workspace 10",         group: "Workspaces", type: "dispatch", dispatcher: "workspace", arg: "10" },
+        "move-workspace-1":   { mods: "SUPER + SHIFT", key: "1",      label: "Move to Workspace 1",  group: "Workspaces", type: "dispatch", dispatcher: "movetoworkspace", arg: "1" },
+        "move-workspace-2":   { mods: "SUPER + SHIFT", key: "2",      label: "Move to Workspace 2",  group: "Workspaces", type: "dispatch", dispatcher: "movetoworkspace", arg: "2" },
+        "move-workspace-3":   { mods: "SUPER + SHIFT", key: "3",      label: "Move to Workspace 3",  group: "Workspaces", type: "dispatch", dispatcher: "movetoworkspace", arg: "3" },
+        "move-workspace-4":   { mods: "SUPER + SHIFT", key: "4",      label: "Move to Workspace 4",  group: "Workspaces", type: "dispatch", dispatcher: "movetoworkspace", arg: "4" },
+        "move-workspace-5":   { mods: "SUPER + SHIFT", key: "5",      label: "Move to Workspace 5",  group: "Workspaces", type: "dispatch", dispatcher: "movetoworkspace", arg: "5" },
+        "move-workspace-6":   { mods: "SUPER + SHIFT", key: "6",      label: "Move to Workspace 6",  group: "Workspaces", type: "dispatch", dispatcher: "movetoworkspace", arg: "6" },
+        "move-workspace-7":   { mods: "SUPER + SHIFT", key: "7",      label: "Move to Workspace 7",  group: "Workspaces", type: "dispatch", dispatcher: "movetoworkspace", arg: "7" },
+        "move-workspace-8":   { mods: "SUPER + SHIFT", key: "8",      label: "Move to Workspace 8",  group: "Workspaces", type: "dispatch", dispatcher: "movetoworkspace", arg: "8" },
+        "move-workspace-9":   { mods: "SUPER + SHIFT", key: "9",      label: "Move to Workspace 9",  group: "Workspaces", type: "dispatch", dispatcher: "movetoworkspace", arg: "9" },
+        "move-workspace-10":  { mods: "SUPER + SHIFT", key: "0",      label: "Move to Workspace 10", group: "Workspaces", type: "dispatch", dispatcher: "movetoworkspace", arg: "10" },
+        "scratchpad-toggle":  { mods: "SUPER",         key: "S",      label: "Toggle Scratchpad",    group: "Workspaces", type: "dispatch", dispatcher: "togglespecialworkspace", arg: "magic" },
+        "scratchpad-move":    { mods: "SUPER + SHIFT", key: "S",      label: "Move to Scratchpad",   group: "Workspaces", type: "dispatch", dispatcher: "movetoworkspace", arg: "special:magic" },
     })
 
     property var keybinds: ({})
@@ -84,7 +125,7 @@ QtObject {
     }
 
     // Returns a short description of the conflicting Hyprland bind, or "".
-    // Own shell binds (arg contains "qs ipc") are filtered out.
+    // Own shell binds are filtered out.
     function wouldConflictHypr(action, mods, key) {
         var mask = _modsToMask(mods)
         var k    = key.toLowerCase()
@@ -92,7 +133,7 @@ QtObject {
             var b = root._hyprBinds[i]
             if (b.submap !== "")                        continue  // ignore submaps
             if (b.mouse)                                continue  // ignore mouse binds
-            if (b.arg && b.arg.indexOf("qs ipc") >= 0) continue  // our own shell binds
+            if (b.arg && b.arg.indexOf("ipc call") >= 0) continue  // our own shell binds
             if (b.modmask === mask && (b.key || "").toLowerCase() === k) {
                 var desc = b.dispatcher || ""
                 if (b.arg) desc += ": " + b.arg.substring(0, 36)
@@ -108,7 +149,7 @@ QtObject {
         var ks = Object.keys(root.keybinds)
         for (var i = 0; i < ks.length; i++) {
             var b = root.keybinds[ks[i]]
-            if (!b || !b.mods || !b.key) continue
+            if (!b || !b.key) continue
             var combo = b.mods + "+" + b.key
             if (!m[combo]) m[combo] = [ks[i]]
             else           m[combo] = m[combo].concat([ks[i]])
@@ -118,14 +159,14 @@ QtObject {
 
     function isDuplicate(action) {
         var b = root.keybinds[action]
-        if (!b || !b.mods || !b.key) return false
+        if (!b || !b.key) return false
         var combo = b.mods + "+" + b.key
         return !!(root._comboMap[combo] && root._comboMap[combo].length > 1)
     }
 
     function conflictsWith(action) {
         var b = root.keybinds[action]
-        if (!b || !b.mods || !b.key) return ""
+        if (!b || !b.key) return ""
         var list = root._comboMap[b.mods + "+" + b.key]
         if (!list || list.length < 2) return ""
         for (var i = 0; i < list.length; i++) {
@@ -161,8 +202,7 @@ QtObject {
                 var dkeys  = Object.keys(defs)
                 for (var i = 0; i < dkeys.length; i++) {
                     var dk = dkeys[i]
-                    merged[dk] = { mods: defs[dk].mods, key: defs[dk].key,
-                                   label: defs[dk].label, group: defs[dk].group }
+                    merged[dk] = Object.assign({}, defs[dk])
                 }
                 try {
                     var saved = JSON.parse(text.trim())
@@ -240,10 +280,10 @@ QtObject {
         if (!old) return
         var m = newMods.toUpperCase().trim()
         var k = newKey.toUpperCase().trim()
-        if (m === "" || k === "") return
+        if (k === "") return
         if (root.wouldConflict(action, m, k) !== "") return
         var copy     = Object.assign({}, root.keybinds)
-        copy[action] = { mods: m, key: k, label: old.label, group: old.group }
+        copy[action] = Object.assign({}, old, { mods: m, key: k })
         root.keybinds = copy
     }
 
@@ -261,7 +301,7 @@ QtObject {
         if (!old) return
         
         var copy = Object.assign({}, root.keybinds)
-        copy[action] = { mods: "", key: "", label: old.label, group: old.group }
+        copy[action] = Object.assign({}, old, { mods: "", key: "" })
         root.keybinds = copy
         
         saveAndReload()
@@ -291,10 +331,10 @@ QtObject {
         var ks = Object.keys(root.keybinds)
         for (var i = 0; i < ks.length; i++) {
             var k = ks[i]; var b = root.keybinds[k]
-            if (!b || !b.mods || !b.key) continue
+            if (!b || !b.key) continue
             var g = b.group || "Other"
             if (!groups[g]) { groups[g] = []; order.push(g) }
-            groups[g].push({ k: k, mods: b.mods, key: b.key, label: b.label })
+            groups[g].push(Object.assign({ k: k }, b))
         }
         return { groups: groups, order: order }
     }
@@ -334,7 +374,20 @@ QtObject {
             var entries = data.groups[g]
             for (var ei = 0; ei < entries.length; ei++) {
                 var e = entries[ei]
-                lines.push("hl.bind(\"" + e.mods + " + " + e.key + "\", hl.dsp.exec_cmd(\"qs ipc -c \" .. shell .. \" call " + e.k + " toggle\"))")
+                var combo = e.mods ? e.mods + " + " + e.key : e.key
+                if (e.type === "dispatch") {
+                    var dispatchCmd = "hyprctl dispatch " + e.dispatcher + (e.arg ? " " + e.arg : "")
+                    lines.push("hl.bind(\"" + combo + "\", hl.dsp.exec_cmd(\"" + dispatchCmd + "\"))")
+                } else if (e.type === "exec") {
+                    var execCmd = e.command
+                        .replace("$terminal", "alacritty")
+                        .replace("$browser", "firefox")
+                        .replace("$fileManager", "thunar")
+                        .replace("$qsIpc", "qs -p " + sd + " ipc call")
+                    lines.push("hl.bind(\"" + combo + "\", hl.dsp.exec_cmd(\"" + execCmd.replace(/\"/g, "\\\"") + "\"))")
+                } else {
+                    lines.push("hl.bind(\"" + combo + "\", hl.dsp.exec_cmd(\"qs -p \" .. shell .. \" ipc call " + e.k + " toggle\"))")
+                }
             }
             lines.push("")
         }
@@ -363,6 +416,19 @@ QtObject {
             "# ==============================================================================",
             ""
         ]
+
+        // Native APEX defaults are also present in the seeded Hyprland config.
+        // Remove those first so this generated file is authoritative: changing
+        // SUPER+Q here must replace, not duplicate, the static killactive bind.
+        var defs = root._defaults
+        var dkeys = Object.keys(defs)
+        for (var di = 0; di < dkeys.length; di++) {
+            var def = defs[dkeys[di]]
+            if (!def.type) continue
+            var defMods = def.mods.replace(/\s*\+\s*/g, " ")
+            lines.push("unbind = " + defMods + ", " + def.key)
+        }
+        lines.push("")
         
         for (var gi = 0; gi < data.order.length; gi++) {
             var g = data.order[gi]
@@ -372,8 +438,15 @@ QtObject {
                 var e = entries[ei]
                 // Hyprland .conf format drops the '+' symbol between modifiers
                 var confMods = e.mods.replace(/\s*\+\s*/g, " ")
-                var cmd = "qs ipc -c " + root._shellDir + " call " + e.k + " toggle"
-                lines.push("bind = " + confMods + ", " + e.key + ", exec, " + cmd)
+                if (e.type === "dispatch") {
+                    lines.push("bind = " + confMods + ", " + e.key + ", " + e.dispatcher
+                               + (e.arg ? ", " + e.arg : ""))
+                } else {
+                    var cmd = e.type === "exec"
+                        ? e.command
+                        : "qs -p " + root._shellDir + " ipc call " + e.k + " toggle"
+                    lines.push("bind = " + confMods + ", " + e.key + ", exec, " + cmd)
+                }
             }
             lines.push("")
         }
@@ -440,10 +513,11 @@ QtObject {
             var entries = data.groups[g]
             for (var ei = 0; ei < entries.length; ei++) {
                 var e = entries[ei]
+                if (e.type) continue // Native compositor actions remain in niri's own config.
                 var combo = _modsToKdl(e.mods).concat([e.key]).join("+")
-                // spawn tokens: qs ipc -c <shell> call <action> toggle
-                var spawn = 'spawn "qs" "ipc" "-c" "' + _kdlStr(sd) +
-                            '" "call" "' + _kdlStr(e.k) + '" "toggle";'
+                // spawn tokens: qs -p <shell> ipc call <action> toggle
+                var spawn = 'spawn "qs" "-p" "' + _kdlStr(sd) +
+                            '" "ipc" "call" "' + _kdlStr(e.k) + '" "toggle";'
                 lines.push("    " + combo + " { " + spawn + " }")
             }
             lines.push("")
