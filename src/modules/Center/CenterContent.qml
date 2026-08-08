@@ -24,6 +24,7 @@ import "../../services/home/."
 
 Item {
 	id: root
+	required property string screenName
 
 	width:  Theme.cNotchMinWidth
 	height: 30
@@ -893,8 +894,9 @@ Item {
 				onTapped: {
 					// Do nothing during screen rec setup — ESC / cancel button handles it
 					if (ShellState.screenRecord && !ScreenRecService.recording) return
-					var next = !Popups.dashboardOpen
+					var next = !Popups.dashboardOpen || Popups.dashboardScreen !== root.screenName
 					Popups.closeAll()
+					if (next) Popups.dashboardScreen = root.screenName
 					Popups.dashboardOpen = next
 				}
 			}
