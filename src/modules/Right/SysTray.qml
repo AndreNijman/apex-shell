@@ -1,73 +1,98 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import Quickshell
 import Quickshell.Services.SystemTray
 import "../../components"
-import "../../windows"
 import "../../"
 
 RowLayout {
     id: root
 
+    readonly property bool hasItems: SystemTray.items.values.length > 0
+    visible: hasItems
+    spacing: 2
+
     RowLayout {
         id: trayRow
         Layout.alignment: Qt.AlignVCenter
-        
-        // Custom state for toggling
         property bool isOpen: false
 
-        // UX: Smooth fade and slide animation instead of abruptly disappearing
         visible: opacity > 0
         opacity: isOpen ? 1 : 0
         Layout.preferredWidth: isOpen ? implicitWidth : 0
         clip: true
+        spacing: 2
 
         Behavior on opacity { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.OutCubic } }
         Behavior on Layout.preferredWidth { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.OutCubic } }
 
         Repeater {
             model: SystemTray.items
-            delegate: Rectangle {
-                // UX: Larger 28x28 hit-box makes it easier to click than a 16x16 icon
+            delegate: MouseArea {
+                id: trayItem
+
+                required property var modelData
+
                 width: 26
                 height: 26
-                radius: 6
-                color: trayMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : "transparent" // Subtle hover effect
-                
-                Image {
-                    width: 16
-                    height: 16
-                    anchors.centerIn: parent
-                    source: modelData.icon
-                    smooth: true
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 6
+                    color: trayItem.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
+                    Behavior on color { ColorAnimation { duration: 120 } }
+
+                    Image {
+                        width: 16
+                        height: 16
+                        anchors.centerIn: parent
+                        source: trayItem.modelData.icon
+                        sourceSize.width: 16
+                        sourceSize.height: 16
+                        fillMode: Image.PreserveAspectFit
+                        smooth: true
+                    }
                 }
 
-                MouseArea {
-                    id: trayMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor // Visual cue that it's clickable
-                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                ToolTip.visible: containsMouse && ToolTip.text !== ""
+                ToolTip.delay: 500
+                ToolTip.text: modelData.tooltipTitle || modelData.title || modelData.id || ""
 
-                    onClicked: (mouse) => {
-                        if (mouse.button === Qt.LeftButton) {
-                            modelData.activate()
-                        } else if (mouse.button === Qt.RightButton) {
-                            // Support for native context menus if Quickshell exposes it
-                            if (typeof modelData.contextMenu === "function") {
-                                modelData.contextMenu() 
-                            }
-                        }
+                onClicked: (mouse) => {
+                    if (mouse.button === Qt.MiddleButton) {
+                        modelData.secondaryActivate()
+                    } else if (mouse.button === Qt.RightButton || modelData.onlyMenu) {
+                        if (modelData.hasMenu) trayMenu.open()
+                    } else {
+                        modelData.activate()
                     }
+                }
+
+                onWheel: (wheel) => {
+                    const horizontal = Math.abs(wheel.angleDelta.x) > Math.abs(wheel.angleDelta.y)
+                    const delta = horizontal ? wheel.angleDelta.x : wheel.angleDelta.y
+                    modelData.scroll(delta, horizontal)
+                    wheel.accepted = true
+                }
+
+                QsMenuAnchor {
+                    id: trayMenu
+                    menu: trayItem.modelData.menu
+                    anchor.item: trayItem
+                    anchor.edges: Edges.Bottom
+                    anchor.gravity: Edges.Bottom
                 }
             }
         }
     }
 
-    // Tray Toggle Button
     IconBtn {
         Layout.alignment: Qt.AlignVCenter
-        text: trayRow.isOpen ? "" : ""
+        text: trayRow.isOpen ? "󰅀" : "•••"
         onClicked: trayRow.isOpen = !trayRow.isOpen
     }
 }
