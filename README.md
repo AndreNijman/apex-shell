@@ -31,7 +31,7 @@ The standard desktop shell of APEX-OS — a dynamic, highly modular Wayland shel
 - **niri Compatibility** — Auto-detection with graceful degradation of Hyprland-only features
 - **System Dashboard** — Monitor CPU, RAM, battery, temps, and more
 - **Kanban/Tasks** — To Do, Ongoing and Completed lists with Priority and Deadlines
-- **App Launcher** — Dropdown App Launcher
+- **App Launcher** — App search with full inline Wolfram Alpha results
 - **Keybinds** — Set your own keybinds for each popup
 - **Theming Engine** — Live wallpaper-synced color updates
 - **Network Manager** — WiFi (incl. WPA2-Enterprise/802.1X), Bluetooth, VPN integration
@@ -126,6 +126,7 @@ installed **disabled** (it never autostarts) with its config at
 - **Hyprland** v0.55+ – Wayland compositor (niri also supported)
 - **Quickshell** – QML shell framework
 - **Qt6** – Qt6 libraries and QML engine
+- **Qt WebEngine** – Inline Wolfram Alpha results
 - **qt6ct** – Qt6 theme configuration
 
 </details>
