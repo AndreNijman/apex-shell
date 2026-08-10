@@ -3,6 +3,7 @@ import Quickshell
 import "../../components"
 import "../../windows"
 import "../../"
+import "../Right"
 
 Row {
 	spacing: 5
@@ -16,5 +17,8 @@ Row {
 	
 	//3. LayoutDisplay
 	LayoutDisplayer {}
+
+	// 4. Background applications
+	SysTray {}
 
 }
