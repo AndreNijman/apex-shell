@@ -31,7 +31,6 @@ Item {
         Audio{}
         Battery{}
         Clock{}
-        SysTray{}
         Notifications{}
     }
 
