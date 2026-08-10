@@ -54,7 +54,7 @@ QtObject {
         "window-fullscreen":  { mods: "SUPER",        key: "F",      label: "Toggle Fullscreen",    group: "Window Management", type: "dispatch", dispatcher: "fullscreen", arg: "0" },
         "window-floating":    { mods: "SUPER + SHIFT", key: "SPACE",  label: "Toggle Floating",      group: "Window Management", type: "dispatch", dispatcher: "togglefloating", arg: "" },
         "window-pseudo":      { mods: "SUPER",        key: "P",      label: "Toggle Pseudotile",    group: "Window Management", type: "dispatch", dispatcher: "pseudo", arg: "" },
-        "window-split":       { mods: "SUPER",        key: "J",      label: "Toggle Split",         group: "Window Management", type: "dispatch", dispatcher: "togglesplit", arg: "" },
+        "window-split":       { mods: "SUPER",        key: "J",      label: "Toggle Split",         group: "Window Management", type: "dispatch", dispatcher: "layoutmsg", arg: "togglesplit" },
         "focus-left":         { mods: "SUPER",        key: "LEFT",   label: "Focus Left",           group: "Window Management", type: "dispatch", dispatcher: "movefocus", arg: "l" },
         "focus-right":        { mods: "SUPER",        key: "RIGHT",  label: "Focus Right",          group: "Window Management", type: "dispatch", dispatcher: "movefocus", arg: "r" },
         "focus-up":           { mods: "SUPER",        key: "UP",     label: "Focus Up",             group: "Window Management", type: "dispatch", dispatcher: "movefocus", arg: "u" },
