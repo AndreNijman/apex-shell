@@ -18,12 +18,115 @@ Item {
     property int  selIndex: -1
     property string query:  ""
 
+    readonly property var calculation: calculate(query)
+
     readonly property var filtered: {
         var q = query.toLowerCase().trim()
         if (q === "") return apps
-        return apps.filter(function(a) {
+        var matches = apps.filter(function(a) {
             return a.name.toLowerCase().indexOf(q) !== -1
         })
+        if (calculation.valid) {
+            matches.unshift({
+                kind: "calculation",
+                name: calculation.expression + " = " + calculation.formatted,
+                value: calculation.formatted,
+                icon: "",
+                exec: ""
+            })
+        }
+        return matches
+    }
+
+    // Recursive-descent arithmetic parser. Keeping this local avoids executing
+    // launcher input as JavaScript or passing it through a shell.
+    function calculate(input) {
+        var expression = input.trim()
+        var explicit = expression.charAt(0) === "="
+        if (explicit) expression = expression.substring(1).trim()
+        if (expression === "" || (!explicit && !/[+\-*/%^()]/.test(expression)))
+            return { valid: false }
+
+        var pos = 0
+        function skipSpace() {
+            while (pos < expression.length && /\s/.test(expression.charAt(pos))) pos++
+        }
+        function primary() {
+            skipSpace()
+            if (expression.charAt(pos) === "(") {
+                pos++
+                var grouped = addSubtract()
+                skipSpace()
+                if (expression.charAt(pos) !== ")") throw "missing close parenthesis"
+                pos++
+                return grouped
+            }
+
+            var start = pos
+            var dots = 0
+            while (pos < expression.length) {
+                var c = expression.charAt(pos)
+                if (c >= "0" && c <= "9") {
+                    pos++
+                } else if (c === "." && dots === 0) {
+                    dots++
+                    pos++
+                } else {
+                    break
+                }
+            }
+            if (start === pos || expression.substring(start, pos) === ".") throw "number expected"
+            return Number(expression.substring(start, pos))
+        }
+        function unary() {
+            skipSpace()
+            if (expression.charAt(pos) === "+") { pos++; return unary() }
+            if (expression.charAt(pos) === "-") { pos++; return -unary() }
+            return primary()
+        }
+        function power() {
+            var value = unary()
+            skipSpace()
+            if (expression.charAt(pos) === "^") {
+                pos++
+                value = Math.pow(value, power())
+            }
+            return value
+        }
+        function multiplyDivide() {
+            var value = power()
+            while (true) {
+                skipSpace()
+                var op = expression.charAt(pos)
+                if (op !== "*" && op !== "/" && op !== "%") return value
+                pos++
+                var rhs = power()
+                if (op === "*") value *= rhs
+                else if (op === "/") value /= rhs
+                else value %= rhs
+            }
+        }
+        function addSubtract() {
+            var value = multiplyDivide()
+            while (true) {
+                skipSpace()
+                var op = expression.charAt(pos)
+                if (op !== "+" && op !== "-") return value
+                pos++
+                var rhs = multiplyDivide()
+                value = op === "+" ? value + rhs : value - rhs
+            }
+        }
+
+        try {
+            var result = addSubtract()
+            skipSpace()
+            if (pos !== expression.length || !isFinite(result)) return { valid: false }
+            var formatted = String(Number(result.toPrecision(12)))
+            return { valid: true, expression: expression, formatted: formatted }
+        } catch (e) {
+            return { valid: false }
+        }
     }
 
     // ── Load apps ─────────────────────────────────────────────────────────────
@@ -72,6 +175,15 @@ Item {
         launcher.running = false
         launcher.running = true
         Popups.dashboardOpen = false
+    }
+
+    function activate(entry) {
+        if (entry.kind === "calculation") {
+            ClipboardService.copyText(entry.value)
+            Popups.dashboardOpen = false
+        } else {
+            launch(entry.exec)
+        }
     }
 
     // ── Layout ────────────────────────────────────────────────────────────────
@@ -201,7 +313,9 @@ Item {
                                 visible: ico.status !== Image.Ready || modelData.icon === ""
                                 Text {
                                     anchors.centerIn: parent
-                                    text:           modelData.name.charAt(0).toUpperCase()
+                                    text:           modelData.kind === "calculation"
+                                                    ? "󰪚"
+                                                    : modelData.name.charAt(0).toUpperCase()
                                     font.pixelSize: 13; font.bold: true
                                     color:          Theme.active
                                 }
@@ -226,7 +340,7 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         onEntered:    root.selIndex = index
-                        onClicked:    root.launch(modelData.exec)
+                        onClicked:    root.activate(modelData)
                     }
                 }
             }
@@ -263,7 +377,7 @@ Item {
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text:    "Search apps…"
+                        text:    "Search apps or calculate…"
                         color:   Qt.rgba(1,1,1,0.22)
                         font.pixelSize: 13
                         visible: searchInput.text === ""
@@ -301,7 +415,7 @@ Item {
 
                         Keys.onReturnPressed: {
                             if (root.selIndex >= 0 && root.selIndex < root.filtered.length)
-                                root.launch(root.filtered[root.selIndex].exec)
+                                root.activate(root.filtered[root.selIndex])
                         }
 
                         Keys.onEscapePressed: {
