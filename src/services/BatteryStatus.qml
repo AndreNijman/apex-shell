@@ -68,20 +68,16 @@ Item {
         return "󰁺"
     }
 
-    // Charging animation frames (low → full)
+    // Charging glyphs ordered from empty to full.
     readonly property var chargeFrames: ["󰢜","󰂆","󰂇","󰂈","󰂉","󰂊","󰂋","󰂅"]
-    property int chargeFrame: 0
-
-    Timer {
-        interval: 650
-        running:  root.charging && !root.full
-        repeat:   true
-        onTriggered: root.chargeFrame = (root.chargeFrame + 1) % root.chargeFrames.length
-    }
 
     readonly property string icon: {
         if (full)     return "󰂄"
-        if (charging) return chargeFrames[chargeFrame % chargeFrames.length]
+        if (charging) {
+            const frame = Math.min(chargeFrames.length - 1,
+                                   Math.floor(pct * chargeFrames.length / 101))
+            return chargeFrames[frame]
+        }
         return staticIcon(pct)
     }
 
