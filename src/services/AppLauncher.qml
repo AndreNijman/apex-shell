@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtWebEngine
 import Quickshell.Io
 import Quickshell
 import "../"
@@ -17,115 +18,87 @@ Item {
     property bool loading:  true
     property int  selIndex: -1
     property string query:  ""
+    property string wolframUrl: ""
 
-    readonly property var calculation: calculate(query)
+    readonly property var wolfram: wolframQuery(query)
+    readonly property bool showingWolfram: wolframUrl !== ""
+    readonly property bool shouldAutoQuery: {
+        if (!wolfram.valid)
+            return false
+        if (wolfram.explicit || looksComputational(query))
+            return true
+        var q = query.toLowerCase().trim()
+        return !apps.some(function(app) {
+            return app.name.toLowerCase().indexOf(q) !== -1
+        })
+    }
+
+    Shortcut {
+        enabled: root.showingWolfram
+        sequences: [StandardKey.Cancel]
+        context: Qt.WindowShortcut
+        onActivated: root.wolframUrl = ""
+    }
 
     readonly property var filtered: {
-        var q = query.toLowerCase().trim()
+        var q = query.trim()
         if (q === "") return apps
-        var matches = apps.filter(function(a) {
-            return a.name.toLowerCase().indexOf(q) !== -1
+        var matches = wolfram.explicit ? [] : apps.filter(function(a) {
+            return a.name.toLowerCase().indexOf(q.toLowerCase()) !== -1
         })
-        if (calculation.valid) {
-            matches.unshift({
-                kind: "calculation",
-                name: calculation.expression + " = " + calculation.formatted,
-                value: calculation.formatted,
+        if (wolfram.valid) {
+            var entry = {
+                kind: "wolfram",
+                name: "Wolfram|Alpha  ·  " + wolfram.query,
+                value: wolfram.query,
                 icon: "",
                 exec: ""
-            })
+            }
+            if (wolfram.explicit || matches.length === 0 || looksComputational(q))
+                matches.unshift(entry)
+            else
+                matches.push(entry)
         }
         return matches
     }
 
-    // Recursive-descent arithmetic parser. Keeping this local avoids executing
-    // launcher input as JavaScript or passing it through a shell.
-    function calculate(input) {
-        var expression = input.trim()
-        var explicit = expression.charAt(0) === "="
-        if (explicit) expression = expression.substring(1).trim()
-        if (expression === "" || (!explicit && !/[+\-*/%^()]/.test(expression)))
-            return { valid: false }
+    function wolframQuery(input) {
+        var value = input.trim()
+        var explicit = false
+        if (value.charAt(0) === "=") {
+            explicit = true
+            value = value.substring(1).trim()
+        } else if (/^(wa|wolfram(?:\s*alpha)?)\s+/i.test(value)) {
+            explicit = true
+            value = value.replace(/^(wa|wolfram(?:\s*alpha)?)\s+/i, "").trim()
+        }
+        return { valid: value !== "", explicit: explicit, query: value }
+    }
 
-        var pos = 0
-        function skipSpace() {
-            while (pos < expression.length && /\s/.test(expression.charAt(pos))) pos++
-        }
-        function primary() {
-            skipSpace()
-            if (expression.charAt(pos) === "(") {
-                pos++
-                var grouped = addSubtract()
-                skipSpace()
-                if (expression.charAt(pos) !== ")") throw "missing close parenthesis"
-                pos++
-                return grouped
-            }
+    function looksComputational(input) {
+        return /[0-9+\-*/%^=()]/.test(input)
+            || /\b(integrate|differentiate|derive|solve|factor|plot|limit|sum|convert|weather|distance|population|molar|matrix|statistics)\b/i.test(input)
+    }
 
-            var start = pos
-            var dots = 0
-            while (pos < expression.length) {
-                var c = expression.charAt(pos)
-                if (c >= "0" && c <= "9") {
-                    pos++
-                } else if (c === "." && dots === 0) {
-                    dots++
-                    pos++
-                } else {
-                    break
-                }
-            }
-            if (start === pos || expression.substring(start, pos) === ".") throw "number expected"
-            return Number(expression.substring(start, pos))
-        }
-        function unary() {
-            skipSpace()
-            if (expression.charAt(pos) === "+") { pos++; return unary() }
-            if (expression.charAt(pos) === "-") { pos++; return -unary() }
-            return primary()
-        }
-        function power() {
-            var value = unary()
-            skipSpace()
-            if (expression.charAt(pos) === "^") {
-                pos++
-                value = Math.pow(value, power())
-            }
-            return value
-        }
-        function multiplyDivide() {
-            var value = power()
-            while (true) {
-                skipSpace()
-                var op = expression.charAt(pos)
-                if (op !== "*" && op !== "/" && op !== "%") return value
-                pos++
-                var rhs = power()
-                if (op === "*") value *= rhs
-                else if (op === "/") value /= rhs
-                else value %= rhs
-            }
-        }
-        function addSubtract() {
-            var value = multiplyDivide()
-            while (true) {
-                skipSpace()
-                var op = expression.charAt(pos)
-                if (op !== "+" && op !== "-") return value
-                pos++
-                var rhs = multiplyDivide()
-                value = op === "+" ? value + rhs : value - rhs
-            }
-        }
+    function scheduleWolframQuery() {
+        wolframDebounce.stop()
+        root.wolframUrl = ""
+        if (searchInput.text !== root.query)
+            searchInput.text = root.query
+        if (root.shouldAutoQuery)
+            wolframDebounce.restart()
+    }
 
-        try {
-            var result = addSubtract()
-            skipSpace()
-            if (pos !== expression.length || !isFinite(result)) return { valid: false }
-            var formatted = String(Number(result.toPrecision(12)))
-            return { valid: true, expression: expression, formatted: formatted }
-        } catch (e) {
-            return { valid: false }
+    onQueryChanged: scheduleWolframQuery()
+    onShouldAutoQueryChanged: scheduleWolframQuery()
+
+    Timer {
+        id: wolframDebounce
+        interval: 650
+        onTriggered: {
+            if (root.shouldAutoQuery)
+                root.wolframUrl = "https://www.wolframalpha.com/input?i="
+                                + encodeURIComponent(root.wolfram.query)
         }
     }
 
@@ -146,10 +119,14 @@ Item {
     }
 
     onVisibleChanged: {
-        if (!visible) return
+        if (!visible) {
+            root.wolframUrl = ""
+            return
+        }
         root.loading   = true
         root.apps      = []
         root.query     = ""
+        root.wolframUrl = ""
         root.selIndex  = -1
         searchInput.text = ""
         listProc.running = false
@@ -178,23 +155,27 @@ Item {
     }
 
     function activate(entry) {
-        if (entry.kind === "calculation") {
-            ClipboardService.copyText(entry.value)
-            Popups.dashboardOpen = false
+        if (entry.kind === "wolfram") {
+            root.wolframUrl = "https://www.wolframalpha.com/input?i="
+                            + encodeURIComponent(entry.value)
         } else {
             launch(entry.exec)
         }
     }
 
     // ── Layout ────────────────────────────────────────────────────────────────
-    Column {
+    Item {
         anchors.fill: parent
-        spacing: 8
 
         // App list
         Item {
-            width:  parent.width
-            height: parent.height - searchBar.height - parent.spacing
+            anchors {
+                top: searchBar.bottom
+                left: parent.left
+                right: parent.right
+                bottom: parent.bottom
+                topMargin: 8
+            }
 
             // Loading state
             Column {
@@ -313,7 +294,7 @@ Item {
                                 visible: ico.status !== Image.Ready || modelData.icon === ""
                                 Text {
                                     anchors.centerIn: parent
-                                    text:           modelData.kind === "calculation"
+                                    text:           modelData.kind === "wolfram"
                                                     ? "󰪚"
                                                     : modelData.name.charAt(0).toUpperCase()
                                     font.pixelSize: 13; font.bold: true
@@ -344,12 +325,137 @@ Item {
                     }
                 }
             }
+
+            Loader {
+                anchors.fill: parent
+                active: root.showingWolfram
+                sourceComponent: Component {
+                    Rectangle {
+                        id: wolframPane
+                        color: Theme.background
+
+                        WebEngineProfilePrototype {
+                            id: wolframProfilePrototype
+                            storageName: "apex-wolfram-alpha"
+                        }
+                        property var wolframProfile: wolframProfilePrototype.instance()
+
+                        Connections {
+                            target: wolframPane.wolframProfile
+                            function onDownloadRequested(download) {
+                                download.accept()
+                            }
+                        }
+
+                        Column {
+                            anchors.fill: parent
+                            spacing: 8
+
+                            Rectangle {
+                                width: parent.width
+                                height: 40
+                                radius: 8
+                                color: Qt.rgba(1, 1, 1, 0.06)
+                                border.color: Qt.rgba(1, 1, 1, 0.10)
+
+                                Row {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 8
+                                    anchors.rightMargin: 8
+                                    spacing: 4
+
+                                    ToolButton {
+                                        width: 40
+                                        height: 40
+                                        text: "󰅖"
+                                        font.pixelSize: 16
+                                        onClicked: root.wolframUrl = ""
+                                    }
+
+                                    ToolButton {
+                                        width: 40
+                                        height: 40
+                                        text: "󰁍"
+                                        font.pixelSize: 16
+                                        enabled: webView.canGoBack
+                                        opacity: enabled ? 1 : 0.3
+                                        onClicked: webView.goBack()
+                                    }
+
+                                    Text {
+                                        width: parent.width - 176
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: webView.title || "Wolfram|Alpha"
+                                        color: Theme.text
+                                        font.pixelSize: 12
+                                        elide: Text.ElideRight
+                                    }
+
+                                    ToolButton {
+                                        width: 40
+                                        height: 40
+                                        text: "󰏌"
+                                        font.pixelSize: 16
+                                        onClicked: Qt.openUrlExternally(webView.url)
+                                    }
+
+                                    ToolButton {
+                                        width: 40
+                                        height: 40
+                                        text: "󰑐"
+                                        font.pixelSize: 16
+                                        onClicked: webView.reload()
+                                    }
+                                }
+                            }
+
+                            Item {
+                                width: parent.width
+                                height: parent.height - 48
+                                clip: true
+
+                                WebEngineView {
+                                    id: webView
+                                    anchors.fill: parent
+                                    url: root.wolframUrl
+                                    focus: false
+                                    profile: wolframPane.wolframProfile
+
+                                    onNewWindowRequested: function(request) {
+                                        if (request.userInitiated)
+                                            request.openIn(webView)
+                                    }
+                                    onFullScreenRequested: function(request) {
+                                        request.accept()
+                                    }
+                                    onPermissionRequested: function(permission) {
+                                        var origin = String(permission.origin)
+                                        if (/^https:\/\/([^.]+\.)*wolframalpha\.com(?::|\/|$)/i.test(origin))
+                                            permission.grant()
+                                        else
+                                            permission.deny()
+                                    }
+                                }
+
+                                Rectangle {
+                                    anchors.top: parent.top
+                                    width: parent.width * webView.loadProgress / 100
+                                    height: 2
+                                    color: Theme.active
+                                    visible: webView.loading
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Search bar
         Rectangle {
             id: searchBar
-            width: parent.width; height: 44; radius: 12
+            anchors { top: parent.top; left: parent.left; right: parent.right }
+            height: 44; radius: 12
             color: Qt.rgba(1,1,1,0.06)
             border.color: searchInput.activeFocus
                           ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.50)
@@ -377,7 +483,7 @@ Item {
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text:    "Search apps or calculate…"
+                        text:    "Search apps or ask Wolfram|Alpha…"
                         color:   Qt.rgba(1,1,1,0.22)
                         font.pixelSize: 13
                         visible: searchInput.text === ""
@@ -419,7 +525,9 @@ Item {
                         }
 
                         Keys.onEscapePressed: {
-                            if (text !== "") {
+                            if (root.showingWolfram) {
+                                root.wolframUrl = ""
+                            } else if (text !== "") {
                                 text = ""
                             } else {
                                 Popups.dashboardOpen = false

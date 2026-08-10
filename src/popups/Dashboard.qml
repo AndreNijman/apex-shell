@@ -35,7 +35,7 @@ PanelWindow {
         "home":     900,
         "stats":    900,
         "kanban":   900,
-        "launcher": 560,
+        "launcher": 900,
         "config":   900
     })
 
