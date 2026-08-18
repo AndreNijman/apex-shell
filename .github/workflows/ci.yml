@@ -28,7 +28,7 @@ jobs:
       - name: Validate pacman dependencies exist in repos
         run: |
           PACMAN_DEPS=(
-            hyprland qt6-base qt6-declarative qt6-multimedia qt6-webengine
+            hyprland qt6-base qt6-declarative qt6-multimedia
             qt6-5compat qt6ct pipewire pipewire-pulse wireplumber
             networkmanager bluez bluez-utils brightnessctl upower
             libnotify polkit python wl-clipboard slurp xdg-user-dirs
@@ -90,14 +90,6 @@ jobs:
         run: |
           bash -n dots-extra/install-arch.sh
           echo "✓ install-arch.sh syntax OK"
-
-      - name: Build Quickshell WebEngine compatibility shim
-        run: |
-          cc -shared -fPIC -O2 -Wl,-z,relro,-z,now \
-            src/native/quickshell-argc-shim.c -ldl \
-            -o /tmp/libapex-quickshell-argc.so
-          nm -D /tmp/libapex-quickshell-argc.so \
-            | grep -q '_ZN15QGuiApplicationC1ERiPPci'
 
       - name: Lint dots-extra/validate-install.sh
         run: |

@@ -101,15 +101,9 @@
             mkdir -p $out/share/apex-shell
             cp -r . $out/share/apex-shell/
 
-            mkdir -p $out/lib
-            $CC -shared -fPIC -O2 -Wl,-z,relro,-z,now \
-              src/native/quickshell-argc-shim.c -ldl \
-              -o $out/lib/libapex-quickshell-argc.so
-
             mkdir -p $out/bin
             makeWrapper ${pkgs.quickshell}/bin/quickshell $out/bin/apex-shell \
               --add-flags "-c $out/share/apex-shell" \
-              --set LD_PRELOAD $out/lib/libapex-quickshell-argc.so \
               --set  QT_QPA_PLATFORMTHEME qt6ct \
               --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}
 
