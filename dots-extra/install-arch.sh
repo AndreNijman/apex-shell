@@ -212,7 +212,7 @@ step 2 "Pacman Packages"
 
 PACMAN_DEPS=(
     # Qt6 runtime
-    qt6-base qt6-declarative qt6-multimedia qt6-webengine qt6-5compat qt6ct
+    qt6-base qt6-declarative qt6-multimedia qt6-5compat qt6ct
 
     # Audio / PipeWire
     pipewire pipewire-pulse wireplumber
@@ -253,14 +253,6 @@ sudo pacman -Syu --noconfirm 2>/dev/null || {
 }
 
 pacman_install "${PACMAN_DEPS[@]}"
-
-# Quickshell 0.3.0 constructs QGuiApplication with argc=0. Chromium treats that
-# as fatal, so correct the constructor argument only for the shell process.
-SHIM_DIR="$HOME/.local/lib/apex-shell"
-install -d "$SHIM_DIR"
-cc -shared -fPIC -O2 -Wl,-z,relro,-z,now \
-    "$REPO_DIR/src/native/quickshell-argc-shim.c" -ldl \
-    -o "$SHIM_DIR/libapex-quickshell-argc.so"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -355,7 +347,7 @@ _append_conf() {
 # APEX Shell Autostarts
 exec-once = awww-daemon
 exec-once = hypridle -c $HOME/.local/src/apex-shell/src/config/hypridle.conf
-exec-once = env LD_PRELOAD=$HOME/.local/lib/apex-shell/libapex-quickshell-argc.so quickshell -c $HOME/.local/src/apex-shell/.
+exec-once = quickshell -c $HOME/.local/src/apex-shell/.
 exec-once = systemctl --user start hyprpolkitagent
 exec-once = wl-paste --type text --watch cliphist store
 exec-once = wl-paste --type image --watch cliphist store
@@ -369,7 +361,7 @@ _append_lua() {
 hl.on("hyprland.start", function()
     hl.exec_cmd("awww-daemon")
     hl.exec_cmd("hypridle -c " .. os.getenv("HOME") .. "/.local/src/apex-shell/src/config/hypridle.conf")
-    hl.exec_cmd("env LD_PRELOAD=" .. os.getenv("HOME") .. "/.local/lib/apex-shell/libapex-quickshell-argc.so quickshell -c " .. os.getenv("HOME") .. "/.local/src/apex-shell")
+    hl.exec_cmd("quickshell -c " .. os.getenv("HOME") .. "/.local/src/apex-shell")
     hl.exec_cmd("systemctl --user start hyprpolkitagent")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
@@ -377,13 +369,17 @@ end)
 EOF
 }
 
-if ! grep -q 'libapex-quickshell-argc.so' "$HYPRLAND_CONF" 2>/dev/null; then
+# The shell no longer embeds a web view, so the argc shim Chromium needed is
+# gone. Strip the preload from configs an earlier installer rewrote, otherwise
+# the dynamic loader reports a missing object on every session start.
+if grep -q 'libapex-quickshell-argc.so' "$HYPRLAND_CONF" 2>/dev/null; then
     sed -i \
-        's|exec-once = quickshell -c $HOME/.local/src/apex-shell/\.|exec-once = env LD_PRELOAD=$HOME/.local/lib/apex-shell/libapex-quickshell-argc.so quickshell -c $HOME/.local/src/apex-shell/.|' \
+        's|env LD_PRELOAD=$HOME/.local/lib/apex-shell/libapex-quickshell-argc.so quickshell|quickshell|' \
         "$HYPRLAND_CONF"
     sed -i \
-        's|hl.exec_cmd("quickshell -c " .. os.getenv("HOME") .. "/.local/src/apex-shell")|hl.exec_cmd("env LD_PRELOAD=" .. os.getenv("HOME") .. "/.local/lib/apex-shell/libapex-quickshell-argc.so quickshell -c " .. os.getenv("HOME") .. "/.local/src/apex-shell")|' \
+        's|"env LD_PRELOAD=" \.\. os.getenv("HOME") \.\. "/.local/lib/apex-shell/libapex-quickshell-argc.so quickshell -c " \.\. os.getenv("HOME")|"quickshell -c " .. os.getenv("HOME")|' \
         "$HYPRLAND_CONF"
+    rm -f "$HOME/.local/lib/apex-shell/libapex-quickshell-argc.so"
 fi
 
 if grep -q "$_MARKER" "$HYPRLAND_CONF" 2>/dev/null; then
