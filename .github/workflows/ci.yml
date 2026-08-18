@@ -23,7 +23,7 @@ jobs:
       - name: Update pacman & install base tools
         run: |
           pacman -Syu --noconfirm
-          pacman -S --needed --noconfirm git base-devel python
+          pacman -S --needed --noconfirm git base-devel python nodejs
 
       - name: Validate pacman dependencies exist in repos
         run: |
@@ -115,6 +115,10 @@ jobs:
         run: |
           python -m py_compile src/scripts/list_apps.py
           echo "✓ list_apps.py syntax OK"
+
+      - name: Test launcher answer logic
+        run: |
+          node tests/answer-test.js
 
       - name: Validate QML files exist and are non-empty
         run: |
@@ -232,6 +236,8 @@ jobs:
             "src/state/Popups.qml"
             "src/windows/TopBar.qml"
             "src/popups/Dashboard.qml"
+            "src/services/answer.js"
+            "tests/answer-test.js"
           )
           FAILED=()
           for f in "${REQUIRED[@]}"; do

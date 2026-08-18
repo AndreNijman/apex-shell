@@ -1,14 +1,20 @@
 import QtQuick
 import QtQuick.Controls
-import QtWebEngine
 import Quickshell.Io
 import Quickshell
 import "../"
+import "answer.js" as Answer
 
-// AppLauncher — scrollable app list + bottom search bar.
+// AppLauncher — scrollable app list + top search bar.
 // Lives inside Dashboard.qml on the "launcher" page.
 // Dashboard is PanelWindow with WlrKeyboardFocus.OnDemand,
 // so TextInput receives keys without extra wiring.
+//
+// A query starting with "?" is an ANSWER query, not an app search: it is
+// evaluated locally when it is plain arithmetic and otherwise sent to
+// Wolfram|Alpha, and the answer is shown as a row in this list. Without the "?"
+// no arithmetic is parsed and no network call is made — an app search costs
+// exactly what it always did.
 
 Item {
     id: root
@@ -18,87 +24,88 @@ Item {
     property bool loading:  true
     property int  selIndex: -1
     property string query:  ""
-    property string wolframUrl: ""
 
-    readonly property var wolfram: wolframQuery(query)
-    readonly property bool showingWolfram: wolframUrl !== ""
-    readonly property bool shouldAutoQuery: {
-        if (!wolfram.valid)
-            return false
-        if (wolfram.explicit || looksComputational(query))
-            return true
-        var q = query.toLowerCase().trim()
-        return !apps.some(function(app) {
-            return app.name.toLowerCase().indexOf(q) !== -1
-        })
-    }
+    readonly property bool   answerMode:  query.trim().charAt(0) === "?"
+    readonly property string answerQuery: answerMode ? query.trim().substring(1).trim() : ""
 
-    Shortcut {
-        enabled: root.showingWolfram
-        sequences: [StandardKey.Cancel]
-        context: Qt.WindowShortcut
-        onActivated: root.wolframUrl = ""
-    }
+    // Local arithmetic first: it is instant, works offline, and spends no API
+    // quota on "?12*7".
+    readonly property var calculation: answerMode ? Answer.calculate(answerQuery) : ({ valid: false })
 
     readonly property var filtered: {
         var q = query.trim()
         if (q === "") return apps
-        var matches = wolfram.explicit ? [] : apps.filter(function(a) {
+        if (answerMode) return answerRows()
+        return apps.filter(function(a) {
             return a.name.toLowerCase().indexOf(q.toLowerCase()) !== -1
         })
-        if (wolfram.valid) {
-            var entry = {
-                kind: "wolfram",
-                name: "Wolfram|Alpha  ·  " + wolfram.query,
-                value: wolfram.query,
-                icon: "",
-                exec: ""
-            }
-            if (wolfram.explicit || matches.length === 0 || looksComputational(q))
-                matches.unshift(entry)
-            else
-                matches.push(entry)
+    }
+
+    // Rows shown in "?" mode. Wolfram state is read live, so the row updates in
+    // place from "asking" to the answer without rebuilding the list.
+    function answerRows() {
+        if (answerQuery === "")
+            return [{ kind: "hint", name: "Type a question after ?  —  e.g. ?density of aluminium * 2",
+                      value: "", icon: "", exec: "" }]
+
+        var rows = []
+        if (calculation.valid) {
+            rows.push({ kind: "calculation",
+                        name:  calculation.expression + " = " + calculation.formatted,
+                        value: calculation.formatted, icon: "", exec: "" })
+            return rows
         }
-        return matches
+
+        if (!_usedWolfram)
+            rows.push({ kind: "hint", name: "Press Enter or wait to ask Wolfram|Alpha",
+                        value: "", icon: "", exec: "" })
+        else if (WolframService.busy)
+            rows.push({ kind: "hint", name: "Asking Wolfram|Alpha…", value: "", icon: "", exec: "" })
+        else if (WolframService.queryText === answerQuery && WolframService.answer !== "")
+            rows.push({ kind: "answer", name: WolframService.answer,
+                        value: WolframService.answer, icon: "", exec: "" })
+        else if (WolframService.queryText === answerQuery && WolframService.error !== "")
+            rows.push({ kind: "hint", name: WolframService.error, value: "", icon: "", exec: "" })
+        else
+            rows.push({ kind: "hint", name: "Press Enter or wait to ask Wolfram|Alpha",
+                        value: "", icon: "", exec: "" })
+        return rows
     }
 
-    function wolframQuery(input) {
-        var value = input.trim()
-        var explicit = false
-        if (value.charAt(0) === "=") {
-            explicit = true
-            value = value.substring(1).trim()
-        } else if (/^(wa|wolfram(?:\s*alpha)?)\s+/i.test(value)) {
-            explicit = true
-            value = value.replace(/^(wa|wolfram(?:\s*alpha)?)\s+/i, "").trim()
+    // True once this launcher session has actually used WolframService. It
+    // gates every other reference to the singleton so a plain app search never
+    // instantiates it, never reads its credential file and never resets it.
+    property bool _usedWolfram: false
+
+    function _forgetAnswer() {
+        if (!_usedWolfram) return
+        WolframService.reset()
+        _usedWolfram = false
+    }
+
+    function _askWolfram() {
+        _usedWolfram = true
+        WolframService.ask(answerQuery)
+    }
+
+    // A question is only sent once typing pauses, and never when the local
+    // parser already answered it.
+    onQueryChanged: {
+        askDebounce.stop()
+        if (!answerMode || answerQuery === "" || calculation.valid) {
+            _forgetAnswer()
+            return
         }
-        return { valid: value !== "", explicit: explicit, query: value }
+        if (!_usedWolfram || WolframService.queryText !== answerQuery)
+            askDebounce.restart()
     }
-
-    function looksComputational(input) {
-        return /[0-9+\-*/%^=()]/.test(input)
-            || /\b(integrate|differentiate|derive|solve|factor|plot|limit|sum|convert|weather|distance|population|molar|matrix|statistics)\b/i.test(input)
-    }
-
-    function scheduleWolframQuery() {
-        wolframDebounce.stop()
-        root.wolframUrl = ""
-        if (searchInput.text !== root.query)
-            searchInput.text = root.query
-        if (root.shouldAutoQuery)
-            wolframDebounce.restart()
-    }
-
-    onQueryChanged: scheduleWolframQuery()
-    onShouldAutoQueryChanged: scheduleWolframQuery()
 
     Timer {
-        id: wolframDebounce
-        interval: 650
+        id: askDebounce
+        interval: 500
         onTriggered: {
-            if (root.shouldAutoQuery)
-                root.wolframUrl = "https://www.wolframalpha.com/input?i="
-                                + encodeURIComponent(root.wolfram.query)
+            if (root.answerMode && root.answerQuery !== "" && !root.calculation.valid)
+                root._askWolfram()
         }
     }
 
@@ -119,14 +126,13 @@ Item {
     }
 
     onVisibleChanged: {
-        if (!visible) {
-            root.wolframUrl = ""
+        askDebounce.stop()
+        _forgetAnswer()
+        if (!visible)
             return
-        }
         root.loading   = true
         root.apps      = []
         root.query     = ""
-        root.wolframUrl = ""
         root.selIndex  = -1
         searchInput.text = ""
         listProc.running = false
@@ -155,12 +161,23 @@ Item {
     }
 
     function activate(entry) {
-        if (entry.kind === "wolfram") {
-            root.wolframUrl = "https://www.wolframalpha.com/input?i="
-                            + encodeURIComponent(entry.value)
-        } else {
-            launch(entry.exec)
+        if (entry.kind === "hint") {
+            // Enter on "waiting to ask" sends the question immediately instead
+            // of waiting out the debounce; on any other hint there is nothing
+            // to do and the launcher stays open.
+            if (root.answerMode && root.answerQuery !== "" && !root.calculation.valid
+                && !(root._usedWolfram && WolframService.busy)) {
+                askDebounce.stop()
+                root._askWolfram()
+            }
+            return
         }
+        if (entry.kind === "answer" || entry.kind === "calculation") {
+            ClipboardService.copyText(entry.value)
+            Popups.dashboardOpen = false
+            return
+        }
+        launch(entry.exec)
     }
 
     // ── Layout ────────────────────────────────────────────────────────────────
@@ -241,8 +258,15 @@ Item {
                     required property var modelData
                     required property int index
 
+                    // Answer/hint rows carry prose, not an app name: they wrap
+                    // and grow instead of eliding, which is the whole point of
+                    // showing the result inline.
+                    readonly property bool isText: modelData.kind === "answer"
+                                                   || modelData.kind === "calculation"
+                                                   || modelData.kind === "hint"
+
                     width:  appList.width - 8
-                    height: 46
+                    height: isText ? Math.max(46, label.implicitHeight + 26) : 46
                     radius: 9
 
                     readonly property bool isSel: root.selIndex === index
@@ -294,23 +318,29 @@ Item {
                                 visible: ico.status !== Image.Ready || modelData.icon === ""
                                 Text {
                                     anchors.centerIn: parent
-                                    text:           modelData.kind === "wolfram"
-                                                    ? "󰪚"
-                                                    : modelData.name.charAt(0).toUpperCase()
+                                    text: {
+                                        if (modelData.kind === "answer") return "󰪚"
+                                        if (modelData.kind === "calculation") return "󰃬"
+                                        if (modelData.kind === "hint") return "󰋼"
+                                        return modelData.name.charAt(0).toUpperCase()
+                                    }
                                     font.pixelSize: 13; font.bold: true
                                     color:          Theme.active
                                 }
                             }
                         }
 
-                        // App name
+                        // App name, or the answer text
                         Text {
+                            id: label
                             width: parent.width - 28 - parent.spacing
                             anchors.verticalCenter: parent.verticalCenter
                             text:           modelData.name
                             font.pixelSize: 13
                             color:          isSel ? Theme.active : Theme.text
-                            elide:          Text.ElideRight
+                            wrapMode:       isText ? Text.Wrap : Text.NoWrap
+                            elide:          isText ? Text.ElideNone : Text.ElideRight
+                            maximumLineCount: isText ? 8 : 1
                             Behavior on color { ColorAnimation { duration: 100 } }
                         }
                     }
@@ -322,130 +352,6 @@ Item {
                         hoverEnabled: true
                         onEntered:    root.selIndex = index
                         onClicked:    root.activate(modelData)
-                    }
-                }
-            }
-
-            Loader {
-                anchors.fill: parent
-                active: root.showingWolfram
-                sourceComponent: Component {
-                    Rectangle {
-                        id: wolframPane
-                        color: Theme.background
-
-                        WebEngineProfilePrototype {
-                            id: wolframProfilePrototype
-                            storageName: "apex-wolfram-alpha"
-                        }
-                        property var wolframProfile: wolframProfilePrototype.instance()
-
-                        Connections {
-                            target: wolframPane.wolframProfile
-                            function onDownloadRequested(download) {
-                                download.accept()
-                            }
-                        }
-
-                        Column {
-                            anchors.fill: parent
-                            spacing: 8
-
-                            Rectangle {
-                                width: parent.width
-                                height: 40
-                                radius: 8
-                                color: Qt.rgba(1, 1, 1, 0.06)
-                                border.color: Qt.rgba(1, 1, 1, 0.10)
-
-                                Row {
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 8
-                                    anchors.rightMargin: 8
-                                    spacing: 4
-
-                                    ToolButton {
-                                        width: 40
-                                        height: 40
-                                        text: "󰅖"
-                                        font.pixelSize: 16
-                                        onClicked: root.wolframUrl = ""
-                                    }
-
-                                    ToolButton {
-                                        width: 40
-                                        height: 40
-                                        text: "󰁍"
-                                        font.pixelSize: 16
-                                        enabled: webView.canGoBack
-                                        opacity: enabled ? 1 : 0.3
-                                        onClicked: webView.goBack()
-                                    }
-
-                                    Text {
-                                        width: parent.width - 176
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: webView.title || "Wolfram|Alpha"
-                                        color: Theme.text
-                                        font.pixelSize: 12
-                                        elide: Text.ElideRight
-                                    }
-
-                                    ToolButton {
-                                        width: 40
-                                        height: 40
-                                        text: "󰏌"
-                                        font.pixelSize: 16
-                                        onClicked: Qt.openUrlExternally(webView.url)
-                                    }
-
-                                    ToolButton {
-                                        width: 40
-                                        height: 40
-                                        text: "󰑐"
-                                        font.pixelSize: 16
-                                        onClicked: webView.reload()
-                                    }
-                                }
-                            }
-
-                            Item {
-                                width: parent.width
-                                height: parent.height - 48
-                                clip: true
-
-                                WebEngineView {
-                                    id: webView
-                                    anchors.fill: parent
-                                    url: root.wolframUrl
-                                    focus: false
-                                    profile: wolframPane.wolframProfile
-
-                                    onNewWindowRequested: function(request) {
-                                        if (request.userInitiated)
-                                            request.openIn(webView)
-                                    }
-                                    onFullScreenRequested: function(request) {
-                                        request.accept()
-                                    }
-                                    onPermissionRequested: function(permission) {
-                                        var origin = String(permission.origin)
-                                        if (/^https:\/\/([^.]+\.)*wolframalpha\.com(?::|\/|$)/i.test(origin))
-                                            permission.grant()
-                                        else
-                                            permission.deny()
-                                    }
-                                }
-
-                                Rectangle {
-                                    anchors.top: parent.top
-                                    width: parent.width * webView.loadProgress / 100
-                                    height: 2
-                                    color: Theme.active
-                                    visible: webView.loading
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -483,7 +389,7 @@ Item {
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text:    "Search apps or ask Wolfram|Alpha…"
+                        text:    "Search apps   ·   ? asks a question"
                         color:   Qt.rgba(1,1,1,0.22)
                         font.pixelSize: 13
                         visible: searchInput.text === ""
@@ -525,9 +431,7 @@ Item {
                         }
 
                         Keys.onEscapePressed: {
-                            if (root.showingWolfram) {
-                                root.wolframUrl = ""
-                            } else if (text !== "") {
+                            if (text !== "") {
                                 text = ""
                             } else {
                                 Popups.dashboardOpen = false
