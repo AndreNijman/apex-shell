@@ -126,7 +126,6 @@ installed **disabled** (it never autostarts) with its config at
 - **Hyprland** v0.55+ – Wayland compositor (niri also supported)
 - **Quickshell** – QML shell framework
 - **Qt6** – Qt6 libraries and QML engine
-- **Qt WebEngine** – Inline Wolfram Alpha results
 - **qt6ct** – Qt6 theme configuration
 
 </details>
