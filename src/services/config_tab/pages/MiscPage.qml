@@ -33,6 +33,16 @@ CfgScroll {
         _openProc.running = true
     }
 
+    // ── Wolfram AppID entry ───────────────────────────────────────────────────
+    // Written once typing settles, so pasting a key does not rewrite the
+    // credential file on every keystroke.
+    property string _appIdDraft: ""
+    Timer {
+        id: appIdTimer
+        interval: 700
+        onTriggered: WolframService.setAppId(root._appIdDraft)
+    }
+
     // ── Two-click confirm state ───────────────────────────────────────────────
     property bool _kbArmed: false
     Timer { id: kbTimer; interval: 2500; onTriggered: root._kbArmed = false }
@@ -218,6 +228,24 @@ CfgScroll {
                 label: "Reload"
                 icon:  "󰑐"
                 onClicked: Quickshell.reload(true)
+            }
+        }
+    }
+
+    // ── Launcher ──────────────────────────────────────────────────────────────
+    CfgSection {
+        title: "Launcher"
+
+        CfgRow {
+            label:       "Wolfram|Alpha AppID"
+            description: WolframService.configured
+                ? "Answers launcher queries that start with ?"
+                : "Free at developer.wolframalpha.com — without it, ? does arithmetic only"
+            CfgTextField {
+                text:        WolframService.appId
+                placeholder: "XXXXXX-XXXXXXXXXX"
+                onEdited:    function(t) { root._appIdDraft = t; appIdTimer.restart() }
+                onAccepted:  function(t) { appIdTimer.stop(); WolframService.setAppId(t) }
             }
         }
     }
