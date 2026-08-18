@@ -33,18 +33,10 @@ Item {
     }
 
 	function _applyPending() {
-        var ks = Object.keys(_pending)
-        for (var i = 0; i < ks.length; i++) {
-            var m = _pending[ks[i]].mods
-            var k = _pending[ks[i]].key
-            if (m === "" && k === "") {
-                KeybindService.unbindBinding(ks[i])
-            } else {
-                KeybindService.updateBinding(ks[i], m, k)
-            }
-        }
+        // One service call for the whole batch: the merged map is written and
+        // reloaded once. Applying edit by edit spawned a write per action.
+        KeybindService.applyEdits(_pending)
         _pending = {}
-        KeybindService.saveAndReload()
     }
 
     // ── Groups ────────────────────────────────────────────────────────────────
@@ -234,23 +226,19 @@ Item {
 
         readonly property bool _interactive: root._capturing === "" || br.isCapturing
 
-        // Live conflict: service binds → pending map → Hyprland binds (in that order)
+        // Live conflict: effective keybind map (saved + staged edits) → Hyprland binds
         readonly property string _conflictLabel: {
             if (!br.capturedKey) return ""
-            var c = KeybindService.wouldConflict(br.action, br.capturedMods, br.capturedKey)
-            if (c !== "") return c
-            // Cross-check against other pending entries
-            var combo = br.capturedMods + "+" + br.capturedKey
-            var pkeys = Object.keys(root._pending)
-            for (var i = 0; i < pkeys.length; i++) {
-                if (pkeys[i] === br.action) continue
-                var p = root._pending[pkeys[i]]
-                if (p.mods + "+" + p.key === combo) {
-                    var lbl = KeybindService.keybinds[pkeys[i]]
-                    return (lbl ? lbl.label : pkeys[i]) + " (pending)"
-                }
+            var other = KeybindService.conflictingAction(br.action, br.capturedMods,
+                                                         br.capturedKey, root._pending)
+            if (other !== "") {
+                var b    = KeybindService.keybinds[other]
+                var name = b ? b.label : other
+                // The service reports the action only; the suffix tells the user
+                // the clash is with a staged edit they can still discard.
+                return root._pending[other] !== undefined ? name + " (pending)" : name
             }
-            return KeybindService.wouldConflictHypr(br.action, br.capturedMods, br.capturedKey)
+            return KeybindService.wouldConflictHypr(br.capturedMods, br.capturedKey, root._pending)
         }
         readonly property bool _hasConflict: _conflictLabel !== ""
 
@@ -318,28 +306,15 @@ Item {
                     var m = _mods(br._pressedMods)
                     br.capturedMods = m
                     br.capturedKey  = k
-                    // Auto-accept when valid: no service conflict,
-                    // no pending-map conflict, no Hyprland conflict
-                    if (KeybindService.wouldConflict(br.action, m, k) === ""
-                        && KeybindService.wouldConflictHypr(br.action, m, k) === ""
-                        && !_hasPendingConflict(m, k)) {
+                    // Auto-accept when the effective map (saved overlaid with the
+                    // staged edits) and Hyprland both leave the combo free
+                    if (KeybindService.conflictingAction(br.action, m, k, root._pending) === ""
+                        && KeybindService.wouldConflictHypr(m, k, root._pending) === "") {
                         br.captureAccepted(m, k)
                         br.releaseCapture()
                     }
                     // else: stay open, show conflict warning
                 }
-            }
-
-            // Returns true if mods+key collides with any OTHER pending entry
-            function _hasPendingConflict(mods, key) {
-                var combo = mods + "+" + key
-                var pkeys = Object.keys(root._pending)
-                for (var i = 0; i < pkeys.length; i++) {
-                    if (pkeys[i] === br.action) continue
-                    var p = root._pending[pkeys[i]]
-                    if (p.mods + "+" + p.key === combo) return true
-                }
-                return false
             }
         }
 

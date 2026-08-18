@@ -124,17 +124,44 @@ QtObject {
         return mask
     }
 
-    // Returns a short description of the conflicting Hyprland bind, or "".
-    // Own shell binds are filtered out.
-    function wouldConflictHypr(action, mods, key) {
-        var mask = _modsToMask(mods)
-        var k    = key.toLowerCase()
+    // Combos (modmask + lowercased key) that APEX Shell itself claims: every
+    // bound action of the saved map, plus the caller's staged edits.
+    // `hyprctl binds -j` reports the shell's own generated binds back to us, and
+    // both sides are needed to recognise them: the saved map is what was last
+    // written to the generated files (so it matches what hyprctl currently
+    // holds), the staged edits are what the next write will claim.
+    function _ownedCombos(overlay) {
+        var owned = {}
+        var ov    = overlay || {}
+        var ks    = Object.keys(root.keybinds)
+        for (var i = 0; i < ks.length; i++) {
+            var b = root.keybinds[ks[i]]
+            if (b && b.key) owned[_modsToMask(b.mods) + "+" + b.key.toLowerCase()] = true
+            var p = ov[ks[i]]
+            if (p && p.key) owned[_modsToMask(p.mods) + "+" + p.key.toLowerCase()] = true
+        }
+        return owned
+    }
+
+    // Returns a short description of a conflicting Hyprland bind that APEX Shell
+    // does not own, or "".
+    // Matching on `ipc call` used to be the "own binds" filter, which only
+    // covered IPC actions: every dispatch/exec default (scratchpad move,
+    // screenshots, workspace switches, app launches) is reported back by
+    // hyprctl too and so conflicted with itself. Ownership is decided by combo
+    // instead. Limitation: hyprctl carries no provenance, so an external bind
+    // sharing a combo APEX Shell already owns is not reported.
+    function wouldConflictHypr(mods, key, overlay) {
+        var mask  = _modsToMask(mods)
+        var k     = key.toLowerCase()
+        var owned = _ownedCombos(overlay)
         for (var i = 0; i < root._hyprBinds.length; i++) {
-            var b = root._hyprBinds[i]
-            if (b.submap !== "")                        continue  // ignore submaps
-            if (b.mouse)                                continue  // ignore mouse binds
-            if (b.arg && b.arg.indexOf("ipc call") >= 0) continue  // our own shell binds
-            if (b.modmask === mask && (b.key || "").toLowerCase() === k) {
+            var b  = root._hyprBinds[i]
+            var bk = (b.key || "").toLowerCase()
+            if (b.submap !== "")                  continue  // ignore submaps
+            if (b.mouse)                          continue  // ignore mouse binds
+            if (owned[b.modmask + "+" + bk])      continue  // our own shell binds
+            if (b.modmask === mask && bk === k) {
                 var desc = b.dispatcher || ""
                 if (b.arg) desc += ": " + b.arg.substring(0, 36)
                 return desc || "Hyprland bind"
@@ -144,30 +171,41 @@ QtObject {
     }
 
     // ── Internal duplicate detection ──────────────────────────────────────────
-    readonly property var _comboMap: {
-        var m = {}
-        var ks = Object.keys(root.keybinds)
+    // Comparison key for two bindings. Values are uppercased on write, but a
+    // staged edit still carries the raw captured casing ("Escape") and a
+    // hand-edited keybinds.json can carry any casing or spacing ("super+shift"),
+    // so both sides are folded — the same way _modsToMask() already ignores both.
+    function _combo(mods, key) {
+        return (mods || "").toUpperCase().replace(/\s+/g, "") + "+" + (key || "").toUpperCase().trim()
+    }
+
+    // combo → list of actions claiming it, for any keybind map.
+    function _comboMapOf(map) {
+        var m  = {}
+        var ks = Object.keys(map)
         for (var i = 0; i < ks.length; i++) {
-            var b = root.keybinds[ks[i]]
+            var b = map[ks[i]]
             if (!b || !b.key) continue
-            var combo = b.mods + "+" + b.key
+            var combo = _combo(b.mods, b.key)
             if (!m[combo]) m[combo] = [ks[i]]
             else           m[combo] = m[combo].concat([ks[i]])
         }
         return m
     }
 
+    readonly property var _comboMap: root._comboMapOf(root.keybinds)
+
     function isDuplicate(action) {
         var b = root.keybinds[action]
         if (!b || !b.key) return false
-        var combo = b.mods + "+" + b.key
+        var combo = _combo(b.mods, b.key)
         return !!(root._comboMap[combo] && root._comboMap[combo].length > 1)
     }
 
     function conflictsWith(action) {
         var b = root.keybinds[action]
         if (!b || !b.key) return ""
-        var list = root._comboMap[b.mods + "+" + b.key]
+        var list = root._comboMap[_combo(b.mods, b.key)]
         if (!list || list.length < 2) return ""
         for (var i = 0; i < list.length; i++) {
             if (list[i] !== action) {
@@ -178,14 +216,21 @@ QtObject {
         return ""
     }
 
-    function wouldConflict(action, mods, key) {
-        var combo = mods + "+" + key
+    // Returns the action whose EFFECTIVE binding already claims mods+key, or "".
+    // `overlay` is the Keybinds page's pending map ({ action: { mods, key } }):
+    // a candidate resolves to its staged edit when it has one and to its saved
+    // binding otherwise, so a combo freed by a staged clear counts as free and a
+    // combo taken by a staged edit counts as taken. Only the action id is
+    // returned — overlay entries carry no label, so naming is the caller's job.
+    function conflictingAction(action, mods, key, overlay) {
+        var combo = _combo(mods, key)
+        var ov    = overlay || {}
         var ks    = Object.keys(root.keybinds)
         for (var i = 0; i < ks.length; i++) {
             if (ks[i] === action) continue
-            var b = root.keybinds[ks[i]]
-            if (b && b.mods + "+" + b.key === combo)
-                return b.label || ks[i]
+            var e = ov[ks[i]] !== undefined ? ov[ks[i]] : root.keybinds[ks[i]]
+            if (!e || !e.key) continue   // an unbound action claims no combo
+            if (_combo(e.mods, e.key) === combo) return ks[i]
         }
         return ""
     }
@@ -273,6 +318,39 @@ QtObject {
         reload()
     }
 
+    // Applies a whole batch of staged edits at once: the merged map is written
+    // and reloaded exactly once. Applying them one by one re-ran the generated
+    // file writes (and, through unbindBinding, hyprctl reload) per edit, so a
+    // single Save raced several bash processes on the same three files.
+    // An entry with an empty key unbinds its action.
+    function applyEdits(pending) {
+        if (!pending) return
+        var ks = Object.keys(pending)
+        if (ks.length === 0) return
+
+        var copy = Object.assign({}, root.keybinds)
+        for (var i = 0; i < ks.length; i++) {
+            var old = copy[ks[i]]
+            if (!old) continue   // unknown action: nothing to merge into
+            copy[ks[i]] = Object.assign({}, old, {
+                mods: (pending[ks[i]].mods || "").toUpperCase().trim(),
+                key:  (pending[ks[i]].key  || "").toUpperCase().trim()
+            })
+        }
+
+        // A duplicate surviving the merge is applied, not dropped: an A<->B swap
+        // can only be expressed by staging both halves, and updateBinding()'s
+        // per-action bail would silently discard one of them. Rows keep flagging
+        // it through isDuplicate()/conflictsWith(); the log records it too.
+        var combos = _comboMapOf(copy)
+        var dupes  = Object.keys(combos).filter(function(c) { return combos[c].length > 1 })
+        if (dupes.length > 0)
+            console.warn("KeybindService: applied keybinds with duplicate combos:", dupes.join(", "))
+
+        root.keybinds = copy
+        saveAndReload()
+    }
+
     // Updates in-memory only — does NOT persist.
     // Callers responsible for invoking saveAndReload() when ready.
     function updateBinding(action, newMods, newKey) {
@@ -281,7 +359,7 @@ QtObject {
         var m = newMods.toUpperCase().trim()
         var k = newKey.toUpperCase().trim()
         if (k === "") return
-        if (root.wouldConflict(action, m, k) !== "") return
+        if (root.conflictingAction(action, m, k) !== "") return
         var copy     = Object.assign({}, root.keybinds)
         copy[action] = Object.assign({}, old, { mods: m, key: k })
         root.keybinds = copy
@@ -297,14 +375,12 @@ QtObject {
 
 	// Allows the UI to explicitly unbind an action (or preserve installer unbinds)
     function unbindBinding(action) {
-        var old = root.keybinds[action]
-        if (!old) return
+        if (!root.keybinds[action]) return
         
-        var copy = Object.assign({}, root.keybinds)
-        copy[action] = Object.assign({}, old, { mods: "", key: "" })
-        root.keybinds = copy
+        var edit = {}
+        edit[action] = { mods: "", key: "" }
         
-        saveAndReload()
+        applyEdits(edit)   // one merge path, one write + reload
     }
 
     // ── File generation ───────────────────────────────────────────────────────
