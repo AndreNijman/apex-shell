@@ -6,6 +6,10 @@ import "../../components"
 Item {
     id: root
 
+    // Handed down from the owning window; forwarded to whichever sub-page needs
+    // live telemetry so its services stop when the dashboard is not on screen.
+    property bool onScreen: false
+
     property string _page: "appearance"
 
     readonly property var _tabs: [
@@ -55,30 +59,43 @@ Item {
             width:  parent.width - Math.floor((parent.width - parent.spacing) * 0.30) - parent.spacing
             height: parent.height
 
-            Item {
+            LazyPage {
                 anchors.fill: parent
-                visible: root._page === "appearance"
-                AppearancePage { anchors.fill: parent }
+                shown: root._page === "appearance"
+                sourceComponent: Component {
+                    AppearancePage { anchors.fill: parent }
+                }
             }
-            Item {
+            LazyPage {
                 anchors.fill: parent
-                visible: root._page === "layout"
-                LayoutPage { anchors.fill: parent }
+                shown: root._page === "layout"
+                sourceComponent: Component {
+                    LayoutPage { anchors.fill: parent }
+                }
             }
-            Item {
+            LazyPage {
                 anchors.fill: parent
-                visible: root._page === "data"
-                DataPage { anchors.fill: parent }
+                shown: root._page === "data"
+                sourceComponent: Component {
+                    DataPage {
+                        anchors.fill: parent
+                        onScreen: root.onScreen && root._page === "data"
+                    }
+                }
             }
-            Item {
+            LazyPage {
                 anchors.fill: parent
-                visible: root._page === "keybinds"
-                KeybindsPage { anchors.fill: parent }
+                shown: root._page === "keybinds"
+                sourceComponent: Component {
+                    KeybindsPage { anchors.fill: parent }
+                }
             }
-            Item {
+            LazyPage {
                 anchors.fill: parent
-                visible: root._page === "misc"
-                MiscPage { anchors.fill: parent }
+                shown: root._page === "misc"
+                sourceComponent: Component {
+                    MiscPage { anchors.fill: parent }
+                }
             }
         }
     }

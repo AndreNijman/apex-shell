@@ -3,13 +3,13 @@ SystemStats  ./system/SystemStats.qml
 BatteryStatus  BatteryStatus.qml
 BatteryWarning BatteryWarning.qml
 AudioControl AudioControl.qml
-MemService ./system/MemService.qml
-NetService ./system/NetService.qml
-GpuService ./system/GpuService.qml
-CpuService ./system/CpuService.qml
-CpuFreqService ./system/CpuFreqService.qml
-PowerProfileService ./system/PowerProfileService.qml
-DiskService ./system/DiskService.qml
+singleton MemService 1.0 ./system/MemService.qml
+singleton NetService 1.0 ./system/NetService.qml
+singleton GpuService 1.0 ./system/GpuService.qml
+singleton CpuService 1.0 ./system/CpuService.qml
+singleton CpuFreqService 1.0 ./system/CpuFreqService.qml
+singleton PowerProfileService 1.0 ./system/PowerProfileService.qml
+singleton DiskService 1.0 ./system/DiskService.qml
 DashHome home/DashHome.qml
 singleton NotificationService 1.0 ./notifications/NotificationService.qml
 NotificationList ./notifications/NotificationList.qml
