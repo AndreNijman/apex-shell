@@ -516,7 +516,10 @@ Item {
                     spacing: 8
                     // Username — enterprise (802.1X) networks only
                     Rectangle {
-                        visible: netRow.net.enterprise
+                        // Rows for saved-but-not-scanned networks can arrive
+                        // without an `enterprise` field at all, and assigning
+                        // undefined to a bool is a hard warning.
+                        visible: netRow.net?.enterprise ?? false
                         width: parent.width; height: visible ? 32 : 0; radius: 8
                         color: Qt.rgba(1,1,1,0.06)
                         border.color: userInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55) : Qt.rgba(1,1,1,0.12)

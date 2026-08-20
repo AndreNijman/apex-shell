@@ -28,7 +28,7 @@ ShellRoot {
 
                 // ── Overlays ─────────────────────────────────────
                 // Dismisses all popups on click-outside or Escape
-                PopupDismiss { screen: modelData }
+                PopupDismiss { screen: modelData; screenName: modelData.name }
 
                 // GPU mode change confirmation modal
                 ConfirmDialog { screen: modelData }
