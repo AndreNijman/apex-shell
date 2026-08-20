@@ -113,7 +113,10 @@ jobs:
             echo "✗ src/scripts/list_apps.py is back; use DesktopEntries instead"
             exit 1
           fi
-          if grep -rn "list_apps" --include="*.qml" src/; then
+          # Ignore comment lines: the launcher documents what it replaced, and
+          # prose about the old scanner is not a reference to it.
+          if grep -rn "list_apps" --include="*.qml" src/ \
+               | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//'; then
             echo "✗ QML still references list_apps"
             exit 1
           fi
