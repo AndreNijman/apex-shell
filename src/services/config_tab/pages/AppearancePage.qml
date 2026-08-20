@@ -39,6 +39,34 @@ CfgScroll {
 
     // ── Wallpaper ─────────────────────────────────────────────────────────────
     CfgSection {
+        title: "Lock screen"
+
+        CfgRow {
+            label:       "Background"
+            description: SettingsService.lockBackground === ""
+                             ? "Follows the desktop wallpaper"
+                             : SettingsService.lockBackground.split("/").pop()
+
+            CfgTextField {
+                text:        SettingsService.lockBackground
+                placeholder: "/path/to/image.jpg"
+                onAccepted:  function(t) { SettingsService.set("lockBackground", t.trim()) }
+                onEdited:    function(t) { SettingsService.set("lockBackground", t.trim()) }
+            }
+        }
+
+        CfgRow {
+            label:       "Reset"
+            description: "Use the desktop wallpaper on the lock screen"
+            CfgButton {
+                label: "Clear"
+                icon:  "󰆴"
+                onClicked: SettingsService.set("lockBackground", "")
+            }
+        }
+    }
+
+    CfgSection {
         title: "Wallpaper"
 
         // Current name + refresh

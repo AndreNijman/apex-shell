@@ -2,6 +2,7 @@ PowerMenu    PowerMenu.qml
 SystemStats  ./system/SystemStats.qml
 BatteryStatus  BatteryStatus.qml
 BatteryWarning BatteryWarning.qml
+singleton BatteryAlert 1.0 BatteryAlert.qml
 AudioControl AudioControl.qml
 singleton MemService 1.0 ./system/MemService.qml
 singleton NetService 1.0 ./system/NetService.qml

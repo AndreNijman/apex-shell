@@ -2,15 +2,25 @@ import Quickshell
 import QtQuick
 import "./src/windows"
 import "./src/popups"
+import "./src/services"
 import "./src/"
 
 ShellRoot {
-    // Force-instantiate lazy singletons that need startup behavior
+    // Force-instantiate lazy singletons that need startup behavior.
+    //
+    // Note what is deliberately NOT here: the telemetry services (Cpu, Mem,
+    // Net, Disk, Gpu, CpuFreq, PowerProfile). They are refcounted and must stay
+    // lazy — force-loading one would start its poll timer for the whole session,
+    // which is the exact behaviour the perf work removed.
     property var _compositor: Compositor
     property var _niri:       NiriService
     property var _keybinds:   KeybindService
     property var _updater:    UpdateService
     property var _ipc:        IpcManager
+
+    // Must exist without anything referencing it: it is what raises the
+    // low-battery warning, and nothing on screen "uses" it.
+    property var _batteryAlert: BatteryAlert
 
     Variants {
         model: Quickshell.screens

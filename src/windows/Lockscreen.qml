@@ -155,12 +155,23 @@ WlSessionLock {
             }
 
             // Wallpaper texture source (hidden; fed into the blur effect).
+            //
+            // SettingsService.lockBackground overrides the desktop wallpaper so
+            // the lock screen can show something else (or something the desktop
+            // wallpaper rotation will not clobber). Empty means "follow the
+            // desktop wallpaper", which is the historical behaviour. A path that
+            // fails to load falls through to the gradient underneath, exactly as
+            // a broken wallpaper path already did.
             Image {
                 id: wallImg
                 anchors.fill: parent
-                source: WallpaperService.currentWall && WallpaperService.currentWall !== ""
-                            ? "file://" + WallpaperService.currentWall
-                            : ""
+                source: {
+                    const override = SettingsService.lockBackground
+                    if (override && override !== "")
+                        return override.startsWith("/") ? "file://" + override : override
+                    const wall = WallpaperService.currentWall
+                    return wall && wall !== "" ? "file://" + wall : ""
+                }
                 fillMode:     Image.PreserveAspectCrop
                 asynchronous: true
                 cache:        true

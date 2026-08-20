@@ -26,33 +26,10 @@ Item {
     implicitWidth:  statusRow.implicitWidth + 6
     implicitHeight: statusRow.implicitHeight
 
-    // ── Warning tracker ──────────────────────────────────────────────────────
-    // warnedLevels stores which thresholds have fired this discharge cycle.
-    // Resets when charging begins.
-    property var warnedLevels: []
-
-    function checkWarning() {
-        if (charging) {
-            warnedLevels = []
-            return
-        }
-        var thresholds = [5, 10, 20,30]
-        for (var i = 0; i < thresholds.length; i++) {
-            var lvl = thresholds[i]
-            if (pct <= lvl && warnedLevels.indexOf(lvl) < 0) {
-                warnedLevels = warnedLevels.concat([lvl])
-                warningWindow.warnLevel = lvl
-                warningWindow.visible   = true
-                break
-            }
-        }
-    }
-
-    onPctChanged:      checkWarning()
-    onChargingChanged: {
-        if (charging) warnedLevels = []
-        checkWarning()
-    }
+    // Low-battery warnings are NOT handled here. This is a bar widget and is
+    // instantiated once per screen, so a dedupe list living here produced one
+    // warning popup per monitor with each copy unaware of the others. It now
+    // belongs to the BatteryAlert singleton.
 
     // ── Nerd Font icons ──────────────────────────────────────────────────────
     function staticIcon(p) {
@@ -144,10 +121,4 @@ Item {
     }
 
     HoverHandler { id: hov }
-
-    // ── Warning window ────────────────────────────────────────────────────────
-    BatteryWarning {
-        id:      warningWindow
-        visible: false
-    }
 }
