@@ -20,8 +20,8 @@ Item {
     id: root
 
     // ── State ─────────────────────────────────────────────────────────────────
-    property var  apps:     []
-    property bool loading:  true
+    property var  apps:     root._appEntries
+    property bool loading:  false
     property int  selIndex: -1
     property string query:  ""
 
@@ -110,19 +110,41 @@ Item {
     }
 
     // ── Load apps ─────────────────────────────────────────────────────────────
-    Process {
-        id: listProc
-        command: ["python3", Quickshell.shellDir + "/src/scripts/list_apps.py"]
-        running: false
-        stdout: StdioCollector {
-            id: listBuf
-            onStreamFinished: {
-                try   { root.apps = JSON.parse(listBuf.text) }
-                catch (e) { root.apps = [] }
-                root.loading  = false
-                root.selIndex = root.apps.length > 0 ? 0 : -1
-            }
+    // Opening the launcher used to spawn `python3 src/scripts/list_apps.py`,
+    // which walked every XDG applications directory and parsed every .desktop
+    // file with configparser, then serialised the lot to JSON — a Python
+    // interpreter start plus a full filesystem scan on every single open.
+    //
+    // Quickshell already maintains exactly this index natively: DesktopEntries
+    // watches the XDG directories and keeps parsed entries live, so the list is
+    // available with no process, no scan and no wait. It also honours the parts
+    // of the spec the script did not: entries are launched through
+    // DesktopEntry.execute(), which handles Terminal=true, Path=, and Exec field
+    // codes properly instead of pasting the Exec line into `bash -c`.
+    //
+    // `loading` is retained but is now effectively always false; the list is
+    // ready synchronously.
+    readonly property var _appEntries: {
+        const out = []
+        for (const e of DesktopEntries.applications.values) {
+            if (e.noDisplay)
+                continue
+            const nm = (e.name ?? "").trim()
+            if (nm === "")
+                continue
+            out.push({
+                "kind": "app",
+                "name": nm,
+                "exec": e.execString ?? "",
+                "icon": e.icon ?? "",
+                "categories": e.categories ?? "",
+                "keywords": e.keywords ?? "",
+                "comment": e.comment ?? "",
+                "entry": e
+            })
         }
+        out.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+        return out
     }
 
     onVisibleChanged: {
@@ -130,13 +152,9 @@ Item {
         _forgetAnswer()
         if (!visible)
             return
-        root.loading   = true
-        root.apps      = []
         root.query     = ""
-        root.selIndex  = -1
+        root.selIndex  = root.apps.length > 0 ? 0 : -1
         searchInput.text = ""
-        listProc.running = false
-        listProc.running = true
         focusTimer.restart()
     }
 
@@ -153,6 +171,9 @@ Item {
         running: false
     }
 
+    // Launch a plain Exec string. Only used for entries that arrived without a
+    // DesktopEntry behind them; DesktopEntries-backed rows go through
+    // entry.execute(), which respects Terminal=, Path= and Exec field codes.
     function launch(exec) {
         launcher.command = ["bash", "-c", "setsid " + exec + " &>/dev/null &"]
         launcher.running = false
@@ -174,6 +195,11 @@ Item {
         }
         if (entry.kind === "answer" || entry.kind === "calculation") {
             ClipboardService.copyText(entry.value)
+            Popups.dashboardOpen = false
+            return
+        }
+        if (entry.entry) {
+            entry.entry.execute()
             Popups.dashboardOpen = false
             return
         }

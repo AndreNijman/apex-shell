@@ -103,10 +103,21 @@ jobs:
           shellcheck src/scripts/screenshot.sh
           echo "✓ src/scripts/ passed ShellCheck"
 
-      - name: Check Python list_apps.py syntax
+      - name: Assert no per-open subprocess app scan crept back
         run: |
-          python -m py_compile src/scripts/list_apps.py
-          echo "✓ list_apps.py syntax OK"
+          # The launcher enumerates apps through Quickshell's native
+          # DesktopEntries index. list_apps.py was deleted because it spawned a
+          # Python interpreter and rescanned every XDG applications directory on
+          # every single launcher open.
+          if [ -e src/scripts/list_apps.py ]; then
+            echo "✗ src/scripts/list_apps.py is back; use DesktopEntries instead"
+            exit 1
+          fi
+          if grep -rn "list_apps" --include="*.qml" src/; then
+            echo "✗ QML still references list_apps"
+            exit 1
+          fi
+          echo "✓ launcher uses native DesktopEntries"
 
       - name: Test launcher answer logic
         run: |
