@@ -103,14 +103,102 @@ jobs:
           shellcheck src/scripts/screenshot.sh
           echo "✓ src/scripts/ passed ShellCheck"
 
-      - name: Check Python list_apps.py syntax
+      - name: Assert no per-open subprocess app scan crept back
         run: |
-          python -m py_compile src/scripts/list_apps.py
-          echo "✓ list_apps.py syntax OK"
+          # The launcher enumerates apps through Quickshell's native
+          # DesktopEntries index. list_apps.py was deleted because it spawned a
+          # Python interpreter and rescanned every XDG applications directory on
+          # every single launcher open.
+          if [ -e src/scripts/list_apps.py ]; then
+            echo "✗ src/scripts/list_apps.py is back; use DesktopEntries instead"
+            exit 1
+          fi
+          # Ignore comment lines: the launcher documents what it replaced, and
+          # prose about the old scanner is not a reference to it.
+          if grep -rn "list_apps" --include="*.qml" src/ \
+               | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//'; then
+            echo "✗ QML still references list_apps"
+            exit 1
+          fi
+          echo "✓ launcher uses native DesktopEntries"
 
       - name: Test launcher answer logic
         run: |
           node tests/answer-test.js
+
+      - name: Lint test harness scripts
+        run: |
+          # -S warning matches the threshold apex-os uses: style/info findings in
+          # a test harness are not worth failing a build over.
+          shellcheck -S warning tests/run-service-tier-test.sh tests/measure-idle-cost.sh
+          echo "✓ test harnesses passed ShellCheck"
+
+      - name: Service-tier behavioural test
+        run: |
+          # Needs a compositor; the harness skips cleanly without one so this
+          # documents the entry point rather than silently not existing. Run it
+          # locally in a Wayland session to actually exercise the 32 assertions.
+          ./tests/run-service-tier-test.sh
+
+      - name: Assert telemetry services stay lazy and refcounted
+        run: |
+          # These invariants are the whole reason the shell no longer forks at
+          # idle, and all of them are one careless edit away from regressing
+          # silently. A reintroduced `active: true` or a force-loaded telemetry
+          # singleton costs battery with no visible symptom, so it is checked
+          # here rather than left to review.
+          fail=0
+
+          for svc in CpuService MemService NetService DiskService GpuService \
+                     CpuFreqService PowerProfileService BrightnessService; do
+            f="src/services/system/${svc}.qml"
+            [ -f "$f" ] || { echo "✗ missing $f"; fail=1; continue; }
+            head -1 "$f" | grep -q '^pragma Singleton' \
+              || { echo "✗ $svc is not a singleton"; fail=1; }
+            grep -q "^singleton ${svc} " src/services/qmldir \
+              || { echo "✗ $svc not registered as a singleton in qmldir"; fail=1; }
+          done
+
+          # Every poll timer must be gated on demand, never `running: true`.
+          for svc in CpuService MemService NetService DiskService GpuService \
+                     CpuFreqService PowerProfileService; do
+            f="src/services/system/${svc}.qml"
+            grep -q 'refCount' "$f" \
+              || { echo "✗ $svc has no refCount"; fail=1; }
+            if grep -nE '^\s*running:\s*true\s*$' "$f"; then
+              echo "✗ $svc has an ungated timer"
+              fail=1
+            fi
+          done
+
+          # Telemetry singletons must NOT be force-instantiated at startup:
+          # touching one starts its timer for the whole session.
+          for svc in CpuService MemService NetService DiskService GpuService \
+                     CpuFreqService PowerProfileService; do
+            if grep -qE "property var _[A-Za-z]+:\s*${svc}\b" shell.qml; then
+              echo "✗ $svc is force-loaded in shell.qml"
+              fail=1
+            fi
+          done
+
+          # The bug this replaced: gating a poller on an Item's own `visible`,
+          # which stays true inside a hidden window.
+          if grep -rnE '^\s*active:\s*(root\.)?visible\s*$' --include="*.qml" src/; then
+            echo "✗ a service is gated on Item visibility instead of window visibility"
+            fail=1
+          fi
+
+          # The always-mapped bar must not carry offscreen render targets.
+          # Anchored to a property assignment so prose mentioning it does not
+          # trip the check.
+          if grep -nE '^[[:space:]]*layer\.enabled[[:space:]]*:' \
+               src/modules/Center/CenterContent.qml; then
+            echo "✗ the bar has a layer FBO again; use ClippingRectangle"
+            fail=1
+          fi
+
+          [ "$fail" -eq 0 ] || exit 1
+          echo "✓ telemetry services are lazy, refcounted and window-gated"
 
       - name: Validate QML files exist and are non-empty
         run: |

@@ -220,8 +220,9 @@ installed **disabled** (it never autostarts) with its config at
 ### Upcoming (Post-v0.1.0)
 
 - [ ] Scaling on Different Screen-Sizes
-- [ ] Config Pages for Shell Customization
-- [ ] Multi-Monitor Support
+- [x] Config Pages for Shell Customization — Appearance / Layout / Data / Keybinds / Misc
+- [ ] Multi-Monitor Support — *partial:* per-screen bars, borders and dashboard
+      focus work; global scaling and per-monitor brightness do not
 - [ ] Additional theme options
 - [ ] App launcher enhancements (pinned/recent)
 - [ ] Unified popup configuration layer
@@ -230,20 +231,104 @@ installed **disabled** (it never autostarts) with its config at
 - [ ] CLI
 - [ ] More Linux distribution support
 
+### Performance
+
+The shell forked 5–6 processes per second while completely idle and never got a
+full second of rest. That is fixed; see [Performance](#performance-1) below for
+what changed and how it is measured.
+
 ---
 
 <h2>
 Known Issues
 </h2>
 
-- **Multi-Monitor Scaling:** Global scaling across mixed-resolution monitors (e.g., 4K paired with 1080p) is currently inconsistent. UI elements may appear misproportioned or poorly sized on non-1080p screens.
+- **Multi-Monitor Scaling:** Global scaling across mixed-resolution monitors (e.g., 4K paired with 1080p) is currently inconsistent. UI elements may appear misproportioned or poorly sized on non-1080p screens. Sizes are currently absolute pixel literals in `src/theme/Metrics.qml`; making them a function of `screen.height` is the outstanding work.
 
 - **Top Bar Clipping:** Elements within the right notch may become visually clipped if the system tray is expanded and contains an excessive number of active items.
 
 - **Shutdown Menu (Hyprshutdown) State:** Canceling a shutdown or logout action can sometimes leave the Hyprland session in an empty state with most applications unintentionally closed. It may also occasionally struggle to terminate all running apps smoothly.
 
+- **Tray icon themes:** Applications that advertise a private `IconThemePath`
+  may show a fallback glyph instead of their real icon.
+
 > [!WARNING]
 > **NixOS & Flakes Support:** The current NixOS installation pipeline and Flake implementation are experimental and may be broken. If you are on NixOS, manual configuration is currently required.
+
+---
+
+<h2>
+  Performance
+</h2>
+
+APEX Shell used to fork 5–6 processes per second while completely idle, and on a
+machine where the dashboard had been opened once it was far worse than that.
+Measured properly it was **~22 process creations per second** doing nothing.
+
+Almost none of it was necessary:
+
+- **Every `/proc` read was a subprocess.** CPU, memory and network stats each
+  ran `cat` on a timer; the network service additionally ran
+  `ip route get | awk` every second to find the default interface; the CPU
+  governor service ran `pgrep` plus two globbed `cat` pipelines every 2s. A
+  comment in the memory service claimed `FileView` could not read virtual
+  filesystems, which is false — `/proc` and `/sys` read fine in-process.
+- **Nothing could stop.** Only one of seven telemetry services was a singleton,
+  so the dashboard and the config page each built their own pollers, per screen,
+  and the stats page gated them on an `Item`'s `visible` — which stays true
+  inside a hidden window. Selecting the stats page once left six services
+  polling until logout.
+- **Two brightness sliders each polled `brightnessctl` once a second**, forever,
+  to watch a number that only changes when a human touches a key.
+- **The bar ran three `nmcli` pipelines every five seconds**, because the bar is
+  always mapped.
+- **Four independent 1 Hz clocks** ticked in parallel, so the process never got a
+  full second of rest.
+
+What it does now: `/proc` and `/sys` are read with `FileView`; every telemetry
+service is a singleton whose timer is gated on a reference count; consumers
+declare demand with [`ServiceRef`](src/components/ServiceRef.qml) bound to real
+window visibility; network state comes from `Quickshell.Networking` (live
+NetworkManager D-Bus) instead of `nmcli`; brightness is one inotify-driven
+service with no polling at all; there is one shared `SystemClock` with a
+refcounted seconds tier; the app launcher uses Quickshell's native
+`DesktopEntries` index instead of spawning a Python scanner per open; and pages
+and popups are built on first use rather than at login.
+
+### Measuring it
+
+```bash
+tests/measure-idle-cost.sh packaged    # the installed shell
+tests/measure-idle-cost.sh worktree    # this checkout
+```
+
+`perf stat -e sched:sched_process_exec` is the obvious tool and cannot be used:
+`perf` is absent on a stock install and `perf_event_paranoid` is 2, so it needs
+root. The kernel's cumulative fork counter (`/proc/stat` `processes`) answers the
+same question with no privileges.
+
+It matters that the script is **paired and alternating**. `/proc/stat` is
+system-wide, and on a real desktop the background rate is both large and
+non-stationary — a single floor window followed by a single shell window
+produces nonsense, including negative attributions. The script instead stops and
+resumes the shell repeatedly and reports the median paired difference, so drift
+cancels.
+
+Results on a ThinkPad L16 (Ryzen 7 PRO 250), 8 pairs × 8s, every page and popup
+opened once first so both shells are compared with everything built:
+
+| | attributable process creations |
+|---|---|
+| Before | **+21.9/s** (all 8 pairs positive, 15.4–27.6) |
+| After | **−0.75/s** (pairs scattered −5.6…+7.0) |
+
+The "after" figure is not a claim of literally zero — it means the shell's idle
+cost has fallen below what this method can resolve on a live desktop. The
+before-signal was unambiguous; the after-signal is absent.
+
+Behaviour of the refcount tier is covered by
+[`tests/service-tier-test.qml`](tests/service-tier-test.qml) (32 assertions
+against real `/proc` and `/sys`), run via `tests/run-service-tier-test.sh`.
 
 ---
 

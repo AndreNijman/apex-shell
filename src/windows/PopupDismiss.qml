@@ -14,6 +14,14 @@ import Quickshell.Hyprland
 PanelWindow {
     id: root
 
+    // The output this overlay belongs to, passed in by shell.qml.
+    //
+    // Deliberately NOT derived from the window's own `screen` property: reading
+    // `screen` inside the `visible` binding below is a binding loop, because a
+    // PanelWindow re-resolves `screen` as it maps and unmaps, and `visible` is
+    // what decides whether it maps. That loop was firing on every popup open.
+    required property string screenName
+
     color: "transparent"
 
     mask: Region {
@@ -56,7 +64,7 @@ PanelWindow {
     // When false, input passes through as if this window doesn't exist
     visible: (Popups.anyOpen
               && (!Popups.dashboardOpen
-                  || (root.screen && Popups.dashboardScreen === root.screen.name)))
+                  || Popups.dashboardScreen === root.screenName))
              || (ShellState.screenRecord && !ScreenRecService.recording)
 
     // Sit below popups but above the desktop

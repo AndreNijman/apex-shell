@@ -50,53 +50,18 @@ PopupWindow {
     }
 
     // ── Brightness State ──────────────────────────────────────────────────────
-    property real _bVal:  0.72
-    property int  _bMax:  100
-    property bool _bBusy: false
-
-    Process {
-        id: brightRead
-        command: ["bash", "-c", "brightnessctl -m"]
-        running: false
-        stdout: SplitParser {
-            onRead: function(line) {
-                var parts = line.split(",")
-                if (parts.length >= 5) {
-                    var cur = parseInt(parts[2])
-                    var max = parseInt(parts[4])
-                    if (max > 0) {
-                        root._bMax = max
-                        root._bVal = cur / max
-                    }
-                }
-            }
-        }
-    }
-
-    Process {
-        id: brightWrite
-        command: ["bash", "-c", "brightnessctl set " + (Math.round(root._bVal * root._bMax) <= 0 ? 2 : Math.round(root._bVal * root._bMax))]
-        running: false
-        onRunningChanged: if (!running) root._bBusy = false
-    }
-
-    Timer {
-        id: bDebounce
-        interval: 50; repeat: false
-        onTriggered: { root._bBusy = true; brightWrite.running = true }
-    }
-
-    Timer {
-        interval: 1000; running: true; repeat: true
-        onTriggered: if (!root._bBusy) brightRead.running = true
-    }
-
-    Component.onCompleted: brightRead.running = true
+    // Backed by BrightnessService: one shared, inotify-driven source instead of
+    // this popup's own `brightnessctl -m` once a second for the whole session.
+    readonly property real _bVal: BrightnessService.value
 
     function setBrightness(v) {
-        root._bVal = Math.max(0.0, Math.min(1.0, v))
-        bDebounce.restart()
+        BrightnessService.set(v)
     }
+
+    // Make sure the slider is accurate the instant the panel appears, in case
+    // the level moved while it was closed.
+    onVisibleChanged: if (visible)
+        BrightnessService.refresh()
 
     // ── Layout ────────────────────────────────────────────────────────────────
     PopupSlide {

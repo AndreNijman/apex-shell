@@ -1,6 +1,8 @@
 import QtQuick
 import Quickshell
 import "../"
+import "../components"
+import "../services"
 
 // ============================================================
 // PopupLayer — the only file that instantiates popup windows.
@@ -9,10 +11,15 @@ import "../"
 // To add a new popup:
 //   1. Create the .qml file in src/popups/
 //   2. Add its anchor window as a property here (if new)
-//   3. Instantiate it below under the right section
+//   3. Instantiate it below under the right section, wrapped in a
+//      LazyPopup whose `wanted` is that popup's own open flag
+//
+// Every popup here is built on first open rather than at login. See
+// components/LazyPopup.qml for why the instance is then kept rather than
+// unloaded on close.
 // ============================================================
 
-Item {
+Scope {
     id: root
 
     // ── Anchor windows (set by shell.qml) ───────────────────
@@ -24,46 +31,78 @@ Item {
     // ── Border-anchored popups ───────────────────────────────
 
     // Left border → center
-    ArchMenu {
-        anchorWindow: root.leftBorder
+    LazyPopup {
+        wanted: Popups.archMenuOpen
+        ArchMenu {
+            anchorWindow: root.leftBorder
+        }
     }
 
     // Bottom border → slides up
-    WallpaperPopup {}
+    LazyPopup {
+        wanted: Popups.wallpaperOpen
+        WallpaperPopup {}
+    }
 
     // Bottom-right corner → clipboard history + emoji
-    ClipboardPopup {}
+    LazyPopup {
+        wanted: Popups.clipboardOpen
+        ClipboardPopup {}
+    }
 
     // ── TopBar-anchored popups ───────────────────────────────
 
     // Right notch — audio
-    AudioPopup {
-        anchorWindow: root.rightBorder
+    LazyPopup {
+        wanted: Popups.audioOpen
+        AudioPopup {
+            anchorWindow: root.rightBorder
+        }
     }
-    QuickControl {
-        anchorWindow: root.topBar
+
+    LazyPopup {
+        wanted: Popups.quickOpen
+        QuickControl {
+            anchorWindow: root.topBar
+        }
     }
 
     // Center notch — dashboard (expands below the center notch)
-    Dashboard {
-        anchorWindow: root.topBar
+    LazyPopup {
+        wanted: Popups.dashboardOpen
+        Dashboard {
+            anchorWindow: root.topBar
+        }
     }
 
     // Right notch
-    NotificationsPopup {
-        anchorWindow: root.topBar
+    LazyPopup {
+        wanted: Popups.notificationsOpen
+        NotificationsPopup {
+            anchorWindow: root.topBar
+        }
     }
 
     // Standardised pill-popup: anchored to the top bar like NotificationsPopup,
     // so the card's flush top lands exactly at the pill's bottom edge.
-    NotificationToast {
-        anchorWindow: root.topBar
+    LazyPopup {
+        wanted: Popups.notificationToastOpen
+        NotificationToast {
+            anchorWindow: root.topBar
+        }
     }
 
-    // Screen recorder strip options — appears below center notch on hover
-    ScreenRecOptionsPopup {
-        anchorWindow: root.topBar
+    // Screen recorder strip options — appears below center notch on hover.
+    // Driven by ScreenRecService rather than a Popups flag.
+    LazyPopup {
+        wanted: ScreenRecService.openStrip !== ""
+        ScreenRecOptionsPopup {
+            anchorWindow: root.topBar
+        }
     }
 
-    NetworkPopup {}
+    LazyPopup {
+        wanted: Popups.networkOpen
+        NetworkPopup {}
+    }
 }

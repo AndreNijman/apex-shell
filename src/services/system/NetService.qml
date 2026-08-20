@@ -1,90 +1,125 @@
+pragma Singleton
 import QtQuick
+import Quickshell
 import Quickshell.Io
 
-// Detects active interface via ip route, then
-// deltas /proc/net/dev byte counters every second via cat.
+// ─────────────────────────────────────────────────────────────────────────────
+// NetService — throughput on the default-route interface, from /proc.
+//
+// Singleton + refcounted; free while nothing holds a ref.
+//
+// ── Two forks per second removed ────────────────────────────────────────────
+// The old implementation ran BOTH `ip route get 1.1.1.1 | awk …` and
+// `cat /proc/net/dev` every single second, unconditionally, to answer "which
+// interface, and how fast". Both are now plain FileView reads:
+//
+//   • interface — /proc/net/route, the same routing table `ip route` prints.
+//     The default route is the row with Destination 00000000; when several
+//     exist (wifi + ethernet + VPN up together) the lowest Metric wins, which
+//     is precisely the kernel's own selection rule. Route changes appear the
+//     moment the table changes, so VPN up/down and cable plug/unplug are picked
+//     up as fast as before — without the fork.
+//
+//   • counters — /proc/net/dev, as before but in-process.
 //
 // Exposes:
 //   string iface      — e.g. "wlan0"
 //   string upSpeed    — e.g. "1.2 MB/s"
-//   string downSpeed  — e.g. "3.4 MB/s"
+//   string downSpeed
+// ─────────────────────────────────────────────────────────────────────────────
 
-QtObject {
+Singleton {
     id: root
 
-    property bool   active:    true
-    property string iface:     "—"
-    property string upSpeed:   "0 KB/s"
+    property int refCount: 0
+
+    property int interval: 1000
+
+    property string iface: "—"
+    property string upSpeed: "0 KB/s"
     property string downSpeed: "0 KB/s"
 
-    property real _prevRx:    0
-    property real _prevTx:    0
+    property real _prevRx: 0
+    property real _prevTx: 0
+    property real _prevAt: 0
     property bool _firstRead: true
 
-    // ── Detect active interface — re-checked on every poll tick ──────────────
-    // Running once at startup missed interface changes (VPN, cable, network switch).
-    // Now re-runs every second alongside the stats read. If iface changes, counters
-    // reset so the first delta is not a huge spike.
-    property var _ifaceProc: Process {
-        command: ["sh", "-c",
-            "ip route get 1.1.1.1 2>/dev/null" +
-            " | awk '/dev/{for(i=1;i<=NF;i++) if($i==\"dev\") print $(i+1)}'"]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                var name = text.trim()
-                if (name !== "" && name !== root.iface) {
-                    root.iface      = name
-                    root._firstRead = true   // reset counters — avoid spike
-                    root._prevRx    = 0
-                    root._prevTx    = 0
-                }
+    // Dropping to zero refs means the next delta would span the whole idle gap.
+    onRefCountChanged: if (refCount === 0) root._firstRead = true
+
+    function _resetCounters() {
+        root._firstRead = true
+        root._prevRx = 0
+        root._prevTx = 0
+        root.upSpeed = "0 KB/s"
+        root.downSpeed = "0 KB/s"
+    }
+
+    // /proc/net/route:
+    //   Iface  Destination  Gateway  Flags  RefCnt  Use  Metric  Mask ...
+    //   wlan0  00000000     0102A8C0 0003   0       0    600     00000000
+    function _parseRoute(text) {
+        if (!text)
+            return
+
+        const lines = text.split("\n")
+        let best = "";
+        let bestMetric = Number.MAX_VALUE
+
+        for (let i = 1; i < lines.length; i++) {
+            const parts = lines[i].trim().split(/\s+/)
+            if (parts.length < 7)
+                continue
+            // Destination 00000000 == default route (0.0.0.0/0).
+            if (parts[1] !== "00000000")
+                continue
+            const metric = parseInt(parts[6]) || 0
+            if (metric < bestMetric) {
+                bestMetric = metric
+                best = parts[0]
             }
         }
-    }
 
-    // ── /proc/net/dev via cat ─────────────────────────────────────────────────
-    property var _proc: Process {
-        command: ["cat", "/proc/net/dev"]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: root._parse(text)
+        if (best !== "" && best !== root.iface) {
+            root.iface = best
+            root._resetCounters()
+        } else if (best === "" && root.iface !== "—") {
+            // Default route went away entirely (all links down).
+            root.iface = "—"
+            root._resetCounters()
         }
     }
 
-    property var _timer: Timer {
-        interval: 1000
-        running:  root.active
-        repeat:   true
-        onTriggered: {
-            // Re-detect interface every tick — catches VPN, cable, network changes
-            _ifaceProc.running = false
-            _ifaceProc.running = true
-            _proc.running = false
-            _proc.running = true
-        }
-    }
+    function _parseDev(text) {
+        if (!text || root.iface === "—")
+            return
 
-    function _parse(text) {
-        if (root.iface === "—") return
-        var lines = text.split("\n")
-        for (var i = 0; i < lines.length; i++) {
-            var line = lines[i].trim()
-            if (!line.startsWith(root.iface + ":")) continue
+        const lines = text.split("\n")
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim()
+            if (!line.startsWith(root.iface + ":"))
+                continue
 
-            var parts = line.split(":")[1].trim().split(/\s+/)
-            var rx = parseFloat(parts[0])
-            var tx = parseFloat(parts[8])
+            const parts = line.split(":")[1].trim().split(/\s+/)
+            const rx = parseFloat(parts[0])
+            const tx = parseFloat(parts[8])
+            const now = Date.now()
 
             if (!root._firstRead) {
-                var dRx = Math.max(0, rx - root._prevRx)
-                var dTx = Math.max(0, tx - root._prevTx)
-                root.downSpeed = root._fmt(dRx)
-                root.upSpeed   = root._fmt(dTx)
+                // Wall-clock delta, not the nominal interval: a tick that lands
+                // late (busy machine, resumed from sleep) would otherwise report
+                // a proportionally inflated rate.
+                const dt = (now - root._prevAt) / 1000
+                if (dt > 0) {
+                    root.downSpeed = root._fmt(Math.max(0, rx - root._prevRx) / dt)
+                    root.upSpeed = root._fmt(Math.max(0, tx - root._prevTx) / dt)
+                }
             }
+
             root._firstRead = false
             root._prevRx = rx
             root._prevTx = tx
+            root._prevAt = now
             break
         }
     }
@@ -97,8 +132,24 @@ QtObject {
         return Math.round(bytesPerSec) + " B/s"
     }
 
-    Component.onCompleted: {
-        _ifaceProc.running = true
-        _proc.running = true
+    readonly property FileView routeFile: FileView {
+        path: "/proc/net/route"
+        onLoaded: root._parseRoute(text())
+    }
+
+    readonly property FileView devFile: FileView {
+        path: "/proc/net/dev"
+        onLoaded: root._parseDev(text())
+    }
+
+    readonly property Timer poll: Timer {
+        interval: root.interval
+        running: root.refCount > 0
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: {
+            root.routeFile.reload()
+            root.devFile.reload()
+        }
     }
 }

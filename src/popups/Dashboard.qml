@@ -30,6 +30,13 @@ PanelWindow {
 
     property string page: Popups.dashboardPage
 
+    // "A user can actually see this window right now." Pages hand this down to
+    // their ServiceRefs; it is the difference between a poller that stops when
+    // the dashboard closes and one that runs until logout. Item-level `visible`
+    // is NOT a substitute: an Item inside an unmapped window still reports
+    // visible === true.
+    readonly property bool pageLive: root.windowVisible && !LockState.locked
+
     // ── Per-page content widths ───────────────────────────────────────────────
     readonly property var _pageWidths: ({
         "home":     900,
@@ -179,37 +186,56 @@ PanelWindow {
                     width:  parent.width
                     height: parent.height - tabBar.height
 
-                    Item {
+                    // Each page is built on first visit rather than at shell
+                    // startup, and told whether it is genuinely in front of a
+                    // user so its services can stop when it is not. See
+                    // components/LazyPage.qml and components/ServiceRef.qml.
+                    LazyPage {
                         anchors.fill: parent
-                        visible:      root.page === "home"
-                        DashHome { anchors.fill: parent }
+                        shown: root.page === "home"
+                        sourceComponent: Component {
+                            DashHome {
+                                anchors.fill: parent
+                                onScreen: root.pageLive && root.page === "home"
+                            }
+                        }
                     }
 
-                    Item {
+                    LazyPage {
                         anchors.fill: parent
-                        visible:      root.page === "stats"
-                        DashStats { anchors.fill: parent }
+                        shown: root.page === "stats"
+                        sourceComponent: Component {
+                            DashStats {
+                                anchors.fill: parent
+                                onScreen: root.pageLive && root.page === "stats"
+                            }
+                        }
                     }
 
-                    Item {
+                    LazyPage {
                         anchors.fill: parent
-                        visible:      root.page === "kanban"
-                        KanbanBoard { anchors.fill: parent }
+                        shown: root.page === "kanban"
+                        sourceComponent: Component {
+                            KanbanBoard { anchors.fill: parent }
+                        }
                     }
 
-                    Item {
+                    LazyPage {
                         anchors.fill: parent
-                        visible:      root.page === "launcher"
-                        AppLauncher { anchors.fill: parent }
+                        shown: root.page === "launcher"
+                        sourceComponent: Component {
+                            AppLauncher { anchors.fill: parent }
+                        }
                     }
 
-                    Item {
+                    LazyPage {
                         anchors.fill: parent
-                        visible:      root.page === "config"
-                        Item {
-                            anchors.fill: parent
-                            visible:      root.page === "config"
-                            ShellConfig { anchors.fill: parent }
+                        shown: root.page === "config"
+                        sourceComponent: Component {
+                            ShellConfig {
+                                anchors.fill: parent
+                                onScreen: root.pageLive && root.page === "config"
+                            }
                         }
                     }
                     

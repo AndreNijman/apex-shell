@@ -13,6 +13,10 @@ StatCard {
     padding: 0
     focus: true
 
+    // Set by DashHome: "these tiles are genuinely in front of a user". Gates the
+    // nmcli/bluetoothctl/rfkill poll below.
+    property bool onScreen: false
+
     // ── Compositor gating ─────────────────────────────────────────────────────
     // hyprsunset (Night Light) and the hl.config screen_shader (Filter) are
     // Hyprland-only; those tiles hide on niri. Focus Mode keeps the bar-shrink
@@ -23,37 +27,12 @@ StatCard {
     // ─────────────────────────────────────────────────────────────────────────
     //  Brightness
     // ─────────────────────────────────────────────────────────────────────────
-    property real _brightVal:  0.72
-    property int  _brightMax:  100
-    property bool _brightBusy: false
+    // Backed by BrightnessService: one shared, inotify-driven source instead of
+    // this card's own `brightnessctl -m` once a second for the whole session.
+    readonly property real _brightVal: BrightnessService.value
 
-    Process {
-        id: brightRead; command: ["bash", "-c", "brightnessctl -m"]; running: false
-        stdout: SplitParser {
-            onRead: function(line) {
-                var p = line.split(",")
-                if (p.length >= 5) {
-                    var cur = parseInt(p[2]); var max = parseInt(p[4])
-                    if (max > 0) { root._brightMax = max; root._brightVal = cur / max }
-                }
-            }
-        }
-    }
-    Process {
-        id: brightWrite
-        command: ["bash", "-c", "brightnessctl set " +
-            (Math.round(root._brightVal * root._brightMax) <= 0
-             ? 2 : Math.round(root._brightVal * root._brightMax))]
-        running: false
-        onRunningChanged: if (!running) root._brightBusy = false
-    }
-    Timer { id: brightDebounce; interval: 50; repeat: false
-        onTriggered: { root._brightBusy = true; brightWrite.running = true } }
-    Timer { interval: 1000; running: true; repeat: true
-        onTriggered: if (!root._brightBusy) brightRead.running = true }
     function _setBright(v) {
-        root._brightVal = Math.max(0.0, Math.min(1.0, v))
-        brightDebounce.restart()
+        BrightnessService.set(v)
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -596,8 +575,13 @@ StatCard {
     // ─────────────────────────────────────────────────────────────────────────
     //  Polling timer
     // ─────────────────────────────────────────────────────────────────────────
+    // Roughly six forks every five seconds (two nmcli for wifi, two
+    // bluetoothctl, a hotspot check and an rfkill check). None of it is
+    // meaningful unless a human is looking at the tiles, so it runs only while
+    // the card is actually on screen. It fires immediately on becoming visible,
+    // so the tiles are never stale when the dashboard opens.
     Timer {
-        interval: 5000; running: true; repeat: true
+        interval: 5000; running: root.onScreen; repeat: true; triggeredOnStart: true
         onTriggered: {
             _wifiPoll(); _btPoll()
             hsActiveCheckProc.running = false; hsActiveCheckProc.running = true
@@ -610,7 +594,6 @@ StatCard {
     }
 
     Component.onCompleted: {
-        brightRead.running      = true
         _wifiPoll(); _btPoll()
         if (root.isHyprland) nlCheck.running = true   // hyprsunset — Hyprland only
         hotspotCheck.running    = true
