@@ -19,7 +19,7 @@ Column {
             anchors.bottom:       parent.bottom
             anchors.bottomMargin: 4
             text:           root.title
-            font.pixelSize: 9
+            font.pixelSize: Theme.fs(9)
             font.weight:    Font.Bold
             color:          Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
         }

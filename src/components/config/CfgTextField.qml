@@ -32,7 +32,7 @@ Item {
         anchors.leftMargin:  10
         anchors.rightMargin: 10
         verticalAlignment:   TextInput.AlignVCenter
-        font.pixelSize:      11
+        font.pixelSize:      Theme.fs(11)
         font.family:         "JetBrains Mono"
         color:               Theme.text
         clip:                true

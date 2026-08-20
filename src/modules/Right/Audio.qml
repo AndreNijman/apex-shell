@@ -40,7 +40,7 @@ Item {
             id: iconText
             text:           root.icon
             color:          hov.hovered ? Theme.active : Theme.text
-            font.pixelSize: 18
+            font.pixelSize: Theme.fs(18)
             anchors.verticalCenter: parent.verticalCenter
             Behavior on color { ColorAnimation { duration: 120 } }
         }
@@ -58,7 +58,7 @@ Item {
                 id: pctText
                 text:           root.pct + "%"
                 color:          hov.hovered ? Theme.active : Theme.text
-                font.pixelSize: 12
+                font.pixelSize: Theme.fs(12)
                 anchors.verticalCenter: parent.verticalCenter
                 Behavior on color { ColorAnimation { duration: 120 } }
             }

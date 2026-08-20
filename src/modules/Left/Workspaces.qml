@@ -258,7 +258,7 @@ Rectangle {
             anchors.centerIn: parent
             text: ""
             color: "#FFFFFF"
-            font.pixelSize: 14
+            font.pixelSize: Theme.fs(14)
         }
 
         MouseArea {

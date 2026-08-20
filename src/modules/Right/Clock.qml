@@ -32,7 +32,7 @@ Text {
     Behavior on color { ColorAnimation { duration: 120 } }
     font.bold: true
     anchors.verticalCenter: parent.verticalCenter
-    font.pixelSize: 16
+    font.pixelSize: Theme.fs(16)
 
     property int formatMode: 0
 

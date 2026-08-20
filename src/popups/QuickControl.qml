@@ -172,7 +172,7 @@ PopupWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           col.pctText
                 color:          col.muted ? Qt.rgba(1,1,1,0.25) : Theme.text
-                font.pixelSize: 13
+                font.pixelSize: Theme.fs(13)
                 font.bold:      true
                 Behavior on color { ColorAnimation { duration: 150 } }
             }
@@ -251,7 +251,7 @@ PopupWindow {
                 Text {
                     anchors.centerIn: parent
                     text:           col.icon
-                    font.pixelSize: 14
+                    font.pixelSize: Theme.fs(14)
                     color:          col.muted ? Theme.active : Qt.rgba(1,1,1,0.55)
                     Behavior on color { ColorAnimation { duration: 150 } }
                 }
@@ -270,7 +270,7 @@ PopupWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:            col.label
                 color:           Qt.rgba(1,1,1,0.3)
-                font.pixelSize:  10
+                font.pixelSize:  Theme.fs(10)
                 font.capitalization: Font.AllUppercase
                 font.letterSpacing: 1
                 elide:           Text.ElideRight

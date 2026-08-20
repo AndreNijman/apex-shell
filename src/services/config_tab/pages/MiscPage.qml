@@ -68,7 +68,7 @@ CfgScroll {
 
                 Text {
                     text:           "󰧑"
-                    font.pixelSize: 30
+                    font.pixelSize: Theme.fs(30)
                     color:          Theme.active
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -78,13 +78,13 @@ CfgScroll {
 
                     Text {
                         text:        "APEX Shell"
-                        font.pixelSize: 16
+                        font.pixelSize: Theme.fs(16)
                         font.weight: Font.Medium
                         color:       Theme.text
                     }
                     Text {
                         text:        root.version + "  ·  APEX-OS"
-                        font.pixelSize: 10
+                        font.pixelSize: Theme.fs(10)
                         color:       Qt.rgba(1,1,1,0.4)
                         font.family: "JetBrains Mono"
                     }
@@ -108,7 +108,7 @@ CfgScroll {
             Text {
                 text:        ShellState.configProvider
                 font.family: "JetBrains Mono"
-                font.pixelSize: 11
+                font.pixelSize: Theme.fs(11)
                 color:       Theme.active
             }
         }
@@ -139,7 +139,7 @@ CfgScroll {
             Text {
                 text:        Compositor.name + (Compositor.overrideName === "" ? "  ·  auto" : "  ·  override")
                 font.family: "JetBrains Mono"
-                font.pixelSize: 11
+                font.pixelSize: Theme.fs(11)
                 color:       Theme.active
             }
         }
@@ -148,7 +148,7 @@ CfgScroll {
             x:        10
             width:    parent.width - 20
             text:     "Detected " + Compositor.detected + " from the environment. Choose which compositor APEX Shell targets — Auto follows detection. Hyprland-only features (layout indicator, night light, shader filter, special workspace) degrade automatically on niri."
-            font.pixelSize: 10
+            font.pixelSize: Theme.fs(10)
             color:    Qt.rgba(1,1,1,0.4)
             wrapMode: Text.WordWrap
         }

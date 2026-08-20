@@ -61,7 +61,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text:           "Clipboard"
-                font.pixelSize: 14
+                font.pixelSize: Theme.fs(14)
                 font.weight:    Font.DemiBold
                 color:          Theme.text
             }
@@ -84,12 +84,12 @@ Item {
                     anchors.centerIn: parent
                     spacing: 5
                     Text {
-                        text: "󰩺"; font.pixelSize: 12
+                        text: "󰩺"; font.pixelSize: Theme.fs(12)
                         color: Qt.rgba(248/255, 113/255, 113/255, 0.80)
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     Text {
-                        text: "Clear"; font.pixelSize: 10
+                        text: "Clear"; font.pixelSize: Theme.fs(10)
                         color: Qt.rgba(248/255, 113/255, 113/255, 0.80)
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -115,7 +115,7 @@ Item {
                          && root.pinned.length  === 0
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "○"; font.pixelSize: 22; color: Theme.active
+                    text: "○"; font.pixelSize: Theme.fs(22); color: Theme.active
                     SequentialAnimation on opacity {
                         running: parent.visible; loops: Animation.Infinite
                         NumberAnimation { to: 0.15; duration: 500 }
@@ -124,7 +124,7 @@ Item {
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Loading…"; font.pixelSize: 12; color: Qt.rgba(1,1,1,0.25)
+                    text: "Loading…"; font.pixelSize: Theme.fs(12); color: Qt.rgba(1,1,1,0.25)
                 }
             }
 
@@ -136,15 +136,15 @@ Item {
                          && root.pinned.length  === 0
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "󰅍"; font.pixelSize: 32; color: Qt.rgba(1,1,1,0.08)
+                    text: "󰅍"; font.pixelSize: Theme.fs(32); color: Qt.rgba(1,1,1,0.08)
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Clipboard is empty"; font.pixelSize: 12; color: Qt.rgba(1,1,1,0.20)
+                    text: "Clipboard is empty"; font.pixelSize: Theme.fs(12); color: Qt.rgba(1,1,1,0.20)
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Copy something to get started"; font.pixelSize: 10; color: Qt.rgba(1,1,1,0.13)
+                    text: "Copy something to get started"; font.pixelSize: Theme.fs(10); color: Qt.rgba(1,1,1,0.13)
                 }
             }
 
@@ -320,7 +320,7 @@ component ClipRow: Item {
                         }
                         Text {
                             anchors.centerIn: parent
-                            text: "🖼"; font.pixelSize: 18; opacity: 0.22
+                            text: "🖼"; font.pixelSize: Theme.fs(18); opacity: 0.22
                         }
                     }
                 }
@@ -330,7 +330,7 @@ component ClipRow: Item {
                     visible: !row.isImage
                     anchors.verticalCenter: parent.verticalCenter
                     text:           "󰅍"
-                    font.pixelSize: 12
+                    font.pixelSize: Theme.fs(12)
                     color:          Qt.rgba(1, 1, 1, 0.22)
                 }
             }
@@ -346,7 +346,7 @@ component ClipRow: Item {
                 anchors.verticalCenter: parent.verticalCenter
 
                 text: row.isImage ? "Image" : row.previewText
-                font.pixelSize:   12
+                font.pixelSize:   Theme.fs(12)
                 color: row.isImage
                     ? Qt.rgba(1, 1, 1, 0.28)
                     : Qt.rgba(1, 1, 1, 0.78)
@@ -411,7 +411,7 @@ component ClipRow: Item {
 
             Text {
                 anchors.centerIn: parent
-                text: " 󰐃"; font.pixelSize: 8; font.weight: Font.Bold
+                text: " 󰐃"; font.pixelSize: Theme.fs(8); font.weight: Font.Bold
                 color: Qt.rgba(0, 0, 0, 0.65)
             }
 
@@ -482,7 +482,7 @@ component ActionBtn: Rectangle {
     Text {
         anchors.centerIn: parent
         text:           ab.icon
-        font.pixelSize: 13
+        font.pixelSize: Theme.fs(13)
         color: ab.danger
             ? (aH.hovered ? "#f87171" : Qt.rgba(248/255, 113/255, 113/255, 0.50))
             : ab.active

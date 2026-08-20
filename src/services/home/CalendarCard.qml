@@ -86,7 +86,7 @@ StatCard {
 
             Text {
                 anchors { left: parent.left; verticalCenter: parent.verticalCenter }
-                text: "‹"; font.pixelSize: 15
+                text: "‹"; font.pixelSize: Theme.fs(15)
                 color: pH.hovered ? Qt.rgba(1,1,1,0.7) : Qt.rgba(1,1,1,0.25)
                 Behavior on color { ColorAnimation { duration: 100 } }
                 HoverHandler { id: pH; cursorShape: Qt.PointingHandCursor }
@@ -94,12 +94,12 @@ StatCard {
             }
             Text {
                 anchors.centerIn: parent
-                text: root._label; font.pixelSize: 10; font.weight: Font.Bold
+                text: root._label; font.pixelSize: Theme.fs(10); font.weight: Font.Bold
                 color: Theme.text
             }
             Text {
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                text: "›"; font.pixelSize: 15
+                text: "›"; font.pixelSize: Theme.fs(15)
                 color: nH.hovered ? Qt.rgba(1,1,1,0.7) : Qt.rgba(1,1,1,0.25)
                 Behavior on color { ColorAnimation { duration: 100 } }
                 HoverHandler { id: nH; cursorShape: Qt.PointingHandCursor }
@@ -119,7 +119,7 @@ StatCard {
                     delegate: Text {
                         width: Math.floor(dow.width / 7)
                         horizontalAlignment: Text.AlignHCenter
-                        text: modelData; font.pixelSize: 8; font.weight: Font.Bold
+                        text: modelData; font.pixelSize: Theme.fs(8); font.weight: Font.Bold
                         color: Qt.rgba(1,1,1,0.2)
                     }
                 }
@@ -158,7 +158,7 @@ StatCard {
                         Behavior on color { ColorAnimation { duration: 80 } }
                         Text {
                             anchors.centerIn: parent; text: modelData.n
-                            font.pixelSize: 9; font.family: "JetBrains Mono"
+                            font.pixelSize: Theme.fs(9); font.family: "JetBrains Mono"
                             font.weight: isToday ? Font.Bold : Font.Normal
                             color: isToday ? Theme.active
                                    : modelData.cur ? Qt.rgba(205/255,214/255,244/255,0.55)

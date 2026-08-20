@@ -335,7 +335,7 @@ Item {
 
             Text {
                 anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
-                text: root._glyph(dRow.device.iconType); font.pixelSize: 18
+                text: root._glyph(dRow.device.iconType); font.pixelSize: Theme.fs(18)
                 color: dRow.isConnected ? Theme.active
                     : (dRow.inAction || dRow.inRemove) ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5) : Qt.rgba(1,1,1,0.32)
                 Behavior on color { ColorAnimation { duration: 150 } }
@@ -345,7 +345,7 @@ Item {
                 anchors { left: parent.left; leftMargin: 44; verticalCenter: parent.verticalCenter }
                 spacing: 3
                 Text {
-                    text: dRow.device.name; font.pixelSize: 13
+                    text: dRow.device.name; font.pixelSize: Theme.fs(13)
                     font.weight: dRow.isConnected ? Font.Medium : Font.Normal
                     color: dRow.isConnected ? Theme.text : Qt.rgba(1,1,1,0.68)
                     width: 160; elide: Text.ElideRight
@@ -353,7 +353,7 @@ Item {
                 Text {
                     visible: dRow.isConnected || dRow.inAction || dRow.inRemove
                     text: dRow.inRemove ? "Removing…" : dRow.inAction ? "Working…" : "Connected"
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fs(10)
                     color: (dRow.inAction || dRow.inRemove) ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55) : Theme.active
                 }
             }
@@ -365,7 +365,7 @@ Item {
                 // Spinner
                 Text {
                     visible: dRow.inAction || dRow.inRemove
-                    text: "○"; font.pixelSize: 15; color: Theme.active
+                    text: "○"; font.pixelSize: Theme.fs(15); color: Theme.active
                     anchors.verticalCenter: parent.verticalCenter
                     SequentialAnimation on opacity {
                         running: dRow.inAction || dRow.inRemove; loops: Animation.Infinite
@@ -386,7 +386,7 @@ Item {
                     Row {
                         id: togContent; anchors.centerIn: parent; spacing: 7
                         Rectangle { width: 7; height: 7; radius: 4; anchors.verticalCenter: parent.verticalCenter; color: dRow.isConnected ? Theme.active : Qt.rgba(1,1,1,0.25); Behavior on color { ColorAnimation { duration: 150 } } }
-                        Text { text: dRow.isConnected ? "Connected" : "Connect"; font.pixelSize: 11; font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter; color: dRow.isConnected ? Theme.active : Qt.rgba(1,1,1,0.48); Behavior on color { ColorAnimation { duration: 120 } } }
+                        Text { text: dRow.isConnected ? "Connected" : "Connect"; font.pixelSize: Theme.fs(11); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter; color: dRow.isConnected ? Theme.active : Qt.rgba(1,1,1,0.48); Behavior on color { ColorAnimation { duration: 120 } } }
                     }
                     HoverHandler { id: togH; cursorShape: Qt.PointingHandCursor }
                     MouseArea { anchors.fill: parent; onClicked: dRow.isConnected ? root._disconnect(dRow.device.mac) : root._connect(dRow.device.mac) }
@@ -397,7 +397,7 @@ Item {
                     visible: dRow.isPaired && !dRow.inAction && !dRow.inRemove
                     width: 28; height: 28; anchors.verticalCenter: parent.verticalCenter
                     Rectangle { anchors.fill: parent; radius: 7; color: rmH.hovered ? Qt.rgba(248/255,113/255,113/255,0.20) : dRow.isRemovePending ? Qt.rgba(248/255,113/255,113/255,0.12) : "transparent"; Behavior on color { ColorAnimation { duration: 100 } } }
-                    Text { anchors.centerIn: parent; text: "󰗼"; font.pixelSize: 13; color: (rmH.hovered || dRow.isRemovePending) ? "#f87171" : Qt.rgba(1,1,1,0.25); Behavior on color { ColorAnimation { duration: 100 } } }
+                    Text { anchors.centerIn: parent; text: "󰗼"; font.pixelSize: Theme.fs(13); color: (rmH.hovered || dRow.isRemovePending) ? "#f87171" : Qt.rgba(1,1,1,0.25); Behavior on color { ColorAnimation { duration: 100 } } }
                     HoverHandler { id: rmH; cursorShape: Qt.PointingHandCursor }
                     MouseArea { anchors.fill: parent; onClicked: { root._pairingMac = ""; root._removeMac = dRow.isRemovePending ? "" : dRow.device.mac } }
                 }
@@ -413,7 +413,7 @@ Item {
                         color: pairH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.09)
                         border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35); border.width: 1
                         Behavior on color { ColorAnimation { duration: 100 } }
-                        Text { id: pairLbl; anchors.centerIn: parent; text: "Pair"; font.pixelSize: 11; font.weight: Font.Medium; color: Theme.active }
+                        Text { id: pairLbl; anchors.centerIn: parent; text: "Pair"; font.pixelSize: Theme.fs(11); font.weight: Font.Medium; color: Theme.active }
                         HoverHandler { id: pairH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: { root._removeMac = ""; root._pairingMac = ""; root._pair(dRow.device.mac, "") } }
                     }
@@ -421,7 +421,7 @@ Item {
                     Item {
                         width: 24; height: 28; anchors.verticalCenter: parent?.verticalCenter
                         Rectangle { anchors.fill: parent; radius: 6; color: pinH.hovered ? Qt.rgba(1,1,1,0.10) : dRow.isPairingOpen ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12) : Qt.rgba(1,1,1,0.04); border.color: dRow.isPairingOpen ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30) : Qt.rgba(1,1,1,0.09); border.width: 1; Behavior on color { ColorAnimation { duration: 100 } } }
-                        Text { anchors.centerIn: parent; text: "󰌾"; font.pixelSize: 12; color: dRow.isPairingOpen ? Theme.active : pinH.hovered ? Qt.rgba(1,1,1,0.7) : Qt.rgba(1,1,1,0.28); Behavior on color { ColorAnimation { duration: 100 } } }
+                        Text { anchors.centerIn: parent; text: "󰌾"; font.pixelSize: Theme.fs(12); color: dRow.isPairingOpen ? Theme.active : pinH.hovered ? Qt.rgba(1,1,1,0.7) : Qt.rgba(1,1,1,0.28); Behavior on color { ColorAnimation { duration: 100 } } }
                         HoverHandler { id: pinH; cursorShape: Qt.PointingHandCursor }
                         MouseArea {
                             anchors.fill: parent
@@ -457,14 +457,14 @@ Item {
                     radius: 8; color: Qt.rgba(248/255,113/255,113/255,0.06); border.color: Qt.rgba(248/255,113/255,113/255,0.22); border.width: 1
                     Row {
                         anchors.centerIn: parent; spacing: 12
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Remove this device?"; font.pixelSize: 11; color: Qt.rgba(1,1,1,0.5) }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Remove this device?"; font.pixelSize: Theme.fs(11); color: Qt.rgba(1,1,1,0.5) }
                         Rectangle { width: 58; height: 24; radius: 6; color: cxH.hovered ? Qt.rgba(1,1,1,0.09) : Qt.rgba(1,1,1,0.04); Behavior on color { ColorAnimation { duration: 80 } }
-                            Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: 10; color: Qt.rgba(1,1,1,0.42) }
+                            Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: Theme.fs(10); color: Qt.rgba(1,1,1,0.42) }
                             HoverHandler { id: cxH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._removeMac = "" }
                         }
                         Rectangle { width: 64; height: 24; radius: 6; color: rxH.hovered ? Qt.rgba(248/255,113/255,113/255,0.40) : Qt.rgba(248/255,113/255,113/255,0.18); Behavior on color { ColorAnimation { duration: 80 } }
-                            Text { anchors.centerIn: parent; text: "Remove"; font.pixelSize: 10; font.weight: Font.Medium; color: "#f87171" }
+                            Text { anchors.centerIn: parent; text: "Remove"; font.pixelSize: Theme.fs(10); font.weight: Font.Medium; color: "#f87171" }
                             HoverHandler { id: rxH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._remove(dRow.device.mac) }
                         }
@@ -483,7 +483,7 @@ Item {
                     id: pinCol
                     anchors { left: parent.left; right: parent.right; leftMargin: 8; rightMargin: 8 }
                     spacing: 6
-                    Text { width: parent.width; text: "Legacy PIN pairing — enter the PIN shown on your device"; font.pixelSize: 10; color: Qt.rgba(1,1,1,0.30); wrapMode: Text.WordWrap }
+                    Text { width: parent.width; text: "Legacy PIN pairing — enter the PIN shown on your device"; font.pixelSize: Theme.fs(10); color: Qt.rgba(1,1,1,0.30); wrapMode: Text.WordWrap }
                     Row {
                         width: parent.width; spacing: 8
                         Rectangle {
@@ -492,12 +492,12 @@ Item {
                             border.color: pinInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55) : Qt.rgba(1,1,1,0.12)
                             border.width: 1; Behavior on border.color { ColorAnimation { duration: 120 } }
                             Text { anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
-                            text: "PIN (optional)…"; font.pixelSize: 12; color: Qt.rgba(1,1,1,0.22); visible: pinInput.text === "" }
+                            text: "PIN (optional)…"; font.pixelSize: Theme.fs(12); color: Qt.rgba(1,1,1,0.22); visible: pinInput.text === "" }
                             TextInput {
                                 id: pinInput
                                 anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                                 verticalAlignment: TextInput.AlignVCenter; color: Theme.text
-                                font.pixelSize: 12; font.family: "JetBrains Mono"
+                                font.pixelSize: Theme.fs(12); font.family: "JetBrains Mono"
                                 inputMethodHints: Qt.ImhDigitsOnly; maximumLength: 8
                                 selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35); clip: true
                                 Keys.onReturnPressed: root._pair(dRow.device.mac, text)
@@ -508,7 +508,7 @@ Item {
                             color: pcH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
                             border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.42); border.width: 1
                             Behavior on color { ColorAnimation { duration: 100 } }
-                            Text { anchors.centerIn: parent; text: "Pair"; font.pixelSize: 11; font.weight: Font.Medium; color: Theme.active }
+                            Text { anchors.centerIn: parent; text: "Pair"; font.pixelSize: Theme.fs(11); font.weight: Font.Medium; color: Theme.active }
                             HoverHandler { id: pcH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._pair(dRow.device.mac, pinInput.text) }
                         }
@@ -530,7 +530,7 @@ Item {
             width: parent.width; height: 40
 
             Text { anchors { left: parent.left; leftMargin: 2; verticalCenter: parent.verticalCenter }
-            text: "Bluetooth"; font.pixelSize: 15; font.weight: Font.Bold; color: Theme.text }
+            text: "Bluetooth"; font.pixelSize: Theme.fs(15); font.weight: Font.Bold; color: Theme.text }
 
             Row {
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
@@ -543,7 +543,7 @@ Item {
                     border.color: root._btPowered ? Qt.rgba(1,1,1,0.10) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30); border.width: 1
                     Behavior on color        { ColorAnimation { duration: 120 } }
                     Behavior on border.color { ColorAnimation { duration: 120 } }
-                    Text { anchors.centerIn: parent; text: "⏻"; font.pixelSize: 14; color: root._btPowered ? (pwrH.hovered ? "#f87171" : Qt.rgba(1,1,1,0.32)) : Theme.active; Behavior on color { ColorAnimation { duration: 120 } } }
+                    Text { anchors.centerIn: parent; text: "⏻"; font.pixelSize: Theme.fs(14); color: root._btPowered ? (pwrH.hovered ? "#f87171" : Qt.rgba(1,1,1,0.32)) : Theme.active; Behavior on color { ColorAnimation { duration: 120 } } }
                     HoverHandler { id: pwrH; cursorShape: Qt.PointingHandCursor }
                     MouseArea { anchors.fill: parent; onClicked: root._setPower(!root._btPowered) }
                 }
@@ -554,7 +554,7 @@ Item {
                     color: settH.hovered ? Qt.rgba(1,1,1,0.09) : Qt.rgba(1,1,1,0.03)
                     border.color: Qt.rgba(1,1,1,0.10); border.width: 1
                     Behavior on color { ColorAnimation { duration: 100 } }
-                    Text { anchors.centerIn: parent; text: "󰒓"; font.pixelSize: 14; color: settH.hovered ? Qt.rgba(1,1,1,0.75) : Qt.rgba(1,1,1,0.30); Behavior on color { ColorAnimation { duration: 100 } } }
+                    Text { anchors.centerIn: parent; text: "󰒓"; font.pixelSize: Theme.fs(14); color: settH.hovered ? Qt.rgba(1,1,1,0.75) : Qt.rgba(1,1,1,0.30); Behavior on color { ColorAnimation { duration: 100 } } }
                     HoverHandler { id: settH; cursorShape: Qt.PointingHandCursor }
                     MouseArea { anchors.fill: parent; onClicked: { bluemanProc.running = false; bluemanProc.running = true } }
                 }
@@ -578,7 +578,7 @@ Item {
                                 NumberAnimation { to: 1.0; duration: 450 }
                             }
                         }
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: root._scanning ? "Stop" : "Scan"; font.pixelSize: 12; font.weight: Font.Medium; color: root._scanning ? Theme.active : Qt.rgba(1,1,1,0.6); Behavior on color { ColorAnimation { duration: 130 } } }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: root._scanning ? "Stop" : "Scan"; font.pixelSize: Theme.fs(12); font.weight: Font.Medium; color: root._scanning ? Theme.active : Qt.rgba(1,1,1,0.6); Behavior on color { ColorAnimation { duration: 130 } } }
                     }
                     HoverHandler { id: scanH; cursorShape: root._btPowered ? Qt.PointingHandCursor : Qt.ArrowCursor }
                     MouseArea { anchors.fill: parent; onClicked: if (root._btPowered) root._startScan() }
@@ -595,7 +595,7 @@ Item {
             Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
             ScanRings { anchors.centerIn: parent; width: 52; height: 52; centerGlyph: "󰂯"; glyphSize: 14 }
             Text { anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 6 }
-            text: "Scanning for devices…"; font.pixelSize: 10; color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.50) }
+            text: "Scanning for devices…"; font.pixelSize: Theme.fs(10); color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.50) }
         }
 
         Flickable {
@@ -609,7 +609,7 @@ Item {
                 id: devCol; width: parent.width; height: implicitHeight; spacing: 4
 
                 Item { width: parent.width; height: visible ? pLbl.implicitHeight + 4 : 0; visible: root._paired.length > 0
-                    Text { id: pLbl; text: "PAIRED"; font.pixelSize: 9; font.weight: Font.Bold; font.letterSpacing: 1.2; color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5) } }
+                    Text { id: pLbl; text: "PAIRED"; font.pixelSize: Theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2; color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5) } }
 
                 Repeater {
                     model: root._paired
@@ -619,7 +619,7 @@ Item {
                 Item { width: parent.width; height: 10; visible: root._paired.length > 0 && root._available.length > 0 }
 
                 Item { width: parent.width; height: visible ? aLbl.implicitHeight + 4 : 0; visible: root._available.length > 0
-                    Text { id: aLbl; text: root._scanning ? "DISCOVERED" : "AVAILABLE"; font.pixelSize: 9; font.weight: Font.Bold; font.letterSpacing: 1.2; color: Qt.rgba(1,1,1,0.25) } }
+                    Text { id: aLbl; text: root._scanning ? "DISCOVERED" : "AVAILABLE"; font.pixelSize: Theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2; color: Qt.rgba(1,1,1,0.25) } }
 
                 Repeater {
                     model: root._available
@@ -631,9 +631,9 @@ Item {
                     width: parent.width; height: 120
                     visible: !root._scanning && root._allDevices.length === 0 && root._btPowered
                     Column { anchors.centerIn: parent; spacing: 10
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰂯"; font.pixelSize: 32; color: Qt.rgba(1,1,1,0.08) }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "No devices found"; font.pixelSize: 12; color: Qt.rgba(1,1,1,0.2) }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Tap Scan to discover nearby devices"; font.pixelSize: 10; color: Qt.rgba(1,1,1,0.14) }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰂯"; font.pixelSize: Theme.fs(32); color: Qt.rgba(1,1,1,0.08) }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "No devices found"; font.pixelSize: Theme.fs(12); color: Qt.rgba(1,1,1,0.2) }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Tap Scan to discover nearby devices"; font.pixelSize: Theme.fs(10); color: Qt.rgba(1,1,1,0.14) }
                     }
                 }
 
@@ -652,8 +652,8 @@ Item {
 
         Column {
             anchors.centerIn: parent; spacing: 16
-            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰂲"; font.pixelSize: 42; color: Qt.rgba(1,1,1,0.12) }
-            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Bluetooth is off"; font.pixelSize: 14; font.weight: Font.Medium; color: Qt.rgba(1,1,1,0.30) }
+            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰂲"; font.pixelSize: Theme.fs(42); color: Qt.rgba(1,1,1,0.12) }
+            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Bluetooth is off"; font.pixelSize: Theme.fs(14); font.weight: Font.Medium; color: Qt.rgba(1,1,1,0.30) }
             Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: enableRow.implicitWidth + 24; height: 34; radius: 17
@@ -661,8 +661,8 @@ Item {
                 border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40); border.width: 1
                 Behavior on color { ColorAnimation { duration: 120 } }
                 Row { id: enableRow; anchors.centerIn: parent; spacing: 8
-                    Text { anchors.verticalCenter: parent.verticalCenter; text: "󰂯"; font.pixelSize: 14; color: Theme.active }
-                    Text { anchors.verticalCenter: parent.verticalCenter; text: "Turn On"; font.pixelSize: 12; font.weight: Font.Medium; color: Theme.active }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: "󰂯"; font.pixelSize: Theme.fs(14); color: Theme.active }
+                    Text { anchors.verticalCenter: parent.verticalCenter; text: "Turn On"; font.pixelSize: Theme.fs(12); font.weight: Font.Medium; color: Theme.active }
                 }
                 HoverHandler { id: enableH; cursorShape: Qt.PointingHandCursor }
                 MouseArea { anchors.fill: parent; onClicked: root._setPower(true) }

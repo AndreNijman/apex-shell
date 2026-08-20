@@ -216,7 +216,7 @@ WlSessionLock {
                     text:           surface.timeText
                     color:          Theme.text
                     font.family:    "JetBrainsMono Nerd Font"
-                    font.pixelSize: 120
+                    font.pixelSize: Theme.fs(120)
                     font.bold:      true
                 }
                 Text {
@@ -224,7 +224,7 @@ WlSessionLock {
                     text:           surface.dateText
                     color:          Theme.subtext
                     font.family:    "JetBrainsMono Nerd Font"
-                    font.pixelSize: 22
+                    font.pixelSize: Theme.fs(22)
                 }
             }
 
@@ -242,7 +242,7 @@ WlSessionLock {
                     text:           surface.username !== "" ? surface.username : "Locked"
                     color:          Theme.text
                     font.family:    "JetBrainsMono Nerd Font"
-                    font.pixelSize: 20
+                    font.pixelSize: Theme.fs(20)
                     font.bold:      true
                 }
 
@@ -268,7 +268,7 @@ WlSessionLock {
                         text:  "󰌾"
                         color: Theme.subtext
                         font.family:    "JetBrainsMono Nerd Font"
-                        font.pixelSize: 18
+                        font.pixelSize: Theme.fs(18)
                     }
 
                     TextInput {
@@ -283,7 +283,7 @@ WlSessionLock {
                         color:                   Theme.text
                         selectionColor:          Theme.active
                         font.family:             "JetBrainsMono Nerd Font"
-                        font.pixelSize:          18
+                        font.pixelSize:          Theme.fs(18)
                         echoMode:                TextInput.Password
                         passwordCharacter:       "●"
                         passwordMaskDelay:       0
@@ -376,7 +376,7 @@ WlSessionLock {
                         : (surface.capsOn ? "󰪛  Caps Lock is on" : "")
                     color: surface.hasError ? "#ff5c5c" : Theme.subtext
                     font.family:    "JetBrainsMono Nerd Font"
-                    font.pixelSize: 14
+                    font.pixelSize: Theme.fs(14)
                 }
             }
 

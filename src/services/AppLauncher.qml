@@ -228,14 +228,14 @@ Item {
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "󰣪"; font.pixelSize: 32
+                    text: "󰣪"; font.pixelSize: Theme.fs(32)
                     color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.3)
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text:           "Loading apps…"
                     color:          Qt.rgba(1,1,1,0.25)
-                    font.pixelSize: 13
+                    font.pixelSize: Theme.fs(13)
                 }
             }
 
@@ -248,14 +248,14 @@ Item {
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text:           root.query !== "" ? "󰩄" : "󱗃"
-                    font.pixelSize: 28
+                    font.pixelSize: Theme.fs(28)
                     color:          Qt.rgba(1,1,1,0.18)
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text:           root.query !== "" ? "No results" : "No apps found"
                     color:          Qt.rgba(1,1,1,0.25)
-                    font.pixelSize: 13
+                    font.pixelSize: Theme.fs(13)
                 }
             }
 
@@ -350,7 +350,7 @@ Item {
                                         if (modelData.kind === "hint") return "󰋼"
                                         return modelData.name.charAt(0).toUpperCase()
                                     }
-                                    font.pixelSize: 13; font.bold: true
+                                    font.pixelSize: Theme.fs(13); font.bold: true
                                     color:          Theme.active
                                 }
                             }
@@ -362,7 +362,7 @@ Item {
                             width: parent.width - 28 - parent.spacing
                             anchors.verticalCenter: parent.verticalCenter
                             text:           modelData.name
-                            font.pixelSize: 13
+                            font.pixelSize: Theme.fs(13)
                             color:          isSel ? Theme.active : Theme.text
                             wrapMode:       isText ? Text.Wrap : Text.NoWrap
                             elide:          isText ? Text.ElideNone : Text.ElideRight
@@ -401,7 +401,7 @@ Item {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "󰍉"; font.pixelSize: 16
+                    text: "󰍉"; font.pixelSize: Theme.fs(16)
                     color: searchInput.activeFocus
                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7)
                            : Qt.rgba(1,1,1,0.35)
@@ -417,7 +417,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         text:    "Search apps   ·   ? asks a question"
                         color:   Qt.rgba(1,1,1,0.22)
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.fs(13)
                         visible: searchInput.text === ""
                     }
 
@@ -426,7 +426,7 @@ Item {
                         anchors { fill: parent; topMargin: 2; bottomMargin: 2 }
                         verticalAlignment: TextInput.AlignVCenter
                         color:          Theme.text
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.fs(13)
                         selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
                         clip: true
 

@@ -164,7 +164,7 @@ Item {
             anchors.centerIn: parent
             text: root.currentLayout !== "" ? layoutSymbol(root.currentLayout) : "…"
             font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 14
+            font.pixelSize: Theme.fs(14)
             color: "#cdd6f4"
 
             // Brief scale-pop on symbol change

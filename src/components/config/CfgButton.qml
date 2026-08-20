@@ -41,13 +41,13 @@ Item {
         Text {
             visible: root.icon !== ""
             text:    root.icon
-            font.pixelSize: 12
+            font.pixelSize: Theme.fs(12)
             anchors.verticalCenter: parent.verticalCenter
             color: root.variant === "default" ? Qt.rgba(1,1,1,0.7) : root._accent
         }
         Text {
             text: root.label
-            font.pixelSize: 11
+            font.pixelSize: Theme.fs(11)
             font.weight:    Font.Medium
             anchors.verticalCenter: parent.verticalCenter
             color: root.variant === "default" ? Qt.rgba(1,1,1,0.7) : root._accent

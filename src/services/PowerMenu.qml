@@ -187,14 +187,14 @@ Column {
 
                 Text {
                     text:           modelData.icon
-                    font.pixelSize: 16
+                    font.pixelSize: Theme.fs(16)
                     color:          modelData.danger && hov.hovered ? "#ff6b6b" : hov.hovered?"#000000":Theme.text
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
                 Text {
                     text:           modelData.label
-                    font.pixelSize: 13
+                    font.pixelSize: Theme.fs(13)
                     color:          modelData.danger && hov.hovered ? "#ff6b6b" : hov.hovered?"#000000":Theme.text
                     anchors.verticalCenter: parent.verticalCenter
                 }

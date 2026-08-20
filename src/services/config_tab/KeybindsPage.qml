@@ -76,7 +76,7 @@ Item {
                     var n = Object.keys(root._pending).length
                     return n + " unsaved change" + (n > 1 ? "s" : "")
                 }
-                font.pixelSize: 11
+                font.pixelSize: Theme.fs(11)
                 color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.70)
             }
 
@@ -86,7 +86,7 @@ Item {
                 color: _discardH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
                 border.color: Qt.rgba(1,1,1,0.13); border.width: 1
                 Behavior on color { ColorAnimation { duration: 100 } }
-                Text { anchors.centerIn: parent; text: "Discard"; font.pixelSize: 10
+                Text { anchors.centerIn: parent; text: "Discard"; font.pixelSize: Theme.fs(10)
                     color: Qt.rgba(1,1,1,0.48) }
                 HoverHandler { id: _discardH; cursorShape: Qt.PointingHandCursor }
                 MouseArea { anchors.fill: parent; onClicked: root._pending = {} }
@@ -101,7 +101,7 @@ Item {
                 border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.42)
                 border.width: 1
                 Behavior on color { ColorAnimation { duration: 100 } }
-                Text { anchors.centerIn: parent; text: "Save"; font.pixelSize: 10
+                Text { anchors.centerIn: parent; text: "Save"; font.pixelSize: Theme.fs(10)
                     font.weight: Font.Medium; color: Theme.active }
                 HoverHandler { id: _saveH; cursorShape: Qt.PointingHandCursor }
                 MouseArea { anchors.fill: parent; onClicked: root._applyPending() }
@@ -155,7 +155,7 @@ Item {
                             anchors.bottom:       parent.bottom
                             anchors.bottomMargin: 4
                             text:           modelData.name
-                            font.pixelSize: 9
+                            font.pixelSize: Theme.fs(9)
                             font.weight:    Font.Bold
                             color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
                         }
@@ -328,7 +328,7 @@ Item {
             Text {
                 anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                 text:           br._b ? br._b.label : br.action
-                font.pixelSize: 12
+                font.pixelSize: Theme.fs(12)
                 color:          br._savedDupe ? "#f87171" : (br._isUnbound ? Qt.rgba(1, 1, 1, 0.35) : Qt.rgba(1, 1, 1, 0.68))
                 Behavior on color { ColorAnimation { duration: 120 } }
             }
@@ -342,7 +342,7 @@ Item {
                     visible: br._savedDupe
                     anchors.verticalCenter: parent.verticalCenter
                     text:           "⚠ " + KeybindService.conflictsWith(br.action)
-                    font.pixelSize: 9
+                    font.pixelSize: Theme.fs(9)
                     color:          Qt.rgba(248/255, 113/255, 113/255, 0.75)
                 }
 
@@ -352,7 +352,7 @@ Item {
                     width: 22; height: 22; radius: 6
                     color: _clrH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
                     Behavior on color { ColorAnimation { duration: 100 } }
-                    Text { anchors.centerIn: parent; text: "󰩺"; font.pixelSize: 11
+                    Text { anchors.centerIn: parent; text: "󰩺"; font.pixelSize: Theme.fs(11)
                         color: _clrH.hovered ? "#ff4444" : Qt.rgba(1,1,1,0.28) }
                     HoverHandler { id: _clrH; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
@@ -370,7 +370,7 @@ Item {
                     width: 22; height: 22; radius: 6
                     color: _rstH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
                     Behavior on color { ColorAnimation { duration: 100 } }
-                    Text { anchors.centerIn: parent; text: "↺"; font.pixelSize: 11
+                    Text { anchors.centerIn: parent; text: "↺"; font.pixelSize: Theme.fs(11)
                         color: _rstH.hovered ? Theme.active : Qt.rgba(1,1,1,0.28) }
                     HoverHandler { id: _rstH; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
@@ -421,7 +421,7 @@ Item {
                         id: _pillT
                         anchors.centerIn: parent
                         text:           br._pillText
-                        font.pixelSize: 10; font.family: "JetBrains Mono"
+                        font.pixelSize: Theme.fs(10); font.family: "JetBrains Mono"
                         font.italic:    br._isUnbound 
                         
                         color: br._isUnbound 
@@ -464,7 +464,7 @@ Item {
                 Text {
                     anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                     text:           br._b ? br._b.label : br.action
-                    font.pixelSize: 12
+                    font.pixelSize: Theme.fs(12)
                     color:          Qt.rgba(1, 1, 1, 0.68)
                 }
 
@@ -487,7 +487,7 @@ Item {
                         Text {
                             id: _capT
                             anchors.centerIn: parent
-                            font.pixelSize: 10; font.family: "JetBrains Mono"
+                            font.pixelSize: Theme.fs(10); font.family: "JetBrains Mono"
                             color: br._hasConflict
                                 ? "#f87171"
                                 : br.capturedKey !== ""
@@ -508,7 +508,7 @@ Item {
                         width: 28; height: 24; radius: 6
                         color: _cnH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
                         Behavior on color { ColorAnimation { duration: 100 } }
-                        Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: 10
+                        Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: Theme.fs(10)
                             color: Qt.rgba(1,1,1,0.38) }
                         HoverHandler { id: _cnH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: br.releaseCapture() }
@@ -525,7 +525,7 @@ Item {
                 Text {
                     anchors { left: parent.left; leftMargin: 2; verticalCenter: parent.verticalCenter }
                     text:           "⚠  Conflicts with: " + br._conflictLabel
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fs(10)
                     color:          "#f87171"
                 }
             }

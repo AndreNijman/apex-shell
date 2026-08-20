@@ -34,7 +34,7 @@ Item {
         width:               root.readoutWidth
         horizontalAlignment: Text.AlignRight
         text:           Math.round(root.value) + root.suffix
-        font.pixelSize: 11
+        font.pixelSize: Theme.fs(11)
         font.family:    "JetBrains Mono"
         color:          Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.9)
     }
