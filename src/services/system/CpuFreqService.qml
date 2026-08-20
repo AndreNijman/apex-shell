@@ -1,104 +1,115 @@
+pragma Singleton
 import QtQuick
+import Quickshell
 import Quickshell.Io
 
-// Tracks auto-cpufreq daemon status, the kernel governor, and current freq.
+// ─────────────────────────────────────────────────────────────────────────────
+// CpuFreqService — CPU governor, average clock, and auto-cpufreq daemon state.
 //
-// Reading strategy:
-//   1. pgrep auto-cpufreq (init-agnostic)       → daemonActive
-//   2. cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
-//      → reads ALL cores, picks the dominant governor
-//      → activeProfile: "performance" | "powersave"
-//   3. cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq
-//      → averages kHz across all cores → curFreqStr
+// Singleton + refcounted. This was the single worst offender in the shell: it
+// ran `pgrep -x auto-cpufreq` plus TWO globbed `cat` pipelines every 2 seconds,
+// unconditionally, from shell start to shell exit, whether or not the dashboard
+// had ever been opened. Three forks per tick, 1.5 forks/second, forever.
+//
+// Now:
+//   • governor  — FileView on cpu0's cpufreq policy. Reading one policy rather
+//     than globbing every core is a deliberate trade: FileView cannot glob, and
+//     every core in a policy group shares a governor by definition. Machines
+//     with heterogeneous policies (big.LITTLE) will report the first policy's
+//     governor rather than a "dominant" vote — an acceptable cosmetic loss for
+//     removing a per-tick fork.
+//   • frequency — /proc/cpuinfo, which carries one "cpu MHz" line per logical
+//     CPU, averaged. Falls back to cpu0's scaling_cur_freq (kHz) on kernels and
+//     architectures that do not publish "cpu MHz" (notably arm64).
+//   • daemon    — still a `pgrep`, because liveness of a foreign daemon is not
+//     exposed anywhere in /proc or /sys that FileView can address. It is now
+//     refcounted AND slowed to 10s, so it costs nothing at idle and 0.1 forks/s
+//     while the stats page is actually on screen.
 //
 // Exposes:
-//   string governor      — dominant sysfs value e.g. "powersave"
+//   string governor      — e.g. "powersave"
 //   string activeProfile — "performance" | "powersave"
-//   bool   daemonActive  — true if auto-cpufreq.service is running
+//   bool   daemonActive
 //   bool   busy
-//   string curFreqStr    — average frequency e.g. "2.40 GHz"
-//   function setActiveProfile(profile)  — "performance" | "powersave"
+//   string curFreqStr    — e.g. "2.40 GHz"
+//   function setActiveProfile(profile)
+// ─────────────────────────────────────────────────────────────────────────────
 
-QtObject {
+Singleton {
     id: root
 
-    property string governor:      "—"
+    property int refCount: 0
+
+    property int interval: 2000
+    property int daemonInterval: 10000
+
+    property string governor: "—"
     property string activeProfile: "powersave"
-    property bool   daemonActive:  false
-    property bool   busy:          false
-    property string curFreqStr:    "— GHz"
+    property bool daemonActive: false
+    property bool busy: false
+    property string curFreqStr: "— GHz"
 
-    property string _pendingProfile: ""
+    // ── Governor ────────────────────────────────────────────────────────────
+    readonly property FileView govFile: FileView {
+        path: "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
+        onLoaded: {
+            const g = (text() || "").trim()
+            if (g === "")
+                return
+            root.governor = g
+            root.activeProfile = g === "performance" ? "performance" : "powersave"
+        }
+    }
 
-    // ── Daemon status check ───────────────────────────────────────────────────
-    property var _daemonProc: Process {
+    // ── Frequency: /proc/cpuinfo, averaged over every "cpu MHz" line ────────
+    readonly property FileView cpuinfoFile: FileView {
+        path: "/proc/cpuinfo"
+        onLoaded: {
+            const t = text()
+            if (!t)
+                return
+
+            const lines = t.split("\n")
+            let sum = 0;
+            let n = 0
+            for (let i = 0; i < lines.length; i++) {
+                if (!lines[i].startsWith("cpu MHz"))
+                    continue
+                const v = parseFloat(lines[i].split(":")[1])
+                if (!isNaN(v)) {
+                    sum += v
+                    n++
+                }
+            }
+
+            if (n > 0)
+                root.curFreqStr = (sum / n / 1000).toFixed(2) + " GHz"
+            else
+                root.freqFile.reload()   // no "cpu MHz" here — try sysfs
+        }
+    }
+
+    // Fallback for architectures without "cpu MHz" in /proc/cpuinfo (kHz).
+    readonly property FileView freqFile: FileView {
+        path: "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq"
+        onLoaded: {
+            const v = parseFloat((text() || "").trim())
+            if (!isNaN(v) && v > 0)
+                root.curFreqStr = (v / 1e6).toFixed(2) + " GHz"
+        }
+    }
+
+    // ── auto-cpufreq daemon liveness ────────────────────────────────────────
+    readonly property Process daemonProc: Process {
         command: ["sh", "-c", "pgrep -x auto-cpufreq >/dev/null && echo active || echo inactive"]
         running: false
         stdout: StdioCollector {
-            onStreamFinished: {
-                root.daemonActive = text.trim() === "active"
-            }
+            onStreamFinished: root.daemonActive = text.trim() === "active"
         }
     }
 
-    // ── Governor reader (all cores) ───────────────────────────────────────────
-    // Picks dominant governor, then maps it to "performance" or "powersave".
-    property var _govProc: Process {
-        // 2>/dev/null: VMs, containers and kernels without CONFIG_CPU_FREQ have
-        // no cpufreq directory at all, so the glob stays literal and cat would
-        // otherwise print an error on every 2s tick for the whole session.
-        command: ["sh", "-c", "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor 2>/dev/null"]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                var lines = text.trim().split("\n").filter(function(l) { return l !== "" })
-                if (lines.length === 0) return
-
-                var counts = {}
-                for (var i = 0; i < lines.length; i++) {
-                    var g = lines[i].trim()
-                    counts[g] = (counts[g] || 0) + 1
-                }
-
-                var dominant = lines[0].trim()
-                var max = 0
-                var keys = Object.keys(counts)
-                for (var j = 0; j < keys.length; j++) {
-                    if (counts[keys[j]] > max) {
-                        max = counts[keys[j]]
-                        dominant = keys[j]
-                    }
-                }
-
-                root.governor      = dominant
-                root.activeProfile = (dominant === "performance") ? "performance" : "powersave"
-            }
-        }
-    }
-
-    // ── Current frequency reader (all cores) ─────────────────────────────────
-    // scaling_cur_freq is in kHz. Average across all cores → format as GHz.
-    property var _freqProc: Process {
-        command: ["sh", "-c", "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null"]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                var lines = text.trim().split("\n").filter(function(l) { return l !== "" })
-                if (lines.length === 0) return
-
-                var sum = 0
-                for (var i = 0; i < lines.length; i++)
-                    sum += parseFloat(lines[i].trim())
-
-                var avgGhz = (sum / lines.length) / 1e6
-                root.curFreqStr = avgGhz.toFixed(2) + " GHz"
-            }
-        }
-    }
-
-    // ── Set profile ───────────────────────────────────────────────────────────
-    // Writes the requested governor to all cores via pkexec tee.
-    property var _setProc: Process {
+    // ── Set governor across every core (pkexec) ─────────────────────────────
+    readonly property Process setProc: Process {
         command: []
         running: false
         onRunningChanged: {
@@ -110,35 +121,37 @@ QtObject {
     }
 
     function setActiveProfile(profile) {
-        if (root.busy) return
+        if (root.busy)
+            return
         root.busy = true
 
-        var gov = (profile === "performance") ? "performance" : "powersave"
-        _setProc.command = [
-            "pkexec", "sh", "-c",
-            "echo \"$1\" | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null",
-            "--", gov
-        ]
-        _setProc.running = false
-        _setProc.running = true
-    }
-
-    // ── Poll timer ────────────────────────────────────────────────────────────
-    property var _pollTimer: Timer {
-        interval: 2000
-        running:  true
-        repeat:   true
-        onTriggered: root._poll()
+        const gov = profile === "performance" ? "performance" : "powersave"
+        root.setProc.command = ["pkexec", "sh", "-c", "echo \"$1\" | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null", "--", gov]
+        root.setProc.running = false
+        root.setProc.running = true
     }
 
     function _poll() {
-        _govProc.running    = false
-        _govProc.running    = true
-        _freqProc.running   = false
-        _freqProc.running   = true
-        _daemonProc.running = false
-        _daemonProc.running = true
+        root.govFile.reload()
+        root.cpuinfoFile.reload()
     }
 
-    Component.onCompleted: _poll()
+    readonly property Timer poll: Timer {
+        interval: root.interval
+        running: root.refCount > 0
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: root._poll()
+    }
+
+    readonly property Timer daemonPoll: Timer {
+        interval: root.daemonInterval
+        running: root.refCount > 0
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: {
+            root.daemonProc.running = false
+            root.daemonProc.running = true
+        }
+    }
 }

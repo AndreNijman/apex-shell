@@ -6,3 +6,7 @@
 /src/user_data/update_prefs.json
 
 .claude/
+
+# Staged by tests/run-service-tier-test.sh (Quickshell requires the entry
+# point to sit beside the modules it imports).
+/.service-tier-test.qml

@@ -1,9 +1,33 @@
 import QtQuick
 import "../../"
+import "../../components"
 
+// Bar clock. Left-click cycles seconds on/off, right-click swaps to the date.
+//
+// The text is a plain binding on the shared Time singleton rather than a local
+// 1 Hz Timer writing into `text`. Seconds mode is the only mode that needs a
+// per-second tick, so it is the only mode that holds a ref on Time's
+// second-precision clock; in the other two modes the whole shell wakes once a
+// minute, on the minute, instead of once a second forever.
 Text {
     id: clock
-    text: Qt.formatDateTime(new Date(), "hh:mm")
+
+    // Only the hh:mm:ss mode needs second-precision ticks.
+    ServiceRef {
+        service: Time
+        active: clock.formatMode === 1
+    }
+
+    text: {
+        switch (clock.formatMode) {
+        case 1:
+            return Time.formatSeconds("hh:mm:ss")
+        case 2:
+            return Time.format("dd-MM-yyyy")
+        default:
+            return Time.format("hh:mm")
+        }
+    }
     color: clockHov.hovered ? Theme.active : Theme.text
     Behavior on color { ColorAnimation { duration: 120 } }
     font.bold: true
@@ -46,31 +70,6 @@ Text {
                     clock.state = "time"
                 }
             }
-            updateText()
         }
     }
-
-    Timer {
-        interval: 1000
-        running: true
-        repeat: true
-        onTriggered: updateText()
-    }
-
-    function updateText() {
-        let now = new Date()
-        switch(formatMode) {
-            case 0:
-                text = Qt.formatDateTime(now, "hh:mm")
-                break
-            case 1:
-                text = Qt.formatDateTime(now, "hh:mm:ss")
-                break
-            case 2:
-                text = Qt.formatDateTime(now, "dd-MM-yyyy")
-                break
-        }
-    }
-
-    Component.onCompleted: updateText()
 }

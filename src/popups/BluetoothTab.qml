@@ -140,7 +140,17 @@ Item {
 
     Process { id: bluemanProc; command: ["blueman-manager"]; running: false }
 
-    Timer { interval: 8000; repeat: true; running: true; onTriggered: if (!root._scanning) root._loadDevices() }
+    // Refresh the device list while the tab is actually being looked at. This
+    // used to be `running: true`, so once the network popup had been opened even
+    // once, `bluetoothctl` ran every 8 seconds for the rest of the session — the
+    // same guard already used for the scan trigger at the top of this file.
+    Timer {
+        interval: 8000
+        repeat: true
+        running: Popups.networkOpen && root.visible
+        triggeredOnStart: true
+        onTriggered: if (!root._scanning) root._loadDevices()
+    }
 
     function _loadDevices() {
         if (listProc.running) return

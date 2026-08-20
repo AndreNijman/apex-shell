@@ -30,6 +30,11 @@ QtObject {
     property int  exclusionGap:      34
     property int  animDuration:      320
     property bool reduceMotion:      false
+
+    // Absolute path to a dedicated lock-screen background. Empty means "follow
+    // the current desktop wallpaper", which is the historical behaviour.
+    property string lockBackground:  ""
+
     property int  dashboardWidth:    900
     property int  dashboardHeight:   520
     property int  notificationsWidth: 400
@@ -43,13 +48,15 @@ QtObject {
     readonly property var _keys: [
         "cornerRadius", "borderWidth", "notchRadius", "notchHeight",
         "barEnabled", "spacing", "exclusionGap", "animDuration", "reduceMotion",
-        "dashboardWidth", "dashboardHeight", "notificationsWidth"
+        "dashboardWidth", "dashboardHeight", "notificationsWidth",
+        "lockBackground"
     ]
     readonly property var _defaults: ({
         cornerRadius: 17, borderWidth: 6, notchRadius: 15, notchHeight: 40,
         barEnabled: false, spacing: 10, exclusionGap: 34, animDuration: 320,
         reduceMotion: false, dashboardWidth: 900, dashboardHeight: 520,
-        notificationsWidth: 400
+        notificationsWidth: 400,
+        lockBackground: ""
     })
 
     // Bounds used by the UI sliders AND clamped on load so a hand-edited file
@@ -90,6 +97,8 @@ QtObject {
         if (_keys.indexOf(key) < 0) return
         if (typeof _defaults[key] === "boolean")
             root[key] = !!value
+        else if (typeof _defaults[key] === "string")
+            root[key] = value === undefined || value === null ? "" : String(value)
         else
             root[key] = _clampInt(key, value)
     }
@@ -112,6 +121,7 @@ QtObject {
     onDashboardWidthChanged:    _scheduleSave()
     onDashboardHeightChanged:   _scheduleSave()
     onNotificationsWidthChanged:_scheduleSave()
+    onLockBackgroundChanged:    _scheduleSave()
 
     function _scheduleSave() { if (_loaded) _saveTimer.restart() }
 
@@ -136,6 +146,8 @@ QtObject {
                         if (o[k] === undefined) continue
                         if (typeof root._defaults[k] === "boolean")
                             root[k] = !!o[k]
+                        else if (typeof root._defaults[k] === "string")
+                            root[k] = String(o[k])
                         else
                             root[k] = root._clampInt(k, o[k])
                     }
