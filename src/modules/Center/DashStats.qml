@@ -3,111 +3,146 @@ import "../../"
 import "../../components"
 import "../../services/"
 
+// Dashboard → Stats page.
+//
+// ── Gating ──────────────────────────────────────────────────────────────────
+// `onScreen` must be driven by the OWNING WINDOW's visibility, not by this
+// Item's own `visible`. An Item inside a hidden window still reports
+// visible === true, so the previous `active: root.visible` bindings kept all six
+// telemetry services polling for the rest of the session once the stats page had
+// been selected even once — dashboard closed, screen off, session locked, it made
+// no difference. That single binding was the largest idle cost in the shell.
+//
+// It defaults to false, deliberately: an unwired instantiation shows no data,
+// which is immediately obvious, rather than silently draining the battery.
 Item {
     id: root
 
-    CpuService         { id: cpu;     active: root.visible }
-    MemService         { id: mem;     active: root.visible }
-    NetService         { id: net;     active: root.visible }
-    DiskService        { id: disk;    active: root.visible }
-    CpuFreqService      { id: cpuFreq }
-    PowerProfileService { id: powerProfile }
-    GpuService {
-        id:     gpu
-        active: root.visible
+    // Set by the owning window: "the stats page is genuinely in front of a user".
+    property bool onScreen: false
+
+    ServiceRef {
+        service: CpuService
+        active: root.onScreen
+    }
+    ServiceRef {
+        service: MemService
+        active: root.onScreen
+    }
+    ServiceRef {
+        service: NetService
+        active: root.onScreen
+    }
+    ServiceRef {
+        service: DiskService
+        active: root.onScreen
+    }
+    ServiceRef {
+        service: GpuService
+        active: root.onScreen
+    }
+    ServiceRef {
+        service: CpuFreqService
+        active: root.onScreen
+    }
+    ServiceRef {
+        service: PowerProfileService
+        active: root.onScreen
     }
 
     Column {
         anchors {
-            fill:          parent
-            bottomMargin:  8
-            topMargin:     8
+            fill: parent
+            bottomMargin: 8
+            topMargin: 8
         }
         spacing: 8
 
         // Speedometers
         Row {
-            id:      speedoRow
-            width:   parent.width
+            id: speedoRow
+
+            width: parent.width
             anchors.topMargin: 4
-            height:  160
+            height: 160
             spacing: 8
 
             StatCard {
-                width:  (parent.width - parent.spacing * 2) / 3
+                width: (parent.width - parent.spacing * 2) / 3
                 height: parent.height
                 Speedometer {
                     anchors.centerIn: parent
-                    label:       "CPU"
-                    percent:     cpu.usagePercent
-                    centerText:  cpu.usagePercent + "%"
-                    bottomText:  cpuFreq.curFreqStr
-                    active:      true
+                    label: "CPU"
+                    percent: CpuService.usagePercent
+                    centerText: CpuService.usagePercent + "%"
+                    bottomText: CpuFreqService.curFreqStr
+                    active: true
                     accentColor: Theme.active
                 }
             }
 
             StatCard {
-                width:  (parent.width - parent.spacing * 2) / 3
+                width: (parent.width - parent.spacing * 2) / 3
                 height: parent.height
                 Speedometer {
                     anchors.centerIn: parent
-                    label:       "RAM"
-                    percent:     mem.usagePercent
-                    centerText:  mem.usagePercent + "%"
-                    bottomText:  mem.usedStr + " / " + mem.totalStr
-                    active:      true
+                    label: "RAM"
+                    percent: MemService.usagePercent
+                    centerText: MemService.usagePercent + "%"
+                    bottomText: MemService.usedStr + " / " + MemService.totalStr
+                    active: true
                     accentColor: "#cba6f7"
                 }
             }
 
             StatCard {
-                width:  (parent.width - parent.spacing * 2) / 3
+                width: (parent.width - parent.spacing * 2) / 3
                 height: parent.height
                 Speedometer {
                     anchors.centerIn: parent
-                    label:       "iGPU"
-                    percent:     gpu.igpu.usagePercent
-                    centerText:  gpu.igpu.usagePercent + "%"
-                    bottomText:  gpu.igpu.curMhz
-                    active:      gpu.available
+                    label: "iGPU"
+                    percent: GpuService.igpu.usagePercent
+                    centerText: GpuService.igpu.usagePercent + "%"
+                    bottomText: GpuService.igpu.curMhz
+                    active: GpuService.available
                     accentColor: "#89dceb"
                 }
             }
         }
+
         // Net | Disk | Power
         Row {
-            width:   parent.width
-            height:  parent.height - speedoRow.height - parent.spacing 
+            width: parent.width
+            height: parent.height - speedoRow.height - parent.spacing
             spacing: 8
 
             // Network — narrow, only 3 rows
             StatCard {
-                width:  Math.round(parent.width * 0.20)
+                width: Math.round(parent.width * 0.20)
                 height: parent.height
                 NetStatsPanel {
                     anchors.fill: parent
-                    service:      net
+                    service: NetService
                 }
             }
 
             // Disks — moderate, horizontal bars stack vertically
             StatCard {
-                width:  Math.round(parent.width * 0.35)
+                width: Math.round(parent.width * 0.35)
                 height: parent.height
                 DiskPanel {
                     anchors.fill: parent
-                    service:      disk
+                    service: DiskService
                 }
             }
 
             // Power — widest, two button rows need space
             StatCard {
-                width:  parent.width - Math.round(parent.width * 0.20) - Math.round(parent.width * 0.35) - parent.spacing * 2
+                width: parent.width - Math.round(parent.width * 0.20) - Math.round(parent.width * 0.35) - parent.spacing * 2
                 height: parent.height
                 PowerPanel {
-                    anchors.fill:        parent
-                    powerProfileService: powerProfile
+                    anchors.fill: parent
+                    powerProfileService: PowerProfileService
                 }
             }
         }

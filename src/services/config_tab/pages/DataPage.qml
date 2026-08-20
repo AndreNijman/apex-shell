@@ -15,8 +15,20 @@ import "../../../components/config"
 CfgScroll {
     id: root
 
-    DiskService { id: disk; active: true }
-    MemService  { id: mem;  active: true }
+    // Set by ShellConfig: "the Data & Storage page is genuinely on screen".
+    // These two services used to be instantiated here with `active: true`
+    // hardcoded, which meant a `df` every 15s and a `cat /proc/meminfo` every 2s
+    // from shell startup to logout — for a config sub-page most users open once.
+    property bool onScreen: false
+
+    ServiceRef {
+        service: DiskService
+        active: root.onScreen
+    }
+    ServiceRef {
+        service: MemService
+        active: root.onScreen
+    }
 
     property var _openProc: Process { command: []; running: false }
     function openPath(p) {
@@ -33,7 +45,7 @@ CfgScroll {
         Text {
             width:          parent.width
             leftPadding:    10
-            visible:        disk.disks.length === 0
+            visible:        DiskService.disks.length === 0
             text:           "Reading disks…"
             color:          Qt.rgba(1,1,1,0.3)
             font.pixelSize: 11
@@ -44,7 +56,7 @@ CfgScroll {
             spacing: 6
 
             Repeater {
-                model: disk.disks
+                model: DiskService.disks
                 delegate: DiskBar {
                     required property var modelData
                     x:        10
@@ -68,7 +80,7 @@ CfgScroll {
             label:     "In use"
             hoverable: false
             Text {
-                text:           mem.usedStr + " / " + mem.totalStr
+                text:           MemService.usedStr + " / " + MemService.totalStr
                 font.family:    "JetBrains Mono"
                 font.pixelSize: 11
                 color:          Theme.active

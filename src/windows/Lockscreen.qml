@@ -123,21 +123,15 @@ WlSessionLock {
             }
         }
 
-        // ── Live clock (local timer, mirrors modules/Right/Clock.qml) ─
-        // ClockState is island timer/alarm state, not wall-clock time, so a
-        // local ticker is the right tool here.
-        property string timeText: Qt.formatDateTime(new Date(), "hh:mm")
-        property string dateText: Qt.formatDateTime(new Date(), "dddd, d MMMM")
-        Timer {
-            interval: 1000
-            running:  true
-            repeat:   true
-            onTriggered: {
-                var now = new Date()
-                surface.timeText = Qt.formatDateTime(now, "hh:mm")
-                surface.dateText = Qt.formatDateTime(now, "dddd, d MMMM")
-            }
-        }
+        // ── Live clock ───────────────────────────────────────────────
+        // Bound to the shared Time singleton (ClockState is island
+        // timer/alarm state, not wall-clock time). Neither field shows
+        // seconds, so minute precision is all that is required — this
+        // used to be a 1 Hz Timer that ran for the whole session even
+        // though the lock surface only exists while locked, and it woke
+        // the process 59 times a minute to redraw nothing.
+        readonly property string timeText: Time.format("hh:mm")
+        readonly property string dateText: Time.format("dddd, d MMMM")
 
         // ── Content root ─────────────────────────────────────────────
         Item {
@@ -161,12 +155,23 @@ WlSessionLock {
             }
 
             // Wallpaper texture source (hidden; fed into the blur effect).
+            //
+            // SettingsService.lockBackground overrides the desktop wallpaper so
+            // the lock screen can show something else (or something the desktop
+            // wallpaper rotation will not clobber). Empty means "follow the
+            // desktop wallpaper", which is the historical behaviour. A path that
+            // fails to load falls through to the gradient underneath, exactly as
+            // a broken wallpaper path already did.
             Image {
                 id: wallImg
                 anchors.fill: parent
-                source: WallpaperService.currentWall && WallpaperService.currentWall !== ""
-                            ? "file://" + WallpaperService.currentWall
-                            : ""
+                source: {
+                    const override = SettingsService.lockBackground
+                    if (override && override !== "")
+                        return override.startsWith("/") ? "file://" + override : override
+                    const wall = WallpaperService.currentWall
+                    return wall && wall !== "" ? "file://" + wall : ""
+                }
                 fillMode:     Image.PreserveAspectCrop
                 asynchronous: true
                 cache:        true

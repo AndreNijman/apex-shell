@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Services.Pipewire
 import "../"
+import "../services"
 
 // ============================================================
 // Osd — transient on-screen-display pill for volume / brightness
@@ -14,11 +15,11 @@ import "../"
 //
 // Change detection
 //   • volume / mute → Pipewire.defaultAudioSink.audio {volume,muted}
-//   • brightness    → FileView(watchChanges) on the backlight sysfs
-//                     `brightness` file → inotify fires on every write
-//                     (incl. hardware keys via brightnessctl). Value is
-//                     read back with `brightnessctl -m` for parity with
-//                     the rest of the shell. No polling.
+//   • brightness    → BrightnessService.changedExternally, which is
+//                     driven by inotify on the backlight sysfs
+//                     `brightness` file (fires on every write, incl.
+//                     hardware keys via brightnessctl). No polling, and
+//                     the shell's own slider writes do not raise it.
 //   • mic-mute      → Pipewire.defaultAudioSource.audio.muted
 //
 // Startup is suppressed two ways: a short boot-grace timer AND a
@@ -91,10 +92,7 @@ PanelWindow {
             onTriggered: if (!root.showing) root.windowVisible = false }
     onShowingChanged: if (!showing) goneTimer.restart()
 
-    Component.onCompleted: {
-        bootGuard.start()
-        brightRead.running = true   // startup prime + backlight discovery
-    }
+    Component.onCompleted: bootGuard.start()
 
     // ── Audio: default sink (volume + mute) ───────────────────
     readonly property var sink: Pipewire.defaultAudioSink
@@ -213,46 +211,20 @@ PanelWindow {
                       m ? "󰍭" : "󰍬", m ? "Muted" : "On")
     }
 
-    // ── Brightness: backlight sysfs watch ─────────────────────
-    // brightnessctl -m → "name,class,current,percent,max"; p[0] also gives
-    // us the backlight device name so the FileView can watch its sysfs
-    // `brightness` file. inotify fires on every write (hardware keys too).
-    property string backlightDevice: ""
-    readonly property string brightnessPath:
-        backlightDevice !== ""
-            ? "/sys/class/backlight/" + backlightDevice + "/brightness"
-            : ""
-    property bool _brightPrimed: false
+    // ── Brightness ────────────────────────────────────────────
+    // The sysfs inotify watch and the device discovery that used to live here
+    // now belong to BrightnessService, which is shared with the two brightness
+    // sliders. This popup only wants to know "someone changed it" — its own
+    // writes are not interesting, and `changedExternally` is exactly that
+    // signal, so the OSD no longer pops up in response to its own slider.
+    Connections {
+        target: BrightnessService
 
-    Process {
-        id: brightRead
-        command: ["bash", "-c", "brightnessctl -m"]
-        running: false
-        stdout: SplitParser {
-            onRead: function(line) {
-                var p = line.split(",")
-                if (p.length < 5) return
-                if (root.backlightDevice === "") root.backlightDevice = p[0].trim()
-                var cur = parseInt(p[2])
-                var max = parseInt(p[4])
-                if (max > 0 && !isNaN(cur)) root._applyBright(cur / max)
-            }
+        function onChangedExternally(value) {
+            if (root._blocked()) return
+            root._trigger("brightness", value, false, "󰃠",
+                          Math.round(value * 100) + "%")
         }
-    }
-
-    FileView {
-        id: brightWatch
-        path:          root.brightnessPath
-        watchChanges:  true
-        // Change notifier only — the value is (re)read via brightnessctl.
-        onFileChanged: { brightRead.running = false; brightRead.running = true }
-    }
-
-    function _applyBright(v) {
-        // First (startup) read primes silently; later ones show the OSD.
-        if (!root._brightPrimed) { root._brightPrimed = true; return }
-        if (root._blocked()) return
-        root._trigger("brightness", v, false, "󰃠", Math.round(v * 100) + "%")
     }
 
     // ── Pill ──────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import Quickshell.Widgets
 import Quickshell.Hyprland
 import Quickshell.Services.Mpris
 import Quickshell.Io
@@ -323,27 +324,32 @@ Item {
 							}
 						}
 
-						Rectangle {
-							id:            artMask
-							anchors.fill:  parent
-							radius:        width / 2
-							visible:       false
-							layer.enabled: true
-						}
+						// Round the album art by clipping rather than by masking.
+						//
+						// This was a `layer.enabled` Rectangle acting as a mask
+						// plus a `layer.enabled` Image with a MultiEffect
+						// sampling it: two offscreen framebuffers and a mask
+						// texture, permanently allocated inside the bar, which
+						// is a layer-shell surface that is mapped for the entire
+						// session. Every one of the other 15 effect sites in the
+						// shell is inside a popup and therefore transient; these
+						// two were not.
+						//
+						// ClippingRectangle does the same rounding with a
+						// shader-based clip and no render target, so the bar
+						// stops carrying two FBOs to round a 20px thumbnail.
+						ClippingRectangle {
+							anchors.fill: parent
+							radius:       width / 2
+							color:        "transparent"
+							visible:      root.artUrl !== ""
 
-						Image {
-							anchors.fill:  parent
-							source:        root.artUrl
-							fillMode:      Image.PreserveAspectCrop
-							smooth:        true
-							cache:         true
-							visible:       root.artUrl !== ""
-							layer.enabled: true
-							layer.effect: MultiEffect {
-								maskEnabled:      true
-								maskSource:       artMask
-								maskThresholdMin: 0.5
-								maskSpreadAtMin:  1.0
+							Image {
+								anchors.fill: parent
+								source:       root.artUrl
+								fillMode:     Image.PreserveAspectCrop
+								smooth:       true
+								cache:        true
 							}
 						}
 					}

@@ -3,6 +3,7 @@ singleton Popups     state/Popups.qml
 singleton IpcManager state/IpcManager.qml
 singleton ShellState state/ShellState.qml
 singleton ClockState state/ClockState.qml
+singleton Time       state/Time.qml
 singleton LockState  state/LockState.qml
 singleton Compositor state/Compositor.qml
 singleton ScreenRecService 1.0 services/ScreenRecService.qml

@@ -9,6 +9,10 @@ StatCard {
     id: root
     padding: 0
 
+    // Set by DashHome: "this card is genuinely in front of a user". Gates the
+    // second-precision tick; a running stopwatch or countdown overrides it.
+    property bool onScreen: false
+
     // ── Mode ──────────────────────────────────────────────────────────────────
     property string _mode: "clock"
 
@@ -54,9 +58,27 @@ StatCard {
     }
 
     // ── Master tick ───────────────────────────────────────────────────────────
-    Timer {
-        interval: 1000; running: true; repeat: true
-        onTriggered: {
+    // Second-precision work, and therefore a second-precision wakeup, is only
+    // needed when a human can see the seconds tick or when something is
+    // genuinely counting. A stopwatch or countdown must keep running while the
+    // dashboard is closed, so those force it on; idle with nothing running and
+    // the dashboard shut, the card costs nothing.
+    //
+    // Alarms are handled separately, below, on the always-live minute clock —
+    // they must fire with the dashboard closed, and checking them once a second
+    // was never necessary since they have minute resolution.
+    readonly property bool _needsSeconds: root.onScreen || root._swRunning || root._timerRunning
+
+    ServiceRef {
+        service: Time
+        active: root._needsSeconds
+    }
+
+    Connections {
+        target: Time
+        enabled: root._needsSeconds
+
+        function onSecondsDateChanged() {
             root._tick()
             if (root._swRunning) root._swMs += 1000
             if (root._timerRunning && root._timerLeft > 0) {
@@ -70,9 +92,20 @@ StatCard {
                     }
                 }
             }
-            if (root._sec === "00") root._checkAlarms()
             // Repaint ring only when on timer page and timer is running
             if (root._mode === "timer") timerCanvas.requestPaint()
+            root._syncState()
+        }
+    }
+
+    // Alarm checks ride the minute clock, which is always running and wakes the
+    // process 60x less often than the old 1 Hz tick did.
+    Connections {
+        target: Time
+
+        function onDateChanged() {
+            root._tick()
+            root._checkAlarms()
             root._syncState()
         }
     }
