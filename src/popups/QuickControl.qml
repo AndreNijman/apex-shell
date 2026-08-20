@@ -126,15 +126,41 @@ PopupWindow {
                     }
                 }
 
-                // Brightness Slider
+                // Brightness Slider — the internal panel. Hidden on a desktop
+                // with no backlight, where the DDC columns below are the only
+                // brightness controls that exist.
                 ChannelColumn {
-                    icon:   "󰃠"
-                    value:  root._bVal 
-                    muted:  false
-                    active: true
-                    
+                    icon:    "󰃠"
+                    value:   root._bVal
+                    muted:   false
+                    active:  true
+                    visible: BrightnessService.max > 0
+
                     onVolumeChanged: function(v) {
                         root.setBrightness(v)
+                    }
+                }
+
+                // One column per DDC/CI external display. The list is empty
+                // until `ddcutil detect` has run, which happens on this popup
+                // becoming visible (see refresh() above) rather than at startup
+                // — the probe walks every I2C bus and takes seconds.
+                Repeater {
+                    model: BrightnessService.ddcMonitors
+
+                    ChannelColumn {
+                        required property var modelData
+
+                        icon:   "󰍹"
+                        value:  modelData.value >= 0 ? modelData.value : 0
+                        muted:  false
+                        // A monitor whose level has not been read yet cannot be
+                        // driven sensibly; grey it until the first read lands.
+                        active: modelData.value >= 0
+
+                        onVolumeChanged: function(v) {
+                            BrightnessService.setDdc(modelData.bus, v)
+                        }
                     }
                 }
             }
