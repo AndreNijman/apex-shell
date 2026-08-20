@@ -10,6 +10,7 @@ singleton CpuService 1.0 ./system/CpuService.qml
 singleton CpuFreqService 1.0 ./system/CpuFreqService.qml
 singleton PowerProfileService 1.0 ./system/PowerProfileService.qml
 singleton DiskService 1.0 ./system/DiskService.qml
+singleton BrightnessService 1.0 ./system/BrightnessService.qml
 DashHome home/DashHome.qml
 singleton NotificationService 1.0 ./notifications/NotificationService.qml
 NotificationList ./notifications/NotificationList.qml

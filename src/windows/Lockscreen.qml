@@ -123,21 +123,15 @@ WlSessionLock {
             }
         }
 
-        // ── Live clock (local timer, mirrors modules/Right/Clock.qml) ─
-        // ClockState is island timer/alarm state, not wall-clock time, so a
-        // local ticker is the right tool here.
-        property string timeText: Qt.formatDateTime(new Date(), "hh:mm")
-        property string dateText: Qt.formatDateTime(new Date(), "dddd, d MMMM")
-        Timer {
-            interval: 1000
-            running:  true
-            repeat:   true
-            onTriggered: {
-                var now = new Date()
-                surface.timeText = Qt.formatDateTime(now, "hh:mm")
-                surface.dateText = Qt.formatDateTime(now, "dddd, d MMMM")
-            }
-        }
+        // ── Live clock ───────────────────────────────────────────────
+        // Bound to the shared Time singleton (ClockState is island
+        // timer/alarm state, not wall-clock time). Neither field shows
+        // seconds, so minute precision is all that is required — this
+        // used to be a 1 Hz Timer that ran for the whole session even
+        // though the lock surface only exists while locked, and it woke
+        // the process 59 times a minute to redraw nothing.
+        readonly property string timeText: Time.format("hh:mm")
+        readonly property string dateText: Time.format("dddd, d MMMM")
 
         // ── Content root ─────────────────────────────────────────────
         Item {

@@ -1,22 +1,60 @@
 import QtQuick
 import Quickshell.Io
+import Quickshell.Networking
 import "../../components"
 import "../../"
 
+// Bar network indicator.
+//
+// ── Zero forks ──────────────────────────────────────────────────────────────
+// This ran three `nmcli` pipelines every five seconds, forever, because the bar
+// is always mapped — 0.6 forks/second just to keep one glyph correct. All three
+// answers are available natively from Quickshell.Networking, which is a live
+// NetworkManager D-Bus binding: signal strength, wired link state and the
+// connectivity verdict are plain properties that push updates when they change.
+// No polling, no subprocesses, and it reacts immediately instead of up to five
+// seconds late.
 Item {
     id: root
 
     implicitWidth:  row.implicitWidth + 6
     implicitHeight: row.implicitHeight
 
-    property int    _signal:       0
-    property bool   _ethernet:     false
-    property string _connectivity: "unknown"
+    // Strongest signal among connected wifi networks, as a percentage; 0 when
+    // nothing is associated. Note Quickshell reports signalStrength as a 0..1
+    // real, whereas the nmcli this replaced emitted 0..100 — the icon
+    // thresholds below are still in percent, so scale here.
+    readonly property int _signal: {
+        let best = 0
+        for (const dev of Networking.devices.values) {
+            if (dev.type !== DeviceType.Wifi || !dev.connected)
+                continue
+            for (const net of dev.networks.values) {
+                if (!net.connected)
+                    continue
+                const s = Math.round((net.signalStrength ?? 0) * 100)
+                if (s > best)
+                    best = s
+            }
+        }
+        return best
+    }
+
+    readonly property bool _ethernet: {
+        for (const dev of Networking.devices.values)
+            if (dev.type === DeviceType.Wired && dev.connected)
+                return true
+        return false
+    }
 
     readonly property bool _limited: {
-        var c = _connectivity
-        return c === "limited" || c === "portal" || c === "none"
+        const c = Networking.connectivity
+        return c === NetworkConnectivity.Limited
+            || c === NetworkConnectivity.Portal
+            || c === NetworkConnectivity.None
     }
+
+    readonly property bool _offline: Networking.connectivity === NetworkConnectivity.None
 
     readonly property string _netIcon: {
         if (_ethernet) return _limited ? "󰅢" : ""
@@ -31,7 +69,7 @@ Item {
 
     readonly property color _netColor: {
         if (!_ethernet && _signal <= 0) return Qt.rgba(1,1,1,0.28)
-        if (_connectivity === "none")   return "#f87171"
+        if (_offline)                   return "#f87171"
         if (_limited)                   return "#f5c47a"
         return hov.hovered ? Theme.active : Theme.text
     }
@@ -50,36 +88,12 @@ Item {
         }
     }
 
-    // Polling
-    Process {
-        id: wifiPoll
-        command: ["bash", "-c", "nmcli -t -f ACTIVE,SIGNAL dev wifi 2>/dev/null | grep '^yes:' | head -1 | cut -d: -f2"]
-        running: false
-        stdout: SplitParser { onRead: function(l) { var s = parseInt(l.trim()); root._signal = isNaN(s) ? 0 : s } }
+    // NetworkManager can answer "is this connection actually usable" rather than
+    // merely "is it associated", but only while connectivity checking is on.
+    Component.onCompleted: {
+        if (Networking.canCheckConnectivity)
+            Networking.connectivityCheckEnabled = true
     }
-    Process {
-        id: ethPoll
-        command: ["bash", "-c", "nmcli -t -f TYPE,STATE dev 2>/dev/null | grep -c 'ethernet:connected'"]
-        running: false
-        stdout: SplitParser { onRead: function(l) { root._ethernet = parseInt(l.trim()) > 0 } }
-    }
-    Process {
-        id: connPoll
-        command: ["bash", "-c", "nmcli -t -f CONNECTIVITY general 2>/dev/null | head -1"]
-        running: false
-        stdout: SplitParser {
-            onRead: function(l) { var v = l.trim().toLowerCase(); if (v !== "") root._connectivity = v }
-        }
-    }
-    Timer {
-        interval: 5000; running: true; repeat: true
-        onTriggered: {
-            wifiPoll.running = false; wifiPoll.running = true
-            ethPoll.running  = false; ethPoll.running  = true
-            connPoll.running = false; connPoll.running = true
-        }
-    }
-    Component.onCompleted: { wifiPoll.running = true; ethPoll.running = true; connPoll.running = true }
 
     HoverHandler { id: hov; onHoveredChanged: Popups.networkTriggerHovered = hovered }
 

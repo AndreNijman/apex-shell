@@ -15,6 +15,10 @@ import "../../components"
 Item {
     id: root
 
+    // Handed down from the owning window and forwarded to the cards that hold
+    // pollers, so they stop when the dashboard is not in front of a user.
+    property bool onScreen: false
+
     readonly property int colW:    210
     readonly property int gap:       8
     readonly property int profileH: 160
@@ -86,6 +90,7 @@ Item {
         id: rightCard
         anchors { right: parent.right; top: parent.top; bottom: parent.bottom; topMargin: root.gap }
         width: root.colW
+        onScreen: root.onScreen
     }
 
     // ── Center column ─────────────────────────────────────────────────────────

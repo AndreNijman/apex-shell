@@ -194,7 +194,10 @@ PanelWindow {
                         anchors.fill: parent
                         shown: root.page === "home"
                         sourceComponent: Component {
-                            DashHome { anchors.fill: parent }
+                            DashHome {
+                                anchors.fill: parent
+                                onScreen: root.pageLive && root.page === "home"
+                            }
                         }
                     }
 
