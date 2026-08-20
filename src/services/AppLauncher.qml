@@ -32,13 +32,71 @@ Item {
     // quota on "?12*7".
     readonly property var calculation: answerMode ? Answer.calculate(answerQuery) : ({ valid: false })
 
+    // With no query: pinned apps first, then frecency-ranked recents, then
+    // everything else alphabetically. That ordering is the whole point of an
+    // empty launcher — an alphabetical list starting at "Alacritty" is useless
+    // as a default view.
+    //
+    // With a query: name matches first, then keyword/comment matches, so typing
+    // "browser" finds Firefox via its Keywords even though the name does not
+    // contain it. Within each tier, more-used apps rank higher.
     readonly property var filtered: {
-        var q = query.trim()
-        if (q === "") return apps
+        const q = query.trim()
         if (answerMode) return answerRows()
-        return apps.filter(function(a) {
-            return a.name.toLowerCase().indexOf(q.toLowerCase()) !== -1
-        })
+
+        if (q === "") {
+            const seen = ({})
+            const out = []
+
+            for (const id of LauncherState.pinned) {
+                const a = root._byId[id]
+                if (a && !seen[id]) { seen[id] = true; out.push(root._tag(a, "pinned")) }
+            }
+            for (const id of LauncherState.topRecent(6)) {
+                const a = root._byId[id]
+                if (a && !seen[id]) { seen[id] = true; out.push(root._tag(a, "recent")) }
+            }
+            for (const a of root.apps)
+                if (!seen[a.id]) out.push(a)
+
+            return out
+        }
+
+        const ql = q.toLowerCase()
+        const nameHits = []
+        const metaHits = []
+
+        for (const a of root.apps) {
+            if (a.name.toLowerCase().indexOf(ql) !== -1) {
+                nameHits.push(a)
+                continue
+            }
+            const meta = (a.keywords + " " + a.comment + " " + a.categories).toLowerCase()
+            if (meta.indexOf(ql) !== -1)
+                metaHits.push(a)
+        }
+
+        const byUse = (x, y) => LauncherState.score(y.id) - LauncherState.score(x.id)
+        nameHits.sort(byUse)
+        metaHits.sort(byUse)
+        return nameHits.concat(metaHits)
+    }
+
+    // Shallow copy carrying a badge, so the same app object can appear tagged in
+    // the pinned/recent tiers without mutating the shared entry.
+    function _tag(a, tier) {
+        return {
+            "kind": a.kind, "name": a.name, "exec": a.exec, "icon": a.icon,
+            "categories": a.categories, "keywords": a.keywords,
+            "comment": a.comment, "entry": a.entry, "id": a.id, "tier": tier
+        }
+    }
+
+    readonly property var _byId: {
+        const m = ({})
+        for (const a of root.apps)
+            m[a.id] = a
+        return m
     }
 
     // Rows shown in "?" mode. Wolfram state is read live, so the row updates in
@@ -140,7 +198,10 @@ Item {
                 "categories": e.categories ?? "",
                 "keywords": e.keywords ?? "",
                 "comment": e.comment ?? "",
-                "entry": e
+                "entry": e,
+                // Stable key for pinning and history: the .desktop basename,
+                // which survives renames of the visible Name and locale changes.
+                "id": e.id ?? ""
             })
         }
         out.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
@@ -199,6 +260,7 @@ Item {
             return
         }
         if (entry.entry) {
+            LauncherState.recordLaunch(entry.id)
             entry.entry.execute()
             Popups.dashboardOpen = false
             return
@@ -360,6 +422,7 @@ Item {
                         Text {
                             id: label
                             width: parent.width - 28 - parent.spacing
+                                   - (pinBtn.visible ? pinBtn.width + parent.spacing : 0)
                             anchors.verticalCenter: parent.verticalCenter
                             text:           modelData.name
                             font.pixelSize: Theme.fs(13)
@@ -369,6 +432,31 @@ Item {
                             maximumLineCount: isText ? 8 : 1
                             Behavior on color { ColorAnimation { duration: 100 } }
                         }
+
+                        // Pin toggle. Shown for a pinned app always (so the state
+                        // is visible, not just discoverable) and otherwise only on
+                        // hover or selection, to keep the list quiet.
+                        Text {
+                            id: pinBtn
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: !isText && (modelData.id ?? "") !== ""
+                                     && (LauncherState.isPinned(modelData.id) || rowH.hovered || isSel)
+                            text:   LauncherState.isPinned(modelData.id) ? "󰐃" : "󰤱"
+                            font.pixelSize: Theme.fs(13)
+                            color:  LauncherState.isPinned(modelData.id)
+                                        ? Theme.active
+                                        : Qt.rgba(1, 1, 1, pinArea.containsMouse ? 0.75 : 0.30)
+                            Behavior on color { ColorAnimation { duration: 100 } }
+
+                            MouseArea {
+                                id: pinArea
+                                anchors.fill: parent
+                                anchors.margins: -6
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: LauncherState.togglePin(modelData.id)
+                            }
+                        }
                     }
 
                     HoverHandler { id: rowH; cursorShape: Qt.PointingHandCursor }
@@ -376,8 +464,17 @@ Item {
                     MouseArea {
                         anchors.fill: parent
                         hoverEnabled: true
-                        onEntered:    root.selIndex = index
-                        onClicked:    root.activate(modelData)
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        // Sits under the pin button, which has its own MouseArea.
+                        onEntered: root.selIndex = index
+                        onClicked: function (mouse) {
+                            if (mouse.button === Qt.RightButton) {
+                                if ((modelData.id ?? "") !== "")
+                                    LauncherState.togglePin(modelData.id)
+                                return
+                            }
+                            root.activate(modelData)
+                        }
                     }
                 }
             }
