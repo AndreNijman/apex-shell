@@ -47,6 +47,7 @@ Item {
 	// Compositor — Hyprland drives the title via hyprctl + raw events; niri drives
 	// it from NiriService's focused-window event stream.
 	readonly property bool isNiri: Compositor.isNiri
+	readonly property bool isHyprland: Compositor.isHyprland
 
 	// ── App name helper ───────────────────────────────────────────────────────
 	// 2. Process to fetch the initialTitle
@@ -91,8 +92,11 @@ Item {
 	}
 
 	Connections{
-		target: Hyprland
-		enabled: !root.isNiri
+		// Conditional target and a positive guard: resolving the Hyprland
+		// singleton constructs it, and `!isNiri` was true on labwc, which is
+		// neither Hyprland nor niri.
+		target: root.isHyprland ? Hyprland : null
+		enabled: root.isHyprland
 		// 3. Your Raw Event Monitor
 		function onRawEvent(event) {
 			// 3. Trigger title fetch on any window/workspace focus change

@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.WindowManager
 import "../../"
 
 Rectangle {
@@ -10,11 +11,31 @@ Rectangle {
     property string configProvider: ShellState.configProvider
 
     // ── Compositor ─────────────────────────────────────────────────────
-    // View is neutral; data + actions come from Hyprland or NiriService.
+    // View is neutral; data + actions come from Hyprland, NiriService, or the
+    // ext-workspace protocol.
     readonly property bool isNiri: Compositor.isNiri
+    readonly property bool isHyprland: Compositor.isHyprland
+
+    // labwc has no IPC of any kind — it is controllable only through Wayland
+    // protocols — but it does implement ext-workspace-v1, which Quickshell
+    // exposes as WindowManager.windowsets. So workspaces are fully functional
+    // there (list, active state, and click-to-switch), not degraded.
+    //
+    // Note the list populates asynchronously a moment after startup, and labwc
+    // leaves Windowset.id empty, so the index is the identity here.
+    readonly property bool isExtWorkspace: Compositor.isLabwc
+    readonly property var extWorkspaces: root.isExtWorkspace ? WindowManager.windowsets : []
 
     // ── Workspace Dispatch Function ────────────────────────────────────
     function dispatchWorkspace(wsTarget, isSpecialToggle = false) {
+        // ext-workspace: activate the handle directly; there is nothing to
+        // dispatch to and no special-workspace concept.
+        if (root.isExtWorkspace) {
+            const ws = root.extWorkspaces[wsTarget]
+            if (ws && ws.canActivate)
+                ws.activate()
+            return
+        }
         // niri: focus by 1-based workspace index (special workspaces don't exist).
         if (root.isNiri) {
             NiriService.focusWorkspace(wsTarget)
@@ -97,8 +118,12 @@ Rectangle {
         }
     }
     Connections {
-        target: Hyprland
-        enabled: !root.isNiri   // Hyprland raw events are meaningless on niri
+        // Positive guard, and the target itself is conditional. `target:
+        // Hyprland` resolves the singleton even when `enabled` is false, and
+        // constructing it off Hyprland logs "cannot connect to hyprland". The
+        // old `!isNiri` was also simply wrong on labwc, which is neither.
+        target: root.isHyprland ? Hyprland : null
+        enabled: root.isHyprland
 
         // Quickshell emits (name, data) for raw events
         function onRawEvent(event) {
@@ -136,9 +161,41 @@ Rectangle {
         Behavior on opacity { NumberAnimation { duration: 200 } }
         Behavior on scale   { NumberAnimation { duration: 200 } }
 
+        // ── ext-workspace dots (labwc) — one per advertised workspace ──
+        // labwc's desktop count comes from rc.xml, so it is dynamic like niri's
+        // rather than a fixed 1..10.
+        Repeater {
+            model: root.isExtWorkspace ? root.extWorkspaces : 0
+            delegate: Rectangle {
+                id: edot
+
+                required property var modelData
+                required property int index
+
+                property bool isActive: edot.modelData.active
+
+                height: Theme.wsDotSize
+                radius: height / 2
+                width: isActive ? Theme.wsActiveWidth : Theme.wsDotSize
+
+                // ext-workspace has no "urgent" and no per-workspace window
+                // count, so a workspace is either focused or not.
+                color: isActive ? Theme.wsActive : Theme.wsOccupied
+
+                Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
+                Behavior on color { ColorAnimation { duration: 200 } }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.dispatchWorkspace(edot.index)
+                }
+            }
+        }
+
         // ── Hyprland dots — fixed workspaces 1..10 (unchanged behaviour) ──
         Repeater {
-            model: root.isNiri ? 0 : 10
+            model: (root.isNiri || root.isExtWorkspace) ? 0 : 10
             delegate: Rectangle {
                 id: dot
 
@@ -249,7 +306,9 @@ Rectangle {
         z: 99
 
         // Logic: Fade in overlay when Scratchpad is active
-        visible: !root.isNiri && opacity > 0
+        // Special/scratchpad workspaces are a Hyprland concept; neither niri nor
+        // ext-workspace has one.
+        visible: !root.isNiri && !root.isExtWorkspace && opacity > 0
         opacity: root.isScratchpad ? 1 : 0
 
         Behavior on opacity { NumberAnimation { duration: 200 } }

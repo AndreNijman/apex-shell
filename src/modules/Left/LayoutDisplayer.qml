@@ -86,7 +86,10 @@ Item {
     Component.onCompleted: refresh()
 
     Connections {
-        target: Hyprland
+        // Conditional target, not just `enabled`: resolving the Hyprland
+        // singleton is what constructs it, and constructing it off Hyprland logs
+        // "cannot connect to hyprland".
+        target: root.isHyprland ? Hyprland : null
         enabled: root.isHyprland
 
         // Quickshell emits (name, data) for raw events
