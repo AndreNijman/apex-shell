@@ -2,6 +2,7 @@ import Quickshell
 import QtQuick
 import "./src/windows"
 import "./src/popups"
+import "./src/nexus"
 import "./src/services"
 import "./src/"
 
@@ -57,6 +58,11 @@ ShellRoot {
 
                 // Volume / brightness / mic OSD — transient top-centre pill
                 Osd { screen: modelData }
+
+                // Standalone settings window. Not part of PopupLayer on
+                // purpose: it is a window you leave open, so it must not be
+                // subject to the popup fleet's click-outside dismissal.
+                Nexus { screen: modelData; screenName: modelData.name }
             }
         }
     }

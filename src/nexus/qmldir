@@ -1,0 +1,4 @@
+singleton PageRegistry 1.0 PageRegistry.qml
+singleton NexusState   1.0 NexusState.qml
+NavPane   NavPane.qml
+Nexus     Nexus.qml
