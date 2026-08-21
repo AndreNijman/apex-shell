@@ -31,17 +31,17 @@ Rectangle {
         anchors { left: parent.left; bottom: parent.bottom; margins: 9 }
         spacing: 2
         Text {
-            text: root.icon; font.pixelSize: 17
+            text: root.icon; font.pixelSize: Theme.fs(17)
             color: root.on ? Theme.active : Qt.rgba(1,1,1,0.40)
         }
         Text {
-            text: root.label; font.pixelSize: 9; font.weight: Font.Medium
+            text: root.label; font.pixelSize: Theme.fs(9); font.weight: Font.Medium
             color: root.on ? Theme.text : Qt.rgba(1,1,1,0.45)
         }
         Text {
             visible: root.sublabel !== ""
             text:    root.sublabel
-            font.pixelSize: 8; font.family: "JetBrains Mono"
+            font.pixelSize: Theme.fs(8); font.family: "JetBrains Mono"
             color:   Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.65)
             width:   root.width - 18; elide: Text.ElideRight
         }

@@ -86,7 +86,10 @@ Item {
     Component.onCompleted: refresh()
 
     Connections {
-        target: Hyprland
+        // Conditional target, not just `enabled`: resolving the Hyprland
+        // singleton is what constructs it, and constructing it off Hyprland logs
+        // "cannot connect to hyprland".
+        target: root.isHyprland ? Hyprland : null
         enabled: root.isHyprland
 
         // Quickshell emits (name, data) for raw events
@@ -164,7 +167,7 @@ Item {
             anchors.centerIn: parent
             text: root.currentLayout !== "" ? layoutSymbol(root.currentLayout) : "…"
             font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 14
+            font.pixelSize: Theme.fs(14)
             color: "#cdd6f4"
 
             // Brief scale-pop on symbol change

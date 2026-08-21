@@ -22,6 +22,15 @@ QtObject {
     property color wsOverlay:    Colors.wsOverlay
     property color wsUrgent:     Colors.wsUrgent
 
+    // ── Scaling ───────────────────────────────────────────────────────────────
+    // fs() scales a font size that was calibrated against 1080p. Call it instead
+    // of writing a literal: `font.pixelSize: Theme.fs(12)`. px() is the same for
+    // geometry written at a call site rather than defined as a token here.
+    readonly property real scale: Metrics.scale
+
+    function fs(v) { return Metrics.fs(v) }
+    function px(v) { return Metrics.px(v) }
+
     // Metrics
     property bool barEnabled: Metrics.barEnabled
     

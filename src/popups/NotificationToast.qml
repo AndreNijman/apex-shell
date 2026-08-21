@@ -240,7 +240,7 @@ PopupWindow {
 								anchors.centerIn: parent
 								text:           (root.current?.appName ?? "?").charAt(0).toUpperCase()
 								color:          Theme.text
-								font.pixelSize: 9
+								font.pixelSize: Theme.fs(9)
 								font.bold:      true
 							}
 						}
@@ -251,7 +251,7 @@ PopupWindow {
 						anchors.verticalCenter: parent.verticalCenter
 						text:                   root.current?.appName ?? ""
 						color:                  Theme.subtext
-						font.pixelSize:         11
+						font.pixelSize:         Theme.fs(11)
 						elide:                  Text.ElideRight
 					}
 
@@ -269,7 +269,7 @@ PopupWindow {
 							anchors.centerIn: parent
 							text:             "✕"
 							color:            Theme.subtext
-							font.pixelSize:   9
+							font.pixelSize:   Theme.fs(9)
 						}
 						HoverHandler { id: xHover }
 						TapHandler   { onTapped: root.startDismiss() }
@@ -280,7 +280,7 @@ PopupWindow {
 					width:            parent.width
 					text:             root.current?.summary ?? ""
 					color:            Theme.text
-					font.pixelSize:   13
+					font.pixelSize:   Theme.fs(13)
 					font.bold:        true
 					wrapMode:         Text.WordWrap
 					maximumLineCount: 2
@@ -292,7 +292,7 @@ PopupWindow {
 					width:            parent.width
 					text:             root.current?.body ?? ""
 					color:            Theme.subtext
-					font.pixelSize:   12
+					font.pixelSize:   Theme.fs(12)
 					wrapMode:         Text.WordWrap
 					maximumLineCount: 2
 					elide:            Text.ElideRight
@@ -324,7 +324,7 @@ PopupWindow {
 								anchors.centerIn: parent
 								text:             modelData?.text ?? ""
 								color:            Theme.text
-								font.pixelSize:   11
+								font.pixelSize:   Theme.fs(11)
 							}
 							HoverHandler { id: actHover }
 							TapHandler {

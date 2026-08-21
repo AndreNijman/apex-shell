@@ -17,7 +17,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text:           "Power Profile"
-            font.pixelSize: 11
+            font.pixelSize: Theme.fs(11)
             font.weight:    Font.Medium
             color:          Qt.rgba(1, 1, 1, 0.4)
         }
