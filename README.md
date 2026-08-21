@@ -28,7 +28,7 @@ The standard desktop shell of APEX-OS — a dynamic, highly modular Wayland shel
 - **Modular Setup** — Unintrusive setup
 - **Material You Integration** — Dynamic colors via Matugen
 - **Lua-Based Config** — Hyprland v0.55+ compatible
-- **niri Compatibility** — Auto-detection with graceful degradation of Hyprland-only features
+- **Multi-Compositor** — Hyprland, niri and labwc, auto-detected, with Hyprland-only features degrading gracefully
 - **System Dashboard** — Monitor CPU, RAM, battery, temps, and more
 - **Kanban/Tasks** — To Do, Ongoing and Completed lists with Priority and Deadlines
 - **App Launcher** — App search, plus inline answers for queries typed with a leading `?`
@@ -123,7 +123,7 @@ installed **disabled** (it never autostarts) with its config at
 <details open>
 <summary><b>Runtime & Rendering</b></summary>
 
-- **Hyprland** v0.55+ – Wayland compositor (niri also supported)
+- **Hyprland** v0.55+ – Wayland compositor (niri and labwc also supported)
 - **Quickshell** – QML shell framework
 - **Qt6** – Qt6 libraries and QML engine
 - **qt6ct** – Qt6 theme configuration
@@ -256,6 +256,49 @@ Known Issues
 > **NixOS & Flakes Support:** The current NixOS installation pipeline and Flake implementation are experimental and may be broken. If you are on NixOS, manual configuration is currently required.
 
 ---
+
+<h2>
+  Compositors
+</h2>
+
+Auto-detected; a manual override lives in Config → Misc.
+
+| | Hyprland | niri | labwc |
+|---|---|---|---|
+| Bar, notch, popups, OSD | yes | yes | yes |
+| Lock screen | yes | yes | yes |
+| Workspace indicator | yes | yes | yes (`ext-workspace`) |
+| Active window / fullscreen unmap | yes | yes | yes |
+| Idle inhibit (caffeine) | yes | yes | yes |
+| Screenshots, recording | yes | yes | yes |
+| Keybind editor writes live binds | yes | no | no |
+| Keybind capture (passthrough) | yes | no | no |
+| Layout indicator, gaps, blur tiles | yes | no | no |
+| Night light | `hyprsunset` | no | no |
+| Special/scratchpad workspace | yes | no | no |
+
+**labwc** is a stacking compositor and is deliberately IPC-free — no D-Bus
+interface, no sway/i3 socket, no `hyprctl`. Everything the shell needs from it
+arrives over Wayland protocols instead, and labwc implements the ones that
+matter: `ext-workspace-v1`, `ext-session-lock-v1`, `wlr-layer-shell`,
+`wlr-foreign-toplevel`, `ext-idle-notify`, `wlr-output-power` and
+`wlr-gamma-control`. So workspaces are fully functional there rather than
+degraded, including click-to-switch.
+
+What labwc cannot do is accept live keybind edits from the shell's keybind
+editor, because there is nothing to send them to; its bindings live in
+`~/.config/labwc/rc.xml` and are reloaded with `labwc --reconfigure`
+(bound to `Super+Shift+R`). The tiling-specific tiles and the layout indicator
+hide themselves, as they already do on niri.
+
+To verify shell behaviour under labwc without rebooting:
+
+```bash
+tests/run-nested-labwc.sh shell.qml 20
+```
+
+That runs labwc nested inside the current session with the shell inside it, and
+reports any errors or warnings.
 
 <h2>
   Performance
