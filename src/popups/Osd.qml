@@ -255,7 +255,7 @@ PanelWindow {
             anchors.leftMargin:     16
             anchors.verticalCenter: parent.verticalCenter
             text:           root.glyph
-            font.pixelSize: 18
+            font.pixelSize: Theme.fs(18)
             color:          root.muted ? Theme.subtext : Theme.text
             Behavior on color { ColorAnimation { duration: 150 } }
         }
@@ -269,7 +269,7 @@ PanelWindow {
             width:                  46
             horizontalAlignment:    Text.AlignRight
             text:           root.label
-            font.pixelSize: 13
+            font.pixelSize: Theme.fs(13)
             font.bold:      true
             color:          root.muted ? Theme.subtext : Theme.text
             Behavior on color { ColorAnimation { duration: 150 } }

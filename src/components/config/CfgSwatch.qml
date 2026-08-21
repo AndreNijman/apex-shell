@@ -22,7 +22,7 @@ Column {
         width:   root.size
         horizontalAlignment: Text.AlignHCenter
         text:           root.label
-        font.pixelSize: 8
+        font.pixelSize: Theme.fs(8)
         color:          Qt.rgba(1,1,1,0.4)
         elide:          Text.ElideRight
     }

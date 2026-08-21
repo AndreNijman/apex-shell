@@ -48,7 +48,7 @@ CfgScroll {
             visible:        DiskService.disks.length === 0
             text:           "Reading disks…"
             color:          Qt.rgba(1,1,1,0.3)
-            font.pixelSize: 11
+            font.pixelSize: Theme.fs(11)
         }
 
         Column {
@@ -82,7 +82,7 @@ CfgScroll {
             Text {
                 text:           MemService.usedStr + " / " + MemService.totalStr
                 font.family:    "JetBrains Mono"
-                font.pixelSize: 11
+                font.pixelSize: Theme.fs(11)
                 color:          Theme.active
             }
         }

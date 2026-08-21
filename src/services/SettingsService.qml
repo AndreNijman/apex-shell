@@ -31,6 +31,15 @@ QtObject {
     property int  animDuration:      320
     property bool reduceMotion:      false
 
+    // ── Display scaling ──────────────────────────────────────────────────────
+    // "auto" derives a factor from the reference screen's height; "manual" uses
+    // scaleManual verbatim. scaleScreen names the output that drives the auto
+    // factor (empty = the tallest connected one), which is how a mixed-DPI desk
+    // picks the monitor it actually works on. See theme/Metrics.qml.
+    property string scaleMode:       "auto"
+    property real   scaleManual:     1.0
+    property string scaleScreen:     ""
+
     // Absolute path to a dedicated lock-screen background. Empty means "follow
     // the current desktop wallpaper", which is the historical behaviour.
     property string lockBackground:  ""
@@ -49,14 +58,15 @@ QtObject {
         "cornerRadius", "borderWidth", "notchRadius", "notchHeight",
         "barEnabled", "spacing", "exclusionGap", "animDuration", "reduceMotion",
         "dashboardWidth", "dashboardHeight", "notificationsWidth",
-        "lockBackground"
+        "lockBackground", "scaleMode", "scaleManual", "scaleScreen"
     ]
     readonly property var _defaults: ({
         cornerRadius: 17, borderWidth: 6, notchRadius: 15, notchHeight: 40,
         barEnabled: false, spacing: 10, exclusionGap: 34, animDuration: 320,
         reduceMotion: false, dashboardWidth: 900, dashboardHeight: 520,
         notificationsWidth: 400,
-        lockBackground: ""
+        lockBackground: "",
+        scaleMode: "auto", scaleManual: 1.0, scaleScreen: ""
     })
 
     // Bounds used by the UI sliders AND clamped on load so a hand-edited file
@@ -67,7 +77,11 @@ QtObject {
         spacing:           [0, 40], exclusionGap: [0, 80],
         animDuration:      [0, 1200],
         dashboardWidth:    [700, 1400], dashboardHeight: [360, 900],
-        notificationsWidth:[280, 640]
+        notificationsWidth:[280, 640],
+        // A scale below 0.5 makes the shell unreadable and above 3.0 makes it
+        // unusable; either way the user would have to hand-edit the file to
+        // recover, so clamp on load as well as in the UI.
+        scaleManual:       [0.5, 3.0]
     })
 
     readonly property bool isDefault: {
@@ -78,9 +92,13 @@ QtObject {
         return true
     }
 
+    // Keys whose value is a real rather than a whole number. Without this
+    // scaleManual would be parseInt'd and 1.25 would silently become 1.
+    readonly property var _realKeys: ["scaleManual"]
+
     function _clampInt(k, v) {
         var b = _bounds[k]
-        var n = parseInt(v)
+        var n = (_realKeys.indexOf(k) >= 0) ? parseFloat(v) : parseInt(v)
         if (isNaN(n)) return _defaults[k]
         if (!b) return n
         return Math.max(b[0], Math.min(b[1], n))
@@ -122,6 +140,9 @@ QtObject {
     onDashboardHeightChanged:   _scheduleSave()
     onNotificationsWidthChanged:_scheduleSave()
     onLockBackgroundChanged:    _scheduleSave()
+    onScaleModeChanged:         _scheduleSave()
+    onScaleManualChanged:       _scheduleSave()
+    onScaleScreenChanged:       _scheduleSave()
 
     function _scheduleSave() { if (_loaded) _saveTimer.restart() }
 

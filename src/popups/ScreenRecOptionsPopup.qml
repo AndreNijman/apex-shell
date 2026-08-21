@@ -129,7 +129,7 @@ PopupWindow {
 
             Text {
                 text:           row._icon
-                font.pixelSize: 13
+                font.pixelSize: Theme.fs(13)
                 color:          row._selected ? Theme.active : Qt.rgba(1, 1, 1, 0.45)
                 anchors.verticalCenter: parent.verticalCenter
                 Behavior on color { ColorAnimation { duration: 100 } }
@@ -137,7 +137,7 @@ PopupWindow {
             Text {
                 id:             _lbl
                 text:           row._label
-                font.pixelSize: 12
+                font.pixelSize: Theme.fs(12)
                 color:          row._selected ? Theme.active : Qt.rgba(1, 1, 1, 0.70)
                 anchors.verticalCenter: parent.verticalCenter
                 Behavior on color { ColorAnimation { duration: 100 } }

@@ -33,7 +33,7 @@ Item {
         Text {
             width:          parent.width
             text:           root.label
-            font.pixelSize: 12
+            font.pixelSize: Theme.fs(12)
             color:          Qt.rgba(1,1,1,0.75)
             elide:          Text.ElideRight
         }
@@ -41,7 +41,7 @@ Item {
             width:          parent.width
             visible:        root.description !== ""
             text:           root.description
-            font.pixelSize: 10
+            font.pixelSize: Theme.fs(10)
             color:          Qt.rgba(1,1,1,0.38)
             wrapMode:       Text.WordWrap
             maximumLineCount: 2

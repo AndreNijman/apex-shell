@@ -27,6 +27,8 @@ ShellRoot {
     property int phase: 0
 
     // Snapshots taken between phases.
+    property var _origPinned: []
+    property var _origHistory: ({})
     property real cpuAfterRef: -1
     property string memAfterRef: ""
     property int cpuTicksWhileReleased: -1
@@ -161,6 +163,92 @@ ShellRoot {
                 root.wantCpu = false;
                 root.check("last release returns to 0", CpuService.refCount === 0);
                 root.check("no negative drift", CpuService.refCount >= 0);
+                break;
+
+            case 12:
+                // ── DDC parsing ──────────────────────────────────────────
+                // Cannot be exercised on a machine with only an internal
+                // panel, so it is tested against captured ddcutil output.
+                console.log("[6] ddcutil output parsing");
+
+                const detect = "Display 1\n" + "   I2C bus:  /dev/i2c-5\n" + "   DRM connector: card1-DP-1\n" + "   Monitor: DEL:DELL U2723QE:ABC123\n" + "\n" + "Display 2\n" + "   I2C bus:  /dev/i2c-8\n" + "   DRM connector: card1-HDMI-A-1\n" + "   Monitor: GSM:LG HDR 4K:XYZ\n" + "\n" + "Invalid display\n" + "   I2C bus:  /dev/i2c-9\n" + "   Monitor: junk\n";
+
+                const mons = BrightnessService.parseDdcDetect(detect);
+                root.check("two DDC displays parsed", mons.length === 2);
+                root.check("first bus is 5", mons.length > 0 && mons[0].bus === "5");
+                // The card prefix must be stripped or the name never matches
+                // ShellScreen.name and per-monitor routing silently fails.
+                root.check("card prefix stripped from connector", mons.length > 0 && mons[0].connector === "DP-1");
+                root.check("second connector is HDMI-A-1", mons.length > 1 && mons[1].connector === "HDMI-A-1");
+                root.check("an 'Invalid display' block is skipped", mons.every(m => m.bus !== "9"));
+
+                root.check("no displays parsed from empty output", BrightnessService.parseDdcDetect("").length === 0);
+                root.check("ddcutil-absent output yields nothing", BrightnessService.parseDdcDetect("\n").length === 0);
+
+                root.check("getvcp 50/100 is 0.5", BrightnessService.parseDdcGetvcp("VCP 10 C 50 100") === 0.5);
+                root.check("getvcp 0/100 is 0", BrightnessService.parseDdcGetvcp("VCP 10 C 0 100") === 0);
+                root.check("getvcp handles a non-100 maximum", BrightnessService.parseDdcGetvcp("VCP 10 C 32 64") === 0.5);
+                root.check("garbage getvcp is rejected", BrightnessService.parseDdcGetvcp("nonsense") === -1);
+                root.check("empty getvcp is rejected", BrightnessService.parseDdcGetvcp("") === -1);
+                root.check("a zero maximum is rejected, not divided by", BrightnessService.parseDdcGetvcp("VCP 10 C 5 0") === -1);
+                break;
+
+            case 13:
+                console.log("[7] launcher pinning and frecency");
+
+                // Snapshot and restore: this singleton persists to the user's
+                // real launcher.json.
+                root._origPinned = LauncherState.pinned;
+                root._origHistory = LauncherState.history;
+
+                LauncherState.pinned = [];
+                LauncherState.history = ({});
+
+                root.check("nothing is pinned initially", !LauncherState.isPinned("firefox.desktop"));
+                LauncherState.togglePin("firefox.desktop");
+                root.check("pin sticks", LauncherState.isPinned("firefox.desktop"));
+                LauncherState.togglePin("firefox.desktop");
+                root.check("pin toggles off", !LauncherState.isPinned("firefox.desktop"));
+                LauncherState.togglePin("");
+                root.check("an empty id is ignored", LauncherState.pinned.length === 0);
+
+                // Pin order is preserved so a user can arrange them.
+                LauncherState.togglePin("a.desktop");
+                LauncherState.togglePin("b.desktop");
+                root.check("pin order is insertion order", LauncherState.pinned[0] === "a.desktop" && LauncherState.pinned[1] === "b.desktop");
+
+                // Frecency: many launches long ago must still outrank a single
+                // recent one, which is the entire reason this is not an MRU list.
+                const now = Date.now();
+                LauncherState.history = {
+                    "heavy.desktop": { "count": 60, "last": now - 3 * 86400000 },
+                    "oneoff.desktop": { "count": 1, "last": now - 60000 },
+                    "stale.desktop": { "count": 40, "last": now - 400 * 86400000 }
+                };
+
+                root.check("a heavily used app outranks a single recent launch", LauncherState.score("heavy.desktop") > LauncherState.score("oneoff.desktop"));
+                root.check("a year-old app decays below a fresh one-off", LauncherState.score("stale.desktop") < LauncherState.score("oneoff.desktop"));
+                root.check("an unknown id scores zero", LauncherState.score("nope.desktop") === 0);
+
+                const top = LauncherState.topRecent(2);
+                root.check("topRecent honours the limit", top.length === 2);
+                root.check("topRecent is best-first", top[0] === "heavy.desktop");
+
+                // Decay must be monotonic in age at equal counts.
+                LauncherState.history = {
+                    "x": { "count": 5, "last": now - 1 * 86400000 },
+                    "y": { "count": 5, "last": now - 30 * 86400000 }
+                };
+                root.check("at equal use, older ranks lower", LauncherState.score("x") > LauncherState.score("y"));
+
+                LauncherState.clearHistory();
+                root.check("clearHistory empties it", LauncherState.topRecent(5).length === 0);
+                break;
+
+            case 14:
+                LauncherState.pinned = root._origPinned;
+                LauncherState.history = root._origHistory;
+                root.check("launcher state restored", LauncherState.pinned === root._origPinned);
                 break;
 
             default:

@@ -102,7 +102,7 @@ Item {
 					Text {
 						id: hIcon
 						text:           modelData.icon
-						font.pixelSize: 14
+						font.pixelSize: Theme.fs(14)
 						anchors.verticalCenter: parent.verticalCenter
 						color: hTab.isActive
 						? Theme.active
@@ -114,7 +114,7 @@ Item {
 						id: hLabel
 						visible:        modelData.label !== undefined
 						text:           modelData.label ?? ""
-						font.pixelSize: 12
+						font.pixelSize: Theme.fs(12)
 						font.weight:    hTab.isActive ? Font.Medium : Font.Normal
 						anchors.verticalCenter: parent.verticalCenter
 						color: hTab.isActive
@@ -182,7 +182,7 @@ Item {
 	                    visible:          !vCol.hasLabels
 	                    anchors.centerIn: parent
 	                    text:             modelData.icon
-	                    font.pixelSize:   16
+	                    font.pixelSize:   Theme.fs(16)
 	                    color: vTab.isActive ? Theme.background : Theme.text
 	                    Behavior on color { ColorAnimation { duration: 120 } }
 	                }
@@ -199,7 +199,7 @@ Item {
 	
 	                    Text {
 	                        text:           modelData.icon
-	                        font.pixelSize: 15
+	                        font.pixelSize: Theme.fs(15)
 	                        anchors.verticalCenter: parent.verticalCenter
 	                        color: vTab.isActive
 	                            ? Theme.background
@@ -209,7 +209,7 @@ Item {
 	
 	                    Text {
 	                        text:           modelData.label ?? ""
-	                        font.pixelSize: 12
+	                        font.pixelSize: Theme.fs(12)
 	                        font.weight:    vTab.isActive ? Font.Medium : Font.Normal
 	                        anchors.verticalCenter: parent.verticalCenter
 	                        color: vTab.isActive

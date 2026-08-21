@@ -65,14 +65,14 @@ FloatingWindow {
             Text {
                 text:           "⚠  " + root.title
                 color:          root.accentColor
-                font.pixelSize: 13
+                font.pixelSize: Theme.fs(13)
                 font.bold:      true
             }
 
             Text {
                 text:           root.message
                 color:          Theme.text
-                font.pixelSize: 12
+                font.pixelSize: Theme.fs(12)
                 width:          parent.width
                 wrapMode:       Text.WordWrap
             }
