@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import "../"
+import "../nexus"
 
 // ─────────────────────────────────────────────────────────────
 // IpcManager — centralized entry point for all external IPC signals.
@@ -73,6 +74,49 @@ QtObject {
     property var dashboardConfig: IpcHandler {
         target: "dashboard-config"
         function toggle() { root.toggleDashboard("config") }
+    }
+
+    // ── Nexus (standalone settings window) ───────────────────
+    // Deliberately not routed through Popups: Nexus is a window you leave open
+    // while you work, and Popups.closeAll() is wired to click-outside and to
+    // compositor focus changes, which would close it constantly.
+    //
+    // `page` is optional on every function so a bare `nexus toggle` works as a
+    // single keybind, while `nexus open keybinds` jumps straight to a page.
+    property var nexus: IpcHandler {
+        target: "nexus"
+
+        function open(page: string): string {
+            if (page !== "" && !PageRegistry.has(page))
+                return "unknown page: " + page + " (try: " + root.nexusPageIds() + ")"
+            NexusState.openAt(page, root.focusedScreenName())
+            return "nexus open at " + NexusState.page
+        }
+
+        function close(): string {
+            NexusState.close()
+            return "nexus closed"
+        }
+
+        function toggle(page: string): string {
+            if (page !== "" && !PageRegistry.has(page))
+                return "unknown page: " + page + " (try: " + root.nexusPageIds() + ")"
+            NexusState.toggle(page, root.focusedScreenName())
+            return NexusState.open ? "nexus open at " + NexusState.page : "nexus closed"
+        }
+
+        // So `apex shell nexus --list` and tab-completion have a source of
+        // truth that cannot drift from the registry.
+        function pages(): string {
+            return root.nexusPageIds()
+        }
+    }
+
+    function nexusPageIds() {
+        const ids = []
+        for (const p of PageRegistry.pages)
+            ids.push(p.id)
+        return ids.join(" ")
     }
 
     // ── Audio Toggles ────────────────────────────────────────
