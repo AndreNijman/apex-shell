@@ -2,6 +2,7 @@ import Quickshell
 import QtQuick
 import "./src/components"
 import "./src/services"
+import "./src/nexus"
 import "./src"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,6 +30,8 @@ ShellRoot {
     // Snapshots taken between phases.
     property var _origPinned: []
     property var _origHistory: ({})
+    property bool _origNexusOpen: false
+    property string _origNexusPage: ""
     property real cpuAfterRef: -1
     property string memAfterRef: ""
     property int cpuTicksWhileReleased: -1
@@ -249,6 +252,76 @@ ShellRoot {
                 LauncherState.pinned = root._origPinned;
                 LauncherState.history = root._origHistory;
                 root.check("launcher state restored", LauncherState.pinned === root._origPinned);
+                break;
+
+            case 15:
+                console.log("[8] settings page registry (shared by the dashboard tab and Nexus)");
+
+                root.check("the registry is not empty", PageRegistry.pages.length > 0);
+                root.check("firstId names a real page", PageRegistry.has(PageRegistry.firstId));
+                root.check("an unknown id is not claimed", !PageRegistry.has("nope"));
+                root.check("pageFor returns null for an unknown id", PageRegistry.pageFor("nope") === null);
+
+                // Every page must be fully declared: a missing component means a
+                // blank pane, and a missing title means a blank nav row. Both
+                // would only show up by clicking every entry by hand.
+                let wellFormed = true;
+                let ids = ({});
+                let dupes = false;
+                for (const p of PageRegistry.pages) {
+                    if (!p.id || !p.title || !p.icon || !p.component)
+                        wellFormed = false;
+                    if (typeof p.needsScreen !== "boolean")
+                        wellFormed = false;
+                    if (ids[p.id])
+                        dupes = true;
+                    ids[p.id] = true;
+                }
+                root.check("every page declares id/title/icon/component/needsScreen", wellFormed);
+                root.check("page ids are unique", !dupes);
+
+                // Data & Storage holds ServiceRefs, so it must be flagged or its
+                // pollers would never be told to stop.
+                root.check("the telemetry page is flagged needsScreen", PageRegistry.pageFor("data").needsScreen === true);
+
+                // ── Nexus state machine ──────────────────────────────────
+                root._origNexusOpen = NexusState.open;
+                root._origNexusPage = NexusState.page;
+
+                NexusState.close();
+                root.check("starts closed", NexusState.open === false);
+
+                NexusState.openAt("keybinds", "TEST-1");
+                root.check("openAt opens", NexusState.open === true);
+                root.check("openAt selects the page", NexusState.page === "keybinds");
+                root.check("openAt records the screen", NexusState.screenName === "TEST-1");
+
+                // Toggling to a DIFFERENT page must switch, not close: a keybind
+                // for "settings at Keybinds" that closed the window because you
+                // happened to be on Appearance would be useless.
+                NexusState.toggle("misc", "TEST-1");
+                root.check("toggle to another page switches instead of closing", NexusState.open === true && NexusState.page === "misc");
+
+                // Toggling the page you are already on closes.
+                NexusState.toggle("misc", "TEST-1");
+                root.check("toggle on the current page closes", NexusState.open === false);
+
+                // A bare toggle is the single-keybind case.
+                NexusState.toggle("", "TEST-1");
+                root.check("bare toggle opens", NexusState.open === true);
+                NexusState.toggle("", "TEST-1");
+                root.check("bare toggle closes again", NexusState.open === false);
+
+                // An unknown page must not move the selection.
+                NexusState.openAt("appearance", "TEST-1");
+                NexusState.openAt("nonsense", "TEST-1");
+                root.check("an unknown page leaves the selection alone", NexusState.page === "appearance");
+                break;
+
+            case 16:
+                NexusState.open = root._origNexusOpen;
+                NexusState.page = root._origNexusPage;
+                root.check("nexus state restored", NexusState.page === root._origNexusPage);
                 break;
 
             default:
