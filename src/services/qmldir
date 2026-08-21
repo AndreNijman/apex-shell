@@ -20,6 +20,7 @@ singleton ScreenRecService 1.0 ScreenRecService.qml
 singleton SettingsService 1.0 SettingsService.qml
 KanbanBoard KanbanBoard.qml
 AppLauncher AppLauncher.qml
+singleton LauncherState 1.0 LauncherState.qml
 ShellConfig ./config_tab/ShellConfig.qml
 KeybindsPage ./config_tab/KeybindsPage.qml
 AppearancePage ./config_tab/pages/AppearancePage.qml

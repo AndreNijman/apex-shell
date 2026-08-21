@@ -11,11 +11,13 @@ import Quickshell.Io
 // Detection order (startup, from environment):
 //   HYPRLAND_INSTANCE_SIGNATURE set → "hyprland"
 //   NIRI_SOCKET                 set → "niri"
-//   neither                         → "hyprland"  (safe default — degrades nothing)
+//   XDG_CURRENT_DESKTOP ~ labwc     → "labwc"
+//   none of the above               → ""  (unknown; compositor-specific paths off)
 //
 // Manual override: the optional "compositor" key in
 //   ~/.config/apex-shell/src/user_data/config_Provider.json
-// wins over detection. Values: "hyprland" | "niri" | "auto"/"" (= use detection).
+// wins over detection. Values: "hyprland" | "niri" | "labwc" | "auto"/""
+// (= use detection).
 // Written by the Config → Misc page through setOverride(); the sibling
 // "configProvider" key (read by ShellState) is preserved on every write.
 // ──────────────────────────────────────────────────────────────────────────────
@@ -38,11 +40,16 @@ QtObject {
     // Hyprland-only paths stay off. XDG_CURRENT_DESKTOP is consulted first so a
     // shell launched from a systemd unit that did not inherit
     // HYPRLAND_INSTANCE_SIGNATURE is still recognised.
+    // labwc has no equivalent of HYPRLAND_INSTANCE_SIGNATURE or NIRI_SOCKET —
+    // by design it exposes no IPC socket at all and is controllable only
+    // through Wayland protocols — so XDG_CURRENT_DESKTOP is the only signal.
+    // labwc sets it to "labwc:wlroots".
     readonly property string detected:
         _hyprSig  !== ""                 ? "hyprland"
       : _niriSock !== ""                 ? "niri"
       : _desktop.indexOf("hyprland") >= 0 ? "hyprland"
       : _desktop.indexOf("niri")     >= 0 ? "niri"
+      : _desktop.indexOf("labwc")    >= 0 ? "labwc"
       :                                    ""
 
     // False when the shell is running under something that is neither Hyprland
@@ -54,11 +61,18 @@ QtObject {
 
     // ── Public API ────────────────────────────────────────────────────────────
     // Resolved compositor — a valid override wins, otherwise detection.
+    // The compositors this shell has explicit support for. Anything else stays
+    // unknown so compositor-specific paths remain off rather than guessing.
+    function isValidName(n) {
+        return n === "hyprland" || n === "niri" || n === "labwc"
+    }
+
     readonly property string name:
-        (overrideName === "hyprland" || overrideName === "niri") ? overrideName : detected
+        root.isValidName(overrideName) ? overrideName : detected
 
     readonly property bool isHyprland: name === "hyprland"
     readonly property bool isNiri:     name === "niri"
+    readonly property bool isLabwc:    name === "labwc"
 
     // $NIRI_SOCKET path (empty off niri) — consumed by NiriService.
     readonly property string niriSocket: _niriSock
@@ -83,8 +97,7 @@ QtObject {
         try {
             var data = JSON.parse(jsonString)
             root._cfgData = data
-            root.overrideName = (data.compositor === "hyprland" || data.compositor === "niri")
-                                ? data.compositor : ""
+            root.overrideName = root.isValidName(data.compositor) ? data.compositor : ""
         } catch (e) {
             console.error("APEX Shell: Compositor failed to parse config_Provider.json")
         }
@@ -99,11 +112,11 @@ QtObject {
         var ks = Object.keys(root._cfgData || {})
         for (var i = 0; i < ks.length; i++) data[ks[i]] = root._cfgData[ks[i]]
 
-        if (mode === "hyprland" || mode === "niri") data.compositor = mode
-        else                                        delete data.compositor
+        if (root.isValidName(mode)) data.compositor = mode
+        else                        delete data.compositor
 
         root._cfgData     = data
-        root.overrideName = (mode === "hyprland" || mode === "niri") ? mode : ""
+        root.overrideName = root.isValidName(mode) ? mode : ""
 
         var json = JSON.stringify(data, null, 2)
         // JSON + path go in as positional args — never spliced into the script.

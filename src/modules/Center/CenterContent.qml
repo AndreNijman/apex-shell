@@ -47,6 +47,7 @@ Item {
 	// Compositor — Hyprland drives the title via hyprctl + raw events; niri drives
 	// it from NiriService's focused-window event stream.
 	readonly property bool isNiri: Compositor.isNiri
+	readonly property bool isHyprland: Compositor.isHyprland
 
 	// ── App name helper ───────────────────────────────────────────────────────
 	// 2. Process to fetch the initialTitle
@@ -91,8 +92,11 @@ Item {
 	}
 
 	Connections{
-		target: Hyprland
-		enabled: !root.isNiri
+		// Conditional target and a positive guard: resolving the Hyprland
+		// singleton constructs it, and `!isNiri` was true on labwc, which is
+		// neither Hyprland nor niri.
+		target: root.isHyprland ? Hyprland : null
+		enabled: root.isHyprland
 		// 3. Your Raw Event Monitor
 		function onRawEvent(event) {
 			// 3. Trigger title fetch on any window/workspace focus change
@@ -274,7 +278,7 @@ Item {
 					visible:      modelData === "title"
 					text:         root.activeTitle
 					color:        Theme.text
-					font.pixelSize: 13
+					font.pixelSize: Theme.fs(13)
 					verticalAlignment:   Text.AlignVCenter
 					horizontalAlignment: Text.AlignHCenter
 					// leftPadding:  8u					rightPadding: 8
@@ -319,7 +323,7 @@ Item {
 							Text {
 								anchors.centerIn: parent
 								text:           "♪"
-								font.pixelSize: 9
+								font.pixelSize: Theme.fs(9)
 								color:          Theme.active
 							}
 						}
@@ -422,7 +426,7 @@ Item {
 									verticalCenter: parent.verticalCenter
 								}
 								text:           "󰔟"
-								font.pixelSize: 16
+								font.pixelSize: Theme.fs(16)
 								color:          root.timerUrgent ? "#ff5555" : Theme.active
 								Behavior on color { ColorAnimation { duration: 200 } }
 							}
@@ -438,7 +442,7 @@ Item {
 									verticalCenter: parent.verticalCenter
 								}
 								text:           ClockState.timerDisplay
-								font.pixelSize: 15
+								font.pixelSize: Theme.fs(15)
 								font.weight:    Font.Bold
 								font.family:    "JetBrains Mono"
 								horizontalAlignment: Text.AlignHCenter
@@ -476,7 +480,7 @@ Item {
 										verticalCenter: parent.verticalCenter
 									}
 									text:           ClockState.timerRunning ? "󱫟" : "󱫡"
-									font.pixelSize: 16
+									font.pixelSize: Theme.fs(16)
 									color:          _timerPauseHov.hovered ? Theme.active : Theme.text
 									HoverHandler { id: _timerPauseHov;  }
 									MouseArea {
@@ -490,7 +494,7 @@ Item {
 										verticalCenter: parent.verticalCenter
 									}
 									text:			"󱫥"
-									font.pixelSize: 16
+									font.pixelSize: Theme.fs(16)
 									color:			_timerResetHov.hovered ? Theme.active : Theme.text
 									HoverHandler { id: _timerResetHov; cursorShape: Qt.PointingHandCursor }
 									MouseArea {
@@ -516,7 +520,7 @@ Item {
 									verticalCenter: parent.verticalCenter
 								}
 								text:           ""
-								font.pixelSize: 16
+								font.pixelSize: Theme.fs(16)
 								color:          Theme.active
 							}
 
@@ -530,7 +534,7 @@ Item {
 									verticalCenter: parent.verticalCenter
 								}
 								text:           ClockState.swDisplay
-								font.pixelSize: 15
+								font.pixelSize: Theme.fs(15)
 								font.weight:    Font.Bold
 								font.family:    "JetBrains Mono"
 								horizontalAlignment: Text.AlignHCenter
@@ -550,7 +554,7 @@ Item {
 										verticalCenter: parent.verticalCenter
 									}
 									text:           ClockState.swRunning ? "󱫟" : "󱫡"
-									font.pixelSize: 16
+									font.pixelSize: Theme.fs(16)
 									color:          _pauseHov.hovered ? Theme.active : Theme.text
 									HoverHandler { id: _pauseHov;  }
 									MouseArea {
@@ -566,7 +570,7 @@ Item {
 										verticalCenter: parent.verticalCenter
 									}
 									text:			"󱫥"
-									font.pixelSize: 16
+									font.pixelSize: Theme.fs(16)
 									color:			_notchResetHov.hovered ? Theme.active : Theme.text
 										
 									HoverHandler { id: _notchResetHov; cursorShape: Qt.PointingHandCursor }
@@ -620,7 +624,7 @@ Item {
 										spacing: 5
 										Text {
 											text: ScreenRecService.captureIcon
-											font.pixelSize: 13
+											font.pixelSize: Theme.fs(13)
 											color: ScreenRecService.openStrip === "capture"
 											? Theme.active : Qt.rgba(1,1,1,0.7)
 											anchors.verticalCenter: parent.verticalCenter
@@ -628,14 +632,14 @@ Item {
 										}
 										Text {
 											text: ScreenRecService.captureLabel
-											font.pixelSize: 11
+											font.pixelSize: Theme.fs(11)
 											color: ScreenRecService.openStrip === "capture"
 											? Theme.active : Qt.rgba(1,1,1,0.7)
 											anchors.verticalCenter: parent.verticalCenter
 											Behavior on color { ColorAnimation { duration: 100 } }
 										}
 										Text {
-											text: "▾"; font.pixelSize: 8
+											text: "▾"; font.pixelSize: Theme.fs(8)
 											color: Qt.rgba(1,1,1,0.35)
 											anchors.verticalCenter: parent.verticalCenter
 										}
@@ -681,19 +685,19 @@ Item {
 										anchors.centerIn: parent
 										spacing: 5
 										Text {
-											text: "🎙"; font.pixelSize: 12
+											text: "🎙"; font.pixelSize: Theme.fs(12)
 											anchors.verticalCenter: parent.verticalCenter
 										}
 										Text {
 											text: ScreenRecService.audioLabel
-											font.pixelSize: 11
+											font.pixelSize: Theme.fs(11)
 											color: ScreenRecService.openStrip === "audio"
 											? Theme.active : Qt.rgba(1,1,1,0.7)
 											anchors.verticalCenter: parent.verticalCenter
 											Behavior on color { ColorAnimation { duration: 100 } }
 										}
 										Text {
-											text: "▾"; font.pixelSize: 8
+											text: "▾"; font.pixelSize: Theme.fs(8)
 											color: Qt.rgba(1,1,1,0.35)
 											anchors.verticalCenter: parent.verticalCenter
 										}
@@ -747,7 +751,7 @@ Item {
 										Text {
 											id: recBtnLabel
 											text: "Record"
-											font.pixelSize: 11; font.weight: Font.Medium
+											font.pixelSize: Theme.fs(11); font.weight: Font.Medium
 											color: "#ffffff"
 											anchors.verticalCenter: parent.verticalCenter
 										}
@@ -793,7 +797,7 @@ Item {
 								Text {
 									anchors.verticalCenter: parent.verticalCenter
 									text:           ScreenRecService.elapsedDisplay
-									font.pixelSize: 13; font.weight: Font.Bold
+									font.pixelSize: Theme.fs(13); font.weight: Font.Bold
 									font.family:    "JetBrains Mono"
 									color:          Theme.text
 								}
@@ -858,7 +862,7 @@ Item {
 									Text {
 										anchors.centerIn: parent
 										text:           "󰩺"
-										font.pixelSize: 11
+										font.pixelSize: Theme.fs(11)
 										color:          recDiscardH.hovered
 										? Qt.rgba(1, 0.4, 0.4, 1.0)
 										: Qt.rgba(1, 1, 1, 0.4)
@@ -879,7 +883,7 @@ Item {
 									Text {
 										anchors.centerIn: parent
 										text:           "⏹"
-										font.pixelSize: 10
+										font.pixelSize: Theme.fs(10)
 										color:          "#ff9999"
 									}
 									HoverHandler { id: recStopH }

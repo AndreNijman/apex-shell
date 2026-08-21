@@ -79,7 +79,7 @@ Item {
             id: iconText
             text:                   root.icon
             color:                  root.iconColor
-            font.pixelSize:         16
+            font.pixelSize:         Theme.fs(16)
             anchors.verticalCenter: parent.verticalCenter
 
             // Pulse when critically low and discharging
@@ -113,7 +113,7 @@ Item {
                 id: pctText
                 text:           root.pct + "%"
                 color:          hov.hovered ? Theme.active : Theme.text
-                font.pixelSize: 12
+                font.pixelSize: Theme.fs(12)
                 anchors.verticalCenter: parent.verticalCenter
                 Behavior on color { ColorAnimation { duration: 120 } }
             }

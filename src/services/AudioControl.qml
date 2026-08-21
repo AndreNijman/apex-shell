@@ -132,7 +132,7 @@ Item {
                     visible:        root.sinkNodes.length === 0
                     text:           "No output devices"
                     color:          Qt.rgba(1,1,1,0.2)
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fs(11)
                     leftPadding:    10
                 }
 
@@ -157,7 +157,7 @@ Item {
                     visible:        root.sourceNodes.length === 0
                     text:           "No input devices"
                     color:          Qt.rgba(1,1,1,0.2)
-                    font.pixelSize: 11
+                    font.pixelSize: Theme.fs(11)
                     leftPadding:    10
                 }
             }
@@ -218,7 +218,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           col.pctText
                 color:          col.muted ? Qt.rgba(1,1,1,0.25) : Theme.text
-                font.pixelSize: 13
+                font.pixelSize: Theme.fs(13)
                 font.bold:      true
                 Behavior on color { ColorAnimation { duration: 150 } }
             }
@@ -300,14 +300,14 @@ Item {
                     spacing: 5
                     Text {
                         text:           col.icon
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.fs(13)
                         color:          col.muted ? Theme.active : Qt.rgba(1,1,1,0.55)
                         anchors.verticalCenter: parent.verticalCenter
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
                     Text {
                         text:           col.muted ? "Muted" : "Mute"
-                        font.pixelSize: 11
+                        font.pixelSize: Theme.fs(11)
                         color:          col.muted ? Theme.active : Qt.rgba(1,1,1,0.4)
                         anchors.verticalCenter: parent.verticalCenter
                         Behavior on color { ColorAnimation { duration: 150 } }
@@ -327,7 +327,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:            col.label
                 color:           Qt.rgba(1,1,1,0.3)
-                font.pixelSize:  10
+                font.pixelSize:  Theme.fs(10)
                 font.capitalization: Font.AllUppercase
                 font.letterSpacing: 1
                 elide:           Text.ElideRight
@@ -340,7 +340,7 @@ Item {
     // ── SectionLabel ──────────────────────────────────────────────────────────
     component SectionLabel: Text {
         color:           Qt.rgba(1, 1, 1, 0.35)
-        font.pixelSize:  10
+        font.pixelSize:  Theme.fs(10)
         font.capitalization: Font.AllUppercase
         font.letterSpacing: 0.8
         leftPadding: 4
@@ -379,7 +379,7 @@ Item {
             Text {
                 text:           row.label
                 color:          row.isDefault ? Theme.text : Qt.rgba(1,1,1,0.5)
-                font.pixelSize: 11
+                font.pixelSize: Theme.fs(11)
                 elide:          Text.ElideRight
                 width:          parent.width - 14 - parent.spacing
                 anchors.verticalCenter: parent.verticalCenter

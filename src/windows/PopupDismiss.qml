@@ -3,6 +3,7 @@ import Quickshell.Wayland
 import QtQuick
 import "../"
 import Quickshell.Hyprland
+import Quickshell.WindowManager
 
 // Transparent fullscreen overlay that dismisses all popups when:
 //   - The user clicks anywhere on screen
@@ -91,9 +92,13 @@ PanelWindow {
         }
     }
     
-        Connections {
-        target: Hyprland
-        enabled: !Compositor.isNiri
+    Connections {
+        // Conditional target and a positive guard. `target: Hyprland` resolves
+        // the singleton even when disabled, and constructing it off Hyprland
+        // logs "cannot connect to hyprland"; `!isNiri` was also true on labwc,
+        // which is neither.
+        target: Compositor.isHyprland ? Hyprland : null
+        enabled: Compositor.isHyprland
 
         // Quickshell emits (name, data) for raw events
         function onRawEvent(event) {
@@ -110,5 +115,27 @@ PanelWindow {
         enabled: Compositor.isNiri
         function onFocusedWorkspaceIdChanged() { Popups.closeAll(); }
         function onFocusedWindowIdChanged()    { Popups.closeAll(); }
+    }
+
+    // labwc equivalent. labwc publishes no IPC event stream at all, so the
+    // signals come from Wayland protocols it does implement:
+    // wlr-foreign-toplevel for focus changes, and ext-workspace for desktop
+    // switches. Between them these cover what the Hyprland rawEvent branch
+    // above reacts to.
+    Connections {
+        target: Compositor.isLabwc ? ToplevelManager : null
+        enabled: Compositor.isLabwc
+        function onActiveToplevelChanged() { Popups.closeAll(); }
+    }
+
+    Repeater {
+        model: Compositor.isLabwc ? WindowManager.windowsets : 0
+
+        Item {
+            required property var modelData
+
+            readonly property bool wsActive: modelData.active
+            onWsActiveChanged: if (wsActive) Popups.closeAll()
+        }
     }
 }

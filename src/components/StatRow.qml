@@ -18,7 +18,7 @@ Item {
         anchors.left:           parent.left
         anchors.verticalCenter: parent.verticalCenter
         text:           root.label
-        font.pixelSize: 11
+        font.pixelSize: Theme.fs(11)
         color:          Qt.rgba(1, 1, 1, 0.4)
     }
 
@@ -26,7 +26,7 @@ Item {
         anchors.right:          parent.right
         anchors.verticalCenter: parent.verticalCenter
         text:           root.value
-        font.pixelSize: 11
+        font.pixelSize: Theme.fs(11)
         color:          root.valueColor
     }
 }

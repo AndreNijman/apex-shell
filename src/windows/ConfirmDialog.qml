@@ -174,14 +174,14 @@ PanelWindow {
                         default:                return "⚠️"
                     }
                 }
-                font.pixelSize: 32
+                font.pixelSize: Theme.fs(32)
             }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           Popups.confirmTitle
                 color:          Theme.text
-                font.pixelSize: 15
+                font.pixelSize: Theme.fs(15)
                 font.bold:      true
             }
 
@@ -189,7 +189,7 @@ PanelWindow {
                 width:          parent.width
                 text:           Popups.confirmMessage
                 color:          Qt.rgba(1, 1, 1, 0.65)
-                font.pixelSize: 12
+                font.pixelSize: Theme.fs(12)
                 wrapMode:       Text.WordWrap
                 textFormat:     Text.RichText
                 lineHeight:     1.4
@@ -210,7 +210,7 @@ PanelWindow {
                         anchors.centerIn: parent
                         text:           "Cancel"
                         color:          Theme.text
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.fs(13)
                     }
 
                     HoverHandler { id: cancelHov; cursorShape: Qt.PointingHandCursor }
@@ -228,7 +228,7 @@ PanelWindow {
                         anchors.centerIn: parent
                         text:           Popups.confirmLabel
                         color:          "white"
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.fs(13)
                         font.bold:      true
                     }
 
@@ -303,7 +303,7 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           "Applying Changes"
                 color:          Theme.text
-                font.pixelSize: 15
+                font.pixelSize: Theme.fs(15)
                 font.bold:      true
             }
 
@@ -313,7 +313,7 @@ PanelWindow {
                 text:           "Switching to <b>" + Popups.confirmGfxMode + "</b> graphics mode.<br>"
                                 + "Your system will reboot when finished."
                 color:          Qt.rgba(1, 1, 1, 0.55)
-                font.pixelSize: 12
+                font.pixelSize: Theme.fs(12)
                 wrapMode:       Text.WordWrap
                 textFormat:     Text.RichText
                 lineHeight:     1.5
@@ -331,7 +331,7 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           "Do not turn off your computer."
                 color:          Qt.rgba(1, 1, 1, 0.3)
-                font.pixelSize: 11
+                font.pixelSize: Theme.fs(11)
                 horizontalAlignment: Text.AlignHCenter
             }
         }

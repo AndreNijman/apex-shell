@@ -80,7 +80,7 @@ Item {
             Text { anchors { left: parent.left; leftMargin: 2
             verticalCenter: parent.verticalCenter }
             text: "Hotspot"
-            font.pixelSize: 15; font.weight: Font.Bold; color: Theme.text }
+            font.pixelSize: Theme.fs(15); font.weight: Font.Bold; color: Theme.text }
 
             // Active indicator
             Row {
@@ -88,7 +88,7 @@ Item {
                 verticalCenter: parent.verticalCenter }
                 spacing: 6
                 Rectangle { width: 7; height: 7; radius: 4; anchors.verticalCenter: parent.verticalCenter; color: ShellState.hotspot ? Theme.active : Qt.rgba(1,1,1,0.22); Behavior on color { ColorAnimation { duration: 200 } } }
-                Text { anchors.verticalCenter: parent.verticalCenter; text: ShellState.hotspot ? "Active" : "Inactive"; font.pixelSize: 11; color: ShellState.hotspot ? Theme.active : Qt.rgba(1,1,1,0.32) }
+                Text { anchors.verticalCenter: parent.verticalCenter; text: ShellState.hotspot ? "Active" : "Inactive"; font.pixelSize: Theme.fs(11); color: ShellState.hotspot ? Theme.active : Qt.rgba(1,1,1,0.32) }
             }
         }
 
@@ -113,8 +113,8 @@ Item {
                         id: infoCol;
                         anchors { left: parent.left; right: parent.right; top: parent.top; margins: 12 }
                         spacing: 4
-                        Text { width: parent.width; text: "󰀃  Toggle hotspot from the Quick Settings panel."; font.pixelSize: 11; color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7); wrapMode: Text.WordWrap }
-                        Text { width: parent.width; text: "Requires an ethernet connection. Shares the same WiFi channel as your current connection."; font.pixelSize: 10; color: Qt.rgba(1,1,1,0.30); wrapMode: Text.WordWrap; lineHeight: 1.4 }
+                        Text { width: parent.width; text: "󰀃  Toggle hotspot from the Quick Settings panel."; font.pixelSize: Theme.fs(11); color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7); wrapMode: Text.WordWrap }
+                        Text { width: parent.width; text: "Requires an ethernet connection. Shares the same WiFi channel as your current connection."; font.pixelSize: Theme.fs(10); color: Qt.rgba(1,1,1,0.30); wrapMode: Text.WordWrap; lineHeight: 1.4 }
                     }
                 }
 
@@ -127,13 +127,13 @@ Item {
                         id: cfgCol; anchors { left: parent.left; right: parent.right; top: parent.top; margins: 12 }
                         spacing: 12
 
-                        Text { text: "CREDENTIALS"; font.pixelSize: 9; font.weight: Font.Bold; font.letterSpacing: 1.2; color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5) }
+                        Text { text: "CREDENTIALS"; font.pixelSize: Theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2; color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5) }
 
                         // SSID
                         Item {
                             width: parent.width; height: 32
                             Text { anchors { left: parent.left; verticalCenter: parent.verticalCenter }
-                            text: "SSID"; font.pixelSize: 11; font.weight: Font.Medium; color: Qt.rgba(1,1,1,0.45); width: 72 }
+                            text: "SSID"; font.pixelSize: Theme.fs(11); font.weight: Font.Medium; color: Qt.rgba(1,1,1,0.45); width: 72 }
                             Rectangle {
                                 anchors { left: parent.left; leftMargin: 76; right: parent.right; verticalCenter: parent.verticalCenter }
                                 height: 28; radius: 7
@@ -142,7 +142,7 @@ Item {
                                 Behavior on border.color { ColorAnimation { duration: 120 } }
                                 TextInput {
                                     id: ssidInput; anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
-                                    verticalAlignment: TextInput.AlignVCenter; color: Theme.text; font.pixelSize: 12
+                                    verticalAlignment: TextInput.AlignVCenter; color: Theme.text; font.pixelSize: Theme.fs(12)
                                     selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
                                     clip: true; maximumLength: 32
                                     text: root._ssid
@@ -155,7 +155,7 @@ Item {
                         Item {
                             width: parent.width; height: 32
                             Text { anchors { left: parent.left; verticalCenter: parent.verticalCenter }
-                            text: "Password"; font.pixelSize: 11; font.weight: Font.Medium; color: Qt.rgba(1,1,1,0.45); width: 72 }
+                            text: "Password"; font.pixelSize: Theme.fs(11); font.weight: Font.Medium; color: Qt.rgba(1,1,1,0.45); width: 72 }
                             Rectangle {
                                 anchors { left: parent.left; leftMargin: 76; right: eyeBtn.left; rightMargin: 6; verticalCenter: parent.verticalCenter }
                                 height: 28; radius: 7
@@ -164,7 +164,7 @@ Item {
                                 Behavior on border.color { ColorAnimation { duration: 120 } }
                                 TextInput {
                                     id: passInput; anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
-                                    verticalAlignment: TextInput.AlignVCenter; color: Theme.text; font.pixelSize: 12
+                                    verticalAlignment: TextInput.AlignVCenter; color: Theme.text; font.pixelSize: Theme.fs(12)
                                     selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
                                     echoMode: root._showPass ? TextInput.Normal : TextInput.Password
                                     clip: true; maximumLength: 63
@@ -177,7 +177,7 @@ Item {
                                 verticalCenter: parent.verticalCenter }
                                 width: 28; height: 28
                                 Rectangle { anchors.fill: parent; radius: 6; color: eyeH.hovered ? Qt.rgba(1,1,1,0.08) : "transparent" }
-                                Text { anchors.centerIn: parent; text: root._showPass ? "" : ""; font.pixelSize: 13; color: root._showPass ? Theme.active : Qt.rgba(1,1,1,0.28) }
+                                Text { anchors.centerIn: parent; text: root._showPass ? "" : ""; font.pixelSize: Theme.fs(13); color: root._showPass ? Theme.active : Qt.rgba(1,1,1,0.28) }
                                 HoverHandler { id: eyeH; cursorShape: Qt.PointingHandCursor }
                                 MouseArea { anchors.fill: parent; onClicked: root._showPass = !root._showPass }
                             }
@@ -193,7 +193,7 @@ Item {
                                 : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
                             border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40); border.width: 1
                             Behavior on color { ColorAnimation { duration: 100 } }
-                            Text { anchors.centerIn: parent; text: "Save"; font.pixelSize: 12; font.weight: Font.Medium; color: Theme.active }
+                            Text { anchors.centerIn: parent; text: "Save"; font.pixelSize: Theme.fs(12); font.weight: Font.Medium; color: Theme.active }
                             HoverHandler { id: saveH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._save() }
                         }

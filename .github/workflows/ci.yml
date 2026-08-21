@@ -130,7 +130,7 @@ jobs:
         run: |
           # -S warning matches the threshold apex-os uses: style/info findings in
           # a test harness are not worth failing a build over.
-          shellcheck -S warning tests/run-service-tier-test.sh tests/measure-idle-cost.sh
+          shellcheck -S warning tests/*.sh
           echo "✓ test harnesses passed ShellCheck"
 
       - name: Service-tier behavioural test
@@ -199,6 +199,44 @@ jobs:
 
           [ "$fail" -eq 0 ] || exit 1
           echo "✓ telemetry services are lazy, refcounted and window-gated"
+
+      - name: Assert compositor guards are positive, not "not niri"
+        run: |
+          # `Connections { target: Hyprland; enabled: !Compositor.isNiri }` is
+          # wrong twice over on a third compositor: !isNiri is TRUE on labwc, so
+          # Hyprland handlers get enabled, and naming the Hyprland singleton as a
+          # target resolves it even when disabled, which constructs it and logs
+          # "cannot connect to hyprland". Both failures are invisible on
+          # Hyprland, which is where the shell is usually tested.
+          fail=0
+
+          if grep -rn "enabled:.*!.*isNiri" --include="*.qml" src/; then
+            echo "✗ negative compositor guard; use a positive isHyprland check"
+            fail=1
+          fi
+
+          # A bare `target: Hyprland` must always be conditional.
+          if grep -rnE '^\s*target:\s*Hyprland\s*$' --include="*.qml" src/; then
+            echo "✗ unconditional Hyprland target; use 'isHyprland ? Hyprland : null'"
+            fail=1
+          fi
+
+          [ "$fail" -eq 0 ] || exit 1
+          echo "✓ compositor guards are positive and targets are conditional"
+
+      - name: labwc session support is wired up
+        run: |
+          fail=0
+          grep -q 'isLabwc' src/state/Compositor.qml \
+            || { echo "✗ Compositor does not detect labwc"; fail=1; }
+          # labwc has no IPC, so ext-workspace is the ONLY route to workspace
+          # state. Losing this import silently empties the workspace indicator.
+          grep -q 'Quickshell.WindowManager' src/modules/Left/Workspaces.qml \
+            || { echo "✗ Workspaces lost the ext-workspace import"; fail=1; }
+          test -x tests/run-nested-labwc.sh \
+            || { echo "✗ nested-labwc harness missing or not executable"; fail=1; }
+          [ "$fail" -eq 0 ] || exit 1
+          echo "✓ labwc support present"
 
       - name: Validate QML files exist and are non-empty
         run: |

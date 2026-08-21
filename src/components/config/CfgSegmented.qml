@@ -36,7 +36,7 @@ Flow {
                 id: t
                 anchors.centerIn: parent
                 text:           pill._lbl
-                font.pixelSize: 11
+                font.pixelSize: Theme.fs(11)
                 font.weight:    pill.active ? Font.Medium : Font.Normal
                 color:          pill.active ? Theme.active : Qt.rgba(1,1,1,0.62)
             }

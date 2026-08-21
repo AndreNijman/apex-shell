@@ -1,5 +1,7 @@
 import QtQuick
+import Quickshell
 import "../../../"
+import "../../../theme"
 import "../../../components/config"
 
 // Config → Layout & Behavior
@@ -12,10 +14,67 @@ import "../../../components/config"
 CfgScroll {
     id: root
 
+    // ── Display scaling ───────────────────────────────────────────────────────
+    CfgSection {
+        title: "Display scaling"
+        first: true
+
+        CfgRow {
+            label:       "Mode"
+            description: SettingsService.scaleMode === "auto"
+                             ? "From the screen size — currently ×" + Metrics.scale.toFixed(2)
+                             : "Fixed factor"
+            CfgSegmented {
+                options: [
+                    { value: "auto",   label: "Auto"   },
+                    { value: "manual", label: "Manual" }
+                ]
+                value: SettingsService.scaleMode
+                onSelected: function(v) { SettingsService.set("scaleMode", v) }
+            }
+        }
+
+        CfgRow {
+            label:       "Factor"
+            description: "Only used in Manual mode"
+            visible:     SettingsService.scaleMode === "manual"
+            CfgSlider {
+                value:  SettingsService.scaleManual
+                from:   0.5
+                to:     3.0
+                step:   0.05
+                suffix: "×"
+                onMoved: function(v) { SettingsService.set("scaleManual", v) }
+            }
+        }
+
+        // Metrics and Theme are QML singletons read directly by most of the
+        // shell, so the scale is necessarily one process-wide value. What can be
+        // chosen is WHICH output derives it — the point of this control on a
+        // mixed-resolution desk.
+        CfgRow {
+            label:       "Scale from"
+            description: SettingsService.scaleScreen === ""
+                             ? "Tallest screen (" + (Metrics.referenceScreen ? Metrics.referenceScreen.name : "—")
+                               + ", " + Metrics.referenceHeight + "px)"
+                             : SettingsService.scaleScreen
+            visible:     SettingsService.scaleMode === "auto" && Quickshell.screens.length > 1
+            CfgSegmented {
+                options: {
+                    const out = [{ value: "", label: "Auto" }]
+                    for (const s of Quickshell.screens)
+                        out.push({ value: s.name, label: s.name })
+                    return out
+                }
+                value: SettingsService.scaleScreen
+                onSelected: function(v) { SettingsService.set("scaleScreen", v) }
+            }
+        }
+    }
+
     // ── Bar & Frame ───────────────────────────────────────────────────────────
     CfgSection {
         title: "Bar & Frame"
-        first: true
 
         CfgRow {
             label:       "Top bar"

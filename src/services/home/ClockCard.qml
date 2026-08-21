@@ -281,7 +281,7 @@ StatCard {
                         anchors.left: parent.left
                         anchors.top:  parent.top
                         text: root._hStr
-                        font.pixelSize: 72; font.weight: Font.Bold
+                        font.pixelSize: Theme.fs(72); font.weight: Font.Bold
                         font.family: "JetBrains Mono"; font.letterSpacing: -4
                         color: Theme.text
                     }
@@ -292,7 +292,7 @@ StatCard {
                         anchors.top:  hhText.bottom
                         anchors.topMargin: -8
                         text: root._mStr
-                        font.pixelSize: 72; font.weight: Font.Bold
+                        font.pixelSize: Theme.fs(72); font.weight: Font.Bold
                         font.family: "JetBrains Mono"; font.letterSpacing: -4
                         color: Theme.active
                     }
@@ -302,7 +302,7 @@ StatCard {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: root._sec
-                    font.pixelSize: 22; font.weight: Font.Medium
+                    font.pixelSize: Theme.fs(22); font.weight: Font.Medium
                     font.family: "JetBrains Mono"
                     color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.45)
                 }
@@ -330,7 +330,7 @@ StatCard {
                     Text {
                         anchors.centerIn: parent
                         text: root._addTimerOpen ? "x" : "+"
-                        font.pixelSize: 14; color: Theme.active
+                        font.pixelSize: Theme.fs(14); color: Theme.active
                     }
                 }
                 HoverHandler { id: _addTimerHov; cursorShape: Qt.PointingHandCursor }
@@ -384,7 +384,7 @@ StatCard {
                         }
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: "remaining"; font.pixelSize: 8
+                            text: "remaining"; font.pixelSize: Theme.fs(8)
                             color: Qt.rgba(1,1,1,0.25)
                         }
                     }
@@ -407,7 +407,7 @@ StatCard {
                             Text {
                                 anchors.centerIn: parent
                                 text: modelData < 60 ? modelData+"m" : "1h"
-                                font.pixelSize: 9; font.family: "JetBrains Mono"; font.weight: Font.Bold
+                                font.pixelSize: Theme.fs(9); font.family: "JetBrains Mono"; font.weight: Font.Bold
                                 color: Qt.rgba(1,1,1,0.45)
                             }
                             HoverHandler { id: _pH; cursorShape: Qt.PointingHandCursor }
@@ -454,7 +454,7 @@ StatCard {
                             Behavior on color { ColorAnimation { duration: 100 } }
                             Text {
                                 anchors.centerIn: parent; text: "Set Timer"
-                                font.pixelSize: 11; font.weight: Font.Medium
+                                font.pixelSize: Theme.fs(11); font.weight: Font.Medium
                                 color: Theme.active
                             }
                             HoverHandler { id: _setTimerHov; cursorShape: Qt.PointingHandCursor }
@@ -495,7 +495,7 @@ StatCard {
                         Text {
                             anchors.centerIn: parent
                             text: root._timerRunning ? "Pause" : "Start"
-                            font.pixelSize: 10; font.weight: Font.Medium
+                            font.pixelSize: Theme.fs(10); font.weight: Font.Medium
                             color: Theme.active
                         }
                         HoverHandler { id: _startHov; cursorShape: Qt.PointingHandCursor }
@@ -520,7 +520,7 @@ StatCard {
                         Behavior on color { ColorAnimation { duration: 100 } }
                         Text {
                             anchors.centerIn: parent; text: "Reset"
-                            font.pixelSize: 10; font.weight: Font.Medium
+                            font.pixelSize: Theme.fs(10); font.weight: Font.Medium
                             color: Qt.rgba(1,1,1,0.4)
                         }
                         HoverHandler { id: _resetHov; cursorShape: Qt.PointingHandCursor }
@@ -557,7 +557,7 @@ StatCard {
 
                     Text {
                         anchors { left: parent.left; verticalCenter: parent.verticalCenter }
-                        text: "Alarms"; font.pixelSize: 12; font.weight: Font.DemiBold
+                        text: "Alarms"; font.pixelSize: Theme.fs(12); font.weight: Font.DemiBold
                         color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.7)
                     }
 
@@ -576,7 +576,7 @@ StatCard {
                             Text {
                                 anchors.centerIn: parent
                                 text: root._addOpen ? "✕" : "+"
-                                font.pixelSize: 14; color: Theme.active
+                                font.pixelSize: Theme.fs(14); color: Theme.active
                             }
                         }
                         HoverHandler { id: _addHov; cursorShape: Qt.PointingHandCursor }
@@ -634,7 +634,7 @@ StatCard {
                             Behavior on color { ColorAnimation { duration: 100 } }
                             Text {
                                 anchors.centerIn: parent; text: "Set Alarm"
-                                font.pixelSize: 11; font.weight: Font.Medium
+                                font.pixelSize: Theme.fs(11); font.weight: Font.Medium
                                 color: Theme.active
                             }
                             HoverHandler { id: _setAlarmHov; cursorShape: Qt.PointingHandCursor }
@@ -676,7 +676,7 @@ StatCard {
                         Text {
                             anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
                             text: root._zp(modelData.hour) + ":" + root._zp(modelData.minute)
-                            font.pixelSize: 15; font.weight: Font.Bold; font.family: "JetBrains Mono"
+                            font.pixelSize: Theme.fs(15); font.weight: Font.Bold; font.family: "JetBrains Mono"
                             color: modelData.enabled
                                    ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.9)
                                    : Qt.rgba(1,1,1,0.3)
@@ -712,7 +712,7 @@ StatCard {
                             width: 22; height: 22; radius: 6
                             color: _delH.hovered ? Qt.rgba(248/255,113/255,113/255,0.18) : "transparent"
                             Behavior on color { ColorAnimation { duration: 100 } }
-                            Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: 10; color: Qt.rgba(248/255,113/255,113/255,0.6) }
+                            Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: Theme.fs(10); color: Qt.rgba(248/255,113/255,113/255,0.6) }
                             HoverHandler { id: _delH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._deleteAlarm(modelData.id) }
                         }
@@ -723,7 +723,7 @@ StatCard {
                         visible: root._alarms.length === 0 && !root._addOpen
                         text: "No alarms set\nTap + to add one"
                         horizontalAlignment: Text.AlignHCenter
-                        font.pixelSize: 11; color: Qt.rgba(1,1,1,0.2)
+                        font.pixelSize: Theme.fs(11); color: Qt.rgba(1,1,1,0.2)
                         lineHeight: 1.5
                     }
                 }
@@ -741,7 +741,7 @@ StatCard {
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: root._swDisplay()
-                    font.pixelSize: 52; font.weight: Font.Bold
+                    font.pixelSize: Theme.fs(52); font.weight: Font.Bold
                     font.family: "JetBrains Mono"; font.letterSpacing: -1
                     color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.9)
                 }
@@ -761,7 +761,7 @@ StatCard {
                         Text {
                             anchors.centerIn: parent
                             text: root._swRunning ? "Stop" : "Start"
-                            font.pixelSize: 10; font.weight: Font.Medium
+                            font.pixelSize: Theme.fs(10); font.weight: Font.Medium
                             color: Theme.active
                         }
                         HoverHandler { id: _swStartHov; cursorShape: Qt.PointingHandCursor }
@@ -781,7 +781,7 @@ StatCard {
                         Behavior on color { ColorAnimation { duration: 100 } }
                         Text {
                             anchors.centerIn: parent; text: "Reset"
-                            font.pixelSize: 10; font.weight: Font.Medium
+                            font.pixelSize: Theme.fs(10); font.weight: Font.Medium
                             color: Qt.rgba(1,1,1,0.4)
                         }
                         HoverHandler { id: _swResetHov; cursorShape: Qt.PointingHandCursor }

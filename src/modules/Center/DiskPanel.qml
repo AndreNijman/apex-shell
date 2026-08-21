@@ -25,7 +25,7 @@ Item {
             id: headerLabel
             anchors.horizontalCenter: parent.horizontalCenter
             text:           "Disks"
-            font.pixelSize: 11
+            font.pixelSize: Theme.fs(11)
             font.weight:    Font.Medium
             color:          Qt.rgba(1, 1, 1, 0.4)
         }
@@ -38,7 +38,7 @@ Item {
                 verticalCenter: parent.verticalCenter
             }
             text:           root.service.disks.length
-            font.pixelSize: 9
+            font.pixelSize: Theme.fs(9)
             font.weight:    Font.Medium
             color:          Qt.rgba(1, 1, 1, 0.25)
         }

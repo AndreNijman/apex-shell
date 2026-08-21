@@ -93,7 +93,7 @@ CfgScroll {
                 anchors.centerIn: parent
                 visible: WallpaperService.wallpapers.length === 0
                 text:    WallpaperService.applying ? "Applying…" : "No wallpapers in " + WallpaperService.wallpaperDir
-                font.pixelSize: 11
+                font.pixelSize: Theme.fs(11)
                 color:   Qt.rgba(1,1,1,0.3)
             }
 
@@ -162,7 +162,7 @@ CfgScroll {
             width:          parent.width
             leftPadding:    10
             text:           "How matugen derives the palette from your wallpaper."
-            font.pixelSize: 10
+            font.pixelSize: Theme.fs(10)
             color:          Qt.rgba(1,1,1,0.4)
             wrapMode:       Text.WordWrap
         }

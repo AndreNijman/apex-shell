@@ -106,7 +106,7 @@ Item {
                     }
                     text:            modelData.key
                     color:           Theme.active
-                    font.pixelSize:  12
+                    font.pixelSize:  Theme.fs(12)
                     font.bold:       true
                     width:           90
                     elide:           Text.ElideRight
@@ -121,7 +121,7 @@ Item {
                     }
                     text:  "·"
                     color: Qt.rgba(1, 1, 1, 0.25)
-                    font.pixelSize: 12
+                    font.pixelSize: Theme.fs(12)
                 }
 
                 // Value
@@ -135,7 +135,7 @@ Item {
                     }
                     text:            modelData.value
                     color:           Theme.text
-                    font.pixelSize:  12
+                    font.pixelSize:  Theme.fs(12)
                     elide:           Text.ElideRight
                 }
             }
