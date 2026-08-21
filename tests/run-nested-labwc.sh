@@ -10,15 +10,32 @@ entry="${1:?usage: labwc-nested.sh <qml> [seconds]}"
 secs="${2:-12}"
 cfg="$(mktemp -d)"
 cp "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/labwc-test-rc.xml" "$cfg/rc.xml"
-log=/tmp/opencode/labwc.log
-shell_log=/tmp/opencode/labwc-shell.log
+log="$(mktemp)"
+shell_log="$(mktemp)"
 
 : > "$log"
 : > "$shell_log"
 
 # labwc logs nothing about its socket, so find it by diffing the runtime dir
 # rather than scraping output.
-before="$(ls "$XDG_RUNTIME_DIR" | grep -E '^wayland-[0-9]+$' | sort)"
+#
+# Globbed rather than `ls | grep`: requiring an actual socket (-S) is both more
+# correct and cheaper than filtering names, since it drops the .lock file and
+# the per-app sockets (wayland-1-awww-daemon.sock) for free.
+list_sockets() {
+    local f name suffix
+    for f in "$XDG_RUNTIME_DIR"/wayland-*; do
+        [ -S "$f" ] || continue
+        name="${f##*/}"
+        suffix="${name#wayland-}"
+        case "$suffix" in
+            '' | *[!0-9]*) continue ;;
+        esac
+        printf '%s\n' "$name"
+    done | sort
+}
+
+before="$(list_sockets)"
 
 # Nested labwc must NOT inherit Hyprland's identity, or the shell under test
 # will detect the wrong compositor.
@@ -30,13 +47,14 @@ labwc_pid=$!
 cleanup() {
     kill "$labwc_pid" 2>/dev/null
     wait "$labwc_pid" 2>/dev/null
+    rm -rf "$cfg" "$log" "$shell_log"
     return 0
 }
 trap cleanup EXIT INT TERM
 
 nested=""
 for _ in $(seq 1 60); do
-    after="$(ls "$XDG_RUNTIME_DIR" | grep -E '^wayland-[0-9]+$' | sort)"
+    after="$(list_sockets)"
     nested="$(comm -13 <(echo "$before") <(echo "$after") | head -1)"
     [[ -n "$nested" ]] && break
     sleep 0.25
