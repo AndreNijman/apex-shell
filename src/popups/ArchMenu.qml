@@ -34,8 +34,27 @@ PopupWindow {
 	visible: slide.windowVisible
 	mask: Region { item: maskProxy }
 
-	implicitWidth:  (pageWidths["stats"]  ?? 220) + fw
-	implicitHeight: (pageHeights["stats"] ?? 220) + fh * 2
+	// Size the window to the LARGEST page, not to one arbitrary page.
+	//
+	// This was `pageWidths["stats"]` / `pageHeights["stats"]`, so the window was
+	// 284px tall while the power page needs 304px. The power page therefore
+	// overflowed its own window by 20px AND pushed the input region to y=-27 —
+	// outside the surface entirely. Hyprland clamps a region like that leniently
+	// enough that the buttons still worked; labwc does not, so the power menu
+	// rendered correctly and ignored every click.
+	readonly property int maxPageWidth: {
+		let m = 0
+		for (const k in pageWidths) m = Math.max(m, pageWidths[k])
+		return m
+	}
+	readonly property int maxPageHeight: {
+		let m = 0
+		for (const k in pageHeights) m = Math.max(m, pageHeights[k])
+		return m
+	}
+
+	implicitWidth:  maxPageWidth + fw
+	implicitHeight: maxPageHeight + fh * 2
 
 	anchor.window:  anchorWindow
 	anchor.gravity: Edges.Right
@@ -49,7 +68,7 @@ PopupWindow {
 	Item {
 		id:      maskProxy
 		x:       0
-		y:       (root.implicitHeight - sizer.height) / 2-root.fh
+		y:       (root.implicitHeight - sizer.height) / 2
 		width:   sizer.width
 		height:  sizer.height
 	}
