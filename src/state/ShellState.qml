@@ -35,6 +35,83 @@ QtObject {
     // compositor's idle timers (hypridle: dim/lock/dpms/suspend) from firing.
     property bool caffeine:     false
 
+    // labwc forwards idle through ext-idle-notify, but the surface-scoped
+    // Wayland inhibitor is not consistently reflected into hypridle there.
+    // hypridle explicitly honours logind's `idle` block inhibitor, so hold one
+    // for exactly as long as Caffeine is enabled. Keep this labwc-only: the
+    // existing Wayland path remains unchanged on Hyprland and niri.
+    readonly property Process caffeineInhibitor: Process {
+        command: [
+            "bash", "-c",
+            "parent=$PPID; inhibitor=; watcher=; " +
+            "cleanup() { [ -n \"$inhibitor\" ] && kill \"$inhibitor\" 2>/dev/null; " +
+            "[ -n \"$watcher\" ] && kill \"$watcher\" 2>/dev/null; }; " +
+            "trap cleanup EXIT HUP INT TERM; " +
+            "systemd-inhibit --what=idle --who='APEX Shell' --why='Caffeine is enabled' " +
+            "--mode=block sleep infinity & inhibitor=$!; " +
+            "tail --pid=\"$parent\" -f /dev/null & watcher=$!; " +
+            "wait -n \"$inhibitor\" \"$watcher\""
+        ]
+        running: root.caffeine && Compositor.isLabwc
+    }
+
+    // VPN state must be alive with the bar, not owned by VPNTab: that tab is
+    // lazy-loaded, so a connection established before opening it otherwise has
+    // no indicator. One long-lived nmcli monitor replaces polling; it refreshes
+    // only when NetworkManager reports a change.
+    readonly property Process vpnRefresh: Process {
+        command: ["sh", "-c",
+            "name=$(nmcli -t -f TYPE,NAME con show --active 2>/dev/null" +
+            " | awk -F: '$1==\"wireguard\" || $1==\"vpn\" {sub(/^[^:]*:/, \"\"); print; exit}'); " +
+            "if [ -z \"$name\" ] && systemctl is-active --quiet sing-box.service 2>/dev/null; then name=sing-box; fi; " +
+            "printf '%s' \"$name\""]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const name = text.trim()
+                root.vpnActive = name !== ""
+                if (name !== "") {
+                    root.vpnName = name
+                    root.vpnConnecting = false
+                } else if (!root.vpnConnecting) {
+                    root.vpnName = ""
+                }
+            }
+        }
+    }
+
+    readonly property Timer vpnRefreshDebounce: Timer {
+        interval: 120
+        onTriggered: {
+            root.vpnRefresh.running = false
+            root.vpnRefresh.running = true
+        }
+    }
+
+    readonly property Timer vpnMonitorRestart: Timer {
+        interval: 2000
+        onTriggered: root.vpnMonitor.running = true
+    }
+
+    readonly property Process vpnMonitor: Process {
+        // Quickshell's Process does not reap a long-running child when an
+        // instance is terminated by the test harness or crashes. Bind nmcli to
+        // this shell's lifetime explicitly so a reload cannot leak monitors.
+        command: ["bash", "-c",
+            "parent=$PPID; monitor=; watcher=; " +
+            "cleanup() { [ -n \"$monitor\" ] && kill \"$monitor\" 2>/dev/null; " +
+            "[ -n \"$watcher\" ] && kill \"$watcher\" 2>/dev/null; }; " +
+            "trap cleanup EXIT HUP INT TERM; " +
+            "nmcli monitor & monitor=$!; " +
+            "tail --pid=\"$parent\" -f /dev/null & watcher=$!; " +
+            "wait -n \"$monitor\" \"$watcher\""]
+        running: false
+        stdout: SplitParser {
+            onRead: root.vpnRefreshDebounce.restart()
+        }
+        onExited: root.vpnMonitorRestart.restart()
+    }
+
     // ── Fullscreen window tracking (bar + borders unmap for it) ──────────────
     // The bar and the three border strips are layer-shell surfaces on layer
     // `top`, which the compositor draws ABOVE a fullscreen window. So a game
@@ -101,6 +178,8 @@ QtObject {
     Component.onCompleted: {
         _checkBattery()
         providerProbe.running = true
+        vpnRefreshDebounce.start()
+        vpnMonitor.running = true
     }
     
     property var _batConn: Connections {
