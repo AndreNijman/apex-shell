@@ -469,7 +469,10 @@ Item {
         } else {
             // Turning on — immediately down all active WireGuard connections
             root._killSwitch = true
-            if (ShellState.vpnActive || ShellState.vpnConnecting)
+            // Only act on connections this tab manages. ShellState also sees
+            // external NetworkManager VPNs for the bar indicator.
+            if (root._sbActive || root._connections.some(function(c) { return c.active })
+                || connectProc.running || sbConnectProc.running)
                 root._applyKillSwitch()
         }
     }

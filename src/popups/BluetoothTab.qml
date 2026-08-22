@@ -5,7 +5,6 @@ import "../components"
 
 // BluetoothTab — bluetooth device management.
 // _btPowered tracks adapter state; overlay shows when off.
-// _parseDevices writes ShellState.btPowered + btConnected on every refresh.
 // Scan disabled while adapter is off.
 
 Item {
@@ -172,8 +171,7 @@ Item {
 
             if (mode === "powered") {
                 var p = line.toLowerCase() === "yes"
-                root._btPowered      = p
-                ShellState.btPowered = p
+                root._btPowered = p
                 continue
             }
             if (mode === "paired")    { paired[line] = true; continue }
@@ -185,8 +183,6 @@ Item {
                 if (mac && name) known[mac] = name
             }
         }
-
-        ShellState.btConnected = Object.keys(conn).length > 0
 
         var seenMac = {}; var devs = []
         for (var mac in known) {
@@ -205,9 +201,8 @@ Item {
     }
 
     function _setPower(on) {
-        root._btPowered       = on
-        ShellState.btPowered  = on
-        if (!on) { ShellState.btConnected = false; root._allDevices = [] }
+        root._btPowered = on
+        if (!on) root._allDevices = []
         powerProc.command = ["bluetoothctl", "power", on ? "on" : "off"]
         powerProc.running = false
         powerProc.running = true

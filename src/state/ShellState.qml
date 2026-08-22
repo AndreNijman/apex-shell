@@ -8,14 +8,14 @@ import "../."
 
 // Global shell state.
 //
-// WiFi / Bluetooth  — owned by QuickSettings (nmcli / bluetoothctl)
+// WiFi              — owned by QuickSettings (nmcli)
 // Night Light       — owned by QuickSettings (hyprsunset)
-// Caffeine          — toggled by QuickSettings; TopBar holds the Wayland idle inhibitors
+// Caffeine          — Wayland inhibitor normally; logind inhibitor on labwc
 // Hotspot           — owned by QuickSettings (nmcli hotspot)
 // Airplane Mode     — owned by QuickSettings (rfkill)
 // Focus Mode        — owned by QuickSettings; TopBar reacts to hide + zero gaps
 // DND               — read by NotificationService to suppress incoming notifications
-// VPN               — written by VPNTab; read by Network.qml for bar icon
+// VPN               — action state from VPNTab plus an idle-state system probe
 
 QtObject {
     id: root
@@ -71,12 +71,15 @@ QtObject {
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
+                // VPNTab owns transient action state. Do not let a periodic
+                // observation overwrite an in-flight connect/disconnect.
+                if (root.vpnConnecting)
+                    return
                 const name = text.trim()
                 root.vpnActive = name !== ""
                 if (name !== "") {
                     root.vpnName = name
-                    root.vpnConnecting = false
-                } else if (!root.vpnConnecting) {
+                } else {
                     root.vpnName = ""
                 }
             }
@@ -139,11 +142,6 @@ QtObject {
     property bool   vpnActive:     false
     property bool   vpnConnecting: false
     property string vpnName:       ""
-
-    // Bluetooth — written by BluetoothTab immediately on action, read by Network.qml
-    // This avoids the 5s poll lag when a device disconnects or adapter toggles.
-    property bool btPowered:   false   // adapter is on
-    property bool btConnected: false   // at least one device connected
 
     // ── Hardware Detection ──────────────────────────────────────────
     property bool hasBattery: false
