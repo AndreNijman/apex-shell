@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell.Io
 import Quickshell.Networking
+import Quickshell.Bluetooth
 import "../../components"
 import "../../"
 
@@ -74,18 +75,14 @@ Item {
         return hov.hovered ? Theme.active : Theme.text
     }
 
-    // VPN blink
-    property real _vpnOpacity: 1.0
-    SequentialAnimation on _vpnOpacity {
-        running: ShellState.vpnConnecting; loops: Animation.Infinite
-        NumberAnimation { to: 0.20; duration: 500; easing.type: Easing.InOutSine }
-        NumberAnimation { to: 1.0;  duration: 500; easing.type: Easing.InOutSine }
-    }
-    Connections {
-        target: ShellState
-        function onVpnConnectingChanged() {
-            if (!ShellState.vpnConnecting) root._vpnOpacity = 1.0
-        }
+    // BlueZ is already exposed as a live Quickshell model. Deriving this here
+    // avoids both polling and the stale "adapter powered" icon: Bluetooth earns
+    // bar space only while a device is actually connected.
+    readonly property bool _bluetoothConnected: {
+        for (const device of Bluetooth.devices.values)
+            if (device.connected)
+                return true
+        return false
     }
 
     // NetworkManager can answer "is this connection actually usable" rather than
@@ -101,6 +98,27 @@ Item {
         id: row
         anchors.centerIn: parent
         spacing: 4
+
+        // VPN sits before the transport icon and appears only once connected.
+        // Connecting state remains visible in the VPN page itself; the bar is a
+        // durable status strip, not a transient progress indicator.
+        Text {
+            visible:        ShellState.vpnActive
+            text:           "󰦝"
+            font.pixelSize: Theme.fs(16)
+            anchors.verticalCenter: parent.verticalCenter
+            color:          hov.hovered ? Theme.active : Theme.text
+            Behavior on color { ColorAnimation { duration: 200 } }
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    Popups.closeAll()
+                    Popups.networkPage = "vpn"
+                    Popups.networkOpen = true
+                }
+            }
+        }
 
         // WiFi/ethernet icon — opens to wifi tab
         Text {
@@ -121,34 +139,13 @@ Item {
             }
         }
 
-        // VPN shield — opens to vpn tab
-        Text {
-            visible:        ShellState.vpnActive || ShellState.vpnConnecting
-            text:           ShellState.vpnConnecting ? "󱦚" : "󰦝"
-            font.pixelSize: Theme.fs(14)
-            anchors.verticalCenter: parent.verticalCenter
-            opacity:        root._vpnOpacity
-            color: ShellState.vpnActive ? Theme.active : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.70)
-            Behavior on color   { ColorAnimation  { duration: 200 } }
-            Behavior on opacity { NumberAnimation { duration: 80  } }
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    Popups.closeAll()
-                    Popups.networkPage = "vpn"
-                    Popups.networkOpen = true
-                }
-            }
-        }
-
         // Bluetooth — opens to bluetooth tab
         Text {
-            visible:        ShellState.btPowered
-            text:           ShellState.btConnected ? "󰂱" : "󰂯"
-            font.pixelSize: Theme.fs(14)
+            visible:        root._bluetoothConnected
+            text:           "󰂱"
+            font.pixelSize: Theme.fs(16)
             anchors.verticalCenter: parent.verticalCenter
-            color: ShellState.btConnected ? (hov.hovered ? Theme.active : Theme.text) : Qt.rgba(1,1,1,0.32)
+            color:          hov.hovered ? Theme.active : Theme.text
             Behavior on color { ColorAnimation { duration: 200 } }
             MouseArea {
                 anchors.fill: parent

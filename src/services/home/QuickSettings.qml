@@ -88,8 +88,6 @@ StatCard {
     Process { id: btToggleProc; command: []; running: false
         onRunningChanged: if (!running) {
             _btPoll()
-            ShellState.btPowered = root.btOn
-            if (!root.btOn) ShellState.btConnected = false
         }
     }        
     function _btPoll() {
@@ -99,9 +97,6 @@ StatCard {
     function _btToggle() {
         var turningOn = !root.btOn
         root.btOn = turningOn                // optimistic
-        // Mirror to ShellState immediately so Network.qml bar icon reacts
-        ShellState.btPowered = turningOn
-        if (!turningOn) ShellState.btConnected = false
 
         btToggleProc.command = ["bash", "-c",
             "bluetoothctl power " + (turningOn ? "on" : "off")]

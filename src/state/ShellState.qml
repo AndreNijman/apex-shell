@@ -8,14 +8,14 @@ import "../."
 
 // Global shell state.
 //
-// WiFi / Bluetooth  — owned by QuickSettings (nmcli / bluetoothctl)
+// WiFi              — owned by QuickSettings (nmcli)
 // Night Light       — owned by QuickSettings (hyprsunset)
-// Caffeine          — toggled by QuickSettings; TopBar holds the Wayland idle inhibitors
+// Caffeine          — Wayland inhibitor normally; logind inhibitor on labwc
 // Hotspot           — owned by QuickSettings (nmcli hotspot)
 // Airplane Mode     — owned by QuickSettings (rfkill)
 // Focus Mode        — owned by QuickSettings; TopBar reacts to hide + zero gaps
 // DND               — read by NotificationService to suppress incoming notifications
-// VPN               — written by VPNTab; read by Network.qml for bar icon
+// VPN               — action state from VPNTab plus an idle-state system probe
 
 QtObject {
     id: root
@@ -34,6 +34,59 @@ QtObject {
     // Caffeine — while true, IdleInhibitors in each TopBar window keep the
     // compositor's idle timers (hypridle: dim/lock/dpms/suspend) from firing.
     property bool caffeine:     false
+
+    // labwc forwards idle through ext-idle-notify, but the surface-scoped
+    // Wayland inhibitor is not consistently reflected into hypridle there.
+    // hypridle explicitly honours logind's `idle` block inhibitor, so hold one
+    // for exactly as long as Caffeine is enabled. Keep this labwc-only: the
+    // existing Wayland path remains unchanged on Hyprland and niri.
+    readonly property Process caffeineInhibitor: Process {
+        command: [
+            "setpriv", "--pdeathsig", "TERM",
+            "systemd-inhibit",
+            "--what=idle",
+            "--who=APEX Shell",
+            "--why=Caffeine is enabled",
+            "--mode=block",
+            // systemd-inhibit forks the payload. Give that process the same
+            // parent-death guarantee so neither side survives a shell crash.
+            "setpriv", "--pdeathsig", "TERM", "sleep", "infinity"
+        ]
+        running: root.caffeine && Compositor.isLabwc
+    }
+
+    // VPN state must be alive with the bar, not owned by VPNTab: that tab is
+    // lazy-loaded, so a connection established before opening it otherwise has
+    // no indicator. VPNTab writes changes immediately; this low-frequency probe
+    // catches connections made externally without leaving a monitor process
+    // behind across Quickshell reloads.
+    readonly property Process vpnRefresh: Process {
+        // Resolve NetworkManager and sing-box in one process so an older
+        // fallback result cannot overwrite a newer NetworkManager result.
+        command: ["sh", "-c",
+            "name=$(nmcli -t -f TYPE,NAME con show --active 2>/dev/null" +
+            " | awk -F: '$1==\"wireguard\" || $1==\"vpn\" {sub(/^[^:]*:/, \"\"); print; exit}'); " +
+            "if [ -z \"$name\" ] && systemctl is-active --quiet sing-box.service 2>/dev/null; then name=sing-box; fi; " +
+            "printf '%s' \"$name\""]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: root.applyVpnProbeResult(
+                text.trim(), root._vpnProbeGeneration)
+        }
+    }
+
+    readonly property Timer vpnRefreshTimer: Timer {
+        interval: 30000
+        repeat: true
+        running: true
+        triggeredOnStart: true
+        onTriggered: {
+            if (root.vpnRefresh.running || root.vpnConnecting)
+                return
+            root._vpnProbeGeneration = root._vpnGeneration
+            root.vpnRefresh.running = true
+        }
+    }
 
     // ── Fullscreen window tracking (bar + borders unmap for it) ──────────────
     // The bar and the three border strips are layer-shell surfaces on layer
@@ -79,15 +132,32 @@ QtObject {
     // WiFi — false when radio is off OR hotspot is using the interface
     property bool wifiOn:       false
 
-    // VPN — set by VPNTab, read by Network.qml bar indicator
+    // VPN — set by VPNTab and the low-frequency state probe, read by Network.qml
     property bool   vpnActive:     false
     property bool   vpnConnecting: false
     property string vpnName:       ""
+    property int    _vpnGeneration: 0
+    property int    _vpnProbeGeneration: -1
 
-    // Bluetooth — written by BluetoothTab immediately on action, read by Network.qml
-    // This avoids the 5s poll lag when a device disconnects or adapter toggles.
-    property bool btPowered:   false   // adapter is on
-    property bool btConnected: false   // at least one device connected
+    // VPNTab is the owner of action transitions. Every update invalidates a
+    // periodic probe that may still be carrying the pre-action system state.
+    function updateVpnState(active, connecting, name) {
+        root._vpnGeneration++
+        root.vpnActive = active
+        root.vpnConnecting = connecting
+        root.vpnName = name
+    }
+
+    function applyVpnProbeResult(name, generation) {
+        // Discard any result that predates a VPNTab state transition. Checking
+        // vpnConnecting alone is insufficient: an old probe can return just
+        // after the action has completed.
+        if (root.vpnConnecting || generation !== root._vpnGeneration)
+            return false
+        root.vpnActive = name !== ""
+        root.vpnName = name
+        return true
+    }
 
     // ── Hardware Detection ──────────────────────────────────────────
     property bool hasBattery: false
