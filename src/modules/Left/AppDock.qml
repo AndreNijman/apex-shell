@@ -12,12 +12,13 @@ Row {
     id: root
 
     required property string screenName
-    readonly property int maxItems: 5
+    required property int availableWidth
+    readonly property int maxItems: Math.min(5,
+        Math.max(0, Math.floor((availableWidth + spacing) / (26 + spacing))))
     readonly property var applications: Compositor.isLabwc ? _applications() : []
     readonly property var visibleApplications: applications.slice(0, maxItems)
-    readonly property int overflow: Math.max(0, applications.length - maxItems)
 
-    visible: Compositor.isLabwc && applications.length > 0
+    visible: Compositor.isLabwc && applications.length > 0 && maxItems > 0
     spacing: 2
 
     function _onThisScreen(toplevel) {
@@ -51,9 +52,18 @@ Row {
 
             const appId = (toplevel.appId || "").trim()
             const entry = appId === "" ? null : DesktopEntries.heuristicLookup(appId)
-            const key = entry ? entry.id : (appId !== "" ? appId.toLowerCase() : toplevel.title)
-            if (!key)
+            const key = entry ? entry.id : (appId !== "" ? appId.toLowerCase() : null)
+            if (!key) {
+                // Some clients publish neither appId nor title. Keep each such
+                // window recoverable instead of dropping it from the dock.
+                result.push({
+                    key: toplevel,
+                    entry: null,
+                    appId: "",
+                    toplevels: [toplevel]
+                })
                 continue
+            }
 
             let app = byKey[key]
             if (!app) {
@@ -75,11 +85,16 @@ Row {
     }
 
     function _activate(app) {
-        const toplevel = _primary(app)
+        let toplevel = _primary(app)
         if (toplevel) {
-            if (toplevel.activated && !toplevel.minimized)
+            if (toplevel.activated && app.toplevels.length > 1) {
+                const current = app.toplevels.indexOf(toplevel)
+                toplevel = app.toplevels[(current + 1) % app.toplevels.length]
+                toplevel.minimized = false
+                toplevel.activate()
+            } else if (toplevel.activated && !toplevel.minimized) {
                 toplevel.minimized = true
-            else {
+            } else {
                 toplevel.minimized = false
                 toplevel.activate()
             }
@@ -170,15 +185,4 @@ Row {
         }
     }
 
-    Text {
-        visible: root.overflow > 0
-        width: visible ? 22 : 0
-        height: 26
-        verticalAlignment: Text.AlignVCenter
-        horizontalAlignment: Text.AlignHCenter
-        text: "+" + root.overflow
-        color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.55)
-        font.pixelSize: Theme.fs(9)
-        font.family: "JetBrains Mono"
-    }
 }

@@ -12,18 +12,28 @@ Row {
 	// Note: Do NOT add anchors.centerIn: parent here. TopBar handles that.
 
 	// 1. Arch Icon (Power Menu Trigger)
-	ControlPanel{}
+	ControlPanel { id: controlPanel }
 
 	// 2. Workspaces
-	Workspaces {} 
+	Workspaces { id: workspaces }
 	
 	//3. LayoutDisplay
-	LayoutDisplayer {}
+	LayoutDisplayer { id: layoutDisplayer }
 
 	// 4. Background applications
-	SysTray {}
+	SysTray { id: sysTray }
 
 	// 5. Pinned and running applications for the stacking labwc session.
-	AppDock { screenName: root.screenName }
+	AppDock {
+		screenName: root.screenName
+		// Reserve the maximum possible inter-item spacing. The dock turns the
+		// remaining width into a whole-number icon capacity.
+		availableWidth: Math.max(0,
+			Theme.lNotchMaxWidth - Theme.notchPadding * 2
+			- controlPanel.width - workspaces.width
+			- (layoutDisplayer.visible ? layoutDisplayer.width : 0)
+			- (sysTray.visible ? sysTray.width : 0)
+			- root.spacing * 4)
+	}
 
 }

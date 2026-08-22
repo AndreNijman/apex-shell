@@ -15,25 +15,33 @@ PanelWindow {
 
     color: "transparent"
 
-    // PanelWindow is full-width even though only three notches are visible.
-    // Without a mask its transparent area still owns pointer input, which put a
-    // layer-shell surface over labwc's server-side titlebar controls. Restrict
-    // input to the shapes that actually contain shell controls; focus mode is
-    // decorative only and therefore has no input region at all.
+    // Preserve the original full-surface input behavior outside labwc. On
+    // labwc, match the painted shape: the full-width border strip plus each
+    // notch and its concave shoulder. This frees the transparent gaps without
+    // making visible bar pixels click through to application titlebars.
     mask: Region {
         Region {
             x: 0; y: 0
-            width: ShellState.focusMode ? 0 : root.lWidth
+            width: root.width
+            height: Compositor.isLabwc ? Theme.borderWidth : root.implicitHeight
+        }
+        Region {
+            x: 0; y: 0
+            width: Compositor.isLabwc && !ShellState.focusMode
+                ? root.lWidth + Theme.notchRadius : 0
             height: root.implicitHeight
         }
         Region {
-            x: Math.round((root.width - root.cWidth) / 2); y: 0
-            width: ShellState.focusMode ? 0 : root.cWidth
+            x: Math.round((root.width - root.cWidth) / 2) - Theme.notchRadius
+            y: 0
+            width: Compositor.isLabwc && !ShellState.focusMode
+                ? root.cWidth + Theme.notchRadius * 2 : 0
             height: root.implicitHeight
         }
         Region {
-            x: root.width - root.rWidth; y: 0
-            width: ShellState.focusMode ? 0 : root.rWidth
+            x: root.width - root.rWidth - Theme.notchRadius; y: 0
+            width: Compositor.isLabwc && !ShellState.focusMode
+                ? root.rWidth + Theme.notchRadius : 0
             height: root.implicitHeight
         }
     }
@@ -75,9 +83,14 @@ PanelWindow {
     // their iconify/maximize/close buttons start below the right notch instead
     // of sharing its last few rows. Hyprland keeps its existing spacing.
     exclusiveZone: ShellState.focusMode ? 0
-        : (Compositor.isLabwc ? Theme.notchHeight : Theme.exclusionGap)
+        : (Compositor.isLabwc
+            ? Math.max(Theme.notchHeight, Theme.exclusionGap)
+            : Theme.exclusionGap)
     Behavior on exclusiveZone {
-        NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
+        NumberAnimation {
+            duration: Compositor.isLabwc ? 0 : Theme.animDuration
+            easing.type: Easing.InOutCubic
+        }
     }
 
     readonly property int lWidth: Math.max(
@@ -174,6 +187,7 @@ PanelWindow {
             width:        root.lWidth
             height:       Theme.notchHeight
             anchors.left: parent.left
+            clip:         true
 
             LeftContent {
                 id: leftContent

@@ -261,6 +261,12 @@ jobs:
             || { echo "✗ labwc caffeine lost its logind inhibitor"; fail=1; }
           grep -q 'mask: Region' src/windows/TopBar.qml \
             || { echo "✗ full-width top bar can intercept titlebar controls"; fail=1; }
+          grep -q 'height: Compositor.isLabwc ? Theme.borderWidth : root.implicitHeight' src/windows/TopBar.qml \
+            || { echo "✗ top-bar mask no longer preserves Hyprland input behavior"; fail=1; }
+          grep -q 'Math.max(Theme.notchHeight, Theme.exclusionGap)' src/windows/TopBar.qml \
+            || { echo "✗ labwc bar no longer honours its exclusion-gap floor"; fail=1; }
+          grep -q 'availableWidth:' src/modules/Left/LeftContent.qml \
+            || { echo "✗ labwc app dock no longer respects the notch budget"; fail=1; }
           grep -q '!(Compositor.isLabwc && Popups.archMenuOpen)' src/windows/PopupDismiss.qml \
             || { echo "✗ labwc dismiss surface can intercept the power menu"; fail=1; }
           [ "$(grep -c -- '--pdeathsig' src/state/ShellState.qml)" -ge 2 ] \
