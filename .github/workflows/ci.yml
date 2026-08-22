@@ -253,6 +253,14 @@ jobs:
           # state. Losing this import silently empties the workspace indicator.
           grep -q 'Quickshell.WindowManager' src/modules/Left/Workspaces.qml \
             || { echo "✗ Workspaces lost the ext-workspace import"; fail=1; }
+          grep -q 'visible: Compositor.isLabwc' src/modules/Left/AppDock.qml \
+            || { echo "✗ labwc app dock is missing or not positively gated"; fail=1; }
+          grep -q 'ToplevelManager.toplevels' src/modules/Left/AppDock.qml \
+            || { echo "✗ labwc app dock lost foreign-toplevel tracking"; fail=1; }
+          grep -q 'systemd-inhibit' src/state/ShellState.qml \
+            || { echo "✗ labwc caffeine lost its logind inhibitor"; fail=1; }
+          grep -q 'mask: Region' src/windows/TopBar.qml \
+            || { echo "✗ full-width top bar can intercept titlebar controls"; fail=1; }
           test -x tests/run-nested-labwc.sh \
             || { echo "✗ nested-labwc harness missing or not executable"; fail=1; }
           [ "$fail" -eq 0 ] || exit 1
