@@ -40,7 +40,7 @@ PopupWindow {
 	Item {
 	    id:      maskProxy
 	    x:       root.maxWidth - sizer.width
-	    y:       ((root.popupHeight - sizer.height) / 2) -root.fh
+	    y:       ((root.popupHeight - sizer.height) / 2)
 	    width:   sizer.width
 	    height:  sizer.height
 	}

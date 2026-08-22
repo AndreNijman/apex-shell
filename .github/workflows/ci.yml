@@ -224,6 +224,26 @@ jobs:
           [ "$fail" -eq 0 ] || exit 1
           echo "✓ compositor guards are positive and targets are conditional"
 
+      - name: Popup input regions must not sit outside their surface
+        run: |
+          # A PopupWindow's `mask` is its INPUT region. The sizer inside each
+          # popup is verticalCenter-anchored, so its true top is
+          # (windowHeight - sizer.height) / 2 — subtracting an extra `fh` puts
+          # the clickable area above the thing it is meant to cover.
+          #
+          # Three popups did exactly that. Hyprland clamps an out-of-bounds
+          # region leniently enough that most clicks still landed; labwc does
+          # not, so the power menu rendered perfectly and ignored every click.
+          # Nothing errors in either case, which is why this is a CI check and
+          # not a code-review habit.
+          if grep -rnE '^\s*y:.*\(.*height.*\)\s*/\s*2\s*\)?\s*-\s*root\.fh' \
+               --include="*.qml" src/popups/; then
+            echo "✗ a popup mask offsets its input region above its content"
+            echo "  the sizer is verticalCenter-anchored; do not subtract fh"
+            exit 1
+          fi
+          echo "✓ popup input regions align with their content"
+
       - name: labwc session support is wired up
         run: |
           fail=0
