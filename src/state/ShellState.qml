@@ -42,74 +42,74 @@ QtObject {
     // existing Wayland path remains unchanged on Hyprland and niri.
     readonly property Process caffeineInhibitor: Process {
         command: [
-            "bash", "-c",
-            "parent=$PPID; inhibitor=; watcher=; " +
-            "cleanup() { [ -n \"$inhibitor\" ] && kill \"$inhibitor\" 2>/dev/null; " +
-            "[ -n \"$watcher\" ] && kill \"$watcher\" 2>/dev/null; }; " +
-            "trap cleanup EXIT HUP INT TERM; " +
-            "systemd-inhibit --what=idle --who='APEX Shell' --why='Caffeine is enabled' " +
-            "--mode=block sleep infinity & inhibitor=$!; " +
-            "tail --pid=\"$parent\" -f /dev/null & watcher=$!; " +
-            "wait -n \"$inhibitor\" \"$watcher\""
+            "setpriv", "--pdeathsig", "TERM",
+            "systemd-inhibit",
+            "--what=idle",
+            "--who=APEX Shell",
+            "--why=Caffeine is enabled",
+            "--mode=block",
+            // systemd-inhibit forks the payload. Give that process the same
+            // parent-death guarantee so neither side survives a shell crash.
+            "setpriv", "--pdeathsig", "TERM", "sleep", "infinity"
         ]
         running: root.caffeine && Compositor.isLabwc
     }
 
     // VPN state must be alive with the bar, not owned by VPNTab: that tab is
     // lazy-loaded, so a connection established before opening it otherwise has
-    // no indicator. One long-lived nmcli monitor replaces polling; it refreshes
-    // only when NetworkManager reports a change.
+    // no indicator. VPNTab writes changes immediately; this low-frequency probe
+    // catches connections made externally without leaving a monitor process
+    // behind across Quickshell reloads.
     readonly property Process vpnRefresh: Process {
-        command: ["sh", "-c",
-            "name=$(nmcli -t -f TYPE,NAME con show --active 2>/dev/null" +
-            " | awk -F: '$1==\"wireguard\" || $1==\"vpn\" {sub(/^[^:]*:/, \"\"); print; exit}'); " +
-            "if [ -z \"$name\" ] && systemctl is-active --quiet sing-box.service 2>/dev/null; then name=sing-box; fi; " +
-            "printf '%s' \"$name\""]
+        command: ["nmcli", "-t", "-f", "TYPE,NAME", "con", "show", "--active"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
-                const name = text.trim()
-                root.vpnActive = name !== ""
+                let name = ""
+                for (const line of text.trim().split("\n")) {
+                    const colon = line.indexOf(":")
+                    if (colon < 0)
+                        continue
+                    const type = line.substring(0, colon)
+                    if (type === "wireguard" || type === "vpn") {
+                        name = line.substring(colon + 1)
+                        break
+                    }
+                }
+
                 if (name !== "") {
+                    root.vpnActive = true
                     root.vpnName = name
                     root.vpnConnecting = false
-                } else if (!root.vpnConnecting) {
-                    root.vpnName = ""
+                } else {
+                    root.vpnSingBoxRefresh.running = false
+                    root.vpnSingBoxRefresh.running = true
                 }
             }
         }
     }
 
-    readonly property Timer vpnRefreshDebounce: Timer {
-        interval: 120
-        onTriggered: {
-            root.vpnRefresh.running = false
-            root.vpnRefresh.running = true
-        }
-    }
-
-    readonly property Timer vpnMonitorRestart: Timer {
-        interval: 2000
-        onTriggered: root.vpnMonitor.running = true
-    }
-
-    readonly property Process vpnMonitor: Process {
-        // Quickshell's Process does not reap a long-running child when an
-        // instance is terminated by the test harness or crashes. Bind nmcli to
-        // this shell's lifetime explicitly so a reload cannot leak monitors.
-        command: ["bash", "-c",
-            "parent=$PPID; monitor=; watcher=; " +
-            "cleanup() { [ -n \"$monitor\" ] && kill \"$monitor\" 2>/dev/null; " +
-            "[ -n \"$watcher\" ] && kill \"$watcher\" 2>/dev/null; }; " +
-            "trap cleanup EXIT HUP INT TERM; " +
-            "nmcli monitor & monitor=$!; " +
-            "tail --pid=\"$parent\" -f /dev/null & watcher=$!; " +
-            "wait -n \"$monitor\" \"$watcher\""]
+    readonly property Process vpnSingBoxRefresh: Process {
+        command: ["systemctl", "is-active", "--quiet", "sing-box.service"]
         running: false
-        stdout: SplitParser {
-            onRead: root.vpnRefreshDebounce.restart()
+        onExited: function(code) {
+            if (code === 0) {
+                root.vpnActive = true
+                root.vpnName = "sing-box"
+                root.vpnConnecting = false
+            } else if (!root.vpnConnecting) {
+                root.vpnActive = false
+                root.vpnName = ""
+            }
         }
-        onExited: root.vpnMonitorRestart.restart()
+    }
+
+    readonly property Timer vpnRefreshTimer: Timer {
+        interval: 30000
+        repeat: true
+        running: true
+        triggeredOnStart: true
+        onTriggered: if (!root.vpnRefresh.running) root.vpnRefresh.running = true
     }
 
     // ── Fullscreen window tracking (bar + borders unmap for it) ──────────────
@@ -156,7 +156,7 @@ QtObject {
     // WiFi — false when radio is off OR hotspot is using the interface
     property bool wifiOn:       false
 
-    // VPN — set by VPNTab, read by Network.qml bar indicator
+    // VPN — set by VPNTab and the low-frequency state probe, read by Network.qml
     property bool   vpnActive:     false
     property bool   vpnConnecting: false
     property string vpnName:       ""
@@ -178,8 +178,6 @@ QtObject {
     Component.onCompleted: {
         _checkBattery()
         providerProbe.running = true
-        vpnRefreshDebounce.start()
-        vpnMonitor.running = true
     }
     
     property var _batConn: Connections {
