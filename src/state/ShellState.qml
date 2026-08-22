@@ -61,45 +61,24 @@ QtObject {
     // catches connections made externally without leaving a monitor process
     // behind across Quickshell reloads.
     readonly property Process vpnRefresh: Process {
-        command: ["nmcli", "-t", "-f", "TYPE,NAME", "con", "show", "--active"]
+        // Resolve NetworkManager and sing-box in one process so an older
+        // fallback result cannot overwrite a newer NetworkManager result.
+        command: ["sh", "-c",
+            "name=$(nmcli -t -f TYPE,NAME con show --active 2>/dev/null" +
+            " | awk -F: '$1==\"wireguard\" || $1==\"vpn\" {sub(/^[^:]*:/, \"\"); print; exit}'); " +
+            "if [ -z \"$name\" ] && systemctl is-active --quiet sing-box.service 2>/dev/null; then name=sing-box; fi; " +
+            "printf '%s' \"$name\""]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
-                let name = ""
-                for (const line of text.trim().split("\n")) {
-                    const colon = line.indexOf(":")
-                    if (colon < 0)
-                        continue
-                    const type = line.substring(0, colon)
-                    if (type === "wireguard" || type === "vpn") {
-                        name = line.substring(colon + 1)
-                        break
-                    }
-                }
-
+                const name = text.trim()
+                root.vpnActive = name !== ""
                 if (name !== "") {
-                    root.vpnActive = true
                     root.vpnName = name
                     root.vpnConnecting = false
-                } else {
-                    root.vpnSingBoxRefresh.running = false
-                    root.vpnSingBoxRefresh.running = true
+                } else if (!root.vpnConnecting) {
+                    root.vpnName = ""
                 }
-            }
-        }
-    }
-
-    readonly property Process vpnSingBoxRefresh: Process {
-        command: ["systemctl", "is-active", "--quiet", "sing-box.service"]
-        running: false
-        onExited: function(code) {
-            if (code === 0) {
-                root.vpnActive = true
-                root.vpnName = "sing-box"
-                root.vpnConnecting = false
-            } else if (!root.vpnConnecting) {
-                root.vpnActive = false
-                root.vpnName = ""
             }
         }
     }
