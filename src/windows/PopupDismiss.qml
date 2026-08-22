@@ -63,7 +63,14 @@ PanelWindow {
 
     // Only grab input when a popup is actually open
     // When false, input passes through as if this window doesn't exist
+    // labwc stacks this Top-layer surface above ArchMenu's anchored popup even
+    // though PopupDismiss is instantiated first. Its fullscreen mask therefore
+    // receives every button click before the visible power menu can. Leave the
+    // dismiss surface unmapped for that one popup on labwc; the compositor's
+    // toplevel/workspace listeners below still close it when focus moves, and
+    // the power key/button toggles it closed directly.
     visible: (Popups.anyOpen
+              && !(Compositor.isLabwc && Popups.archMenuOpen)
               && (!Popups.dashboardOpen
                   || Popups.dashboardScreen === root.screenName))
              || (ShellState.screenRecord && !ScreenRecService.recording)
