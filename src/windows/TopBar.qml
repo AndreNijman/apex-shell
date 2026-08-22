@@ -15,6 +15,37 @@ PanelWindow {
 
     color: "transparent"
 
+    // Preserve the original full-surface input behavior outside labwc. On
+    // labwc, match the painted shape: the full-width border strip plus each
+    // notch and its concave shoulder. This frees the transparent gaps without
+    // making visible bar pixels click through to application titlebars.
+    mask: Region {
+        Region {
+            x: 0; y: 0
+            width: root.width
+            height: Compositor.isLabwc ? Theme.borderWidth : root.implicitHeight
+        }
+        Region {
+            x: 0; y: 0
+            width: Compositor.isLabwc && !ShellState.focusMode
+                ? root.lWidth + Theme.notchRadius : 0
+            height: root.implicitHeight
+        }
+        Region {
+            x: Math.round((root.width - root.cWidth) / 2) - Theme.notchRadius
+            y: 0
+            width: Compositor.isLabwc && !ShellState.focusMode
+                ? root.cWidth + Theme.notchRadius * 2 : 0
+            height: root.implicitHeight
+        }
+        Region {
+            x: root.width - root.rWidth - Theme.notchRadius; y: 0
+            width: Compositor.isLabwc && !ShellState.focusMode
+                ? root.rWidth + Theme.notchRadius : 0
+            height: root.implicitHeight
+        }
+    }
+
     // Unmap the whole bar while a fullscreen window owns this output. This is a
     // layer-shell surface on layer `top`, so the compositor draws it OVER a
     // fullscreen game and pays to composite it on every frame. `visible: false`
@@ -48,9 +79,18 @@ PanelWindow {
         NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
     }
 
-    exclusiveZone: ShellState.focusMode ? 0 : Theme.exclusionGap
+    // labwc adds real server-side titlebars. Reserve the complete bar height so
+    // their iconify/maximize/close buttons start below the right notch instead
+    // of sharing its last few rows. Hyprland keeps its existing spacing.
+    exclusiveZone: ShellState.focusMode ? 0
+        : (Compositor.isLabwc
+            ? Math.max(Theme.notchHeight, Theme.exclusionGap)
+            : Theme.exclusionGap)
     Behavior on exclusiveZone {
-        NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
+        NumberAnimation {
+            duration: Compositor.isLabwc ? 0 : Theme.animDuration
+            easing.type: Easing.InOutCubic
+        }
     }
 
     readonly property int lWidth: Math.max(
@@ -147,9 +187,11 @@ PanelWindow {
             width:        root.lWidth
             height:       Theme.notchHeight
             anchors.left: parent.left
+            clip:         true
 
             LeftContent {
                 id: leftContent
+                screenName: root.screenName
                 anchors.centerIn: parent
             }
         }

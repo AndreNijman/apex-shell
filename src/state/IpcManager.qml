@@ -308,6 +308,19 @@ QtObject {
         }
     }
 
+    // Exposed independently so caffeine's actual inhibitor can be tested and
+    // automated without opening the dashboard.
+    property var caffeine: IpcHandler {
+        target: "caffeine"
+        function toggle(): bool {
+            ShellState.caffeine = !ShellState.caffeine
+            return ShellState.caffeine
+        }
+        function state(): bool {
+            return ShellState.caffeine
+        }
+    }
+
     signal focusToggleRequested()
 
     // ── Session Lock ─────────────────────────────────────────

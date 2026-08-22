@@ -100,15 +100,20 @@ Item {
             // Sync ShellState
             var active = buf.filter(function(c) { return c.active })
             if (active.length > 0) {
-                root._activeName         = active[0].name
-                ShellState.vpnActive     = true
-                ShellState.vpnConnecting = connectProc.running
-                ShellState.vpnName       = active[0].name
+                root._activeName = active[0].name
+                ShellState.updateVpnState(true, connectProc.running, active[0].name)
             } else {
-                root._activeName         = ""
-                ShellState.vpnActive     = false
-                ShellState.vpnConnecting = connectProc.running
-                ShellState.vpnName       = connectProc.running ? connectProc._name : ""
+                root._activeName = ""
+                if (connectProc.running) {
+                    ShellState.updateVpnState(false, true, connectProc._name)
+                } else {
+                    // Do not erase an external NetworkManager VPN that this
+                    // WireGuard-only page does not manage.
+                    var managed = ShellState.vpnName === "sing-box"
+                        || buf.some(function(c) { return c.name === ShellState.vpnName })
+                    if (managed)
+                        ShellState.updateVpnState(false, false, "")
+                }
             }
         }
     }
@@ -138,9 +143,7 @@ Item {
                     }
                 }
                 root._connections = cons
-                ShellState.vpnActive     = true
-                ShellState.vpnConnecting = false
-                ShellState.vpnName       = cname
+                ShellState.updateVpnState(true, false, cname)
 
                 root._notify(
                     "VPN Connected",
@@ -154,9 +157,7 @@ Item {
                     cons2[j] = { name: cons2[j].name, active: cons2[j].active, busy: false }
                 root._connections = cons2
 
-                ShellState.vpnConnecting = false
-                ShellState.vpnActive     = false
-                ShellState.vpnName       = ""
+                ShellState.updateVpnState(false, false, "")
 
                 root._notify(
                     "VPN Failed",
@@ -183,9 +184,7 @@ Item {
                 cons[i] = { name: cons[i].name, active: false, busy: false }
             root._connections = cons
 
-            ShellState.vpnActive     = false
-            ShellState.vpnConnecting = false
-            ShellState.vpnName       = ""
+            ShellState.updateVpnState(false, false, "")
 
             root._notify(
                 "VPN Disconnected",
@@ -269,8 +268,7 @@ Item {
         if (sbConnectProc.running || sbDisconnectProc.running
             || connectProc.running || disconnectProc.running) return
         root._sbBusy = true
-        ShellState.vpnConnecting = true
-        ShellState.vpnName       = "sing-box"
+        ShellState.updateVpnState(false, true, "sing-box")
         sbConnectProc.command = ["bash", "-c",
             // 1. Mutual exclusion: down all active WireGuard connections
             "nmcli -g NAME,TYPE connection show --active" +
@@ -300,14 +298,13 @@ Item {
     function _syncShellState() {
         var wgActive = root._connections.some(function(c) { return c.active })
         if (root._sbActive && !wgActive) {
-            ShellState.vpnActive     = true
-            ShellState.vpnConnecting = false
-            ShellState.vpnName       = "sing-box"
+            ShellState.updateVpnState(true, false, "sing-box")
         } else if (!wgActive && !root._sbActive
                    && !connectProc.running && !sbConnectProc.running) {
-            ShellState.vpnActive     = false
-            ShellState.vpnConnecting = false
-            if (ShellState.vpnName === "sing-box") ShellState.vpnName = ""
+            var managed = ShellState.vpnName === "sing-box"
+                || root._connections.some(function(c) { return c.name === ShellState.vpnName })
+            if (managed)
+                ShellState.updateVpnState(false, false, "")
         }
     }
 
@@ -395,9 +392,7 @@ Item {
         // Update state immediately
         root._sbActive = false
         root._sbEgress = ""
-        ShellState.vpnActive     = false
-        ShellState.vpnConnecting = false
-        ShellState.vpnName       = ""
+        ShellState.updateVpnState(false, false, "")
     }
 
     function _removeKillSwitch() {
@@ -425,9 +420,7 @@ Item {
         }
         root._connections = cons
 
-        ShellState.vpnConnecting = true
-        ShellState.vpnActive     = false
-        ShellState.vpnName       = name
+        ShellState.updateVpnState(false, true, name)
 
         connectProc._name = name
 
@@ -469,7 +462,10 @@ Item {
         } else {
             // Turning on — immediately down all active WireGuard connections
             root._killSwitch = true
-            if (ShellState.vpnActive || ShellState.vpnConnecting)
+            // Only act on connections this tab manages. ShellState also sees
+            // external NetworkManager VPNs for the bar indicator.
+            if (root._sbActive || root._connections.some(function(c) { return c.active })
+                || connectProc.running || sbConnectProc.running)
                 root._applyKillSwitch()
         }
     }
