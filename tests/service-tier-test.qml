@@ -32,6 +32,9 @@ ShellRoot {
     property var _origHistory: ({})
     property bool _origNexusOpen: false
     property string _origNexusPage: ""
+    property bool _origVpnActive: false
+    property bool _origVpnConnecting: false
+    property string _origVpnName: ""
     property real cpuAfterRef: -1
     property string memAfterRef: ""
     property int cpuTicksWhileReleased: -1
@@ -322,6 +325,30 @@ ShellRoot {
                 NexusState.open = root._origNexusOpen;
                 NexusState.page = root._origNexusPage;
                 root.check("nexus state restored", NexusState.page === root._origNexusPage);
+                break;
+
+            case 17:
+                console.log("[9] VPN probe/action sequencing");
+                root._origVpnActive = ShellState.vpnActive;
+                root._origVpnConnecting = ShellState.vpnConnecting;
+                root._origVpnName = ShellState.vpnName;
+
+                const staleGeneration = ShellState._vpnGeneration;
+                ShellState.updateVpnState(false, true, "test-vpn");
+                ShellState.updateVpnState(true, false, "test-vpn");
+
+                root.check("an action advances the VPN generation",
+                    ShellState._vpnGeneration > staleGeneration);
+                root.check("a pre-action probe result is discarded",
+                    !ShellState.applyVpnProbeResult("", staleGeneration));
+                root.check("a stale probe cannot clear the completed action",
+                    ShellState.vpnActive && ShellState.vpnName === "test-vpn");
+                root.check("a current external VPN probe is applied",
+                    ShellState.applyVpnProbeResult("external-vpn", ShellState._vpnGeneration)
+                    && ShellState.vpnActive && ShellState.vpnName === "external-vpn");
+
+                ShellState.updateVpnState(root._origVpnActive,
+                    root._origVpnConnecting, root._origVpnName);
                 break;
 
             default:

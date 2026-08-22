@@ -70,19 +70,8 @@ QtObject {
             "printf '%s' \"$name\""]
         running: false
         stdout: StdioCollector {
-            onStreamFinished: {
-                // VPNTab owns transient action state. Do not let a periodic
-                // observation overwrite an in-flight connect/disconnect.
-                if (root.vpnConnecting)
-                    return
-                const name = text.trim()
-                root.vpnActive = name !== ""
-                if (name !== "") {
-                    root.vpnName = name
-                } else {
-                    root.vpnName = ""
-                }
-            }
+            onStreamFinished: root.applyVpnProbeResult(
+                text.trim(), root._vpnProbeGeneration)
         }
     }
 
@@ -91,7 +80,12 @@ QtObject {
         repeat: true
         running: true
         triggeredOnStart: true
-        onTriggered: if (!root.vpnRefresh.running) root.vpnRefresh.running = true
+        onTriggered: {
+            if (root.vpnRefresh.running || root.vpnConnecting)
+                return
+            root._vpnProbeGeneration = root._vpnGeneration
+            root.vpnRefresh.running = true
+        }
     }
 
     // ── Fullscreen window tracking (bar + borders unmap for it) ──────────────
@@ -142,6 +136,28 @@ QtObject {
     property bool   vpnActive:     false
     property bool   vpnConnecting: false
     property string vpnName:       ""
+    property int    _vpnGeneration: 0
+    property int    _vpnProbeGeneration: -1
+
+    // VPNTab is the owner of action transitions. Every update invalidates a
+    // periodic probe that may still be carrying the pre-action system state.
+    function updateVpnState(active, connecting, name) {
+        root._vpnGeneration++
+        root.vpnActive = active
+        root.vpnConnecting = connecting
+        root.vpnName = name
+    }
+
+    function applyVpnProbeResult(name, generation) {
+        // Discard any result that predates a VPNTab state transition. Checking
+        // vpnConnecting alone is insufficient: an old probe can return just
+        // after the action has completed.
+        if (root.vpnConnecting || generation !== root._vpnGeneration)
+            return false
+        root.vpnActive = name !== ""
+        root.vpnName = name
+        return true
+    }
 
     // ── Hardware Detection ──────────────────────────────────────────
     property bool hasBattery: false
