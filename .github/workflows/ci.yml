@@ -244,6 +244,48 @@ jobs:
           fi
           echo "✓ popup input regions align with their content"
 
+      - name: Lazily built popups must receive the open state that built them
+        run: |
+          # A LazyPopup is instantiated BY the flag flipping true, so a popup
+          # that only reacts to `onXOpenChanged` misses the transition that
+          # created it and never maps: the notch expands over an invisible
+          # window, and reopening is the only recovery. It shipped because
+          # run-popup-smoke.sh cannot see it — an unmapped window still exits
+          # zero and logs nothing.
+          fail=0
+
+          grep -q 'applyOpenState' src/components/LazyPopup.qml \
+            || { echo "✗ LazyPopup no longer delivers state to what it builds"; fail=1; }
+
+          # Every popup wrapped in a LazyPopup that gates itself on a
+          # windowVisible flag has to expose that entry point.
+          for f in NetworkPopup NotificationsPopup ClipboardPopup WallpaperPopup; do
+            grep -q 'function applyOpenState' "src/popups/$f.qml" \
+              || { echo "✗ src/popups/$f.qml cannot receive its first open"; fail=1; }
+          done
+
+          # The toast's own flag is written ONLY by the toast, so gating its
+          # construction on that flag alone is a deadlock: no window, so no
+          # listener, so nothing ever sets the flag, so toasts never appear.
+          grep -q 'NotificationService.lastToast' src/popups/PopupLayer.qml \
+            || { echo "✗ notification toasts are gated on a flag only they write"; fail=1; }
+
+          [ "$fail" -eq 0 ] || exit 1
+          echo "✓ lazily built popups receive their first open"
+
+      - name: Volume and brightness binds must repeat while held
+        run: |
+          # Hyprland's plain `bind` fires once per press. A volume or brightness
+          # key that does not repeat is technically bound and practically
+          # useless, and nothing errors when the flag is lost.
+          fail=0
+          grep -q 'e.repeat ? "bindel" : "bind"' src/services/config_tab/KeybindService.qml \
+            || { echo "✗ the keybind generator no longer emits bindel"; fail=1; }
+          grep -q 'repeat: true' src/services/config_tab/KeybindService.qml \
+            || { echo "✗ no bind asks to repeat; volume/brightness will single-step"; fail=1; }
+          [ "$fail" -eq 0 ] || exit 1
+          echo "✓ held volume and brightness keys repeat"
+
       - name: labwc session support is wired up
         run: |
           fail=0

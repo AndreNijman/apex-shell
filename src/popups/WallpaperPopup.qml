@@ -71,26 +71,33 @@ PanelWindow {
         onTriggered: searchInput.forceActiveFocus()
     }
 
+    // Shared by the open signal, the hover path, and LazyPopup, which calls this
+    // right after building the window — the popup does not exist for the signal
+    // that opens it the first time.
+    function applyOpenState() {
+        closeTimer.stop()
+        hoverCloseTimer.stop()
+        root.windowVisible           = true
+        WallpaperService.refresh()
+        WallpaperService.previewWall = ""
+        content.schemePopupOpen      = false
+        content.folderMode           = false
+        content.appliedScheme        = WallpaperService.scheme
+        searchInput.text             = ""
+        focusGrabTimer.restart()
+        searchInput.forceActiveFocus()
+        focusTimer.restart()
+    }
+
     Connections {
         target: Popups
         function onWallpaperTriggerHoveredChanged() {
             if (Popups.wallpaperTriggerHovered) {
                 if (root.allowHover) {
                     hoverCloseTimer.stop()
-                    if (!Popups.wallpaperOpen) {
-                        closeTimer.stop()
-                        root.windowVisible           = true
-                        Popups.wallpaperOpen         = true
-                        WallpaperService.refresh()
-                        WallpaperService.previewWall = ""
-                        content.schemePopupOpen      = false
-                        content.folderMode           = false
-                        content.appliedScheme        = WallpaperService.scheme
-                        searchInput.text             = ""
-                        focusGrabTimer.restart()
-                        searchInput.forceActiveFocus()
-                        focusTimer.restart()
-                    }
+                    // Opening it here re-enters through onWallpaperOpenChanged,
+                    // which applies the same state exactly once.
+                    if (!Popups.wallpaperOpen) Popups.wallpaperOpen = true
                 }
             } else {
                 if (root.allowHover && !root.selfHovered) hoverCloseTimer.restart()
@@ -99,18 +106,7 @@ PanelWindow {
 
         function onWallpaperOpenChanged() {
             if (Popups.wallpaperOpen) {
-                closeTimer.stop()
-                hoverCloseTimer.stop()
-                root.windowVisible           = true
-                WallpaperService.refresh()
-                WallpaperService.previewWall = ""
-                content.schemePopupOpen      = false
-                content.folderMode           = false
-                content.appliedScheme        = WallpaperService.scheme
-                searchInput.text             = ""
-                focusGrabTimer.restart()
-                searchInput.forceActiveFocus()
-                focusTimer.restart()
+                root.applyOpenState()
             } else {
                 root.wantsFocus = false
                 focusGrabTimer.stop()
