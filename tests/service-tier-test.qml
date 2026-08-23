@@ -63,6 +63,25 @@ ShellRoot {
         active: root.wantMem
     }
 
+    // ── LazyPopup first-open delivery ─────────────────────────────────────────
+    // Regression guard. A lazily built popup is created BY the open transition,
+    // so it cannot be listening for the signal that opened it: gating on that
+    // signal alone left the network, notification and clipboard popups unmapped
+    // until they were toggled a second time. LazyPopup must hand the state to
+    // the popup it just built. The popup smoke test cannot catch this — a window
+    // that never maps still exits zero and logs no error.
+    property bool probeWanted: false
+
+    LazyPopup {
+        id: lazyProbe
+        wanted: root.probeWanted
+
+        QtObject {
+            property int applied: 0
+            function applyOpenState() { applied++ }
+        }
+    }
+
     // A ref we destroy outright, to prove Component.onDestruction releases.
     property Component throwawayComp: Component {
         ServiceRef {
@@ -349,6 +368,24 @@ ShellRoot {
 
                 ShellState.updateVpnState(root._origVpnActive,
                     root._origVpnConnecting, root._origVpnName);
+                break;
+
+            case 18:
+                console.log("[10] LazyPopup hands the open state to what it builds");
+                root.check("nothing is built while unwanted", lazyProbe.item === null);
+                root.probeWanted = true;
+                break;
+
+            case 19:
+                root.check("the popup is built once wanted", lazyProbe.item !== null);
+                root.check("applyOpenState ran for the transition that built it",
+                    lazyProbe.item !== null && lazyProbe.item.applied === 1);
+                // The latch must not re-fire the open state on later toggles.
+                root.probeWanted = false;
+                root.check("the built popup is retained, not unloaded",
+                    lazyProbe.item !== null);
+                root.check("applyOpenState did not run again",
+                    lazyProbe.item !== null && lazyProbe.item.applied === 1);
                 break;
 
             default:
