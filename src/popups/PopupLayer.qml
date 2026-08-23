@@ -85,8 +85,14 @@ Scope {
 
     // Standardised pill-popup: anchored to the top bar like NotificationsPopup,
     // so the card's flush top lands exactly at the pill's bottom edge.
+    //
+    // NOT gated on Popups.notificationToastOpen: that flag is written ONLY by
+    // the toast itself, so gating construction on it deadlocked — the window
+    // was never built, so it never listened for a notification, so nothing ever
+    // set the flag, so toasts never appeared at all. The service's own record of
+    // the last announced notification is the real trigger.
     LazyPopup {
-        wanted: Popups.notificationToastOpen
+        wanted: Popups.notificationToastOpen || NotificationService.lastToast !== null
         NotificationToast {
             anchorWindow: root.topBar
         }

@@ -3,6 +3,7 @@ import QtQuick
 import "./src/components"
 import "./src/services"
 import "./src/nexus"
+import "./src/popups"
 import "./src"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -61,6 +62,54 @@ ShellRoot {
     ServiceRef {
         service: MemService
         active: root.wantMem
+    }
+
+    // ── LazyPopup first-open delivery ─────────────────────────────────────────
+    // Regression guard. A lazily built popup is created BY the open transition,
+    // so it cannot be listening for the signal that opened it: gating on that
+    // signal alone left the network, notification and clipboard popups unmapped
+    // until they were toggled a second time. LazyPopup must hand the state to
+    // the popup it just built. The popup smoke test cannot catch this — a window
+    // that never maps still exits zero and logs no error.
+    property bool probeWanted: false
+
+    LazyPopup {
+        id: lazyProbe
+        wanted: root.probeWanted
+
+        QtObject {
+            property int applied: 0
+            function applyOpenState() { applied++ }
+        }
+    }
+
+    // ── Notification toast: one notification, one toast ───────────────────────
+    // The toast window can be built BY the notification it is meant to show, so
+    // the service's signal is then a SECOND delivery of the same object. That
+    // showed the same notification twice, five seconds apart.
+    PanelWindow {
+        id: toastAnchor
+        visible: false
+        implicitWidth:  420
+        implicitHeight: 40
+    }
+
+    component FakeNote: QtObject {
+        property bool tracked: true
+        property string appName: "Probe"
+        property string summary: "probe"
+        property string body: ""
+        property string image: ""
+        property string appIcon: ""
+        property var actions: []
+    }
+
+    readonly property FakeNote noteA: FakeNote {}
+    readonly property FakeNote noteB: FakeNote {}
+
+    NotificationToast {
+        id: toastProbe
+        anchorWindow: toastAnchor
     }
 
     // A ref we destroy outright, to prove Component.onDestruction releases.
@@ -349,6 +398,47 @@ ShellRoot {
 
                 ShellState.updateVpnState(root._origVpnActive,
                     root._origVpnConnecting, root._origVpnName);
+                break;
+
+            case 18:
+                console.log("[10] LazyPopup hands the open state to what it builds");
+                root.check("nothing is built while unwanted", lazyProbe.item === null);
+                root.probeWanted = true;
+                break;
+
+            case 19:
+                root.check("the popup is built once wanted", lazyProbe.item !== null);
+                root.check("applyOpenState ran for the transition that built it",
+                    lazyProbe.item !== null && lazyProbe.item.applied === 1);
+                // The latch must not re-fire the open state on later toggles.
+                root.probeWanted = false;
+                root.check("the built popup is retained, not unloaded",
+                    lazyProbe.item !== null);
+                root.check("applyOpenState did not run again",
+                    lazyProbe.item !== null && lazyProbe.item.applied === 1);
+                break;
+
+            case 20:
+                console.log("[11] one notification produces exactly one toast");
+                NotificationService.lastToast = root.noteA;
+                toastProbe.applyOpenState();
+                root.check("the toast claims the notification that built it",
+                    toastProbe.current === root.noteA);
+                // The same object arriving again is the second delivery.
+                NotificationService.notificationAdded(root.noteA);
+                root.check("the claimed notification is not queued again",
+                    toastProbe.queue.length === 0);
+                // A genuinely new one must still queue behind it.
+                NotificationService.notificationAdded(root.noteB);
+                root.check("a different notification still queues",
+                    toastProbe.queue.length === 1);
+                // And it must not be double-claimed once it is queued.
+                toastProbe.applyOpenState();
+                NotificationService.lastToast = root.noteB;
+                toastProbe.applyOpenState();
+                root.check("a queued notification is not claimed twice",
+                    toastProbe.queue.length === 1 && toastProbe.current === root.noteA);
+                NotificationService.lastToast = null;
                 break;
 
             default:

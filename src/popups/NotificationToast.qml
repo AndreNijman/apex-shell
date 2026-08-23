@@ -40,10 +40,26 @@ PopupWindow {
 	property var  current:       null
 	property var  queue:         []
 
+	// Called by LazyPopup right after this window is built. The notification
+	// that caused the build was announced before this object existed, so take
+	// it from the service rather than waiting for the next one to arrive.
+	function applyOpenState() {
+		if (root.current !== null) return
+		const n = NotificationService.lastToast
+		if (!n || !n.tracked) return
+		if (root.queue.indexOf(n) !== -1) return
+		root.startShow(n)
+	}
+
 	Connections {
 		target: NotificationService
 		function onNotificationAdded(n) {
 			if (!n || !n.tracked) return
+			// This window may have been built BY this very notification, in
+			// which case applyOpenState already claimed it and the signal is a
+			// second delivery of the same thing — it showed twice, five seconds
+			// apart. Identity decides, so either path may run first.
+			if (n === root.current || root.queue.indexOf(n) !== -1) return
 			if (root.current === null) {
 				root.startShow(n)
 			} else {
