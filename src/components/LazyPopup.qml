@@ -43,4 +43,20 @@ LazyLoader {
 
     onWantedChanged: if (root.wanted)
         root._everWanted = true
+
+    // Deliver the open state the popup could not observe.
+    //
+    // A popup gated on `Connections { target: Popups; function onXOpenChanged }`
+    // never sees the transition that BUILT it: the singleton emitted that signal
+    // before this loader instantiated the window, so the handler did not exist
+    // yet. The window therefore stayed unmapped until the flag was toggled
+    // again — the notch expanded over a popup that was never shown, and closing
+    // and reopening was the only way to get it back. Eagerly instantiated
+    // popups never had this problem, which is why it appeared with laziness.
+    //
+    // Popups that need it expose `applyOpenState()`, which is the same function
+    // their open branch calls, so there is one code path rather than two.
+    onItemChanged: if (root.item && root.wanted
+                       && typeof root.item.applyOpenState === "function")
+        root.item.applyOpenState()
 }

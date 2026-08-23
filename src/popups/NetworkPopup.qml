@@ -40,15 +40,22 @@ PanelWindow {
     property bool windowVisible: false
     visible: windowVisible
 
+    // Shared by the open signal and by LazyPopup, which calls this right after
+    // building the window — the popup does not exist for the signal that opens
+    // it the first time.
+    function applyOpenState() {
+        closeTimer.stop()
+        root.windowVisible = true
+        // Use requested page if set, otherwise default to wifi
+        root.page = (Popups.networkPage && Popups.networkPage !== "")
+            ? Popups.networkPage : "wifi"
+    }
+
     Connections {
         target: Popups
         function onNetworkOpenChanged() {
             if (Popups.networkOpen) {
-                closeTimer.stop()
-                root.windowVisible = true
-                // Use requested page if set, otherwise default to wifi
-                root.page = (Popups.networkPage && Popups.networkPage !== "")
-                    ? Popups.networkPage : "wifi"
+                root.applyOpenState()
             } else {
                 closeTimer.restart()
             }

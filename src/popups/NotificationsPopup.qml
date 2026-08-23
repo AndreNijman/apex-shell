@@ -46,11 +46,19 @@ PopupWindow {
     // Window stays alive until the close animation finishes.
     property bool windowVisible: false
 
+    // Shared by the open signal and by LazyPopup, which calls this right after
+    // building the window — the popup does not exist for the signal that opens
+    // it the first time.
+    function applyOpenState() {
+        closeTimer.stop()
+        root.windowVisible = true
+    }
+
     Connections {
         target: Popups
         function onNotificationsOpenChanged() {
             if (Popups.notificationsOpen) {
-                root.windowVisible = true
+                root.applyOpenState()
             } else {
                 closeTimer.restart()
             }
@@ -60,7 +68,9 @@ PopupWindow {
     Timer {
         id:       closeTimer
         interval: root.animDuration + 20
-        onTriggered: root.windowVisible = false
+        // Guarded, because reopening inside the close animation leaves this
+        // timer pending: unguarded it would blank the freshly opened window.
+        onTriggered: if (!Popups.notificationsOpen) root.windowVisible = false
     }
     
     // ── Sizer ─────────────────────────────────────────────────
