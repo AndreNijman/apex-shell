@@ -38,12 +38,19 @@ PanelWindow {
     property bool windowVisible: false
     visible: windowVisible
 
+    // Shared by the open signal and by LazyPopup, which calls this right after
+    // building the window — the popup does not exist for the signal that opens
+    // it the first time.
+    function applyOpenState() {
+        closeTimer.stop()
+        root.windowVisible = true
+    }
+
     Connections {
         target: Popups
         function onClipboardOpenChanged() {
             if (Popups.clipboardOpen) {
-                closeTimer.stop()
-                root.windowVisible = true
+                root.applyOpenState()
             } else {
                 closeTimer.restart()
             }

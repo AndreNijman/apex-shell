@@ -47,6 +47,24 @@ QtObject {
         "audioOut-toggle":    { mods: "SUPER",        key: "A",      label: "Audio: Output",        group: "Audio Tabs"     },
         "audioIn-toggle":     { mods: "SUPER + ALT",   key: "I",      label: "Audio: Input",         group: "Audio Tabs"     },
         "audioMix-toggle":    { mods: "SUPER",        key: "M",      label: "Audio: Mixer",         group: "Audio Tabs"     },
+        // Media keys on CTRL+SUPER, which nothing else in either session uses.
+        // These duplicate the XF86 hardware keys deliberately: laptops without
+        // dedicated media keys, and external keyboards that do not emit them,
+        // otherwise have no way to drive playback.
+        //
+        // `repeat` emits Hyprland's `bindel` instead of `bind`, so holding a
+        // volume or brightness key keeps stepping. Transport keys are one-shot.
+        // Volume goes through wpctl and brightness through brightnessctl, the
+        // same commands the XF86 keys use, so the shell's OSD reacts to both
+        // without either compositor telling it anything.
+        "media-play-pause":   { mods: "CTRL + SUPER", key: "SPACE",  label: "Play / Pause",         group: "Media", type: "exec", command: "playerctl play-pause" },
+        "media-next":         { mods: "CTRL + SUPER", key: "RIGHT",  label: "Next Track",           group: "Media", type: "exec", command: "playerctl next" },
+        "media-previous":     { mods: "CTRL + SUPER", key: "LEFT",   label: "Previous Track",       group: "Media", type: "exec", command: "playerctl previous" },
+        "volume-up":          { mods: "CTRL + SUPER", key: "EQUAL",  label: "Volume Up",            group: "Media", type: "exec", repeat: true, command: "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+" },
+        "volume-down":        { mods: "CTRL + SUPER", key: "MINUS",  label: "Volume Down",          group: "Media", type: "exec", repeat: true, command: "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-" },
+        "volume-mute":        { mods: "CTRL + SUPER", key: "0",      label: "Mute",                 group: "Media", type: "exec", command: "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle" },
+        "brightness-up":      { mods: "CTRL + SUPER", key: "UP",     label: "Brightness Up",        group: "Media", type: "exec", repeat: true, command: "brightnessctl set 5%+" },
+        "brightness-down":    { mods: "CTRL + SUPER", key: "DOWN",   label: "Brightness Down",      group: "Media", type: "exec", repeat: true, command: "brightnessctl set 5%-" },
         "focus-toggle":       { mods: "SUPER",        key: "B",      label: "Focus Mode",           group: "Quick Settings" },
         "screenrec-on":       { mods: "ALT",          key: "F9",     label: "Screen Record",        group: "Quick Settings" },
         "screenshot-area":    { mods: "",             key: "PRINT",  label: "Screenshot Area",      group: "Window Management", type: "exec", command: "bash " + root._shellDir + "/src/scripts/screenshot.sh area" },
@@ -415,6 +433,9 @@ QtObject {
         return { groups: groups, order: order }
     }
 
+    // Note: this provider emits plain `hl.bind` for every entry, including the
+    // ones flagged `repeat` — holding volume or brightness steps once here,
+    // whereas the .conf provider below emits `bindel` and repeats.
     function _genLua() {
         var sd   = root._shellDir.replace(/"/g, "\\\"")
         var data = _grouped()
@@ -514,14 +535,18 @@ QtObject {
                 var e = entries[ei]
                 // Hyprland .conf format drops the '+' symbol between modifiers
                 var confMods = e.mods.replace(/\s*\+\s*/g, " ")
+                // `bindel` = repeat while held, and still fires with the screen
+                // locked or off. Volume and brightness are useless without it;
+                // everything else must stay one-shot.
+                var verb = e.repeat ? "bindel" : "bind"
                 if (e.type === "dispatch") {
-                    lines.push("bind = " + confMods + ", " + e.key + ", " + e.dispatcher
+                    lines.push(verb + " = " + confMods + ", " + e.key + ", " + e.dispatcher
                                + (e.arg ? ", " + e.arg : ""))
                 } else {
                     var cmd = e.type === "exec"
                         ? e.command
                         : "qs -p " + root._shellDir + " ipc call " + e.k + " toggle"
-                    lines.push("bind = " + confMods + ", " + e.key + ", exec, " + cmd)
+                    lines.push(verb + " = " + confMods + ", " + e.key + ", exec, " + cmd)
                 }
             }
             lines.push("")
