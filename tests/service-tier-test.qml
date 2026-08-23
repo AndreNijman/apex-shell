@@ -3,6 +3,7 @@ import QtQuick
 import "./src/components"
 import "./src/services"
 import "./src/nexus"
+import "./src/popups"
 import "./src"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,6 +81,35 @@ ShellRoot {
             property int applied: 0
             function applyOpenState() { applied++ }
         }
+    }
+
+    // ── Notification toast: one notification, one toast ───────────────────────
+    // The toast window can be built BY the notification it is meant to show, so
+    // the service's signal is then a SECOND delivery of the same object. That
+    // showed the same notification twice, five seconds apart.
+    PanelWindow {
+        id: toastAnchor
+        visible: false
+        implicitWidth:  420
+        implicitHeight: 40
+    }
+
+    component FakeNote: QtObject {
+        property bool tracked: true
+        property string appName: "Probe"
+        property string summary: "probe"
+        property string body: ""
+        property string image: ""
+        property string appIcon: ""
+        property var actions: []
+    }
+
+    readonly property FakeNote noteA: FakeNote {}
+    readonly property FakeNote noteB: FakeNote {}
+
+    NotificationToast {
+        id: toastProbe
+        anchorWindow: toastAnchor
     }
 
     // A ref we destroy outright, to prove Component.onDestruction releases.
@@ -386,6 +416,29 @@ ShellRoot {
                     lazyProbe.item !== null);
                 root.check("applyOpenState did not run again",
                     lazyProbe.item !== null && lazyProbe.item.applied === 1);
+                break;
+
+            case 20:
+                console.log("[11] one notification produces exactly one toast");
+                NotificationService.lastToast = root.noteA;
+                toastProbe.applyOpenState();
+                root.check("the toast claims the notification that built it",
+                    toastProbe.current === root.noteA);
+                // The same object arriving again is the second delivery.
+                NotificationService.notificationAdded(root.noteA);
+                root.check("the claimed notification is not queued again",
+                    toastProbe.queue.length === 0);
+                // A genuinely new one must still queue behind it.
+                NotificationService.notificationAdded(root.noteB);
+                root.check("a different notification still queues",
+                    toastProbe.queue.length === 1);
+                // And it must not be double-claimed once it is queued.
+                toastProbe.applyOpenState();
+                NotificationService.lastToast = root.noteB;
+                toastProbe.applyOpenState();
+                root.check("a queued notification is not claimed twice",
+                    toastProbe.queue.length === 1 && toastProbe.current === root.noteA);
+                NotificationService.lastToast = null;
                 break;
 
             default:
