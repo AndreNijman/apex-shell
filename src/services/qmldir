@@ -27,6 +27,8 @@ AppearancePage ./config_tab/pages/AppearancePage.qml
 LayoutPage ./config_tab/pages/LayoutPage.qml
 DataPage ./config_tab/pages/DataPage.qml
 MiscPage ./config_tab/pages/MiscPage.qml
+InputPage ./config_tab/pages/InputPage.qml
+DisplayPage ./config_tab/pages/DisplayPage.qml
 singleton AgentService 1.0 AgentService.qml
 AgentCenter agents/AgentCenter.qml
 # The Agent Center's own parts. Declared here rather than relying on implicit

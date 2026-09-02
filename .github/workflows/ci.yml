@@ -320,6 +320,73 @@ jobs:
           [ "$fail" -eq 0 ] || exit 1
           echo "✓ labwc support present"
 
+      - name: Input and Display page invariants
+        run: |
+          fail=0
+
+          # Both pages exist and are registered once, in the registry that both
+          # the dashboard tab and the Nexus window read.
+          for id in input display; do
+            grep -q "\"id\": \"$id\"" src/nexus/PageRegistry.qml \
+              || { echo "✗ $id is not in PageRegistry"; fail=1; }
+          done
+          for t in InputPage DisplayPage; do
+            grep -qE "^${t} ./config_tab/pages/${t}\.qml$" src/services/qmldir \
+              || { echo "✗ $t is not registered in src/services/qmldir"; fail=1; }
+          done
+          # The services go in src/qmldir, next to KeybindService and
+          # SettingsService — that is the module the pages import through
+          # "../../../". Registering them in src/services/qmldir instead gives
+          # "Member not found on type" for every single binding, which reads as
+          # sixty separate mistakes rather than one.
+          for t in InputService DisplayService; do
+            grep -q "^singleton ${t} 1.0 services/config_tab/${t}\.qml$" src/qmldir \
+              || { echo "✗ $t is not a singleton in src/qmldir"; fail=1; }
+            grep -q "^singleton ${t} " src/services/qmldir \
+              && { echo "✗ $t is registered in two modules"; fail=1; }
+          done
+
+          # THE DISPLAY PAGE MUST NOT APPLY AUTOMATICALLY.
+          #
+          # A wrong display setting can leave the machine with no usable output,
+          # and the control to undo it is on the output that just went away. So
+          # unlike every other settings page, this one stages changes and
+          # applies on request, with a countdown that reverts unless confirmed.
+          #
+          # The specific regression guarded against is copying InputService's
+          # debounce-then-apply timer into DisplayService, which would make
+          # dragging the scale slider reconfigure the screen mid-drag.
+          if grep -qE "onTriggered:\s*root\.apply\(\)" src/services/config_tab/DisplayService.qml; then
+            echo "✗ DisplayService applies from a timer; display changes must be explicit"
+            fail=1
+          fi
+          for sym in confirmSeconds revertApplied _preApply; do
+            grep -q "$sym" src/services/config_tab/DisplayService.qml \
+              || { echo "✗ DisplayService lost $sym; an apply could not be undone"; fail=1; }
+          done
+          grep -q "confirmSeconds" src/services/config_tab/pages/DisplayPage.qml \
+            || { echo "✗ the Display page never shows the revert countdown"; fail=1; }
+          # save() must stay distinct from apply(): it is the action that writes
+          # persistence WITHOUT touching hardware.
+          grep -q "function save()" src/services/config_tab/DisplayService.qml \
+            || { echo "✗ DisplayService has no save(); every change would touch hardware"; fail=1; }
+
+          # Neither service may splice its model into a shell string. Values
+          # here come off disk and out of EDID; interpolating them is a shell
+          # injection. Both pass the JSON as a bash argument instead.
+          for f in src/services/config_tab/InputService.qml \
+                   src/services/config_tab/DisplayService.qml; do
+            grep -qE 'JSON\.stringify\(' "$f" \
+              || { echo "✗ $f does not serialise its model"; fail=1; }
+            if grep -nE '"bash", "-c",[^]]*\+ *JSON\.stringify' "$f"; then
+              echo "✗ $f interpolates its model into a shell command"
+              fail=1
+            fi
+          done
+
+          [ "$fail" -eq 0 ] || exit 1
+          echo "✓ input and display pages registered; display applies only on request"
+
       - name: Agent Center invariants
         run: |
           fail=0

@@ -49,6 +49,22 @@ QtObject {
             "component": dataComp
         },
         {
+            "id": "input",
+            "title": "Input",
+            "subtitle": "Touchpad, mouse, keyboard repeat",
+            "icon": "󰟸",
+            "needsScreen": false,
+            "component": inputComp
+        },
+        {
+            "id": "display",
+            "title": "Display",
+            "subtitle": "Resolution, refresh, scale, rotation, arrangement",
+            "icon": "󰍹",
+            "needsScreen": false,
+            "component": displayComp
+        },
+        {
             "id": "keybinds",
             "title": "Keybinds",
             "subtitle": "Shortcuts for every popup",
@@ -89,6 +105,12 @@ QtObject {
     }
     readonly property Component dataComp: Component {
         DataPage {}
+    }
+    readonly property Component inputComp: Component {
+        InputPage {}
+    }
+    readonly property Component displayComp: Component {
+        DisplayPage {}
     }
     readonly property Component keybindsComp: Component {
         KeybindsPage {}
