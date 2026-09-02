@@ -111,4 +111,11 @@ Scope {
         wanted: Popups.networkOpen
         NetworkPopup {}
     }
+
+    // Desktop right-click menu. Full-screen overlay rather than an anchored
+    // popup: it places itself at the pointer, so it has no anchor window.
+    LazyPopup {
+        wanted: Popups.contextMenuOpen
+        ContextMenu {}
+    }
 }
