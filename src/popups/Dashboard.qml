@@ -171,6 +171,7 @@ PanelWindow {
                     model: [
                         { key: "home",     icon: "󰋜", label: "Home"   },
                         { key: "stats",    icon: "󰻠", label: "System" },
+                        { key: "agents",   icon: "󰚩", label: "Agents" },
                         { key: "kanban",   icon: "󰄬", label: "Tasks"  },
                         { key: "launcher", icon: "󱓞", label: "Apps"   },
                         { key: "config",   icon: "󰒓", label: "Config" },
@@ -208,6 +209,17 @@ PanelWindow {
                             DashStats {
                                 anchors.fill: parent
                                 onScreen: root.pageLive && root.page === "stats"
+                            }
+                        }
+                    }
+
+                    LazyPage {
+                        anchors.fill: parent
+                        shown: root.page === "agents"
+                        sourceComponent: Component {
+                            AgentCenter {
+                                anchors.fill: parent
+                                onScreen: root.pageLive && root.page === "agents"
                             }
                         }
                     }

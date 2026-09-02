@@ -37,7 +37,8 @@ grep -q "Configuration Loaded" "$log" || {
     echo "FAIL: the shell never loaded"; tail -20 "$log"; exit 1; }
 
 targets=(
-    dashboard-home dashboard-stats dashboard-kanban dashboard-launcher
+    dashboard-home dashboard-stats dashboard-agents dashboard-kanban
+    dashboard-launcher
     dashboard-config notification-toggle clipboard-toggle wallpaper-toggle
     wifi-toggle bluetooth-toggle audioOut-toggle
     context-menu
