@@ -61,6 +61,11 @@ QtObject {
         function toggle() { root.toggleDashboard("stats") }
     }
 
+    property var dashboardAgents: IpcHandler {
+        target: "dashboard-agents"
+        function toggle() { root.toggleDashboard("agents") }
+    }
+
     property var dashboardKanban: IpcHandler {
         target: "dashboard-kanban"
         function toggle() { root.toggleDashboard("kanban") }
