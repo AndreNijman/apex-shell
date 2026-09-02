@@ -37,3 +37,17 @@ output_path = '@SRCDIR@/src/config/colors.conf'
 [templates.ghostty]
 input_path = '@SRCDIR@/src/config/ghostty-colors.template'
 output_path = '@HOME@/.config/ghostty/apex-shell-colors'
+
+# -- labwc window chrome -> ~/.config/labwc/themerc-override ------------------
+# APEX Floating (the labwc session) themed from the same Material You source as
+# the shell, so one wallpaper change moves the QML surfaces, the Hyprland
+# borders and the labwc titlebars together instead of leaving the floating
+# session on a palette from three wallpapers ago.
+#
+# labwc reads themerc-override AFTER the theme's own themerc, so these win
+# without needing a bundled theme directory. Applying it needs
+# `labwc --reconfigure`, which WallpaperService issues when a labwc session is
+# actually running.
+[templates.labwc]
+input_path = '@SRCDIR@/src/config/labwc-themerc.template'
+output_path = '@HOME@/.config/labwc/themerc-override'

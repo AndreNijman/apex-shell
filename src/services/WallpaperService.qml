@@ -143,6 +143,17 @@ QtObject {
             "matugen image \"$STATIC\" -c \"$CFG\" --source-color-index 0 --type \"scheme-$3\" || true; " +
             "matugen image \"$STATIC\" --source-color-index 0 --type \"scheme-$3\" || true; " +
             "fi; " +
+            // Repaint the labwc session. matugen has just rewritten
+            // ~/.config/labwc/themerc-override, but labwc only reads it on
+            // reconfigure, so without this the floating session keeps the old
+            // titlebar colours until the next login.
+            //
+            // Guarded on a labwc process actually running: `labwc
+            // --reconfigure` with no server up prints an error, and this runs
+            // on every wallpaper change in Hyprland and niri too.
+            "if command -v labwc >/dev/null 2>&1 && pgrep -x labwc >/dev/null 2>&1; then " +
+            "labwc --reconfigure >/dev/null 2>&1 || true; " +
+            "fi; " +
             // Publish the new wallpaper to the LOGIN / LOCK SCREEN. Without
             // this the greeter stays on the shipped default forever: it runs as
             // the `greetd` system user, outside any session, and cannot read a
