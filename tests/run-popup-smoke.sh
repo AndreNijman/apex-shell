@@ -44,6 +44,24 @@ targets=(
     context-menu
 )
 
+# The Config tab's own sub-pages are lazily built as well, and toggling the tab
+# only ever builds its FIRST page. Nexus addresses each by id, so every settings
+# page gets instantiated — which is the only way a broken binding inside one is
+# caught before a user finds it.
+nexus_pages=(appearance layout input display keybinds data misc)
+for p in "${nexus_pages[@]}"; do
+    out="$(quickshell -p "$root/shell.qml" ipc call nexus open "$p" 2>&1)"
+    rc=$?
+    printf 'nexus:%-12s rc=%s %s\n' "$p" "$rc" "$out"
+    [[ "$rc" -eq 0 ]] || { echo "FAIL: nexus open $p failed"; exit 1; }
+    case "$out" in
+        *"unknown page"*) echo "FAIL: $p is not in PageRegistry"; exit 1 ;;
+    esac
+    sleep 0.8
+done
+quickshell -p "$root/shell.qml" ipc call nexus close >/dev/null 2>&1
+sleep 0.3
+
 for t in "${targets[@]}"; do
     quickshell -p "$root/shell.qml" ipc call "$t" toggle >/dev/null 2>&1
     rc=$?
