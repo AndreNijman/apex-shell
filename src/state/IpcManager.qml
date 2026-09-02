@@ -260,6 +260,34 @@ QtObject {
         }
     }
 
+    // Desktop right-click menu. `open` rather than `toggle` for the mousebind
+    // path: a second right-click should reposition the menu at the new cursor
+    // position, not dismiss it, which is what every desktop does.
+    property var contextMenu: IpcHandler {
+        target: "context-menu"
+        function open() {
+            if (Popups.contextMenuOpen) {
+                // Force the popup to re-read the pointer position.
+                Popups.contextMenuOpen = false
+                reopen.restart()
+            } else {
+                Popups.closeAll()
+                Popups.contextMenuOpen = true
+            }
+        }
+        function toggle() {
+            var next = !Popups.contextMenuOpen
+            Popups.closeAll()
+            Popups.contextMenuOpen = next
+        }
+        function close() { Popups.contextMenuOpen = false }
+    }
+
+    property var reopen: Timer {
+        interval: 1
+        onTriggered: { Popups.closeAll(); Popups.contextMenuOpen = true }
+    }
+
     property var clipboard: IpcHandler {
         target: "clipboard-toggle"
         function toggle() {

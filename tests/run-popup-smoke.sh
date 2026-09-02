@@ -40,6 +40,7 @@ targets=(
     dashboard-home dashboard-stats dashboard-kanban dashboard-launcher
     dashboard-config notification-toggle clipboard-toggle wallpaper-toggle
     wifi-toggle bluetooth-toggle audioOut-toggle
+    context-menu
 )
 
 for t in "${targets[@]}"; do
