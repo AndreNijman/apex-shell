@@ -14,6 +14,9 @@ QtObject {
     property bool notificationToastOpen:    false
     property bool quickOpen: false
     property bool clipboardOpen:     false
+    // Desktop right-click menu. Replaces the compositor's own root menu; see
+    // popups/ContextMenu.qml.
+    property bool contextMenuOpen:   false
 
     // ── Dashboard — per-page state ───────────────────────────────────────────
     property int    dashboardPageWidth: 900
@@ -65,7 +68,7 @@ QtObject {
     readonly property bool anyOpen: audioOpen || networkOpen
                                     || notificationsOpen || archMenuOpen
                                     || dashboardOpen || wallpaperOpen || quickOpen
-                                    || clipboardOpen
+                                    || clipboardOpen || contextMenuOpen
 
     function closeAll() {
         audioOpen         = false
@@ -76,5 +79,6 @@ QtObject {
         wallpaperOpen     = false
         quickOpen         = false
         clipboardOpen     = false
+        contextMenuOpen   = false
     }
 }
