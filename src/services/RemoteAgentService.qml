@@ -136,6 +136,12 @@ Singleton {
     // True when that return was actually readable. A machine with no `apex` at
     // all lands here as false with an empty host list, which renders as nothing
     // — the Agent Center already tells the user the runtime is absent.
+    //
+    // The same is true of a machine whose installed `apex` predates `apex host`:
+    // apex 0.1.0, which is what is on this developer's box today, answers
+    // `unrecognized subcommand 'host'` and exits non-zero. Verified. So on a
+    // current install the remote section simply does not appear, which is the
+    // correct behaviour and worth knowing before concluding it is broken.
     property bool registryReadable: false
 
     // name -> { status, sessions, checkedAt }. Reassigned wholesale on every
