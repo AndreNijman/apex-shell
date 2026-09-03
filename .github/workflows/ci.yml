@@ -197,6 +197,53 @@ jobs:
             fail=1
           fi
 
+          # SystemStats is a refcounted VIEW, not a singleton, so it cannot go
+          # through the singleton loop above — but it shells out to a package
+          # manager, so it needs the same gate.
+          #
+          # Every match below is against the file with // comment lines
+          # STRIPPED. SystemStats' header explains what it replaced and names
+          # onVisibleChanged while doing so, so a whole-file grep would fail on
+          # a file that is correct — the check would be red because the comment
+          # documents the fix. The inverse of the same bug is a check that stays
+          # green because a header paragraph matches.
+          ss=src/services/system/SystemStats.qml
+          sscode="$(grep -vE '^\s*//' "$ss")"
+          grep -q 'property int refCount' <<<"$sscode" \
+            || { echo "✗ SystemStats has no refCount"; fail=1; }
+          grep -q 'onRefCountChanged' <<<"$sscode" \
+            || { echo "✗ SystemStats never acts on its refCount"; fail=1; }
+          if grep -nE '^\s*running:\s*true\s*$' <<<"$sscode"; then
+            echo "✗ SystemStats runs its collector unconditionally"
+            fail=1
+          fi
+          # It used to reload from onVisibleChanged, which fires for an Item in
+          # a window nobody has opened and never fires again on a real second
+          # reveal. Same class as the `active: visible` check above.
+          if grep -nE '^\s*onVisibleChanged:' <<<"$sscode"; then
+            echo "✗ SystemStats is back to reloading on Item visibility"
+            fail=1
+          fi
+          # It must be instantiated somewhere, or it is the dead code it was.
+          # Comment lines are dropped: a commented-out instantiation still
+          # contains the string, and a mutant that commented it out went
+          # undetected until this was anchored.
+          if ! grep -rn 'SystemStats {' --include="*.qml" src/ \
+               | grep -vE ':[[:space:]]*(//|\*)' | grep -q .; then
+            echo "✗ SystemStats is registered but instantiated nowhere"
+            fail=1
+          fi
+          # Its host page must declare needsScreen, or the ServiceRef it holds is
+          # bound to an onScreen that nobody ever writes — permanently false,
+          # and the rows would stay empty forever.
+          grep -q '"id": "misc"' src/nexus/PageRegistry.qml \
+            || { echo "✗ the misc page is not in PageRegistry"; fail=1; }
+          if ! awk '/"id": "misc"/,/}/' src/nexus/PageRegistry.qml \
+               | grep -q '"needsScreen": true'; then
+            echo "✗ the misc page hosts SystemStats but does not declare needsScreen"
+            fail=1
+          fi
+
           # The always-mapped bar must not carry offscreen render targets.
           # Anchored to a property assignment so prose mentioning it does not
           # trip the check.
@@ -375,6 +422,22 @@ jobs:
           # writes the real ~/.config/apex-shell/plugins, and it makes no
           # network call: the granted path is checked by shape, never fetched.
           ./tests/run-plugin-host-test.sh
+      - name: Caffeine idle-inhibit invariants
+        run: |
+          # Caffeine must keep working on every compositor APEX ships. Whether
+          # it ACTUALLY suppresses idle needs a live compositor and a live idle
+          # daemon, which no runner has — tests/measure-idle-inhibit.sh does
+          # that manually and records its numbers. What runs here is the
+          # property that measurement established: neither mechanism is
+          # conditional on anything except Caffeine itself.
+          #
+          # The bug this replaced: the logind inhibitor was gated
+          # `root.caffeine && Compositor.isLabwc` on the belief that the Wayland
+          # surface inhibitor covered Hyprland. Hyprland ignores idle inhibitors
+          # on layer-shell surfaces and a bar is one, so Caffeine did nothing at
+          # all on the primary compositor while the tile lit up. Nothing logged,
+          # nothing threw, the screen just locked.
+          ./tests/check-idle-inhibit.sh
 
       - name: Popup input regions must not sit outside their surface
         run: |
@@ -456,8 +519,13 @@ jobs:
             || { echo "✗ labwc app dock is missing or not positively gated"; fail=1; }
           grep -q 'ToplevelManager.toplevels' src/modules/Left/AppDock.qml \
             || { echo "✗ labwc app dock lost foreign-toplevel tracking"; fail=1; }
-          grep -q 'systemd-inhibit' src/state/ShellState.qml \
-            || { echo "✗ labwc caffeine lost its logind inhibitor"; fail=1; }
+          # Caffeine's inhibitors USED to be asserted here, because the logind
+          # one was gated on Compositor.isLabwc. It no longer is: Hyprland
+          # ignores idle inhibitors on layer-shell surfaces, so the logind lock
+          # is what makes Caffeine work everywhere and is now held
+          # unconditionally. Asserting it in a labwc step would restate the
+          # wrong fact that motivated the bug. It moved, with stricter checks,
+          # to tests/check-idle-inhibit.sh — including the --pdeathsig pair.
           grep -q 'mask: Region' src/windows/TopBar.qml \
             || { echo "✗ full-width top bar can intercept titlebar controls"; fail=1; }
           grep -q 'height: Compositor.isLabwc ? Theme.borderWidth : root.implicitHeight' src/windows/TopBar.qml \
@@ -468,8 +536,6 @@ jobs:
             || { echo "✗ labwc app dock no longer respects the notch budget"; fail=1; }
           grep -q '!(Compositor.isLabwc && Popups.archMenuOpen)' src/windows/PopupDismiss.qml \
             || { echo "✗ labwc dismiss surface can intercept the power menu"; fail=1; }
-          [ "$(grep -c -- '--pdeathsig' src/state/ShellState.qml)" -ge 2 ] \
-            || { echo "✗ caffeine inhibitor can survive its shell parent"; fail=1; }
           ! grep -q 'nmcli monitor' src/state/ShellState.qml \
             || { echo "✗ persistent VPN monitor can leak across shell reloads"; fail=1; }
           test -x tests/run-nested-labwc.sh \
