@@ -25,6 +25,17 @@
 //                          NOT "unreachable" — that is a claim about the
 //                          network we have not earned.
 //
+// ── agentd IS A BINARY, NOT A DAEMON ────────────────────────────────────────
+//
+// `caps.agentd` records whether the agent runtime is INSTALLED on that device,
+// not whether it is running. The runtime is deliberately opt-in — `systemctl
+// --user enable --now apex-agentd` — so "installed and not running" is its
+// normal state, not a fault. That is why `agentd: true` means only "worth
+// asking" here and never "has sessions": the question is answered by the
+// query, and a device whose daemon is simply off comes back as NO_RUNTIME,
+// which is a state and not an error. Reading `agentd` as "has agents" would
+// make every APEX box on the LAN look broken.
+//
 // ── Why the caps record is rebuilt key by key ───────────────────────────────
 //
 // `apex host list --json` omits optional fields entirely: `HostCaps` carries
@@ -62,7 +73,11 @@ var STATUS_LABELS = {
     ok:          "",                          // the session count speaks instead
     unreachable: "unreachable",
     no_apex:     "apex not installed there",
-    no_runtime:  "agent runtime not answering",
+    // We got there, `apex` ran, and it could not reach its own daemon. Almost
+    // always because the runtime is opt-in and nobody enabled it on that box —
+    // so this is worded as the state it usually is, in the same words the local
+    // page uses, rather than as a failure.
+    no_runtime:  "agent runtime not running",
     unreadable:  "unreadable reply"
 }
 
@@ -208,7 +223,8 @@ function parseHostList(text) {
 }
 
 // Which hosts are worth an ssh connection: the ones a probe has actually shown
-// to have the agent runtime.
+// to have the agent runtime INSTALLED. Whether it is running is what the query
+// answers; see the header.
 //
 // A never-probed host is NOT queried. Guessing costs an 8-second ssh timeout
 // per sweep on a machine that may not even be an APEX box, to find out
