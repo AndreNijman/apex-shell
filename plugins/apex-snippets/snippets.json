@@ -1,0 +1,16 @@
+{
+  "snippets": [
+    { "label": "shrug",        "text": "¯\\_(ツ)_/¯" },
+    { "label": "table flip",   "text": "(╯°□°)╯︵ ┻━┻" },
+    { "label": "arrow",        "text": "→" },
+    { "label": "em dash",      "text": "—" },
+    { "label": "ellipsis",     "text": "…" },
+    { "label": "check mark",   "text": "✓" },
+    { "label": "cross mark",   "text": "✗" },
+    { "label": "degree sign",  "text": "°" },
+    { "label": "middle dot",   "text": "·" },
+    { "label": "shell strict mode", "text": "set -euo pipefail" },
+    { "label": "git undo last commit", "text": "git reset --soft HEAD~1" },
+    { "label": "git prune remotes", "text": "git remote prune origin" }
+  ]
+}

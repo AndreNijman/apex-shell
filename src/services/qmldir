@@ -21,6 +21,11 @@ singleton SettingsService 1.0 SettingsService.qml
 KanbanBoard KanbanBoard.qml
 AppLauncher AppLauncher.qml
 singleton LauncherState 1.0 LauncherState.qml
+# The launcher-provider extension point's host (roadmap §16). Declared here for
+# the same reason the Agent Center's parts below are: AppLauncher is loaded
+# THROUGH this qmldir, so this directory is not on the import path and relying
+# on implicit sibling resolution gets `PluginLauncher is not a type`.
+PluginLauncher PluginLauncher.qml
 ShellConfig ./config_tab/ShellConfig.qml
 KeybindsPage ./config_tab/KeybindsPage.qml
 AppearancePage ./config_tab/pages/AppearancePage.qml
