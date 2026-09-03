@@ -1,8 +1,7 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
-import Quickshell.Hyprland
 import "../../"
+import "../../components"
 
 // ─── LayoutDisplayer ────────────────────────────────────────────────────────
 // Small icon button beside the Workspaces module.
@@ -15,29 +14,52 @@ import "../../"
 //   scroller → 󰔧     (nf-md-scroll_horizontal)
 //
 // Update triggers (event-driven, no forever-loop):
-//   • Component.onCompleted     — initial read
-//   • focusedWorkspaceChanged   — workspace switch
-//   • focusedToplevelChanged    — window focus change (covers most layout shifts)
-//   • 4 s safety timer          — catches layout change with no following event
+// The reading itself lives in CompositorService's Hyprland backend, refreshed
+// from the compositor's own event stream with a slow safety timer behind it.
+// This file is the button.
 // ────────────────────────────────────────────────────────────────────────────
 
 Item {
     id: root
 
-    // niri is scrollable-tiling and has no master/dwindle layout concept, so the
-    // whole indicator hides (and its hyprctl polling stops) off Hyprland.
-    readonly property bool isHyprland: Compositor.isHyprland
+    // Which output this indicator is on, so the ref below can be released when
+    // this bar is unmapped.
+    required property string screenName
 
-    visible:        isHyprland
-    implicitWidth:  isHyprland ? 26 : 0
+    // ── The layout indicator ──────────────────────────────────────────────────
+    // Named tiling layouts are a Hyprland concept — niri is scrollable tiling
+    // with nothing to choose between, labwc floats — so the whole indicator
+    // hides where the capability is absent. That is the same outcome the old
+    // `isHyprland` check produced, arrived at from what the compositor can do
+    // rather than from what it is called.
+    readonly property bool available: CompositorService.can.tilingLayout
+
+    visible:        available
+    implicitWidth:  available ? 26 : 0
     implicitHeight: 26
+
+    // Keeping the layout current costs a poll, so the ref is held only while the
+    // indicator is genuinely on screen.
+    //
+    // NOT `root.visible`. An Item inside a hidden Window still reports
+    // visible == true — measured, and documented in ServiceRef's own header as
+    // "exactly how the stats page kept six pollers running after the dashboard
+    // was closed". TopBar is a PanelWindow unmapped by fullscreenCovers(), so
+    // gating on `visible` held the ref for the entire session and the 4-second
+    // poll ran behind every fullscreen game. The commit that introduced this
+    // claimed the saving and did not deliver it.
+    ServiceRef {
+        service: CompositorService.layoutRef
+        active:  root.available && !ShellState.fullscreenCovers(root.screenName)
+    }
 
     // ── State ────────────────────────────────────────────────────────────────
 
-    property string configProvider: ShellState.configProvider
-    property string currentLayout: ""
-    property string numWindows: ""
-    property var availableLayouts: ["dwindle", "master", "monocle", "scrolling"]
+    readonly property string currentLayout: CompositorService.layoutName
+    readonly property string numWindows:
+        CompositorService.layoutWindowCount > 0
+            ? String(CompositorService.layoutWindowCount) : "  "
+    readonly property var availableLayouts: CompositorService.layouts
 
     // ── Symbol map ───────────────────────────────────────────────────────────
 
@@ -51,88 +73,18 @@ Item {
         }
     }
 
-    // ── hyprctl query ────────────────────────────────────────────────────────
-    // Runs `hyprctl -j activeworkspace` and parses `lastlayout` from the JSON.
-
-    Process {
-        id: queryProc
-
-        command: ["hyprctl", "-j", "activeworkspace"]
-        running: false
-
-        stdout: StdioCollector {
-            id: collector
-            onStreamFinished: {
-                try {
-                    const obj = JSON.parse(collector.text)
-                    if (obj && obj.tiledLayout) {
-                        root.currentLayout = obj.tiledLayout.toLowerCase()
-                        root.numWindows = obj.windows > 0 ? obj.windows.toString() : "  "
-                    } 
-                } catch (e) {
-                    // malformed JSON — keep current value
-                }
-            }
-        }
-    }
-
-    function refresh() {
-        if (!root.isHyprland) return   // no hyprctl on niri
-        if (!queryProc.running) queryProc.running = true
-    }
-
-    // ── Triggers ─────────────────────────────────────────────────────────────
-
-    Component.onCompleted: refresh()
-
-    Connections {
-        // Conditional target, not just `enabled`: resolving the Hyprland
-        // singleton is what constructs it, and constructing it off Hyprland logs
-        // "cannot connect to hyprland".
-        target: root.isHyprland ? Hyprland : null
-        enabled: root.isHyprland
-
-        // Quickshell emits (name, data) for raw events
-        function onRawEvent(event) {
-			// console.log("RawEvent_name: "+ event.name)
-			// console.log("RawEvent_data: "+ event.data)
-            refresh()  // Refresh on every event; the proc will ignore if still running
-        }
-    }
-
-    // Safety net: catches the case where the user changes layout
-    // but no window event follows (e.g. switch layout on an empty workspace).
-    Timer {
-        interval: 4000
-        running:  root.isHyprland
-        repeat:   true
-        onTriggered: root.refresh()
-    }
     // ── Layout Changer ───────────────────────────────────────────────────────
-    Process {
-        id: setLayoutProc
-        running: false
-    }
 
     function cycleLayout(step) {
-        let idx = availableLayouts.indexOf(root.currentLayout)
+        const list = root.availableLayouts
+        if (list.length === 0) return
+
+        let idx = list.indexOf(root.currentLayout)
         if (idx === -1) idx = 0 // Fallback if unknown
-        
-        // Calculate next index (handles negative steps for right-click)
-        idx = (idx + step + availableLayouts.length) % availableLayouts.length
-        let newLayout = availableLayouts[idx]
 
-        // 1. Run the hyprctl command silently based on config style
-        if (root.configProvider === "lua") {
-            setLayoutProc.command = ["hyprctl", "eval", `hl.config({ general = { layout = "${newLayout}" } })`]
-        } else {
-            setLayoutProc.command = ["hyprctl", "keyword", "general:layout", newLayout]
-        }
-        
-        setLayoutProc.running = true
-
-        // 2. Optimistically update the UI instantly (no waiting for IPC/Timer)
-        root.currentLayout = newLayout
+        // Handles negative steps for right-click.
+        idx = (idx + step + list.length) % list.length
+        CompositorService.setLayout(list[idx])
     }
 
     // ── Visual ───────────────────────────────────────────────────────────────

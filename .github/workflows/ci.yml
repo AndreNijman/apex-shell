@@ -215,14 +215,43 @@ jobs:
             fail=1
           fi
 
-          # A bare `target: Hyprland` must always be conditional.
-          if grep -rnE '^\s*target:\s*Hyprland\s*$' --include="*.qml" src/; then
+          # A bare `target: Hyprland` must always be conditional — EXCEPT inside
+          # the Hyprland adapter, which is the one file that cannot be loaded off
+          # Hyprland. CompositorService picks its backend by URL, so
+          # HyprlandBackend.qml and its `import Quickshell.Hyprland` are never
+          # even parsed on niri or labwc. Making it conditional there would be
+          # cargo cult: the condition is the file's existence in the process.
+          #
+          # This is the direction the rest of the shell is moving in — the
+          # conditional-target dance exists because consumers reach the Hyprland
+          # singleton directly, and §17's migration is what removes it.
+          if grep -rnE '^\s*target:\s*Hyprland\s*$' --include="*.qml" src/ \
+               | grep -v '^src/services/compositor/HyprlandBackend.qml:'; then
             echo "✗ unconditional Hyprland target; use 'isHyprland ? Hyprland : null'"
+            echo "  (or move the code into src/services/compositor/HyprlandBackend.qml)"
             fail=1
           fi
 
           [ "$fail" -eq 0 ] || exit 1
           echo "✓ compositor guards are positive and targets are conditional"
+
+      - name: Compositor adapter invariants
+        run: |
+          # Static half of the §17 adapter coverage: capability parity across all
+          # four backends, the facade agreeing with them, backends selected by
+          # URL, and the Quickshell.Hyprland import staying inside the Hyprland
+          # backend. Runs headless, which matters — the behavioural test below
+          # needs a compositor and skips here, and a suite that skips proves
+          # nothing.
+          ./tests/check-compositor-backends.sh
+
+      - name: Compositor facade behavioural test
+        run: |
+          # Needs a compositor; the harness skips cleanly without one so this
+          # documents the entry point rather than silently not existing. Run it
+          # in a Wayland session to exercise all 36 assertions, including
+          # loading every backend — not just the one for the running session.
+          ./tests/run-compositor-facade-test.sh
 
       - name: Popup input regions must not sit outside their surface
         run: |
@@ -293,8 +322,13 @@ jobs:
             || { echo "✗ Compositor does not detect labwc"; fail=1; }
           # labwc has no IPC, so ext-workspace is the ONLY route to workspace
           # state. Losing this import silently empties the workspace indicator.
-          grep -q 'Quickshell.WindowManager' src/modules/Left/Workspaces.qml \
-            || { echo "✗ Workspaces lost the ext-workspace import"; fail=1; }
+          # It moved out of the view and into the labwc adapter with §17 — the
+          # bar reads one model from CompositorService now and does not know
+          # which protocol filled it. Same invariant, one directory over.
+          grep -q 'Quickshell.WindowManager' src/services/compositor/LabwcBackend.qml \
+            || { echo "✗ LabwcBackend lost the ext-workspace import"; fail=1; }
+          grep -q 'CompositorService.workspaces' src/modules/Left/Workspaces.qml \
+            || { echo "✗ the workspace indicator no longer reads the adapter"; fail=1; }
           grep -q 'visible: Compositor.isLabwc' src/modules/Left/AppDock.qml \
             || { echo "✗ labwc app dock is missing or not positively gated"; fail=1; }
           grep -q 'ToplevelManager.toplevels' src/modules/Left/AppDock.qml \

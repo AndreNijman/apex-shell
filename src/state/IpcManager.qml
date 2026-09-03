@@ -2,7 +2,6 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../"
 import "../nexus"
 
@@ -18,17 +17,19 @@ QtObject {
 
     // ── Dashboard Toggles ────────────────────────────────────
 
+    // Which output the user is looking at, so a dashboard toggled by a keybind
+    // opens on the monitor with focus rather than on all of them.
+    //
+    // The per-compositor answers moved into CompositorService: Hyprland has a
+    // focused monitor, niri reports the output on the focused workspace, and
+    // labwc reports the screens of the active toplevel. labwc got an answer out
+    // of that move — it used to fall through to "the first screen", which is the
+    // wrong monitor half the time on a two-monitor desk.
     function focusedScreenName() {
-        if (Compositor.isHyprland && Hyprland.focusedMonitor)
-            return Hyprland.focusedMonitor.name
+        const name = CompositorService.focusedOutput
+        if (name !== "") return name
 
-        if (Compositor.isNiri) {
-            var workspaces = NiriService.workspaces
-            for (var i = 0; i < workspaces.length; i++)
-                if (workspaces[i].id === NiriService.focusedWorkspaceId)
-                    return workspaces[i].output
-        }
-
+        // Nothing focused, or a compositor APEX has no adapter for.
         return Quickshell.screens.length > 0 ? Quickshell.screens[0].name : ""
     }
 

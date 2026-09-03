@@ -128,6 +128,16 @@ QtObject {
     property string _pendingGeometry: ""
     property string _resolvedAudioDevice: ""
 
+    // Build the picker argv from a box-producing shell fragment.
+    //
+    // A fragment and not an argv, because the two have to become a pipeline and
+    // splicing an argv into one is where quoting bugs live. An empty fragment
+    // means the compositor cannot enumerate those boxes, and bare `slurp` — drag
+    // a rectangle — is the fallback that works everywhere.
+    function _picker(script) {
+        return (script === "") ? ["slurp"] : ["bash", "-c", script + " | slurp"]
+    }
+
     property var _windowPickerProc: Process {
         command: []
         running: false
@@ -352,31 +362,20 @@ QtObject {
         if (root.captureTarget === "screen") {
             root._resolveAudio()
         } else if (root.captureTarget === "window") {
-            // Hyprland feeds slurp the window boxes so you can click a window;
-            // niri has no hyprctl, so fall back to plain interactive slurp (draw
-            // the region). Both emit the same "x,y WxH" geometry.
-            _windowPickerProc.command = !Compositor.isHyprland
-                ? ["slurp"]
-                : [
-                    "bash", "-c",
-                    "hyprctl clients -j | python3 -c \"" +
-                    "import sys,json; ws=json.load(sys.stdin); " +
-                    "[print(str(w['at'][0])+','+str(w['at'][1])+' '+str(w['size'][0])+'x'+str(w['size'][1])) " +
-                    "for w in ws if w['mapped']]\" | slurp"
-                ]
+            // Click a window instead of dragging a rectangle, where the
+            // compositor can say where its windows are. CompositorService
+            // answers with a shell fragment that prints "x,y WxH" lines, or ""
+            // when it cannot — and plain slurp, which always works, is the
+            // fallback rather than a doomed hyprctl.
+            _windowPickerProc.command = root._picker(CompositorService.windowBoxScript)
             _windowPickerProc.running = false
             _windowPickerProc.running = true
         } else {
-            // Hyprland feeds slurp the monitor boxes; niri falls back to plain
-            // interactive slurp. Same "x,y WxH" output either way.
-            _regionPickerProc.command = !Compositor.isHyprland
-                ? ["slurp"]
-                : [
-                    "bash", "-c",
-                    "hyprctl monitors -j | python3 -c \"" +
-                    "import sys,json; ms=json.load(sys.stdin); " +
-                    "[print(str(m['x'])+','+str(m['y'])+' '+str(m['width'])+'x'+str(m['height'])) for m in ms]\" | slurp"
-                ]
+            // Same for outputs. This is where niri and labwc gained something:
+            // both implement wlr-output-management, so both can now offer
+            // click-a-screen. Before the adapter existed, anything that was not
+            // Hyprland dropped straight to drag-a-rectangle.
+            _regionPickerProc.command = root._picker(CompositorService.outputBoxScript)
             _regionPickerProc.running = false
             _regionPickerProc.running = true
         }
