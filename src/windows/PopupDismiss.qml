@@ -2,8 +2,6 @@ import Quickshell
 import Quickshell.Wayland
 import QtQuick
 import "../"
-import Quickshell.Hyprland
-import Quickshell.WindowManager
 
 // Transparent fullscreen overlay that dismisses all popups when:
 //   - The user clicks anywhere on screen
@@ -67,7 +65,7 @@ PanelWindow {
     // though PopupDismiss is instantiated first. Its fullscreen mask therefore
     // receives every button click before the visible power menu can. Leave the
     // dismiss surface unmapped for that one popup on labwc; the compositor's
-    // toplevel/workspace listeners below still close it when focus moves, and
+    // focusMoved listener below still closes it when focus moves, and
     // the power key/button toggles it closed directly.
     visible: (Popups.anyOpen
               && !(Compositor.isLabwc && Popups.archMenuOpen)
@@ -99,50 +97,18 @@ PanelWindow {
         }
     }
     
+    // Dismiss on "the user is now looking somewhere else". That was three
+    // separate listener blocks — a Hyprland raw-event filter, a niri pair of
+    // property watchers and a labwc foreign-toplevel hook — each with its own
+    // conditional target, and each a place to get the guard subtly wrong. The
+    // adapter emits one signal from whichever of those it has.
+    //
+    // Title changes deliberately do not count: a browser switching tabs is not
+    // the user looking elsewhere, and a popup that vanishes when a background
+    // tab finishes loading is worse than one that lingers.
     Connections {
-        // Conditional target and a positive guard. `target: Hyprland` resolves
-        // the singleton even when disabled, and constructing it off Hyprland
-        // logs "cannot connect to hyprland"; `!isNiri` was also true on labwc,
-        // which is neither.
-        target: Compositor.isHyprland ? Hyprland : null
-        enabled: Compositor.isHyprland
-
-        // Quickshell emits (name, data) for raw events
-        function onRawEvent(event) {
-            if (event.name === "workspace" || event.name === "activemonitor" || event.name === "activespecial" || event.name === "openwindow") {
-                Popups.closeAll();
-            }
-        }
+        target: CompositorService
+        function onFocusMoved() { Popups.closeAll(); }
     }
 
-    // niri equivalent: dismiss popups when the focused workspace or window changes
-    // (mirrors the workspace / openwindow / activemonitor auto-close above).
-    Connections {
-        target: NiriService
-        enabled: Compositor.isNiri
-        function onFocusedWorkspaceIdChanged() { Popups.closeAll(); }
-        function onFocusedWindowIdChanged()    { Popups.closeAll(); }
-    }
-
-    // labwc equivalent. labwc publishes no IPC event stream at all, so the
-    // signals come from Wayland protocols it does implement:
-    // wlr-foreign-toplevel for focus changes, and ext-workspace for desktop
-    // switches. Between them these cover what the Hyprland rawEvent branch
-    // above reacts to.
-    Connections {
-        target: Compositor.isLabwc ? ToplevelManager : null
-        enabled: Compositor.isLabwc
-        function onActiveToplevelChanged() { Popups.closeAll(); }
-    }
-
-    Repeater {
-        model: Compositor.isLabwc ? WindowManager.windowsets : 0
-
-        Item {
-            required property var modelData
-
-            readonly property bool wsActive: modelData.active
-            onWsActiveChanged: if (wsActive) Popups.closeAll()
-        }
-    }
 }

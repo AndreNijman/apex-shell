@@ -18,6 +18,10 @@ import QtQuick
 QtObject {
     readonly property bool ready: true
 
+    // Declared so the facade's Connections has something to bind to. Never
+    // emitted: with no adapter there is no focus to follow.
+    signal focusMoved()
+
     readonly property var capabilities: ({
         workspaces:           false,
         workspaceSwitch:      false,

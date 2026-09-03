@@ -31,6 +31,15 @@ QtObject {
 
     readonly property bool ready: true
 
+    signal focusMoved()
+
+    // The raw events that mean focus actually moved. `activewindow` is
+    // deliberately absent: Hyprland fires it for title changes too, so a
+    // browser switching tabs would count as the user looking elsewhere.
+    readonly property var _FOCUS_EVENTS: [
+        "workspace", "activemonitor", "activespecial", "openwindow", "focusedmon"
+    ]
+
     readonly property var capabilities: ({
         workspaces:           true,
         workspaceSwitch:      true,
@@ -206,6 +215,7 @@ QtObject {
         function onRawEvent(event) {
             root._refreshTitle()
             root._refreshWindows()
+            if (root._FOCUS_EVENTS.indexOf(event.name) !== -1) root.focusMoved()
         }
     }
 

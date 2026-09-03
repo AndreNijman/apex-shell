@@ -36,6 +36,18 @@ QtObject {
     // construction, so readiness is "there is something to show".
     readonly property bool ready: WindowManager.windowsets !== null
 
+    signal focusMoved()
+
+    // labwc publishes no event stream at all, so focus is inferred from the two
+    // protocols it does implement: foreign-toplevel for the active window and
+    // ext-workspace for the active desktop.
+    property Connections _toplevelFocus: Connections {
+        target: ToplevelManager
+        function onActiveToplevelChanged() { root.focusMoved() }
+    }
+
+    onFocusedWorkspaceIdChanged: root.focusMoved()
+
     readonly property var capabilities: ({
         workspaces:           true,
         workspaceSwitch:      true,

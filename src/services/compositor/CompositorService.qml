@@ -138,6 +138,24 @@ QtObject {
     readonly property int focusedWorkspaceId:
         root.backend ? root.backend.focusedWorkspaceId : -1
 
+    // ── focusMoved ────────────────────────────────────────────────────────────
+    // "The user is now looking somewhere else" — a different workspace, a
+    // different window, a different monitor. Popups close on it.
+    //
+    // Deliberately NOT derived from focusedTitle: a browser changing tabs
+    // rewrites the title without the focus going anywhere, and popups that
+    // vanish when a background tab finishes loading are worse than popups that
+    // linger. Each backend emits it from its own native focus events, which are
+    // free on all three — Hyprland's raw event stream, niri's event stream and
+    // labwc's foreign-toplevel — so there is no refcount on this one.
+    signal focusMoved()
+
+    property Connections _backendFocus: Connections {
+        target: root.backend
+        ignoreUnknownSignals: true
+        function onFocusMoved() { root.focusMoved() }
+    }
+
     // ── Refcounts ─────────────────────────────────────────────────────────────
     // Window and title tracking cost a subprocess on Hyprland, so they follow
     // the ServiceRef convention rather than running forever. Workspaces are free
