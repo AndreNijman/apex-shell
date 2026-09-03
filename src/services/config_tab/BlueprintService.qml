@@ -25,6 +25,23 @@ import "blueprint.js" as BP
 // field is added — and the lossless round-trip is the property the whole
 // declarative design rests on.
 //
+// Lossless SEMANTICALLY, which is the property that matters and the one the
+// digest measures. Verified against a locally built CLI: a blueprint read with
+// `show --json` and written straight back through `set --json -` comes back as
+// the same blueprint with the same digest, and no `version` key is invented for
+// a file that never had one.
+//
+// It is not byte-for-byte, and that is the CLI's doing rather than something to
+// work around here: `to_toml()` is toml::to_string_pretty, which expands a
+// hand-written inline array — `install = ["firefox", "git"]` — into a
+// multi-line one. So the first save through this page reformats arrays in a
+// hand-edited file. The values, the digest and `diff` are all unaffected; only
+// the layout changes, and it changes the same way for anyone who runs any
+// command that writes the file. The digest being stable across that is what
+// makes the stale-write guard below usable at all — if reformatting moved the
+// digest, every save would make the page believe someone else had edited the
+// file.
+//
 // ── NOTHING APPLIES ON EDIT ──────────────────────────────────────────────────
 //
 // Two separate separations, and both matter:
