@@ -6,6 +6,7 @@ singleton ClockState state/ClockState.qml
 singleton Time       state/Time.qml
 singleton LockState  state/LockState.qml
 singleton Compositor state/Compositor.qml
+singleton CompositorService 1.0 services/compositor/CompositorService.qml
 singleton ScreenRecService 1.0 services/ScreenRecService.qml
 singleton CavaService 1.0 services/CavaService.qml
 singleton ClipboardService 1.0 services/ClipboardService.qml
