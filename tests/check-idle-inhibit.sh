@@ -87,15 +87,20 @@ want "both the inhibitor and its payload carry --pdeathsig" pdeathsig_count
 # Extract the `running:` line from inside the caffeineInhibitor Process block
 # rather than grepping the whole file, so an unrelated `running:` elsewhere in
 # this large singleton cannot satisfy or break the check.
+# Comment lines stripped first, here too: a `// running: root.caffeine` in the
+# prose explaining the gate would otherwise be picked up as the gate itself —
+# which reads as a pass, or, if the comment quotes an old value, as a failure on
+# a file that is correct.
 inhibitor_gate() {
-    awk '/readonly property Process caffeineInhibitor: Process \{/ {inb=1}
-         inb && /^[[:space:]]*running:/ {
-             line=$0
-             sub(/^[[:space:]]+/, "", line)
-             sub(/[[:space:]]+$/, "", line)
-             print line
-             exit
-         }' "$shellstate"
+    grep -vE '^[[:space:]]*//' "$shellstate" \
+        | awk '/readonly property Process caffeineInhibitor: Process \{/ {inb=1}
+               inb && /^[[:space:]]*running:/ {
+                   line=$0
+                   sub(/^[[:space:]]+/, "", line)
+                   sub(/[[:space:]]+$/, "", line)
+                   print line
+                   exit
+               }'
 }
 gate="$(inhibitor_gate)"
 echo "        logind gate: ${gate:-<none found>}"
@@ -112,20 +117,25 @@ fi
 # labwc, and it is the only route for an idle daemon that never asks logind
 # (swayidle). The shell cannot know which daemon a session runs, so it holds
 # both and gates neither.
+# The TopBar's own comment block discusses IdleInhibitor at length, so these
+# read the file with comment lines removed as well.
+topbar_code() { grep -vE '^[[:space:]]*//' "$topbar"; }
+
 want "the TopBar declares a Wayland IdleInhibitor" \
-    grep -qE '^[[:space:]]*IdleInhibitor[[:space:]]*\{' "$topbar"
+    grep -qE '^[[:space:]]*IdleInhibitor[[:space:]]*\{' <<<"$(topbar_code)"
 want "the TopBar imports the Wayland module the inhibitor needs" \
     grep -q '^import Quickshell.Wayland' "$topbar"
 
 topbar_gate() {
-    awk '/^[[:space:]]*IdleInhibitor[[:space:]]*\{/ {inb=1}
-         inb && /^[[:space:]]*enabled:/ {
-             line=$0
-             sub(/^[[:space:]]+/, "", line)
-             sub(/[[:space:]]+$/, "", line)
-             print line
-             exit
-         }' "$topbar"
+    topbar_code \
+        | awk '/^[[:space:]]*IdleInhibitor[[:space:]]*\{/ {inb=1}
+               inb && /^[[:space:]]*enabled:/ {
+                   line=$0
+                   sub(/^[[:space:]]+/, "", line)
+                   sub(/[[:space:]]+$/, "", line)
+                   print line
+                   exit
+               }'
 }
 tgate="$(topbar_gate)"
 echo "        wayland gate: ${tgate:-<none found>}"
@@ -173,19 +183,25 @@ fi
 # measurement whose harness has been deleted is worse than no comment.
 # Not merely -x: `test -x` alone passed a mutant that had truncated the file to
 # nothing, and -s alone passes a file gutted down to a comment. So this asserts
-# the harness still contains the ARMS the comments cite — the layer-surface
-# case that is the whole finding, and the logind case that is the fix. A harness
-# reduced to a stub is the same as a deleted one for the purpose of trusting
-# the numbers in ShellState.
+# the harness still RUNS the arms the comments cite — the layer-surface case
+# that is the whole finding, and the logind case that is the fix.
+#
+# Matched against `arm ` invocations with # comment lines stripped, not against
+# the file as a whole. The harness documents its own results in a header block
+# that repeats every one of these phrases, so a whole-file grep stays green
+# after the arms themselves are deleted — verified: that mutant went undetected
+# until this was anchored. Same failure as the systemd-inhibit check above, and
+# the same fix.
 h="$root/tests/measure-idle-inhibit.sh"
+harness_arms() { grep -vE '^[[:space:]]*#' "$h" | grep -E '^[[:space:]]*arm '; }
 harness_present() {
     [ -x "$h" ] && [ -s "$h" ] \
         && [ -s "$root/tests/measure-idle-hyprland.conf" ] \
-        && grep -q 'LAYER SURFACE'  "$h" \
-        && grep -q -- '--what=idle' "$h" \
-        && grep -q 'control:'       "$h"
+        && harness_arms | grep -q 'LAYER SURFACE' \
+        && harness_arms | grep -q -- '--what=idle' \
+        && harness_arms | grep -q 'control:'
 }
-want "the measurement harness exists and still contains the arms cited in the comments" \
+want "the measurement harness still RUNS the arms its results cite" \
     harness_present
 
 echo
