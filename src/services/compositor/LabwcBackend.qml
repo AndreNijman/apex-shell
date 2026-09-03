@@ -67,6 +67,7 @@ QtObject {
         // two writers for one file is how the generated one wins at random.
         accentBorder:         false,
         gaps:                 false,
+        tilingLayout:         false,
         keyboardInterception: false
     })
 
@@ -74,6 +75,7 @@ QtObject {
     // demand is accepted and ignored.
     property bool windowsWanted: false
     property bool titleWanted:   false
+    property bool layoutWanted:  false
 
     // ── Workspaces ────────────────────────────────────────────────────────────
     readonly property var workspaces: {
@@ -84,6 +86,8 @@ QtObject {
             out.push({
                 id:        i,                    // positional; see the header
                 idx:       i,
+                ref:       i,
+                occupied:  true,
                 name:      (w && w.name) ? w.name : String(i + 1),
                 output:    "",
                 isActive:  !!(w && w.active),
@@ -93,6 +97,11 @@ QtObject {
         }
         return out
     }
+
+    // rc.xml fixes the desktop count, but ext-workspace advertises exactly those
+    // desktops, so the list is already complete and no slots need synthesising.
+    readonly property int  workspaceSlots:       0
+    readonly property bool specialWorkspaceOpen: false
 
     readonly property int focusedWorkspaceId: {
         const ws = root.workspaces
@@ -147,6 +156,11 @@ QtObject {
         return t.screens[0].name || ""
     }
 
+    // No named tiling layouts: niri scrolls, labwc floats.
+    readonly property string layoutName:        ""
+    readonly property int    layoutWindowCount: 0
+    readonly property var    layouts:           []
+
     readonly property string windowBoxScript: ""            // no geometry
     readonly property string outputBoxScript: Boxes.WLR_OUTPUTS
 
@@ -171,5 +185,6 @@ QtObject {
     function setAccentBorder(hex)              { /* unreachable: capability is false */ }
     function setGaps(inner, outer)             { /* unreachable: capability is false */ }
     function readGaps(callback)                { callback(false, null) }
+    function setLayout(name)                   { /* unreachable: capability is false */ }
     function setKeyboardInterception(on)       { /* unreachable: capability is false */ }
 }

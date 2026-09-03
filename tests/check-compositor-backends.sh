@@ -97,10 +97,13 @@ done
 # The facade reads these unconditionally; a backend missing one yields undefined,
 # which propagates into the UI as a blank rather than an error.
 SURFACE=(ready capabilities windowsWanted titleWanted workspaces windows
+         workspaceSlots specialWorkspaceOpen layoutWanted layoutName
+         layoutWindowCount layouts
          focusedTitle focusedAppName focusedOutput focusedWorkspaceId
          windowBoxScript outputBoxScript)
 METHODS=(focusWorkspace toggleSpecialWorkspace focusWindow closeWindow
          moveWindowToWorkspace toggleOverview setAccentBorder setGaps readGaps
+         setLayout
          setKeyboardInterception)
 
 # The facade binds a Connections to `backend.focusMoved`. A backend that does

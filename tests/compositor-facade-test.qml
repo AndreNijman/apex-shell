@@ -51,7 +51,8 @@ ShellRoot {
         "workspaces", "workspaceSwitch", "specialWorkspace",
         "windows", "windowGeometry", "outputGeometry",
         "windowFocus", "windowMove", "windowClose",
-        "overview", "accentBorder", "gaps", "keyboardInterception"
+        "overview", "accentBorder", "gaps", "tilingLayout",
+        "keyboardInterception"
     ]
 
     // ── Refs, toggled by the phases below ────────────────────────────────────
@@ -238,12 +239,45 @@ ShellRoot {
                       w.length === 0)
             }
 
-            if (CompositorService.can.workspaces)
-                check("workspaces are listed without any ref",
-                      CompositorService.workspaces.length > 0)
-            else
+            if (CompositorService.can.workspaces) {
+                const ws = CompositorService.workspaces
+                check("workspaces are listed without any ref", ws.length > 0)
+
+                // The bar builds its dots straight from these, and passes `ref`
+                // back to focusWorkspace() without knowing whether it is an id,
+                // an index or a list position. A missing field renders a blank
+                // dot that does nothing when clicked.
+                let shaped  = ws.length > 0
+                let focused = 0
+                for (let k = 0; k < ws.length; k++) {
+                    const w = ws[k]
+                    if (w.ref === undefined || w.occupied === undefined
+                        || w.isFocused === undefined || w.isUrgent === undefined
+                        || w.name === undefined)
+                        shaped = false
+                    if (w.isFocused) focused++
+                }
+                check("every workspace carries ref, occupied, focus and urgency", shaped)
+                check("exactly one workspace is focused", focused === 1)
+
+                // A fixed grid means the bar synthesises the empty slots; a
+                // dynamic one means the list is already complete. Either is
+                // fine, but 0 must mean dynamic and not "forgot to declare it".
+                const slots = CompositorService.workspaceSlots
+                check("workspaceSlots is a sane count",
+                      slots === 0 || (slots >= ws.length && slots <= 64))
+            } else {
                 check("a backend without workspaces reports an empty list",
                       CompositorService.workspaces.length === 0)
+            }
+
+            // The layout indicator hides entirely without the capability, so an
+            // empty name there is correct rather than a failed read.
+            check("a layout name is present only where layouts exist",
+                  CompositorService.can.tilingLayout
+                      ? CompositorService.layouts.length > 0
+                      : (CompositorService.layouts.length === 0
+                         && CompositorService.layoutName === ""))
 
             check("the output picker script is present when advertised",
                   CompositorService.can.outputGeometry
