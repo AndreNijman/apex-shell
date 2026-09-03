@@ -15,6 +15,20 @@ import "answer.js" as Answer
 // Wolfram|Alpha, and the answer is shown as a row in this list. Without the "?"
 // no arithmetic is parsed and no network call is made — an app search costs
 // exactly what it always did.
+//
+// ── Plugin rows (roadmap §16, the launcher-provider extension point) ─────────
+// `providers` below hosts every granted launcher-provider plugin. Its rows are
+// APPENDED to the app results, never merged into the ranking: apps first, in
+// the order the frecency sort put them, then plugin rows in provider order.
+// A plugin adds to this list and cannot reorder it.
+//
+// Provider rows carry `kind: "plugin"` and are handled at the TOP of
+// activate(), before the branches that run a DesktopEntry or hand an Exec
+// string to `bash -c`. That ordering is the whole reason a plugin row is safe:
+// the row objects come out of Manifest.launcherResults(), which builds them
+// from an allowlist and cannot emit an `entry` or an `exec` — but the branch
+// order is the second lock on the same door, and it is what the static suite
+// asserts. See the PLUGIN OUTPUT section of src/services/plugins/manifest.js.
 
 Item {
     id: root
@@ -79,7 +93,18 @@ Item {
         const byUse = (x, y) => LauncherState.score(y.id) - LauncherState.score(x.id)
         nameHits.sort(byUse)
         metaHits.sort(byUse)
-        return nameHits.concat(metaHits)
+        // Plugin rows last, and only in this branch. The empty-query view is
+        // pinned/recent/all-apps and has no query to answer; the "?" branch
+        // returned above.
+        return nameHits.concat(metaHits).concat(providers.rows)
+    }
+
+    // ── The launcher-provider extension point ─────────────────────────────────
+    // Non-visual: it hosts one Loader per granted provider, feeds each the
+    // debounced query, and exposes the sanitised rows. See PluginLauncher.qml.
+    PluginLauncher {
+        id: providers
+        query: root.query
     }
 
     // Shallow copy carrying a badge, so the same app object can appear tagged in
@@ -254,6 +279,25 @@ Item {
             }
             return
         }
+        // ── A plugin row ──────────────────────────────────────────────────────
+        // Handled here, ABOVE the DesktopEntry and Exec branches below. A row
+        // that fell through to those would be running a command chosen by
+        // third-party code, which is the `system` permission — refused at load,
+        // by design. Manifest.launcherResults() cannot produce a row carrying
+        // `entry` or `exec`, and this branch means the ordering does not
+        // depend on that staying true.
+        //
+        // What is copied is the row's TITLE — the string the user just read.
+        // A provider row has no hidden payload, so there is nothing here that
+        // could put something other than the visible text on the clipboard.
+        // The plugin is then told which of its rows was chosen, by index, so it
+        // can react inside whatever it was granted.
+        if (entry.kind === "plugin") {
+            ClipboardService.copyText(entry.name)
+            providers.notifyActivated(entry.pluginId, entry.index)
+            Popups.dashboardOpen = false
+            return
+        }
         if (entry.kind === "answer" || entry.kind === "calculation") {
             ClipboardService.copyText(entry.value)
             Popups.dashboardOpen = false
@@ -419,18 +463,42 @@ Item {
                         }
 
                         // App name, or the answer text
-                        Text {
-                            id: label
+                        Column {
                             width: parent.width - 28 - parent.spacing
                                    - (pinBtn.visible ? pinBtn.width + parent.spacing : 0)
                             anchors.verticalCenter: parent.verticalCenter
-                            text:           modelData.name
-                            font.pixelSize: Theme.fs(13)
-                            color:          isSel ? Theme.active : Theme.text
-                            wrapMode:       isText ? Text.Wrap : Text.NoWrap
-                            elide:          isText ? Text.ElideNone : Text.ElideRight
-                            maximumLineCount: isText ? 8 : 1
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            spacing: 1
+
+                            Text {
+                                id: label
+                                width:          parent.width
+                                text:           modelData.name
+                                font.pixelSize: Theme.fs(13)
+                                color:          isSel ? Theme.active : Theme.text
+                                wrapMode:       isText ? Text.Wrap : Text.NoWrap
+                                elide:          isText ? Text.ElideNone : Text.ElideRight
+                                maximumLineCount: isText ? 8 : 1
+                                Behavior on color { ColorAnimation { duration: 100 } }
+                            }
+
+                            // Provenance for a plugin row, and only for a
+                            // plugin row. `detail` always ends in the plugin's
+                            // name AS THE HOST GRANTED IT — the plugin does not
+                            // supply that part, so a row cannot claim to have
+                            // come from the shell. Composed in
+                            // Manifest.launcherResults() rather than here, so
+                            // the composition is asserted headlessly instead of
+                            // eyeballed on a developer's screen.
+                            Text {
+                                width:          parent.width
+                                visible:        modelData.kind === "plugin"
+                                                && (modelData.detail ?? "") !== ""
+                                text:           modelData.detail ?? ""
+                                font.pixelSize: Theme.fs(10)
+                                color:          Qt.rgba(1, 1, 1, 0.32)
+                                elide:          Text.ElideRight
+                                maximumLineCount: 1
+                            }
                         }
 
                         // Pin toggle. Shown for a pinned app always (so the state
