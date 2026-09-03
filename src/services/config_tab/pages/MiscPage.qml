@@ -2,16 +2,28 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import "../../../"
+import "../../../components"
 import "../../../components/config"
+// src/services — where SystemStats is registered in qmldir, the same way
+// DataPage reaches DiskService and MemService. Not "../../system": that
+// directory is not on the import path, and the registered type is the one the
+// qmldir entry exists to provide.
+import "../../"
 
 // Config → Misc
 //   • About — name, version, repo, config provider
+//   • System — distro, kernel, WM, uptime, packages, hostname (SystemStats)
 //   • Updates — auto-update toggle, status, check / apply
 //   • Shell — reload the Quickshell config
 //   • Keybinds — reset every shortcut to default (two-click confirm)
 //   • Reset — restore all appearance/layout settings (two-click confirm)
 CfgScroll {
     id: root
+
+    // Set by ShellConfig and Nexus: "the Misc page is genuinely on screen".
+    // Declared because SystemStats costs a subprocess and is refcounted on it;
+    // PageRegistry marks this page needsScreen: true so both hosts bind it.
+    property bool onScreen: false
 
     // ── Live version (git describe) ───────────────────────────────────────────
     property string version: "…"
@@ -110,6 +122,41 @@ CfgScroll {
                 font.family: "JetBrains Mono"
                 font.pixelSize: Theme.fs(11)
                 color:       Theme.active
+            }
+        }
+    }
+
+    // ── System ────────────────────────────────────────────────────────────────
+    // Distro, kernel, WM, uptime, packages, hostname.
+    //
+    // Here rather than on the Data & Storage page or a new About panel: this is
+    // the page that already answers "what am I running" — shell version, config
+    // provider, detected compositor — and every row SystemStats prints is the
+    // same question about the machine underneath. Data & Storage is live
+    // telemetry with bars and controls; these are static identity facts, and
+    // splitting the WM row from the Compositor section two sections below would
+    // have put the same fact in two places on two pages.
+    CfgSection {
+        title: "System"
+
+        // The subprocess runs only while this page is genuinely on screen.
+        // NOT `active: sysStats.visible` — an Item inside a hidden window
+        // reports visible: true, so that would mean "always". `onScreen` is
+        // bound by ShellConfig and Nexus to window visibility AND page
+        // selection AND, in Nexus, not-locked.
+        ServiceRef {
+            service: sysStats
+            active:  root.onScreen
+        }
+
+        Item {
+            width:  parent.width
+            height: sysStats.implicitHeight
+
+            SystemStats {
+                id: sysStats
+                x:     10
+                width: parent.width - 20
             }
         }
     }
