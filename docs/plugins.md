@@ -8,8 +8,14 @@ Roadmap §16. A plugin is a directory with a manifest and one QML file:
 ```
 
 The shell finds them once at startup, validates each one, and mounts the ones
-it grants. `plugins/apex-worldclock/` in this repo is a working example and is
-meant to be read.
+it grants. There is one working example per extension point in this repo, and
+all three are meant to be read:
+
+| Example | Point | Permissions | What it does |
+|---|---|---|---|
+| `plugins/apex-worldclock/` | `bar-widget` | `files` | A second timezone in the bar. |
+| `plugins/apex-snippets/` | `launcher-provider` | `files` | Text snippets in the launcher; Enter copies one. |
+| `plugins/apex-pomodoro/` | `quick-settings-tile` | none | A 25-minute focus timer as a tile. |
 
 ## What the permission model actually guarantees
 
@@ -56,7 +62,7 @@ doing.
 | `version` | yes | The plugin's own version. Shape-checked only. |
 | `apiVersion` | yes | `"MAJOR.MINOR"`. See the policy below. |
 | `entry` | yes | A bare filename ending `.qml`. No path, no subdirectory. |
-| `extensionPoint` | yes | `"bar-widget"` is the only one in apiVersion 1. |
+| `extensionPoint` | yes | One of `bar-widget`, `launcher-provider`, `quick-settings-tile`. |
 | `permissions` | no | Array from the closed set below. Absent means none. |
 | `network` | no | Hostnames the plugin may reach. Required with `network`. |
 
@@ -156,7 +162,58 @@ are not stripped, and a forbidden word in one will refuse the plugin. Stripping
 from any `//` to end of line would be a bypass: a `//` inside a string literal
 would swallow whatever followed it on that line.
 
-## The widget contract
+## Extension points
+
+§16 names nine. Three exist. A name is only added to `EXTENSION_POINTS` once a
+host mounts it, an example plugin uses it, and both halves of the suite assert
+it — a name with no host behind it is a plugin that loads, is granted, and is
+then mounted by nothing, which to its author is indistinguishable from a bug in
+their own code.
+
+| Point | Since | The plugin… | The shell… |
+|---|---|---|---|
+| `bar-widget` | 1.0 | paints a rectangle in the bar. | gives it space and clamps its width. |
+| `launcher-provider` | 1.1 | answers a query with rows. | draws the rows in the launcher. |
+| `quick-settings-tile` | 1.1 | holds a state. | draws the tile. |
+
+That split is the thing to understand before writing either of the new two. A
+`bar-widget` plugin **owns its pixels**: whatever it draws is visibly a
+third-party widget in a third-party widget's slot. The other two are **data**
+points — the plugin hands back strings and the shell renders them in its own
+chrome, where they are indistinguishable from something the shell produced.
+
+So a provider row and a tile are strictly *less* capable (neither can paint,
+cover anything, animate, or choose its own size) and strictly *more* checked.
+Every string crossing that boundary goes through `launcherResults()` or
+`quickTile()` in `src/services/plugins/manifest.js`, and neither one passes the
+plugin's object through: both build a **fresh object out of an allowlist of
+keys**. That is not fastidiousness. `AppLauncher.activate()` dispatches on
+fields it finds on a row — `entry` runs a DesktopEntry, `exec` goes to `bash -c`
+— so a row that carried either would be arbitrary command execution granted to
+a plugin that declared no permissions at all. An allowlist cannot fall behind a
+launcher that learns a new row shape; a delete-list can.
+
+### The points that do not exist, and why
+
+`panel`, `theme`, `background-service` and the project/agent integrations are
+simply not built. No permission problem, no host yet.
+
+**`notification-handler` is different, and this is the one worth reading.** A
+plugin that handles notifications reads their summary and body: 2FA codes,
+message previews, password-reset links — the most sensitive text stream the
+shell touches. That is a capability, and it maps to **nothing** in the closed
+permission vocabulary. `secrets` is the nearest in spirit and is defined as a
+broker holding credentials the plugin never sees, which is the opposite
+arrangement. So shipping it means either inventing a sixth permission, or
+handing over the shell's most sensitive stream with no declaration at all — and
+the second is worse, because a user reviewing what a plugin asked for would see
+nothing. It stays unbuilt until the vocabulary has a word for what it needs.
+
+Note the asymmetry, because it decides what a later version can do: *emitting* a
+notification is a much smaller capability than reading them, and could be added
+under a name of its own. §16 names a handler, which is the reading direction.
+
+## The bar-widget contract
 
 A `bar-widget` plugin's root item declares one property, which the host assigns
 once before the widget is on screen:
@@ -193,9 +250,100 @@ Widget width is clamped by the host. The bar's notch has a width budget shared
 with the clock, the battery and the tray, and a plugin reporting an
 `implicitWidth` of ten thousand would push all of them off screen.
 
+## The launcher-provider contract
+
+```qml
+import QtQuick
+
+Item {
+    property var    api:     null    // assigned once by the host
+    property string query:   ""      // WRITTEN by the host, debounced
+    property var    results: []      // READ by the host
+    function activate(index) { }     // optional; called on Enter
+}
+```
+
+A provider never paints — its root item is loaded into an invisible host, so
+bindings and timers run and nothing it contains can be rendered. `visible`
+therefore means nothing to a provider; it is driven entirely by `query`.
+
+A row is `{ title, subtitle, icon }` and every other key is dropped.
+
+| Field | Notes |
+|---|---|
+| `title` | Required. **Also the payload** — activating a row copies the title. |
+| `subtitle` | Optional second line. The host appends `· <your plugin's name>`. |
+| `icon` | An XDG icon **name**. Never a path; see below. |
+
+**The title is the payload.** There is no separate value field, deliberately: a
+contract with a hidden payload would let a plugin display *"email signature"*
+and copy something else entirely, with the user's own Enter key as the gesture.
+So a snippet's row shows the snippet text and puts the label underneath — you
+copy the thing you were looking at.
+
+**The second line always ends in your plugin's name, as the host granted it.**
+You cannot suppress or forge that part, so a row always says where it came from
+and a plugin cannot claim to be the shell.
+
+**`icon` is a name, not a path.** The launcher's delegate turns a leading `/`
+into `file://` + the value and hands it to an `Image`, so a plugin-supplied path
+would have the shell attempt to decode an arbitrary file as an image — and
+`Image.status` coming back Ready or Error is a file-existence oracle over the
+whole filesystem, for a plugin holding no `files` permission. Anything with a
+slash, a scheme or a leading dash becomes `""`.
+
+When you are asked:
+
+* Never on an empty search box, never on a single character, and **never on a
+  `?` answer query** — that mode belongs to the calculator and Wolfram|Alpha.
+* Debounced by 120 ms, because a provider is third-party code on the keystroke
+  path.
+* At most **five rows per provider**, appended *after* the app results. A
+  provider adds to the list and cannot reorder it.
+
+## The quick-settings-tile contract
+
+```qml
+import QtQuick
+
+Item {
+    property var    api:      null   // assigned once by the host
+    property bool   on:       false  // READ by the host
+    property string icon:     ""     // a glyph
+    property string label:    ""     // falls back to your plugin's name
+    property string sublabel: ""     // optional second line
+    function toggle() { }            // called when the tile is clicked
+}
+```
+
+This is the tightest of the three points: you hand back four values and the
+shell draws **its own tile** around them, with the same component the Wi-Fi and
+Bluetooth toggles use. So a plugin tile cannot cover the grid, cannot animate,
+cannot be a different size, and cannot draw something that looks like the
+Airplane Mode switch. The quick-settings grid is where a user goes to change
+their machine's state, and it is the worst surface in the shell on which to let
+third-party code paint arbitrary pixels.
+
+Plugin tiles are always **last** in the grid, so a plugin appearing cannot move
+Wi-Fi.
+
+`on` is compared with `=== true` and not coerced — `Boolean("false")` is `true`,
+and truthiness is the wrong tool for the value that decides what a user is being
+told about their own machine.
+
+**A plugin tile cannot flip a system switch.** Not Wi-Fi, not Bluetooth, not
+brightness, not a power profile. Every one of those is a command, and *run a
+command* is the `system` permission, which is **not implemented** and refused at
+load. So the honest description of this point is not "plugins can add quick
+settings", it is "plugins can add a tile": it surfaces information the plugin
+has, and acting on a click means acting inside whatever the plugin was granted.
+`plugins/apex-pomodoro` holds no permissions at all, which is the point — if the
+round trip works with nothing granted, nothing about it is hiding behind a
+permission.
+
 ## Versioning and compatibility policy
 
-`apiVersion` is `"MAJOR.MINOR"`. The host implements `1.0`.
+`apiVersion` is `"MAJOR.MINOR"`. The host implements `1.1`.
 
 * **MAJOR must match exactly.** A major bump means the API changed shape and
   old plugins cannot be carried forward, so they are refused loudly rather than
@@ -209,12 +357,28 @@ with the clock, the battery and the tray, and a plugin reporting an
 Refusing forward-dated plugins is the main reason the field exists — a check
 that only caught major bumps would let the common case through.
 
+`1.0` → `1.1` is that policy being used rather than described: two extension
+points were added and nothing was removed or renamed. `apex-worldclock` still
+declares `1.0` and is still granted. A plugin that needs one of the new points
+should declare `1.1`, so an older host refuses it with *"built for a different
+plugin API"* rather than *"unknown extension point"* — the second message tells
+an author their manifest is wrong, and the first tells them the truth, which is
+that their shell is older than their plugin.
+
 ## Crash isolation
 
-Each plugin sits in its own `Loader`, loaded asynchronously. A plugin whose QML
-fails to parse, names a missing type, or throws while its bindings are set up
-puts that Loader into `Loader.Error`: the bar keeps running, the other plugins
-keep running, and the failure is recorded against that plugin.
+Each plugin sits in its own `Loader`, loaded asynchronously, at every extension
+point. A plugin whose QML fails to parse, names a missing type, or throws while
+its bindings are set up puts that Loader into `Loader.Error`: the bar keeps
+running, the other plugins keep running, and the failure is recorded against
+that plugin.
+
+The two data points get a second layer, which matters more than it sounds: the
+sanitisers return an empty array or `null` for anything they cannot use and
+never throw. So a provider that hands back garbage while you are typing loses
+its rows rather than breaking the launcher's search, and a tile plugin whose
+properties are nonsense loses its tile rather than breaking the grid that holds
+the Wi-Fi and Airplane Mode toggles.
 
 What this does **not** survive: a plugin that hard-crashes the process — an
 infinite loop in a binding, a real segfault down in Qt — takes the shell with
@@ -231,9 +395,9 @@ line for a human; that file is also the complete list.
 
 | Suite | Runs where | Covers |
 |---|---|---|
-| `node tests/plugin-manifest-test.js` | headless, every push | Manifest validation, the apiVersion policy, the source scan, the network and files gates. |
-| `./tests/check-plugin-platform.sh` | headless, every push | That the decisions are wired to something, and that the shipped example obeys its own rules. |
-| `./tests/run-plugin-host-test.sh` | needs Wayland | Discovery on a real filesystem, and crash isolation in a real Loader. |
+| `node tests/plugin-manifest-test.js` | headless, every push | Manifest validation, the apiVersion policy, the source scan, the network and files gates, and the row/tile allowlists. |
+| `./tests/check-plugin-platform.sh` | headless, every push | That the decisions are wired to something, that every extension point has exactly one host, and that the shipped examples obey their own rules. |
+| `./tests/run-plugin-host-test.sh` | needs Wayland | Discovery on a real filesystem, crash isolation in a real Loader, and each point mounting through its real host. |
 
 The third one skips on CI because no runner has a compositor, which is exactly
 why the first two carry the security-relevant assertions. A suite that skips
