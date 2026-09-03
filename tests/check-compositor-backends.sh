@@ -145,7 +145,7 @@ done
 # rather than spawning a doomed process — the failure mode that had a shell on
 # sway polling `hyprctl -j activeworkspace` every four seconds forever.
 #
-# This is a boundary and not a ban. Three files outside the adapter still spawn
+# This is a boundary and not a ban. Two files outside the adapter still spawn
 # it, each for a stated reason, and each is ASSERTED to still need it: an
 # allowlist entry that outlives its file's migration silently re-permits
 # something already fixed, which is how allowlists rot into decoration.
@@ -164,12 +164,12 @@ HYPRCTL_ALLOWED=(
     # own config — so a capability here would wrap a one-backend feature in a
     # one-backend capability and answer false everywhere it was asked.
     "src/services/config_tab/KeybindService.qml"
-    # `hyprctl dispatch exit` — log out. This script IS the compositor adapter
-    # for that verb, in the same sense CompositorService is for the rest.
-    "src/scripts/PowerControl.sh"
-    # `hyprctl dispatch dpms` — screen off, and it already branches to
-    # `niri msg action power-off-monitors` right beside it.
-    "src/scripts/DpmsControl.sh"
+    # `hyprctl dispatch exit` and `hyprctl dispatch dpms`. This file IS the
+    # compositor adapter for the helper scripts, in the same sense
+    # src/services/compositor/ is for QML — PowerControl.sh and DpmsControl.sh
+    # used to be listed here, each with its own private detection, and neither
+    # had a labwc branch at all.
+    "src/scripts/compositor.sh"
 )
 
 # grep -E, so this is one alternation and not a backreference.
