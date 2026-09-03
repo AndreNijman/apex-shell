@@ -154,6 +154,39 @@ check("a wrong-typed probed_at falls back to 0",
 check("an unknown key from a newer apex is dropped, not merged",
       R.normalizeCaps({ agentd: true, quantum: true }).quantum, undefined);
 
+// ── a real probe, off a real machine ────────────────────────────────────────
+// Everything above is transcribed from the serialiser. This one is the actual
+// `caps` object `apex host probe` wrote for the developer's katana, pasted
+// verbatim — a hand-written fixture only proves the parser accepts what I
+// imagined the other end sends, which is the same argument apex-os's own
+// host.rs parser test makes about its fixture.
+//
+// It is also the case that would have been got wrong: `agentd` is FALSE on a
+// machine that is unmistakably an APEX box, because it records whether the
+// binary is installed and this one does not have it. A reading of `agentd` as
+// "is an APEX machine" or "has agents" would query it every sweep for nothing.
+const KATANA_REAL = {
+    probed_at: 1788439662, apex_version: "0.1.0", variant: "gaming",
+    os: "APEX-OS", cpus: 20, memory_mib: 63997,
+    gpus: ["i915", "nvidia"], accel: ["cuda", "vulkan"],
+    agentd: false, ai: false, podman: true
+};
+const real = R.parseHostList(JSON.stringify({
+    katana: { ssh: "katana", port: null, note: null, caps: KATANA_REAL }
+})).hosts[0];
+
+check("a real probe parses with every key present",
+      Object.keys(real.caps).sort(), schemaKeys);
+check("a real probe keeps its own values",
+      [real.caps.variant, real.caps.os, real.caps.cpus, real.caps.accel],
+      ["gaming", "APEX-OS", 20, ["cuda", "vulkan"]]);
+check("an APEX box without the agent binary is probed but not agentd",
+      [real.probed, real.agentd], [true, false]);
+check("an APEX box without the agent binary is never queried",
+      R.queryTargets([real]), []);
+check("a real probe's hardware reads back",
+      R.describeHardware(real.caps), "20 cores  ·  62 GiB  ·  cuda+vulkan");
+
 // ── one query's exit status ─────────────────────────────────────────────────
 // `apex host run` execs ssh, so the exit code is either ssh's own 255 or the
 // remote command's.
@@ -172,8 +205,13 @@ check("255 is unreachable, not an error",
       R.readSessions(255, "").status, R.STATUS.UNREACHABLE);
 check("127 says apex is not installed there",
       R.readSessions(127, "").status, R.STATUS.NO_APEX);
-check("any other non-zero is the runtime not answering",
+check("any other non-zero is the runtime not running there",
       R.readSessions(1, "").status, R.STATUS.NO_RUNTIME);
+// The runtime is opt-in, so "installed and not running" is its NORMAL state.
+// This label is read by someone looking at their own LAN, and it must not
+// suggest a fault.
+check("a daemon that is simply off is not worded as a failure",
+      R.statusLabel(R.STATUS.NO_RUNTIME), "agent runtime not running");
 check("a SIGTERM exit is not read as reachable-and-empty",
       R.readSessions(15, "").status, R.STATUS.NO_RUNTIME);
 check("a negative code means we gave up, which reads as unreachable",

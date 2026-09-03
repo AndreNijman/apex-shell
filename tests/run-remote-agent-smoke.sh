@@ -297,9 +297,12 @@ want "a device that has NEVER been probed is never queried" \
 
 # The argv boundaries survive. This is the reason the shell calls
 # `apex host run <name> -- <argv…>` rather than assembling an ssh command line.
+# Built with $'\t' rather than typed as literal tabs: a literal tab in a
+# source file is one editor away from becoming spaces, and this assertion
+# is entirely about the difference between a tab and a space.
+expected_argv="host"$'\t'"run"$'\t'"katana"$'\t'"--"$'\t'"apex"$'\t'"agent"$'\t'"list"$'\t'"--all"$'\t'"--json"$'\t'
 want "the remote argv arrives as separate arguments" \
-    grep -qF "host	run	katana	--	apex	agent	list	--all	--json" \
-        "$APEX_SMOKE_CALLS"
+    grep -qF "$expected_argv" "$APEX_SMOKE_CALLS"
 
 # The page must have actually READ the remote, not merely rendered without
 # complaint. A section that never queried anything produces no errors at all

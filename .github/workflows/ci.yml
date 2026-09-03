@@ -682,12 +682,19 @@ jobs:
           # directory is not on the import path and implicit sibling resolution
           # does not apply. Dropping an entry gives "RequestRow is not a type"
           # at load, which takes the whole shell down — not just the page.
-          for t in AgentCenter RequestRow SessionRow SectionHeading SmallIconButton; do
+          # RemoteHostRow and RemoteSessionRow are in this loop rather than
+          # only in check-remote-agents.sh because the failure is identical:
+          # the Agent Center is loaded THROUGH this qmldir, so a dropped entry
+          # is "is not a type" at load and takes the whole shell down.
+          for t in AgentCenter RequestRow SessionRow SectionHeading SmallIconButton \
+                   RemoteHostRow RemoteSessionRow; do
             grep -qE "^${t} agents/${t}\.qml$" src/services/qmldir \
               || { echo "✗ $t is not registered in src/services/qmldir"; fail=1; }
           done
-          grep -q "^singleton AgentService " src/services/qmldir \
-            || { echo "✗ AgentService is not registered as a singleton"; fail=1; }
+          for svc in AgentService RemoteAgentService; do
+            grep -q "^singleton ${svc} " src/services/qmldir \
+              || { echo "✗ $svc is not registered as a singleton"; fail=1; }
+          done
 
           # 4. The page must be lazy and refcounted like every other one.
           grep -q "ServiceRef" src/services/agents/AgentCenter.qml \
@@ -706,6 +713,42 @@ jobs:
 
           [ "$fail" -eq 0 ] || exit 1
           echo "✓ the Agent Center navigates, does not decide, and stays lazy"
+
+      - name: Remote agent status logic
+        run: |
+          # §20's parsing and status decisions, against the file the shell
+          # loads. Runs headless and needs nothing installed, which is the
+          # point: the behavioural test below needs a compositor AND an
+          # apex-os checkout, so without this the whole feature would have no
+          # CI coverage at all.
+          node tests/remote-agents-test.js
+
+      - name: Remote agent status invariants
+        run: |
+          # Static half. Also SELF-TESTS its own checks: it mutates copies of
+          # the files and asserts each mutant goes red, asserts an unmutated
+          # copy goes green, and asserts that a copy carrying only PROSE about
+          # every one of those bugs stays green.
+          #
+          # That last one is not decoration. This repo has shipped four
+          # grep-style checks in one day that were satisfied by the comments in
+          # the file they were guarding, and the inverse — a check a comment can
+          # turn red — punishes people for explaining themselves. The harness
+          # also refuses to believe a mutant that did not actually change the
+          # file, and bounds how many checks a mutant may break, so a mutant
+          # that damaged the copy cannot be read as a mutant that was caught.
+          ./tests/check-remote-agents.sh
+
+      - name: Remote agent status smoke test
+        run: |
+          # Needs a compositor AND the apex-os runtime built; the harness skips
+          # cleanly without either, so this documents the entry point rather
+          # than silently not existing. Run it in a Wayland session to
+          # exercise the 18 assertions, which include the two that cannot be
+          # made statically: that a device whose runtime was never demonstrated
+          # is not queried at all, and that closing the page stops the queries
+          # completely rather than slowing them down.
+          ./tests/run-remote-agent-smoke.sh
 
       - name: Agent Center smoke test
         run: |
