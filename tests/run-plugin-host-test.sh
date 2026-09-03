@@ -102,7 +102,18 @@ manifest broken '{"id":"broken","name":"Broken","version":"1.0.0","apiVersion":"
 widget broken Widget.qml 'import QtQuick
 Item { property var api: null; NotARealType { } }'
 
-# 10. A directory with no manifest is not a plugin and must not be enumerated.
+# 10. Valid in every textual respect, and ships a symlinked subdirectory.
+#     This is the case permitsPath() CANNOT catch: reading "data/secret.txt"
+#     has no "..", no absolute path and no dot-component, so every textual rule
+#     approves it — and the path resolves outside the plugin. Only the
+#     filesystem knows, which is why discovery counts symlinks.
+manifest linky '{"id":"linky","name":"Linky","version":"1.0.0","apiVersion":"1.0","entry":"Widget.qml","extensionPoint":"bar-widget","permissions":["files"]}'
+widget linky Widget.qml "$ok_widget"
+mkdir -p "$fixtures/outside"
+printf '%s\n' 'this is not inside the plugin' > "$fixtures/outside/secret.txt"
+ln -s "$fixtures/outside" "$p/linky/data"
+
+# 11. A directory with no manifest is not a plugin and must not be enumerated.
 mkdir -p "$p/nomanifest"
 widget nomanifest Widget.qml "$ok_widget"
 

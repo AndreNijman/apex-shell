@@ -114,8 +114,8 @@ ShellRoot {
         case 1: {
             // ── Discovery ────────────────────────────────────────────────────
             check("the scan completed", PluginService.scanned)
-            check("nine plugin directories were found",
-                  PluginService.found.length === 9)
+            check("ten plugin directories were found",
+                  PluginService.found.length === 10)
             // A directory with a .qml but no plugin.json is not a plugin, and
             // must not appear even as a refusal — there is nothing to refuse.
             check("a directory with no manifest is not enumerated",
@@ -145,6 +145,14 @@ ShellRoot {
             check("an id that does not match its directory is refused",
                   root.stateOf("mismatch") === "refused"
                   && root.reasonOf("mismatch") === "id-directory-mismatch")
+
+            // The case no textual path check can catch: a symlinked
+            // subdirectory makes "data/secret.txt" resolve outside the plugin
+            // while containing no "..", no absolute prefix and no
+            // dot-component. Discovery refuses the whole plugin instead.
+            check("a symlink in the plugin directory is refused",
+                  root.stateOf("linky") === "refused"
+                  && root.reasonOf("linky") === "entry-outside-plugin")
 
             // A refused plugin must never be handed to the QML engine.
             const bad = PluginService.recordFor("sneaky")
@@ -261,7 +269,7 @@ ShellRoot {
 
         case 9: {
             check("a rescan does not duplicate records",
-                  PluginService.records.length === 9)
+                  PluginService.records.length === 10)
 
             // ── The plugin this repo actually ships ──────────────────────────
             // Everything above ran against fixtures this harness wrote, which

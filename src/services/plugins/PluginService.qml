@@ -140,10 +140,30 @@ Singleton {
     // what lets both FileViews below know their path immediately, instead of
     // chaining "read the manifest, then read whatever it points at".
     //
-    // The symlink count exists because `entry` is validated as a bare filename,
-    // so the ONLY way the entry path can escape the plugin directory is a
-    // symlink inside it. Counting them here and refusing on any is cheaper and
-    // more obvious than resolving real paths in QML.
+    // ── The symlink count is a security check, not bookkeeping ────────────────
+    // A plugin directory may contain NO symlinks, anywhere, at any depth. One
+    // present refuses the plugin.
+    //
+    // Two separate holes close on this, and the second is the one that is easy
+    // to miss:
+    //
+    //   1. `entry` is validated as a bare filename, so the only way the entry
+    //      path can escape the plugin directory is a symlinked .qml.
+    //
+    //   2. `files` is documented as read-only access INSIDE the plugin's own
+    //      directory, and permitsPath() enforces that by rejecting "..", any
+    //      absolute path and any dot-component. None of that resolves symlinks.
+    //      A plugin shipping `data` as a symlink to $HOME turns
+    //      `readText("data/Documents/tax.pdf")` into a read of the user's
+    //      documents — no "..", no dot-component, and the path handed to
+    //      FileView is exactly what the check approved. The textual rules
+    //      cannot see it; only the filesystem can.
+    //
+    // So `find -type l` over the whole subtree, not a loop over *.qml. Refusing
+    // the whole plugin is the right response rather than filtering individual
+    // reads: a plugin has no legitimate reason to ship a symlink, and a
+    // structural rule enforced once at load beats a resolution check that every
+    // future file entry point would have to remember to repeat.
     readonly property string _scanScript:
         'd="$1"\n' +
         '[ -d "$d" ] || exit 0\n' +
@@ -151,12 +171,12 @@ Singleton {
         '  [ -d "$p" ] || continue\n' +
         '  id=${p%/}; id=${id##*/}\n' +
         '  [ -f "$p/plugin.json" ] || continue\n' +
-        '  n=0; link=0; only=\n' +
+        '  n=0; only=\n' +
         '  for q in "$p"*.qml; do\n' +
         '    { [ -e "$q" ] || [ -L "$q" ]; } || continue\n' +
-        '    [ -L "$q" ] && link=$((link+1))\n' +
         '    n=$((n+1)); only=${q##*/}\n' +
         '  done\n' +
+        '  link=$(find "$p" -type l 2>/dev/null | wc -l)\n' +
         '  printf \'%s\\t%s\\t%s\\t%s\\n\' "$id" "$n" "$link" "$only"\n' +
         'done\n'
 
@@ -284,7 +304,7 @@ Singleton {
                 // the manifest, so no amount of manifest editing changes them.
                 if (rec.modelData.symlinks > 0)
                     return rec._refuse("entry-outside-plugin",
-                                       "a .qml in the plugin directory is a symlink")
+                                       "the plugin directory contains a symlink")
                 if (rec.modelData.qmlCount === 0)
                     return rec._refuse("entry-missing", "no .qml in the plugin directory")
                 if (rec.modelData.qmlCount > 1)
