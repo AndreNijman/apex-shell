@@ -126,6 +126,15 @@ jobs:
         run: |
           node tests/answer-test.js
 
+      - name: Test blueprint editor logic
+        run: |
+          # §10's editor keeps every decision it makes in a plain module —
+          # plan classification, the omit-not-null rule for cleared fields, the
+          # stale-write and erase guards — precisely so it can be proved on a
+          # runner with no compositor and no `apex`. It spawns no process and
+          # reads no file, so there is nothing here that can skip.
+          node tests/blueprint-editor-test.js
+
       - name: Lint test harness scripts
         run: |
           # -S warning matches the threshold apex-os uses: style/info findings in
@@ -244,6 +253,20 @@ jobs:
           # needs a compositor and skips here, and a suite that skips proves
           # nothing.
           ./tests/check-compositor-backends.sh
+
+      - name: Blueprint editor invariants
+        run: |
+          # The properties that make §10's editor safe are properties of the
+          # SOURCE, not of a running session: it never authors TOML, never
+          # applies from a timer, never escalates, and writes only the
+          # user-owned blueprint — never the generated applied-state file. All
+          # of them are grep-able, so they have real CI coverage even though no
+          # runner has a compositor.
+          #
+          # It also asserts that no suite under tests/ can reach a non-dry-run
+          # `apex apply` or a `blueprint set`. That is not hypothetical: a test
+          # in this repo once reconfigured the developer's live display.
+          ./tests/check-blueprint-editor.sh
 
       - name: Compositor facade behavioural test
         run: |
@@ -404,6 +427,36 @@ jobs:
           # persistence WITHOUT touching hardware.
           grep -q "function save()" src/services/config_tab/DisplayService.qml \
             || { echo "✗ DisplayService has no save(); every change would touch hardware"; fail=1; }
+
+          # THE BLUEPRINT EDITOR MUST NOT APPLY AUTOMATICALLY EITHER.
+          #
+          # Same guard, same shape, different reason. A blueprint is a
+          # declarative statement of what the machine should be; the point of
+          # it is that you say so, look at what would change, and THEN decide.
+          # An editor that converged on edit would make the file an imperative
+          # remote control with extra steps.
+          #
+          # `blueprint set` is also a full-file replace, so a debounced SAVE
+          # would rewrite the user's blueprint on every keystroke. Both shapes
+          # are refused. tests/check-blueprint-editor.sh checks these and
+          # ~60 more; these two are duplicated here because this is where a
+          # reviewer looks for "must not apply automatically".
+          if grep -qE "onTriggered:\s*root\.apply\(\)" src/services/config_tab/BlueprintService.qml; then
+            echo "✗ BlueprintService applies from a timer; convergence must be explicit"
+            fail=1
+          fi
+          if grep -qE "onTriggered:\s*root\.(save|_write)\(\)" src/services/config_tab/BlueprintService.qml; then
+            echo "✗ BlueprintService saves from a timer; set is a full-file replace"
+            fail=1
+          fi
+          # apply never escalates: `apex apply` converges the domain it is
+          # already in and reports the other, which is why it cannot raise an
+          # authentication prompt at all.
+          if grep -nE '"sudo"|pkexec|polkit' src/services/config_tab/BlueprintService.qml \
+               | grep -vE '^[0-9]+:\s*//'; then
+            echo "✗ BlueprintService tries to escalate; apply must never run sudo"
+            fail=1
+          fi
 
           # Neither service may splice its model into a shell string. Values
           # here come off disk and out of EDID; interpolating them is a shell
@@ -614,6 +667,11 @@ jobs:
             "src/popups/Dashboard.qml"
             "src/services/answer.js"
             "tests/answer-test.js"
+            "src/services/config_tab/blueprint.js"
+            "src/services/config_tab/BlueprintService.qml"
+            "src/services/config_tab/pages/BlueprintPage.qml"
+            "tests/blueprint-editor-test.js"
+            "tests/check-blueprint-editor.sh"
           )
           FAILED=()
           for f in "${REQUIRED[@]}"; do
