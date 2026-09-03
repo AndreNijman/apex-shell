@@ -419,6 +419,38 @@ QtObject {
 
         _writeProc.running = false
         _writeProc.running = true
+
+        _applyLabwc()
+    }
+
+    // ── labwc ─────────────────────────────────────────────────────────────────
+    // The fourth session. labwc has no IPC to push bindings over and no include
+    // mechanism to append a generated file to, so its bindings cannot be written
+    // as a fourth artifact next to the three above — they have to be spliced
+    // into rc.xml, which needs an XML-aware edit that preserves the rest of a
+    // file the user also owns.
+    //
+    // That is what /usr/libexec/apex-labwc-keybinds does. Until it existed, a
+    // labwc user could rebind the launcher, watch the UI confirm it, and get
+    // nothing: three files written, none of which labwc reads.
+    //
+    // Run unconditionally rather than only on labwc, matching the three above —
+    // a user who edits shortcuts on Hyprland and later picks labwc at the
+    // greeter should find them already applied.
+    //
+    // `test -x` first because the shell is a $HOME git checkout that updates
+    // independently of the OS image the helper ships in. Without it, every save
+    // on a machine running an older image logs a failed spawn.
+    property var _labwcProc: Process {
+        command: ["bash", "-c",
+                  "test -x /usr/libexec/apex-labwc-keybinds "
+                  + "&& exec /usr/libexec/apex-labwc-keybinds apply"]
+        running: false
+    }
+
+    function _applyLabwc() {
+        _labwcProc.running = false
+        _labwcProc.running = true
     }
 
     function _grouped() {
