@@ -123,6 +123,14 @@ plugin directory holds the plugin's own source — a plugin that could write
 there would pass the load-time scan and then rewrite its entry `.qml` for the
 next start, which is time-of-check/time-of-use against the only check there is.
 
+**A plugin directory may contain no symlinks, at any depth.** One present and
+the plugin is refused. This is what makes "own directory" true rather than
+merely textual: the path rules reject `..`, absolute paths and dot-components,
+and none of that resolves links. A plugin shipping `data` as a symlink to
+`$HOME` would turn `readText("data/Documents/tax.pdf")` into a read of your
+documents while containing nothing any string check could object to. Only the
+filesystem knows, so discovery is where it is caught.
+
 ## What a plugin may contain
 
 One `.qml` file. Imports limited to `QtQuick`, `QtQuick.Layouts`,

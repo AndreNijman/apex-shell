@@ -127,17 +127,24 @@ fi
 # beyond a battery complaint weeks later. The only intervals allowed here are
 # the one-shot settle timers that stop a callback waiting forever on a process
 # that never started.
-if grep -nE '^\s*interval:\s*[0-9]+' "$dir/PluginService.qml" \
-     | grep -vE 'interval: 200'; then
-    bad "PluginService has a poll interval; discovery must be one-shot"
-else
-    ok "PluginService has no poll timer"
-fi
-
+# Checked by repeat, not by interval. An earlier version whitelisted
+# `interval: 200` and flagged everything else, which is wrong in both
+# directions: changing a settle timer to 250 would fail the build with "poll
+# interval", and a genuine poller set to 200 would sail through. A one-shot
+# timer cannot poll whatever its interval is, so `repeat` is the property that
+# carries the meaning.
 if grep -nE '^\s*repeat:\s*true' "$dir/PluginService.qml"; then
     bad "PluginService has a repeating timer; discovery must be one-shot"
 else
     ok "PluginService has no repeating timer"
+fi
+
+n_interval="$(grep -cE '^\s*interval:\s*[0-9]+' "$dir/PluginService.qml")"
+n_oneshot="$(grep -cE '^\s*repeat:\s*false' "$dir/PluginService.qml")"
+if [ "$n_interval" -eq "$n_oneshot" ]; then
+    ok "every timer in PluginService is explicitly one-shot"
+else
+    bad "PluginService has $n_interval timers but $n_oneshot say repeat: false"
 fi
 
 if grep -qE 'property var _[A-Za-z]+:\s*PluginService\b' "$root/shell.qml"; then
