@@ -100,6 +100,7 @@ jobs:
         run: |
           bash -n src/scripts/GfxSwitch.sh
           bash -n src/scripts/PowerControl.sh
+          bash -n src/scripts/SearchRun.sh
           shellcheck src/scripts/screenshot.sh
           echo "✓ src/scripts/ passed ShellCheck"
 
@@ -125,6 +126,32 @@ jobs:
       - name: Test launcher answer logic
         run: |
           node tests/answer-test.js
+
+      - name: APEX Search decision logic
+        run: |
+          # §15 turned the launcher into a command surface with system reach,
+          # reached by fuzzy match while typing. Every rule about what that may
+          # do lives in src/services/search.js so it can be proved HERE, on a
+          # runner with no compositor, rather than in a QML binding that every
+          # behavioural suite in this repo skips.
+          #
+          # Three groups of assertion carry the weight:
+          #
+          #   * the commit rule, enumerated over its whole cross product, with
+          #     one assertion that no input where the previewed row differs from
+          #     the selected row can run a system-changing action. That is what
+          #     makes the preview mandatory rather than merely available.
+          #   * the scheduler, driven by a fake clock with a spawn log, so
+          #     "typing does not spawn a process per provider per keystroke" is
+          #     a counted number.
+          #   * the network boundary: thirteen queries a user can reach without
+          #     typing a package verb, none of which reaches the one provider
+          #     that can leave this machine.
+          #
+          # It spawns no process and reads one file (PageRegistry.qml, to check
+          # the settings index still names pages that exist), so nothing here
+          # can skip.
+          node tests/search-test.js
 
       - name: Test blueprint editor logic
         run: |
@@ -422,6 +449,43 @@ jobs:
           # writes the real ~/.config/apex-shell/plugins, and it makes no
           # network call: the granted path is checked by shape, never fetched.
           ./tests/run-plugin-host-test.sh
+
+      - name: APEX Search invariants
+        run: |
+          # The node suite proves what search.js DECIDES. This proves the QML
+          # cannot go around it: exactly one function starts a provider
+          # subprocess and it is the one that applies the reducer's start list;
+          # no file under src/services/search/ so much as names Process,
+          # Quickshell.Io, FileView or Socket; activate() is called from exactly
+          # one place and that place consults Search.commitDecision() first.
+          #
+          # An AppLauncher that ran the row straight from its click handler
+          # would pass every node assertion and ship a launcher that reboots on
+          # a fuzzy match. That is mutant m1 here.
+          #
+          # Self-testing: twelve forward mutants, each diffed against its source
+          # so a sed that matched nothing is a hard failure rather than a quiet
+          # pass, each bounded so a mutant that damaged the copy cannot read as
+          # "caught", plus an inverse mutant of prose quoting every one of those
+          # bugs verbatim that must stay green.
+          ./tests/check-unified-search.sh
+
+      - name: APEX Search spawns one process, not one per keystroke
+        run: |
+          # §15's hard constraint, measured with REAL processes: a shim `apex`
+          # and a shim `ls` go first on PATH, the same reducer the shell drives
+          # is driven, and every argv it asks for is actually executed. The
+          # counts come out of a log the shim wrote, not one the test wrote.
+          #
+          # Seventy-odd keystrokes across three query shapes, two idle periods
+          # and a directory walk cost six invocations. The tab-separated log
+          # also measures the argv boundary — a package name spliced into a
+          # command string would arrive as one field containing a space.
+          #
+          # Needs node and /bin/sh and nothing else. It deliberately starts no
+          # shell, no compositor and no window, so unlike the behavioural
+          # suites it does not skip here.
+          ./tests/measure-search-spawns.sh
       - name: Caffeine idle-inhibit invariants
         run: |
           # Caffeine must keep working on every compositor APEX ships. Whether
@@ -957,6 +1021,12 @@ jobs:
             "src/services/config_tab/pages/RecoveryPage.qml"
             "tests/recovery-test.js"
             "tests/check-recovery-ui.sh"
+            "src/services/search.js"
+            "src/services/SearchService.qml"
+            "src/scripts/SearchRun.sh"
+            "tests/search-test.js"
+            "tests/check-unified-search.sh"
+            "tests/measure-search-spawns.sh"
           )
           FAILED=()
           for f in "${REQUIRED[@]}"; do

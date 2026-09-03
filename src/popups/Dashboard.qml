@@ -236,7 +236,15 @@ PanelWindow {
                         anchors.fill: parent
                         shown: root.page === "launcher"
                         sourceComponent: Component {
-                            AppLauncher { anchors.fill: parent }
+                            // The launcher is the one page that took no
+                            // `onScreen` before §15, because it consumed no
+                            // refcounted service. It does now — the search
+                            // stack and the compositor's window list are both
+                            // held only while somebody is looking at it.
+                            AppLauncher {
+                                anchors.fill: parent
+                                onScreen: root.pageLive && root.page === "launcher"
+                            }
                         }
                     }
 

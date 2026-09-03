@@ -3,41 +3,79 @@ import QtQuick.Controls
 import Quickshell.Io
 import Quickshell
 import "../"
+import "../components"
+import "../nexus"
 import "answer.js" as Answer
+import "search.js" as Search
 
-// AppLauncher — scrollable app list + top search bar.
-// Lives inside Dashboard.qml on the "launcher" page.
-// Dashboard is PanelWindow with WlrKeyboardFocus.OnDemand,
-// so TextInput receives keys without extra wiring.
+// AppLauncher — APEX Search: one text field over apps, files, settings,
+// windows, clipboard, calculator, commands, projects, agents, SSH hosts and
+// package search (roadmap §15).
 //
-// A query starting with "?" is an ANSWER query, not an app search: it is
-// evaluated locally when it is plain arithmetic and otherwise sent to
-// Wolfram|Alpha, and the answer is shown as a row in this list. Without the "?"
-// no arithmetic is parsed and no network call is made — an app search costs
-// exactly what it always did.
+// Lives inside Dashboard.qml on the "launcher" page. Dashboard is a PanelWindow
+// with WlrKeyboardFocus.Exclusive, so TextInput receives keys without extra
+// wiring.
 //
-// ── Plugin rows (roadmap §16, the launcher-provider extension point) ─────────
+// This file is the SURFACE. It ranks nothing, decides nothing about what may
+// run, and builds no command line. Every one of those lives in
+// src/services/search.js, driven through SearchService — because no CI runner
+// has a compositor, and a launcher with system reach cannot have its safety
+// rules in a QML binding that nothing checks.
+//
+// ── "?" is unchanged, and that is deliberate ────────────────────────────────
+// A query starting with "?" is an ANSWER query: evaluated locally when it is
+// plain arithmetic and otherwise sent to Wolfram|Alpha. It is the one thing
+// here that leaves the machine, and it stays exactly as it was — including
+// `_usedWolfram`, which gates every reference to the singleton so a plain
+// search never instantiates it, never reads its credential file and never
+// resets it. Search.parseQuery routes "?" to a scope every provider gate
+// refuses, and manifest.js's launcherWantsProviders() already refused it for
+// plugins, so no provider of either kind can put a row where the answer goes.
+//
+// ── Plugin rows (roadmap §16, the launcher-provider extension point) ────────
 // `providers` below hosts every granted launcher-provider plugin. Its rows are
-// APPENDED to the app results, never merged into the ranking: apps first, in
-// the order the frecency sort put them, then plugin rows in provider order.
-// A plugin adds to this list and cannot reorder it.
+// APPENDED to the ranked built-in results, never merged into the ranking: the
+// shell's rows first, then plugin rows in provider order. A plugin adds to this
+// list and cannot reorder it. Provider rows carry `kind: "plugin"` and are
+// handled at the TOP of activate(), before the branches that run a DesktopEntry
+// or hand an Exec string to `bash -c`.
 //
-// Provider rows carry `kind: "plugin"` and are handled at the TOP of
-// activate(), before the branches that run a DesktopEntry or hand an Exec
-// string to `bash -c`. That ordering is the whole reason a plugin row is safe:
-// the row objects come out of Manifest.launcherResults(), which builds them
-// from an allowlist and cannot emit an `entry` or an `exec` — but the branch
-// order is the second lock on the same door, and it is what the static suite
-// asserts. See the PLUGIN OUTPUT section of src/services/plugins/manifest.js.
+// ── THE PREVIEW, WHICH IS THE POINT OF §15's FOURTH BULLET ──────────────────
+//
+// "Actions should have clear permissions and previews before destructive system
+// changes."
+//
+// Every row carries a class from search.js's ACTIONS table — safe, changes, or
+// destructive — and the class is a property of the action, never of the row, so
+// a provider cannot label a reboot safe.
+//
+//   * A non-safe row is visibly different before it is read: a coloured badge
+//     with the class and the privilege it needs, and its own glyph.
+//   * Enter on a non-safe row opens the preview. It does not run it. The
+//     preview shows what the action does, what privilege it needs, whether it
+//     can be undone, and THE EXACT ARGV — for a package it also runs
+//     `apex resolve`, which is read-only and needs no root.
+//   * Committing needs a different gesture: Ctrl+Enter, or the Run control
+//     inside the preview. A held Enter cannot repeat through both stages,
+//     because the second stage is not Enter.
+//   * Ctrl+Enter straight from the list, with no preview open, does nothing.
+//     Search.commitDecision() requires the previewed row and the selected row
+//     to be the same non-empty row, which is the clause that makes the preview
+//     mandatory rather than merely available.
+// ──────────────────────────────────────────────────────────────────────────────
 
 Item {
     id: root
 
-    // ── State ─────────────────────────────────────────────────────────────────
-    property var  apps:     root._appEntries
-    property bool loading:  false
+    // "A user can genuinely see this right now" — window visibility AND page
+    // selection AND not locked, handed down by Dashboard. Item `visible` is not
+    // a substitute: an Item inside a hidden window still reports visible, which
+    // is how the stats page once kept six pollers running after the dashboard
+    // was closed.
+    property bool onScreen: false
+
     property int  selIndex: -1
-    property string query:  ""
+    property string query: ""
 
     readonly property bool   answerMode:  query.trim().charAt(0) === "?"
     readonly property string answerQuery: answerMode ? query.trim().substring(1).trim() : ""
@@ -46,57 +84,27 @@ Item {
     // quota on "?12*7".
     readonly property var calculation: answerMode ? Answer.calculate(answerQuery) : ({ valid: false })
 
-    // With no query: pinned apps first, then frecency-ranked recents, then
-    // everything else alphabetically. That ordering is the whole point of an
-    // empty launcher — an alphabetical list starting at "Alacritty" is useless
-    // as a default view.
-    //
-    // With a query: name matches first, then keyword/comment matches, so typing
-    // "browser" finds Firefox via its Keywords even though the name does not
-    // contain it. Within each tier, more-used apps rank higher.
+    // ── Demand ────────────────────────────────────────────────────────────────
+    // Nothing in the search stack runs unless this page is in front of someone.
+    ServiceRef { service: SearchService; active: root.onScreen }
+    // Window enumeration costs a subprocess on Hyprland, so the windows
+    // provider's data source is refcounted too and handed back on close.
+    ServiceRef { service: CompositorService.windowsRef; active: root.onScreen }
+
+    // The query goes to the service only while this page is live, so a second
+    // monitor's copy of the dashboard cannot write over the one being typed in.
+    Binding {
+        target: SearchService
+        property: "query"
+        value: root.query
+        when: root.onScreen
+    }
+
+    // ── Results ───────────────────────────────────────────────────────────────
     readonly property var filtered: {
-        const q = query.trim()
         if (answerMode) return answerRows()
-
-        if (q === "") {
-            const seen = ({})
-            const out = []
-
-            for (const id of LauncherState.pinned) {
-                const a = root._byId[id]
-                if (a && !seen[id]) { seen[id] = true; out.push(root._tag(a, "pinned")) }
-            }
-            for (const id of LauncherState.topRecent(6)) {
-                const a = root._byId[id]
-                if (a && !seen[id]) { seen[id] = true; out.push(root._tag(a, "recent")) }
-            }
-            for (const a of root.apps)
-                if (!seen[a.id]) out.push(a)
-
-            return out
-        }
-
-        const ql = q.toLowerCase()
-        const nameHits = []
-        const metaHits = []
-
-        for (const a of root.apps) {
-            if (a.name.toLowerCase().indexOf(ql) !== -1) {
-                nameHits.push(a)
-                continue
-            }
-            const meta = (a.keywords + " " + a.comment + " " + a.categories).toLowerCase()
-            if (meta.indexOf(ql) !== -1)
-                metaHits.push(a)
-        }
-
-        const byUse = (x, y) => LauncherState.score(y.id) - LauncherState.score(x.id)
-        nameHits.sort(byUse)
-        metaHits.sort(byUse)
-        // Plugin rows last, and only in this branch. The empty-query view is
-        // pinned/recent/all-apps and has no query to answer; the "?" branch
-        // returned above.
-        return nameHits.concat(metaHits).concat(providers.rows)
+        if (query.trim() === "") return SearchService.restingRows
+        return SearchService.results.concat(providers.rows)
     }
 
     // ── The launcher-provider extension point ─────────────────────────────────
@@ -107,56 +115,145 @@ Item {
         query: root.query
     }
 
-    // Shallow copy carrying a badge, so the same app object can appear tagged in
-    // the pinned/recent tiers without mutating the shared entry.
-    function _tag(a, tier) {
-        return {
-            "kind": a.kind, "name": a.name, "exec": a.exec, "icon": a.icon,
-            "categories": a.categories, "keywords": a.keywords,
-            "comment": a.comment, "entry": a.entry, "id": a.id, "tier": tier
+    // ── The preview ───────────────────────────────────────────────────────────
+    // `previewRow` is the row the panel is describing. `previewId` is its
+    // identity, and the commit rule compares it against the identity of the row
+    // that is selected RIGHT NOW — so a preview left open while the selection
+    // moved cannot commit the row it is no longer pointing at.
+    property var previewRow: null
+    readonly property string previewId: Search.rowId(root.previewRow)
+    readonly property var previewInfo:
+        root.previewRow ? SearchService.preview(root.previewRow) : null
+
+    readonly property var selectedRow:
+        (root.selIndex >= 0 && root.selIndex < root.filtered.length)
+            ? root.filtered[root.selIndex] : null
+    readonly property string selectedId: Search.rowId(root.selectedRow)
+
+    // ── The selection is anchored to a ROW, not to an index ───────────────────
+    // Search.merge() is independent of which provider answered first, so the
+    // order is stable — but it is not stable against rows being INSERTED, and
+    // they are: `apex project list` lands about 160 ms after typing stops, and
+    // a project that scores above the selection appears ABOVE it. The integer
+    // index then points one row further down than the user is looking at, and
+    // the next thing they press acts on something they did not choose.
+    //
+    // A non-safe row is protected from that by the preview gate — the commit
+    // rule refuses when the previewed row and the selected row differ, which is
+    // exactly this situation. A safe row is not, and "Enter opened the wrong
+    // application" is a bad enough outcome on its own.
+    //
+    // So the id of the selected row is remembered, and a changed list is
+    // searched for it. Falling back to the top rather than to the old index:
+    // if the row genuinely went away, the first result is the honest answer and
+    // whatever now sits at that index is a coincidence.
+    property string _anchorId: ""
+
+    onSelIndexChanged: root._anchorId = Search.rowId(root.selectedRow)
+
+    onFilteredChanged: root._reanchor()
+
+    function _reanchor() {
+        if (root._anchorId !== "") {
+            for (var i = 0; i < root.filtered.length; i++) {
+                if (Search.rowId(root.filtered[i]) === root._anchorId) {
+                    if (root.selIndex !== i) {
+                        root.selIndex = i
+                        appList.positionViewAtIndex(i, ListView.Contain)
+                    }
+                    return
+                }
+            }
         }
+        root.selIndex = root.filtered.length > 0 ? 0 : -1
     }
 
-    readonly property var _byId: {
-        const m = ({})
-        for (const a of root.apps)
-            m[a.id] = a
-        return m
+    function closePreview() {
+        root.previewRow = null
+        SearchService.forgetResolve()
     }
 
-    // Rows shown in "?" mode. Wolfram state is read live, so the row updates in
-    // place from "asking" to the answer without rebuilding the list.
+    function openPreview(row) {
+        root.previewRow = row
+        // `apex resolve` is started HERE — by activation — and never by
+        // selection. Arrowing down twenty package rows must not run twenty of
+        // them: resolve reaches the package metadata and dnf5 may refresh it
+        // over the network.
+        const info = SearchService.preview(row)
+        if (info && info.resolves)
+            SearchService.resolve(row.arg)
+    }
+
+    // ── The one decision point ────────────────────────────────────────────────
+    // Every path that could run something — Enter, Ctrl+Enter, a click on a
+    // row, the Run control — arrives here, and the verdict comes from
+    // search.js. There is deliberately no second route: a click handler that
+    // called activate() directly would be a way to run a destructive action
+    // with no preview, and it would be invisible to every test that matters.
+    function press(key, ctrl) {
+        const row = root.selectedRow
+        if (!row) return
+
+        const verdict = Search.commitDecision({
+            "klass":       row.klass,
+            "key":         key,
+            "ctrl":        ctrl === true,
+            "previewedId": root.previewId,
+            "selectedId":  root.selectedId
+        })
+
+        if (verdict === Search.COMMIT.PREVIEW) {
+            root.openPreview(row)
+            return
+        }
+        if (verdict === Search.COMMIT.RUN) {
+            root.activate(row)
+            return
+        }
+        // COMMIT.REFUSE. A Ctrl+Enter that arrived with no preview open, or
+        // with the selection somewhere else, does nothing at all — it does not
+        // fall through to a preview, because a chord that sometimes previews
+        // and sometimes runs is a chord nobody can trust.
+    }
+
+    // ── Rows shown in "?" mode ────────────────────────────────────────────────
+    // Wolfram state is read live, so the row updates in place from "asking" to
+    // the answer without rebuilding the list.
     function answerRows() {
         if (answerQuery === "")
             return [{ kind: "hint", name: "Type a question after ?  —  e.g. ?density of aluminium * 2",
-                      value: "", icon: "", exec: "" }]
+                      klass: "safe", payload: "", icon: "", glyph: "󰋼" }]
 
         var rows = []
         if (calculation.valid) {
             rows.push({ kind: "calculation",
                         name:  calculation.expression + " = " + calculation.formatted,
-                        value: calculation.formatted, icon: "", exec: "" })
+                        klass: "safe", payload: calculation.formatted,
+                        icon: "", glyph: "󰃬" })
             return rows
         }
 
         if (!_usedWolfram)
             rows.push({ kind: "hint", name: "Press Enter or wait to ask Wolfram|Alpha",
-                        value: "", icon: "", exec: "" })
+                        klass: "safe", payload: "", icon: "", glyph: "󰋼" })
         else if (WolframService.busy)
-            rows.push({ kind: "hint", name: "Asking Wolfram|Alpha…", value: "", icon: "", exec: "" })
+            rows.push({ kind: "hint", name: "Asking Wolfram|Alpha…",
+                        klass: "safe", payload: "", icon: "", glyph: "󰋼" })
         else if (WolframService.queryText === answerQuery && WolframService.answer !== "")
             rows.push({ kind: "answer", name: WolframService.answer,
-                        value: WolframService.answer, icon: "", exec: "" })
+                        klass: "safe", payload: WolframService.answer,
+                        icon: "", glyph: "󰪚" })
         else if (WolframService.queryText === answerQuery && WolframService.error !== "")
-            rows.push({ kind: "hint", name: WolframService.error, value: "", icon: "", exec: "" })
+            rows.push({ kind: "hint", name: WolframService.error,
+                        klass: "safe", payload: "", icon: "", glyph: "󰋼" })
         else
             rows.push({ kind: "hint", name: "Press Enter or wait to ask Wolfram|Alpha",
-                        value: "", icon: "", exec: "" })
+                        klass: "safe", payload: "", icon: "", glyph: "󰋼" })
         return rows
     }
 
     // True once this launcher session has actually used WolframService. It
-    // gates every other reference to the singleton so a plain app search never
+    // gates every other reference to the singleton so a plain search never
     // instantiates it, never reads its credential file and never resets it.
     property bool _usedWolfram: false
 
@@ -175,6 +272,12 @@ Item {
     // parser already answered it.
     onQueryChanged: {
         askDebounce.stop()
+        root.closePreview()
+        // A new query starts at the top. The anchor only survives a list that
+        // changed underneath an UNCHANGED query — which is what an arriving
+        // subprocess answer is — so it is dropped here rather than dragging the
+        // previous query's selection into the next one.
+        root._anchorId = ""
         if (!answerMode || answerQuery === "" || calculation.valid) {
             _forgetAnswer()
             return
@@ -192,54 +295,14 @@ Item {
         }
     }
 
-    // ── Load apps ─────────────────────────────────────────────────────────────
-    // Opening the launcher used to spawn `python3 src/scripts/list_apps.py`,
-    // which walked every XDG applications directory and parsed every .desktop
-    // file with configparser, then serialised the lot to JSON — a Python
-    // interpreter start plus a full filesystem scan on every single open.
-    //
-    // Quickshell already maintains exactly this index natively: DesktopEntries
-    // watches the XDG directories and keeps parsed entries live, so the list is
-    // available with no process, no scan and no wait. It also honours the parts
-    // of the spec the script did not: entries are launched through
-    // DesktopEntry.execute(), which handles Terminal=true, Path=, and Exec field
-    // codes properly instead of pasting the Exec line into `bash -c`.
-    //
-    // `loading` is retained but is now effectively always false; the list is
-    // ready synchronously.
-    readonly property var _appEntries: {
-        const out = []
-        for (const e of DesktopEntries.applications.values) {
-            if (e.noDisplay)
-                continue
-            const nm = (e.name ?? "").trim()
-            if (nm === "")
-                continue
-            out.push({
-                "kind": "app",
-                "name": nm,
-                "exec": e.execString ?? "",
-                "icon": e.icon ?? "",
-                "categories": e.categories ?? "",
-                "keywords": e.keywords ?? "",
-                "comment": e.comment ?? "",
-                "entry": e,
-                // Stable key for pinning and history: the .desktop basename,
-                // which survives renames of the visible Name and locale changes.
-                "id": e.id ?? ""
-            })
-        }
-        out.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-        return out
-    }
-
     onVisibleChanged: {
         askDebounce.stop()
         _forgetAnswer()
+        root.closePreview()
         if (!visible)
             return
         root.query     = ""
-        root.selIndex  = root.apps.length > 0 ? 0 : -1
+        root.selIndex  = 0
         searchInput.text = ""
         focusTimer.restart()
     }
@@ -299,12 +362,40 @@ Item {
             return
         }
         if (entry.kind === "answer" || entry.kind === "calculation") {
-            ClipboardService.copyText(entry.value)
+            ClipboardService.copyText(entry.payload)
             Popups.dashboardOpen = false
             return
         }
+        // ── A built-in row that names an action ───────────────────────────────
+        // Reached only through press() → Search.commitDecision(), which is why
+        // there is no class check here: by the time a non-safe row arrives, the
+        // rule has already been applied and a preview has already been shown.
+        // Putting a second check here would be a second rule, free to drift.
+        if ((entry.action ?? "") !== "") {
+            root._perform(entry)
+            return
+        }
+        if (entry.kind === "clip") {
+            ClipboardService.copyEntry(entry.payload)
+            Popups.dashboardOpen = false
+            return
+        }
+        if (entry.kind === "window") {
+            CompositorService.focusWindow(entry.payload)
+            Popups.dashboardOpen = false
+            return
+        }
+        if (entry.kind === "setting") {
+            NexusState.openAt(entry.payload, Popups.dashboardScreen)
+            Popups.dashboardOpen = false
+            return
+        }
+        if (entry.kind === "command" && entry.payload === "agents") {
+            Popups.dashboardPage = "agents"
+            return
+        }
         if (entry.entry) {
-            LauncherState.recordLaunch(entry.id)
+            LauncherState.recordLaunch(entry.payload)
             entry.entry.execute()
             Popups.dashboardOpen = false
             return
@@ -312,44 +403,50 @@ Item {
         launch(entry.exec)
     }
 
+    // Perform an action from the ACTIONS table. Two mechanisms and no third:
+    // the compositor adapter for the actions that are compositor operations,
+    // and SearchService.runAction — which builds the argv from the table — for
+    // everything else. Neither one takes a command from a row.
+    function _perform(row) {
+        if (row.action === "window.close") {
+            CompositorService.closeWindow(row.arg)
+            root.closePreview()
+            Popups.dashboardOpen = false
+            return
+        }
+        if (SearchService.runAction(row)) {
+            root.closePreview()
+            Popups.dashboardOpen = false
+        }
+    }
+
+    // A folder row does not open a file manager; it continues the search inside
+    // itself, which is what a path-completing text field is for.
+    function _isFolder(row) {
+        return row && row.kind === "file"
+               && String(row.payload).charAt(String(row.payload).length - 1) === "/"
+    }
+
     // ── Layout ────────────────────────────────────────────────────────────────
     Item {
         anchors.fill: parent
 
-        // App list
+        // Results
         Item {
             anchors {
                 top: searchBar.bottom
                 left: parent.left
                 right: parent.right
-                bottom: parent.bottom
+                bottom: previewPanel.visible ? previewPanel.top : parent.bottom
                 topMargin: 8
-            }
-
-            // Loading state
-            Column {
-                anchors.centerIn: parent
-                spacing: 12
-                visible: root.loading
-
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: "󰣪"; font.pixelSize: Theme.fs(32)
-                    color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.3)
-                }
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text:           "Loading apps…"
-                    color:          Qt.rgba(1,1,1,0.25)
-                    font.pixelSize: Theme.fs(13)
-                }
+                bottomMargin: previewPanel.visible ? 10 : 0
             }
 
             // Empty / no results state
             Column {
                 anchors.centerIn: parent
                 spacing: 10
-                visible: !root.loading && root.filtered.length === 0
+                visible: root.filtered.length === 0
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -365,15 +462,31 @@ Item {
                 }
             }
 
-            // App list
             ListView {
                 id: appList
                 anchors.fill: parent
-                visible: !root.loading && root.filtered.length > 0
-                model:   root.filtered
+                visible: root.filtered.length > 0
                 clip:    true
                 spacing: 3
                 boundsBehavior: Flickable.StopAtBounds
+
+                // ── Why the model is a COUNT and the row is looked up ──────────
+                // `model: <JS array>` recreates every delegate whenever the
+                // array's CONTENTS change — measured on Qt 6.10.3: a 3-element
+                // model reports created=6, destroyed=3 after one content
+                // change. A search result list is exactly that shape: the array
+                // is rebuilt on every keystroke, so an array model would
+                // destroy and rebuild every delegate as the user types, and a
+                // Behavior does not animate a freshly created object's initial
+                // binding — the colour and border animations below would
+                // silently stop running.
+                //
+                // An integer model does not fix the count changing (it cannot;
+                // the number of results genuinely varies), but it makes a query
+                // that returns the SAME number of rows — every keystroke inside
+                // a directory, every arrow key, every arriving subprocess
+                // answer — reuse its delegates instead of rebuilding them.
+                model: root.filtered.length
 
                 ScrollBar.vertical: ScrollBar {
                     policy: ScrollBar.AsNeeded
@@ -387,27 +500,36 @@ Item {
                 }
 
                 delegate: Rectangle {
-                    required property var modelData
+                    id: rowItem
                     required property int index
+                    readonly property var modelData: root.filtered[rowItem.index] ?? null
 
-                    // Answer/hint rows carry prose, not an app name: they wrap
-                    // and grow instead of eliding, which is the whole point of
+                    // Answer/hint rows carry prose, not a name: they wrap and
+                    // grow instead of eliding, which is the whole point of
                     // showing the result inline.
-                    readonly property bool isText: modelData.kind === "answer"
-                                                   || modelData.kind === "calculation"
-                                                   || modelData.kind === "hint"
+                    readonly property bool isText: rowItem.modelData
+                        && (rowItem.modelData.kind === "answer"
+                            || rowItem.modelData.kind === "calculation"
+                            || rowItem.modelData.kind === "hint")
+
+                    readonly property string klass:
+                        rowItem.modelData ? (rowItem.modelData.klass ?? "safe") : "safe"
+                    readonly property bool isDestructive: rowItem.klass === "destructive"
+                    readonly property bool isChanging:    rowItem.klass === "changes"
 
                     width:  appList.width - 8
                     height: isText ? Math.max(46, label.implicitHeight + 26) : 46
                     radius: 9
 
-                    readonly property bool isSel: root.selIndex === index
+                    readonly property bool isSel: root.selIndex === rowItem.index
 
                     color: isSel
-                           ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
+                           ? (isDestructive ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.16)
+                                            : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14))
                            : rowH.hovered ? Qt.rgba(1,1,1,0.06) : "transparent"
                     border.color: isSel
-                                  ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28)
+                                  ? (isDestructive ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.50)
+                                                   : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28))
                                   : rowH.hovered ? Qt.rgba(1,1,1,0.08) : "transparent"
                     border.width: 1
 
@@ -422,7 +544,6 @@ Item {
                         }
                         spacing: 12
 
-                        // App icon
                         Item {
                             width: 28; height: 28
                             anchors.verticalCenter: parent.verticalCenter
@@ -431,7 +552,7 @@ Item {
                                 id: ico
                                 anchors.fill: parent
                                 source: {
-                                    var s = modelData.icon
+                                    var s = rowItem.modelData ? (rowItem.modelData.icon ?? "") : ""
                                     if (!s || s === "")    return ""
                                     if (s.startsWith("/")) return "file://" + s
                                     return "image://icon/" + s
@@ -442,29 +563,39 @@ Item {
                                 sourceSize.height: 28
                             }
 
-                            // Letter fallback
+                            // Glyph fallback. A non-safe row gets a warning
+                            // colour here as well as a badge: the shape and the
+                            // colour are both readable before the text is, and
+                            // §15 asks for destructive actions to be
+                            // distinguishable from a search result at a glance.
                             Rectangle {
                                 anchors.fill: parent
                                 radius:       7
-                                color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                                visible: ico.status !== Image.Ready || modelData.icon === ""
+                                color: rowItem.isDestructive ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.22)
+                                     : rowItem.isChanging    ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.20)
+                                     : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
+                                visible: ico.status !== Image.Ready
+                                         || !rowItem.modelData
+                                         || (rowItem.modelData.icon ?? "") === ""
                                 Text {
                                     anchors.centerIn: parent
                                     text: {
-                                        if (modelData.kind === "answer") return "󰪚"
-                                        if (modelData.kind === "calculation") return "󰃬"
-                                        if (modelData.kind === "hint") return "󰋼"
-                                        return modelData.name.charAt(0).toUpperCase()
+                                        if (!rowItem.modelData) return ""
+                                        const g = rowItem.modelData.glyph ?? ""
+                                        if (g !== "") return g
+                                        return String(rowItem.modelData.name).charAt(0).toUpperCase()
                                     }
                                     font.pixelSize: Theme.fs(13); font.bold: true
-                                    color:          Theme.active
+                                    color: rowItem.isDestructive ? Theme.danger
+                                         : rowItem.isChanging    ? Theme.warning
+                                         : Theme.active
                                 }
                             }
                         }
 
-                        // App name, or the answer text
                         Column {
                             width: parent.width - 28 - parent.spacing
+                                   - (badge.visible ? badge.width + parent.spacing : 0)
                                    - (pinBtn.visible ? pinBtn.width + parent.spacing : 0)
                             anchors.verticalCenter: parent.verticalCenter
                             spacing: 1
@@ -472,28 +603,26 @@ Item {
                             Text {
                                 id: label
                                 width:          parent.width
-                                text:           modelData.name
+                                text:           rowItem.modelData ? rowItem.modelData.name : ""
                                 font.pixelSize: Theme.fs(13)
-                                color:          isSel ? Theme.active : Theme.text
-                                wrapMode:       isText ? Text.Wrap : Text.NoWrap
-                                elide:          isText ? Text.ElideNone : Text.ElideRight
-                                maximumLineCount: isText ? 8 : 1
+                                color:          rowItem.isSel ? Theme.active : Theme.text
+                                wrapMode:       rowItem.isText ? Text.Wrap : Text.NoWrap
+                                elide:          rowItem.isText ? Text.ElideNone : Text.ElideRight
+                                maximumLineCount: rowItem.isText ? 8 : 1
                                 Behavior on color { ColorAnimation { duration: 100 } }
                             }
 
-                            // Provenance for a plugin row, and only for a
-                            // plugin row. `detail` always ends in the plugin's
-                            // name AS THE HOST GRANTED IT — the plugin does not
-                            // supply that part, so a row cannot claim to have
-                            // come from the shell. Composed in
-                            // Manifest.launcherResults() rather than here, so
-                            // the composition is asserted headlessly instead of
-                            // eyeballed on a developer's screen.
+                            // The second line. For a plugin row `detail` always
+                            // ends in the plugin's name AS THE HOST GRANTED IT,
+                            // composed in Manifest.launcherResults() rather than
+                            // here, so a row cannot claim to have come from the
+                            // shell. For a built-in it names the provider and,
+                            // for an action, the privilege it needs.
                             Text {
                                 width:          parent.width
-                                visible:        modelData.kind === "plugin"
-                                                && (modelData.detail ?? "") !== ""
-                                text:           modelData.detail ?? ""
+                                visible:        rowItem.modelData
+                                                && (rowItem.modelData.detail ?? "") !== ""
+                                text:           rowItem.modelData ? (rowItem.modelData.detail ?? "") : ""
                                 font.pixelSize: Theme.fs(10)
                                 color:          Qt.rgba(1, 1, 1, 0.32)
                                 elide:          Text.ElideRight
@@ -501,17 +630,43 @@ Item {
                             }
                         }
 
-                        // Pin toggle. Shown for a pinned app always (so the state
-                        // is visible, not just discoverable) and otherwise only on
-                        // hover or selection, to keep the list quiet.
+                        // ── The class badge ───────────────────────────────────
+                        // Present on every row that changes the system and on no
+                        // row that does not, so "this one is different" is
+                        // visible without reading a word of it.
+                        Rectangle {
+                            id: badge
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: rowItem.isDestructive || rowItem.isChanging
+                            width:   badgeText.implicitWidth + 14
+                            height:  18
+                            radius:  9
+                            color:   rowItem.isDestructive ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.22)
+                                                           : Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.18)
+                            Text {
+                                id: badgeText
+                                anchors.centerIn: parent
+                                text: rowItem.isDestructive ? "cannot be undone" : "changes system"
+                                font.pixelSize: Theme.fs(9)
+                                color: rowItem.isDestructive ? Theme.danger : Theme.warning
+                            }
+                        }
+
+                        // Pin toggle, for application rows only. Shown for a
+                        // pinned app always (so the state is visible, not just
+                        // discoverable) and otherwise only on hover or
+                        // selection, to keep the list quiet.
                         Text {
                             id: pinBtn
                             anchors.verticalCenter: parent.verticalCenter
-                            visible: !isText && (modelData.id ?? "") !== ""
-                                     && (LauncherState.isPinned(modelData.id) || rowH.hovered || isSel)
-                            text:   LauncherState.isPinned(modelData.id) ? "󰐃" : "󰤱"
+                            visible: rowItem.modelData && rowItem.modelData.kind === "app"
+                                     && (rowItem.modelData.payload ?? "") !== ""
+                                     && (LauncherState.isPinned(rowItem.modelData.payload)
+                                         || rowH.hovered || rowItem.isSel)
+                            text: rowItem.modelData && LauncherState.isPinned(rowItem.modelData.payload)
+                                      ? "󰐃" : "󰤱"
                             font.pixelSize: Theme.fs(13)
-                            color:  LauncherState.isPinned(modelData.id)
+                            color: rowItem.modelData && LauncherState.isPinned(rowItem.modelData.payload)
                                         ? Theme.active
                                         : Qt.rgba(1, 1, 1, pinArea.containsMouse ? 0.75 : 0.30)
                             Behavior on color { ColorAnimation { duration: 100 } }
@@ -522,7 +677,7 @@ Item {
                                 anchors.margins: -6
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: LauncherState.togglePin(modelData.id)
+                                onClicked: LauncherState.togglePin(rowItem.modelData.payload)
                             }
                         }
                     }
@@ -534,21 +689,187 @@ Item {
                         hoverEnabled: true
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
                         // Sits under the pin button, which has its own MouseArea.
-                        onEntered: root.selIndex = index
+                        onEntered: root.selIndex = rowItem.index
                         onClicked: function (mouse) {
                             if (mouse.button === Qt.RightButton) {
-                                if ((modelData.id ?? "") !== "")
-                                    LauncherState.togglePin(modelData.id)
+                                if (rowItem.modelData && rowItem.modelData.kind === "app"
+                                    && (rowItem.modelData.payload ?? "") !== "")
+                                    LauncherState.togglePin(rowItem.modelData.payload)
                                 return
                             }
-                            root.activate(modelData)
+                            root.selIndex = rowItem.index
+                            // The SAME decision point the keyboard uses. A click
+                            // on a destructive row opens the preview; it does not
+                            // run it.
+                            root.press("enter", false)
                         }
                     }
                 }
             }
         }
 
-        // Search bar
+        // ── The preview panel ─────────────────────────────────────────────────
+        // Anchored to the bottom, above nothing, and it takes the space the list
+        // was using rather than floating over it: the row that is about to run
+        // has to stay visible while its consequences are being read.
+        Rectangle {
+            id: previewPanel
+            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+            height: previewCol.implicitHeight + 24
+            radius: 12
+            visible: root.previewInfo !== null
+            color: root.previewInfo && root.previewInfo.klass === "destructive"
+                       ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.10)
+                       : Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.08)
+            border.width: 1
+            border.color: root.previewInfo && root.previewInfo.klass === "destructive"
+                       ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.45)
+                       : Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.35)
+
+            Column {
+                id: previewCol
+                anchors {
+                    left: parent.left; right: parent.right; top: parent.top
+                    leftMargin: 14; rightMargin: 14; topMargin: 12
+                }
+                spacing: 6
+
+                Text {
+                    width: parent.width
+                    text: root.previewInfo
+                          ? (root.previewInfo.klass === "destructive"
+                             ? "󰀦  " + root.previewInfo.title
+                             : "󰑓  " + root.previewInfo.title)
+                          : ""
+                    font.pixelSize: Theme.fs(13)
+                    font.bold: true
+                    color: root.previewInfo && root.previewInfo.klass === "destructive"
+                               ? Theme.danger : Theme.warning
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    width: parent.width
+                    text: root.previewInfo ? root.previewInfo.what : ""
+                    font.pixelSize: Theme.fs(11)
+                    color: Qt.rgba(1, 1, 1, 0.72)
+                    wrapMode: Text.WordWrap
+                }
+
+                // Permissions, plainly. §15: "Actions should have clear
+                // permissions."
+                Text {
+                    width: parent.width
+                    text: root.previewInfo ? "Runs as: " + root.previewInfo.permission : ""
+                    font.pixelSize: Theme.fs(10)
+                    color: Qt.rgba(1, 1, 1, 0.45)
+                    wrapMode: Text.WordWrap
+                }
+
+                Text {
+                    width: parent.width
+                    text: root.previewInfo
+                          ? (root.previewInfo.undoes === ""
+                             ? "This cannot be undone."
+                             : "To undo: " + root.previewInfo.undoes)
+                          : ""
+                    font.pixelSize: Theme.fs(10)
+                    color: root.previewInfo && root.previewInfo.undoes === ""
+                               ? Theme.danger : Qt.rgba(1, 1, 1, 0.45)
+                    wrapMode: Text.WordWrap
+                }
+
+                // The exact command. Composed by search.js from the same argv
+                // that will be executed, so what is shown and what is run
+                // cannot be built separately and drift.
+                Rectangle {
+                    width: parent.width
+                    height: cmdText.implicitHeight + 12
+                    radius: 6
+                    color: Qt.rgba(0, 0, 0, 0.28)
+                    visible: root.previewInfo && root.previewInfo.commandLine !== ""
+                    Text {
+                        id: cmdText
+                        anchors { fill: parent; margins: 6 }
+                        text: root.previewInfo ? root.previewInfo.commandLine : ""
+                        font.family: "monospace"
+                        font.pixelSize: Theme.fs(10)
+                        color: Qt.rgba(1, 1, 1, 0.7)
+                        wrapMode: Text.WrapAnywhere
+                    }
+                }
+
+                // For a package, the preview is not prose this shell wrote: it
+                // is `apex resolve`, which is read-only and needs no root.
+                Text {
+                    width: parent.width
+                    visible: root.previewInfo !== null && root.previewInfo.resolves
+                    text: SearchService.resolveBusy
+                              ? "Checking which source APEX would use…"
+                              : (SearchService.resolveText === ""
+                                 ? "apex resolve had nothing to say about that name."
+                                 : SearchService.resolveText)
+                    font.family: "monospace"
+                    font.pixelSize: Theme.fs(10)
+                    color: Qt.rgba(1, 1, 1, 0.55)
+                    wrapMode: Text.WrapAnywhere
+                    maximumLineCount: 8
+                    elide: Text.ElideRight
+                }
+
+                Row {
+                    spacing: 8
+
+                    Rectangle {
+                        width: runText.implicitWidth + 26
+                        height: 28
+                        radius: 8
+                        color: root.previewInfo && root.previewInfo.klass === "destructive"
+                                   ? (runHov.hovered ? Theme.dangerFillHover : Theme.dangerFill)
+                                   : (runHov.hovered ? Qt.darker(Theme.warning, 1.7) : Qt.darker(Theme.warning, 2.2))
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                        Text {
+                            id: runText
+                            anchors.centerIn: parent
+                            text: "Run  ·  Ctrl+Enter"
+                            font.pixelSize: Theme.fs(11)
+                            font.bold: true
+                            color: Theme.fixedLight
+                        }
+                        HoverHandler { id: runHov; cursorShape: Qt.PointingHandCursor }
+                        // The mouse and touch commit path. It goes through the
+                        // same decision function the keyboard does, with a key
+                        // of its own rather than a pretended Ctrl.
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: root.press("button", false)
+                        }
+                    }
+
+                    Rectangle {
+                        width: cancelText.implicitWidth + 26
+                        height: 28
+                        radius: 8
+                        color: cancelHov.hovered ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.06)
+                        Behavior on color { ColorAnimation { duration: 120 } }
+                        Text {
+                            id: cancelText
+                            anchors.centerIn: parent
+                            text: "Cancel  ·  Esc"
+                            font.pixelSize: Theme.fs(11)
+                            color: Theme.text
+                        }
+                        HoverHandler { id: cancelHov; cursorShape: Qt.PointingHandCursor }
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: root.closePreview()
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Search bar ────────────────────────────────────────────────────────
         Rectangle {
             id: searchBar
             anchors { top: parent.top; left: parent.left; right: parent.right }
@@ -580,7 +901,7 @@ Item {
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text:    "Search apps   ·   ? asks a question"
+                        text:    "Search  ·  install …  ·  ssh …  ·  ~/  ·  > commands  ·  ? asks"
                         color:   Qt.rgba(1,1,1,0.22)
                         font.pixelSize: Theme.fs(13)
                         visible: searchInput.text === ""
@@ -616,13 +937,45 @@ Item {
                             }
                         }
 
-                        Keys.onReturnPressed: {
-                            if (root.selIndex >= 0 && root.selIndex < root.filtered.length)
-                                root.activate(root.filtered[root.selIndex])
+                        // Tab completes a folder into the search box rather than
+                        // opening it, which is what a path-completing field is
+                        // for and what stops Enter meaning two different things
+                        // on the same row.
+                        Keys.onTabPressed: function (event) {
+                            const row = root.selectedRow
+                            if (root._isFolder(row)) {
+                                searchInput.text = row.payload
+                                searchInput.cursorPosition = searchInput.text.length
+                                event.accepted = true
+                                return
+                            }
+                            event.accepted = false
+                        }
+
+                        // ── The only key that can run anything ────────────────
+                        // Plain Return is "enter"; Return with Control is
+                        // "commit". They are different logical keys so a held
+                        // Return cannot repeat through a preview into a commit —
+                        // the second stage is a chord the first one is not.
+                        Keys.onReturnPressed: function (event) {
+                            const ctrl = (event.modifiers & Qt.ControlModifier) !== 0
+                            const row = root.selectedRow
+                            if (!ctrl && root._isFolder(row)) {
+                                searchInput.text = row.payload
+                                searchInput.cursorPosition = searchInput.text.length
+                                return
+                            }
+                            root.press(ctrl ? "commit" : "enter", ctrl)
+                        }
+                        Keys.onEnterPressed: function (event) {
+                            const ctrl = (event.modifiers & Qt.ControlModifier) !== 0
+                            root.press(ctrl ? "commit" : "enter", ctrl)
                         }
 
                         Keys.onEscapePressed: {
-                            if (text !== "") {
+                            if (root.previewInfo !== null) {
+                                root.closePreview()
+                            } else if (text !== "") {
                                 text = ""
                             } else {
                                 Popups.dashboardOpen = false
