@@ -105,13 +105,29 @@ Rectangle {
         Behavior on opacity { NumberAnimation { duration: 200 } }
         Behavior on scale   { NumberAnimation { duration: 200 } }
 
+        // ── Why the model is a COUNT and the entry is looked up ───────────────
+        // `model: <JS array>` recreates every delegate whenever the array's
+        // contents change — measured on Qt 6.10.3: a 3-element model reports
+        // created=6, destroyed=3 after one content change. Workspace switches
+        // change `isFocused` on every entry, so every dot was destroyed and
+        // rebuilt on every switch, and a Behavior does not animate a freshly
+        // created object's initial binding. The width and colour Behaviors below
+        // silently stopped running, and the urgent pulse restarted from zero on
+        // every workspace event.
+        //
+        // Before the three Repeaters were unified, Hyprland's model was the
+        // constant `10`, so its delegates persisted for the session and the
+        // animations worked. An integer model restores that: the count is stable
+        // across a workspace switch, so the delegates survive and only their
+        // bindings update.
         Repeater {
-            model: root.workspaceModel
+            model: root.workspaceModel.length
 
             delegate: Rectangle {
                 id: dot
 
-                required property var modelData
+                required property int index
+                readonly property var modelData: root.workspaceModel[dot.index]
 
                 // Focused, not active. The three delegates disagreed about this
                 // and the unified one had to pick: Hyprland highlighted
@@ -125,9 +141,9 @@ Rectangle {
                 // favour of the bar meaning one thing everywhere. Flagged rather
                 // than buried: it is a real visual change on a configuration
                 // this checkout cannot test.
-                readonly property bool isFocused:  dot.modelData.isFocused
-                readonly property bool isUrgent:   dot.modelData.isUrgent
-                readonly property bool isOccupied: dot.modelData.occupied
+                readonly property bool isFocused:  dot.modelData ? dot.modelData.isFocused : false
+                readonly property bool isUrgent:   dot.modelData ? dot.modelData.isUrgent : false
+                readonly property bool isOccupied: dot.modelData ? dot.modelData.occupied : false
 
                 height: Theme.wsDotSize
                 radius: height / 2
@@ -170,7 +186,7 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: CompositorService.focusWorkspace(dot.modelData.ref)
+                    onClicked: if (dot.modelData) CompositorService.focusWorkspace(dot.modelData.ref)
                 }
             }
         }
