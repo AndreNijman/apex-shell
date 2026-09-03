@@ -36,6 +36,14 @@ QtObject {
     // construction, so readiness is "there is something to show".
     readonly property bool ready: WindowManager.windowsets !== null
 
+    readonly property string displayName: "labwc"
+
+    // labwc has no IPC socket, but it does have a `--version` flag:
+    // "labwc 0.9.6 (+xwayland +nls +rsvg +libsfdo)". The About panel used to
+    // print "WM: labwc:wlroots" here, straight out of XDG_CURRENT_DESKTOP,
+    // because nothing knew how to ask.
+    readonly property var versionCommand: ["labwc", "--version"]
+
     signal focusMoved()
 
     // labwc publishes no event stream at all, so focus is inferred from the two
@@ -68,7 +76,14 @@ QtObject {
         accentBorder:         false,
         gaps:                 false,
         tilingLayout:         false,
-        keyboardInterception: false
+        keyboardInterception: false,
+        // No shader hook: labwc composites through wlroots' scene graph with no
+        // hook for a post-processing pass.
+        screenShader:         false,
+        // wlsunset would work here through wlr-gamma-control, which labwc does
+        // implement, but APEX does not ship it. See NiriBackend for the same
+        // note — one `true` when it does.
+        nightLight:           false
     })
 
     // Both feeds are protocol objects the compositor pushes. Nothing polls, so
@@ -76,6 +91,14 @@ QtObject {
     property bool windowsWanted: false
     property bool titleWanted:   false
     property bool layoutWanted:  false
+
+    // Both false: `windows` and `focusedTitle` are bindings onto
+    // foreign-toplevel, which labwc pushes. There is nothing to start and
+    // nothing to stop, so releasing a ref does not empty them the way it does
+    // on Hyprland. The facade suite asserts that difference rather than
+    // assuming Hyprland's refcount semantics are universal.
+    readonly property bool windowsPolled: false
+    readonly property bool titlePolled:   false
 
     // ── Workspaces ────────────────────────────────────────────────────────────
     readonly property var workspaces: {
@@ -164,6 +187,9 @@ QtObject {
     readonly property string windowBoxScript: ""            // no geometry
     readonly property string outputBoxScript: Boxes.WLR_OUTPUTS
 
+    readonly property string screenShader:     ""
+    readonly property bool   nightLightActive: false
+
     // ── Actions ───────────────────────────────────────────────────────────────
     function focusWorkspace(ref) {
         const src = WindowManager.windowsets || []
@@ -187,4 +213,7 @@ QtObject {
     function readGaps(callback)                { callback(false, null) }
     function setLayout(name)                   { /* unreachable: capability is false */ }
     function setKeyboardInterception(on)       { /* unreachable: capability is false */ }
+    function setScreenShader(path)             { /* unreachable: capability is false */ }
+    function refreshScreenShader()             { /* nothing to read */ }
+    function setNightLight(on)                 { /* unreachable: capability is false */ }
 }

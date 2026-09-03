@@ -1,22 +1,69 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import "../../"
 
 // Gathers system info natively (no fastfetch dependency) into key/value rows
 // and renders them styled. The collector script emits one "Key: Value" line per
 // field — we split on ": " (first occurrence).
+//
+// ── The WM row is not collected by the script ────────────────────────────────
+// It used to be: a `hyprctl version | grep -oE` pipeline with a parallel
+// `niri --version` branch and a three-way `if` over
+// HYPRLAND_INSTANCE_SIGNATURE / NIRI_SOCKET, all inside the same shell
+// one-liner that reads the kernel and counts packages. That made this file the
+// last one outside src/services/compositor/ that named a compositor's CLI, and
+// it got labwc wrong — it fell through to printing "WM: labwc:wlroots".
+//
+// Two consequences of asking the adapter instead, both deliberate:
+//   • The name now follows Compositor's detection AND its config_Provider.json
+//     override, rather than re-probing the environment on its own. If a user
+//     has pinned the compositor, this row agrees with the rest of the shell.
+//   • The version arrives asynchronously, so the row appears with the name
+//     first and gains the version a moment later.
 
 Item {
     id: root
 
     onVisibleChanged: if (visible) reload()
 
-    // Parsed rows: [{key, value}]
-    property var rows: []
+    // Rows as parsed from the collector, before the WM row is spliced in.
+    property var _statsRows: []
+
+    // "Hyprland 0.56.2", or just the name until version() answers, or
+    // XDG_CURRENT_DESKTOP where there is no adapter at all. Never empty, so
+    // the row is never missing — which is what the old script guaranteed with
+    // its `${XDG_CURRENT_DESKTOP:-Wayland}` fallback.
+    readonly property string _wmFallback:
+        Quickshell.env("XDG_CURRENT_DESKTOP") || "Wayland"
+    property string _wmValue: root._wmFallback
+
+    // Rendered rows: the collector's, with WM inserted directly after Kernel
+    // where the script used to print it.
+    readonly property var rows: {
+        const out = []
+        for (let i = 0; i < root._statsRows.length; i++) {
+            out.push(root._statsRows[i])
+            if (root._statsRows[i].key === "Kernel")
+                out.push({ key: "WM", value: root._wmValue })
+        }
+        return out
+    }
 
     function reload() {
-        root.rows = []
+        root._statsRows = []
         statsProc.running = true
+
+        const name = CompositorService.displayName
+        root._wmValue = name !== "" ? name : root._wmFallback
+        if (name === "") return
+
+        // (false, "") is the answer when the compositor's CLI is missing or
+        // cannot be executed — the name alone is still correct, so the row
+        // stays rather than reverting to the environment string.
+        CompositorService.version(function (ok, v) {
+            if (ok && v !== "") root._wmValue = name + " " + v
+        })
     }
 
     // Strip ANSI escape codes just in case
@@ -42,18 +89,13 @@ Item {
 
     // Native collector — one lightweight shell invocation emits "Key: Value"
     // lines. All values come from fixed system commands (no data interpolation).
+    // The WM row is NOT here; see the header.
     Process {
         id: statsProc
         command: ["bash", "-c",
             ". /etc/os-release 2>/dev/null; " +
             "printf 'Distro: %s\\n' \"${PRETTY_NAME:-Linux}\"; " +
             "printf 'Kernel: %s\\n' \"$(uname -r)\"; " +
-            "hv=$(hyprctl version 2>/dev/null | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1); " +
-            "nv=$(niri --version 2>/dev/null | grep -oE '[0-9]+\\.[0-9]+(\\.[0-9]+)?' | head -n1); " +
-            "if [ -n \"$hv\" ]; then printf 'WM: Hyprland %s\\n' \"$hv\"; " +
-            "elif [ -n \"$HYPRLAND_INSTANCE_SIGNATURE\" ]; then printf 'WM: Hyprland\\n'; " +
-            "elif [ -n \"$NIRI_SOCKET\" ]; then if [ -n \"$nv\" ]; then printf 'WM: niri %s\\n' \"$nv\"; else printf 'WM: niri\\n'; fi; " +
-            "else printf 'WM: %s\\n' \"${XDG_CURRENT_DESKTOP:-Wayland}\"; fi; " +
             "printf 'Uptime: %s\\n' \"$(uptime -p | sed 's/up //; s/ hours\\?/h/; s/ minutes\\?/m/; s/ days\\?/d/; s/, / /g')\"; " +
             "if command -v xbps-query >/dev/null 2>&1; then printf 'Packages: %s\\n' \"$(xbps-query -l 2>/dev/null | wc -l)\"; " +
             "elif command -v pacman >/dev/null 2>&1; then printf 'Packages: %s\\n' \"$(pacman -Qq 2>/dev/null | wc -l)\"; " +
@@ -67,7 +109,7 @@ Item {
 
         stdout: StdioCollector {
             id: statsOut
-            onStreamFinished: root.rows = root.parse(statsOut.text)
+            onStreamFinished: root._statsRows = root.parse(statsOut.text)
         }
     }
 
