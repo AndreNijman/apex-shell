@@ -616,6 +616,65 @@ QtObject {
         return String(s).replace(/\\/g, "\\\\").replace(/"/g, "\\\"")
     }
 
+    // ── niri: what an APEX default becomes ────────────────────────────────────
+    // Every name here was verified against the installed `niri msg action
+    // --help` rather than remembered. A wrong verb is silent: niri rejects the
+    // include and the user loses every binding in it, not just the bad one.
+    //
+    // Hyprland dispatcher -> niri action. `null` means niri has no equivalent,
+    // and those bindings are reported in the generated file rather than dropped
+    // without trace.
+    readonly property var _niriActions: ({
+        "killactive":     "close-window",
+        "fullscreen":     "fullscreen-window",
+        "togglefloating": "toggle-window-floating",
+        // niri is column-based: left/right move between columns, up/down within
+        // one. That is the honest mapping of Hyprland's directional focus onto a
+        // scrolling layout, not an approximation.
+        "movefocus":  ({ l: "focus-column-left",  r: "focus-column-right",
+                         u: "focus-window-up",    d: "focus-window-down" }),
+        "movewindow": ({ l: "move-column-left",   r: "move-column-right",
+                         u: "move-window-up",     d: "move-window-down" }),
+        "workspace":        "focus-workspace",
+        "movetoworkspace":  "move-window-to-workspace",
+        // No concept in a scrolling compositor.
+        "pseudo":    null,
+        "layoutmsg": null
+    })
+
+    // Hyprland config variables, resolved. niri spawns WITHOUT a shell, so an
+    // unresolved `$browser` would be passed to execvp as a literal filename.
+    readonly property var _niriApps: ({
+        "$terminal":    "alacritty",
+        // Not a browser name: opens whichever browser the user has set as
+        // default, the same reason hyprland.conf and labwc's rc.xml stopped
+        // naming one.
+        "$browser":     "/usr/libexec/apex-open-browser",
+        "$fileManager": "thunar"
+    })
+
+    // Split a command into argv. niri spawns without a shell, so this is the
+    // tokenisation the shell would otherwise do — and it is why the commands in
+    // _defaults must stay free of quoting and pipes. They are, and the suite
+    // asserts it.
+    function _niriArgv(command) {
+        var cmd = String(command).trim()
+        var keys = Object.keys(root._niriApps)
+        for (var i = 0; i < keys.length; i++) {
+            if (cmd.indexOf(keys[i]) === 0)
+                cmd = root._niriApps[keys[i]] + cmd.slice(keys[i].length)
+        }
+        if (cmd.indexOf("$") === 0) return null   // an unresolved variable
+        var parts = cmd.split(/\s+/).filter(function (t) { return t !== "" })
+        return parts.length > 0 ? parts : null
+    }
+
+    function _niriSpawn(argv) {
+        var out = []
+        for (var i = 0; i < argv.length; i++) out.push('"' + _kdlStr(argv[i]) + '"')
+        return "spawn " + out.join(" ") + ";"
+    }
+
     function _genKdl() {
         var sd   = root._shellDir
         var kp   = root._kdlPath
@@ -647,8 +706,44 @@ QtObject {
             var entries = data.groups[g]
             for (var ei = 0; ei < entries.length; ei++) {
                 var e = entries[ei]
-                if (e.type) continue // Native compositor actions remain in niri's own config.
                 var combo = _modsToKdl(e.mods).concat([e.key]).join("+")
+
+                // `if (e.type) continue` used to sit here, commented "native
+                // compositor actions remain in niri's own config". It also
+                // skipped every type: "exec" APP LAUNCH, so a niri session had
+                // no SUPER+W, SUPER+T or SUPER+E at all — the shell popups
+                // worked and the applications simply were not bound. An app
+                // launch is a spawn, which niri does natively; the guard was
+                // catching far more than it meant to.
+                if (e.type === "exec") {
+                    var argv = root._niriArgv(e.command)
+                    if (!argv) { lines.push("    // " + e.k + ": command does not resolve on niri"); continue }
+                    lines.push("    " + combo + " { " + root._niriSpawn(argv) + " }")
+                    continue
+                }
+
+                if (e.type === "dispatch") {
+                    var mapped = root._niriActions[e.dispatcher]
+                    if (mapped === undefined || mapped === null) {
+                        lines.push("    // " + e.k + ": no niri equivalent of " + e.dispatcher)
+                        continue
+                    }
+                    var verb = (typeof mapped === "string") ? mapped : mapped[e.arg]
+                    if (!verb) {
+                        lines.push("    // " + e.k + ": no niri equivalent of "
+                                   + e.dispatcher + " " + e.arg)
+                        continue
+                    }
+                    // focus-workspace / move-window-to-workspace take the
+                    // workspace as a positional reference; the rest take none.
+                    var needsArg = (e.dispatcher === "workspace"
+                                    || e.dispatcher === "movetoworkspace")
+                    var act = needsArg ? (verb + ' "' + _kdlStr(e.arg) + '"') : verb
+                    lines.push("    " + combo + " { " + act + "; }")
+                    continue
+                }
+
+                // No type: a shell IPC toggle.
                 // spawn tokens: qs -p <shell> ipc call <action> toggle
                 var spawn = 'spawn "qs" "-p" "' + _kdlStr(sd) +
                             '" "ipc" "call" "' + _kdlStr(e.k) + '" "toggle";'
