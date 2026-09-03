@@ -90,18 +90,30 @@ var PERMISSIONS = ["network", "files", "system", "secrets", "location"];
 // Of those, the ones apiVersion 1 can actually ENFORCE. The gap is deliberate
 // and it is the reason this list is separate from the one above.
 //
-// `secrets` would need a broker holding credentials the plugin never sees —
-// there is no secret store in the shell to broker. `location` would need a
-// geolocation source and a user-facing precision control ("approximate", per
-// the roadmap's weather example); the shell has neither.
+// A manifest declaring anything in the gap is REFUSED, with a reason that names
+// the permission. The alternative — accepting the field and granting nothing —
+// is a decorative permission, and a decorative permission is actively harmful:
+// it reads, both to the plugin author and to a user reviewing what a plugin
+// asked for, as a capability that was considered and granted. The vocabulary
+// keeps all five words so a later apiVersion can implement one without renaming
+// anything.
 //
-// Shipping either as a manifest field that grants nothing would be a decorative
-// permission: it would read, to a plugin author and to a user reviewing what a
-// plugin asked for, as a capability that was reviewed and granted. So a
-// manifest that declares one is REFUSED, with a reason that names it. The
-// vocabulary keeps the word so that a later apiVersion can implement it without
-// renaming anything.
-var IMPLEMENTED_PERMISSIONS = ["network", "files", "system"];
+//   `system` is the interesting refusal. A "system controls" permission that
+//   means "run a command" is not a permission at all — it is a bypass of the
+//   entire model, because a plugin that can spawn a process can curl anything
+//   and read any file, which makes `network` and `files` decorative in turn.
+//   No permission may grant a capability that subsumes the others. Until there
+//   is a specific, enumerable set of system ACTIONS to expose (set brightness,
+//   toggle a profile) rather than a general escape hatch, apiVersion 1 offers
+//   none of it.
+//
+//   `secrets` would need a broker that holds credentials the plugin never sees.
+//   There is no secret store in this shell to broker.
+//
+//   `location` would need a geolocation source and the user-facing precision
+//   control the roadmap's weather example implies ("Location: approximate").
+//   The shell has neither.
+var IMPLEMENTED_PERMISSIONS = ["network", "files"];
 
 // Extension points. Exactly one is real in apiVersion 1 — see the §16 notes in
 // docs/plugins.md for why one end-to-end beats five stubs.
@@ -318,6 +330,51 @@ function validateManifest(raw, dirName, hostApiVersion) {
     };
 }
 
+// ── stripCommentLines(text) ──────────────────────────────────────────────────
+// Removes lines whose first non-whitespace characters are `//`, and nothing
+// else. The scan below would otherwise refuse a plugin for DOCUMENTING what
+// plugins may not do — which is not hypothetical, it is how the reference
+// plugin was written, and it is the same reason this repo's existing CI checks
+// pipe through `grep -vE '^[^:]+:[0-9]+:[[:space:]]*//'`.
+//
+// ── Why only whole lines ─────────────────────────────────────────────────────
+// The obvious implementation — strip from every `//` to end of line — is a
+// BYPASS, and a subtle one. Consider:
+//
+//     property string u: "a//b"; property var z: eval("…")
+//
+// The `//` inside that string literal is not a comment. A stripper that treats
+// it as one deletes the rest of the line, and `eval` vanishes from the text the
+// scan reads while remaining very much present in the file QML executes. The
+// same trap swallows block comments, template literals and regex literals; a
+// correct version needs a real tokeniser, and a not-quite-correct tokeniser
+// hands an attacker a way to hide any construct on this list.
+//
+// A whole-line rule needs no tokeniser and cannot go wrong in that direction.
+// A line whose first non-whitespace is `//` is either a comment or the interior
+// of a multi-line template literal. Neither one executes, so removing it can
+// never hide code — the worst case is that a forbidden word inside a string
+// stops being flagged, and a word inside a string is not a call.
+//
+// The cost is a rule plugin authors have to know: prose mentioning a forbidden
+// construct belongs on its own comment line, not trailing after code and not in
+// a /* block */. docs/plugins.md says so. That is a small price for a scan with
+// no hole in it, and erring toward refusing a legitimate plugin is the right
+// direction for this particular check to be wrong in.
+function stripCommentLines(text) {
+    var lines = String(text || "").split("\n");
+    var out = [];
+    for (var i = 0; i < lines.length; i++) {
+        var t = lines[i].replace(/^[ \t]+/, "");
+        if (t.slice(0, 2) === "//") {
+            out.push("");   // keep the line count, so any future line-numbered
+            continue;       // diagnostic still points at the right place
+        }
+        out.push(lines[i]);
+    }
+    return out.join("\n");
+}
+
 // ── scanSource(text) ─────────────────────────────────────────────────────────
 // The load-time check that defends the API's monopoly. Returns
 // { ok: true } or { ok: false, reason, detail }.
@@ -325,9 +382,11 @@ function validateManifest(raw, dirName, hostApiVersion) {
 // Re-read the header before trusting this further than it goes: it stops a
 // plugin from casually reaching past the API, not a plugin written to beat it.
 function scanSource(text) {
-    var src = String(text === undefined || text === null ? "" : text);
-    if (src.trim() === "")
+    var raw = String(text === undefined || text === null ? "" : text);
+    if (raw.trim() === "")
         return _refuse("empty-source");
+
+    var src = stripCommentLines(raw);
 
     // Imports. QML allows leading whitespace, a version, and an `as` qualifier;
     // the module is the first token after `import`.
@@ -428,6 +487,61 @@ function permitsUrl(grant, url) {
     return { ok: true, host: host, reason: "", detail: "" };
 }
 
+// ── validId(id) ──────────────────────────────────────────────────────────────
+// The id charset check on its own, for the ONE caller that needs it before a
+// manifest exists: directory enumeration. PluginService reads a directory
+// listing off the filesystem and has to build "<dir>/<id>/plugin.json" before
+// it can validate anything, so the name it interpolates is checked first.
+// Checking the id against the directory name later does not help — that check
+// would happily pass for a directory literally named "..".
+function validId(id) {
+    return typeof id === "string" && ID_RE.test(id);
+}
+
+// ── permitsPath(grant, name) ─────────────────────────────────────────────────
+// The `files` gate. Returns { ok: true, name } or a refusal.
+//
+// apiVersion 1's `files` permission is READ-ONLY access to the plugin's OWN
+// directory, and nothing else. Two deliberate limits:
+//
+//   * Own directory only. "Read any file the shell can read" is the version of
+//     this permission that would be genuinely useful and genuinely dangerous,
+//     and there is no UI in this shell for a user to scope it to something
+//     narrower. An unscopeable grant is not a permission.
+//
+//   * READ-only, and this one is not a comfort choice. The plugin directory is
+//     where the plugin's own source lives. A plugin that could write there
+//     could pass the load-time source scan and then rewrite its entry .qml for
+//     the next start — the scan would be checking a file the plugin controls
+//     between checks. Classic time-of-check/time-of-use, and it would quietly
+//     void the one thing the scan is for. Writable per-plugin storage needs a
+//     data directory separate from the code directory; that is a v2 concern.
+//
+// `name` is a relative path under the plugin directory. No leading separator,
+// no "..", no component beginning with a dot — the last of those is what stops
+// a plugin reading a ".git" or an editor backup someone left in the folder.
+function permitsPath(grant, name) {
+    if (!grant || grant.ok !== true)
+        return _refuse("no-grant");
+    if (!_has(grant.permissions || [], "files"))
+        return _refuse("permission-denied", "files");
+    if (typeof name !== "string" || name === "")
+        return _refuse("bad-path", String(name).slice(0, 80));
+    if (name.length > 255)
+        return _refuse("bad-path", "too long");
+    if (/[\x00-\x1f\x7f]/.test(name))
+        return _refuse("bad-path", "control characters");
+    if (name.charAt(0) === "/" || name.indexOf("\\") >= 0)
+        return _refuse("bad-path", name);
+
+    var parts = name.split("/");
+    for (var i = 0; i < parts.length; i++) {
+        if (parts[i] === "" || parts[i].charAt(0) === ".")
+            return _refuse("bad-path", name);
+    }
+    return { ok: true, name: name, reason: "", detail: "" };
+}
+
 // ── curlArgv(url) ────────────────────────────────────────────────────────────
 // How the HOST fetches an approved URL. The plugin never sees this and never
 // spawns anything; it calls api.net.get() and the shell does the work.
@@ -501,6 +615,7 @@ function describeRefusal(r) {
     case "userinfo-denied":           return "URLs with credentials are refused" + d;
     case "port-denied":               return "only port 443 is allowed" + d;
     case "host-denied":               return "host is not in the plugin's declared list" + d;
+    case "bad-path":                  return "not a path inside the plugin's own directory" + d;
     default:                          return r.reason + d;
     }
 }
@@ -519,6 +634,9 @@ if (typeof module !== "undefined" && module.exports)
         scanSource: scanSource,
         parseUrl: parseUrl,
         permitsUrl: permitsUrl,
+        permitsPath: permitsPath,
+        validId: validId,
         curlArgv: curlArgv,
+        stripCommentLines: stripCommentLines,
         describeRefusal: describeRefusal
     };
