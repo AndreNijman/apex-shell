@@ -61,7 +61,14 @@ QtObject {
         tilingLayout:         false,
         // No submap equivalent: niri cannot be told to route every key to one
         // client, so keybind capture stays off here.
-        keyboardInterception: false
+        keyboardInterception: false,
+        // niri has no fullscreen-shader hook of any kind.
+        screenShader:         false,
+        // wlsunset is the wlroots-world equivalent of hyprsunset and would work
+        // here through wlr-gamma-control, but APEX does not ship it. Declared
+        // false rather than dispatching a binary that is probably absent — the
+        // day it ships, this is the one line that changes.
+        nightLight:           false
     })
 
     // Nothing here costs anything — the event stream runs for the workspace
@@ -69,6 +76,14 @@ QtObject {
     property bool windowsWanted: false
     property bool titleWanted:   false
     property bool layoutWanted:  false
+
+    // Both false: the event stream runs for the workspace strip regardless, so
+    // windows and the focused title are live whether or not anyone holds a ref.
+    // Consumers still take one — the contract is the same everywhere — but the
+    // data does not disappear when they let go, which is the difference the
+    // facade suite has to assert instead of Hyprland's empties.
+    readonly property bool windowsPolled: false
+    readonly property bool titlePolled:   false
 
     // ── State, straight from the event stream ─────────────────────────────────
     // niri's model already has the right shape; `ref` is its 1-based idx, which
@@ -124,6 +139,9 @@ QtObject {
     readonly property string windowBoxScript: ""            // no geometry
     readonly property string outputBoxScript: Boxes.WLR_OUTPUTS
 
+    readonly property string screenShader:     ""
+    readonly property bool   nightLightActive: false
+
     // ── Actions ───────────────────────────────────────────────────────────────
     property Process _proc: Process { command: []; running: false }
 
@@ -161,4 +179,7 @@ QtObject {
     function readGaps(callback)          { callback(false, null) }
     function setLayout(name)             { /* unreachable: capability is false */ }
     function setKeyboardInterception(on) { /* unreachable: capability is false */ }
+    function setScreenShader(path)       { /* unreachable: capability is false */ }
+    function refreshScreenShader()       { /* nothing to read */ }
+    function setNightLight(on)           { /* unreachable: capability is false */ }
 }

@@ -18,11 +18,19 @@ StatCard {
     property bool onScreen: false
 
     // ── Compositor gating ─────────────────────────────────────────────────────
-    // hyprsunset (Night Light) and the hl.config screen_shader (Filter) are
-    // Hyprland-only; those tiles hide on niri. Focus Mode keeps the bar-shrink
-    // (ShellState.focusMode) but skips the hyprctl gap calls on niri.
-    readonly property bool isHyprland: Compositor.isHyprland
-    readonly property bool isNiri:     Compositor.isNiri
+    // Three tiles here only work on some compositors, and every one of them now
+    // asks CompositorService what the running one can do rather than what it is
+    // called:
+    //
+    //   Night Light  can.nightLight    hyprsunset, Hyprland's CTM protocol
+    //   Filter       can.screenShader  decoration:screen_shader
+    //   Focus Mode   can.gaps          keeps the bar-shrink either way
+    //
+    // This card was the last consumer in the shell that spawned hyprctl itself
+    // — two dialects of `hl.config`, a DPMS damage cycle and a `pgrep` — and
+    // all of it is in HyprlandBackend.qml now. What is left here is the tile,
+    // and the one genuinely compositor-neutral part: finding shader files on
+    // the user's disk, which is a directory question and not an IPC one.
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Brightness
@@ -105,19 +113,14 @@ StatCard {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  Night Light  (hyprsunset)
+    //  Night Light
     // ─────────────────────────────────────────────────────────────────────────
-    property bool nightLightOn: false
+    // The daemon, the process that adopts an already-running one, and the kill
+    // all moved into HyprlandBackend. This tile owns no processes at all now.
+    readonly property bool nightLightOn: CompositorService.nightLightActive
 
-    Process { id: nlCheck; command: ["bash", "-c", "pgrep -x hyprsunset"]; running: false
-        stdout: SplitParser { onRead: function(l) { if (l.trim() !== "") root.nightLightOn = true } } }
-    Process { id: nlProc; command: ["hyprsunset", "-t", "5600"]; running: false }
-    Process { id: nlKill; command: ["bash", "-c", "pkill hyprsunset"]; running: false }
     function _nightLightToggle() {
-        if (root.nightLightOn) {
-            nlProc.running = false; nlKill.running = false; nlKill.running = true
-            root.nightLightOn = false
-        } else { nlProc.running = true; root.nightLightOn = true }
+        CompositorService.setNightLight(!root.nightLightOn)
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -466,97 +469,64 @@ StatCard {
         }
     }
 
-// ─────────────────────────────────────────────────────────────────────────
-    //  Filter  (Native Hyprland Lua)
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Filter  (screen shader)
     //
     //  Tile click: runs bash `find`, opens picker popup above the tile.
     //  Picker has "Off" at top + all available shaders.
-    //  Selecting a shader: resolves absolute path and uses `hyprctl eval hl.config()`
-    //  Selecting the active shader or "Off": clears the shader in Hyprland.
+    //  Selecting a shader hands its ABSOLUTE PATH to the adapter; selecting the
+    //  active one or "Off" hands it "".
+    //
+    //  What used to be here: two dialects of `hyprctl`, a DPMS damage cycle and
+    //  a `python3 -c` JSON reader. All of that is HyprlandBackend's now. The
+    //  split is deliberate — *which file* is a question about the user's shader
+    //  directories, and *how to apply it* is a question about the compositor.
     // ─────────────────────────────────────────────────────────────────────────
-    property string currentFilter:    ""
+    readonly property string currentFilter: CompositorService.screenShader
     property var    filterList:       []
     property bool   filterPickerOpen: false
-    
+
+    // name → absolute path, built from the same `find` that fills filterList.
+    //
+    // The old code re-ran `find` at apply time with the chosen name spliced
+    // into a `-name` pattern, which meant the shader name reached a shell as
+    // code. Resolving once at list time and passing the path as an argument
+    // removes that entirely, and it removes the silent failure mode where the
+    // second `find` came back empty and the apply did nothing.
+    property var _filterPaths: ({})
+
     // Add your standard shader directories here (space-separated)
     // Shell-owned shaders are resolved from Quickshell.shellDir so they are found
     // wherever the shell is checked out, not only at ~/.local/src/apex-shell.
     property string shaderPaths: "~/.config/hypr/shaders ~/.local/share/hypr/shaders /usr/share/hyprshade/shaders "
                                  + "'" + Quickshell.shellDir + "/src/config/shaders'"
 
-    // Check process stays exactly the same — it already reads cleanly from Hyprland!
-    Process {
-        id: filterCheckProc
-        command: ["bash", "-c",
-            "hyprctl getoption decoration:screen_shader -j 2>/dev/null" +
-            " | python3 -c \"" +
-            "import sys,json,os;" +
-            "d=json.load(sys.stdin);" +
-            "s=d.get('str','').strip();" +
-            "print('' if s in ('','[[EMPTY]]') else os.path.splitext(os.path.basename(s))[0])\""]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                root.currentFilter = text.trim()
-            }
-        }
-    }
-
-    Process {
-        id: filterApplyProc
-        command: []
-        running: false
-        onRunningChanged: if (!running) {
-            filterCheckProc.running = false
-            filterCheckProc.running = true
-        }
-    }
-
     function _filterApply(name) {
-        // screen_shader is Hyprland-only and this function had no guard at all,
-        // so it fired hyprctl on niri and on any third compositor.
-        if (!root.isHyprland) return
-
+        // No compositor guard needed: setScreenShader refuses on a backend
+        // without the capability and spawns nothing. This function used to have
+        // no guard at all and fired hyprctl on niri and on any third compositor.
         var turningOff = (name === "" || name === root.currentFilter)
-        root.currentFilter = turningOff ? "" : name
-
-        var isLua = ShellState.configProvider === "lua"
-
-        // Handle DPMS toggling based on provider
-        var damageCmd = isLua 
-            ? ` && hyprctl dispatch 'hl.dsp.dpms({ action = "disable" })' && hyprctl dispatch 'hl.dsp.dpms({ action = "enable" })'`
-            : ` && hyprctl dispatch dpms off && hyprctl dispatch dpms on`
-
         if (turningOff) {
-            var offCmd = isLua 
-                ? "hyprctl eval \"hl.config({ decoration = { screen_shader = '' } })\""
-                : "hyprctl keyword decoration:screen_shader '[[EMPTY]]'"
-                
-            filterApplyProc.command = ["bash", "-c", offCmd + damageCmd]
+            CompositorService.setScreenShader("")
         } else {
-            var resolveCmd =
-                "TARGET=$(find " + root.shaderPaths +
-                " -maxdepth 1 -type f \\( -name '" + name + ".glsl' -o -name '" + name + ".frag' \\)" +
-                " 2>/dev/null | head -n 1); "
-                
-            var onCmd = isLua
-                ? "if [ -n \"$TARGET\" ]; then hyprctl eval \"hl.config({ decoration = { screen_shader = '$TARGET' } })\"" + damageCmd + "; fi"
-                : "if [ -n \"$TARGET\" ]; then hyprctl keyword decoration:screen_shader \"$TARGET\"" + damageCmd + "; fi"
-
-            filterApplyProc.command = ["bash", "-c", resolveCmd + onCmd]
+            var path = root._filterPaths[name]
+            // An entry with no resolved path cannot be applied. Nothing is
+            // handed to the adapter, because "" means OFF and turning the
+            // filter off is not what the user asked for.
+            if (path === undefined || path === "") { root.filterPickerOpen = false; return }
+            CompositorService.setScreenShader(path)
         }
-
-        filterApplyProc.running = false
-        filterApplyProc.running = true
         root.filterPickerOpen = false
     }
 
     Connections {
         target: WallpaperService
-        enabled: root.isHyprland   // screen_shader lives in Hyprland only
+        // A wallpaper apply can reload the compositor's config, which resets
+        // the shader to whatever the config file says. Re-read rather than keep
+        // showing the value from before the reload.
+        enabled: CompositorService.can.screenShader
         function onWallpaperApplied(path) {
-            filterCheckProc.running = false
-            filterCheckProc.running = true
+            CompositorService.refreshScreenShader()
         }
     }
 
@@ -569,19 +539,30 @@ StatCard {
 
     Process {
         id: filterListProc
-        // Replaces `hyprshade ls` by searching your directories and stripping the file extensions
-        command: ["bash", "-c", "find " + root.shaderPaths + " -maxdepth 1 -type f \\( -name '*.glsl' -o -name '*.frag' \\) 2>/dev/null | rev | cut -d/ -f1 | rev | sed 's/\\.[^.]*$//' | sort -u"]
+        // Replaces `hyprshade ls` by searching your directories. Full paths
+        // now, not basenames: the picker needs a label AND something to apply.
+        command: ["bash", "-c", "find " + root.shaderPaths + " -maxdepth 1 -type f \\( -name '*.glsl' -o -name '*.frag' \\) 2>/dev/null | sort"]
         running: false
         stdout: SplitParser {
             onRead: function(l) {
-                var n = l.trim()
-                if (n !== "") root.filterList = root.filterList.concat([n])
+                var p = l.trim()
+                if (p === "") return
+                var n = p.replace(/^.*\//, "").replace(/\.[^.]*$/, "")
+                if (n === "") return
+                // First path wins, which is what the old `sort -u | head -n 1`
+                // pair did: a shader in ~/.config shadows one in /usr/share.
+                if (root._filterPaths[n] !== undefined) return
+                var m = root._filterPaths
+                m[n] = p
+                root._filterPaths = m
+                root.filterList = root.filterList.concat([n])
             }
         }
     }
 
     function _filterOpen() {
-        root.filterList = []
+        root.filterList  = []
+        root._filterPaths = ({})
         filterListProc.running = false
         filterListProc.running = true
         root.filterPickerOpen  = true
@@ -609,11 +590,12 @@ StatCard {
     }
 
     Component.onCompleted: {
+        // Night-light and screen-shader state are no longer probed here: the
+        // backend owns both and reads them once at startup, so the tiles are
+        // correct the first time the dashboard opens instead of a fork later.
         _wifiPoll(); _btPoll()
-        if (root.isHyprland) nlCheck.running = true   // hyprsunset — Hyprland only
         hotspotCheck.running    = true
         airplaneCheck.running   = true
-        if (root.isHyprland) filterCheckProc.running = true   // screen_shader — Hyprland only
         hsCfgLoadProc.running   = true
         hsIfaceProc.running     = true
         hsActiveCheckProc.running = true
@@ -819,9 +801,12 @@ StatCard {
                         onToggled: root._hotspotToggle()
                     }
                     TglBtn {
-                        // hyprsunset is Hyprland-specific — hide on niri (wlsunset
-                        // would be the niri-world tool; not wired up here).
-                        visible: root.isHyprland
+                        // Hidden on a capability, not a compositor name.
+                        // hyprsunset shifts colour temperature through a
+                        // Hyprland-only protocol; wlsunset would be the wlroots
+                        // equivalent and APEX does not ship it, so the backends
+                        // that would use it declare false.
+                        visible: CompositorService.can.nightLight
                         width: tileGrid.btnW; height: tileGrid.btnH
                         on: root.nightLightOn; icon: "󰖐"; label: "Night Light"
                         onToggled: root._nightLightToggle()
@@ -860,9 +845,10 @@ StatCard {
                         }
                     }
                     // Filter tile — opens picker, does not toggle directly.
-                    // Uses hyprctl screen_shader (hl.config) — Hyprland only.
+                    // Only Hyprland has a fullscreen-shader hook, which is what
+                    // can.screenShader answers.
                     TglBtn {
-                        visible: root.isHyprland
+                        visible: CompositorService.can.screenShader
                         width: tileGrid.btnW; height: tileGrid.btnH
                         on:       root.currentFilter !== ""
                         icon:     "󱡓"
