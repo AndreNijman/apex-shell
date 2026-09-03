@@ -73,6 +73,18 @@ QtObject {
             "component": blueprintComp
         },
         {
+            "id": "recovery",
+            "title": "Recovery",
+            "subtitle": "Health, rollback, repair, ways back in",
+            "icon": "󰑙",
+            // RecoveryService runs `apex recover status --json` and
+            // `apex doctor --json` on a sweep timer while this page is looked
+            // at, and nothing at all when it is not. Getting this wrong means
+            // two `apex` processes every 20 seconds until logout.
+            "needsScreen": true,
+            "component": recoveryComp
+        },
+        {
             "id": "keybinds",
             "title": "Keybinds",
             "subtitle": "Shortcuts for every popup",
@@ -125,6 +137,9 @@ QtObject {
     }
     readonly property Component blueprintComp: Component {
         BlueprintPage {}
+    }
+    readonly property Component recoveryComp: Component {
+        RecoveryPage {}
     }
     readonly property Component keybindsComp: Component {
         KeybindsPage {}

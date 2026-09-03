@@ -779,6 +779,37 @@ jobs:
           # that damaged the copy cannot be read as a mutant that was caught.
           ./tests/check-remote-agents.sh
 
+      - name: Recovery surface logic
+        run: |
+          # §19's recovery panel, and §25's "recovery and rollback are normal
+          # UX, not expert documentation". Drives src/services/recovery.js —
+          # the file the shell loads — against payloads CAPTURED from a real
+          # `apex recover status --json`, `apex doctor --json` and a factory
+          # reset DRY RUN, not invented ones.
+          #
+          # Two of these assertions exist because the obvious code is wrong:
+          # `apex recover status` exits 1 when a component needs attention, so
+          # treating non-zero as failure blanks the panel on exactly the
+          # machines it is for; and `apex doctor` always exits 0 even with
+          # warnings, so reading ITS exit code as health reports every machine
+          # healthy.
+          node tests/recovery-test.js
+
+      - name: Recovery surface invariants
+        run: |
+          # Static half, and the part the node suite cannot see: that nothing
+          # on a timer can reach a verb that changes the machine, that no argv
+          # here is privileged, that the factory reset's confirm token is never
+          # constructed, and that the erase button cannot exist before the loss
+          # list has rendered and acknowledged itself.
+          #
+          # Self-tests the same way check-remote-agents.sh does: eleven mutants
+          # that must each go red, a bound on how many checks one may break, a
+          # hard failure for any mutant that did not actually change the file,
+          # and a prose-only copy quoting every one of those bugs that must
+          # stay GREEN.
+          ./tests/check-recovery-ui.sh
+
       - name: Remote agent status smoke test
         run: |
           # Needs a compositor AND the apex-os runtime built; the harness skips
@@ -921,6 +952,11 @@ jobs:
             "src/services/config_tab/pages/BlueprintPage.qml"
             "tests/blueprint-editor-test.js"
             "tests/check-blueprint-editor.sh"
+            "src/services/recovery.js"
+            "src/services/RecoveryService.qml"
+            "src/services/config_tab/pages/RecoveryPage.qml"
+            "tests/recovery-test.js"
+            "tests/check-recovery-ui.sh"
           )
           FAILED=()
           for f in "${REQUIRED[@]}"; do
