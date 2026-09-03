@@ -39,6 +39,25 @@ bad()  { echo "  FAIL  $1"; fail=$((fail + 1)); }
 # after a `[ ]` is a trap waiting for someone to insert a line between them.
 want() { local desc="$1"; shift; if "$@"; then ok "$desc"; else bad "$desc"; fi; }
 
+# code_has <file> <fixed-string> — is this string present in CODE, as opposed to
+# in a comment about the code?
+#
+# This exists because a mutation control caught a plain `grep -q "Loader.Error"`
+# passing on a file whose only remaining match was the header sentence "One
+# Loader per plugin, asynchronous, Loader.Error recorded against the plugin".
+# Every host in this platform documents its own invariants at length, so any
+# check for a construct these files also DISCUSS is satisfiable by prose — which
+# means deleting the code and keeping the paragraph leaves the build green. That
+# is the worst failure mode a static suite has, because the file still reads as
+# though the check means something.
+#
+# Whole comment lines only, which is the same rule stripCommentLines() in
+# manifest.js uses and for the same reason: stripping from any `//` to end of
+# line would let a `//` inside a string literal hide the rest of the line.
+code_has() {
+    grep -nF -- "$2" "$1" | grep -vqE '^[0-9]+:[[:space:]]*(//|#|\*)'
+}
+
 # ── The pieces exist ─────────────────────────────────────────────────────────
 want "manifest.js exists and is non-empty"       test -s "$dir/manifest.js"
 want "PluginService.qml exists and is non-empty" test -s "$dir/PluginService.qml"
@@ -63,11 +82,11 @@ want "the launcher-provider host exists"    test -s "$launcher_host"
 want "the quick-settings-tile host exists"  test -s "$tile_host"
 
 want "the bar-widget host mounts bar-widget" \
-    grep -q 'pluginsFor("bar-widget")' "$bar_host"
+    code_has "$bar_host" 'pluginsFor("bar-widget")'
 want "the launcher host mounts launcher-provider" \
-    grep -q 'pluginsFor("launcher-provider")' "$launcher_host"
+    code_has "$launcher_host" 'pluginsFor("launcher-provider")'
 want "the tile host mounts quick-settings-tile" \
-    grep -q 'pluginsFor("quick-settings-tile")' "$tile_host"
+    code_has "$tile_host" 'pluginsFor("quick-settings-tile")'
 
 # The other direction: read the list out of the shipped file rather than
 # repeating it here, so adding a name to manifest.js without writing a host
@@ -79,8 +98,10 @@ if [ -z "$points" ]; then
 else
     ok "EXTENSION_POINTS is readable from manifest.js ($points)"
     for p in $points; do
-        n="$(grep -l "pluginsFor(\"$p\")" "$bar_host" "$launcher_host" "$tile_host" \
-             2>/dev/null | wc -l)"
+        n=0
+        for h in "$bar_host" "$launcher_host" "$tile_host"; do
+            code_has "$h" "pluginsFor(\"$p\")" && n=$((n + 1))
+        done
         if [ "$n" -eq 1 ]; then
             ok "$p is mounted by exactly one host"
         else
@@ -102,13 +123,13 @@ want "PluginTiles is declared in src/services/home/qmldir" \
     grep -qE "^PluginTiles +PluginTiles.qml$" "$root/src/services/home/qmldir"
 
 want "the launcher host is instantiated by AppLauncher" \
-    grep -q "PluginLauncher {" "$root/src/services/AppLauncher.qml"
+    code_has "$root/src/services/AppLauncher.qml" "PluginLauncher {"
 want "provider rows reach the launcher's result list" \
-    grep -q "concat(providers.rows)" "$root/src/services/AppLauncher.qml"
+    code_has "$root/src/services/AppLauncher.qml" "concat(providers.rows)"
 want "the tile host is instantiated by QuickSettings" \
-    grep -q "PluginTiles { id: pluginTiles }" "$root/src/services/home/QuickSettings.qml"
+    code_has "$root/src/services/home/QuickSettings.qml" "PluginTiles { id: pluginTiles }"
 want "plugin tiles reach the quick-settings grid" \
-    grep -q "model: pluginTiles.tiles" "$root/src/services/home/QuickSettings.qml"
+    code_has "$root/src/services/home/QuickSettings.qml" "model: pluginTiles.tiles"
 
 # ── Registration ─────────────────────────────────────────────────────────────
 # PluginService goes in src/qmldir, next to CompositorService — that is the
@@ -150,11 +171,11 @@ want "the launcher host imports the shared decision logic" \
 want "the tile host imports the shared decision logic" \
     grep -q 'import "../plugins/manifest.js" as Manifest' "$tile_host"
 want "the launcher host routes rows through launcherResults()" \
-    grep -q "Manifest.launcherResults(" "$launcher_host"
+    code_has "$launcher_host" "Manifest.launcherResults("
 want "the launcher host routes the consult decision through manifest.js" \
-    grep -q "Manifest.launcherWantsProviders(" "$launcher_host"
+    code_has "$launcher_host" "Manifest.launcherWantsProviders("
 want "the tile host routes tiles through quickTile()" \
-    grep -q "Manifest.quickTile(" "$tile_host"
+    code_has "$tile_host" "Manifest.quickTile("
 
 # The hosts must not build their own row or tile objects. `kind: "plugin"` is
 # set inside launcherResults() and is what AppLauncher dispatches on, so a host
@@ -179,7 +200,7 @@ done
 # lock on the same door: the plugin branch has to come FIRST.
 al="$root/src/services/AppLauncher.qml"
 want "the launcher has a branch for plugin rows" \
-    grep -q 'entry.kind === "plugin"' "$al"
+    code_has "$al" 'entry.kind === "plugin"'
 
 n_plugin="$(grep -n 'entry.kind === "plugin"' "$al" | head -1 | cut -d: -f1)"
 n_entry="$(grep -n 'if (entry.entry)' "$al" | head -1 | cut -d: -f1)"
@@ -195,7 +216,7 @@ fi
 # no hidden value field, so there is nothing that could put something other
 # than the visible text on the clipboard.
 want "activating a plugin row copies the visible title" \
-    grep -q "ClipboardService.copyText(entry.name)" "$al"
+    code_has "$al" "ClipboardService.copyText(entry.name)"
 
 # ── Plugin tiles go last in the quick-settings grid ──────────────────────────
 # The shell's own tiles keep the positions users have muscle memory for; a
@@ -332,14 +353,20 @@ fi
 # plugins without a Loader per plugin is a point where one bad plugin is a shell
 # fault, and "the new host forgot the isolation the old host has" is the exact
 # shape of regression this loop exists to catch.
+#
+# code_has, not grep: every one of these hosts DISCUSSES its own crash isolation
+# at length in its header, so a plain grep is satisfied by the prose. A
+# mutation control caught exactly that — the tile host kept passing "handles the
+# error status" with its handler renamed, because the header sentence still said
+# "Loader.Error recorded against the plugin".
 for f in "$bar_host" "$launcher_host" "$tile_host"; do
     b="$(basename "$f")"
-    want "$b gives each plugin its own Loader" grep -q "Loader {" "$f"
-    want "$b handles the error status"          grep -q "Loader.Error" "$f"
-    want "$b records a load failure"            grep -q "reportLoadError" "$f"
+    want "$b gives each plugin its own Loader" code_has "$f" "Loader {"
+    want "$b handles the error status"          code_has "$f" "Loader.Error"
+    want "$b records a load failure"            code_has "$f" "reportLoadError"
     # The bar is the always-mapped window and the launcher is on the keystroke
     # path; a plugin must not be able to stall either.
-    want "$b loads plugins asynchronously"      grep -q "asynchronous: true" "$f"
+    want "$b loads plugins asynchronously"      code_has "$f" "asynchronous: true"
 done
 want "PluginService can receive a load failure" \
     grep -q "function reportLoadError" "$dir/PluginService.qml"
@@ -354,7 +381,7 @@ want "a bar widget's width is clamped" grep -q "maxWidgetWidth" "$bar_host"
 # via the Agent Center and again via the compositor backends.
 for f in "$bar_host" "$launcher_host" "$tile_host"; do
     want "$(basename "$f") loads plugins from a URL" \
-        grep -q "source: mount.modelData ? mount.modelData.entryUrl" "$f"
+        code_has "$f" "source: mount.modelData ? mount.modelData.entryUrl"
 done
 want "a refused plugin has no URL to load" \
     grep -q 'rec.state === "loaded"' "$dir/PluginService.qml"
