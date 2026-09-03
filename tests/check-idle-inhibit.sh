@@ -47,17 +47,40 @@ done
 # BlockInhibited (measured: held -> no listener fires; released -> they fire),
 # and it is not a compositor feature at all, which is why there is no
 # capability for it.
-want "ShellState holds a logind inhibitor" \
-    grep -q 'systemd-inhibit' "$shellstate"
+#
+# ── Matched against the CODE, never the prose ────────────────────────────────
+# Every string below also appears in the comment that explains the measurement
+# directly above the Process. A whole-file `grep -q systemd-inhibit` therefore
+# passes even when the command has been replaced by `true` — verified: that
+# mutant went undetected until this was anchored. So the checks run against the
+# Process block with its comment lines stripped, which is the code and nothing
+# else. A check that passes on its own documentation is a check that has
+# stopped working.
+inhibitor_code() {
+    awk '/readonly property Process caffeineInhibitor: Process \{/ {inb=1}
+         inb {
+             print
+             if (/^[[:space:]]*running:/) exit
+         }' "$shellstate" \
+        | grep -vE '^[[:space:]]*//'
+}
+code="$(inhibitor_code)"
+
+want "the caffeineInhibitor Process block was found at all" \
+    test -n "$code"
+
+want "ShellState spawns systemd-inhibit (in the command, not a comment)" \
+    grep -q 'systemd-inhibit' <<<"$code"
 want "the logind inhibitor blocks idle specifically" \
-    grep -q -- '--what=idle' "$shellstate"
+    grep -q -- '--what=idle' <<<"$code"
 want "the logind inhibitor is mode=block, not mode=delay" \
-    grep -q -- '--mode=block' "$shellstate"
+    grep -q -- '--mode=block' <<<"$code"
 
 # Both halves of the parent-death guarantee: systemd-inhibit forks its payload,
 # so the wrapper AND the payload each need one or a shell crash leaves an
-# inhibitor behind and the machine never sleeps again.
-pdeathsig_count() { [ "$(grep -c -- '--pdeathsig' "$shellstate")" -ge 2 ]; }
+# inhibitor behind and the machine never sleeps again. Counted inside the block
+# for the same reason as above.
+pdeathsig_count() { [ "$(grep -c -- '--pdeathsig' <<<"$code")" -ge 2 ]; }
 want "both the inhibitor and its payload carry --pdeathsig" pdeathsig_count
 
 # ── The gate, pinned exactly ─────────────────────────────────────────────────
@@ -148,8 +171,22 @@ fi
 # The numbers in ShellState's comment are only trustworthy while the thing that
 # produced them still exists and can be re-run. A comment claiming a
 # measurement whose harness has been deleted is worse than no comment.
-want "the idle-inhibit measurement harness exists and is executable" \
-    test -x "$root/tests/measure-idle-inhibit.sh"
+# Not merely -x: `test -x` alone passed a mutant that had truncated the file to
+# nothing, and -s alone passes a file gutted down to a comment. So this asserts
+# the harness still contains the ARMS the comments cite — the layer-surface
+# case that is the whole finding, and the logind case that is the fix. A harness
+# reduced to a stub is the same as a deleted one for the purpose of trusting
+# the numbers in ShellState.
+h="$root/tests/measure-idle-inhibit.sh"
+harness_present() {
+    [ -x "$h" ] && [ -s "$h" ] \
+        && [ -s "$root/tests/measure-idle-hyprland.conf" ] \
+        && grep -q 'LAYER SURFACE'  "$h" \
+        && grep -q -- '--what=idle' "$h" \
+        && grep -q 'control:'       "$h"
+}
+want "the measurement harness exists and still contains the arms cited in the comments" \
+    harness_present
 
 echo
 echo "passed=$pass failed=$fail"
