@@ -104,6 +104,47 @@ want "the service reads through blueprint show --json" \
 want "no --file argument is passed to blueprint set" \
     bash -c '! grep -qE "blueprint set.*--file|\"set\".*\"--file\"" "$1"' _ "$csvc"
 
+# ── THE VERB IS THE ONLY WAY THIS EDITOR CAN WRITE THE BLUEPRINT ────────────
+#
+# The hard rule, and the one worth the most assertions: a blueprint editor
+# exists to write the user's config, so the ONLY acceptable write path is
+# `apex blueprint set --json -`. That verb runs the same normalise + validate +
+# atomic write a hand-edited file gets, refuses empty stdin, refuses anything
+# validate() rejects, and leaves the previous good blueprint intact on every
+# refusal. A path that bypassed it would be a second, unvalidated writer aimed
+# at a file the user owns — and an editor that truncated a config it was asked
+# to edit is the worst failure this page has available to it.
+#
+# So: exactly one command in the service may write, it must be the verb, and
+# the two dynamically-assigned commands must be provably read-only.
+want "exactly one command assignment can write" \
+    bash -c 'test "$(grep -c "_setProc.command =" "$1")" = 1' _ "$csvc"
+want "that one write command IS the verb" \
+    bash -c 'sed -n "/_setProc.command =/,+3p" "$1" | grep -q "blueprint set --json -"' _ "$csvc"
+# _write() is the only thing that starts the write process, and it is reachable
+# only from the recheck handler — so the stale-digest guard cannot be bypassed
+# by a caller that goes straight to the write.
+want "the write is entered from exactly one place" \
+    bash -c 'test "$(grep -c "root\._write()" "$1")" = 1' _ "$csvc"
+want "the write is entered only after the digest re-read" \
+    bash -c 'sed -n "/_recheckProc: Process/,/^    }$/p" "$1" | grep -q "root\._write()"' _ "$csvc"
+# Neither plan command may name a writing verb: `_planProc` takes whatever
+# `_planCommand` holds, so a `set` assigned there would write without any of
+# the guards above.
+want "no plan command names a writing verb" \
+    bash -c '! grep -E "_planCommand = " "$1" | grep -qE "\"set\"|blueprint set"' _ "$csvc"
+want "every plan command is a read verb" \
+    bash -c 'test "$(grep -c "_planCommand = " "$1")" = "$(grep -E "_planCommand = " "$1" | grep -cE "\"diff\", \"--json\"|\"--dry-run\", \"--json\"")"' _ "$csvc"
+# No shell redirection or in-place editor anywhere. The one bash invocation is
+# a pipe INTO the verb; a `>` would be the editor writing a file itself.
+want "the service contains no shell redirection or in-place edit" \
+    bash -c '! grep -qE "sed -i|tee |truncate|> *\"|>> *\"|dd if" "$1"' _ "$csvc"
+# And the two files that are not allowed to write anything must have no way to.
+want "the page can spawn no process at all" \
+    bash -c 'test "$(grep -cE "Process|command:|execute" "$1")" = 0' _ "$cpage"
+want "the logic module can spawn nothing and open nothing" \
+    bash -c 'test "$(grep -cE "require\(|Process|fs\.|exec" "$1")" = 0' _ "$clogic"
+
 # ── Generated state stays separate from user-owned state ────────────────────
 # If the editor could write the applied-state record, `diff` would start
 # agreeing with `apply` by construction instead of by measurement.
