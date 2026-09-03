@@ -96,15 +96,24 @@ done
 # ── Every backend answers the facade's whole surface ─────────────────────────
 # The facade reads these unconditionally; a backend missing one yields undefined,
 # which propagates into the UI as a blank rather than an error.
+#
+# windowsPolled/titlePolled are in here rather than in the capability map on
+# purpose. The map answers "what can this compositor do"; these two answer
+# "what does it cost", which is a different question with a different consumer
+# — the facade test, which cannot otherwise tell a backend that empties its
+# window list without a ref from one whose list is live regardless.
 SURFACE=(ready capabilities windowsWanted titleWanted workspaces windows
          workspaceSlots specialWorkspaceOpen layoutWanted layoutName
          layoutWindowCount layouts
          focusedTitle focusedAppName focusedOutput focusedWorkspaceId
-         windowBoxScript outputBoxScript)
+         windowBoxScript outputBoxScript
+         windowsPolled titlePolled
+         screenShader nightLightActive)
 METHODS=(focusWorkspace toggleSpecialWorkspace focusWindow closeWindow
          moveWindowToWorkspace toggleOverview setAccentBorder setGaps readGaps
          setLayout
-         setKeyboardInterception)
+         setKeyboardInterception
+         setScreenShader refreshScreenShader setNightLight)
 
 # The facade binds a Connections to `backend.focusMoved`. A backend that does
 # not declare it makes that binding silently dead — popups would simply stop
