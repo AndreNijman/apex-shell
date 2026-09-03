@@ -127,6 +127,23 @@ var PERMISSIONS = ["network", "files", "system", "secrets", "location"];
 //   toggle a profile) rather than a general escape hatch, apiVersion 1 offers
 //   none of it.
 //
+//   THAT SET NOW EXISTS, and this note is the only thing that changed about
+//   the refusal. §15's unified search surface needed the shell's OWN launcher
+//   rows to do things — restart Bluetooth, install a package, reboot — so it
+//   built `ACTIONS` in src/services/search.js: a closed, host-owned table
+//   where the TABLE owns the argv, the privilege, the preview and the class,
+//   and a row only names an id in it. That is the enumerable set this
+//   paragraph was waiting for.
+//
+//   It is deliberately NOT wired to a permission here. Built-in rows may carry
+//   an `action` field; the sanitiser in search.js drops it from anything that
+//   did not come from a built-in descriptor, so a plugin row carrying one gets
+//   silence. Exposing the table to plugins is now a permission question rather
+//   than an architecture one — a later apiVersion can add `actions`, scoped to
+//   the classes it is willing to grant — and it is a decision for whoever
+//   makes that version, not a side effect of §15. What must not happen is the
+//   thing search.js also avoids: letting a provider supply the command.
+//
 //   `secrets` would need a broker that holds credentials the plugin never sees.
 //   There is no secret store in this shell to broker.
 //
