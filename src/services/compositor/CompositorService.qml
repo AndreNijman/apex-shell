@@ -120,10 +120,19 @@ QtObject {
     // ── Live state ────────────────────────────────────────────────────────────
     // [{ id, idx, ref, name, output, isActive, isFocused, isUrgent, occupied }]
     //
-    // `ref` is the identity to hand back to focusWorkspace(), and it is NOT the
-    // same thing on every compositor — a Hyprland workspace id, a niri 1-based
-    // index, a labwc list position. Carrying it in the model is what lets a
-    // caller pass it on without knowing which of those it got.
+    // `ref` is what to hand back to focusWorkspace(), and it is NOT the same
+    // kind of value on every compositor — a Hyprland workspace id, a niri index,
+    // a labwc list position. Carrying it in the model is what lets a caller pass
+    // it on without knowing which of those it got.
+    //
+    // KNOWN LIMITATION, niri, multi-monitor. niri's index is PER MONITOR — its
+    // own docs: "this index refers to whichever workspace currently happens to
+    // be at this position on the focused monitor". NiriService lists workspaces
+    // from every output sorted by idx, so on two monitors the strip reads
+    // 1,1,2,2,3,3… and clicking the second monitor's workspace 2 focuses the
+    // FIRST monitor's workspace 2. Pre-existing — the code this replaced passed
+    // the same value — but `ref` should not be described as an identity without
+    // saying where it is not one. move-window-to-workspace inherits it.
     readonly property var workspaces: root.backend ? root.backend.workspaces : []
 
     // How many workspace slots the compositor presents whether or not they hold
@@ -347,7 +356,7 @@ QtObject {
         // forever and the caller would wait on a reply that cannot come — and
         // these helpers legitimately go missing, because the shell is a $HOME
         // checkout that updates independently of the OS image that ships them.
-        onRunningChanged: if (!running) root._settleTimer.restart()
+        onRunningChanged: if (!running) root._outputSettle.restart()
     }
 
     property Process _inputProc: Process {
@@ -359,18 +368,29 @@ QtObject {
         onExited: function (code) {
             if (code !== 0) root._deliver("input", "")
         }
-        onRunningChanged: if (!running) root._settleTimer.restart()
+        onRunningChanged: if (!running) root._inputSettle.restart()
     }
 
-    // Gives the normal paths — stdout collection and onExited — a turn to land
-    // first. Whatever is still pending after that had no process behind it.
-    property Timer _settleTimer: Timer {
+    // One timer per stream, each settling only its own callback.
+    //
+    // A single shared timer restarted by BOTH processes and settling BOTH
+    // callbacks meant a fast-failing input helper could settle a slow-but-
+    // working output call: the output helper succeeded, its real result was
+    // discarded, and its caller was told (false, null). Reproduced with a
+    // 600 ms stub and a failing stub 50 ms apart.
+    //
+    // The delay itself is still needed — a binary that cannot exec emits
+    // neither streamFinished nor exited, only runningChanged — so this gives
+    // the normal paths a turn to land before declaring failure.
+    property Timer _outputSettle: Timer {
         interval: 150
         repeat: false
-        onTriggered: {
-            root._deliver("output", "")
-            root._deliver("input", "")
-        }
+        onTriggered: root._deliver("output", "")
+    }
+    property Timer _inputSettle: Timer {
+        interval: 150
+        repeat: false
+        onTriggered: root._deliver("input", "")
     }
 
     function _deliver(which, text) {
