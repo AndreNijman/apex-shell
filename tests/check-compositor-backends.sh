@@ -108,7 +108,8 @@ SURFACE=(ready capabilities windowsWanted titleWanted workspaces windows
          focusedTitle focusedAppName focusedOutput focusedWorkspaceId
          windowBoxScript outputBoxScript
          windowsPolled titlePolled
-         screenShader nightLightActive)
+         screenShader nightLightActive
+         displayName versionCommand)
 METHODS=(focusWorkspace toggleSpecialWorkspace focusWindow closeWindow
          moveWindowToWorkspace toggleOverview setAccentBorder setGaps readGaps
          setLayout

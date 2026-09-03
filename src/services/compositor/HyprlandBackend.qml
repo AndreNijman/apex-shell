@@ -31,6 +31,13 @@ QtObject {
 
     readonly property bool ready: true
 
+    readonly property string displayName: "Hyprland"
+
+    // `hyprctl version` prints "Hyprland 0.56.2 built from branch …"; the
+    // facade takes the first x.y.z off stdout. Nothing else in this file needs
+    // to know how it is spelled, and no consumer does.
+    readonly property var versionCommand: ["hyprctl", "version"]
+
     signal focusMoved()
 
     // ── What counts as "the user is now looking somewhere else" ───────────────
