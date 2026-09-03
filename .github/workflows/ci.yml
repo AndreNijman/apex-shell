@@ -723,6 +723,25 @@ jobs:
           # CI coverage at all.
           node tests/remote-agents-test.js
 
+      # Theme exposes two scalers and they are not interchangeable:
+      # px(v) = round(v*scale), fs(v) = max(7, round(v*scale)). The floor in
+      # fs() is a text legibility rule, and using it for geometry silently
+      # clamps every small value up to 7px.
+      #
+      # The Agent Center was built that way — 42 call sites, 16 of them under
+      # the floor, so `spacing: Theme.fs(2)` rendered at 7px and the tab's
+      # rhythm matched nothing else in the shell. Every unit test passed
+      # throughout; the wrong function was simply being called and nothing
+      # looked. It then spread: a later section copied the surrounding idiom
+      # and added twelve more.
+      #
+      # This check is anchored to a property assignment so a mention in a
+      # comment cannot satisfy it, and it self-tests both directions — a
+      # reintroduced fs() must be caught, and a comment naming the pattern must
+      # not cause a false failure.
+      - name: Scale-token discipline (geometry px, text fs)
+        run: ./tests/check-scale-tokens.sh
+
       - name: Remote agent status invariants
         run: |
           # Static half. Also SELF-TESTS its own checks: it mutates copies of
