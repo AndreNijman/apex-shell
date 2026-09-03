@@ -184,38 +184,16 @@ QtObject {
         }
     }
 
-    // New function to update borders based on config provider
+    // Retint the active-window border to match the wallpaper.
+    //
+    // Only some compositors can be told this at runtime. niri and labwc keep the
+    // colour in config.kdl and themerc-override, which are files with other
+    // writers — matugen generates the labwc one — so a live override there would
+    // be a second writer racing the generator. CompositorService reports that as
+    // `can.accentBorder` and refuses silently; the two-dialect Hyprland split
+    // this used to carry lives in HyprlandBackend now.
     function updateBorders() {
-        // niri manages its own borders (config.kdl) and has no hyprctl. Positive
-        // guard, so anything that is not Hyprland (niri, sway, river, KDE...)
-        // skips the border re-theme instead of spawning a doomed hyprctl on
-        // every wallpaper apply.
-        if (!Compositor.isHyprland) return
-
-        // Strip '#' from the colors (assuming QML hex format #RRGGBB)
-        let primary = String(Theme.active).replace('#', '')
-        
-
-        // Build command based on config provider
-        if (ShellState.configProvider === "lua") {
-            // Using hl.config with RGB strings in Lua
-            borderUpdateProc.command = [
-                "bash", "-c",
-                "hyprctl eval 'hl.config({ general = { [\"col.active_border\"] = { colors = { \"rgb(" + primary + ")\" } } } })'"
-            ]
-        } else {
-            // Using hyprctl keyword for .conf
-            borderUpdateProc.command = [
-                "bash", "-c",
-                "hyprctl keyword general:col.active_border \"rgb(" + primary + ")\""
-            ]
-        }
-        
-        borderUpdateProc.running = true
-    }
-
-    property Process borderUpdateProc: Process {
-        command: []
+        CompositorService.setAccentBorder(String(Theme.active).replace('#', ''))
     }
 
     Component.onCompleted: {

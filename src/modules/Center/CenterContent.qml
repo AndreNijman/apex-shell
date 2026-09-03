@@ -1,10 +1,10 @@
 import QtQuick
 import QtQuick.Effects
 import Quickshell.Widgets
-import Quickshell.Hyprland
 import Quickshell.Services.Mpris
 import Quickshell.Io
 import "../../"
+import "../../components"
 import "../../services/home/."
 
 // CenterContent — scrollable dynamic island carousel.
@@ -42,80 +42,28 @@ Item {
 	?? false
 	readonly property string artUrl:    player?.trackArtUrl ?? ""
 
-	property string activeTitle: "Desktop"
-
-	// Compositor — Hyprland drives the title via hyprctl + raw events; niri drives
-	// it from NiriService's focused-window event stream.
-	readonly property bool isNiri: Compositor.isNiri
-	readonly property bool isHyprland: Compositor.isHyprland
-
-	// ── App name helper ───────────────────────────────────────────────────────
-	// 2. Process to fetch the initialTitle
-	property var _titleProc: Process {
-		command: ["hyprctl", "activewindow", "-j"]
-		running: false
-
-		onRunningChanged: {
-			if (running) {
-			}
-		}
-
-		stdout: StdioCollector {
-			id: titleOut
-		}
-
-		onExited: function(exitCode, exitStatus) {
-
-			var out = titleOut.text.trim()            
-			// Check for empty, Invalid, or empty JSON object
-			if (exitCode !== 0 || out === "" || out === "Invalid" || out === "{}") {
-				root.activeTitle = "Desktop"
-				return
-			}
-
-			try {
-				// Parse the JSON natively in Quickshell
-				var data = JSON.parse(out)
-				var title = data.initialTitle || ""
-
-				if (title !== "") {
-					// Capitalize the first letter (e.g., "kitty" -> "Kitty")
-					var finalTitle = title.charAt(0).toUpperCase() + title.slice(1)
-					root.activeTitle = finalTitle
-				} else {
-					root.activeTitle = "Desktop"
-				}
-			} catch(e) {
-				root.activeTitle = "Desktop"
-			}
-		}
+	// ── Focused application name ──────────────────────────────────────────────
+	// The notch shows which app has focus. Which is genuinely three different
+	// questions underneath — Hyprland's initialTitle, niri's app_id, labwc's
+	// foreign-toplevel app id — and CompositorService is where those three live
+	// now. This used to be a hyprctl Process plus a raw-event listener plus a
+	// separate NiriService mirror, right here in a view file, and it showed the
+	// application on Hyprland but the raw window title on niri.
+	//
+	// Capitalised for display: "kitty" -> "Kitty".
+	readonly property string activeTitle: {
+		const n = CompositorService.focusedAppName
+		return (n && n !== "") ? n.charAt(0).toUpperCase() + n.slice(1) : "Desktop"
 	}
 
-	Connections{
-		// Conditional target and a positive guard: resolving the Hyprland
-		// singleton constructs it, and `!isNiri` was true on labwc, which is
-		// neither Hyprland nor niri.
-		target: root.isHyprland ? Hyprland : null
-		enabled: root.isHyprland
-		// 3. Your Raw Event Monitor
-		function onRawEvent(event) {
-			// 3. Trigger title fetch on any window/workspace focus change
-			var titleTriggers = ["workspace", "activewindow", "activespecial", "destroyworkspace", "closewindow", "changefloatingmode"]
-
-			if (titleTriggers.includes(event.name)) {
-				_titleProc.running = false
-				_titleProc.running = true
-			}
-		}
+	// Tracking the focused window costs a hyprctl call per raw event on
+	// Hyprland, so it is held only while this notch can actually be seen. A
+	// fullscreen window unmaps the bar — during a game, that is the whole
+	// session — and the old code kept querying anyway.
+	ServiceRef {
+		service: CompositorService.titleRef
+		active:  !ShellState.fullscreenCovers(root.screenName)
 	}
-
-	// niri: mirror the focused-window title from NiriService's event stream.
-	Connections {
-		target: NiriService
-		enabled: root.isNiri
-		function onFocusedTitleChanged() { root.activeTitle = NiriService.focusedTitle }
-	}
-	Component.onCompleted: if (root.isNiri) root.activeTitle = NiriService.focusedTitle
 
 	// ── Dynamic item list ─────────────────────────────────────────────────────
 	property var  _items:         ["title"]
