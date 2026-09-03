@@ -27,8 +27,9 @@ FloatingWindow {
     onVisibleChanged: if (visible) autoClose.restart()
 
     // ── Severity helpers ─────────────────────────────────────────────────────
-    readonly property color accentColor: warnLevel <= 5  ? "#ff4444" :
-                                         warnLevel <= 10 ? "#ff6b00" : "#ffcc00"
+    // Two colours for three titles on purpose: the title carries the third step.
+    // Matches BatteryStatus's icon, which reports the same fact in the bar.
+    readonly property color accentColor: warnLevel <= 10 ? Theme.danger : Theme.warning
     readonly property string title:      warnLevel <= 5  ? "Critical Battery" :
                                          warnLevel <= 10 ? "Very Low Battery"  : "Low Battery"
     readonly property string message:    warnLevel <= 5

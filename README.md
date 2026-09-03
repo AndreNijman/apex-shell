@@ -33,6 +33,9 @@ The standard desktop shell of APEX-OS — a dynamic, highly modular Wayland shel
 - **Kanban/Tasks** — To Do, Ongoing and Completed lists with Priority and Deadlines
 - **App Launcher** — App search, plus inline answers for queries typed with a leading `?`
 - **Keybinds** — Set your own keybinds for each popup
+- **Recovery** — Config → Recovery reads `apex recover status` and `apex doctor`
+  and shows what is wrong, how to roll back, and what a factory reset would
+  actually delete (APEX-OS only; read-only until you press something)
 - **Theming Engine** — Live wallpaper-synced color updates
 - **Network Manager** — WiFi (incl. WPA2-Enterprise/802.1X), Bluetooth, VPN integration
 - **Notifications** — DBus Notifications via libnotify
@@ -220,7 +223,8 @@ installed **disabled** (it never autostarts) with its config at
 ### Upcoming (Post-v0.1.0)
 
 - [ ] Scaling on Different Screen-Sizes
-- [x] Config Pages for Shell Customization — Appearance / Layout / Data / Keybinds / Misc
+- [x] Config Pages for Shell Customization — Appearance / Layout / Data / Input /
+      Display / Blueprint / Recovery / Keybinds / Misc
 - [ ] Multi-Monitor Support — *partial:* per-screen bars, borders and dashboard
       focus work; global scaling and per-monitor brightness do not
 - [ ] Additional theme options
@@ -271,11 +275,27 @@ Auto-detected; a manual override lives in Config → Misc.
 | Active window / fullscreen unmap | yes | yes | yes |
 | Idle inhibit (caffeine) | yes | yes | yes |
 | Screenshots, recording | yes | yes | yes |
-| Keybind editor writes live binds | yes | no | no |
+| Keybind editor writes live binds | yes | yes¹ | yes² |
 | Keybind capture (passthrough) | yes | no | no |
 | Layout indicator, gaps, blur tiles | yes | no | no |
 | Night light | `hyprsunset` | no | no |
 | Special/scratchpad workspace | yes | no | no |
+
+¹ **niri.** Every save writes `~/.config/apex-shell/ApexShellKeybinds.kdl`, and
+niri live-reloads its config and any file that config `include`s. Add the
+`include` line to the top level of your `~/.config/niri/config.kdl` once — the
+generated file's own header gives it verbatim — and edits apply immediately
+after that, with no restart. It is not rewritten for you, because `include`
+needs niri **v25.11 or newer** and rewriting `config.kdl` would break an older
+one; on a pre-v25.11 niri, paste the generated block in instead.
+
+² **labwc.** Every save runs `/usr/libexec/apex-labwc-keybinds apply`, which
+splices the bindings into the marked region of `~/.config/labwc/rc.xml` — an
+XML-aware edit that leaves the rest of a file you also own alone — and then
+runs `labwc --reconfigure`. The helper ships in the APEX-OS image. If you are
+running this shell from a `$HOME` checkout on a machine without it, the save
+still writes the shell's own files and skips this step (there is a `test -x`
+guard for exactly that), so labwc keeps whatever is already in its `rc.xml`.
 
 **labwc** is a stacking compositor and is deliberately IPC-free — no D-Bus
 interface, no sway/i3 socket, no `hyprctl`. Everything the shell needs from it
@@ -285,11 +305,11 @@ matter: `ext-workspace-v1`, `ext-session-lock-v1`, `wlr-layer-shell`,
 `wlr-gamma-control`. So workspaces are fully functional there rather than
 degraded, including click-to-switch.
 
-What labwc cannot do is accept live keybind edits from the shell's keybind
-editor, because there is nothing to send them to; its bindings live in
-`~/.config/labwc/rc.xml` and are reloaded with `labwc --reconfigure`
-(bound to `Super+Shift+R`). The tiling-specific tiles and the layout indicator
-hide themselves, as they already do on niri.
+What is still Hyprland-only is keybind CAPTURE — recording a shortcut by
+pressing it inside the editor. That needs the compositor to stop swallowing
+its own bindings for the duration, and the mechanism used is `hyprctl dispatch
+submap, clean`. The tiling-specific tiles and the layout indicator hide
+themselves on both niri and labwc, as the table says.
 
 To verify shell behaviour under labwc without rebooting:
 

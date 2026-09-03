@@ -129,6 +129,9 @@ PanelWindow {
     }
 
     // ── Dim overlay ───────────────────────────────────────────────────────────
+    // KEPT deliberately. A modal scrim has to darken whatever is behind it on
+    // every wallpaper, so it must NOT follow the palette — a themed scrim over a
+    // dark wallpaper stops reading as modal at all.
     Rectangle {
         anchors.fill: parent
         color: "#99000000"
@@ -221,13 +224,13 @@ PanelWindow {
                     width:  130
                     height: 38
                     radius: Theme.cornerRadius
-                    color:  confirmHov.hovered ? "#cc3a3a" : "#993030"
+                    color:  confirmHov.hovered ? Theme.dangerFillHover : Theme.dangerFill
                     Behavior on color { ColorAnimation { duration: 120 } }
 
                     Text {
                         anchors.centerIn: parent
                         text:           Popups.confirmLabel
-                        color:          "white"
+                        color:          Theme.fixedLight
                         font.pixelSize: Theme.fs(13)
                         font.bold:      true
                     }

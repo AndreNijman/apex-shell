@@ -145,7 +145,7 @@ done
 # rather than spawning a doomed process — the failure mode that had a shell on
 # sway polling `hyprctl -j activeworkspace` every four seconds forever.
 #
-# This is a boundary and not a ban. Three files outside the adapter still spawn
+# This is a boundary and not a ban. Two files outside the adapter still spawn
 # it, each for a stated reason, and each is ASSERTED to still need it: an
 # allowlist entry that outlives its file's migration silently re-permits
 # something already fixed, which is how allowlists rot into decoration.
@@ -164,12 +164,12 @@ HYPRCTL_ALLOWED=(
     # own config — so a capability here would wrap a one-backend feature in a
     # one-backend capability and answer false everywhere it was asked.
     "src/services/config_tab/KeybindService.qml"
-    # `hyprctl dispatch exit` — log out. This script IS the compositor adapter
-    # for that verb, in the same sense CompositorService is for the rest.
-    "src/scripts/PowerControl.sh"
-    # `hyprctl dispatch dpms` — screen off, and it already branches to
-    # `niri msg action power-off-monitors` right beside it.
-    "src/scripts/DpmsControl.sh"
+    # `hyprctl dispatch exit` and `hyprctl dispatch dpms`. This file IS the
+    # compositor adapter for the helper scripts, in the same sense
+    # src/services/compositor/ is for QML — PowerControl.sh and DpmsControl.sh
+    # used to be listed here, each with its own private detection, and the
+    # coverage section below is what noticed that neither had a labwc branch.
+    "src/scripts/compositor.sh"
 )
 
 # grep -E, so this is one alternation and not a backreference.
@@ -234,6 +234,174 @@ for a in "${HYPRCTL_ALLOWED[@]}"; do
         ok "$a is allowlisted and still needs to be"
     fi
 done
+
+# ── Every compositor has a branch in every dispatching script ────────────────
+# The allowlist above only ever proved that a file STILL SPAWNS hyprctl. It
+# could not see, and did not see, that PowerControl.sh's logout had no labwc
+# branch at all, that its desktopmode passed a hardcoded `hyprland`, or that
+# DpmsControl.sh fell out of its if/elif into `exit 0` on labwc. Three functions
+# were dead on a session APEX ships and every assertion in this file passed.
+#
+# So this section asks the opposite question, by NAME and never by count: for
+# each compositor APEX ships, does each dispatching script resolve a real,
+# distinct command?
+#
+# It drives the scripts' own entry points rather than the resolver functions
+# they call. Testing the resolver would reproduce the original hole one level
+# down — apex_dpms_command could cover labwc perfectly while DpmsControl.sh
+# still failed to call it.
+COMPOSITORS=(hyprland niri labwc)
+
+# Two words per compositor: the command names only that compositor's answer may
+# contain. A branch that silently falls through to another compositor's tooling
+# is the exact failure being guarded, and it is invisible to "is the output
+# non-empty".
+tools_of() {
+    case "$1" in
+        hyprland) printf '%s\n' hyprctl hyprland ;;
+        niri)     printf '%s\n' niri ;;
+        labwc)    printf '%s\n' labwc wlopm ;;
+    esac
+}
+
+# script<TAB>verb pairs. Each must resolve differently on each compositor.
+#
+# Not listed, with reasons, because a silent omission is what the next audit
+# finds:
+#   src/scripts/screenshot.sh — covers labwc and niri through a generic
+#     grim/slurp path that deliberately does NOT name them (grim speaks
+#     wlr-screencopy, which all three implement). Demanding a named branch would
+#     mean writing three identical ones.
+#   src/scripts/GfxSwitch.sh — envycontrol; nothing about it is compositor-
+#     dependent.
+#   PowerControl.sh shutdown/reboot/suspend/lock/windows — systemctl, sudo and
+#     the shell's own IPC. Same command on every compositor by design.
+DISPATCH=(
+    "src/scripts/DpmsControl.sh	off"
+    "src/scripts/DpmsControl.sh	on"
+    "src/scripts/PowerControl.sh	logout"
+    "src/scripts/PowerControl.sh	desktopmode"
+)
+
+# ── The fixture ──────────────────────────────────────────────────────────────
+# Two things make it safe to run a logout script on the developer's desktop.
+#
+# 1. APEX_COMPOSITOR_DRY_RUN makes apex_run print its argv and return instead of
+#    exec'ing, and this file asserts below that no `exec` survives outside
+#    apex_run — so "the dry run cannot act" is checked, not promised.
+# 2. PATH is replaced with a directory holding only dirname/tr/mkdir. Even if
+#    (1) were broken, apex_run's own `command -v` guard would find no hyprctl,
+#    no labwc, no niri, no sudo and no loginctl, and return 127 before exec.
+fix="$(mktemp -d)"
+trap 'rm -rf "$fix"' EXIT
+mkdir -p "$fix/bin" "$fix/wayland-sessions"
+for u in dirname tr mkdir; do
+    p="$(command -v "$u" 2>/dev/null)" && ln -sf "$p" "$fix/bin/$u"
+done
+# The session ids apex-session-select would validate against, so desktopmode has
+# something installed to choose. apex-labwc, not labwc: that is the name APEX
+# ships, and picking the wrong one is the bug this pair of names exists to catch.
+for s in hyprland niri apex-labwc apex-gaming; do
+    printf '[Desktop Entry]\nName=%s\n' "$s" > "$fix/wayland-sessions/$s.desktop"
+done
+printf '#!/bin/sh\nexit 0\n' > "$fix/apex-session-select"
+chmod +x "$fix/apex-session-select"
+
+# resolve <scripts-root> <script> <verb> <compositor> — the command that script
+# would run. Empty when it resolves nothing, which is what a missing branch does.
+resolve() {
+    env -i \
+        PATH="$fix/bin" \
+        APEX_COMPOSITOR="$4" \
+        APEX_COMPOSITOR_DRY_RUN=1 \
+        APEX_SESSION_LOGOUT="$fix/absent-session-logout" \
+        APEX_SESSION_HELPER="$fix/apex-session-select" \
+        APEX_SESSION_DIR="$fix/wayland-sessions" \
+        APEX_DESKTOP_SESSION_STATE="$fix/absent-desktop-session" \
+        "$BASH" "$1/$2" "$3" 2>/dev/null
+}
+# By absolute path: `env -i` resolves the program it runs against the PATH it
+# just set, and that PATH deliberately holds nothing but dirname, tr and mkdir.
+
+# covers <scripts-root> <script> <verb> — quiet; 0 only when every compositor in
+# COMPOSITORS resolves a non-empty command, no two resolve the same one, and no
+# command names a compositor other than its own.
+covers() {
+    local sroot="$1" script="$2" verb="$3"
+    local c out seen="" t others=""
+    for c in "${COMPOSITORS[@]}"; do
+        out="$(resolve "$sroot" "$script" "$verb" "$c")"
+        [ -n "$out" ] || return 1
+        case "$seen" in *"[$out]"*) return 1 ;; esac
+        seen="${seen}[$out]"
+        others=""
+        for t in "${COMPOSITORS[@]}"; do
+            [ "$t" = "$c" ] && continue
+            others="$others $(tools_of "$t")"
+        done
+        for t in $others; do
+            # Herestring, not `printf | grep -q`: under `set -o pipefail` a
+            # producer killed by grep's early exit turns the verdict upside
+            # down, and this file runs with pipefail on.
+            grep -qw -- "$t" <<< "$out" && return 1
+        done
+    done
+    return 0
+}
+
+for d in "${DISPATCH[@]}"; do
+    script="${d%%	*}"; verb="${d##*	}"
+    if covers "$root" "$script" "$verb"; then
+        ok "$script $verb resolves a distinct command on ${COMPOSITORS[*]}"
+    else
+        bad "$script $verb does not cover ${COMPOSITORS[*]}"
+        for c in "${COMPOSITORS[@]}"; do
+            echo "          $c -> $(resolve "$root" "$script" "$verb" "$c")"
+        done
+    fi
+done
+
+# ── The dry run is only safe while apex_run is the only exec ─────────────────
+# One `exec` in compositor.sh (inside apex_run) and none anywhere else. A new
+# `exec sudo …` in PowerControl.sh would be invisible to the coverage probe and
+# would make running this check on a live desktop destructive.
+execs_in() {
+    grep -nE '(^|["'"'"'`;|&(]|then |else |do )[[:space:]]*exec[[:space:]]' "$root/$1" 2>/dev/null \
+        | grep -vE '^[0-9]+:[[:space:]]*#'
+}
+for f in src/scripts/PowerControl.sh src/scripts/DpmsControl.sh; do
+    hits="$(execs_in "$f")"
+    if [ -z "$hits" ]; then
+        ok "$f execs nothing outside apex_run"
+    else
+        bad "$f execs outside apex_run"
+        echo "$hits" | sed 's/^/          /'
+    fi
+done
+adapter_execs="$(execs_in src/scripts/compositor.sh)"
+want "compositor.sh keeps exactly one exec (apex_run's)" \
+    test "$(grep -c . <<< "$adapter_execs")" -eq 1
+
+# ── Prose cannot satisfy any of the above ────────────────────────────────────
+# Five checks in this repo have been satisfied by a file's own comments. So:
+# delete labwc's real DPMS branch, leave behind a comment that names labwc,
+# wlopm and --off, and require the coverage check to FAIL anyway.
+mut="$fix/mutant"
+mkdir -p "$mut/src"
+cp -r "$root/src/scripts" "$mut/src/scripts"
+grep -v '^ *labwc:o' "$root/src/scripts/compositor.sh" > "$mut/src/scripts/compositor.sh"
+cat >> "$mut/src/scripts/compositor.sh" <<'MUTANT'
+# labwc: wlopm --off '*' / wlopm --on '*', which speaks
+# zwlr-output-power-management-v1. Everything a grep could want, and no code.
+MUTANT
+mutant_lost_labwc() { ! covers "$mut" src/scripts/DpmsControl.sh off; }
+want "a labwc branch replaced by a comment about labwc still fails" mutant_lost_labwc
+
+# ...and the mutant must fail for the RIGHT reason: the harness itself has to
+# still pass on the unmutated copy, or the assertion above would hold even if
+# `covers` were broken outright.
+mutant_control() { covers "$mut" src/scripts/PowerControl.sh logout; }
+want "the same harness still passes on the copy's untouched script" mutant_control
 
 echo
 echo "passed=$pass failed=$fail"

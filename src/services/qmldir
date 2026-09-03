@@ -35,6 +35,11 @@ MiscPage ./config_tab/pages/MiscPage.qml
 InputPage ./config_tab/pages/InputPage.qml
 DisplayPage ./config_tab/pages/DisplayPage.qml
 BlueprintPage ./config_tab/pages/BlueprintPage.qml
+# §19's recovery surface, and the half of §25 that says rollback must not be
+# CLI-only. The service is a singleton for the same reason the others are:
+# ServiceRef refcounts it, and two instances would each hold their own count.
+singleton RecoveryService 1.0 RecoveryService.qml
+RecoveryPage ./config_tab/pages/RecoveryPage.qml
 singleton AgentService 1.0 AgentService.qml
 AgentCenter agents/AgentCenter.qml
 # The Agent Center's own parts. Declared here rather than relying on implicit
@@ -45,3 +50,8 @@ RequestRow agents/RequestRow.qml
 SessionRow agents/SessionRow.qml
 SectionHeading agents/SectionHeading.qml
 SmallIconButton agents/SmallIconButton.qml
+# §20's remote agent status. Same rule as the rows above: registered here
+# because AgentCenter is loaded THROUGH this qmldir.
+singleton RemoteAgentService 1.0 RemoteAgentService.qml
+RemoteHostRow agents/RemoteHostRow.qml
+RemoteSessionRow agents/RemoteSessionRow.qml

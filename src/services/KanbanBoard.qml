@@ -158,9 +158,9 @@ Item {
 
     // ── Urgency helpers ───────────────────────────────────────────────────────
     function _urgColor(u) {
-        if (u === "high")   return "#f38ba8"
-        if (u === "medium") return "#f9e2af"
-        if (u === "low")    return "#a6e3a1"
+        if (u === "high")   return Theme.danger
+        if (u === "medium") return Theme.warning
+        if (u === "low")    return Theme.success
         return "transparent"
     }
     function _urgLabel(u) {
@@ -856,8 +856,8 @@ Item {
         // Dynamic Glow: stronger, smoother color tinting
         readonly property real dragAmt:  Math.abs(dragX) / 65.0
         readonly property color dragTint: {
-            if (dragX >  2) return Qt.rgba(166/255, 227/255, 161/255, dragAmt * 0.35)
-            if (dragX < -2) return Qt.rgba(243/255, 139/255, 168/255, dragAmt * 0.35)
+            if (dragX >  2) return Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, dragAmt * 0.35)
+            if (dragX < -2) return Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, dragAmt * 0.35)
             return "transparent"
         }
 
@@ -868,9 +868,9 @@ Item {
             color: Qt.rgba(1, 1, 1, 0.05)
             border.color: {
                 var u = card.taskData.urgency
-                if (u === "high")   return Qt.rgba(243/255, 139/255, 168/255, 0.45)
-                if (u === "medium") return Qt.rgba(249/255, 226/255, 175/255, 0.35)
-                if (u === "low")    return Qt.rgba(166/255, 227/255, 161/255, 0.35)
+                if (u === "high")   return Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.45)
+                if (u === "medium") return Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.35)
+                if (u === "low")    return Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.35)
                 return Qt.rgba(1, 1, 1, 0.10)
             }
             border.width: 1
@@ -907,7 +907,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         width: urgL.implicitWidth + 12; height: 16; radius: 8
                         color: root._urgColor(card.taskData.urgency); opacity: 0.85
-                        Text { id: urgL; anchors.centerIn: parent; text: root._urgLabel(card.taskData.urgency); font.pixelSize: Theme.fs(9); font.weight: Font.Bold; color: "#1e1e2e" }
+                        Text { id: urgL; anchors.centerIn: parent; text: root._urgLabel(card.taskData.urgency); font.pixelSize: Theme.fs(9); font.weight: Font.Bold; color: Theme.fixedDark }
                     }
                     Row {
                         visible: (card.taskData.dueDate || "") !== ""
@@ -938,7 +938,7 @@ Item {
                                 Text {
                                     id: uT; anchors.centerIn: parent; font.pixelSize: Theme.fs(9)
                                     text: modelData === "" ? "None" : modelData.charAt(0).toUpperCase() + modelData.slice(1)
-                                    color: (sel && modelData !== "") ? "#1e1e2e" : Qt.rgba(1,1,1,0.65)
+                                    color: (sel && modelData !== "") ? Theme.fixedDark : Qt.rgba(1,1,1,0.65)
                                 }
                                 HoverHandler { id: uH; cursorShape: Qt.PointingHandCursor }
                                 MouseArea { anchors.fill: parent; onClicked: root._patchTask(card.taskData.id, "urgency", modelData) }
@@ -1027,11 +1027,11 @@ Item {
                         // ✕ delete
                         Rectangle {
                             width: 20; height: 20; radius: 5
-                            color: dH.hovered ? Qt.rgba(248/255,113/255,113/255,0.20) : Qt.rgba(1,1,1,0.04)
+                            color: dH.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.20) : Qt.rgba(1,1,1,0.04)
                             Behavior on color { ColorAnimation { duration: 80 } }
                             Text {
                                 anchors.centerIn: parent; text: "✕"; font.pixelSize: Theme.fs(10)
-                                color: Qt.rgba(248/255,113/255,113/255, dH.hovered ? 1.0 : 0.60)
+                                color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, dH.hovered ? 1.0 : 0.60)
                                 Behavior on color { ColorAnimation { duration: 80 } }
                             }
                             HoverHandler { id: dH; cursorShape: Qt.PointingHandCursor }
@@ -1069,9 +1069,9 @@ Item {
                         }
                         Rectangle {
                             width: 64; height: 24; radius: 6
-                            color: cfH.hovered ? "#cc3a3a" : "#993030"
+                            color: cfH.hovered ? Theme.dangerFillHover : Theme.dangerFill
                             Behavior on color { ColorAnimation { duration: 80 } }
-                            Text { anchors.centerIn: parent; text: "Delete"; font.pixelSize: Theme.fs(11); font.weight: Font.Bold; color: "white" }
+                            Text { anchors.centerIn: parent; text: "Delete"; font.pixelSize: Theme.fs(11); font.weight: Font.Bold; color: Theme.fixedLight }
                             HoverHandler { id: cfH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._removeTask(card.taskData.id) }
                         }
