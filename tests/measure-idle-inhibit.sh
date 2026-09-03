@@ -167,7 +167,7 @@ declare -a RESULTS=()
 # arm <label> <expect: fire|suppress> <mech: none|logind|dbus|dbus-drop> [qml]
 arm() {
     local label="$1" expect="$2" mech="$3" qml="${4:-}"
-    local home cfgdir clog dlog marker before sigs_before nested sig cpid lpid qpid=""
+    local home cfgdir clog dlog marker before sigs_before nested sig lpid qpid=""
 
     home="$work/home.$$.$RANDOM"; cfgdir="$home/.config/hypr"
     mkdir -p "$cfgdir"

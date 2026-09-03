@@ -217,8 +217,14 @@ jobs:
             fail=1
           fi
           # It must be instantiated somewhere, or it is the dead code it was.
-          grep -rq 'SystemStats {' --include="*.qml" src/ \
-            || { echo "✗ SystemStats is registered but instantiated nowhere"; fail=1; }
+          # Comment lines are dropped: a commented-out instantiation still
+          # contains the string, and a mutant that commented it out went
+          # undetected until this was anchored.
+          if ! grep -rn 'SystemStats {' --include="*.qml" src/ \
+               | grep -vE ':[[:space:]]*(//|\*)' | grep -q .; then
+            echo "✗ SystemStats is registered but instantiated nowhere"
+            fail=1
+          fi
           # Its host page must declare needsScreen, or the ServiceRef it holds is
           # bound to an onScreen that nobody ever writes — permanently false,
           # and the rows would stay empty forever.
