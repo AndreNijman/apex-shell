@@ -120,7 +120,7 @@ Item {
             text: root.currentLayout !== "" ? layoutSymbol(root.currentLayout) : "…"
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: Theme.fs(14)
-            color: "#cdd6f4"
+            color: Theme.text
 
             // Brief scale-pop on symbol change
             Behavior on text {

@@ -430,7 +430,7 @@ Item {
                         color: fH.hovered ? Qt.rgba(248/255,113/255,113/255,0.15) : netRow.isForgetPending ? Qt.rgba(248/255,113/255,113/255,0.10) : "transparent"
                         Behavior on color { ColorAnimation { duration: 100 } }
                     }
-                    Text { anchors.centerIn: parent; text: "󰗼"; font.pixelSize: Theme.fs(13); color: (fH.hovered || netRow.isForgetPending) ? "#f87171" : Qt.rgba(1,1,1,0.3); Behavior on color { ColorAnimation { duration: 100 } } }
+                    Text { anchors.centerIn: parent; text: "󰗼"; font.pixelSize: Theme.fs(13); color: (fH.hovered || netRow.isForgetPending) ? Theme.danger : Qt.rgba(1,1,1,0.3); Behavior on color { ColorAnimation { duration: 100 } } }
                     HoverHandler { id: fH; cursorShape: Qt.PointingHandCursor }
                     MouseArea { anchors.fill: parent; onClicked: root._forgetSsid = netRow.isForgetPending ? "" : netRow.net.ssid }
                 }
@@ -496,7 +496,7 @@ Item {
                             width: 54; height: 24; radius: 6
                             color: ffH.hovered ? Qt.rgba(248/255,113/255,113/255,0.35) : Qt.rgba(248/255,113/255,113/255,0.18)
                             Behavior on color { ColorAnimation { duration: 80 } }
-                            Text { anchors.centerIn: parent; text: "Forget"; font.pixelSize: Theme.fs(10); font.weight: Font.Medium; color: "#f87171" }
+                            Text { anchors.centerIn: parent; text: "Forget"; font.pixelSize: Theme.fs(10); font.weight: Font.Medium; color: Theme.danger }
                             HoverHandler { id: ffH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._forget(netRow.net.ssid) }
                         }
@@ -608,7 +608,7 @@ Item {
                     border.width: 1
                     Behavior on color        { ColorAnimation { duration: 120 } }
                     Behavior on border.color { ColorAnimation { duration: 120 } }
-                    Text { anchors.centerIn: parent; text: "⏻"; font.pixelSize: Theme.fs(14); color: root._wifiEnabled ? (wfPwrH.hovered ? "#f87171" : Qt.rgba(1,1,1,0.32)) : Theme.active; Behavior on color { ColorAnimation { duration: 120 } } }
+                    Text { anchors.centerIn: parent; text: "⏻"; font.pixelSize: Theme.fs(14); color: root._wifiEnabled ? (wfPwrH.hovered ? Theme.danger : Qt.rgba(1,1,1,0.32)) : Theme.active; Behavior on color { ColorAnimation { duration: 120 } } }
                     HoverHandler { id: wfPwrH; cursorShape: Qt.PointingHandCursor }
                     MouseArea { anchors.fill: parent; onClicked: root._setWifiEnabled(!root._wifiEnabled) }
                 }

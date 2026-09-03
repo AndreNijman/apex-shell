@@ -392,7 +392,7 @@ Item {
                     visible: dRow.isPaired && !dRow.inAction && !dRow.inRemove
                     width: 28; height: 28; anchors.verticalCenter: parent.verticalCenter
                     Rectangle { anchors.fill: parent; radius: 7; color: rmH.hovered ? Qt.rgba(248/255,113/255,113/255,0.20) : dRow.isRemovePending ? Qt.rgba(248/255,113/255,113/255,0.12) : "transparent"; Behavior on color { ColorAnimation { duration: 100 } } }
-                    Text { anchors.centerIn: parent; text: "󰗼"; font.pixelSize: Theme.fs(13); color: (rmH.hovered || dRow.isRemovePending) ? "#f87171" : Qt.rgba(1,1,1,0.25); Behavior on color { ColorAnimation { duration: 100 } } }
+                    Text { anchors.centerIn: parent; text: "󰗼"; font.pixelSize: Theme.fs(13); color: (rmH.hovered || dRow.isRemovePending) ? Theme.danger : Qt.rgba(1,1,1,0.25); Behavior on color { ColorAnimation { duration: 100 } } }
                     HoverHandler { id: rmH; cursorShape: Qt.PointingHandCursor }
                     MouseArea { anchors.fill: parent; onClicked: { root._pairingMac = ""; root._removeMac = dRow.isRemovePending ? "" : dRow.device.mac } }
                 }
@@ -459,7 +459,7 @@ Item {
                             MouseArea { anchors.fill: parent; onClicked: root._removeMac = "" }
                         }
                         Rectangle { width: 64; height: 24; radius: 6; color: rxH.hovered ? Qt.rgba(248/255,113/255,113/255,0.40) : Qt.rgba(248/255,113/255,113/255,0.18); Behavior on color { ColorAnimation { duration: 80 } }
-                            Text { anchors.centerIn: parent; text: "Remove"; font.pixelSize: Theme.fs(10); font.weight: Font.Medium; color: "#f87171" }
+                            Text { anchors.centerIn: parent; text: "Remove"; font.pixelSize: Theme.fs(10); font.weight: Font.Medium; color: Theme.danger }
                             HoverHandler { id: rxH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._remove(dRow.device.mac) }
                         }
@@ -538,7 +538,7 @@ Item {
                     border.color: root._btPowered ? Qt.rgba(1,1,1,0.10) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30); border.width: 1
                     Behavior on color        { ColorAnimation { duration: 120 } }
                     Behavior on border.color { ColorAnimation { duration: 120 } }
-                    Text { anchors.centerIn: parent; text: "⏻"; font.pixelSize: Theme.fs(14); color: root._btPowered ? (pwrH.hovered ? "#f87171" : Qt.rgba(1,1,1,0.32)) : Theme.active; Behavior on color { ColorAnimation { duration: 120 } } }
+                    Text { anchors.centerIn: parent; text: "⏻"; font.pixelSize: Theme.fs(14); color: root._btPowered ? (pwrH.hovered ? Theme.danger : Qt.rgba(1,1,1,0.32)) : Theme.active; Behavior on color { ColorAnimation { duration: 120 } } }
                     HoverHandler { id: pwrH; cursorShape: Qt.PointingHandCursor }
                     MouseArea { anchors.fill: parent; onClicked: root._setPower(!root._btPowered) }
                 }

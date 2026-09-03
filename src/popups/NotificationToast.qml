@@ -154,12 +154,17 @@ PopupWindow {
 			}
 			width:  3
 			radius: 2
+			// Same urgency accent as NotificationList's card, deliberately: one
+			// notification is shown by both surfaces, first as a toast and then in
+			// the list, and they used to disagree about it. Critical and Low always
+			// matched; normal urgency was #ABB2BF here and Theme.active there, so
+			// the accent bar changed colour as the toast expired.
 			color: {
-				if (!root.current) return "#ABB2BF"
+				if (!root.current) return Theme.active
 				switch (root.current.urgency) {
-					case NotificationUrgency.Critical: return "#e06c75"
+					case NotificationUrgency.Critical: return Theme.danger
 					case NotificationUrgency.Low:      return Qt.rgba(1,1,1,0.25)
-					default:                           return "#ABB2BF"
+					default:                           return Theme.active
 				}
 			}
 		}
