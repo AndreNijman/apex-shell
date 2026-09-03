@@ -180,36 +180,19 @@ QtObject {
         }
     }
 
-    // ── Keybind Interception / Hyprland Submap Controller ─────────────────────
-    
-    property Process submapProcess: Process {}
-
+    // ── Keybind interception ──────────────────────────────────────────────────
+    //
+    // While the user is recording a new shortcut, every key has to reach the
+    // shell rather than firing whatever it is currently bound to. On Hyprland
+    // that is a submap with no binds in it; nothing else APEX ships has an
+    // equivalent, so the adapter reports no capability and refuses — which is
+    // what the `!Compositor.isHyprland` early return here did by hand, along
+    // with the two-dialect hyprctl split that now lives in HyprlandBackend.
     property Connections keybindListener: Connections {
-        target: KeybindService 
-        
-        function onIsCapturingChanged() {
-            // Submaps are a Hyprland concept; niri has no passthrough mode and
-            // key capture is disabled there. Positive guard, so this also stays
-            // off on compositors that are neither Hyprland nor niri.
-            if (!Compositor.isHyprland) return
+        target: KeybindService
 
-            if (KeybindService.isCapturing) {
-                // Enter passthrough mode (disables Hyprland binds)
-                if (configProvider === "lua") {
-                    submapProcess.command = ["hyprctl", "dispatch", "hl.dsp.submap('ApexShell_clean')"]
-                } else {
-                    submapProcess.command = ["hyprctl", "dispatch", "submap", "ApexShell_clean"]
-                }
-            } else {
-                // Exit passthrough mode (re-enables Hyprland binds)
-                if (configProvider === "lua") {
-                    submapProcess.command = ["hyprctl", "dispatch", "hl.dsp.submap('reset')"]
-                } else {
-                    submapProcess.command = ["hyprctl", "dispatch", "submap", "reset"]
-                }
-            }
-            
-            submapProcess.running = true
+        function onIsCapturingChanged() {
+            CompositorService.setKeyboardInterception(KeybindService.isCapturing)
         }
     }
     

@@ -103,8 +103,16 @@ METHODS=(focusWorkspace toggleSpecialWorkspace focusWindow closeWindow
          moveWindowToWorkspace toggleOverview setAccentBorder setGaps readGaps
          setKeyboardInterception)
 
+# The facade binds a Connections to `backend.focusMoved`. A backend that does
+# not declare it makes that binding silently dead — popups would simply stop
+# dismissing on that compositor, with nothing logged.
+SIGNALS=(focusMoved)
+
 for b in "${BACKENDS[@]}"; do
     missing=""
+    for g in "${SIGNALS[@]}"; do
+        grep -qE "^\s*signal $g\(" "$dir/$b.qml" || missing="$missing signal:$g"
+    done
     for p in "${SURFACE[@]}"; do
         grep -qE "property .*\b$p\b|property $p" "$dir/$b.qml" || missing="$missing $p"
     done

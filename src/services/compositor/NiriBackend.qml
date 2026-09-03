@@ -29,6 +29,16 @@ QtObject {
     // waits.
     readonly property bool ready: NiriService.ready
 
+    signal focusMoved()
+
+    // niri says so directly: the event stream reports focus moving between
+    // workspaces and between windows as distinct events.
+    property Connections _focus: Connections {
+        target: NiriService
+        function onFocusedWorkspaceIdChanged() { root.focusMoved() }
+        function onFocusedWindowIdChanged()    { root.focusMoved() }
+    }
+
     readonly property var capabilities: ({
         workspaces:           true,
         workspaceSwitch:      true,
