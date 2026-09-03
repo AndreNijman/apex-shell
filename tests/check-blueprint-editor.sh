@@ -210,6 +210,23 @@ want "the explanation is the page's first section when the CLI is missing" \
     bash -c 'grep -B8 "Not available on this image" "$1" | grep -q "first: true"' _ "$cpage"
 want "the CLI path is overridable for local testing" \
     grep -q "APEX_BLUEPRINT_CLI" "$csvc"
+
+# ONLY THE SHOW PATH MAY DECIDE THE CLI IS ABSENT.
+#
+# `available` gates every real section of the page, including the Reload button,
+# so a second writer latches the whole editor off. That is not hypothetical: the
+# plan path used to set it on any `diff` exit above 1, which turned one
+# transient probe failure into a permanently collapsed page claiming the verbs
+# were not on the image, with no way to retry.
+want "exactly one place decides the CLI is unavailable" \
+    bash -c 'test "$(grep -c "available = false" "$1")" = 1' _ "$csvc"
+want "the plan path does not latch availability off" \
+    bash -c '! sed -n "/_planProc: Process/,\$p" "$1" | grep -q "available = false"' _ "$csvc"
+want "the show path is what clears availability again" \
+    bash -c 'sed -n "/_showProc: Process/,/^    }$/p" "$1" | grep -q "available = true"' _ "$csvc"
+# And the not-available state must be escapable.
+want "the not-available section offers a retry" \
+    bash -c 'grep -A12 "Not available on this image" "$1" | grep -q "BlueprintService.refresh()"' _ "$cpage"
 # A failed read must not become an empty draft: saving that over a real
 # blueprint would erase it.
 want "a failed read yields a null draft, not an empty one" \

@@ -293,8 +293,17 @@ QtObject {
             if (code > 1 && root.plan === null) {
                 root.lastError =
                     "Could not read the plan (exit " + code + ")."
-                root.available = false
-                root.unavailableReason = root.lastError
+                // Deliberately does NOT set `available = false`. A failed diff
+                // is a plan-read error, not evidence the binary is missing —
+                // the "is this verb on the image" question is answered once, by
+                // the show path that runs on load.
+                //
+                // It mattered: `available` gates every real section of the
+                // page, INCLUDING the Reload button, so latching it here turned
+                // one transient probe failure into a permanently collapsed page
+                // that claimed the verbs were not on the image and offered no
+                // way to retry. Only the show path may set it, and
+                // check-blueprint-editor.sh asserts that.
             }
         }
     }
