@@ -130,6 +130,44 @@ Item {
             ? root.filtered[root.selIndex] : null
     readonly property string selectedId: Search.rowId(root.selectedRow)
 
+    // ── The selection is anchored to a ROW, not to an index ───────────────────
+    // Search.merge() is independent of which provider answered first, so the
+    // order is stable — but it is not stable against rows being INSERTED, and
+    // they are: `apex project list` lands about 160 ms after typing stops, and
+    // a project that scores above the selection appears ABOVE it. The integer
+    // index then points one row further down than the user is looking at, and
+    // the next thing they press acts on something they did not choose.
+    //
+    // A non-safe row is protected from that by the preview gate — the commit
+    // rule refuses when the previewed row and the selected row differ, which is
+    // exactly this situation. A safe row is not, and "Enter opened the wrong
+    // application" is a bad enough outcome on its own.
+    //
+    // So the id of the selected row is remembered, and a changed list is
+    // searched for it. Falling back to the top rather than to the old index:
+    // if the row genuinely went away, the first result is the honest answer and
+    // whatever now sits at that index is a coincidence.
+    property string _anchorId: ""
+
+    onSelIndexChanged: root._anchorId = Search.rowId(root.selectedRow)
+
+    onFilteredChanged: root._reanchor()
+
+    function _reanchor() {
+        if (root._anchorId !== "") {
+            for (var i = 0; i < root.filtered.length; i++) {
+                if (Search.rowId(root.filtered[i]) === root._anchorId) {
+                    if (root.selIndex !== i) {
+                        root.selIndex = i
+                        appList.positionViewAtIndex(i, ListView.Contain)
+                    }
+                    return
+                }
+            }
+        }
+        root.selIndex = root.filtered.length > 0 ? 0 : -1
+    }
+
     function closePreview() {
         root.previewRow = null
         SearchService.forgetResolve()
@@ -235,6 +273,11 @@ Item {
     onQueryChanged: {
         askDebounce.stop()
         root.closePreview()
+        // A new query starts at the top. The anchor only survives a list that
+        // changed underneath an UNCHANGED query — which is what an arriving
+        // subprocess answer is — so it is dropped here rather than dragging the
+        // previous query's selection into the next one.
+        root._anchorId = ""
         if (!answerMode || answerQuery === "" || calculation.valid) {
             _forgetAnswer()
             return
