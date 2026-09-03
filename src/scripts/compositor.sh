@@ -159,6 +159,10 @@ apex_dpms_command() {
 # labwc as apex-labwc.desktop, because the stock labwc.desktop is deleted (it
 # launches labwc bare, with no APEX Shell and no config, and labwc is also the
 # greeter's own fallback host compositor).
+#
+# These two defaults are resolved AT SOURCE TIME, so an override has to be in
+# the environment before this file is sourced — setting them afterwards is
+# silently ignored.
 APEX_SESSION_DIR="${APEX_SESSION_DIR:-/usr/share/wayland-sessions}"
 
 # Where "the desktop I left when I entered Gaming Mode" is remembered. The
