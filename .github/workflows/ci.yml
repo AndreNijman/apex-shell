@@ -322,8 +322,13 @@ jobs:
             || { echo "✗ Compositor does not detect labwc"; fail=1; }
           # labwc has no IPC, so ext-workspace is the ONLY route to workspace
           # state. Losing this import silently empties the workspace indicator.
-          grep -q 'Quickshell.WindowManager' src/modules/Left/Workspaces.qml \
-            || { echo "✗ Workspaces lost the ext-workspace import"; fail=1; }
+          # It moved out of the view and into the labwc adapter with §17 — the
+          # bar reads one model from CompositorService now and does not know
+          # which protocol filled it. Same invariant, one directory over.
+          grep -q 'Quickshell.WindowManager' src/services/compositor/LabwcBackend.qml \
+            || { echo "✗ LabwcBackend lost the ext-workspace import"; fail=1; }
+          grep -q 'CompositorService.workspaces' src/modules/Left/Workspaces.qml \
+            || { echo "✗ the workspace indicator no longer reads the adapter"; fail=1; }
           grep -q 'visible: Compositor.isLabwc' src/modules/Left/AppDock.qml \
             || { echo "✗ labwc app dock is missing or not positively gated"; fail=1; }
           grep -q 'ToplevelManager.toplevels' src/modules/Left/AppDock.qml \
