@@ -113,9 +113,18 @@ Rectangle {
 
                 required property var modelData
 
-                // Focused, not active: on a multi-monitor Hyprland setup every
-                // output has an active workspace, and highlighting all of them
-                // is not what the bar means by "you are here".
+                // Focused, not active. The three delegates disagreed about this
+                // and the unified one had to pick: Hyprland highlighted
+                // `focusedWorkspace` and labwc highlighted the single active
+                // windowset — both mean "you are here" — while niri used its
+                // per-output `is_active`, which on a multi-output niri session
+                // lit one dot per monitor.
+                //
+                // So this is behaviour-neutral on Hyprland and labwc, and on
+                // multi-monitor niri it deliberately drops a second highlight in
+                // favour of the bar meaning one thing everywhere. Flagged rather
+                // than buried: it is a real visual change on a configuration
+                // this checkout cannot test.
                 readonly property bool isFocused:  dot.modelData.isFocused
                 readonly property bool isUrgent:   dot.modelData.isUrgent
                 readonly property bool isOccupied: dot.modelData.occupied
