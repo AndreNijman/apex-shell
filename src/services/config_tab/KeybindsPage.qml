@@ -265,7 +265,7 @@ Item {
                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.07)
                 : _rH.hovered ? Qt.rgba(1, 1, 1, 0.04) : "transparent"
             border.color: br._savedDupe
-                ? Qt.rgba(248/255, 113/255, 113/255, 0.35)
+                ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.35)
                 : br.isCapturing
                     ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.20)
                     : "transparent"
@@ -488,7 +488,7 @@ Item {
                         width:  Math.max(120, _capT.implicitWidth + 18)
                         color:  Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08)
                         border.color: br._hasConflict
-                            ? Qt.rgba(248/255, 113/255, 113/255, 0.55)
+                            ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.55)
                             : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,
                                       br.capturedKey !== "" ? 0.40 : 0.18)
                         border.width: 1
