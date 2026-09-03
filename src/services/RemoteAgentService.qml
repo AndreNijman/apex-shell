@@ -171,7 +171,13 @@ Singleton {
 
     // True while any part of a sweep is in flight — drives the spinner on the
     // Refresh button and nothing else.
+    //
+    // `_advance.running` is in here for the same reason it is in _beginSweep's
+    // guard: between one host resolving and the next one starting, both slots
+    // are empty and the sweep is nonetheless still going. Without it the
+    // spinner blinks off once per host.
     readonly property bool busy: root._listPending || root._pending !== ""
+                                 || root._advance.running
 
     // ── The sweep ─────────────────────────────────────────────────────────────
     property var    _queue: []          // host names left in this sweep
@@ -187,9 +193,34 @@ Singleton {
 
     function _beginSweep(force) {
         if (root.refCount <= 0 && !force) return
+
         // Something is already in flight. Never two sweeps at once — that is
         // how one dead host turns into two connections per host.
-        if (root._listPending || root._pending !== "") return
+        //
+        // `_advance.running` MUST be part of this. Between one host resolving
+        // and the next one starting there is a 60 ms gap in which `_pending` is
+        // "" and `_listPending` is false, so without it the guard reads "idle"
+        // while the sweep is very much still walking the queue. `refresh()`
+        // forces past the age clamp, so clicking Refresh while the page is
+        // checking landed exactly there, and the result was not two harmless
+        // sweeps — it was WRONG DATA ON THE WRONG HOST:
+        //
+        //   1. _advance fires, _next() starts the laptop's query
+        //   2. the second sweep's registry read returns, resets the queue and
+        //      calls _next(), which restarts _queryProc — killing the laptop
+        //      query — with _pending now "katana"
+        //   3. the kill's own exited(15) arrives, _resolve consumes the katana
+        //      slot with the LAPTOP query's exit code, and katana is recorded
+        //      as having no runtime
+        //
+        // Which is the shared-settle-timer bug from CompositorService in a new
+        // costume: one process's signal delivered to another's slot. The
+        // one-shot slot stops a LATE signal; it cannot stop a slot that has
+        // been legitimately refilled in between, so the sweep has to be
+        // recognised as in-flight for its whole duration and not just while a
+        // process is running.
+        if (root._listPending || root._pending !== "" || root._advance.running)
+            return
         if (!force && (Date.now() - root._lastSweepStart) < root.minSweepGap)
             return
 
