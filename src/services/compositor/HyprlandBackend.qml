@@ -598,6 +598,11 @@ QtObject {
 
     // Adopts a hyprsunset the user (or a previous shell) already started, so
     // the tile does not offer to turn on something that is already on.
+    //
+    // `-x`, and never `-f`. Without -x the pattern is a regex against the
+    // process NAME, so it also matches a `hyprsunset-something`; with -f it
+    // would match any command LINE containing the word, including the shell
+    // that ran the probe, which reports "running" unconditionally.
     property Process _nightLightProbeProc: Process {
         command: ["pgrep", "-x", "hyprsunset"]
         running: false
@@ -613,7 +618,11 @@ QtObject {
             root._nightLightProc.running = true
         } else {
             root._nightLightProc.running = false
-            root._start(root._nightLightKillProc, ["pkill", "hyprsunset"])
+            // -x here too. This was a bare `pkill hyprsunset` when it moved out
+            // of QuickSettings, which is asymmetric with the probe above: the
+            // probe only ever reports a process named exactly "hyprsunset", so
+            // the kill could take down something the tile never claimed was on.
+            root._start(root._nightLightKillProc, ["pkill", "-x", "hyprsunset"])
         }
         root.nightLightActive = on
     }
