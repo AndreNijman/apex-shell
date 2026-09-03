@@ -51,6 +51,19 @@ CfgScroll {
             description: BlueprintService.unavailableReason
             hoverable: false
         }
+        // The one control that must exist in this state. Everything else on the
+        // page is hidden while `available` is false, so without a Try again
+        // here the page is a dead end — and the state is reachable from a
+        // freshly installed CLI that simply was not on PATH when the shell
+        // started.
+        CfgRow {
+            label: "Try again"
+            description: "Re-runs `apex blueprint show`"
+            CfgButton {
+                label: "Retry"
+                onClicked: BlueprintService.refresh()
+            }
+        }
     }
 
     // ── Where this blueprint comes from ───────────────────────────────────────
