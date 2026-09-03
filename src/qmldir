@@ -14,6 +14,7 @@ singleton ClipboardService 1.0 services/ClipboardService.qml
 singleton KeybindService 1.0 services/config_tab/KeybindService.qml
 singleton InputService 1.0 services/config_tab/InputService.qml
 singleton DisplayService 1.0 services/config_tab/DisplayService.qml
+singleton BlueprintService 1.0 services/config_tab/BlueprintService.qml
 singleton NiriService 1.0 services/system/NiriService.qml
 singleton UpdateService 1.0 services/UpdateService.qml
 singleton SettingsService 1.0 services/SettingsService.qml
