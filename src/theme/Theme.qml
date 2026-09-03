@@ -15,6 +15,19 @@ QtObject {
     property color border:     Colors.border
     property color iconFont:   Colors.iconFont
 
+    // Status and fixed-contrast tokens. Mirrored here because every call site in
+    // the tree reads Theme.*, so exposing these on Colors alone would have left
+    // the shell reading two different singletons for its colours.
+    property color danger:  Colors.danger
+    property color warning: Colors.warning
+    property color success: Colors.success
+
+    property color fixedLight: Colors.fixedLight
+    property color fixedDark:  Colors.fixedDark
+
+    property color dangerFill:      Colors.dangerFill
+    property color dangerFillHover: Colors.dangerFillHover
+
     property color wsBackground: Colors.wsBackground
     property color wsActive:     Colors.wsActive
     property color wsOccupied:   Colors.wsOccupied
