@@ -219,6 +219,29 @@ check_tree() {
         in_fn "$svc" 'function _sweepDone\(\)' 'if \(root\.refCount > 0\) root\._cooldown\.restart\(\)'
     want "the in-flight guard includes the between-steps window" \
         in_fn "$svc" 'function _beginSweep\(force\)' '_pending !== "" \|\| root\._advance\.running'
+    # ── 7b. one settle timer, two steps, and the window between them ─────────
+    # RemoteAgentService's settle timer is safe on a bare slot check because
+    # that slot belongs to one step. This service walks TWO steps through one
+    # process and one `_pending`, so a settle armed by the status exit fires
+    # 150 ms later into the DOCTOR's slot and resolves it with nothing —
+    # `doctor.ok` goes false, the diagnostics section vanishes, and the real
+    # exit finds the slot consumed. It passes on an idle machine and fails
+    # under load. Both fixes are asserted, not just one.
+    want "_next() cancels the settle armed by the step that just finished" \
+        in_fn "$svc" 'function _next\(\)' '_settle\.stop\(\)'
+    want "standing down cancels it too" \
+        in_fn "$svc" 'function _standDown\(\)' '_settle\.stop\(\)'
+    want "the settle timer records which step armed it" \
+        has "$svc" '_settleFor = root\._pending'
+    want "…and ignores a fire that belongs to a different step" \
+        has "$svc" '_settleFor !== root\._pending'
+    want "the repair settle is cancelled by whoever starts a repair" \
+        test "$(count_in "$svc" '_repairSettle\.stop\(\)')" -ge 2
+    want "the plan settle is cancelled by whoever starts a plan" \
+        test "$(count_in "$svc" '_planSettle\.stop\(\)')" -ge 2
+    want "the commit settle is cancelled by whoever starts a commit" \
+        in_fn "$svc" 'function commitReset\(\)' '_commitSettle\.stop\(\)'
+
     want "the page holds a ServiceRef bound to being on screen" \
         has "$page" 'active:  root\.onScreen'
     want "the page is registered as needing the screen" \
@@ -497,6 +520,24 @@ p.write_text(s)'
 assert_changed "$MUT/m11" src/nexus/PageRegistry.qml \
     && expect "removing the page from the registry is caught" "$MUT/m11" red 2
 
+# ── 12. the settle timer leaking into the next step ──────────────────────────
+# The bug this pair of guards exists for. Removing either one alone must be
+# caught, because "the other one still covers it" is exactly the argument that
+# lets both go over two commits.
+fresh_copy "$MUT/m12"
+edit "$MUT/m12" src/services/RecoveryService.qml \
+    's = s.replace("        root._settle.stop()\n        root._pending = step", "        root._pending = step", 1)
+p.write_text(s)'
+assert_changed "$MUT/m12" src/services/RecoveryService.qml \
+    && expect "a settle left armed across a step boundary is caught" "$MUT/m12" red 2
+
+fresh_copy "$MUT/m13"
+edit "$MUT/m13" src/services/RecoveryService.qml \
+    's = s.replace("            if (root._settleFor !== root._pending) return\n", "", 1)
+p.write_text(s)'
+assert_changed "$MUT/m13" src/services/RecoveryService.qml \
+    && expect "dropping the settle timer's step tag is caught" "$MUT/m13" red 2
+
 # ── the inverse mutant ───────────────────────────────────────────────────────
 # Prose that would trip a naive version of every check above, including prose
 # quoting the exact strings the greps look for. It must NOT turn anything red:
@@ -514,7 +555,11 @@ fresh_copy "$MUT/c1"
     echo '// — and re-armed the cooldown with no guard:'
     echo '//     root._cooldown.restart()'
     echo '// and left the plan alive across a close, by dropping _dropPlan()'
-    echo '// from _standDown entirely. None of that is here now.'
+    echo '// from _standDown entirely. Its settle timer was untagged and never'
+    echo '// cancelled, so the doctor slot was resolved by the status exit:'
+    echo '//     onTriggered: if (root._pending !== "") root._resolve(null, "")'
+    echo '// with no  if (root._settleFor !== root._pending) return'
+    echo '// and no  root._settle.stop()  in _next(). None of that is here now.'
 } >> "$MUT/c1/src/services/RecoveryService.qml"
 {
     echo '// The first version compared tokens loosely:'
