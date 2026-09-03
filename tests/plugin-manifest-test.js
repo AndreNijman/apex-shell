@@ -63,8 +63,9 @@ check("permissions may be omitted entirely",
       M.validateManifest({ id: "a", name: "A", version: "1.0", apiVersion: "1.0",
                            entry: "W.qml", extensionPoint: "bar-widget" }, "a").ok, true);
 check("the grant carries the declared permissions",
-      M.validateManifest(withBase({ permissions: ["files", "system"] }), "apex-sysmon").permissions,
-      ["files", "system"]);
+      M.validateManifest(withBase({ permissions: ["network", "files"],
+                                    network: ["api.github.com"] }), "apex-sysmon").permissions,
+      ["network", "files"]);
 check("duplicate permissions collapse",
       M.validateManifest(withBase({ permissions: ["files", "files"] }), "apex-sysmon").permissions,
       ["files"]);
@@ -121,20 +122,26 @@ console.log("\n── manifest: permissions ──");
 check("an unknown permission is refused", why({ permissions: ["gpu"] }), "unknown-permission");
 check("permissions must be an array",     why({ permissions: "network" }), "bad-permissions");
 check("a non-string entry is refused",    why({ permissions: [7] }), "bad-permissions");
-check("files is granted",  why({ permissions: ["files"] }), "ok");
-check("system is granted", why({ permissions: ["system"] }), "ok");
-// The whole point of IMPLEMENTED_PERMISSIONS: these two are in the roadmap's
+check("files is granted", why({ permissions: ["files"] }), "ok");
+// The whole point of IMPLEMENTED_PERMISSIONS: these three are in the roadmap's
 // vocabulary but this shell cannot enforce them, so it refuses rather than
 // granting a permission that does nothing.
-check("secrets is refused as unimplemented",
-      why({ permissions: ["secrets"] }), "permission-not-implemented");
-check("location is refused as unimplemented",
-      why({ permissions: ["location"] }), "permission-not-implemented");
-check("the vocabulary still contains both",
-      M.PERMISSIONS.includes("secrets") && M.PERMISSIONS.includes("location"), true);
-check("but neither is implemented",
-      M.IMPLEMENTED_PERMISSIONS.includes("secrets") || M.IMPLEMENTED_PERMISSIONS.includes("location"),
-      false);
+//
+// `system` is the one to think about before "fixing" it. A permission meaning
+// "run a command" subsumes every other permission — a plugin holding it can
+// curl anything and read any file — so granting it would make the network and
+// files gates decorative. It stays refused until there is an enumerable set of
+// system actions to expose instead of a general escape hatch.
+for (const p of ["system", "secrets", "location"]) {
+    check(`${p} is refused as unimplemented`,
+          why({ permissions: [p] }), "permission-not-implemented");
+    check(`${p} is still in the vocabulary`, M.PERMISSIONS.includes(p), true);
+    check(`${p} is not implemented`, M.IMPLEMENTED_PERMISSIONS.includes(p), false);
+}
+check("exactly two permissions are enforceable today",
+      M.IMPLEMENTED_PERMISSIONS, ["network", "files"]);
+check("every implemented permission is in the vocabulary",
+      M.IMPLEMENTED_PERMISSIONS.every((p) => M.PERMISSIONS.includes(p)), true);
 
 // ── network: the permission is host-scoped ───────────────────────────────────
 console.log("\n── manifest: network hosts ──");
@@ -210,6 +217,39 @@ check("parent.parent walking is refused",
 // legitimate widget, and the second hop is the one with no honest use.
 check("a bare parent is allowed",
       scan('import QtQuick\nItem { anchors.fill: parent }'), "ok");
+
+// ── comment handling, and the bypass it must not become ──────────────────────
+console.log("\n── comment lines ──");
+// A plugin must be able to DOCUMENT what plugins may not do. The reference
+// plugin does exactly that, and an earlier version of the scan refused it for
+// the crime of explaining itself.
+check("a comment line may name a forbidden construct",
+      scan('import QtQuick\n// this plugin does not use eval or XMLHttpRequest\nItem {}'), "ok");
+check("an indented comment line counts too",
+      scan('import QtQuick\nItem {\n    // no Loader here\n}'), "ok");
+check("a comment line may name a forbidden import",
+      scan('import QtQuick\n// we do not import Quickshell.Io\nItem {}'), "ok");
+
+// THE case that makes whole-line stripping the only safe rule. If the stripper
+// removed from any `//` to end of line, the `//` inside this string literal
+// would swallow the eval that follows it — hiding a forbidden construct from
+// the scan while leaving it in the file QML executes.
+check("a // inside a string cannot hide code after it",
+      scan('import QtQuick\nItem { property string u: "a//b"; property var z: eval("1") }'),
+      "forbidden-construct");
+check("a // inside a string is otherwise harmless",
+      scan('import QtQuick\nItem { property string u: "https://example.com" }'), "ok");
+// Documented limitations: trailing comments and block comments are not
+// stripped, so prose about forbidden constructs goes on its own line.
+check("a trailing comment is not stripped",
+      scan('import QtQuick\nItem { property int x: 1 } // XMLHttpRequest is banned'),
+      "forbidden-construct");
+check("a block comment is not stripped",
+      scan('import QtQuick\n/* XMLHttpRequest is banned */\nItem {}'), "forbidden-construct");
+check("stripping keeps the line count",
+      M.stripCommentLines("a\n// b\nc").split("\n").length, 3);
+check("stripping blanks only the comment line",
+      M.stripCommentLines("a\n// b\nc"), "a\n\nc");
 
 // ── permitsUrl: the gate ─────────────────────────────────────────────────────
 console.log("\n── network gate ──");
@@ -296,6 +336,43 @@ check("there is a size cap", argv.includes("--max-filesize"), true);
 check("nothing is run through a shell",
       argv.some((a) => a === "sh" || a === "bash" || a === "-c"), false);
 
+// ── validId: used before any manifest exists ─────────────────────────────────
+console.log("\n── directory-name guard ──");
+// PluginService interpolates an enumerated directory name into a path before it
+// can read the manifest inside it, so the name is checked on its own first.
+check("a normal id is valid",        M.validId("apex-sysmon"), true);
+check("traversal is not an id",      M.validId(".."), false);
+check("a dot is not an id",          M.validId("."), false);
+check("a slash is not an id",        M.validId("a/b"), false);
+check("a leading slash is not an id", M.validId("/etc"), false);
+check("uppercase is not an id",      M.validId("Apex"), false);
+check("empty is not an id",          M.validId(""), false);
+check("a non-string is not an id",   M.validId(null), false);
+check("a newline is not an id",      M.validId("a\nb"), false);
+
+// ── permitsPath: the files gate ──────────────────────────────────────────────
+console.log("\n── files gate ──");
+const filesGranted   = M.validateManifest(withBase({ id: "fs", permissions: ["files"] }), "fs");
+const filesUngranted = M.validateManifest(withBase({ id: "nofs" }), "nofs");
+const fgate = (g, n) => { const r = M.permitsPath(g, n); return r.ok ? "ok" : r.reason; };
+
+check("a plugin WITHOUT the files permission is refused",
+      fgate(filesUngranted, "config.json"), "permission-denied");
+check("a plugin WITH it reads its own directory",
+      fgate(filesGranted, "config.json"), "ok");
+check("a nested path inside the plugin is fine",
+      fgate(filesGranted, "data/cities.json"), "ok");
+check("traversal is refused",         fgate(filesGranted, "../../.ssh/id_rsa"), "bad-path");
+check("a traversal component is refused", fgate(filesGranted, "data/../../x"), "bad-path");
+check("an absolute path is refused",  fgate(filesGranted, "/etc/passwd"), "bad-path");
+check("a dotfile is refused",         fgate(filesGranted, ".git/config"), "bad-path");
+check("a nested dotfile is refused",  fgate(filesGranted, "data/.secret"), "bad-path");
+check("a double slash is refused",    fgate(filesGranted, "data//x"), "bad-path");
+check("a backslash is refused",       fgate(filesGranted, "data\\x"), "bad-path");
+check("an empty path is refused",     fgate(filesGranted, ""), "bad-path");
+check("a control character is refused", fgate(filesGranted, "a\nb"), "bad-path");
+check("a refused manifest grants no files", fgate({ ok: false }, "x"), "no-grant");
+
 // ── describeRefusal ──────────────────────────────────────────────────────────
 console.log("\n── refusal messages ──");
 check("every refusal reason has a human message", (() => {
@@ -304,7 +381,7 @@ check("every refusal reason has a human message", (() => {
         "id-directory-mismatch", "bad-name", "bad-version", "bad-api-version",
         "api-version-unsupported", "bad-entry", "unknown-extension-point",
         "bad-permissions", "unknown-permission", "permission-not-implemented",
-        "bad-network-hosts", "network-without-hosts", "hosts-without-network",
+        "bad-network-hosts", "network-without-hosts", "hosts-without-network", "bad-path",
         "empty-source", "relative-import", "forbidden-import", "forbidden-construct",
         "extra-qml", "entry-missing", "entry-outside-plugin", "load-error",
         "no-grant", "permission-denied", "bad-url", "scheme-denied",

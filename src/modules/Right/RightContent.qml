@@ -27,6 +27,12 @@ Item {
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 150 } }
 
+        // Third-party bar widgets (roadmap §16). Leftmost in the cluster so the
+        // shell's own indicators keep the positions users have muscle memory
+        // for — a plugin appearing must not move the clock. Collapses to zero
+        // width when no plugin is installed, which is the common case.
+        PluginWidgets{}
+
         Network{}
         Audio{}
         Battery{}
