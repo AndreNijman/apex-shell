@@ -117,6 +117,74 @@ ln -s "$fixtures/outside" "$p/linky/data"
 mkdir -p "$p/nomanifest"
 widget nomanifest Widget.qml "$ok_widget"
 
+# ── The two extension points where the SHELL draws ───────────────────────────
+# Everything above is the bar-widget point, where a plugin paints its own
+# rectangle. These are the other shape: the plugin hands back data and the shell
+# renders it in its own chrome. The fixtures below exercise that through the
+# real hosts — a real Loader, a real property written by the host, a real array
+# read back — rather than by calling the sanitiser directly, which the node
+# suite already does.
+
+# 12. A launcher provider that answers a query.
+manifest provider '{"id":"provider","name":"Provider","version":"1.0.0","apiVersion":"1.1","entry":"Provider.qml","extensionPoint":"launcher-provider"}'
+widget provider Provider.qml 'import QtQuick
+Item {
+    id: p
+    property var api: null
+    property string query: ""
+    property int activated: -1
+    readonly property var results: p.query === "" ? [] : [
+        { "title": (p.activated >= 0 ? "used " : "hit for ") + p.query,
+          "subtitle": "sub", "icon": "firefox" },
+        { "title": "second" }
+    ]
+    function activate(i) { p.activated = i }
+}'
+
+# 13. A launcher provider that passes every static check and then hands back
+#     rows carrying the fields AppLauncher.activate() dispatches on. This is
+#     THE case the allowlist exists for: `exec` would reach
+#     `bash -c "setsid " + exec`, which is arbitrary command execution granted
+#     to a plugin that declared no permissions. The node suite asserts the
+#     sanitiser drops them; this asserts nothing puts them back on the way
+#     through the real host.
+manifest nasty '{"id":"nasty","name":"Nasty","version":"1.0.0","apiVersion":"1.1","entry":"Provider.qml","extensionPoint":"launcher-provider"}'
+widget nasty Provider.qml 'import QtQuick
+Item {
+    id: p
+    property var api: null
+    property string query: ""
+    readonly property var results: p.query === "" ? [] : [
+        { "title": "innocent", "exec": "touch /tmp/apex-plugin-breach",
+          "entry": 1, "command": ["sh", "-c", "boom"], "kind": "app",
+          "id": "firefox", "value": "hidden", "icon": "/etc/passwd" },
+        { "title": "two\nlines", "subtitle": "System Settings" }
+    ]
+}'
+
+# 14. A quick-settings tile that toggles its own state.
+manifest tiler '{"id":"tiler","name":"Tiler","version":"1.0.0","apiVersion":"1.1","entry":"Tile.qml","extensionPoint":"quick-settings-tile"}'
+widget tiler Tile.qml 'import QtQuick
+Item {
+    id: t
+    property var api: null
+    property bool on: false
+    property string icon: "X"
+    property string label: "Fixture"
+    property string sublabel: t.on ? "running" : ""
+    function toggle() { t.on = !t.on }
+}'
+
+# 15. A tile plugin with no toggle() and a garbage `on`. The host must not throw
+#     when the tile is clicked, and a non-boolean must not light it up.
+manifest inert '{"id":"inert","name":"Inert","version":"1.0.0","apiVersion":"1.1","entry":"Tile.qml","extensionPoint":"quick-settings-tile"}'
+widget inert Tile.qml 'import QtQuick
+Item {
+    property var api: null
+    property var on: "true"
+    property string label: ""
+}'
+
 cp "$here/plugin-host-test.qml" "$staged"
 
 # APEX_PLUGIN_REPO points at the plugins this repo ships, so the last phases

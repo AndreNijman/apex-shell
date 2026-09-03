@@ -1,0 +1,10 @@
+{
+  "id": "apex-snippets",
+  "name": "Snippets",
+  "description": "Text snippets in the launcher. Enter copies the one you are looking at.",
+  "version": "1.0.0",
+  "apiVersion": "1.1",
+  "entry": "Provider.qml",
+  "extensionPoint": "launcher-provider",
+  "permissions": ["files"]
+}

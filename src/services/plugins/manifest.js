@@ -1,12 +1,23 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // The APEX Shell plugin platform's decision logic (roadmap §16).
 //
-// Everything in this file answers one of four questions and nothing else:
+// Everything in this file answers one of five questions and nothing else:
 //
 //   validateManifest()  is this plugin.json loadable, and what did it ask for?
 //   scanSource()        does this QML file stay inside the sanctioned API?
 //   permitsUrl()        may this plugin fetch this URL?
 //   curlArgv()          exactly how does the HOST fetch it?
+//   launcherResults()   what of this plugin's OUTPUT may the shell render?
+//   quickTile()         (the same question, for the quick-settings grid)
+//
+// The last two arrived with the second and third extension points. The first
+// point, `bar-widget`, hands a plugin a rectangle and lets it paint; there is
+// nothing to sanitise because the plugin IS the pixels. A launcher provider and
+// a quick-settings tile are the other shape: the plugin supplies DATA and the
+// shell draws it, inside the shell's own chrome. That inverts where the risk
+// sits — a plugin cannot paint a fake system toggle, but it can hand back a
+// string, and a string the shell renders as its own UI has to be checked
+// before it is believed.
 //
 // It is plain JavaScript rather than QML for the reason answer.js is: the QML
 // engine loads this file with `import "manifest.js" as Manifest`, and Node
@@ -81,7 +92,16 @@
 // Refusing forward-dated plugins is the whole reason the field exists. A
 // version check that only catches major bumps would let the common case — a
 // plugin from a newer shell — through.
-var API_VERSION = "1.0";
+//
+// 1.0 → 1.1 is this policy being used rather than described. Two extension
+// points were added and nothing was removed or renamed, which is the definition
+// of a minor bump: every apiVersion 1.0 plugin still loads (apex-worldclock
+// still declares 1.0 and is still granted), and a plugin that needs one of the
+// new points declares 1.1 so a 1.0 host refuses it with
+// "api-version-unsupported" instead of "unknown-extension-point". The second
+// message tells an author their manifest is wrong; the first tells them the
+// truth, which is that their shell is older than their plugin.
+var API_VERSION = "1.1";
 
 // The closed permission vocabulary, straight from the roadmap: "Plugin
 // permissions for filesystem, network, location, system controls and secrets."
@@ -115,9 +135,54 @@ var PERMISSIONS = ["network", "files", "system", "secrets", "location"];
 //   The shell has neither.
 var IMPLEMENTED_PERMISSIONS = ["network", "files"];
 
-// Extension points. Exactly one is real in apiVersion 1 — see the §16 notes in
-// docs/plugins.md for why one end-to-end beats five stubs.
-var EXTENSION_POINTS = ["bar-widget"];
+// ── Extension points ─────────────────────────────────────────────────────────
+// Three are real. §16 names nine — widgets, panels, launcher providers, quick
+// settings, background services, notifications, themes, project integrations
+// and agent integrations — and the rule that decided which three is the same
+// one that stopped the first round shipping five stubs: a point is only on this
+// list once a host mounts it, an example plugin uses it, and both halves of the
+// suite assert it. A name here with no host is a lie told to plugin authors.
+//
+//   bar-widget           the plugin paints. It gets a rectangle in the bar's
+//                        right-hand cluster and draws whatever it likes in it.
+//   launcher-provider    the plugin answers a query. The shell draws the rows.
+//   quick-settings-tile  the plugin holds a state. The shell draws the tile.
+//
+// The split between the first and the other two is the interesting part and it
+// is not cosmetic. A painting plugin owns its pixels, so nothing it renders can
+// be mistaken for the shell's own UI — it is visibly a third-party widget in a
+// third-party widget's slot. A DATA plugin's output is rendered by the shell,
+// in the shell's chrome, indistinguishable from a row the shell produced
+// itself. So every string crossing that boundary goes through launcherResults()
+// or quickTile() below, and neither one passes the plugin's object through: both
+// build a fresh object out of an allowlist of keys.
+//
+// Why an allowlist and not "delete the dangerous keys": the launcher's
+// activate() dispatches on fields it finds on a row — `entry` runs a
+// DesktopEntry, `exec` goes to `bash -c`. A row that reached it carrying either
+// one would be the `system` permission, granted silently, to any plugin that
+// asked for nothing. Copying known-good keys onto a new object makes that
+// unreachable by construction rather than by remembering to strip a list that
+// grows every time the launcher learns a new row shape.
+//
+// ── The three §16 points that are NOT here, and why ──────────────────────────
+// `notification-handler` is the one worth writing down, because it is the one
+// that looks easy. A plugin that handles notifications reads their summary and
+// body: 2FA codes, message previews, password-reset links — the most sensitive
+// text stream the shell touches. That is a capability, and it maps to NOTHING
+// in the closed vocabulary above. `secrets` is nearest in spirit and is defined
+// as a broker holding credentials the plugin never sees, which is the opposite
+// arrangement. So shipping it means either inventing a sixth permission, or
+// handing over the shell's most sensitive stream with no declaration at all.
+// The second is worse. It stays off this list until the vocabulary has a word
+// for what it needs.
+//
+// Note the asymmetry, because it decides what a later version can do: EMITTING
+// a notification is a much smaller capability than reading them, and it could
+// be added under a name of its own. §16 names a handler, which is the reading
+// direction. `panel`, `theme` and the integrations are simply not built yet —
+// no permission problem, just no host.
+var EXTENSION_POINTS = ["bar-widget", "launcher-provider", "quick-settings-tile"];
 
 // ── The import allowlist ─────────────────────────────────────────────────────
 // A plugin may import these and nothing else. An allowlist rather than a
@@ -542,6 +607,212 @@ function permitsPath(grant, name) {
     return { ok: true, name: name, reason: "", detail: "" };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PLUGIN OUTPUT
+//
+// Everything above decides what a plugin may DO. The rest of this file decides
+// what of a plugin's output the shell will RENDER, which is a separate question
+// and it only exists because of the second and third extension points.
+//
+// `bar-widget` needs none of this: the plugin owns its rectangle and paints it.
+// A launcher provider and a quick-settings tile hand back data that the shell
+// draws in its own chrome, so the shell is putting third-party strings on
+// screen under its own name. Three things follow, and all three are enforced
+// here rather than in the hosts:
+//
+//   1. A fresh object, built from an allowlist. Never the plugin's object with
+//      the bad keys deleted. See the note on EXTENSION_POINTS: the launcher
+//      dispatches on `entry` and `exec`, so a row that carried either would be
+//      arbitrary execution handed to a plugin that declared no permissions.
+//      An allowlist cannot fall behind a launcher that learns a new row shape.
+//
+//   2. Control characters stripped from every string. A newline in a launcher
+//      row draws over two lines and can impersonate the row beneath it; a
+//      carriage return can blank what precedes it. `validateManifest` already
+//      refuses these in `name` for the same reason, and there they are a
+//      refusal because a manifest is read once. Here they are stripped, because
+//      this runs on every keystroke and refusing a whole plugin over one stray
+//      byte in one row is the wrong response.
+//
+//   3. Lengths capped. The launcher elides and the tile clips, so a long
+//      string is a layout problem rather than a security one — but a plugin
+//      returning a megabyte per row on every keystroke is a denial of service
+//      against the shell's own main loop, and that is cheaper to prevent than
+//      to diagnose.
+//
+// None of these functions return a refusal object and none of them throw. They
+// run on the render path; the failure mode has to be "that row is not shown",
+// never "the launcher stopped working". A plugin that hands back garbage gets
+// silence.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Rows one provider may contribute to a single query. Providers append BELOW
+// the app results — see launcherWantsProviders() — so this is not about
+// crowding out the shell, it is about a ranked list staying a ranked list. Five
+// is enough to be useful and short enough that two providers plus the apps
+// still fit on one screen.
+//
+// There is deliberately no equivalent cap on quick-settings tiles. That grid
+// scrolls and the shell's own tiles are unconditionally first, so a tile from
+// the twelfth plugin is merely far down a scroll; a row from the twelfth
+// provider would be competing for a position in a list the user is scanning by
+// rank. Different failure, different answer.
+var MAX_LAUNCHER_RESULTS = 5;
+
+// Below this, a query is too broad to be worth asking a provider about: on one
+// character nearly every provider matches nearly everything, and the rows are
+// noise over the app the user is three keystrokes from selecting.
+var MIN_PROVIDER_QUERY = 2;
+
+var MAX_ROW_TITLE  = 120;
+var MAX_ROW_DETAIL = 120;
+var MAX_TILE_LABEL = 24;
+var MAX_TILE_SUB   = 32;
+
+// A tile's icon is a glyph — the quick-settings grid renders Nerd Font
+// characters as Text. Four UTF-16 units covers any single glyph including
+// surrogate pairs and a variation selector, and stops a plugin passing a
+// paragraph where an icon goes.
+var MAX_TILE_ICON = 4;
+
+// A launcher row's icon is an XDG ICON NAME and never a path.
+//
+// This is the one rule here that is about capability rather than layout. The
+// launcher's delegate turns a leading "/" into "file://" + the value and hands
+// it to an Image. A plugin-supplied path would therefore have the shell attempt
+// to decode an arbitrary file as an image, and Image.status coming back Ready
+// or Error is a readable signal — a file-existence oracle over the whole
+// filesystem, for a plugin holding no `files` permission at all. Names only,
+// no slashes, and anything that does not match becomes "".
+var ICON_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._+-]*$/;
+
+// Coerce to a displayable string: control characters removed, whitespace
+// collapsed and trimmed, capped. Not a validator — it always returns a string,
+// possibly "", and the callers decide whether "" means "drop this".
+function _plain(v, max) {
+    if (typeof v !== "string") return "";
+    var s = v.replace(/[\x00-\x1f\x7f]/g, "");
+    s = s.replace(/[ \t]+/g, " ").replace(/^ +| +$/g, "");
+    if (s.length > max) s = s.slice(0, max);
+    return s;
+}
+
+// ── launcherWantsProviders(query) ────────────────────────────────────────────
+// Whether the launcher should consult its provider plugins for this query at
+// all. Lives here, not in the launcher, so it is asserted headlessly — the
+// alternative is a condition inside a QML binding that only a compositor can
+// evaluate, and this repo's behavioural suite skips on every CI runner.
+//
+// The "?" clause is the load-bearing one. A query starting with "?" is an
+// ANSWER query: AppLauncher returns answerRows() and nothing else, so a
+// provider row appearing there would not merely be noise, it would be a
+// third-party string sitting where the calculator's answer goes.
+function launcherWantsProviders(query) {
+    if (typeof query !== "string") return false;
+    var q = query.replace(/^[ \t]+|[ \t]+$/g, "");
+    if (q === "") return false;
+    if (q.charAt(0) === "?") return false;
+    return q.length >= MIN_PROVIDER_QUERY;
+}
+
+// ── launcherResults(grant, raw) ──────────────────────────────────────────────
+// `grant` is a validateManifest() result; `raw` is whatever the plugin item has
+// on its `results` property. Returns an array of rows the launcher may render,
+// possibly empty.
+//
+// Each row is a NEW object carrying exactly:
+//
+//   kind      always "plugin". Set here, never by the plugin — it is what the
+//             launcher dispatches on, so a plugin choosing its own would be
+//             choosing which branch of activate() runs.
+//   pluginId  from the grant.
+//   name      the row's title, AND its payload. There is no separate value
+//             field, deliberately: activation copies the title, so what the
+//             user sees is what they get. A row that displayed one string and
+//             copied another would be a clipboard-hijack primitive with a user
+//             gesture already attached to it.
+//   detail    the second line. The plugin's own subtitle if it gave one, and in
+//             every case ending in the plugin's NAME FROM THE GRANT, so a row
+//             always says where it came from and a plugin cannot claim to be
+//             the shell. Composed here rather than in the delegate so the
+//             composition is asserted rather than eyeballed.
+//   icon      an XDG icon name or "". See ICON_NAME_RE.
+//   index     the row's position in the plugin's own array, so the host can
+//             tell the plugin which row was activated without handing back an
+//             object the plugin could have swapped underneath it.
+function launcherResults(grant, raw) {
+    if (!grant || grant.ok !== true) return [];
+    if (grant.extensionPoint !== "launcher-provider") return [];
+    if (!raw || !Array.isArray(raw)) return [];
+
+    var source = _plain(grant.name, 40);
+    var out = [];
+    for (var i = 0; i < raw.length && out.length < MAX_LAUNCHER_RESULTS; i++) {
+        var r = raw[i];
+        if (!r || typeof r !== "object" || Array.isArray(r)) continue;
+
+        var title = _plain(r.title, MAX_ROW_TITLE);
+        if (title === "") continue;     // a row with no visible text is not a row
+
+        var sub  = _plain(r.subtitle, MAX_ROW_DETAIL);
+        var icon = _plain(r.icon, 64);
+        if (!ICON_NAME_RE.test(icon)) icon = "";
+
+        out.push({
+            kind:     "plugin",
+            pluginId: grant.id,
+            name:     title,
+            detail:   sub === "" ? source : sub + " · " + source,
+            icon:     icon,
+            index:    i
+        });
+    }
+    return out;
+}
+
+// ── quickTile(grant, raw) ────────────────────────────────────────────────────
+// `raw` is the plugin item itself — the host reads `on`, `icon`, `label` and
+// `sublabel` off it. Returns a tile descriptor the quick-settings grid may
+// draw, or null.
+//
+// A tile plugin never paints. It holds a state and the shell renders the
+// shell's own tile around it, which is a tighter boundary than bar-widget's:
+// a plugin cannot draw something that looks like the Wi-Fi toggle, cannot
+// cover the grid, and cannot animate. What it can do is say "I am on", put a
+// glyph and a label on the tile, and be told when it was clicked.
+//
+// ── What a tile cannot do, and why that is not a gap ─────────────────────────
+// It cannot flip a system switch. Not Wi-Fi, not Bluetooth, not brightness,
+// not a power profile. Every one of those is a command, and "run a command" is
+// the `system` permission, which is refused at load — see IMPLEMENTED_
+// PERMISSIONS above for why granting it would make `network` and `files`
+// decorative. So a plugin tile surfaces information and takes actions inside
+// its own grants, and the honest description of the point is that: not "plugins
+// can add quick settings", but "plugins can add a tile".
+//
+// `on` is compared with `=== true` rather than coerced. A plugin declaring
+// `property bool on` hands over a real boolean and this is a no-op; a plugin
+// declaring `property var on: "false"` would otherwise light the tile up,
+// because Boolean("false") is true. Truthiness is the wrong tool where the
+// value decides what a user is being shown about their own machine.
+function quickTile(grant, raw) {
+    if (!grant || grant.ok !== true) return null;
+    if (grant.extensionPoint !== "quick-settings-tile") return null;
+    if (!raw || typeof raw !== "object") return null;
+
+    var label = _plain(raw.label, MAX_TILE_LABEL);
+    if (label === "") label = _plain(grant.name, MAX_TILE_LABEL);
+    if (label === "") return null;
+
+    return {
+        pluginId: grant.id,
+        on:       raw.on === true,
+        icon:     _plain(raw.icon, MAX_TILE_ICON),
+        label:    label,
+        sublabel: _plain(raw.sublabel, MAX_TILE_SUB)
+    };
+}
+
 // ── curlArgv(url) ────────────────────────────────────────────────────────────
 // How the HOST fetches an approved URL. The plugin never sees this and never
 // spawns anything; it calls api.net.get() and the shell does the work.
@@ -629,6 +900,11 @@ if (typeof module !== "undefined" && module.exports)
         IMPLEMENTED_PERMISSIONS: IMPLEMENTED_PERMISSIONS,
         EXTENSION_POINTS: EXTENSION_POINTS,
         ALLOWED_IMPORTS: ALLOWED_IMPORTS,
+        MAX_LAUNCHER_RESULTS: MAX_LAUNCHER_RESULTS,
+        MIN_PROVIDER_QUERY: MIN_PROVIDER_QUERY,
+        launcherWantsProviders: launcherWantsProviders,
+        launcherResults: launcherResults,
+        quickTile: quickTile,
         validateManifest: validateManifest,
         apiCompatible: apiCompatible,
         scanSource: scanSource,
