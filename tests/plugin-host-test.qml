@@ -18,11 +18,16 @@ import "./src"
 //     ./tests/run-plugin-host-test.sh
 // Exit status 0 = all assertions passed, 1 = at least one failed.
 //
-// ── It never touches the real plugin directory ───────────────────────────────
+// ── It writes nothing outside its own fixture tree ───────────────────────────
 // The harness builds a fixture tree under XDG_RUNTIME_DIR and passes its path
 // in APEX_PLUGIN_FIXTURES; this file points PluginService.pluginDir at that and
-// rescans. Nothing here reads or writes ~/.config/apex-shell/plugins beyond the
-// single directory listing the singleton does when it is constructed.
+// rescans. The last two phases then point it at the checkout's own plugins/
+// directory (APEX_PLUGIN_REPO) to exercise the plugin this repo ships — read
+// only, and nothing in this file ever writes to either location.
+//
+// On a normal install the shell is checked out AT ~/.config/apex-shell, so that
+// second directory is the very path PluginService defaults to. Reading it is
+// the point; the suite must never modify it.
 //
 // ── And it makes no network call ─────────────────────────────────────────────
 // The granted-network path is checked BY SHAPE — the plugin holds the
@@ -56,6 +61,12 @@ ShellRoot {
     }
 
     readonly property string fixtures: Quickshell.env("APEX_PLUGIN_FIXTURES")
+
+    // The repo's own plugins/ directory. On a normal install the shell is
+    // checked out at ~/.config/apex-shell, so this is literally the path
+    // PluginService defaults to — which is what makes the last two phases a
+    // test of the shipped plugin rather than of another fixture.
+    readonly property string repoPlugins: Quickshell.env("APEX_PLUGIN_REPO")
 
     function stateOf(id) {
         const r = PluginService.recordFor(id)
@@ -251,6 +262,46 @@ ShellRoot {
         case 9: {
             check("a rescan does not duplicate records",
                   PluginService.records.length === 9)
+
+            // ── The plugin this repo actually ships ──────────────────────────
+            // Everything above ran against fixtures this harness wrote, which
+            // proves the platform and proves nothing about apex-worldclock.
+            // Point the real thing at the real directory: on a normal install
+            // the shell lives at ~/.config/apex-shell, so repoPlugins IS the
+            // path PluginService would use by itself.
+            PluginService.pluginDir = root.repoPlugins
+            PluginService.rescan()
+            break
+        }
+
+        case 10: {
+            check("the shipped example is discovered",
+                  root.stateOf("apex-worldclock") !== "absent")
+            check("the shipped example is granted",
+                  root.stateOf("apex-worldclock") === "loaded")
+
+            const wc = PluginService.recordFor("apex-worldclock")
+            check("it holds exactly the files permission",
+                  wc.grant.permissions.length === 1
+                  && wc.grant.permissions[0] === "files")
+            check("it asked for no network hosts",
+                  wc.grant.networkHosts.length === 0)
+            check("it is a bar widget",
+                  wc.grant.extensionPoint === "bar-widget")
+            check("it reaches the extension point",
+                  PluginService.widgetsFor("bar-widget")
+                      .filter(function (r) { return r.pluginId === "apex-worldclock" })
+                      .length === 1)
+            check("it has a URL to load", String(wc.entryUrl) !== "")
+            break
+        }
+
+        case 11: {
+            // The host mounted it and no Loader reported an error, so it
+            // parsed and constructed. A plugin that failed here would have
+            // turned into a load-error refusal, exactly like `broken` did.
+            check("the shipped example survived being mounted",
+                  root.stateOf("apex-worldclock") === "loaded")
             break
         }
 

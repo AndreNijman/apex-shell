@@ -108,7 +108,10 @@ widget nomanifest Widget.qml "$ok_widget"
 
 cp "$here/plugin-host-test.qml" "$staged"
 
-out="$(APEX_PLUGIN_FIXTURES="$p" QT_LOGGING_RULES="qml=true" \
+# APEX_PLUGIN_REPO points at the plugins this repo ships, so the last phases
+# exercise apex-worldclock itself and not another fixture.
+out="$(APEX_PLUGIN_FIXTURES="$p" APEX_PLUGIN_REPO="$root/plugins" \
+        QT_LOGGING_RULES="qml=true" \
         timeout 90 quickshell -p "$staged" 2>&1 || true)"
 echo "$out" | grep -E "PASS|FAIL|^\[|passed=" || true
 
