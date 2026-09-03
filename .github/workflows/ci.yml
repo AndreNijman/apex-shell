@@ -746,11 +746,12 @@ jobs:
       # lines of hardcoded hex, including SEVEN different reds all meaning "this
       # is wrong" — and two surfaces showing the same notification disagreed
       # about its accent, so the bar changed colour as a toast expired into the
-      # list. A further 45 colours were hidden from grep entirely, written as
+      # list. A further 45 occurrences were hidden from grep entirely, written as
       # Qt.rgba(248/255, 113/255, 113/255, a) — a hex literal in component
-      # fractions. Among them, the home dashboard's Calendar and Profile cards
-      # hardcoded the exact fallback values of `active` and `text`, so those two
-      # cards never followed the wallpaper at all.
+      # fractions; 43 became tokens, 2 are allowlisted. Among them, the home
+      # dashboard's Calendar and Profile cards hardcoded the exact fallback
+      # values of `active` and `text`, so those two cards never followed the
+      # wallpaper at all.
       #
       # The allowlist is a set of (file, colour) pairs with a stated reason for
       # each, and the total is asserted EXACTLY. A per-file tally would pass

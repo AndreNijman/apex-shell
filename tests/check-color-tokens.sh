@@ -47,6 +47,12 @@
 #  literal in component fractions and drifts away from the token it duplicates
 #  invisibly — exactly what happened to #f87171 at alpha 0.75 and 0.50.
 #
+#  That disguise was worth 45 occurrences of the Qt.rgba(n/255, n/255, n/255)
+#  pattern, of which 43 became tokens and 2 are allowlisted below. (Counting is
+#  by OCCURRENCE throughout this file. The hex layer was 66 lines / 71
+#  occurrences / 75 once named colours are included — quote the basis, because
+#  three different numbers are all correct for the same tree.)
+#
 #  It does NOT bound Qt.rgba() with plain decimals, e.g. Qt.rgba(0.9,0.2,0.2,1).
 #  Those exist (CenterContent's recording fills) and are deliberately out of
 #  scope; say so rather than let the header imply coverage it lacks.
@@ -89,9 +95,13 @@ src/nexus/Nexus.qml|black|desktop dim behind the settings window; the opacity do
 
 # Colours written as Qt.rgba component fractions. Same rule, separate list,
 # because the pattern differs.
+# One row per (file, colour), never one per occurrence: two identical rows
+# distinguished only by a comment saying "second occurrence" cannot tell you
+# which to delete when one of them goes away, which is list rot in the check
+# whose job is preventing list rot. Membership is asserted from these rows and
+# the OCCURRENCE count is asserted separately, below.
 ALLOW_FRAC_RAW="
-src/components/TimeInput.qml|235/255, 240/255, 255/255|a blue-tinted near-white, NOT Theme.fixedLight — mapping it onto that token would be a similar-looking token, not a correct one
-src/components/TimeInput.qml|235/255, 240/255, 255/255|second occurrence, same component
+src/components/TimeInput.qml|235/255, 240/255, 255/255|x2 — a blue-tinted near-white, NOT Theme.fixedLight; mapping it onto that token would be a similar-looking token rather than a correct one, which is worse than the literal because the mistake becomes invisible
 "
 
 EXPECT_TOTAL=9
