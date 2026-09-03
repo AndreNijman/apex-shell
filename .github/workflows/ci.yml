@@ -253,6 +253,18 @@ jobs:
           # mentions hyprctl.
           ./tests/check-compositor-backends.sh
 
+      - name: niri keybind generation
+        run: |
+          # niri rejects a bad include WHOLESALE — one unknown action verb and
+          # the user loses every binding in the file, not just that line. So the
+          # static half checks every mapped action name against niri's own
+          # `msg action --help` when the binary is present, and the behavioural
+          # half puts real generated output through `niri validate`.
+          #
+          # The static half runs here; the behavioural half needs a compositor
+          # and skips, which is why the name checking is not left to it.
+          ./tests/run-niri-keybinds-test.sh
+
       - name: Compositor facade behavioural test
         run: |
           # Needs a compositor; the harness skips cleanly without one so this
