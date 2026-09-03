@@ -33,6 +33,9 @@ The standard desktop shell of APEX-OS — a dynamic, highly modular Wayland shel
 - **Kanban/Tasks** — To Do, Ongoing and Completed lists with Priority and Deadlines
 - **App Launcher** — App search, plus inline answers for queries typed with a leading `?`
 - **Keybinds** — Set your own keybinds for each popup
+- **Recovery** — Config → Recovery reads `apex recover status` and `apex doctor`
+  and shows what is wrong, how to roll back, and what a factory reset would
+  actually delete (APEX-OS only; read-only until you press something)
 - **Theming Engine** — Live wallpaper-synced color updates
 - **Network Manager** — WiFi (incl. WPA2-Enterprise/802.1X), Bluetooth, VPN integration
 - **Notifications** — DBus Notifications via libnotify
@@ -220,7 +223,8 @@ installed **disabled** (it never autostarts) with its config at
 ### Upcoming (Post-v0.1.0)
 
 - [ ] Scaling on Different Screen-Sizes
-- [x] Config Pages for Shell Customization — Appearance / Layout / Data / Keybinds / Misc
+- [x] Config Pages for Shell Customization — Appearance / Layout / Data / Input /
+      Display / Blueprint / Recovery / Keybinds / Misc
 - [ ] Multi-Monitor Support — *partial:* per-screen bars, borders and dashboard
       focus work; global scaling and per-monitor brightness do not
 - [ ] Additional theme options
