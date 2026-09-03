@@ -56,11 +56,13 @@ QtObject {
         overview:             false,
         accentBorder:         true,
         gaps:                 true,
+        tilingLayout:         true,
         keyboardInterception: true
     })
 
     property bool windowsWanted: false
     property bool titleWanted:   false
+    property bool layoutWanted:  false
 
     // ── Dialect ───────────────────────────────────────────────────────────────
     readonly property bool _lua: ShellState.configProvider === "lua"
@@ -99,12 +101,13 @@ QtObject {
             out.push({
                 id:        w.id,
                 idx:       w.id,
+                ref:       w.id,          // focusWorkspace() takes the id here
                 name:      w.name || String(w.id),
                 output:    w.monitor ? w.monitor.name : "",
                 isActive:  w.active === true || w.id === focusedId,
                 isFocused: w.id === focusedId,
-                // Hyprland has no per-workspace urgency in the Quickshell model.
-                isUrgent:  false
+                isUrgent:  w.urgent === true,
+                occupied:  true           // it is in the list because it exists
             })
         }
         out.sort(function (a, b) { return a.id - b.id })
@@ -113,6 +116,15 @@ QtObject {
 
     readonly property int focusedWorkspaceId:
         Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : -1
+
+    // Hyprland presents a fixed 1..10 grid; a workspace that holds nothing is
+    // still a place you can switch to, and the bar has always shown it as an
+    // empty dot.
+    readonly property int workspaceSlots: 10
+
+    // The scratchpad. `activespecial` carries "workspaceName,monitorName" and an
+    // empty name means it just closed.
+    property bool specialWorkspaceOpen: false
 
     readonly property string focusedOutput:
         Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
@@ -215,13 +227,73 @@ QtObject {
         function onRawEvent(event) {
             root._refreshTitle()
             root._refreshWindows()
+            root._refreshLayout()
             if (root._FOCUS_EVENTS.indexOf(event.name) !== -1) root.focusMoved()
+
+            if (event.name === "activespecial" || event.name === "activespecialv2")
+                root.specialWorkspaceOpen = String(event.data).split(",")[0] !== ""
+            else if (event.name === "destroyworkspace")
+                root.specialWorkspaceOpen = false
         }
     }
 
     Component.onCompleted: {
         root._refreshTitle()
         root._refreshWindows()
+    }
+
+    // ── Tiling layout ─────────────────────────────────────────────────────────
+    // `hyprctl -j activeworkspace` reports the workspace's layout and window
+    // count. Refreshed on raw events, with a slow safety timer for the one case
+    // events do not cover: changing the layout on an empty workspace, where
+    // nothing else happens afterwards to trigger a read.
+    //
+    // Both are refcounted now. The old indicator ran its 4-second timer for the
+    // entire session whether or not the bar was on screen.
+    property string layoutName:        ""
+    property int    layoutWindowCount: 0
+
+    readonly property var layouts: ["dwindle", "master", "monocle", "scrolling"]
+
+    property Process _layoutProc: Process {
+        command: ["hyprctl", "-j", "activeworkspace"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const d = JSON.parse(this.text)
+                    if (d && d.tiledLayout) {
+                        root.layoutName        = String(d.tiledLayout).toLowerCase()
+                        root.layoutWindowCount = d.windows > 0 ? d.windows : 0
+                    }
+                } catch (e) {
+                    // Malformed JSON: keep the last known layout rather than
+                    // flashing the indicator to "Unknown".
+                }
+            }
+        }
+    }
+
+    function _refreshLayout() {
+        if (!root.layoutWanted) return
+        if (!root._layoutProc.running) root._layoutProc.running = true
+    }
+
+    onLayoutWantedChanged: if (root.layoutWanted) root._refreshLayout()
+
+    property Timer _layoutSafety: Timer {
+        interval: 4000
+        repeat:   true
+        running:  root.layoutWanted
+        onTriggered: root._refreshLayout()
+    }
+
+    function setLayout(name) {
+        root._keyword("general:layout", name,
+                      `hl.config({ general = { layout = "${name}" } })`)
+        // Optimistic, so the indicator changes under the cursor rather than on
+        // the next poll.
+        root.layoutName = name
     }
 
     // ── Screenshot picker boxes ───────────────────────────────────────────────

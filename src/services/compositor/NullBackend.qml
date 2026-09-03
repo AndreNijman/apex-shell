@@ -35,6 +35,7 @@ QtObject {
         overview:             false,
         accentBorder:         false,
         gaps:                 false,
+        tilingLayout:         false,
         keyboardInterception: false
     })
 
@@ -42,13 +43,21 @@ QtObject {
     // both are ignored — they exist so the Binding always has a target.
     property bool windowsWanted: false
     property bool titleWanted:   false
+    property bool layoutWanted:  false
 
     readonly property var    workspaces:         []
+    readonly property int    workspaceSlots:     0
+    readonly property bool   specialWorkspaceOpen: false
     readonly property var    windows:            []
     readonly property string focusedTitle:       "Desktop"
     readonly property string focusedAppName:     "Desktop"
     readonly property string focusedOutput:      ""
     readonly property int    focusedWorkspaceId: -1
+
+    // Nothing is known about this compositor, so nothing is claimed.
+    readonly property string layoutName:        ""
+    readonly property int    layoutWindowCount: 0
+    readonly property var    layouts:           []
 
     readonly property string windowBoxScript: ""
     readonly property string outputBoxScript: ""
@@ -65,5 +74,6 @@ QtObject {
     function setAccentBorder(hex)              {}
     function setGaps(inner, outer)             {}
     function readGaps(callback)                { callback(false, null) }
+    function setLayout(name)                   { /* unreachable: capability is false */ }
     function setKeyboardInterception(on)       {}
 }

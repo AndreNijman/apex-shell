@@ -104,6 +104,7 @@ QtObject {
         overview:             false,
         accentBorder:         false,   // can retheme the active-window border
         gaps:                 false,   // can change window gaps at runtime
+        tilingLayout:         false,   // has named tiling layouts to cycle
         keyboardInterception: false    // can grab all keys (Hyprland submaps)
     })
 
@@ -117,8 +118,48 @@ QtObject {
     }
 
     // ── Live state ────────────────────────────────────────────────────────────
-    // [{ id, idx, name, output, isActive, isFocused, isUrgent }]
+    // [{ id, idx, ref, name, output, isActive, isFocused, isUrgent, occupied }]
+    //
+    // `ref` is the identity to hand back to focusWorkspace(), and it is NOT the
+    // same thing on every compositor — a Hyprland workspace id, a niri 1-based
+    // index, a labwc list position. Carrying it in the model is what lets a
+    // caller pass it on without knowing which of those it got.
     readonly property var workspaces: root.backend ? root.backend.workspaces : []
+
+    // How many workspace slots the compositor presents whether or not they hold
+    // anything. Hyprland is a fixed 1..10 grid, which is why its bar shows empty
+    // dots; niri and labwc create and destroy workspaces on demand, so their
+    // lists are exactly what exists. 0 means dynamic.
+    //
+    // A view wanting the Hyprland look builds slots 1..N and marks each occupied
+    // or not from `workspaces`; a dynamic list renders as-is.
+    readonly property int workspaceSlots:
+        root.backend ? root.backend.workspaceSlots : 0
+
+    // Whether a scratchpad / special workspace is currently showing. Only
+    // meaningful where can.specialWorkspace is true; false everywhere else.
+    readonly property bool specialWorkspaceOpen:
+        root.backend ? root.backend.specialWorkspaceOpen : false
+
+    // ── Tiling layout ─────────────────────────────────────────────────────────
+    // The named layout of the focused workspace — "dwindle", "master" and so on
+    // — for the bar's layout indicator. Only Hyprland has the concept: niri is
+    // scrollable tiling with nothing to choose between, and labwc floats.
+    //
+    // Refcounted, because keeping it current costs a poll.
+    readonly property string layoutName:
+        root.backend ? root.backend.layoutName : ""
+    readonly property int layoutWindowCount:
+        root.backend ? root.backend.layoutWindowCount : 0
+    readonly property var layouts:
+        root.backend ? root.backend.layouts : []
+
+    property int layoutRefCount: 0
+    readonly property var layoutRef: QtObject {
+        property alias refCount: root.layoutRefCount
+    }
+
+    function setLayout(name) { return root._act("tilingLayout", "setLayout", [name]) }
 
     // [{ handle, title, appId, workspaceId, output, focused, x, y, width, height }]
     // Geometry is present only when can.windowGeometry; otherwise all four are 0.
@@ -190,6 +231,12 @@ QtObject {
         target:   root.backend
         property: "titleWanted"
         value:    root.titleRefCount > 0
+        when:     root.backend !== null
+    }
+    property Binding _layoutWanted: Binding {
+        target:   root.backend
+        property: "layoutWanted"
+        value:    root.layoutRefCount > 0
         when:     root.backend !== null
     }
 

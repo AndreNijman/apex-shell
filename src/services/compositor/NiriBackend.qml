@@ -58,6 +58,7 @@ QtObject {
         // no live keyword equivalent of `hyprctl keyword`.
         accentBorder:         false,
         gaps:                 false,
+        tilingLayout:         false,
         // No submap equivalent: niri cannot be told to route every key to one
         // client, so keybind capture stays off here.
         keyboardInterception: false
@@ -67,9 +68,29 @@ QtObject {
     // strip regardless — so demand is accepted and ignored.
     property bool windowsWanted: false
     property bool titleWanted:   false
+    property bool layoutWanted:  false
 
     // ── State, straight from the event stream ─────────────────────────────────
-    readonly property var    workspaces:         NiriService.workspaces
+    // niri's model already has the right shape; `ref` is its 1-based idx, which
+    // is what the FocusWorkspace Index reference wants — not the id.
+    readonly property var workspaces: {
+        const src = NiriService.workspaces
+        const out = []
+        for (let i = 0; i < src.length; i++) {
+            const w = src[i]
+            out.push({
+                id: w.id, idx: w.idx, ref: w.idx,
+                name: w.name, output: w.output,
+                isActive: w.isActive, isFocused: w.isFocused, isUrgent: w.isUrgent,
+                occupied: true
+            })
+        }
+        return out
+    }
+
+    // Workspaces come and go with their windows; there is no fixed grid.
+    readonly property int  workspaceSlots:       0
+    readonly property bool specialWorkspaceOpen: false
     readonly property var    windows:            NiriService.windows
     readonly property string focusedTitle:       NiriService.focusedTitle
 
@@ -94,6 +115,11 @@ QtObject {
                 return ws[i].output || ""
         return ""
     }
+
+    // No named tiling layouts: niri scrolls, labwc floats.
+    readonly property string layoutName:        ""
+    readonly property int    layoutWindowCount: 0
+    readonly property var    layouts:           []
 
     readonly property string windowBoxScript: ""            // no geometry
     readonly property string outputBoxScript: Boxes.WLR_OUTPUTS
@@ -130,5 +156,6 @@ QtObject {
     function setAccentBorder(hex)        { /* unreachable: capability is false */ }
     function setGaps(inner, outer)       { /* unreachable: capability is false */ }
     function readGaps(callback)          { callback(false, null) }
+    function setLayout(name)             { /* unreachable: capability is false */ }
     function setKeyboardInterception(on) { /* unreachable: capability is false */ }
 }
