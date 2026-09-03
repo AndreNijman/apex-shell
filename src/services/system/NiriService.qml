@@ -46,9 +46,35 @@ QtObject {
     // True once the event stream is live (first EventStream reply received).
     property bool   ready:               false
 
+    // Every open window, in CompositorService's shape:
+    //   [{ handle, title, appId, workspaceId, output, focused, x, y, w, h }]
+    // Built from the same event stream that already maintains _windows, so it
+    // costs nothing beyond the array allocation. Geometry is zero because niri's
+    // window events do not carry absolute screen boxes — the niri backend
+    // declares windowGeometry: false to say so, rather than shipping zeros that
+    // a screenshot picker would treat as real.
+    readonly property var windows: {
+        const out = []
+        const m   = root._windows
+        const ids = Object.keys(m)
+        for (let i = 0; i < ids.length; i++) {
+            const id = ids[i]
+            out.push({
+                handle:      id,
+                title:       m[id].title,
+                appId:       m[id].appId,
+                workspaceId: m[id].workspaceId,
+                output:      "",
+                focused:     Number(id) === root.focusedWindowId,
+                x: 0, y: 0, width: 0, height: 0
+            })
+        }
+        return out
+    }
+
     // ── Internals ─────────────────────────────────────────────────────────────
     property int  focusedWindowId: -1
-    property var  _windows:        ({})   // id → { title, appId }
+    property var  _windows:        ({})   // id → { title, appId, workspaceId }
     readonly property bool _active: Compositor.isNiri
     property int  _backoff: 500            // reconnect backoff (ms), capped below
 
@@ -189,7 +215,12 @@ QtObject {
         var fid = -1
         for (var i = 0; i < list.length; i++) {
             var w = list[i]
-            m[w.id] = { title: w.title || "", appId: w.app_id || "" }
+            m[w.id] = {
+                title:       w.title  || "",
+                appId:       w.app_id || "",
+                workspaceId: w.workspace_id !== undefined && w.workspace_id !== null
+                             ? w.workspace_id : -1
+            }
             if (w.is_focused) fid = w.id
         }
         root._windows = m
@@ -197,18 +228,36 @@ QtObject {
         root._refreshTitle()
     }
 
+    // Rebuilt rather than mutated in place. A `var` property assigned the object
+    // it already holds is not reliably a change, so the `windows` binding above
+    // would keep showing the previous list while `_windows` quietly moved on.
+    function _copyWindows() {
+        var out = ({})
+        var ids = Object.keys(root._windows)
+        for (var i = 0; i < ids.length; i++) out[ids[i]] = root._windows[ids[i]]
+        return out
+    }
+
     function _onWindow(w) {
         if (!w) return
-        var m = root._windows
-        m[w.id] = { title: w.title || "", appId: w.app_id || "" }
+        var m = root._copyWindows()
+        m[w.id] = {
+            title:       w.title  || "",
+            appId:       w.app_id || "",
+            workspaceId: w.workspace_id !== undefined && w.workspace_id !== null
+                         ? w.workspace_id : -1
+        }
         root._windows = m
         if (w.is_focused) root.focusedWindowId = w.id
         if (w.id === root.focusedWindowId) root._refreshTitle()
     }
 
     function _onWindowClosed(id) {
-        var m = root._windows
-        if (m[id] !== undefined) { delete m[id]; root._windows = m }
+        if (root._windows[id] !== undefined) {
+            var m = root._copyWindows()
+            delete m[id]
+            root._windows = m
+        }
         if (id === root.focusedWindowId) { root.focusedWindowId = -1; root._refreshTitle() }
     }
 

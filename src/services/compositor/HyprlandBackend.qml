@@ -1,0 +1,254 @@
+import QtQuick
+import Quickshell
+import Quickshell.Io
+import Quickshell.Hyprland
+import "../../"
+import "boxes.js" as Boxes
+
+// ─── HyprlandBackend ──────────────────────────────────────────────────────────
+// CompositorService's Hyprland adapter. Loaded by URL and only on Hyprland, so
+// `import Quickshell.Hyprland` above never resolves anywhere else — which is the
+// whole reason the consumers no longer need `target: isHyprland ? Hyprland : null`
+// scattered through them. Resolving that singleton is what constructs it, and
+// constructing it off Hyprland logs.
+//
+// ── Two dialects ─────────────────────────────────────────────────────────────
+// Hyprland can be configured in its own .conf format or, with the Lua plugin, in
+// Lua. Dispatch syntax differs between them and ShellState.configProvider says
+// which one this machine uses. Every dispatch in this file goes through
+// _dispatch()/_keyword() so the branch exists once rather than at nine call
+// sites, which is how the Lua path drifted last time.
+//
+// ── What costs something ─────────────────────────────────────────────────────
+// Workspaces and the focused monitor are pushed by the Quickshell.Hyprland
+// singleton and cost nothing. Window enumeration and the focused window title
+// need `hyprctl`, so both are refcounted: CompositorService pushes windowsWanted
+// and titleWanted in, and nothing spawns while nobody is looking.
+// ──────────────────────────────────────────────────────────────────────────────
+
+QtObject {
+    id: root
+
+    readonly property bool ready: true
+
+    readonly property var capabilities: ({
+        workspaces:           true,
+        workspaceSwitch:      true,
+        specialWorkspace:     true,
+        windows:              true,
+        windowGeometry:       true,
+        outputGeometry:       true,
+        windowFocus:          true,
+        windowMove:           true,
+        windowClose:          true,
+        // Hyprland has no built-in overview dispatch — hyprexpo is a plugin and
+        // APEX does not ship it. Declared false rather than dispatching into a
+        // plugin that is probably not loaded.
+        overview:             false,
+        accentBorder:         true,
+        gaps:                 true,
+        keyboardInterception: true
+    })
+
+    property bool windowsWanted: false
+    property bool titleWanted:   false
+
+    // ── Dialect ───────────────────────────────────────────────────────────────
+    readonly property bool _lua: ShellState.configProvider === "lua"
+
+    property Process _proc: Process { command: []; running: false }
+
+    function _run(argv) {
+        root._proc.command = argv
+        root._proc.running = false
+        root._proc.running = true
+    }
+
+    // A dispatcher call. `conf` takes the verb and its arguments positionally;
+    // `lua` takes one expression string.
+    function _dispatch(confArgs, luaExpr) {
+        if (root._lua) Hyprland.dispatch(luaExpr)
+        else           Hyprland.dispatch(confArgs)
+    }
+
+    // A config keyword write. hyprctl rather than the dispatch socket because
+    // `keyword` is not a dispatcher.
+    function _keyword(path, value, luaExpr) {
+        if (root._lua) root._run(["hyprctl", "eval", luaExpr])
+        else           root._run(["hyprctl", "keyword", path, value])
+    }
+
+    // ── Workspaces ────────────────────────────────────────────────────────────
+    // Hyprland pushes these; no polling. `id` is the identity a caller passes
+    // back to focusWorkspace().
+    readonly property var workspaces: {
+        const out = []
+        const src = Hyprland.workspaces ? Hyprland.workspaces.values : []
+        const focusedId = Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : -1
+        for (let i = 0; i < src.length; i++) {
+            const w = src[i]
+            out.push({
+                id:        w.id,
+                idx:       w.id,
+                name:      w.name || String(w.id),
+                output:    w.monitor ? w.monitor.name : "",
+                isActive:  w.active === true || w.id === focusedId,
+                isFocused: w.id === focusedId,
+                // Hyprland has no per-workspace urgency in the Quickshell model.
+                isUrgent:  false
+            })
+        }
+        out.sort(function (a, b) { return a.id - b.id })
+        return out
+    }
+
+    readonly property int focusedWorkspaceId:
+        Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : -1
+
+    readonly property string focusedOutput:
+        Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
+
+    // ── Focused window title ──────────────────────────────────────────────────
+    // `hyprctl activewindow -j` on every raw event, but only while somebody
+    // holds a title ref. Hyprland emits a raw event for essentially every state
+    // change, so this is push-driven rather than polled.
+    property string focusedTitle: "Desktop"
+
+    property Process _titleProc: Process {
+        command: ["hyprctl", "activewindow", "-j"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let t = ""
+                try {
+                    const d = JSON.parse(this.text)
+                    t = (d && d.title) ? d.title : ""
+                } catch (e) { t = "" }
+                root.focusedTitle = t !== "" ? t : "Desktop"
+            }
+        }
+    }
+
+    function _refreshTitle() {
+        if (!root.titleWanted) return
+        root._titleProc.running = false
+        root._titleProc.running = true
+    }
+
+    onTitleWantedChanged: {
+        if (root.titleWanted) root._refreshTitle()
+        else                  root.focusedTitle = "Desktop"
+    }
+
+    // ── Window list ───────────────────────────────────────────────────────────
+    property var windows: []
+
+    property Process _clientsProc: Process {
+        command: ["hyprctl", "-j", "clients"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let out = []
+                try {
+                    const list = JSON.parse(this.text) || []
+                    for (let i = 0; i < list.length; i++) {
+                        const c = list[i]
+                        if (!c.mapped) continue
+                        out.push({
+                            handle:      c.address,
+                            title:       c.title || "",
+                            appId:       c.class || "",
+                            workspaceId: c.workspace ? c.workspace.id : -1,
+                            output:      c.monitor !== undefined ? String(c.monitor) : "",
+                            focused:     false,
+                            x:           c.at   ? c.at[0]   : 0,
+                            y:           c.at   ? c.at[1]   : 0,
+                            width:       c.size ? c.size[0] : 0,
+                            height:      c.size ? c.size[1] : 0
+                        })
+                    }
+                } catch (e) { out = [] }
+                root.windows = out
+            }
+        }
+    }
+
+    function _refreshWindows() {
+        if (!root.windowsWanted) return
+        root._clientsProc.running = false
+        root._clientsProc.running = true
+    }
+
+    onWindowsWantedChanged: {
+        if (root.windowsWanted) root._refreshWindows()
+        else                    root.windows = []
+    }
+
+    // One listener for both. Hyprland's raw event stream fires on window and
+    // workspace changes alike; each refresh is a no-op unless its ref is held.
+    property Connections _events: Connections {
+        target: Hyprland
+        function onRawEvent(event) {
+            root._refreshTitle()
+            root._refreshWindows()
+        }
+    }
+
+    Component.onCompleted: {
+        root._refreshTitle()
+        root._refreshWindows()
+    }
+
+    // ── Screenshot picker boxes ───────────────────────────────────────────────
+    readonly property string windowBoxScript: Boxes.HYPR_WINDOWS
+    readonly property string outputBoxScript: Boxes.HYPR_OUTPUTS
+
+    // ── Actions ───────────────────────────────────────────────────────────────
+    function focusWorkspace(ref) {
+        root._dispatch("workspace " + ref, `hl.dsp.focus({ workspace = "${ref}" })`)
+    }
+
+    function toggleSpecialWorkspace(name) {
+        root._dispatch("togglespecialworkspace " + name,
+                       `hl.dsp.workspace.toggle_special("${name}")`)
+    }
+
+    function focusWindow(handle) {
+        root._dispatch("focuswindow address:" + handle,
+                       `hl.dsp.focus({ window = "address:${handle}" })`)
+    }
+
+    function closeWindow(handle) {
+        root._dispatch("closewindow address:" + handle,
+                       `hl.dsp.close({ window = "address:${handle}" })`)
+    }
+
+    function moveWindowToWorkspace(handle, ws) {
+        root._dispatch(`movetoworkspacesilent ${ws},address:${handle}`,
+                       `hl.dsp.window.move_to_workspace({ workspace = "${ws}", window = "address:${handle}" })`)
+    }
+
+    function toggleOverview() { /* unreachable: capabilities.overview is false */ }
+
+    function setAccentBorder(hex) {
+        root._keyword("general:col.active_border", `rgb(${hex})`,
+                      `hl.config({ general = { ["col.active_border"] = { colors = { "rgb(${hex})" } } } })`)
+    }
+
+    function setGaps(inner, outer) {
+        // Both in one shell so the two writes cannot be seen half-applied.
+        root._run(["bash", "-c",
+                   `hyprctl keyword general:gaps_in ${inner} && ` +
+                   `hyprctl keyword general:gaps_out ${outer}`])
+    }
+
+    // Hyprland submaps: a named mode with no binds in it, so every key falls
+    // through to the focused surface. That surface is the shell while it is
+    // capturing a keybind.
+    function setKeyboardInterception(on) {
+        const target = on ? "ApexShell_clean" : "reset"
+        root._run(root._lua
+            ? ["hyprctl", "dispatch", `hl.dsp.submap('${target}')`]
+            : ["hyprctl", "dispatch", "submap", target])
+    }
+}
