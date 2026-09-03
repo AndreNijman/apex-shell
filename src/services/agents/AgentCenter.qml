@@ -99,7 +99,7 @@ Item {
     Column {
         anchors.centerIn: parent
         width: parent.width * 0.8
-        spacing: Theme.fs(10)
+        spacing: Theme.px(10)
         visible: AgentService.everChecked && !AgentService.daemonUp
                  && !root._hasRemote
 
@@ -131,7 +131,7 @@ Item {
     Column {
         anchors.centerIn: parent
         width: parent.width * 0.8
-        spacing: Theme.fs(8)
+        spacing: Theme.px(8)
         visible: AgentService.daemonUp && root._empty && !root._hasRemote
 
         Text {
@@ -159,14 +159,14 @@ Item {
     // ── The list ─────────────────────────────────────────────────────────────
     ScrollView {
         anchors.fill: parent
-        anchors.margins: Theme.fs(6)
+        anchors.margins: Theme.px(6)
         clip: true
         visible: (AgentService.daemonUp && !root._empty) || root._hasRemote
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
         Column {
             width: root.width - Theme.fs(20)
-            spacing: Theme.fs(6)
+            spacing: Theme.px(6)
 
             // ── 1. Privilege requests ────────────────────────────────────────
             SectionHeading {
@@ -242,7 +242,7 @@ Item {
                 Text {
                     id: localOffLabel
                     anchors.left: parent.left
-                    anchors.leftMargin: Theme.fs(4)
+                    anchors.leftMargin: Theme.px(4)
                     anchors.bottom: parent.bottom
                     text: "This machine's agent runtime is not running  ·  "
                           + "systemctl --user enable --now apex-agentd"
@@ -272,7 +272,7 @@ Item {
                 // because a person clicking Refresh is not churn.
                 SmallIconButton {
                     anchors.right: parent.right
-                    anchors.rightMargin: Theme.fs(6)
+                    anchors.rightMargin: Theme.px(6)
                     anchors.verticalCenter: parent.verticalCenter
                     icon: "󰑐"
                     tip: RemoteAgentService.busy ? "Checking devices…"
@@ -318,7 +318,7 @@ Item {
                 Text {
                     id: attachHint
                     anchors.left: parent.left
-                    anchors.leftMargin: Theme.fs(4)
+                    anchors.leftMargin: Theme.px(4)
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
                     wrapMode: Text.WordWrap

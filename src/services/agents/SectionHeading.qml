@@ -19,9 +19,9 @@ Item {
     Text {
         id: label
         anchors.left: parent.left
-        anchors.leftMargin: Theme.fs(4)
+        anchors.leftMargin: Theme.px(4)
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: Theme.fs(4)
+        anchors.bottomMargin: Theme.px(4)
         text: heading.text.toUpperCase()
         color: heading.accent ? Theme.active : Theme.subtext
         font.pixelSize: Theme.fs(9)

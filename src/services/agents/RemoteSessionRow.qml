@@ -39,13 +39,13 @@ Item {
         srow.session.state === "waiting_for_user"
         || srow.session.state === "permission_request"
 
-    height: Theme.fs(30)
+    height: Theme.px(30)
 
     Row {
         anchors.fill: parent
-        anchors.leftMargin: Theme.fs(30)
-        anchors.rightMargin: Theme.fs(8)
-        spacing: Theme.fs(8)
+        anchors.leftMargin: Theme.px(30)
+        anchors.rightMargin: Theme.px(8)
+        spacing: Theme.px(8)
 
         // The tree line, so a session reads as belonging to the host above it
         // rather than as a sibling of it.
@@ -58,7 +58,7 @@ Item {
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            width: Theme.fs(16)
+            width: Theme.px(16)
             horizontalAlignment: Text.AlignHCenter
             text: AgentService.stateIcon(srow.session.state)
             font.pixelSize: Theme.fs(13)
