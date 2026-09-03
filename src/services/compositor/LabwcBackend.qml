@@ -119,6 +119,13 @@ QtObject {
         return (t && t.title && t.title !== "") ? t.title : "Desktop"
     }
 
+    readonly property string focusedAppName: {
+        const t = ToplevelManager.activeToplevel
+        if (!t) return "Desktop"
+        const a = (t.appId || "").trim()
+        return a !== "" ? a : ((t.title && t.title !== "") ? t.title : "Desktop")
+    }
+
     // foreign-toplevel gives a screen list per window, so the focused output is
     // the screen the active window is on. With no active window there is nothing
     // to report — the bar falls back to its own screen name.
@@ -151,5 +158,6 @@ QtObject {
     function toggleOverview()                  { /* unreachable: capability is false */ }
     function setAccentBorder(hex)              { /* unreachable: capability is false */ }
     function setGaps(inner, outer)             { /* unreachable: capability is false */ }
+    function readGaps(callback)                { callback(false, null) }
     function setKeyboardInterception(on)       { /* unreachable: capability is false */ }
 }

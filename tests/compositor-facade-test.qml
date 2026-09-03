@@ -79,6 +79,7 @@ ShellRoot {
     property var outputResult: null
     property var inputResult:  null
     property var missingResult: null
+    property var gapsResult:    null
 
     // ── Loading every backend, not only the selected one ─────────────────────
     readonly property var backendFiles: [
@@ -260,6 +261,13 @@ ShellRoot {
         }
 
         case 4: {
+            // ── readGaps is a read, so it is safe to actually call ───────────
+            // Unlike setGaps. It has to answer on every backend: (true, values)
+            // where gaps are a runtime concept and (false, null) where they are
+            // not, so a caller can tell "no gaps here" from "the read failed"
+            // and decline to apply a change it could never undo.
+            CompositorService.readGaps(function (ok, g) { root.gapsResult = [ok, g] })
+
             // ── A helper that is not installed must still answer ─────────────
             // Not the same path as "exited non-zero": a missing binary never
             // starts, so there is no exit code and nothing collects stdout. The
@@ -272,6 +280,15 @@ ShellRoot {
         }
 
         case 5: {
+            check("readGaps always answers, capable or not",
+                  root.gapsResult !== null
+                  && (CompositorService.can.gaps
+                        ? (root.gapsResult[0] === true
+                           && root.gapsResult[1] !== null
+                           && root.gapsResult[1].inner >= 0
+                           && root.gapsResult[1].outer >= 0)
+                        : (root.gapsResult[0] === false && root.gapsResult[1] === null)))
+
             check("a helper that cannot start still answers (false, null)",
                   root.missingResult !== null
                   && root.missingResult[0] === false
