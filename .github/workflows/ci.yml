@@ -200,19 +200,27 @@ jobs:
           # SystemStats is a refcounted VIEW, not a singleton, so it cannot go
           # through the singleton loop above — but it shells out to a package
           # manager, so it needs the same gate.
+          #
+          # Every match below is against the file with // comment lines
+          # STRIPPED. SystemStats' header explains what it replaced and names
+          # onVisibleChanged while doing so, so a whole-file grep would fail on
+          # a file that is correct — the check would be red because the comment
+          # documents the fix. The inverse of the same bug is a check that stays
+          # green because a header paragraph matches.
           ss=src/services/system/SystemStats.qml
-          grep -q 'property int refCount' "$ss" \
+          sscode="$(grep -vE '^\s*//' "$ss")"
+          grep -q 'property int refCount' <<<"$sscode" \
             || { echo "✗ SystemStats has no refCount"; fail=1; }
-          grep -q 'onRefCountChanged' "$ss" \
+          grep -q 'onRefCountChanged' <<<"$sscode" \
             || { echo "✗ SystemStats never acts on its refCount"; fail=1; }
-          if grep -nE '^\s*running:\s*true\s*$' "$ss"; then
+          if grep -nE '^\s*running:\s*true\s*$' <<<"$sscode"; then
             echo "✗ SystemStats runs its collector unconditionally"
             fail=1
           fi
           # It used to reload from onVisibleChanged, which fires for an Item in
           # a window nobody has opened and never fires again on a real second
           # reveal. Same class as the `active: visible` check above.
-          if grep -nE '^\s*onVisibleChanged:' "$ss"; then
+          if grep -nE '^\s*onVisibleChanged:' <<<"$sscode"; then
             echo "✗ SystemStats is back to reloading on Item visibility"
             fail=1
           fi
