@@ -33,11 +33,35 @@ QtObject {
 
     signal focusMoved()
 
+    // ── What counts as "the user is now looking somewhere else" ───────────────
     // The raw events that mean focus actually moved. `activewindow` is
     // deliberately absent: Hyprland fires it for title changes too, so a
     // browser switching tabs would count as the user looking elsewhere.
+    //
+    // `focusedmon` IS included, and that is a decision rather than an
+    // oversight, because it has a visible cost. Hyprland's `follow_mouse` is on
+    // by default, so on a multi-monitor session merely moving the cursor across
+    // a monitor boundary now fires this and PopupDismiss closes every open
+    // popup. It did not before. Single-monitor sessions — this shell's usual
+    // case — are unaffected, because the event never fires there.
+    //
+    // It is kept because CompositorService defines focusMoved as "a different
+    // workspace, a different window, a different monitor", and the other two
+    // backends already honour the monitor half: niri fires on
+    // focusedWorkspaceId (which changes when monitor focus does, since each
+    // output shows its own workspace) and labwc on activeToplevelChanged.
+    // Dropping it here would make Hyprland the one backend that silently
+    // narrows the contract it is implementing, and `Popups.closeAll()` is
+    // global — the popup sits on the monitor the user just left.
+    //
+    // `activemonitor` used to be in this list and was never an event. Hyprland's
+    // IPC event names are compiled into the binary; `focusedmon` and
+    // `focusedmonv2` are there, and the only occurrence of "activemonitor"
+    // anywhere in it is `workspace.activemonitor`, a Lua hook name — checked
+    // with `strings /usr/bin/Hyprland`. So it matched nothing and the monitor
+    // half of the contract was in fact unimplemented until `focusedmon` landed.
     readonly property var _FOCUS_EVENTS: [
-        "workspace", "activemonitor", "activespecial", "openwindow", "focusedmon"
+        "workspace", "activespecial", "openwindow", "focusedmon"
     ]
 
     readonly property var capabilities: ({

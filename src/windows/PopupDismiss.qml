@@ -106,6 +106,12 @@ PanelWindow {
     // Title changes deliberately do not count: a browser switching tabs is not
     // the user looking elsewhere, and a popup that vanishes when a background
     // tab finishes loading is worse than one that lingers.
+    //
+    // A monitor change DOES count, and on Hyprland with `follow_mouse` that
+    // means a cursor crossing a monitor boundary closes whatever is open. If
+    // that ever reads as a bug, it is not: HyprlandBackend._FOCUS_EVENTS says
+    // why, and `closeAll()` here is global, so the alternative is a popup left
+    // behind on a monitor the user has walked away from.
     Connections {
         target: CompositorService
         function onFocusMoved() { Popups.closeAll(); }

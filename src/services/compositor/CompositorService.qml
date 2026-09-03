@@ -198,6 +198,11 @@ QtObject {
     // linger. Each backend emits it from its own native focus events, which are
     // free on all three — Hyprland's raw event stream, niri's event stream and
     // labwc's foreign-toplevel — so there is no refcount on this one.
+    //
+    // "A different monitor" is load-bearing and costs something on Hyprland:
+    // with `follow_mouse` on, a cursor crossing a monitor boundary fires it and
+    // closes every open popup. That is deliberate — see _FOCUS_EVENTS in
+    // HyprlandBackend.qml, which records the decision and what it replaced.
     signal focusMoved()
 
     property Connections _backendFocus: Connections {
