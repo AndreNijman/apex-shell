@@ -17,6 +17,14 @@ import "../../"
 // header there for the permission vocabulary and the compatibility policy, and
 // for the reason it is plain JavaScript.
 //
+// ── Three extension points, and this file knows about none of them ───────────
+// apiVersion 1.1 mounts `bar-widget`, `launcher-provider` and
+// `quick-settings-tile`. Each has its own host; this file has no branch for any
+// of them. A host asks pluginsFor("its-name") and gets the granted records that
+// declared it, and the name it passes is checked against EXTENSION_POINTS in
+// manifest.js at load time, so a plugin cannot land on a point that has no host
+// and a host cannot mount a point the manifest layer does not know about.
+//
 // ── READ THIS BEFORE YOU TRUST THE WORD "PERMISSION" ─────────────────────────
 // QML plugins run IN-PROCESS in the shell's own QML engine. There is no
 // sandbox, no separate address space, no syscall filter. So:
@@ -94,10 +102,16 @@ Singleton {
     readonly property var loaded:  root.records.filter(function (r) { return r.state === "loaded" })
     readonly property var refused: root.records.filter(function (r) { return r.state === "refused" })
 
-    // Records for one extension point, ready to be instantiated. The bar-widget
-    // host calls this; a second extension point would call it with its own name
-    // and need no changes here.
-    function widgetsFor(extensionPoint) {
+    // Records for one extension point, ready to be instantiated. Each host
+    // calls this with its own name and gets only the plugins that asked for it;
+    // adding the launcher-provider and quick-settings-tile hosts needed no
+    // change to this function, which is the claim the first version made and
+    // this is the version that tested it.
+    //
+    // Called pluginsFor(), not widgetsFor(): two of the three extension points
+    // do not produce a widget. A launcher provider hands back rows and a
+    // quick-settings tile hands back a state; the shell draws both.
+    function pluginsFor(extensionPoint) {
         return root.loaded.filter(function (r) {
             return r.grant && r.grant.extensionPoint === extensionPoint
         })

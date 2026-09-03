@@ -6,13 +6,26 @@ import "../../"
 // manifest says `"extensionPoint": "bar-widget"` gets its root item mounted
 // here, in the bar's right-hand cluster next to the clock and the battery.
 //
-// This is deliberately the ONLY extension point in apiVersion 1. §16 lists
-// eight — widgets, panels, launcher providers, quick settings, background
-// services, notifications, themes, project and agent integrations — and five
-// stubs would be five surfaces nobody has run a plugin against. One that
-// actually works tells you what the other seven need; a stub tells you nothing.
-// Adding the next one is a new host like this file plus a name in
-// EXTENSION_POINTS, and no change to PluginService.
+// This was the only extension point in apiVersion 1.0, on the grounds that one
+// working point tells you what the others need where five stubs tell you
+// nothing. It did, and apiVersion 1.1 has two more:
+// src/services/PluginLauncher.qml mounts `launcher-provider` and
+// src/services/home/PluginTiles.qml mounts `quick-settings-tile`.
+//
+// The claim this file's first version made was that adding one would be a new
+// host plus a name in EXTENSION_POINTS and no change to PluginService, and that
+// held — PluginService gained no branch for either. What it did NOT anticipate
+// is the thing the other two hosts spend most of their length on: this point
+// hands a plugin a rectangle and lets it PAINT, so there is no plugin-supplied
+// string for the shell to render and nothing to sanitise. The other two are
+// data points — the plugin hands back rows or a state and the SHELL draws them,
+// in the shell's own chrome — which is a smaller capability and a larger
+// checking burden. See the PLUGIN OUTPUT section of manifest.js.
+//
+// §16 names nine points. Three are real; the six that are not are listed in
+// manifest.js with the reason each is missing, and one of them —
+// notification-handler — is missing because it would need a permission that
+// does not exist rather than because nobody has written the host.
 //
 // ── Crash isolation ───────────────────────────────────────────────────────────
 // This is the practical half of §16's "crash isolation where practical". Each
@@ -58,7 +71,7 @@ Row {
         // Only granted plugins for THIS extension point. A refused plugin is
         // absent here by construction: its entryUrl stays empty and it never
         // appears in `loaded`.
-        model: PluginService.widgetsFor("bar-widget")
+        model: PluginService.pluginsFor("bar-widget")
 
         delegate: Item {
             id: mount

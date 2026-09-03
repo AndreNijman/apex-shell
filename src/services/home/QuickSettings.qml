@@ -619,6 +619,14 @@ StatCard {
         hsActiveCheckProc.running = true
     }
 
+    // ── The quick-settings-tile extension point (roadmap §16) ─────────────────
+    // Non-visual: it hosts one Loader per granted tile plugin and exposes the
+    // sanitised descriptors the Repeater at the end of the grid draws. A plugin
+    // tile cannot flip a system switch — that would be the `system` permission,
+    // which is refused at load — so it surfaces information and acts inside
+    // whatever it was granted. See PluginTiles.qml.
+    PluginTiles { id: pluginTiles }
+
     // ─────────────────────────────────────────────────────────────────────────
     //  UI
     // ─────────────────────────────────────────────────────────────────────────
@@ -869,6 +877,33 @@ StatCard {
                         label:    "Filter"
                         sublabel: root.currentFilter !== "" ? root.currentFilter : ""
                         onToggled: root._filterOpen()
+                    }
+
+                    // ── Plugin tiles (roadmap §16) ────────────────────────
+                    // LAST, unconditionally, so the shell's own tiles keep the
+                    // positions users have muscle memory for. A plugin
+                    // appearing must not move Wi-Fi.
+                    //
+                    // The delegate is the same TglBtn every tile above uses,
+                    // which is the point of the extension point: the plugin
+                    // supplies four values and the shell draws its own tile.
+                    // A plugin cannot paint here, so it cannot draw something
+                    // that looks like the Airplane Mode switch. Every value
+                    // below has been through Manifest.quickTile(); see
+                    // PluginTiles.qml.
+                    Repeater {
+                        model: pluginTiles.tiles
+
+                        delegate: TglBtn {
+                            required property var modelData
+
+                            width: tileGrid.btnW; height: tileGrid.btnH
+                            on:       modelData.on
+                            icon:     modelData.icon
+                            label:    modelData.label
+                            sublabel: modelData.sublabel
+                            onToggled: pluginTiles.toggle(modelData.pluginId)
+                        }
                     }
                 }
             }
