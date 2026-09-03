@@ -7,6 +7,9 @@
 
 .claude/
 
-# Staged by tests/run-service-tier-test.sh (Quickshell requires the entry
-# point to sit beside the modules it imports).
+# Staged by the test harnesses (Quickshell requires the entry point to sit
+# beside the modules it imports, so each one is copied to the repo root for the
+# duration of its run and removed afterwards).
 /.service-tier-test.qml
+/.compositor-facade-test.qml
+/.plugin-host-test.qml

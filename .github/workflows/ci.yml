@@ -253,6 +253,51 @@ jobs:
           # loading every backend — not just the one for the running session.
           ./tests/run-compositor-facade-test.sh
 
+      - name: Plugin platform decision logic
+        run: |
+          # Roadmap §16. Manifest validation, the apiVersion compatibility
+          # policy, the source scan, and the network host allowlist — the
+          # security-critical half of the plugin platform, decided in plain
+          # JavaScript precisely so it can be exercised here.
+          #
+          # The QML engine imports the same src/services/plugins/manifest.js
+          # that this requires, so these are assertions about the shipped file
+          # rather than a test double. That matters: the behavioural suite
+          # below needs a compositor and skips on every runner, so a permission
+          # check that only ran on a developer's laptop would not be checked at
+          # all.
+          node tests/plugin-manifest-test.js
+
+      - name: Plugin platform invariants
+        run: |
+          # The wiring half of §16: that those decisions are connected to
+          # something, that nothing re-implements URL parsing or names its own
+          # curl outside curlArgv(), that discovery has no poll timer, that the
+          # crash-isolating Loader still handles Loader.Error, and that the
+          # shipped example plugin passes the validator it meets at runtime.
+          #
+          # It also greps for "not a sandbox" in manifest.js, PluginService.qml
+          # and docs/plugins.md. QML plugins run in-process; the permission
+          # model gates the API and the source scan defends the API's monopoly,
+          # and neither confines hostile code. Deleting that sentence because it
+          # reads as pessimistic would leave the platform promising confinement
+          # it does not provide, so its absence fails the build.
+          ./tests/check-plugin-platform.sh
+
+      - name: Plugin host behavioural test
+        run: |
+          # Needs a compositor; the harness skips cleanly without one so this
+          # documents the entry point rather than silently not existing. Run it
+          # in a Wayland session to exercise all 34 assertions — discovery on a
+          # real filesystem, every refusal reason arriving on the fixture built
+          # to trigger it, and crash isolation proven by a plugin that passes
+          # every static check and then fails in the QML engine.
+          #
+          # It builds its fixtures under XDG_RUNTIME_DIR and never reads or
+          # writes the real ~/.config/apex-shell/plugins, and it makes no
+          # network call: the granted path is checked by shape, never fetched.
+          ./tests/run-plugin-host-test.sh
+
       - name: Popup input regions must not sit outside their surface
         run: |
           # A PopupWindow's `mask` is its INPUT region. The sizer inside each
