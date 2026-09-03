@@ -24,8 +24,8 @@ Rectangle {
     readonly property bool needsYou:
         session.state === "waiting_for_user" || session.state === "permission_request"
 
-    height: Theme.fs(52)
-    radius: Theme.fs(8)
+    height: Theme.px(52)
+    radius: Theme.px(8)
     color: hover.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
                          : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
     border.width: row.needsYou ? 1 : 0
@@ -43,14 +43,14 @@ Rectangle {
 
     Row {
         anchors.fill: parent
-        anchors.leftMargin: Theme.fs(10)
-        anchors.rightMargin: Theme.fs(8)
-        spacing: Theme.fs(10)
+        anchors.leftMargin: Theme.px(10)
+        anchors.rightMargin: Theme.px(8)
+        spacing: Theme.px(10)
 
         // ── State ─────────────────────────────────────────────────────────────
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            width: Theme.fs(22)
+            width: Theme.px(22)
             horizontalAlignment: Text.AlignHCenter
             text: AgentService.stateIcon(row.session.state)
             font.pixelSize: Theme.fs(17)
@@ -73,10 +73,10 @@ Rectangle {
         Column {
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - Theme.fs(22) - controls.width - Theme.fs(40)
-            spacing: Theme.fs(2)
+            spacing: Theme.px(2)
 
             Row {
-                spacing: Theme.fs(6)
+                spacing: Theme.px(6)
                 Text {
                     text: AgentService._agentLabel(row.session)
                     color: Theme.text
@@ -94,7 +94,7 @@ Rectangle {
                 Rectangle {
                     visible: !!row.session.worktree
                     anchors.verticalCenter: parent.verticalCenter
-                    radius: Theme.fs(3)
+                    radius: Theme.px(3)
                     color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
                     width: wtLabel.implicitWidth + Theme.fs(8)
                     height: wtLabel.implicitHeight + Theme.fs(3)
@@ -133,7 +133,7 @@ Rectangle {
         Row {
             id: controls
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Theme.fs(2)
+            spacing: Theme.px(2)
 
             // Pause and Resume are the same slot, not two buttons. Showing
             // both means one of them is always wrong, and the runtime reports

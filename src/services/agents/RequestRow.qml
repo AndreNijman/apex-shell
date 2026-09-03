@@ -26,7 +26,7 @@ Rectangle {
     }
 
     height: body.implicitHeight + Theme.fs(20)
-    radius: Theme.fs(8)
+    radius: Theme.px(8)
     color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.10)
     border.width: 1
     border.color: Theme.active
@@ -34,12 +34,12 @@ Rectangle {
     Row {
         id: body
         anchors.fill: parent
-        anchors.margins: Theme.fs(10)
-        spacing: Theme.fs(10)
+        anchors.margins: Theme.px(10)
+        spacing: Theme.px(10)
 
         Text {
             anchors.top: parent.top
-            width: Theme.fs(22)
+            width: Theme.px(22)
             horizontalAlignment: Text.AlignHCenter
             text: "󰌾"
             font.pixelSize: Theme.fs(17)
@@ -48,7 +48,7 @@ Rectangle {
 
         Column {
             width: parent.width - Theme.fs(22) - reviewBtn.width - Theme.fs(30)
-            spacing: Theme.fs(3)
+            spacing: Theme.px(3)
 
             Text {
                 text: (row.request.agent
@@ -97,7 +97,7 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             width: reviewLabel.implicitWidth + Theme.fs(18)
             height: reviewLabel.implicitHeight + Theme.fs(10)
-            radius: Theme.fs(6)
+            radius: Theme.px(6)
             color: reviewHover.hovered
                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
                 : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.20)

@@ -55,19 +55,19 @@ Item {
     Rectangle {
         id: header
         width: parent.width
-        height: Theme.fs(44)
-        radius: Theme.fs(8)
+        height: Theme.px(44)
+        radius: Theme.px(8)
         color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
 
         Row {
             anchors.fill: parent
-            anchors.leftMargin: Theme.fs(10)
-            anchors.rightMargin: Theme.fs(10)
-            spacing: Theme.fs(10)
+            anchors.leftMargin: Theme.px(10)
+            anchors.rightMargin: Theme.px(10)
+            spacing: Theme.px(10)
 
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                width: Theme.fs(22)
+                width: Theme.px(22)
                 horizontalAlignment: Text.AlignHCenter
                 text: RemoteAgentService.statusIcon(hrow.status)
                 font.pixelSize: Theme.fs(15)
@@ -90,10 +90,10 @@ Item {
             Column {
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width - Theme.fs(60)
-                spacing: Theme.fs(2)
+                spacing: Theme.px(2)
 
                 Row {
-                    spacing: Theme.fs(6)
+                    spacing: Theme.px(6)
 
                     Text {
                         text: hrow.host.name
@@ -120,7 +120,7 @@ Item {
                     Rectangle {
                         visible: hrow.host.caps.variant !== null
                         anchors.verticalCenter: parent.verticalCenter
-                        radius: Theme.fs(3)
+                        radius: Theme.px(3)
                         color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
                         width: variantLabel.implicitWidth + Theme.fs(8)
                         height: variantLabel.implicitHeight + Theme.fs(3)
