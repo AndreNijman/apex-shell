@@ -430,19 +430,29 @@ Item {
                             
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
-                    // Live key capture needs a Hyprland submap to suppress binds
-                    // while recording; niri has no equivalent, so capture is
-                    // disabled there (manual editing of keybinds.json / the
-                    // generated .kdl still works).
-                    ToolTip.visible: Compositor.isNiri && _pillH.hovered
-                    ToolTip.text:    "Live capture is Hyprland-only.\nEdit keybinds.json or ApexShellKeybinds.kdl by hand on niri."
+                    // Live key capture needs the compositor to route every key
+                    // to the shell while recording — a Hyprland submap. The
+                    // capability says who can; the guard used to say `isNiri`,
+                    // which is the negative-name check §17 exists to remove and
+                    // which was simply WRONG on labwc: false there, so the UI
+                    // offered capture, ShellState asked for interception, the
+                    // adapter refused it, and the keys were captured by the
+                    // shell AND still fired labwc's own bindings.
+                    //
+                    // apex-os #25 made that worse, because labwc's bindings are
+                    // now really generated and really fire.
+                    readonly property bool _canCapture:
+                        CompositorService.can.keyboardInterception
 
-                    HoverHandler { id: _pillH; cursorShape: (br._interactive && !Compositor.isNiri) ? Qt.PointingHandCursor : Qt.ArrowCursor }
+                    ToolTip.visible: !_canCapture && _pillH.hovered
+                    ToolTip.text:    "Live capture needs a compositor that can route every key to the shell.\nEdit keybinds.json, ApexShellKeybinds.kdl or rc.xml by hand here."
+
+                    HoverHandler { id: _pillH; cursorShape: (br._interactive && parent._canCapture) ? Qt.PointingHandCursor : Qt.ArrowCursor }
                     MouseArea {
                         anchors.fill: parent
                         enabled: br._interactive
                         onClicked: {
-                            if (Compositor.isNiri) return   // capture unsupported on niri
+                            if (!parent._canCapture) return
                             br.requestCapture()
                         }
                     }

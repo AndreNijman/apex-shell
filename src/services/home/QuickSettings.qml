@@ -414,9 +414,30 @@ StatCard {
     property int _savedGapsIn:  5
     property int _savedGapsOut: 10
 
+    // Guards a double-toggle from racing its own restore. The old code flipped
+    // focusMode from restoreGaps.onRunningChanged — i.e. only once the restore
+    // subprocess had exited — and that sequencing is what made this impossible.
+    // Flipping immediately let a second toggle inside the window take the READ
+    // branch while `hyprctl keyword general:gaps_in 5 && …` was still running:
+    // if the read won, the saved gaps were overwritten with the shrunken 0/6 and
+    // the user's real gaps were gone for the rest of the session. A fast
+    // double-press of SUPER+B is enough.
+    property bool _gapsBusy: false
+
+    property Timer _gapsSettled: Timer {
+        interval: 250
+        repeat:   false
+        onTriggered: root._gapsBusy = false
+    }
+
     function _focusToggle() {
+        if (root._gapsBusy) return
+
         if (ShellState.focusMode) {
-            CompositorService.setGaps(root._savedGapsIn, root._savedGapsOut)
+            if (CompositorService.setGaps(root._savedGapsIn, root._savedGapsOut)) {
+                root._gapsBusy = true
+                root._gapsSettled.restart()
+            }
             ShellState.focusMode = false
             return
         }
@@ -429,7 +450,10 @@ StatCard {
             if (ok) {
                 root._savedGapsIn  = g.inner
                 root._savedGapsOut = g.outer
-                CompositorService.setGaps(0, 6)
+                if (CompositorService.setGaps(0, 6)) {
+                    root._gapsBusy = true
+                    root._gapsSettled.restart()
+                }
             }
             ShellState.focusMode = true
         })

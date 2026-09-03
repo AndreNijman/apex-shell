@@ -133,8 +133,11 @@ QtObject {
         root._proc.running = true
     }
 
-    // ref is the 1-based workspace index from the model's `idx`, which is what
-    // niri's FocusWorkspace Index reference wants — not the `id`.
+    // ref is the workspace index from the model's `idx`, which is what niri's
+    // FocusWorkspace Index reference wants — not the `id`.
+    //
+    // That index is per-monitor, so on a multi-output session it does not
+    // uniquely identify a workspace; see the note on CompositorService.workspaces.
     function focusWorkspace(ref) { NiriService.focusWorkspace(ref) }
 
     function toggleSpecialWorkspace(name) { /* unreachable: capability is false */ }

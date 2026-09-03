@@ -22,6 +22,10 @@ import "../../components"
 Item {
     id: root
 
+    // Which output this indicator is on, so the ref below can be released when
+    // this bar is unmapped.
+    required property string screenName
+
     // ── The layout indicator ──────────────────────────────────────────────────
     // Named tiling layouts are a Hyprland concept — niri is scrollable tiling
     // with nothing to choose between, labwc floats — so the whole indicator
@@ -34,13 +38,19 @@ Item {
     implicitWidth:  available ? 26 : 0
     implicitHeight: 26
 
-    // Keeping the layout current costs a poll, so the ref is held only while
-    // the indicator is on screen. It used to run a 4-second timer for the whole
-    // session regardless — including with the bar unmapped behind a fullscreen
-    // game, which is exactly when nobody is looking at it.
+    // Keeping the layout current costs a poll, so the ref is held only while the
+    // indicator is genuinely on screen.
+    //
+    // NOT `root.visible`. An Item inside a hidden Window still reports
+    // visible == true — measured, and documented in ServiceRef's own header as
+    // "exactly how the stats page kept six pollers running after the dashboard
+    // was closed". TopBar is a PanelWindow unmapped by fullscreenCovers(), so
+    // gating on `visible` held the ref for the entire session and the 4-second
+    // poll ran behind every fullscreen game. The commit that introduced this
+    // claimed the saving and did not deliver it.
     ServiceRef {
         service: CompositorService.layoutRef
-        active:  root.available && root.visible
+        active:  root.available && !ShellState.fullscreenCovers(root.screenName)
     }
 
     // ── State ────────────────────────────────────────────────────────────────

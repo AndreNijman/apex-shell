@@ -67,12 +67,30 @@ QtObject {
     // ── Dialect ───────────────────────────────────────────────────────────────
     readonly property bool _lua: ShellState.configProvider === "lua"
 
-    property Process _proc: Process { command: []; running: false }
+    // ── One Process per concern, deliberately not one shared Process ──────────
+    // `running = false; running = true` on a Process TERMINATES whatever it is
+    // currently running. Consolidating the four commands below onto one shared
+    // Process — which is what the first draft of this file did — made them able
+    // to kill each other, and they could not before: they used to live in four
+    // separate files with four separate Process objects.
+    //
+    // Verified against a live Quickshell: start `bash -c "sleep 1; echo FIRST"`,
+    // reassign and restart 200 ms later with `echo SECOND`, and only SECOND
+    // runs.
+    //
+    // The one that makes this severe rather than untidy is the submap. If a
+    // concurrent border retint or layout change kills `hyprctl dispatch submap
+    // reset`, Hyprland stays in ApexShell_clean and EVERY KEY falls through to
+    // the shell until Hyprland is restarted. A wallpaper apply landing while
+    // focus mode is mid-write is the mundane version: gaps half-applied.
+    property Process _keywordProc: Process { command: []; running: false }
+    property Process _gapsWriteProc: Process { command: []; running: false }
+    property Process _submapProc:  Process { command: []; running: false }
 
-    function _run(argv) {
-        root._proc.command = argv
-        root._proc.running = false
-        root._proc.running = true
+    function _start(proc, argv) {
+        proc.command = argv
+        proc.running = false
+        proc.running = true
     }
 
     // A dispatcher call. `conf` takes the verb and its arguments positionally;
@@ -85,8 +103,8 @@ QtObject {
     // A config keyword write. hyprctl rather than the dispatch socket because
     // `keyword` is not a dispatcher.
     function _keyword(path, value, luaExpr) {
-        if (root._lua) root._run(["hyprctl", "eval", luaExpr])
-        else           root._run(["hyprctl", "keyword", path, value])
+        if (root._lua) root._start(root._keywordProc, ["hyprctl", "eval", luaExpr])
+        else           root._start(root._keywordProc, ["hyprctl", "keyword", path, value])
     }
 
     // ── Workspaces ────────────────────────────────────────────────────────────
@@ -147,6 +165,9 @@ QtObject {
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
+                // Same race as the window list: a title landing after the ref
+                // was released would overwrite the placeholder.
+                if (!root.titleWanted) return
                 let t = ""
                 let a = ""
                 try {
@@ -184,6 +205,11 @@ QtObject {
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
+                // The ref can be handed back while this query is still in
+                // flight, in which case onWindowsWantedChanged has already
+                // cleared the list and this result would refill it — a poller
+                // that "stopped" but left stale data behind. Discard it.
+                if (!root.windowsWanted) return
                 let out = []
                 try {
                     const list = JSON.parse(this.text) || []
@@ -334,9 +360,9 @@ QtObject {
 
     function setGaps(inner, outer) {
         // Both in one shell so the two writes cannot be seen half-applied.
-        root._run(["bash", "-c",
-                   `hyprctl keyword general:gaps_in ${inner} && ` +
-                   `hyprctl keyword general:gaps_out ${outer}`])
+        root._start(root._gapsWriteProc, ["bash", "-c",
+                    `hyprctl keyword general:gaps_in ${inner} && ` +
+                    `hyprctl keyword general:gaps_out ${outer}`])
     }
 
     // Both gaps in one call. This used to be two chained Processes in
@@ -349,6 +375,7 @@ QtObject {
         command: ["bash", "-c",
             "hyprctl -j getoption general:gaps_in; hyprctl -j getoption general:gaps_out"]
         running: false
+        onRunningChanged: if (!running) root._gapsSettle.restart()
         stdout: StdioCollector {
             onStreamFinished: {
                 const cb = root._gapsCallback
@@ -379,6 +406,24 @@ QtObject {
         }
     }
 
+    // A binary that cannot be executed emits NEITHER streamFinished NOR exited —
+    // only runningChanged. Without this, one failed exec leaves _gapsCallback
+    // non-null and every later readGaps is refused for the life of the session,
+    // and focus mode never flips because its callback never runs.
+    //
+    // The facade carries the same guard for outputState/inputState; it was
+    // identified there and not applied here.
+    property Timer _gapsSettle: Timer {
+        interval: 150
+        repeat: false
+        onTriggered: {
+            const cb = root._gapsCallback
+            if (!cb) return
+            root._gapsCallback = null
+            cb(false, null)
+        }
+    }
+
     function readGaps(callback) {
         // A second read while one is in flight would drop the first caller's
         // callback on the floor. Refuse instead — the caller gets an answer.
@@ -393,7 +438,7 @@ QtObject {
     // capturing a keybind.
     function setKeyboardInterception(on) {
         const target = on ? "ApexShell_clean" : "reset"
-        root._run(root._lua
+        root._start(root._submapProc, root._lua
             ? ["hyprctl", "dispatch", `hl.dsp.submap('${target}')`]
             : ["hyprctl", "dispatch", "submap", target])
     }
