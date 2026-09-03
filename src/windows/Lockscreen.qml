@@ -256,7 +256,7 @@ WlSessionLock {
                     color:  Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.55)
                     border.width: 2
                     border.color: surface.hasError
-                                      ? "#ff5c5c"
+                                      ? Theme.danger
                                       : (passwordInput.activeFocus ? Theme.active : Theme.border)
                     Behavior on border.color { ColorAnimation { duration: 140 } }
 
@@ -374,7 +374,7 @@ WlSessionLock {
                     height:  18
                     text: surface.hasError ? surface.errorText
                         : (surface.capsOn ? "󰪛  Caps Lock is on" : "")
-                    color: surface.hasError ? "#ff5c5c" : Theme.subtext
+                    color: surface.hasError ? Theme.danger : Theme.subtext
                     font.family:    "JetBrainsMono Nerd Font"
                     font.pixelSize: Theme.fs(14)
                 }

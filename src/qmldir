@@ -19,3 +19,4 @@ singleton NiriService 1.0 services/system/NiriService.qml
 singleton UpdateService 1.0 services/UpdateService.qml
 singleton SettingsService 1.0 services/SettingsService.qml
 singleton WolframService 1.0 services/WolframService.qml
+singleton SearchService 1.0 services/SearchService.qml

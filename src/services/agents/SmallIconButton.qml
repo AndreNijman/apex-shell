@@ -17,9 +17,9 @@ Rectangle {
     property string tip: ""
     signal activated()
 
-    width: Theme.fs(26)
-    height: Theme.fs(26)
-    radius: Theme.fs(5)
+    width: Theme.px(26)
+    height: Theme.px(26)
+    radius: Theme.px(5)
     color: hover.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.14)
                          : "transparent"
 

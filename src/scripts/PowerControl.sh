@@ -17,22 +17,60 @@ SHELL_DIR="${APEX_SHELL_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." &
 
 HYPRLOCK_CONF="${HYPRLOCK_CONF:-$SHELL_DIR/src/config/hyprlock.conf}"
 
+# The compositor adapter for scripts: detection, per-compositor commands, and
+# apex_run — the ONE place this file is allowed to replace its own process.
+# tests/check-compositor-backends.sh asserts that, and uses it to drive every
+# verb below for every compositor without any of them running.
+# shellcheck source=src/scripts/compositor.sh
+. "$(dirname -- "${BASH_SOURCE[0]}")/compositor.sh"
+
 # power <verb>  — verb is poweroff|reboot|suspend (same name in systemctl/loginctl)
 power() {
     if command -v systemctl >/dev/null 2>&1; then
-        exec systemctl "$1"
+        apex_run systemctl "$1"
     else
-        exec loginctl "$1"
+        apex_run loginctl "$1"
     fi
 }
 
 case "$1" in
     shutdown) power poweroff ;;
     reboot)   power reboot ;;
+    # ── Log out ──────────────────────────────────────────────────────────────
+    # This used to be `niri msg action quit` or else `hyprctl dispatch exit`.
+    # labwc ships no hyprctl, so on the APEX Floating session the Log Out button
+    # ran a command that does not exist and the session simply stayed put — an
+    # Openbox-fallback experience on the desktop §24 promises behaves like a
+    # mature one.
+    #
+    # Preference order, most correct first:
+    #
+    #   1. /usr/libexec/apex-session-logout, when APEX-OS ships it. Same job,
+    #      already written, already tested there; calling it keeps the two repos
+    #      from drifting into two different answers.
+    #   2. `loginctl terminate-session $XDG_SESSION_ID` — compositor-neutral and
+    #      the RIGHT answer wherever the session is registered with logind,
+    #      because it tears the session down properly so user units stop and the
+    #      greeter comes back. Killing the compositor leaves that to chance.
+    #      Terminating your own session is allow_active in the shipped
+    #      org.freedesktop.login1.manage policy, so it does not prompt.
+    #      Guarded on XDG_SESSION_ID: `terminate-session` with no id is not a
+    #      portable "this one".
+    #   3. The compositor's own exit verb, from the adapter. This is what runs on
+    #      a machine with no logind session at all, and it is the branch the
+    #      coverage check requires all three compositors to have.
     logout)
-        # niri: `niri msg action quit --skip-confirmation`; Hyprland: dispatch exit.
-        if [ -n "$NIRI_SOCKET" ]; then exec niri msg action quit --skip-confirmation
-        else exec hyprctl dispatch exit; fi ;;             # quit compositor → back to greeter
+        helper="${APEX_SESSION_LOGOUT:-/usr/libexec/apex-session-logout}"
+        if [ -x "$helper" ]; then apex_run "$helper"; exit $?; fi
+        if command -v loginctl >/dev/null 2>&1 && [ -n "${XDG_SESSION_ID:-}" ]; then
+            apex_run loginctl terminate-session "${XDG_SESSION_ID}"; exit $?
+        fi
+        if ! name="$(apex_compositor)"; then
+            echo "logout: no known compositor (XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-unset})" >&2
+            exit 1
+        fi
+        apex_logout_command "$name"
+        apex_run "${APEX_CMD[@]}" ;;                        # quit compositor → back to greeter
     suspend)  power suspend ;;
     # ── Enter Gaming Mode ────────────────────────────────────────────────────
     # Record the session the greeter should preselect, then end this session so
@@ -50,19 +88,37 @@ case "$1" in
     # missing or refuses, the session is left exactly as it was. The shell only
     # offers this row when both the helper and the session file exist, so this is
     # the belt to that braces.
+    #
+    # The desktop being left is written down first (user state, no privilege) so
+    # `desktopmode` can bring the SAME desktop back. Best-effort: if it cannot be
+    # recorded, Gaming Mode still works and the way back falls through to what is
+    # installed.
     gamingmode)
         helper="${APEX_SESSION_HELPER:-/usr/libexec/apex-session-select}"
         if [ ! -x "$helper" ]; then
             echo "gaming mode: no session helper at $helper" >&2; exit 1
         fi
-        exec sudo -n "$helper" apex-gaming --switch ;;
+        apex_remember_desktop_session
+        apex_run sudo -n "$helper" apex-gaming --switch ;;
     # Leave Gaming Mode: same mechanism, pointed back at the desktop session.
+    #
+    # This used to pass a literal `hyprland`, so a labwc or niri user who entered
+    # Gaming Mode came back into Hyprland — a session they never chose, with a
+    # different shell layout and different keybinds. The id now comes from the
+    # adapter: what was remembered on the way in, else the compositor running
+    # now, else the first desktop session this image actually installs. Note it
+    # is a SESSION id and not a compositor name — APEX ships labwc as
+    # `apex-labwc`, and apex-session-select validates against what is installed.
     desktopmode)
         helper="${APEX_SESSION_HELPER:-/usr/libexec/apex-session-select}"
         if [ ! -x "$helper" ]; then
             echo "desktop mode: no session helper at $helper" >&2; exit 1
         fi
-        exec sudo -n "$helper" hyprland --switch ;;
+        if ! session="$(apex_desktop_session_id)"; then
+            echo "desktop mode: no desktop session installed in ${APEX_SESSION_DIR}" >&2
+            exit 1
+        fi
+        apex_run sudo -n "$helper" "$session" --switch ;;
     # One-shot reboot into Windows. The root-owned helper arms the EFI BootNext
     # variable (Windows Boot Manager, resolved and VERIFIED dynamically) and
     # reboots; BootNext is consumed after one boot, so the machine returns to the
@@ -90,12 +146,12 @@ case "$1" in
             echo "PowerControl.sh: no Windows boot helper at $HELPER (set APEX_WINDOWS_HELPER to override)." >&2
             exit 1
         fi
-        [ "$1" = "windows-check" ] && exec sudo -n "$HELPER" --check
-        exec sudo -n "$HELPER" ;;
+        [ "$1" = "windows-check" ] && apex_run sudo -n "$HELPER" --check
+        apex_run sudo -n "$HELPER" ;;
     # Native Quickshell lock screen (windows/Lockscreen.qml via the "lockscreen"
     # IPC target). Unlock is PAM-only — there is no unlock IPC.
-    lock)     exec qs ipc -c "$SHELL_DIR" call lockscreen lock ;;
+    lock)     apex_run qs ipc -c "$SHELL_DIR" call lockscreen lock ;;
     # Fallback: external hyprlock (kept for reference / emergencies)
-    # lock)     pidof hyprlock >/dev/null 2>&1 || exec setsid -f hyprlock -c "$HYPRLOCK_CONF" ;;
-    *)        echo "usage: PowerControl.sh {shutdown|reboot|logout|suspend|lock|windows|windows-check}" >&2; exit 1 ;;
+    # lock)     pidof hyprlock >/dev/null 2>&1 || apex_run setsid -f hyprlock -c "$HYPRLOCK_CONF" ;;
+    *)        echo "usage: PowerControl.sh {shutdown|reboot|logout|suspend|lock|gamingmode|desktopmode|windows|windows-check}" >&2; exit 1 ;;
 esac

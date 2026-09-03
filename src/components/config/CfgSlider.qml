@@ -68,7 +68,7 @@ Item {
             width:  bar.thumbD
             height: bar.thumbD
             radius: bar.thumbD / 2
-            color:  "#ffffff"
+            color:  Theme.fixedLight
             anchors.verticalCenter: parent.verticalCenter
             x: Math.max(0, Math.min(bar.width - width, root._frac * (bar.width - width)))
             Behavior on x { NumberAnimation { duration: 60; easing.type: Easing.OutCubic } }

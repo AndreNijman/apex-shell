@@ -265,7 +265,7 @@ Item {
                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.07)
                 : _rH.hovered ? Qt.rgba(1, 1, 1, 0.04) : "transparent"
             border.color: br._savedDupe
-                ? Qt.rgba(248/255, 113/255, 113/255, 0.35)
+                ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.35)
                 : br.isCapturing
                     ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.20)
                     : "transparent"
@@ -329,7 +329,7 @@ Item {
                 anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                 text:           br._b ? br._b.label : br.action
                 font.pixelSize: Theme.fs(12)
-                color:          br._savedDupe ? "#f87171" : (br._isUnbound ? Qt.rgba(1, 1, 1, 0.35) : Qt.rgba(1, 1, 1, 0.68))
+                color:          br._savedDupe ? Theme.danger : (br._isUnbound ? Qt.rgba(1, 1, 1, 0.35) : Qt.rgba(1, 1, 1, 0.68))
                 Behavior on color { ColorAnimation { duration: 120 } }
             }
 
@@ -343,7 +343,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     text:           "⚠ " + KeybindService.conflictsWith(br.action)
                     font.pixelSize: Theme.fs(9)
-                    color:          Qt.rgba(248/255, 113/255, 113/255, 0.75)
+                    color:          Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.75)
                 }
 
 				// Clear bind
@@ -353,7 +353,7 @@ Item {
                     color: _clrH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
                     Behavior on color { ColorAnimation { duration: 100 } }
                     Text { anchors.centerIn: parent; text: "󰩺"; font.pixelSize: Theme.fs(11)
-                        color: _clrH.hovered ? "#ff4444" : Qt.rgba(1,1,1,0.28) }
+                        color: _clrH.hovered ? Theme.danger : Qt.rgba(1,1,1,0.28) }
                     HoverHandler { id: _clrH; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
                         anchors.fill: parent
@@ -488,7 +488,7 @@ Item {
                         width:  Math.max(120, _capT.implicitWidth + 18)
                         color:  Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08)
                         border.color: br._hasConflict
-                            ? Qt.rgba(248/255, 113/255, 113/255, 0.55)
+                            ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.55)
                             : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,
                                       br.capturedKey !== "" ? 0.40 : 0.18)
                         border.width: 1
@@ -499,7 +499,7 @@ Item {
                             anchors.centerIn: parent
                             font.pixelSize: Theme.fs(10); font.family: "JetBrains Mono"
                             color: br._hasConflict
-                                ? "#f87171"
+                                ? Theme.danger
                                 : br.capturedKey !== ""
                                     ? Theme.active
                                     : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.45)
@@ -536,7 +536,7 @@ Item {
                     anchors { left: parent.left; leftMargin: 2; verticalCenter: parent.verticalCenter }
                     text:           "⚠  Conflicts with: " + br._conflictLabel
                     font.pixelSize: Theme.fs(10)
-                    color:          "#f87171"
+                    color:          Theme.danger
                 }
             }
         }

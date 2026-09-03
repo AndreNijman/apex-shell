@@ -231,7 +231,7 @@ PopupWindow {
                         width:  col.thumbD
                         height: width
                         radius: width / 2
-                        color:  col.muted ? Qt.rgba(1,1,1,0.3) : "#ffffff"
+                        color:  col.muted ? Qt.rgba(1,1,1,0.3) : Theme.fixedLight
                         y: {
                             var travel = track.height - height
                             return Math.max(0, Math.min(travel, (1.0 - col.value) * travel))

@@ -226,7 +226,7 @@ Item {
                 id: titleText
                 text: root.title
                 font.pixelSize: Theme.fs(18); font.weight: Font.Bold
-                color: "#ffffff"
+                color: Theme.fixedLight
                 anchors.horizontalCenter: titleMetrics.width <= parent.width ? parent.horizontalCenter : undefined
                 NumberAnimation on x {
                     id: marqueeAnim

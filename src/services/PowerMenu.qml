@@ -175,6 +175,9 @@ Column {
             width:  root.width
             height: 44
             radius: Theme.cornerRadius
+            // KEPT deliberately. This is a full-width row tint, not a button fill,
+            // so it is far dimmer than Theme.dangerFill — using that token here
+            // would light the whole menu row up like a confirm button.
             color:  hov.hovered
                         ? (modelData.danger ? "#4d2020" : Theme.active)
                         : "transparent"
@@ -188,14 +191,14 @@ Column {
                 Text {
                     text:           modelData.icon
                     font.pixelSize: Theme.fs(16)
-                    color:          modelData.danger && hov.hovered ? "#ff6b6b" : hov.hovered?"#000000":Theme.text
+                    color:          modelData.danger && hov.hovered ? Theme.danger : hov.hovered?Theme.fixedDark:Theme.text
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
                 Text {
                     text:           modelData.label
                     font.pixelSize: Theme.fs(13)
-                    color:          modelData.danger && hov.hovered ? "#ff6b6b" : hov.hovered?"#000000":Theme.text
+                    color:          modelData.danger && hov.hovered ? Theme.danger : hov.hovered?Theme.fixedDark:Theme.text
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }

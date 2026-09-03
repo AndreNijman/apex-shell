@@ -59,13 +59,18 @@ Item {
     }
 
     // ── Color ─────────────────────────────────────────────────────────────────
+    // Two levels, because the four this replaced were not a ramp. They ran
+    // #ff4444 / #ff6b00 / #ffcc00 / #ff9900 at 5 / 10 / 20 / 30, which is not
+    // monotonic: 20% showed a calm yellow while 30% showed a more urgent orange,
+    // so the icon got *less* alarming as the battery drained past 30. That is
+    // accretion, not a designed scale, and there is no four-step severity token
+    // to express it with. Critical and low now use the same two tokens as
+    // BatteryWarning, which is the other surface reporting the same fact.
     readonly property color iconColor: {
         if (full)      return Theme.active
         if (charging)  return Theme.active
-        if (pct <= 5)  return "#ff4444"
-        if (pct <= 10) return "#ff6b00"
-        if (pct <= 20) return "#ffcc00"
-        if (pct <= 30) return "#ff9900"
+        if (pct <= 10) return Theme.danger
+        if (pct <= 30) return Theme.warning
         return Theme.text
     }
 

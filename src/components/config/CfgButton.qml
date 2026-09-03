@@ -17,7 +17,7 @@ Item {
     opacity: enabled ? 1 : 0.4
     Behavior on opacity { NumberAnimation { duration: 120 } }
 
-    readonly property color _accent: variant === "danger" ? "#f87171" : Theme.active
+    readonly property color _accent: variant === "danger" ? Theme.danger : Theme.active
 
     Rectangle {
         anchors.fill: parent
