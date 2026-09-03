@@ -375,7 +375,7 @@ Item {
 								}
 								text:           "󰔟"
 								font.pixelSize: Theme.fs(16)
-								color:          root.timerUrgent ? "#ff5555" : Theme.active
+								color:          root.timerUrgent ? Theme.danger : Theme.active
 								Behavior on color { ColorAnimation { duration: 200 } }
 							}
 
@@ -394,7 +394,7 @@ Item {
 								font.weight:    Font.Bold
 								font.family:    "JetBrains Mono"
 								horizontalAlignment: Text.AlignHCenter
-								color:          root.timerUrgent ? "#ff5555" : Theme.text
+								color:          root.timerUrgent ? Theme.danger : Theme.text
 								Behavior on color { ColorAnimation { duration: 200 } }
 
 								// Blink when urgent — opacity pulses 1 → 0.25 → 1
@@ -693,14 +693,14 @@ Item {
 										spacing: 5
 										Rectangle {
 											width: 7; height: 7; radius: 4
-											color: "#ffffff"
+											color: Theme.fixedLight
 											anchors.verticalCenter: parent.verticalCenter
 										}
 										Text {
 											id: recBtnLabel
 											text: "Record"
 											font.pixelSize: Theme.fs(11); font.weight: Font.Medium
-											color: "#ffffff"
+											color: Theme.fixedLight
 											anchors.verticalCenter: parent.verticalCenter
 										}
 									}
@@ -729,6 +729,10 @@ Item {
 								spacing: 7
 
 								// Pulsing red dot
+								// KEPT deliberately. The recording-indicator red, matching the
+								// Qt.rgba(0.9,0.2,0.2,…) fills around it — a camera tally light,
+								// not a danger state. Theme.danger would move it away from the
+								// rest of the recording controls.
 								Rectangle {
 									width:  8; height: 8; radius: 4
 									color:  "#ff4444"
@@ -832,6 +836,8 @@ Item {
 										anchors.centerIn: parent
 										text:           "⏹"
 										font.pixelSize: Theme.fs(10)
+										// KEPT — a LIGHT red reading on the dark red fill above. It is a
+										// fixed-contrast foreground, not the danger accent.
 										color:          "#ff9999"
 									}
 									HoverHandler { id: recStopH }

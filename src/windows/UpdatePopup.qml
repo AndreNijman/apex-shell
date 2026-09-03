@@ -89,10 +89,10 @@ PanelWindow {
             }
             width:  3
             radius: 2
-            color: UpdateService.updateSuccess      ? "#a6e3a1"
-                 : UpdateService.hasConflict        ? "#f5c47a"
+            color: UpdateService.updateSuccess      ? Theme.success
+                 : UpdateService.hasConflict        ? Theme.warning
                  : (UpdateService.lastError !== "" &&
-                    !UpdateService.updating)        ? "#f38ba8"
+                    !UpdateService.updating)        ? Theme.danger
                  : Theme.active
             Behavior on color { ColorAnimation { duration: 200 } }
         }
@@ -138,10 +138,10 @@ PanelWindow {
                         : UpdateService.hasConflict                        ? "󰙨"
                         : UpdateService.lastError !== ""                   ? "󰅙"
                         : "󰑓"
-                    color: UpdateService.updateSuccess      ? "#a6e3a1"
-                         : UpdateService.hasConflict        ? "#f5c47a"
+                    color: UpdateService.updateSuccess      ? Theme.success
+                         : UpdateService.hasConflict        ? Theme.warning
                          : (UpdateService.lastError !== "" &&
-                            !UpdateService.updating)        ? "#f38ba8"
+                            !UpdateService.updating)        ? Theme.danger
                          : Theme.active
                     Behavior on color { ColorAnimation { duration: 200 } }
 
@@ -182,7 +182,7 @@ PanelWindow {
                                 (UpdateService.stashCount === 1 ? "" : "s") +
                                 " — git stash pop to recover"
                 font.pixelSize: Theme.fs(10)
-                color:          "#f5c47a"
+                color:          Theme.warning
                 wrapMode:       Text.WordWrap
             }
 
@@ -332,13 +332,13 @@ PanelWindow {
                         color: saH.hovered
                             ? Qt.rgba(245/255, 196/255, 122/255, 0.22)
                             : Qt.rgba(245/255, 196/255, 122/255, 0.10)
-                        border.color: Qt.rgba(245/255, 196/255, 122/255, 0.38); border.width: 1
+                        border.color: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.38); border.width: 1
                         Behavior on color { ColorAnimation { duration: 120 } }
                         Text {
                             anchors.centerIn: parent
                             text:           "Stash & Update"
                             font.pixelSize: Theme.fs(11); font.weight: Font.Medium
-                            color:          "#f5c47a"
+                            color:          Theme.warning
                         }
                         HoverHandler { id: saH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: UpdateService.stashAndUpdate() }

@@ -14,8 +14,8 @@ Item {
     implicitHeight: 40
 
     readonly property color barColor: {
-        if (usedPct >= 90) return "#f38ba8"
-        if (usedPct >= 75) return "#f5c47a"
+        if (usedPct >= 90) return Theme.danger
+        if (usedPct >= 75) return Theme.warning
         return Theme.active
     }
 
