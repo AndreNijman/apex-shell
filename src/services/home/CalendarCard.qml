@@ -151,9 +151,9 @@ StatCard {
                         anchors.centerIn: parent
                         width: Math.min(parent.width, parent.height) - 4
                         height: width; radius: width / 2
-                        color: isToday ? Qt.rgba(166/255,208/255,247/255,0.15)
+                        color: isToday ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.15)
                                : dH.hovered && modelData.cur ? Qt.rgba(1,1,1,0.07) : "transparent"
-                        border.color: isToday ? Qt.rgba(166/255,208/255,247/255,0.3) : "transparent"
+                        border.color: isToday ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.3) : "transparent"
                         border.width: 1
                         Behavior on color { ColorAnimation { duration: 80 } }
                         Text {
@@ -161,7 +161,7 @@ StatCard {
                             font.pixelSize: Theme.fs(9); font.family: "JetBrains Mono"
                             font.weight: isToday ? Font.Bold : Font.Normal
                             color: isToday ? Theme.active
-                                   : modelData.cur ? Qt.rgba(205/255,214/255,244/255,0.55)
+                                   : modelData.cur ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b,0.55)
                                                    : Qt.rgba(1,1,1,0.13)
                         }
                     }

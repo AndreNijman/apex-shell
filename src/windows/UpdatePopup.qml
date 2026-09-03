@@ -330,8 +330,8 @@ PanelWindow {
                     Rectangle {
                         width: 128; height: 30; radius: 8
                         color: saH.hovered
-                            ? Qt.rgba(245/255, 196/255, 122/255, 0.22)
-                            : Qt.rgba(245/255, 196/255, 122/255, 0.10)
+                            ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.22)
+                            : Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.10)
                         border.color: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.38); border.width: 1
                         Behavior on color { ColorAnimation { duration: 120 } }
                         Text {

@@ -70,13 +70,22 @@ StatCard {
             anchors.verticalCenter: parent.verticalCenter
 
             Rectangle {
+                id: avatarWell
                 anchors.fill: parent
                 radius: width / 2
+
+                // The deep stop was a fixed #5082be while the near stop is the
+                // accent, so the gradient only read as a gradient on a blue
+                // wallpaper — on any other one it faded from the accent into an
+                // unrelated blue. Darkening the accent keeps the intended
+                // shading under every palette.
+                readonly property color _deep: Qt.darker(Theme.active, 1.8)
+
                 gradient: Gradient {
-                    GradientStop { position: 0.0; color: Qt.rgba(166/255,208/255,247/255,0.22) }
-                    GradientStop { position: 1.0; color: Qt.rgba(80/255,130/255,190/255,0.14) }
+                    GradientStop { position: 0.0; color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.22) }
+                    GradientStop { position: 1.0; color: Qt.rgba(avatarWell._deep.r, avatarWell._deep.g, avatarWell._deep.b, 0.14) }
                 }
-                border.color: Qt.rgba(166/255,208/255,247/255,0.22)
+                border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.22)
                 border.width: 1
             }
 
@@ -131,7 +140,7 @@ StatCard {
                 }
                 Text {
                     text: root._wm; font.pixelSize: Theme.fs(12)
-                    color: Qt.rgba(205/255,214/255,244/255,0.55)
+                    color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b,0.55)
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
@@ -145,7 +154,7 @@ StatCard {
                 Text {
                     text: root._uptime; font.pixelSize: Theme.fs(12)
                     font.family: "JetBrains Mono"
-                    color: Qt.rgba(205/255,214/255,244/255,0.55)
+                    color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b,0.55)
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }

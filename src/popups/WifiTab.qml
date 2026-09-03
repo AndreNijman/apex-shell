@@ -360,7 +360,7 @@ Item {
             border.color: netRow.isCurrent
                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
                 : netRow.needsPassword
-                    ? Qt.rgba(245/255,196/255,122/255,0.30)
+                    ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b,0.30)
                     : Qt.rgba(1,1,1,0.06)
             border.width: 1
             Behavior on color        { ColorAnimation { duration: 130 } }
@@ -385,7 +385,7 @@ Item {
                     visible: netRow.needsPassword && !netRow.isCurrent
                     text: netRow.net.enterprise ? "Enterprise login required" : "Password required"
                     font.pixelSize: Theme.fs(10)
-                    color: Qt.rgba(245/255,196/255,122/255,0.80)
+                    color: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b,0.80)
                 }
                 Text { visible: netRow.isCurrent; text: "Connected"; font.pixelSize: Theme.fs(10); color: Theme.active }
             }
@@ -427,7 +427,7 @@ Item {
                     visible: netRow.isCurrent; width: 28; height: 28; anchors.verticalCenter: parent.verticalCenter
                     Rectangle {
                         anchors.fill: parent; radius: 6
-                        color: fH.hovered ? Qt.rgba(248/255,113/255,113/255,0.15) : netRow.isForgetPending ? Qt.rgba(248/255,113/255,113/255,0.10) : "transparent"
+                        color: fH.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.15) : netRow.isForgetPending ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.10) : "transparent"
                         Behavior on color { ColorAnimation { duration: 100 } }
                     }
                     Text { anchors.centerIn: parent; text: "󰗼"; font.pixelSize: Theme.fs(13); color: (fH.hovered || netRow.isForgetPending) ? Theme.danger : Qt.rgba(1,1,1,0.3); Behavior on color { ColorAnimation { duration: 100 } } }
@@ -480,8 +480,8 @@ Item {
                 Behavior on opacity { NumberAnimation { duration: 150 } }
                 Rectangle {
                     anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
-                    radius: 8; color: Qt.rgba(248/255,113/255,113/255,0.07)
-                    border.color: Qt.rgba(248/255,113/255,113/255,0.22); border.width: 1
+                    radius: 8; color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.07)
+                    border.color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.22); border.width: 1
                     Row {
                         anchors.centerIn: parent; spacing: 12
                         Text { anchors.verticalCenter: parent.verticalCenter; text: "Forget this network?"; font.pixelSize: Theme.fs(11); color: Qt.rgba(1,1,1,0.55) }
@@ -494,7 +494,7 @@ Item {
                         }
                         Rectangle {
                             width: 54; height: 24; radius: 6
-                            color: ffH.hovered ? Qt.rgba(248/255,113/255,113/255,0.35) : Qt.rgba(248/255,113/255,113/255,0.18)
+                            color: ffH.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.35) : Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18)
                             Behavior on color { ColorAnimation { duration: 80 } }
                             Text { anchors.centerIn: parent; text: "Forget"; font.pixelSize: Theme.fs(10); font.weight: Font.Medium; color: Theme.danger }
                             HoverHandler { id: ffH; cursorShape: Qt.PointingHandCursor }
@@ -603,7 +603,7 @@ Item {
 
                 Rectangle {
                     width: 32; height: 32; radius: 8
-                    color: wfPwrH.hovered ? (root._wifiEnabled ? Qt.rgba(248/255,113/255,113/255,0.18) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)) : Qt.rgba(1,1,1,0.04)
+                    color: wfPwrH.hovered ? (root._wifiEnabled ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)) : Qt.rgba(1,1,1,0.04)
                     border.color: root._wifiEnabled ? Qt.rgba(1,1,1,0.10) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30)
                     border.width: 1
                     Behavior on color        { ColorAnimation { duration: 120 } }

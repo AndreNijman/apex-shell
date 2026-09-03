@@ -742,6 +742,26 @@ jobs:
       - name: Scale-token discipline (geometry px, text fs)
         run: ./tests/check-scale-tokens.sh
 
+      # The colour half of the same problem. Outside src/theme/ the tree held 66
+      # lines of hardcoded hex, including SEVEN different reds all meaning "this
+      # is wrong" — and two surfaces showing the same notification disagreed
+      # about its accent, so the bar changed colour as a toast expired into the
+      # list. A further 45 colours were hidden from grep entirely, written as
+      # Qt.rgba(248/255, 113/255, 113/255, a) — a hex literal in component
+      # fractions. Among them, the home dashboard's Calendar and Profile cards
+      # hardcoded the exact fallback values of `active` and `text`, so those two
+      # cards never followed the wallpaper at all.
+      #
+      # The allowlist is a set of (file, colour) pairs with a stated reason for
+      # each, and the total is asserted EXACTLY. A per-file tally would pass
+      # while someone swapped one literal for another in the same file, and this
+      # repo has shipped a `-ge 30` assertion that stayed green while 20 of 68
+      # items were dropped. Colours are extracted with a comment- and
+      # string-aware scanner, so prose can neither satisfy nor trip it, and that
+      # is self-tested in both directions.
+      - name: Colour-token discipline (theme tokens, allowlisted exceptions)
+        run: ./tests/check-color-tokens.sh
+
       - name: Remote agent status invariants
         run: |
           # Static half. Also SELF-TESTS its own checks: it mutates copies of
