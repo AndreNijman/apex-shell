@@ -179,9 +179,15 @@ check_tree() {
         in_fn "$svc" 'function _beginSweep\(force\)' 'if \(!force &&'
     want "only an explicit refresh forces a sweep" \
         has "$svc" '^[[:space:]]*function refresh\(\) \{ root\._beginSweep\(true\) \}'
-    want "two sweeps can never overlap" \
+    # All THREE clauses. `_pending` is "" for 60 ms between hosts, so a guard
+    # that only tests the two slots reads "idle" mid-sweep — and a forced
+    # refresh landing there delivered one host's exit code to another host's
+    # slot. Spelled out as one regex so dropping any clause goes red.
+    want "an in-flight sweep is recognised for its whole duration" \
         in_fn "$svc" 'function _beginSweep\(force\)' \
-              'if \(root\._listPending \|\| root\._pending !== ""\) return'
+              'root\._listPending \|\| root\._pending !== "" \|\| root\._advance\.running'
+    want "the busy flag does not blink off between hosts either" \
+        has "$svc" '^[[:space:]]*\|\| root\._advance\.running$'
 
     # ── a hung host must not wedge the sweep ─────────────────────────────────
     # ConnectTimeout=8 bounds getting there and nothing bounds what happens
@@ -487,6 +493,25 @@ sed -i 's|_hasRemote: RemoteAgentService.hosts.length > 0|_hasRemote: true|' \
 assert_changed "$MUT/m10" src/services/agents/AgentCenter.qml \
     && expect "an unconditional remote section is caught" "$MUT/m10" red
 
+# The guard clause with no test behind it until now. Dropping it from
+# _beginSweep leaves the identical text in `busy` two dozen lines up, so a
+# file-wide grep would still find it — this is the third mutant that only a
+# function-scoped check can catch.
+fresh_copy "$MUT/m11"
+python3 - "$MUT/m11/src/services/RemoteAgentService.qml" <<'M11'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old = '''        if (root._listPending || root._pending !== "" || root._advance.running)
+            return'''
+new = '''        if (root._listPending || root._pending !== "")
+            return'''
+assert old in s, "beginSweep guard anchor not found"
+open(p, "w").write(s.replace(old, new))
+M11
+assert_changed "$MUT/m11" src/services/RemoteAgentService.qml \
+    && expect "dropping the mid-sweep clause from the guard ONLY is caught" "$MUT/m11" red
+
 # ── the inverse mutant ───────────────────────────────────────────────────────
 # Prose that would trip a naive version of every check above, including prose
 # that quotes the exact strings the greps look for. It must NOT turn anything
@@ -506,6 +531,9 @@ fresh_copy "$MUT/c1"
     echo '//     root._queryProc.running = false'
     echo '//     root._pending = ""'
     echo '// MouseArea { onClicked: AgentService.kill(session.id) }  <- never again'
+    echo '// and its in-flight guard was only'
+    echo '//     if (root._listPending || root._pending !== "")'
+    echo '// which read as idle for 60ms between hosts.'
     echo '// None of that is here now.'
 } >> "$MUT/c1/src/services/RemoteAgentService.qml"
 {
