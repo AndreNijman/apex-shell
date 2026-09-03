@@ -4,10 +4,10 @@ import Quickshell.Io
 import "../../../"
 import "../../../components"
 import "../../../components/config"
-// src/services — where SystemStats is registered in qmldir, the same way
-// DataPage reaches DiskService and MemService. Not "../../system": that
-// directory is not on the import path, and the registered type is the one the
-// qmldir entry exists to provide.
+// src/services — the module whose qmldir registers SystemStats, reached the
+// same way DataPage reaches DiskService and MemService. Not "../../system":
+// that directory holds pragma-Singleton services too, and the qmldir entry
+// exists precisely to hand this type out.
 import "../../"
 
 // Config → Misc
