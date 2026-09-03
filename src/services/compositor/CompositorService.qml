@@ -49,7 +49,8 @@ import "../../"
 //   inputState()   → below; already compositor-neutral via apex-input-apply
 //
 // Plus what this shell genuinely needs on top: special workspaces, accent
-// borders, gaps, and keyboard interception (Hyprland submaps).
+// borders, gaps, keyboard interception (Hyprland submaps), the fullscreen
+// screen shader behind the Filter tile, and night light.
 // ──────────────────────────────────────────────────────────────────────────────
 
 QtObject {
@@ -82,6 +83,76 @@ QtObject {
     // Name of the active backend, for diagnostics and the Config → Misc page.
     readonly property string name: Compositor.name
 
+    // ── displayName / version() ───────────────────────────────────────────────
+    // How to write the running compositor down for a human: "Hyprland", not
+    // "hyprland". Capitalisation is a fact about each project, so each backend
+    // states its own; "" means there is no adapter and the caller should fall
+    // back to XDG_CURRENT_DESKTOP.
+    readonly property string displayName:
+        root.backend ? root.backend.displayName : ""
+
+    // The version string, asynchronously, because every compositor answers it
+    // by being executed:
+    //
+    //     CompositorService.version(function (ok, v) { … "0.56.2" … })
+    //
+    // Each backend declares only the argv (`versionCommand`); the process, the
+    // failure contract and the "first x.y[.z] on stdout" extraction live here,
+    // once, the same way windowBoxScript declares a fragment and the caller
+    // builds the pipeline. `[]` means the backend has no way to be asked, and
+    // the callback gets (false, "").
+    //
+    // The About panel used to do this itself with a `hyprctl version | grep -oE`
+    // pipeline and a parallel niri branch, in a shell one-liner that also read
+    // the kernel and counted packages. It was the last place outside this
+    // directory that named a compositor's CLI.
+    property var _versionCallback: null
+
+    property Process _versionProc: Process {
+        command: []
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const cb = root._versionCallback
+                root._versionCallback = null
+                if (!cb) return
+                const m = String(this.text).match(/[0-9]+\.[0-9]+(\.[0-9]+)?/)
+                if (m) cb(true, m[0])
+                else   cb(false, "")
+            }
+        }
+        // Same trap as the display/input helpers and readGaps: a binary that
+        // cannot be executed emits neither streamFinished nor exited, only
+        // runningChanged. Without this the About panel would wait forever for a
+        // version from a compositor whose CLI is not installed — which is the
+        // normal case for a shell running under something it was not built for.
+        onRunningChanged: if (!running) root._versionSettle.restart()
+    }
+
+    property Timer _versionSettle: Timer {
+        interval: 150
+        repeat: false
+        onTriggered: {
+            const cb = root._versionCallback
+            if (!cb) return
+            root._versionCallback = null
+            cb(false, "")
+        }
+    }
+
+    function version(callback) {
+        const argv = (root.backend && root.backend.versionCommand) || []
+        if (argv.length === 0) { callback(false, ""); return false }
+        // A second read while one is in flight would drop the first caller's
+        // callback on the floor, exactly as readGaps refuses to.
+        if (root._versionCallback !== null) { callback(false, ""); return false }
+        root._versionCallback = callback
+        root._versionProc.command = argv
+        root._versionProc.running = false
+        root._versionProc.running = true
+        return true
+    }
+
     // True once the backend has real data. Hyprland and labwc are ready
     // immediately; niri is ready when its event stream connects.
     readonly property bool ready: root.backend ? root.backend.ready : false
@@ -105,7 +176,9 @@ QtObject {
         accentBorder:         false,   // can retheme the active-window border
         gaps:                 false,   // can change window gaps at runtime
         tilingLayout:         false,   // has named tiling layouts to cycle
-        keyboardInterception: false    // can grab all keys (Hyprland submaps)
+        keyboardInterception: false,   // can grab all keys (Hyprland submaps)
+        screenShader:         false,   // can run a fullscreen fragment shader
+        nightLight:           false    // has a colour-temperature shifter
     })
 
     readonly property var can: {
@@ -198,6 +271,11 @@ QtObject {
     // linger. Each backend emits it from its own native focus events, which are
     // free on all three — Hyprland's raw event stream, niri's event stream and
     // labwc's foreign-toplevel — so there is no refcount on this one.
+    //
+    // "A different monitor" is load-bearing and costs something on Hyprland:
+    // with `follow_mouse` on, a cursor crossing a monitor boundary fires it and
+    // closes every open popup. That is deliberate — see _FOCUS_EVENTS in
+    // HyprlandBackend.qml, which records the decision and what it replaced.
     signal focusMoved()
 
     property Connections _backendFocus: Connections {
@@ -225,6 +303,21 @@ QtObject {
     readonly property var titleRef: QtObject {
         property alias refCount: root.titleRefCount
     }
+
+    // Whether holding the ref is what makes the data exist, or only what would
+    // make it exist if it cost anything. True on Hyprland (a `hyprctl` per
+    // refresh, and the list empties when the last ref goes); false on niri and
+    // labwc, where the compositor pushes both and they stay live.
+    //
+    // A consumer should ignore these and hold a ref regardless — that is the
+    // contract, and it is the same on every backend. They exist because the
+    // facade suite cannot otherwise tell "the refcount works" from "there was
+    // never anything to gate", and asserting Hyprland's emptiness everywhere is
+    // exactly the false universal this replaced.
+    readonly property bool windowsPolled:
+        root.backend ? root.backend.windowsPolled === true : false
+    readonly property bool titlePolled:
+        root.backend ? root.backend.titlePolled === true : false
 
     // Demand is pushed INTO the backend rather than pulled out of this singleton.
     // A backend that imported CompositorService to read the counters would be a
@@ -298,6 +391,45 @@ QtObject {
     // Route every key to the shell (Hyprland submap) and back again.
     function setKeyboardInterception(on) {
         return root._act("keyboardInterception", "setKeyboardInterception", [on])
+    }
+
+    // ── Screen shader ─────────────────────────────────────────────────────────
+    // The Filter tile. A fullscreen fragment shader over the composited output;
+    // only Hyprland has a hook for one, so the tile hides on `can.screenShader`
+    // rather than on a compositor name.
+    //
+    // Reported as a basename without its extension — "protanopia" — because
+    // that is what the picker lists and the tile shows. "" means none.
+    //
+    // A property rather than a read-with-callback on purpose: the backend keeps
+    // it current (it re-reads after every apply), so a caller binds to it and a
+    // failed read leaves a stale value instead of a callback that never fires.
+    readonly property string screenShader:
+        root.backend ? root.backend.screenShader : ""
+
+    // path is ABSOLUTE, or "" to turn the shader off. Finding a shader file on
+    // disk is the caller's job — shader directories are a user-config concern
+    // and have nothing to do with which compositor is running.
+    function setScreenShader(path) {
+        return root._act("screenShader", "setScreenShader", [path])
+    }
+
+    // For the cases where something outside the shell may have changed it — a
+    // config reload, a wallpaper apply that reloads Hyprland.
+    function refreshScreenShader() {
+        return root._act("screenShader", "refreshScreenShader", [])
+    }
+
+    // ── Night light ───────────────────────────────────────────────────────────
+    // hyprsunset. A daemon rather than a compositor feature, but it shifts the
+    // colour temperature through `hyprland-ctm-control-v1` and so does nothing
+    // at all anywhere else, which makes it exactly the kind of thing this map
+    // exists to answer honestly.
+    readonly property bool nightLightActive:
+        root.backend ? root.backend.nightLightActive : false
+
+    function setNightLight(on) {
+        return root._act("nightLight", "setNightLight", [on])
     }
 
     // ── screenshot(): the picker, not the capture ─────────────────────────────

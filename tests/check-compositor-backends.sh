@@ -96,15 +96,25 @@ done
 # ── Every backend answers the facade's whole surface ─────────────────────────
 # The facade reads these unconditionally; a backend missing one yields undefined,
 # which propagates into the UI as a blank rather than an error.
+#
+# windowsPolled/titlePolled are in here rather than in the capability map on
+# purpose. The map answers "what can this compositor do"; these two answer
+# "what does it cost", which is a different question with a different consumer
+# — the facade test, which cannot otherwise tell a backend that empties its
+# window list without a ref from one whose list is live regardless.
 SURFACE=(ready capabilities windowsWanted titleWanted workspaces windows
          workspaceSlots specialWorkspaceOpen layoutWanted layoutName
          layoutWindowCount layouts
          focusedTitle focusedAppName focusedOutput focusedWorkspaceId
-         windowBoxScript outputBoxScript)
+         windowBoxScript outputBoxScript
+         windowsPolled titlePolled
+         screenShader nightLightActive
+         displayName versionCommand)
 METHODS=(focusWorkspace toggleSpecialWorkspace focusWindow closeWindow
          moveWindowToWorkspace toggleOverview setAccentBorder setGaps readGaps
          setLayout
-         setKeyboardInterception)
+         setKeyboardInterception
+         setScreenShader refreshScreenShader setNightLight)
 
 # The facade binds a Connections to `backend.focusMoved`. A backend that does
 # not declare it makes that binding silently dead — popups would simply stop
@@ -126,6 +136,102 @@ for b in "${BACKENDS[@]}"; do
         ok "$b implements the full facade surface"
     else
         bad "$b is missing:$missing"
+    fi
+done
+
+# ── The hyprctl boundary ─────────────────────────────────────────────────────
+# 5.2's actual finish line: `hyprctl` is spawned from ONE directory. Everything
+# else asks CompositorService, which refuses where the capability is false
+# rather than spawning a doomed process — the failure mode that had a shell on
+# sway polling `hyprctl -j activeworkspace` every four seconds forever.
+#
+# This is a boundary and not a ban. Three files outside the adapter still spawn
+# it, each for a stated reason, and each is ASSERTED to still need it: an
+# allowlist entry that outlives its file's migration silently re-permits
+# something already fixed, which is how allowlists rot into decoration.
+#
+# Matching is command-shaped rather than "contains the word". Half of this
+# shell's prose is about what it used to spawn, and the Display page's own
+# error text reads "…nor hyprctl is available." — a check that fails on its own
+# documentation is a check somebody deletes. So `hyprctl` has to be the FIRST
+# WORD of a command: at the start of a line, or right after a quote, a pipe, a
+# semicolon, an `&&`, a `(` or an `exec`. Comment lines are dropped too.
+HYPRCTL_ALLOWED=(
+    # `hyprctl binds -j` (the capture-conflict cache) and `hyprctl reload`.
+    # Keybind generation is 5.3, not 5.2, and there is nothing to migrate these
+    # onto: `binds` has no analogue anywhere else — labwc's bindings are
+    # generated into rc.xml by apex-labwc-keybinds and niri live-reloads its
+    # own config — so a capability here would wrap a one-backend feature in a
+    # one-backend capability and answer false everywhere it was asked.
+    "src/services/config_tab/KeybindService.qml"
+    # `hyprctl dispatch exit` — log out. This script IS the compositor adapter
+    # for that verb, in the same sense CompositorService is for the rest.
+    "src/scripts/PowerControl.sh"
+    # `hyprctl dispatch dpms` — screen off, and it already branches to
+    # `niri msg action power-off-monitors` right beside it.
+    "src/scripts/DpmsControl.sh"
+)
+
+# grep -E, so this is one alternation and not a backreference.
+HYPRCTL_CMD='(^|["'"'"'`;|&(]|exec )[[:space:]]*hyprctl[[:space:]"]'
+
+hyprctl_spawns_in() {
+    grep -nE "$HYPRCTL_CMD" "$root/$1" 2>/dev/null \
+        | grep -vE '^[0-9]+:[[:space:]]*(//|#)'
+}
+
+# Every shell file that spawns it, adapter and allowlist removed.
+#
+# src/ plus shell.qml. The entry point lives at the repo root and is as much
+# "a file outside src/services/compositor/" as anything under src/ — it is
+# clean today, so leaving it out was a hole in the enforcement rather than a
+# leak, which is exactly the kind of gap this check exists to close.
+#
+# Rooting the scan at the repo instead would be worse, not better: it would
+# newly match install.sh's `log_info "hyprctl dispatch exit"` and
+# dots-extra/install-arch.sh's `["hyprctl", "binds", "-j"]`. Those are
+# installers for a Hyprland desktop, not shell code that should be asking an
+# adapter, and failing on them would make this check something to work around.
+scan_files() {
+    find "$root/src" -type f \( -name '*.qml' -o -name '*.sh' -o -name '*.js' \)
+    [ -f "$root/shell.qml" ] && printf '%s\n' "$root/shell.qml"
+}
+
+leaks=""
+while IFS= read -r f; do
+    rel="${f#"$root"/}"
+    case "$rel" in src/services/compositor/*) continue ;; esac
+    allowed=0
+    for a in "${HYPRCTL_ALLOWED[@]}"; do
+        [ "$rel" = "$a" ] && allowed=1
+    done
+    [ "$allowed" -eq 1 ] && continue
+    [ -n "$(hyprctl_spawns_in "$rel")" ] && leaks="$leaks $rel"
+done < <(scan_files)
+
+# The scan must actually reach the entry point. Asserted through the real
+# scan_files, not a copy of it: a widening that silently matches nothing is the
+# same class of nothing as an allowlist entry that outlived its file.
+scan_reaches_shell_qml() { scan_files | grep -qx "$root/shell.qml"; }
+want "the hyprctl scan reaches shell.qml" scan_reaches_shell_qml
+
+want "nothing outside the adapter spawns hyprctl" test -z "$leaks"
+if [ -n "$leaks" ]; then
+    for rel in $leaks; do
+        echo "        $rel:"
+        hyprctl_spawns_in "$rel" | sed 's/^/          /'
+    done
+fi
+
+# The allowlist cannot rot: an entry whose file no longer spawns hyprctl has
+# been migrated, and leaving it listed re-permits a regression for free.
+for a in "${HYPRCTL_ALLOWED[@]}"; do
+    if [ ! -f "$root/$a" ]; then
+        bad "allowlisted $a does not exist; drop it from HYPRCTL_ALLOWED"
+    elif [ -z "$(hyprctl_spawns_in "$a")" ]; then
+        bad "allowlisted $a no longer spawns hyprctl; drop it from HYPRCTL_ALLOWED"
+    else
+        ok "$a is allowlisted and still needs to be"
     fi
 done
 

@@ -18,6 +18,12 @@ import QtQuick
 QtObject {
     readonly property bool ready: true
 
+    // Nothing is claimed, including the name. A caller wanting to show the user
+    // *something* falls back to XDG_CURRENT_DESKTOP, which is the only thing
+    // that is actually known here.
+    readonly property string displayName: ""
+    readonly property var    versionCommand: []
+
     // Declared so the facade's Connections has something to bind to. Never
     // emitted: with no adapter there is no focus to follow.
     signal focusMoved()
@@ -36,7 +42,9 @@ QtObject {
         accentBorder:         false,
         gaps:                 false,
         tilingLayout:         false,
-        keyboardInterception: false
+        keyboardInterception: false,
+        screenShader:         false,
+        nightLight:           false
     })
 
     // Demand, pushed in by CompositorService. Nothing here costs anything, so
@@ -44,6 +52,10 @@ QtObject {
     property bool windowsWanted: false
     property bool titleWanted:   false
     property bool layoutWanted:  false
+
+    // Nothing is polled because nothing is known. Both lists are constant.
+    readonly property bool windowsPolled: false
+    readonly property bool titlePolled:   false
 
     readonly property var    workspaces:         []
     readonly property int    workspaceSlots:     0
@@ -62,6 +74,9 @@ QtObject {
     readonly property string windowBoxScript: ""
     readonly property string outputBoxScript: ""
 
+    readonly property string screenShader:     ""
+    readonly property bool   nightLightActive: false
+
     // CompositorService gates every one of these on a capability, so none of
     // them can be reached. They exist so that a stray direct call on the backend
     // is a no-op rather than a TypeError.
@@ -76,4 +91,7 @@ QtObject {
     function readGaps(callback)                { callback(false, null) }
     function setLayout(name)                   { /* unreachable: capability is false */ }
     function setKeyboardInterception(on)       {}
+    function setScreenShader(path)             {}
+    function refreshScreenShader()             {}
+    function setNightLight(on)                 {}
 }
