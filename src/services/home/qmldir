@@ -3,3 +3,8 @@ CalendarCard   CalendarCard.qml
 ClockCard      ClockCard.qml
 PlayerCard     PlayerCard.qml
 QuickSettings  QuickSettings.qml
+# The quick-settings-tile extension point's host (roadmap §16). Declared here
+# rather than relying on implicit sibling resolution: QuickSettings is loaded
+# THROUGH this qmldir, so this directory is not on the import path and
+# `PluginTiles is not a type` is what you get instead.
+PluginTiles    PluginTiles.qml
