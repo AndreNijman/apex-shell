@@ -10,27 +10,62 @@ import "./src"
 // ─────────────────────────────────────────────────────────────────────────────
 // Behavioural test for CompositorService — the §17 compositor adapter facade.
 //
-//     quickshell -p tests/compositor-facade-test.qml
+//     ./tests/run-compositor-facade-test.sh      (the live session)
+//
+// To exercise the labwc backend without rebooting into labwc, stage it and run
+// it inside a nested one — the harness starts a filler toplevel, which this
+// suite needs (see "the session precondition" below):
+//
+//     cp tests/compositor-facade-test.qml .facade.qml \
+//       && ./tests/run-nested-labwc.sh .facade.qml 30; rm -f .facade.qml
+//
 // Exit status 0 = all assertions passed, 1 = at least one failed.
 //
 // ── This test runs against the LIVE compositor, so it never mutates it ───────
 // It reads workspaces, windows and the focused title from whatever session is
-// running it. It calls exactly one action — an action whose capability is false
-// on the backend under test — to prove the refusal path, and that call is a
-// no-op by construction. It never focuses a workspace, moves a window, changes
-// gaps or enters a submap. A test suite that reconfigures the developer's
-// desktop has happened here before and it is not happening again.
+// running it. It calls actions only where the capability under test is FALSE,
+// to prove the refusal path, and those calls are no-ops by construction. It
+// never focuses a workspace, moves a window, changes gaps, applies a shader,
+// starts hyprsunset or enters a submap. A test suite that reconfigured the
+// developer's desktop has happened here before and it is not happening again.
 //
 // What it proves:
 //   1. A backend is selected and matches the detected compositor.
 //   2. The capability map has exactly the schema keys and every value is a real
 //      boolean, not an undefined that reads as false by accident.
 //   3. An action whose capability is false returns false and spawns nothing.
-//   4. Window and title tracking are genuinely refcounted: empty with no refs,
-//      live data with a ref, and back to empty when the ref is handed back.
-//   5. outputState()/inputState() deliver (true, parsed) on success and
-//      (false, null) when the helper fails — proven against stubs, so the
-//      result does not depend on what this machine happens to have installed.
+//   4. Window and title tracking follow their backend's OWN refcount contract.
+//   5. outputState()/inputState()/version() deliver a success and a failure
+//      answer — the first two against stubs, so the result does not depend on
+//      what this machine happens to have installed.
+//
+// ── What is backend-specific, and why that had to be said out loud ───────────
+// This suite used to assert "windows are empty with no ref held" and "the title
+// is the placeholder with no ref held" flatly, for every backend. Those encode
+// HYPRLAND's refcount semantics as universal: Hyprland pays a `hyprctl` per
+// refresh, so it genuinely starts empty and reverts when the last ref goes. On
+// niri and labwc the same data arrives over a protocol the compositor pushes
+// anyway, so both properties are live whether or not anyone asked — and those
+// two assertions therefore FAILED there the moment a window existed, while
+// "holding a windows ref produces a window list" failed if one did not. The two
+// could not both pass, so the suite was Hyprland-only and did not admit it.
+//
+// So the assertions come in four kinds, and every one of them is labelled:
+//
+//   • Gated on CompositorService.windowsPolled / .titlePolled — the declared
+//     cost model. Polled backends must empty on release; pushed backends must
+//     already have the data before any ref is taken. Each branch asserts the
+//     thing that would go red if the other contract were implemented.
+//   • Gated on a capability (can.windows, can.workspaces, can.gaps, …). A
+//     backend that cannot do something is asserted to say so, not skipped.
+//   • The session precondition: at least one toplevel must exist, because
+//     every window assertion below is empty-loop-vacuous without one. That is
+//     a property of the SESSION and not of the facade — on the developer's
+//     desktop it is whatever they had open; inside a nested labwc it is the
+//     filler the harness starts. It is asserted rather than assumed, so an
+//     empty session goes RED instead of passing over nothing.
+//   • Backend-independent: the capability schema, the stub-driven state
+//     contracts, and loading all four backend files.
 // ─────────────────────────────────────────────────────────────────────────────
 
 ShellRoot {
@@ -52,7 +87,7 @@ ShellRoot {
         "windows", "windowGeometry", "outputGeometry",
         "windowFocus", "windowMove", "windowClose",
         "overview", "accentBorder", "gaps", "tilingLayout",
-        "keyboardInterception"
+        "keyboardInterception", "screenShader", "nightLight"
     ]
 
     // ── Refs, toggled by the phases below ────────────────────────────────────
@@ -81,6 +116,12 @@ ShellRoot {
     property var inputResult:  null
     property var missingResult: null
     property var gapsResult:    null
+    property var versionResult: null
+
+    // The no-ref baseline, captured in phase 2 and compared in phases 3 and 7.
+    // A pushed backend has to already have this data; a polled one must not.
+    property int  noRefWindowCount: -1
+    property string noRefTitle:     "<unread>"
 
     // ── Loading every backend, not only the selected one ─────────────────────
     readonly property var backendFiles: [
@@ -167,13 +208,21 @@ ShellRoot {
             //
             // So the capable half is checked by shape — the method exists and is
             // callable — and never invoked.
+            // setScreenShader and setNightLight are in here for the refusal
+            // path and are unreachable on Hyprland for the same reason
+            // setGaps(0, 0) is: on a capable backend the first would blank
+            // every monitor for a moment (the shader apply cycles DPMS to
+            // force a redraw) and the second would start hyprsunset on the
+            // developer's desktop and leave it running.
             const actions = [
                 ["specialWorkspace",     function () { return CompositorService.toggleSpecialWorkspace("x") }],
                 ["windowMove",           function () { return CompositorService.moveWindowToWorkspace("x", 1) }],
                 ["overview",             function () { return CompositorService.toggleOverview() }],
                 ["accentBorder",         function () { return CompositorService.setAccentBorder("000000") }],
                 ["gaps",                 function () { return CompositorService.setGaps(0, 0) }],
-                ["keyboardInterception", function () { return CompositorService.setKeyboardInterception(true) }]
+                ["keyboardInterception", function () { return CompositorService.setKeyboardInterception(true) }],
+                ["screenShader",         function () { return CompositorService.setScreenShader("") }],
+                ["nightLight",           function () { return CompositorService.setNightLight(true) }]
             ]
 
             let refusedCount  = 0
@@ -192,16 +241,66 @@ ShellRoot {
             check("every incapable action returns false and does nothing", allRefused)
             check("no capability is missing from the map", allDeclared)
 
+            // ── State that must be inert where the capability is false ──────
+            // A backend that cannot do a thing must not report having done it.
+            // Both of these would go red on a backend that declared false and
+            // then wired the property up anyway, which is how a hidden tile
+            // ends up lit.
+            check("no screen shader is reported without the capability",
+                  can.screenShader || CompositorService.screenShader === "")
+            check("night light is not reported active without the capability",
+                  can.nightLight || CompositorService.nightLightActive === false)
+
+            // displayName is how the About panel writes the compositor down.
+            // "" means the null backend, and the caller falls back to
+            // XDG_CURRENT_DESKTOP; anything else must be a real name.
+            check("displayName is set exactly when there is an adapter",
+                  CompositorService.name === ""
+                      ? CompositorService.displayName === ""
+                      : CompositorService.displayName !== "")
+
             root._mkStubs.running = true
             break
         }
 
         case 2: {
-            // ── Refcounting: nothing runs while nobody is looking ────────────
-            check("windows are empty with no ref held",
-                  CompositorService.windows.length === 0)
-            check("the title is the placeholder with no ref held",
-                  CompositorService.focusedTitle === "Desktop")
+            // ── Refcounting, on this backend's own terms ─────────────────────
+            // Baseline first, so phases 3 and 7 have something to compare
+            // against, then the half of the contract that is observable with
+            // no ref held.
+            root.noRefWindowCount = CompositorService.windows.length
+            root.noRefTitle       = CompositorService.focusedTitle
+
+            if (CompositorService.windowsPolled) {
+                // Enumeration costs a subprocess, so nothing may have run.
+                check("a polled backend lists no windows with no ref held",
+                      root.noRefWindowCount === 0)
+            } else if (CompositorService.can.windows) {
+                // The compositor pushes the list, so it is already there. This
+                // is the assertion that goes red if somebody later gates a
+                // pushed backend's list on windowsWanted — the failure the flat
+                // "windows are empty with no ref held" could never catch,
+                // because it asserted the opposite.
+                check("a pushed backend already lists windows with no ref held",
+                      root.noRefWindowCount > 0)
+            } else {
+                check("a backend without windows lists none, ref or not",
+                      root.noRefWindowCount === 0)
+            }
+
+            if (CompositorService.titlePolled) {
+                check("a polled backend reports the placeholder title with no ref held",
+                      root.noRefTitle === "Desktop")
+            } else if (CompositorService.can.windows) {
+                // Same shape for the title. "Desktop" here would mean either
+                // no focused window — which the session precondition in phase
+                // 3 rules out — or a title that is in fact ref-gated.
+                check("a pushed backend already reports the focused title with no ref held",
+                      root.noRefTitle !== "Desktop")
+            } else {
+                check("a backend without windows reports the placeholder title",
+                      root.noRefTitle === "Desktop")
+            }
 
             root.wantWindows = true
             root.wantTitle   = true
@@ -209,12 +308,36 @@ ShellRoot {
         }
 
         case 3: {
-            // ── Live data arrives once a ref is held ────────────────────────
+            // ── Live data with a ref held ───────────────────────────────────
             const w = CompositorService.windows
             if (CompositorService.can.windows) {
-                // This test is itself a client of the compositor, so there is at
-                // least one window — the terminal it was launched from.
-                check("holding a windows ref produces a window list", w.length > 0)
+                // ── The session precondition ────────────────────────────────
+                // Everything below loops over the window list, so all of it is
+                // vacuous without at least one window. Whether one exists is a
+                // property of the session and not of the facade: on a desktop
+                // it is whatever the user had open, and inside a nested labwc
+                // it is the filler run-nested-labwc.sh starts. Asserted, not
+                // assumed, so an empty session is a FAILED run and not a green
+                // one over an empty loop.
+                check("the session provides at least one toplevel (precondition)",
+                      w.length > 0)
+
+                // Holding the ref is what MAKES the list exist on a polled
+                // backend; on a pushed one it must not change it. Both halves
+                // are asserted, so neither contract can be implemented by
+                // accident.
+                if (CompositorService.windowsPolled)
+                    check("holding a windows ref produces a window list", w.length > 0)
+                else
+                    check("taking a windows ref does not change a pushed list",
+                          w.length === root.noRefWindowCount)
+
+                if (CompositorService.titlePolled)
+                    check("holding a title ref produces the focused title",
+                          CompositorService.focusedTitle !== "Desktop")
+                else
+                    check("taking a title ref does not change a pushed title",
+                          CompositorService.focusedTitle === root.noRefTitle)
 
                 let shaped = w.length > 0
                 for (let i = 0; i < w.length; i++) {
@@ -302,6 +425,13 @@ ShellRoot {
             // and decline to apply a change it could never undo.
             CompositorService.readGaps(function (ok, g) { root.gapsResult = [ok, g] })
 
+            // ── version() is a read too ─────────────────────────────────────
+            // It executes the compositor's own CLI, which is why it is a
+            // callback and why it carries the same settle timer: `hyprctl`,
+            // `niri` and `labwc` are all independently installable and a
+            // missing one must answer (false, "") rather than hang the caller.
+            CompositorService.version(function (ok, v) { root.versionResult = [ok, v] })
+
             // ── A helper that is not installed must still answer ─────────────
             // Not the same path as "exited non-zero": a missing binary never
             // starts, so there is no exit code and nothing collects stdout. The
@@ -327,6 +457,18 @@ ShellRoot {
                   root.missingResult !== null
                   && root.missingResult[0] === false
                   && root.missingResult[1] === null)
+
+            // An adapted compositor answers with a version; the null backend
+            // has no CLI to ask and answers (false, ""). Either way it answers
+            // — a pending callback here would mean the About panel never shows
+            // a WM row at all.
+            check("version() always answers, adapted or not",
+                  root.versionResult !== null
+                  && (CompositorService.displayName !== ""
+                        ? (root.versionResult[0] === true
+                           && /^[0-9]+\.[0-9]+/.test(root.versionResult[1]))
+                        : (root.versionResult[0] === false
+                           && root.versionResult[1] === "")))
             break
         }
 
@@ -348,11 +490,24 @@ ShellRoot {
         }
 
         case 7: {
-            // ── Handing the refs back stops the tracking ────────────────────
-            check("releasing the windows ref clears the list",
-                  CompositorService.windows.length === 0)
-            check("releasing the title ref restores the placeholder",
-                  CompositorService.focusedTitle === "Desktop")
+            // ── Handing the refs back ───────────────────────────────────────
+            // Polled backends must stop AND forget: a poller that "stopped" but
+            // left its last result behind is the stale-data bug this refcount
+            // exists to prevent. Pushed backends must be untouched by the
+            // release, because there was nothing to stop.
+            if (CompositorService.windowsPolled)
+                check("releasing the windows ref clears the list",
+                      CompositorService.windows.length === 0)
+            else if (CompositorService.can.windows)
+                check("releasing the windows ref leaves a pushed list intact",
+                      CompositorService.windows.length > 0)
+
+            if (CompositorService.titlePolled)
+                check("releasing the title ref restores the placeholder",
+                      CompositorService.focusedTitle === "Desktop")
+            else if (CompositorService.can.windows)
+                check("releasing the title ref leaves a pushed title intact",
+                      CompositorService.focusedTitle !== "Desktop")
 
             // ── Every backend, not just the one that happens to be running ──
             // Only one backend is ever selected, so a typo in the other three
@@ -360,9 +515,13 @@ ShellRoot {
             // Loading all four here parses and constructs each of them, which is
             // the whole class of error CI can catch without four compositors.
             //
-            // Constructing a backend is safe: they read state and start nothing.
-            // The one that costs something — Hyprland's hyprctl calls — is gated
-            // on windowsWanted/titleWanted, which nothing sets on these.
+            // Constructing a backend is safe, but no longer free: HyprlandBackend
+            // reads `hyprctl getoption decoration:screen_shader` and `pgrep -x
+            // hyprsunset` from Component.onCompleted so its screenShader and
+            // nightLightActive properties are honest from the start. Both are
+            // READS. Everything that costs more than that — window enumeration
+            // and the focused title — is still gated on windowsWanted /
+            // titleWanted, which nothing sets on these probes.
             root.probeIndex = 0
             root.probeBackends()
             break
