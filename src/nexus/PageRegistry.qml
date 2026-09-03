@@ -65,6 +65,14 @@ QtObject {
             "component": displayComp
         },
         {
+            "id": "blueprint",
+            "title": "Blueprint",
+            "subtitle": "What this machine should be, and what differs",
+            "icon": "󰦑",
+            "needsScreen": false,
+            "component": blueprintComp
+        },
+        {
             "id": "keybinds",
             "title": "Keybinds",
             "subtitle": "Shortcuts for every popup",
@@ -111,6 +119,9 @@ QtObject {
     }
     readonly property Component displayComp: Component {
         DisplayPage {}
+    }
+    readonly property Component blueprintComp: Component {
+        BlueprintPage {}
     }
     readonly property Component keybindsComp: Component {
         KeybindsPage {}
