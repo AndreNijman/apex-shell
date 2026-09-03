@@ -1,0 +1,10 @@
+{
+  "id": "apex-worldclock",
+  "name": "World Clock",
+  "description": "A second timezone in the bar, next to the local clock.",
+  "version": "1.0.0",
+  "apiVersion": "1.0",
+  "entry": "Widget.qml",
+  "extensionPoint": "bar-widget",
+  "permissions": ["files"]
+}
