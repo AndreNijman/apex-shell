@@ -52,7 +52,7 @@ ShellRoot {
         "windows", "windowGeometry", "outputGeometry",
         "windowFocus", "windowMove", "windowClose",
         "overview", "accentBorder", "gaps", "tilingLayout",
-        "keyboardInterception"
+        "keyboardInterception", "screenShader", "nightLight"
     ]
 
     // ── Refs, toggled by the phases below ────────────────────────────────────

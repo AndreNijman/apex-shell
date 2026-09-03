@@ -81,12 +81,27 @@ QtObject {
         accentBorder:         true,
         gaps:                 true,
         tilingLayout:         true,
-        keyboardInterception: true
+        keyboardInterception: true,
+        screenShader:         true,
+        nightLight:           true
     })
 
     property bool windowsWanted: false
     property bool titleWanted:   false
     property bool layoutWanted:  false
+
+    // ── What the refcounts actually buy ───────────────────────────────────────
+    // True because enumerating windows and reading the focused title each cost
+    // a `hyprctl` here: nothing runs while nobody holds a ref, and the list and
+    // title fall back to empty/"Desktop" the moment the last ref is handed
+    // back. On the wlroots backends the same data arrives over a protocol the
+    // compositor pushes, so it is live whether anyone asked or not.
+    //
+    // Declared rather than left as prose because the two are behaviourally
+    // different and the facade suite has to know which contract to assert. See
+    // the note in check-compositor-backends.sh on why this is not a capability.
+    readonly property bool windowsPolled: true
+    readonly property bool titlePolled:   true
 
     // ── Dialect ───────────────────────────────────────────────────────────────
     readonly property bool _lua: ShellState.configProvider === "lua"
@@ -110,6 +125,15 @@ QtObject {
     property Process _keywordProc: Process { command: []; running: false }
     property Process _gapsWriteProc: Process { command: []; running: false }
     property Process _submapProc:  Process { command: []; running: false }
+    property Process _shaderApplyProc: Process {
+        command: []
+        running: false
+        // The apply is a keyword write plus a damage cycle; re-read afterwards
+        // so the tile reflects what Hyprland actually ended up with rather than
+        // what was asked for.
+        onRunningChanged: if (!running) root.refreshScreenShader()
+    }
+    property Process _nightLightKillProc: Process { command: []; running: false }
 
     function _start(proc, argv) {
         proc.command = argv
@@ -290,6 +314,15 @@ QtObject {
     Component.onCompleted: {
         root._refreshTitle()
         root._refreshWindows()
+
+        // Two one-shot probes at startup — one `hyprctl getoption`, one
+        // `pgrep`. They used to run from QuickSettings.Component.onCompleted
+        // instead, so the same two forks happened on first dashboard open. Same
+        // count per session, moved earlier, and the properties are now honest
+        // from the start rather than reading false until somebody looks. These
+        // are one-shots, not the refcounted pollers: nothing repeats.
+        root.refreshScreenShader()
+        root._nightLightProbeProc.running = true
     }
 
     // ── Tiling layout ─────────────────────────────────────────────────────────
@@ -455,6 +488,127 @@ QtObject {
         root._gapsCallback = callback
         root._gapsProc.running = false
         root._gapsProc.running = true
+    }
+
+    // ── Screen shader ─────────────────────────────────────────────────────────
+    // `decoration:screen_shader` is a fullscreen fragment shader Hyprland runs
+    // over the composited output — the Filter tile's night-vision, protanopia
+    // and so on. Nothing else APEX ships has an equivalent: niri and labwc have
+    // no shader hook at all, which is why this is a capability rather than
+    // something every backend pretends to.
+    //
+    // The whole implementation used to live in QuickSettings, including the
+    // .conf/lua dialect split, which meant the tile was the only consumer left
+    // in the shell that knew what hyprctl was.
+    //
+    // Reported as a basename without its extension — "protanopia", not
+    // "/usr/share/hyprshade/shaders/protanopia.glsl" — because that is what the
+    // picker lists and what the tile shows. "" means no shader.
+    property string screenShader: ""
+
+    property Process _shaderReadProc: Process {
+        command: ["hyprctl", "getoption", "decoration:screen_shader", "-j"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                // Parsed here rather than through the `python3 -c` one-liner
+                // this replaced: same JSON, one fewer interpreter per read.
+                let s = ""
+                try {
+                    const d = JSON.parse(this.text)
+                    s = (d && d.str) ? String(d.str).trim() : ""
+                } catch (e) { s = "" }
+                // `[[EMPTY]]` is how Hyprland's .conf dialect spells "unset".
+                root.screenShader = (s === "" || s === "[[EMPTY]]")
+                    ? "" : root._shaderName(s)
+            }
+        }
+    }
+
+    function _shaderName(path) {
+        return String(path).replace(/^.*\//, "").replace(/\.[^.]*$/, "")
+    }
+
+    // No settle timer here, unlike readGaps: this is a property refresh and not
+    // a callback, so a hyprctl that cannot exec leaves the value stale rather
+    // than leaving a caller waiting on a reply that can never come.
+    function refreshScreenShader() {
+        root._shaderReadProc.running = false
+        root._shaderReadProc.running = true
+    }
+
+    // path is absolute, or "" to turn the shader off. Resolving a picker entry
+    // to a file is the caller's job — this backend does not search the disk.
+    function setScreenShader(path) {
+        const off = String(path) === ""
+
+        // ── The DPMS damage cycle ────────────────────────────────────────────
+        // Hyprland only re-runs the shader where it has damage, so applying one
+        // to an otherwise idle screen does nothing visible until something else
+        // happens to redraw. Cycling DPMS off and on forces a full redraw of
+        // every output.
+        //
+        // Carried over verbatim from QuickSettings, where it was written and
+        // proven on hardware. It is not obvious and it is not decorative; do
+        // not "simplify" it into a single dispatch.
+        const damage = root._lua
+            ? ` && hyprctl dispatch 'hl.dsp.dpms({ action = "disable" })'`
+              + ` && hyprctl dispatch 'hl.dsp.dpms({ action = "enable" })'`
+            : ` && hyprctl dispatch dpms off && hyprctl dispatch dpms on`
+
+        // The path goes in as a positional argument, never spliced into the
+        // script: it comes off the user's disk and may contain anything a
+        // filename may contain.
+        const write = off
+            ? (root._lua
+                ? `hyprctl eval "hl.config({ decoration = { screen_shader = '' } })"`
+                : `hyprctl keyword decoration:screen_shader '[[EMPTY]]'`)
+            : (root._lua
+                ? `hyprctl eval "hl.config({ decoration = { screen_shader = '$1' } })"`
+                : `hyprctl keyword decoration:screen_shader "$1"`)
+
+        root._start(root._shaderApplyProc,
+                    ["bash", "-c", write + damage, "--", String(path)])
+
+        // Optimistic, so the tile changes under the cursor rather than after
+        // the re-read lands. _shaderApplyProc corrects it either way.
+        root.screenShader = off ? "" : root._shaderName(path)
+    }
+
+    // ── Night light ───────────────────────────────────────────────────────────
+    // hyprsunset, and it belongs in the capability map even though it is a
+    // separate daemon rather than a compositor feature: it shifts the colour
+    // temperature through `hyprland-ctm-control-v1`, a Hyprland-only protocol,
+    // so it does nothing whatsoever on niri or labwc. The tile has to hide on
+    // *something*, and hiding it on a capability means the day somebody wires
+    // wlsunset up for the wlroots backends is one `true` in one file.
+    property bool nightLightActive: false
+
+    property Process _nightLightProc: Process {
+        command: ["hyprsunset", "-t", "5600"]
+        running: false
+    }
+
+    // Adopts a hyprsunset the user (or a previous shell) already started, so
+    // the tile does not offer to turn on something that is already on.
+    property Process _nightLightProbeProc: Process {
+        command: ["pgrep", "-x", "hyprsunset"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (this.text.trim() !== "") root.nightLightActive = true
+            }
+        }
+    }
+
+    function setNightLight(on) {
+        if (on) {
+            root._nightLightProc.running = true
+        } else {
+            root._nightLightProc.running = false
+            root._start(root._nightLightKillProc, ["pkill", "hyprsunset"])
+        }
+        root.nightLightActive = on
     }
 
     // Hyprland submaps: a named mode with no binds in it, so every key falls
