@@ -18,7 +18,7 @@ Row {
 	Workspaces { id: workspaces }
 	
 	//3. LayoutDisplay
-	LayoutDisplayer { id: layoutDisplayer }
+	LayoutDisplayer { id: layoutDisplayer; screenName: root.screenName }
 
 	// 4. Background applications
 	SysTray { id: sysTray }

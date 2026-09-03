@@ -402,41 +402,61 @@ StatCard {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  Focus Mode  (hyprctl gaps)
+    //  Focus Mode
+    //
+    //  Shrinks the bar, and on a compositor that has runtime gaps, closes those
+    //  too. The gaps half used to be four chained Processes here — two python
+    //  one-liners to read two integers, one to apply, one to restore, sequenced
+    //  through onRunningChanged. All of it is now two calls on the adapter, and
+    //  a compositor without runtime gaps refuses them and just flips the bar,
+    //  which is what the old `!isHyprland` early return did by hand.
     // ─────────────────────────────────────────────────────────────────────────
-    property int _savedGapsIn: 5; property int _savedGapsOut: 10
+    property int _savedGapsIn:  5
+    property int _savedGapsOut: 10
 
-    Process { id: readGapsIn
-        command: ["bash", "-c",
-            "hyprctl getoption general:gaps_in -j | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('int',5))\""]
-        running: false
-        stdout: SplitParser { onRead: function(l) { var v=parseInt(l.trim()); if(!isNaN(v)) root._savedGapsIn=v } }
-        onRunningChanged: if (!running) readGapsOut.running = true }
-    Process { id: readGapsOut
-        command: ["bash", "-c",
-            "hyprctl getoption general:gaps_out -j | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('int',10))\""]
-        running: false
-        stdout: SplitParser { onRead: function(l) { var v=parseInt(l.trim()); if(!isNaN(v)) root._savedGapsOut=v } }
-        onRunningChanged: if (!running) applyFocusGaps.running = true }
-    Process { id: applyFocusGaps
-        command: ["bash", "-c",
-            "hyprctl keyword general:gaps_in 0 && hyprctl keyword general:gaps_out 6"]
-        running: false; onRunningChanged: if (!running) ShellState.focusMode = true }
-    Process { id: restoreGaps; command: []; running: false
-        onRunningChanged: if (!running) ShellState.focusMode = false }
+    // Guards a double-toggle from racing its own restore. The old code flipped
+    // focusMode from restoreGaps.onRunningChanged — i.e. only once the restore
+    // subprocess had exited — and that sequencing is what made this impossible.
+    // Flipping immediately let a second toggle inside the window take the READ
+    // branch while `hyprctl keyword general:gaps_in 5 && …` was still running:
+    // if the read won, the saved gaps were overwritten with the shrunken 0/6 and
+    // the user's real gaps were gone for the rest of the session. A fast
+    // double-press of SUPER+B is enough.
+    property bool _gapsBusy: false
+
+    property Timer _gapsSettled: Timer {
+        interval: 250
+        repeat:   false
+        onTriggered: root._gapsBusy = false
+    }
+
     function _focusToggle() {
-        // Only Hyprland exposes gaps via hyprctl; everything else just flips
-        // the bar-shrink state (positive guard, so sway/KDE take this path too).
-        if (!root.isHyprland) {
-            ShellState.focusMode = !ShellState.focusMode
+        if (root._gapsBusy) return
+
+        if (ShellState.focusMode) {
+            if (CompositorService.setGaps(root._savedGapsIn, root._savedGapsOut)) {
+                root._gapsBusy = true
+                root._gapsSettled.restart()
+            }
+            ShellState.focusMode = false
             return
         }
-        if (ShellState.focusMode) {
-            restoreGaps.command = ["bash", "-c",
-                "hyprctl keyword general:gaps_in "  + root._savedGapsIn  +
-                " && hyprctl keyword general:gaps_out " + root._savedGapsOut]
-            restoreGaps.running = false; restoreGaps.running = true
-        } else { readGapsIn.running = false; readGapsIn.running = true }
+
+        // Read before shrinking, so what gets restored is what the user had and
+        // not the 5/10 default. If the read fails — or gaps are not a runtime
+        // concept here — fall through to flipping the bar alone rather than
+        // applying a shrink we could never undo.
+        CompositorService.readGaps(function (ok, g) {
+            if (ok) {
+                root._savedGapsIn  = g.inner
+                root._savedGapsOut = g.outer
+                if (CompositorService.setGaps(0, 6)) {
+                    root._gapsBusy = true
+                    root._gapsSettled.restart()
+                }
+            }
+            ShellState.focusMode = true
+        })
     }
     
     Connections {
