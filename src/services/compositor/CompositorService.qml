@@ -83,6 +83,76 @@ QtObject {
     // Name of the active backend, for diagnostics and the Config → Misc page.
     readonly property string name: Compositor.name
 
+    // ── displayName / version() ───────────────────────────────────────────────
+    // How to write the running compositor down for a human: "Hyprland", not
+    // "hyprland". Capitalisation is a fact about each project, so each backend
+    // states its own; "" means there is no adapter and the caller should fall
+    // back to XDG_CURRENT_DESKTOP.
+    readonly property string displayName:
+        root.backend ? root.backend.displayName : ""
+
+    // The version string, asynchronously, because every compositor answers it
+    // by being executed:
+    //
+    //     CompositorService.version(function (ok, v) { … "0.56.2" … })
+    //
+    // Each backend declares only the argv (`versionCommand`); the process, the
+    // failure contract and the "first x.y[.z] on stdout" extraction live here,
+    // once, the same way windowBoxScript declares a fragment and the caller
+    // builds the pipeline. `[]` means the backend has no way to be asked, and
+    // the callback gets (false, "").
+    //
+    // The About panel used to do this itself with a `hyprctl version | grep -oE`
+    // pipeline and a parallel niri branch, in a shell one-liner that also read
+    // the kernel and counted packages. It was the last place outside this
+    // directory that named a compositor's CLI.
+    property var _versionCallback: null
+
+    property Process _versionProc: Process {
+        command: []
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const cb = root._versionCallback
+                root._versionCallback = null
+                if (!cb) return
+                const m = String(this.text).match(/[0-9]+\.[0-9]+(\.[0-9]+)?/)
+                if (m) cb(true, m[0])
+                else   cb(false, "")
+            }
+        }
+        // Same trap as the display/input helpers and readGaps: a binary that
+        // cannot be executed emits neither streamFinished nor exited, only
+        // runningChanged. Without this the About panel would wait forever for a
+        // version from a compositor whose CLI is not installed — which is the
+        // normal case for a shell running under something it was not built for.
+        onRunningChanged: if (!running) root._versionSettle.restart()
+    }
+
+    property Timer _versionSettle: Timer {
+        interval: 150
+        repeat: false
+        onTriggered: {
+            const cb = root._versionCallback
+            if (!cb) return
+            root._versionCallback = null
+            cb(false, "")
+        }
+    }
+
+    function version(callback) {
+        const argv = (root.backend && root.backend.versionCommand) || []
+        if (argv.length === 0) { callback(false, ""); return false }
+        // A second read while one is in flight would drop the first caller's
+        // callback on the floor, exactly as readGaps refuses to.
+        if (root._versionCallback !== null) { callback(false, ""); return false }
+        root._versionCallback = callback
+        root._versionProc.command = argv
+        root._versionProc.running = false
+        root._versionProc.running = true
+        return true
+    }
+
     // True once the backend has real data. Hyprland and labwc are ready
     // immediately; niri is ready when its event stream connects.
     readonly property bool ready: root.backend ? root.backend.ready : false

@@ -18,6 +18,12 @@ import QtQuick
 QtObject {
     readonly property bool ready: true
 
+    // Nothing is claimed, including the name. A caller wanting to show the user
+    // *something* falls back to XDG_CURRENT_DESKTOP, which is the only thing
+    // that is actually known here.
+    readonly property string displayName: ""
+    readonly property var    versionCommand: []
+
     // Declared so the facade's Connections has something to bind to. Never
     // emitted: with no adapter there is no focus to follow.
     signal focusMoved()

@@ -36,6 +36,14 @@ QtObject {
     // construction, so readiness is "there is something to show".
     readonly property bool ready: WindowManager.windowsets !== null
 
+    readonly property string displayName: "labwc"
+
+    // labwc has no IPC socket, but it does have a `--version` flag:
+    // "labwc 0.9.6 (+xwayland +nls +rsvg +libsfdo)". The About panel used to
+    // print "WM: labwc:wlroots" here, straight out of XDG_CURRENT_DESKTOP,
+    // because nothing knew how to ask.
+    readonly property var versionCommand: ["labwc", "--version"]
+
     signal focusMoved()
 
     // labwc publishes no event stream at all, so focus is inferred from the two

@@ -29,6 +29,12 @@ QtObject {
     // waits.
     readonly property bool ready: NiriService.ready
 
+    readonly property string displayName: "niri"
+
+    // "niri 26.04" — two components, not three, which is why the facade's
+    // extraction treats the patch level as optional.
+    readonly property var versionCommand: ["niri", "--version"]
+
     signal focusMoved()
 
     // niri says so directly: the event stream reports focus moving between
