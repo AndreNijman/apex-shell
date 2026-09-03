@@ -243,14 +243,26 @@ jobs:
           # backend. Runs headless, which matters — the behavioural test below
           # needs a compositor and skips here, and a suite that skips proves
           # nothing.
+          #
+          # It also enforces 5.2's finish line: nothing under src/ outside
+          # src/services/compositor/ SPAWNS hyprctl. Three files still may, each
+          # named in the script with a reason, and each asserted to still need
+          # it so the allowlist cannot outlive its entries. Matching is
+          # command-shaped, not "contains the word" — the shell's prose is full
+          # of what it used to spawn, and the Display page's own error text
+          # mentions hyprctl.
           ./tests/check-compositor-backends.sh
 
       - name: Compositor facade behavioural test
         run: |
           # Needs a compositor; the harness skips cleanly without one so this
           # documents the entry point rather than silently not existing. Run it
-          # in a Wayland session to exercise all 36 assertions, including
+          # in a Wayland session to exercise all 48 assertions, including
           # loading every backend — not just the one for the running session.
+          #
+          # Its header explains how to stage it into a nested labwc, which is
+          # the only way to exercise the pushed-state branches without
+          # rebooting; both runs are 48/48.
           ./tests/run-compositor-facade-test.sh
 
       - name: Popup input regions must not sit outside their surface
