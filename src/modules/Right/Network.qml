@@ -70,8 +70,8 @@ Item {
 
     readonly property color _netColor: {
         if (!_ethernet && _signal <= 0) return Qt.rgba(1,1,1,0.28)
-        if (_offline)                   return "#f87171"
-        if (_limited)                   return "#f5c47a"
+        if (_offline)                   return Theme.danger
+        if (_limited)                   return Theme.warning
         return hov.hovered ? Theme.active : Theme.text
     }
 

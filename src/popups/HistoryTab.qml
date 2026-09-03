@@ -484,7 +484,7 @@ component ActionBtn: Rectangle {
         text:           ab.icon
         font.pixelSize: Theme.fs(13)
         color: ab.danger
-            ? (aH.hovered ? "#f87171" : Qt.rgba(248/255, 113/255, 113/255, 0.50))
+            ? (aH.hovered ? Theme.danger : Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.50))
             : ab.active
                 ? Theme.active
                 : (aH.hovered ? Qt.rgba(1, 1, 1, 0.88) : Qt.rgba(1, 1, 1, 0.38))

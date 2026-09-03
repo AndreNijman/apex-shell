@@ -138,7 +138,7 @@ Item {
         readonly property color urgencyColor: {
             if (!notification) return Theme.active
             switch (notification.urgency) {
-                case NotificationUrgency.Critical: return "#e06c75"
+                case NotificationUrgency.Critical: return Theme.danger
                 case NotificationUrgency.Low:      return Qt.rgba(1, 1, 1, 0.25)
                 default:                           return Theme.active
             }

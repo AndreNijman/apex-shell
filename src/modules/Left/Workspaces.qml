@@ -211,7 +211,7 @@ Rectangle {
         Text {
             anchors.centerIn: parent
             text: ""
-            color: "#FFFFFF"
+            color: Theme.fixedLight
             font.pixelSize: Theme.fs(14)
         }
 

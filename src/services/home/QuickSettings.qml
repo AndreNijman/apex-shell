@@ -689,7 +689,7 @@ StatCard {
                     }
                     Rectangle {
                         width: btw.thumbD; height: btw.thumbD; radius: btw.thumbD / 2
-                        color: "#ffffff"; anchors.verticalCenter: parent.verticalCenter
+                        color: Theme.fixedLight; anchors.verticalCenter: parent.verticalCenter
                         x: Math.max(0, Math.min(btw.width - width, root._brightVal * (btw.width - width)))
                         Behavior on x { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
                     }
