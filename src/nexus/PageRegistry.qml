@@ -15,8 +15,8 @@ import "../services/config_tab/pages"
 // Component that renders it — and appears everywhere.
 //
 // `needsScreen` marks pages that consume refcounted telemetry services and must
-// therefore be told whether they are genuinely on screen (see ServiceRef). Only
-// Data & Storage does today; getting it wrong on a new page means a poller that
+// therefore be told whether they are genuinely on screen (see ServiceRef). Data
+// & Storage and Misc do; getting it wrong on a new page means a poller that
 // never stops, so it is declared rather than inferred.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -85,7 +85,10 @@ QtObject {
             "title": "Misc",
             "subtitle": "Compositor, updates, about",
             "icon": "󰒓",
-            "needsScreen": false,
+            // SystemStats lives in the About area and shells out to collect
+            // distro/kernel/uptime/packages, so this page has to be told
+            // whether anyone is looking.
+            "needsScreen": true,
             "component": miscComp
         }
     ]

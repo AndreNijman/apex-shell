@@ -64,8 +64,31 @@ PanelWindow {
     Binding { target: ShellState; property: "topBarRWidth"; value: root.rWidth }
 
     // ── Caffeine — Wayland idle-inhibit while ShellState.caffeine is on ───────
-    // One inhibitor per bar window (always mapped); any active inhibitor stops
-    // the compositor's idle timers, so hypridle never dims/locks/suspends.
+    // One inhibitor per bar window, which is always mapped.
+    //
+    // This is the SECONDARY mechanism, and on Hyprland it does nothing at all.
+    // Measured on Hyprland 0.56.2 against hypridle 0.1.8, one arm per fresh
+    // nested compositor: an inhibitor on this layer surface leaves idle firing
+    // exactly as if it were absent, while the identical inhibitor on a plain
+    // toplevel suppresses it. Hyprland ignores idle inhibitors on layer-shell
+    // surfaces, and a bar is a layer-shell surface. On labwc 0.9.6 the same
+    // inhibitor on the same kind of surface DOES suppress idle.
+    //
+    // So this is kept, not deleted, and not gated on a capability:
+    //   • it works on labwc, and on anything else whose compositor honours the
+    //     protocol for layer surfaces;
+    //   • it is the ONLY route that works for an idle daemon which never asks
+    //     logind — swayidle being the obvious one — and the shell does not know
+    //     which daemon a session runs;
+    //   • where it is inert it costs one protocol object and nothing else.
+    //
+    // What actually makes Caffeine work today is the logind `idle` block
+    // inhibitor in ShellState, which is compositor-independent and held
+    // unconditionally. The two together are why the tile cannot be dead; see
+    // ShellState.caffeineInhibitor for the full measurement.
+    //
+    // `enabled` is Caffeine and nothing else — deliberately no compositor name
+    // and no capability, so no session can end up holding neither mechanism.
     IdleInhibitor {
         window:  root
         enabled: ShellState.caffeine

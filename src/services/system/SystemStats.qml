@@ -21,11 +21,34 @@ import "../../"
 //     has pinned the compositor, this row agrees with the rest of the shell.
 //   • The version arrives asynchronously, so the row appears with the name
 //     first and gains the version a moment later.
+//
+// ── Refcounted: it costs a subprocess ────────────────────────────────────────
+// The collector is a bash invocation that shells out to uname, uptime and a
+// package manager. That is cheap but not free, and `uptime` is stale the moment
+// it is read, so the honest model is: run it when somebody starts looking, and
+// not at all otherwise. Consumers therefore hold a ServiceRef:
+//
+//     SystemStats { id: stats }
+//     ServiceRef  { service: stats; active: root.onScreen }
+//
+// `onVisibleChanged` used to trigger the reload and has been removed. An Item
+// inside a hidden window still reports visible: true, so that hook fires for a
+// dashboard nobody has opened and never fires again when the page is genuinely
+// revealed a second time. It is the exact trap ServiceRef.qml's header warns
+// about, and it has already shipped twice in this repo.
 
 Item {
     id: root
 
-    onVisibleChanged: if (visible) reload()
+    // ── ServiceRef contract ───────────────────────────────────────────────────
+    // Held by whatever is displaying these rows. > 0 means a human can actually
+    // see them, which is when a fresh read is worth a subprocess.
+    property int refCount: 0
+
+    onRefCountChanged: {
+        if (root.refCount > 0) root.reload()
+        else                   statsProc.running = false
+    }
 
     // Rows as parsed from the collector, before the WM row is spliced in.
     property var _statsRows: []
@@ -52,6 +75,11 @@ Item {
 
     function reload() {
         root._statsRows = []
+        // false-then-true, not a bare `true`: assigning true to a Process that
+        // is already running is a no-op, so a second reveal would keep showing
+        // the first read's uptime. Same restart idiom as CompositorService's
+        // version and helper processes.
+        statsProc.running = false
         statsProc.running = true
 
         const name = CompositorService.displayName
@@ -105,13 +133,33 @@ Item {
             "elif command -v rpm >/dev/null 2>&1; then printf 'Packages: %s\\n' \"$(rpm -qa 2>/dev/null | wc -l)\"; " +
             "elif command -v flatpak >/dev/null 2>&1; then printf 'Packages: %s\\n' \"$(flatpak list --app 2>/dev/null | wc -l)\"; fi; " +
             "printf 'Hostname: %s\\n' \"$(cat /etc/hostname 2>/dev/null || uname -n)\""]
-        running: true
+
+        // A CONSTANT false, deliberately not `running: root.refCount > 0`.
+        // reload() drives this imperatively, and an imperative assignment to a
+        // bound property destroys the binding — after which the refcount would
+        // still increment and decrement while the gate it was supposed to
+        // control had silently stopped existing. Nothing errors; the poller
+        // just never stops again. So the gate lives in onRefCountChanged, which
+        // is the only writer, rather than being half binding and half
+        // assignment.
+        running: false
 
         stdout: StdioCollector {
             id: statsOut
             onStreamFinished: root._statsRows = root.parse(statsOut.text)
         }
     }
+
+    // Row height, named once so the intrinsic height below cannot drift from
+    // the delegate that actually draws them.
+    readonly property int rowHeight: 36
+
+    // An intrinsic height, so this can be dropped into a Column that sizes to
+    // its children — a CfgSection, say — instead of only working where the
+    // caller already knows how many rows there will be. Zero rows is zero
+    // height, which is what should happen before the collector answers.
+    implicitHeight: root.rows.length * root.rowHeight
+    implicitWidth:  200
 
     // --- Rows ---
     Column {
@@ -127,7 +175,7 @@ Item {
 
             delegate: Item {
                 width:  parent.width
-                height: 36
+                height: root.rowHeight
 
                 // Subtle alternating background
                 Rectangle {

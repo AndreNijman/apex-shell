@@ -124,7 +124,15 @@ StatCard {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  Caffeine  (Wayland idle-inhibit — inhibitors live in the TopBar windows)
+    //  Caffeine
+    //
+    //  A plain bool. The mechanisms hang off it elsewhere — a logind `idle`
+    //  block inhibitor in ShellState (the one that works everywhere) and a
+    //  Wayland surface inhibitor per TopBar window — and BOTH are held on every
+    //  compositor, so this tile is never conditional on the session. Unlike
+    //  Night Light and Filter above, it therefore has no capability gate and no
+    //  `visible:`: a tile that can disappear is how a feature quietly stops
+    //  existing on the compositor nobody tested.
     // ─────────────────────────────────────────────────────────────────────────
     readonly property bool caffeineOn: ShellState.caffeine
 
