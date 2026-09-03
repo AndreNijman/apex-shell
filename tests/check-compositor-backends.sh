@@ -180,7 +180,23 @@ hyprctl_spawns_in() {
         | grep -vE '^[0-9]+:[[:space:]]*(//|#)'
 }
 
-# Every file under src/ that spawns it, adapter and allowlist removed.
+# Every shell file that spawns it, adapter and allowlist removed.
+#
+# src/ plus shell.qml. The entry point lives at the repo root and is as much
+# "a file outside src/services/compositor/" as anything under src/ — it is
+# clean today, so leaving it out was a hole in the enforcement rather than a
+# leak, which is exactly the kind of gap this check exists to close.
+#
+# Rooting the scan at the repo instead would be worse, not better: it would
+# newly match install.sh's `log_info "hyprctl dispatch exit"` and
+# dots-extra/install-arch.sh's `["hyprctl", "binds", "-j"]`. Those are
+# installers for a Hyprland desktop, not shell code that should be asking an
+# adapter, and failing on them would make this check something to work around.
+scan_files() {
+    find "$root/src" -type f \( -name '*.qml' -o -name '*.sh' -o -name '*.js' \)
+    [ -f "$root/shell.qml" ] && printf '%s\n' "$root/shell.qml"
+}
+
 leaks=""
 while IFS= read -r f; do
     rel="${f#"$root"/}"
@@ -191,7 +207,13 @@ while IFS= read -r f; do
     done
     [ "$allowed" -eq 1 ] && continue
     [ -n "$(hyprctl_spawns_in "$rel")" ] && leaks="$leaks $rel"
-done < <(find "$root/src" -type f \( -name '*.qml' -o -name '*.sh' -o -name '*.js' \))
+done < <(scan_files)
+
+# The scan must actually reach the entry point. Asserted through the real
+# scan_files, not a copy of it: a widening that silently matches nothing is the
+# same class of nothing as an allowlist entry that outlived its file.
+scan_reaches_shell_qml() { scan_files | grep -qx "$root/shell.qml"; }
+want "the hyprctl scan reaches shell.qml" scan_reaches_shell_qml
 
 want "nothing outside the adapter spawns hyprctl" test -z "$leaks"
 if [ -n "$leaks" ]; then
