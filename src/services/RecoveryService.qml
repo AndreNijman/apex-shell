@@ -221,7 +221,11 @@ Singleton {
 
         const step = root._queue[0]
         root._queue = root._queue.slice(1)
+        // The settle timer belongs to the step that is FINISHING, and this line
+        // starts the next one. See `_settle` below for what happens without it.
+        root._settle.stop()
         root._pending = step
+        root._settleFor = ""
         root._buf = ""
         root._proc.command = root._stepArgv[step]
         root._proc.running = false
@@ -238,6 +242,8 @@ Singleton {
         root._cooldown.stop()
         root._advance.stop()
         root._watchdog.stop()
+        root._settle.stop()
+        root._settleFor = ""
         root._queue = []
         if (root._pending !== "") {
             root._pending = ""
@@ -258,14 +264,51 @@ Singleton {
         onExited: function (code) { root._resolve(code, root._buf) }
         // The "never started" case: a binary that cannot exec emits neither
         // `exited` nor `streamFinished`, only `runningChanged` -> false.
-        // Guarded by the one-shot slot rather than by a timing assumption.
-        onRunningChanged: if (!running) root._settle.restart()
+        onRunningChanged: if (!running) {
+            root._settleFor = root._pending
+            root._settle.restart()
+        }
     }
+
+    // ── Why this timer is TAGGED, and stopped by whoever starts a step ───────
+    //
+    // RemoteAgentService can guard its settle on a bare `_listPending` because
+    // that slot belongs to one step and no other. This service walks TWO steps
+    // through one process and one `_pending`, and copying the bare guard put
+    // the header's own warning — "one process's signal delivered to another's
+    // slot" — straight back in:
+    //
+    //   t=0    status exits. `runningChanged(false)` arms this timer (150 ms);
+    //          `_resolve` clears `_pending` and arms `_advance` (60 ms).
+    //   t=60   `_advance` runs `_next()`, which sets `_pending = "doctor"` and
+    //          starts the process. Assigning `running = false` when it is
+    //          already false emits nothing, so this timer is neither re-armed
+    //          nor cancelled — it is still counting from the STATUS exit.
+    //   t=150  it fires, sees a non-empty `_pending`, and resolves the DOCTOR
+    //          slot with `(null, "")`. `doctor.ok` goes false, so the Hardware
+    //          diagnostics section disappears, and the real doctor exit that
+    //          arrives afterwards finds the slot already consumed.
+    //
+    // Which gives `apex doctor --json` about 90 ms to answer or its result is
+    // thrown away — passing on an idle machine and failing under load, the
+    // worst shape a bug can have.
+    //
+    // Two independent fixes, because this is worth being certain about rather
+    // than clever about. `_next()` and `_standDown()` stop the timer, which is
+    // sufficient given that Qt emits property-change signals synchronously; and
+    // the tag records WHICH step armed it, so a fire is ignored unless that
+    // step is still the pending one — which holds whatever order `exited` and
+    // `runningChanged` arrive in.
+    property string _settleFor: ""
 
     property Timer _settle: Timer {
         interval: 150
         repeat: false
-        onTriggered: if (root._pending !== "") root._resolve(null, "")
+        onTriggered: {
+            if (root._pending === "") return
+            if (root._settleFor !== root._pending) return
+            root._resolve(null, "")
+        }
     }
 
     function _resolve(exitCode, text) {
@@ -363,6 +406,9 @@ Singleton {
         root.repairMessage = ""
         root.repairSteps = []
         root._repairBuf = ""
+        // Same window as `_settle`: a settle armed by the previous invocation
+        // would otherwise fire into this one's phase 150 ms from now.
+        root._repairSettle.stop()
         root._repairProc.command = ["apex", "recover", "repair", "--json"]
         root._repairProc.running = false
         root._repairProc.running = true
@@ -380,6 +426,7 @@ Singleton {
         root.repairPhase = "repairing"
         root.repairMessage = ""
         root._repairBuf = ""
+        root._repairSettle.stop()
         root._repairProc.command = ["apex", "recover", "repair", "--commit", "--json"]
         root._repairProc.running = false
         root._repairProc.running = true
@@ -475,6 +522,7 @@ Singleton {
         root.resetPhase = "idle"
         root.resetMessage = ""
         root._planProc.running = false
+        root._planSettle.stop()
         root._planWatchdog.stop()
     }
 
@@ -493,6 +541,7 @@ Singleton {
         root.resetMessage = ""
         root.resetPhase = "planning"
         root._planBuf = ""
+        root._planSettle.stop()
         root._planProc.command = argv
         root._planProc.running = false
         root._planProc.running = true
@@ -581,6 +630,7 @@ Singleton {
         root.resetMessage = ""
         root._commitOut = ""
         root._commitErr = ""
+        root._commitSettle.stop()
         root._commitProc.command = argv
         root._commitProc.running = false
         root._commitProc.running = true
