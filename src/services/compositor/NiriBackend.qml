@@ -62,6 +62,17 @@ QtObject {
     readonly property var    workspaces:         NiriService.workspaces
     readonly property var    windows:            NiriService.windows
     readonly property string focusedTitle:       NiriService.focusedTitle
+
+    // The app id, which is niri's nearest equivalent of Hyprland's initialTitle.
+    // The centre notch used to show the raw window title here while showing the
+    // application name on Hyprland — same widget, two different meanings
+    // depending on the session. It shows the application on both now.
+    readonly property string focusedAppName: {
+        const w = NiriService.windows
+        for (let i = 0; i < w.length; i++)
+            if (w[i].focused && w[i].appId !== "") return w[i].appId
+        return "Desktop"
+    }
     readonly property int    focusedWorkspaceId: NiriService.focusedWorkspaceId
 
     // The focused output is whichever workspace holds focus. niri reports the
@@ -108,5 +119,6 @@ QtObject {
 
     function setAccentBorder(hex)        { /* unreachable: capability is false */ }
     function setGaps(inner, outer)       { /* unreachable: capability is false */ }
+    function readGaps(callback)          { callback(false, null) }
     function setKeyboardInterception(on) { /* unreachable: capability is false */ }
 }

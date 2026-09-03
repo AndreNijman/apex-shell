@@ -42,6 +42,7 @@ QtObject {
     readonly property var    workspaces:         []
     readonly property var    windows:            []
     readonly property string focusedTitle:       "Desktop"
+    readonly property string focusedAppName:     "Desktop"
     readonly property string focusedOutput:      ""
     readonly property int    focusedWorkspaceId: -1
 
@@ -59,5 +60,6 @@ QtObject {
     function toggleOverview()                  {}
     function setAccentBorder(hex)              {}
     function setGaps(inner, outer)             {}
+    function readGaps(callback)                { callback(false, null) }
     function setKeyboardInterception(on)       {}
 }

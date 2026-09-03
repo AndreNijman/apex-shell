@@ -112,7 +112,14 @@ QtObject {
     // `hyprctl activewindow -j` on every raw event, but only while somebody
     // holds a title ref. Hyprland emits a raw event for essentially every state
     // change, so this is push-driven rather than polled.
-    property string focusedTitle: "Desktop"
+    property string focusedTitle:   "Desktop"
+
+    // Hyprland's `initialTitle` is the title the window had when it was mapped,
+    // which for almost every toolkit is the bare application name — "kitty",
+    // "Mozilla Firefox". That is what the notch wants, and it is what this shell
+    // has always displayed there, so the mapping is preserved rather than
+    // "improved" into `class`.
+    property string focusedAppName: "Desktop"
 
     property Process _titleProc: Process {
         command: ["hyprctl", "activewindow", "-j"]
@@ -120,11 +127,15 @@ QtObject {
         stdout: StdioCollector {
             onStreamFinished: {
                 let t = ""
+                let a = ""
                 try {
                     const d = JSON.parse(this.text)
-                    t = (d && d.title) ? d.title : ""
-                } catch (e) { t = "" }
-                root.focusedTitle = t !== "" ? t : "Desktop"
+                    // `{}` is what Hyprland returns with nothing focused.
+                    t = (d && d.title)        ? d.title        : ""
+                    a = (d && d.initialTitle) ? d.initialTitle : ""
+                } catch (e) { t = ""; a = "" }
+                root.focusedTitle   = t !== "" ? t : "Desktop"
+                root.focusedAppName = a !== "" ? a : "Desktop"
             }
         }
     }
@@ -136,8 +147,12 @@ QtObject {
     }
 
     onTitleWantedChanged: {
-        if (root.titleWanted) root._refreshTitle()
-        else                  root.focusedTitle = "Desktop"
+        if (root.titleWanted) {
+            root._refreshTitle()
+        } else {
+            root.focusedTitle   = "Desktop"
+            root.focusedAppName = "Desktop"
+        }
     }
 
     // ── Window list ───────────────────────────────────────────────────────────
@@ -240,6 +255,55 @@ QtObject {
         root._run(["bash", "-c",
                    `hyprctl keyword general:gaps_in ${inner} && ` +
                    `hyprctl keyword general:gaps_out ${outer}`])
+    }
+
+    // Both gaps in one call. This used to be two chained Processes in
+    // QuickSettings, each with its own python one-liner, sequenced by
+    // onRunningChanged — three subprocesses to read two integers, and no way to
+    // tell "the read failed" from "the gaps really are zero".
+    property var _gapsCallback: null
+
+    property Process _gapsProc: Process {
+        command: ["bash", "-c",
+            "hyprctl -j getoption general:gaps_in; hyprctl -j getoption general:gaps_out"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const cb = root._gapsCallback
+                root._gapsCallback = null
+                if (!cb) return
+
+                // Two JSON objects back to back. `custom` is the "5 5 5 5" form
+                // Hyprland reports for a CSS-style gap, and `int` is the plain
+                // one; take the first number of whichever is present.
+                const nums = []
+                const parts = this.text.split("}")
+                for (let i = 0; i < parts.length; i++) {
+                    const chunk = parts[i] + "}"
+                    let v = NaN
+                    try {
+                        const d = JSON.parse(chunk.trim())
+                        if (d.custom !== undefined && d.custom !== "")
+                            v = parseInt(String(d.custom).trim().split(/\s+/)[0])
+                        else if (d.int !== undefined)
+                            v = parseInt(d.int)
+                    } catch (e) { v = NaN }
+                    if (!isNaN(v)) nums.push(v)
+                }
+
+                if (nums.length >= 2) cb(true, { inner: nums[0], outer: nums[1] })
+                else                  cb(false, null)
+            }
+        }
+    }
+
+    function readGaps(callback) {
+        // A second read while one is in flight would drop the first caller's
+        // callback on the floor. Refuse instead — the caller gets an answer.
+        if (root._gapsCallback !== null) { callback(false, null); return }
+        root._gapsCallback = callback
+        root._gapsProc.running = false
+        root._gapsProc.running = true
     }
 
     // Hyprland submaps: a named mode with no binds in it, so every key falls

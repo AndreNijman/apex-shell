@@ -126,6 +126,13 @@ QtObject {
 
     readonly property string focusedTitle:
         root.backend ? root.backend.focusedTitle : "Desktop"
+
+    // The name to show a human — an application, not a document. The bar's
+    // centre notch wants "Firefox", not "(147) YouTube — Mozilla Firefox".
+    // Separate from focusedTitle because the two genuinely differ and the shell
+    // had drifted into using one on Hyprland and the other on niri.
+    readonly property string focusedAppName:
+        root.backend ? root.backend.focusedAppName : "Desktop"
     readonly property string focusedOutput:
         root.backend ? root.backend.focusedOutput : ""
     readonly property int focusedWorkspaceId:
@@ -195,6 +202,24 @@ QtObject {
     // hex is six digits, no leading '#'.
     function setAccentBorder(hex)       { return root._act("accentBorder", "setAccentBorder", [hex]) }
     function setGaps(inner, outer)      { return root._act("gaps", "setGaps", [inner, outer]) }
+
+    // Current gaps, so a caller that changes them can put them back. Focus mode
+    // is the only user: it shrinks the gaps and has to restore whatever the user
+    // actually had, not a hardcoded default.
+    //
+    //     CompositorService.readGaps(function (ok, g) { … g.inner, g.outer … })
+    //
+    // The callback gets (false, null) where gaps are not a runtime concept —
+    // which is everywhere except Hyprland.
+    function readGaps(callback) {
+        if (!root.can.gaps || !root.backend
+            || typeof root.backend.readGaps !== "function") {
+            callback(false, null)
+            return false
+        }
+        root.backend.readGaps(callback)
+        return true
+    }
 
     // Route every key to the shell (Hyprland submap) and back again.
     function setKeyboardInterception(on) {
