@@ -118,7 +118,7 @@ CfgScroll {
 
                     Rectangle {
                         anchors.fill: parent
-                        radius:       9
+                        radius:       10
                         color:        Qt.rgba(1,1,1,0.04)
                         clip:         true
 
@@ -133,12 +133,20 @@ CfgScroll {
                         }
                         Rectangle {
                             anchors.fill: parent
-                            radius:       9
+                            radius:       10
                             color:        "transparent"
                             border.width: parent.parent.active ? 2 : (wh.hovered ? 1 : 0)
                             border.color: parent.parent.active
                                 ? Theme.active
                                 : Qt.rgba(1,1,1,0.4)
+
+                            // The same selection ring as WallpaperPopup's thumbnail
+                            // grid, which is the other place this control exists.
+                            // That one eases; this one snapped its border on and off,
+                            // so the two wallpaper pickers felt like different
+                            // widgets. Same properties, same 120ms.
+                            Behavior on border.color { ColorAnimation  { duration: 120 } }
+                            Behavior on border.width { NumberAnimation { duration: 120 } }
                         }
                     }
                     HoverHandler { id: wh; cursorShape: Qt.PointingHandCursor }
