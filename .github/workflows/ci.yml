@@ -256,9 +256,21 @@ jobs:
       - name: Plugin platform decision logic
         run: |
           # Roadmap §16. Manifest validation, the apiVersion compatibility
-          # policy, the source scan, and the network host allowlist — the
-          # security-critical half of the plugin platform, decided in plain
-          # JavaScript precisely so it can be exercised here.
+          # policy, the source scan, the network host allowlist, and the row
+          # and tile allowlists for the two extension points where the SHELL
+          # draws plugin-supplied strings — the security-critical half of the
+          # plugin platform, decided in plain JavaScript precisely so it can be
+          # exercised here.
+          #
+          # The launcher row allowlist is the one to know about.
+          # AppLauncher.activate() dispatches on fields it finds on a row:
+          # `entry` runs a DesktopEntry and `exec` goes to `bash -c`. A row that
+          # kept either would be arbitrary command execution granted to a plugin
+          # that declared no permissions — the `system` permission this shell
+          # refuses at load, through the back door. launcherResults() builds a
+          # fresh object from an allowlist rather than deleting known-bad keys,
+          # because an allowlist cannot fall behind a launcher that learns a new
+          # row shape.
           #
           # The QML engine imports the same src/services/plugins/manifest.js
           # that this requires, so these are assertions about the shipped file
@@ -273,8 +285,21 @@ jobs:
           # The wiring half of §16: that those decisions are connected to
           # something, that nothing re-implements URL parsing or names its own
           # curl outside curlArgv(), that discovery has no poll timer, that the
-          # crash-isolating Loader still handles Loader.Error, and that the
-          # shipped example plugin passes the validator it meets at runtime.
+          # crash-isolating Loader still handles Loader.Error in every one of
+          # the three hosts, and that all three shipped example plugins pass the
+          # validator they meet at runtime.
+          #
+          # It also pairs EXTENSION_POINTS against the hosts in both directions.
+          # The list is read out of the shipped manifest.js rather than repeated
+          # here, so adding a name without writing a host fails the build — a
+          # name with no host behind it is a plugin that loads, is granted, and
+          # is then mounted by nothing, which to its author is indistinguishable
+          # from a bug in their own code.
+          #
+          # And it asserts the plugin-row branch of AppLauncher.activate() comes
+          # BEFORE the branches that run a DesktopEntry or hand an Exec string
+          # to `bash -c`. That is the second lock on the door the row allowlist
+          # already closes.
           #
           # It also greps for "not a sandbox" in manifest.js, PluginService.qml
           # and docs/plugins.md. QML plugins run in-process; the permission
@@ -288,10 +313,17 @@ jobs:
         run: |
           # Needs a compositor; the harness skips cleanly without one so this
           # documents the entry point rather than silently not existing. Run it
-          # in a Wayland session to exercise all 34 assertions — discovery on a
+          # in a Wayland session to exercise all 94 assertions — discovery on a
           # real filesystem, every refusal reason arriving on the fixture built
-          # to trigger it, and crash isolation proven by a plugin that passes
-          # every static check and then fails in the QML engine.
+          # to trigger it, crash isolation proven by a plugin that passes every
+          # static check and then fails in the QML engine, and each of the three
+          # extension points mounting through the host the shell really uses.
+          #
+          # One fixture is a launcher provider that passes every static check
+          # and then hands back rows carrying `exec`, `entry` and a `command`
+          # array. The node suite proves the sanitiser drops them; this proves
+          # nothing puts them back on the way through a real Loader, a real
+          # property written by the host, and a real array read back out.
           #
           # It builds its fixtures under XDG_RUNTIME_DIR and never reads or
           # writes the real ~/.config/apex-shell/plugins, and it makes no
