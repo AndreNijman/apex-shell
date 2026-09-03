@@ -301,6 +301,55 @@ When you are asked:
 * At most **five rows per provider**, appended *after* the app results. A
   provider adds to the list and cannot reorder it.
 
+### What the shell's own providers have that you do not
+
+§15 turned the launcher into a command surface: apps, files, settings, windows,
+clipboard, calculator, commands, projects, agents, SSH hosts and package search
+are now eleven **built-in** providers, and they use the contract above —
+`api`, `query`, `results`, `activate(index)` — with no privileged side channel.
+`tests/check-unified-search.sh` asserts each of them declares exactly those
+members and that none of them so much as names `Process`, `Quickshell.Io`,
+`FileView` or `Socket`.
+
+They have one field you do not, and it is worth being precise about what it is:
+
+| | plugin row | built-in row |
+|---|---|---|
+| `title` / `subtitle` / `icon` | yes | yes |
+| what Enter does | copies the title | may name an `action` |
+
+`action` is **not a command**. It is an id in a closed table the *host* owns
+(`ACTIONS` in `src/services/search.js`), and the table — not the row — owns the
+argv, the privilege it needs, the preview text and whether the action is safe,
+changes the system, or cannot be undone. A row names an action; it cannot
+invent one, alter one, or pass anything but one capped string as its argument.
+The sanitiser drops the field from any row that did not come from a built-in
+descriptor, so a plugin row carrying one gets silence rather than an error.
+
+**Why you do not get it yet.** A provider that could name an arbitrary command
+would hold the `system` permission, and this shell refuses that at load for a
+reason that has not changed: *no permission may grant a capability that
+subsumes the others*. A plugin that can spawn a process can curl anything and
+read any file, which would make `network` and `files` decorative.
+
+**What would have to happen for you to get it.** The refusal note in
+`manifest.js` says `system` stays unimplemented "until there is a specific,
+enumerable set of system ACTIONS to expose rather than a general escape hatch".
+`ACTIONS` is now that set. So handing it to plugins is a *permission* question
+and not an architecture one: a later `apiVersion` can implement an `actions`
+permission over the same host-owned table, scoped to the classes it is willing
+to grant — most obviously the `safe` ones. Nothing in the row shape, the
+sanitiser or the hosts would need to change. What must not happen is the thing
+this design deliberately avoids: letting a provider supply the command.
+
+**Every action shows itself before it runs.** A row whose action changes the
+system is not run by Enter at all — Enter opens a preview naming what will
+happen, what privilege it needs, whether it can be undone, and the exact argv.
+Committing needs a second, different gesture (Ctrl+Enter, or the preview's own
+Run control), and the rule refuses any commit where the open preview is not the
+preview for the row under the selection. That applies to built-in rows; a
+plugin row copies its title and is `safe` by construction.
+
 ## The quick-settings-tile contract
 
 ```qml

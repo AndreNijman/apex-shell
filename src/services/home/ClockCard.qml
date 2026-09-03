@@ -710,9 +710,9 @@ StatCard {
                             id: deleteBtn
                             anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
                             width: 22; height: 22; radius: 6
-                            color: _delH.hovered ? Qt.rgba(248/255,113/255,113/255,0.18) : "transparent"
+                            color: _delH.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18) : "transparent"
                             Behavior on color { ColorAnimation { duration: 100 } }
-                            Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: Theme.fs(10); color: Qt.rgba(248/255,113/255,113/255,0.6) }
+                            Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: Theme.fs(10); color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.6) }
                             HoverHandler { id: _delH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._deleteAlarm(modelData.id) }
                         }
