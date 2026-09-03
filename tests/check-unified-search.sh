@@ -371,6 +371,18 @@ check_tree() {
     want "the delegate looks its row up rather than receiving it" \
         has "$al" 'readonly property var modelData: root\.filtered\[rowItem\.index\]'
 
+    # ── The selection is anchored to a ROW, not to an index ──────────────────
+    # An arriving subprocess answer can insert a higher-scoring row above the
+    # selection, and an integer index then points somewhere the user is not
+    # looking. The commit rule protects the non-safe rows from that; nothing
+    # protects a safe one but this.
+    want "a changed result list re-anchors the selection" \
+        has "$al" '^[[:space:]]*onFilteredChanged: root\._reanchor\(\)$'
+    want "the anchor is a row identity, not an index" \
+        in_fn "$al" '^[[:space:]]*function _reanchor\(' 'Search\.rowId\(root\.filtered\[i\]\)'
+    want "a new query drops the anchor rather than dragging it forward" \
+        in_fn "$al" '^[[:space:]]*onQueryChanged:' 'root\._anchorId = ""'
+
     # ── NO COMMAND IS EVER A STRING ──────────────────────────────────────────
     # This repo has a CI invariant about splicing model data into a `bash -c`
     # string. Here the data is a package name typed into a search box.
@@ -679,6 +691,14 @@ sed -i 's|color: Theme.fixedLight|color: "#ffffff"|' \
 assert_changed "$MUT/m12" src/services/AppLauncher.qml \
     && expect "a hardcoded colour in the launcher is caught" "$MUT/m12" red
 
+# The selection goes back to being an integer index, so a project row arriving
+# 160 ms after the user stopped typing moves what Enter acts on.
+fresh_copy "$MUT/m13"
+sed -i 's|^    onFilteredChanged: root._reanchor()$||' \
+    "$MUT/m13/src/services/AppLauncher.qml"
+assert_changed "$MUT/m13" src/services/AppLauncher.qml \
+    && expect "a selection that does not survive an arriving answer is caught" "$MUT/m13" red
+
 # ── the inverse mutant ───────────────────────────────────────────────────────
 # Prose that would trip a naive version of every check above, including prose
 # that quotes the exact strings the greps look for. It must NOT turn anything
@@ -712,6 +732,10 @@ fresh_copy "$MUT/c1"
     echo '//     height: Theme.fs(46)'
     echo '// and it dropped the Wolfram gate, so _forgetAnswer had no'
     echo '//     if (!_usedWolfram) return'
+    echo '// and the selection was a bare index, with no'
+    echo '//     onFilteredChanged: root._reanchor()'
+    echo '// and no Search.rowId(root.filtered[i]) lookup, and onQueryChanged'
+    echo '// never did root._anchorId = "" either.'
     echo '// See the header for why none of that survived.'
 } >> "$MUT/c1/src/services/AppLauncher.qml"
 {

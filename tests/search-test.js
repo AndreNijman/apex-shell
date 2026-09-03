@@ -465,6 +465,24 @@ check("a non-safe action needs a commit",
               !== (S.ACTIONS[id].klass !== S.KLASS.SAFE)), []);
 check("a destructive preview says so by having nothing to offer as an undo",
       S.actionPreview("system.reboot", "", CTX).undoes, "");
+
+// THE HEADLINE NAMES THE TARGET. The first version rewrote the title with a
+// regex over "a (package|device|session|project|path|window)", which fired for
+// "Install a package" and for nothing else — so a destructive preview read
+// "Stop an agent session" and never named the session, and the one test there
+// was asserted only the case that worked. This is the general form.
+check("every action that takes an argument names it in the preview headline",
+      S.ACTION_IDS.filter(id => S.ACTIONS[id].arg !== ""
+                                && S.actionPreview(id, "needle", CTX).title
+                                       .indexOf("needle") < 0), []);
+check("an action takes an argument exactly when it has a headline template",
+      S.ACTION_IDS.filter(id => (S.ACTIONS[id].arg === "")
+                                !== (S.ACTIONS[id].titleWith === "")), []);
+check("every headline template has somewhere to put the argument",
+      S.ACTION_IDS.filter(id => S.ACTIONS[id].titleWith !== ""
+                                && S.ACTIONS[id].titleWith.indexOf("%s") < 0), []);
+check("with no argument the headline is the action's plain title",
+      S.actionPreview("system.reboot", "", CTX).title, S.ACTIONS["system.reboot"].title);
 check("only the package actions resolve",
       S.ACTION_IDS.filter(id =>
           S.actionPreview(id, S.ACTIONS[id].arg === "" ? "" : "s", CTX).resolves),
@@ -578,6 +596,31 @@ check("the same row produced twice has the same id",
       S.rowId({ provider: "apps", kind: "app", name: "Firefox", payload: "firefox" }));
 check("a nameless row has no identity, so nothing can commit it",
       [S.rowId(null), S.rowId({}), S.rowId({ name: "" })], ["", "", ""]);
+
+// ── The identity has to survive an INSERTION, which is the case that bites ──
+// merge() is order-independent w.r.t. which provider answered first, which is
+// tested above. It is not stable against rows being inserted, and they are:
+// `apex project list` lands about 160 ms after typing stops. A selection held
+// as an integer index then points one row further down than the user is
+// looking at. AppLauncher re-anchors by id; this is the property that makes
+// that possible.
+(function () {
+    function mk(provider, name, score) {
+        return { provider: provider, kind: "app", name: name, score: score,
+                 action: "", arg: "", payload: name, index: 0 };
+    }
+    const apps = [mk("apps", "Alpha", 900), mk("apps", "Beta", 800)];
+    const before = S.merge([apps]);
+    const anchor = S.rowId(before[1]);
+    const after = S.merge([apps, [mk("projects", "apex-os", 850)]]);
+
+    check("an arriving answer really can move the row under the selection",
+          [before[1].name, after[1].name], ["Beta", "apex-os"]);
+    check("but the row's identity is unchanged by other rows arriving",
+          after.map(r => S.rowId(r)).indexOf(anchor), 2);
+    check("so the anchor finds it again",
+          after[after.map(r => S.rowId(r)).indexOf(anchor)].name, "Beta");
+})();
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  THE SCHEDULER, MEASURED
@@ -851,28 +894,59 @@ check("an empty registry is a valid, empty registry",
 check("a capability is read for identity, never for truthiness",
       S.parseHostRegistry('{"b":{"caps":{"agentd":"false"}}}').hosts[0].apex, false);
 
-// `apex search` output. Two human-readable sections; there is no --json.
+// ── CAPTURED, NOT RECONSTRUCTED ─────────────────────────────────────────────
+// `apex search` output. Two human-readable sections; there is no --json, so
+// this reads the human form and the fixture has to be the real bytes.
+//
+// These lines were captured from dnf5 5.2.18.0 and flatpak on Fedora 43 with
+// `cat -A`, which is how the bug they now guard was found: the first version
+// of parsePackageSearch was written from memory of dnf4's " : " separator.
+// dnf5 uses a TAB and a leading space and repeats its "Matched fields:" header
+// between groups, so the regex matched NOTHING — "install blender" offered the
+// Flatpak and never the RPM that `apex install` uses for a bare name, silently,
+// because "a parser that fails yields no rows" is exactly what it did.
 const SEARCH_OUT = [
     "── repository packages ─────────────────────────────────────────────",
-    "Matched fields: name",
-    "blender.x86_64 : 3D modelling, animation and rendering",
-    "blender-fonts.noarch : Fonts for Blender",
+    "Matched fields: name (exact)",
+    " blender.x86_64\t3D modeling, animation, rendering and post-production",
+    "Matched fields: name, summary",
+    " YafaRay-blender.x86_64\tBlender integration scripts for YafaRay",
+    " blender-luxcorerender.x86_64\tBlender export plugin to luxcorerender",
+    " blender-rpm-macros.noarch\tRPM macros for third-party blender addons",
     "",
     "── Flatpak applications ────────────────────────────────────────────",
-    "org.blender.Blender\tBlender\tFree 3D creation suite",
+    "org.blender.Blender\tBlender\tfedora,flathub",
+    "org.upbge.UPBGE\tUPBGE\tflathub",
+    "de.bforartists.Bforartists\tBforartists\tflathub",
     "",
     "apex resolve <name>  shows which source APEX would use, and why"
 ].join("\n");
 const pkgs = S.parsePackageSearch(SEARCH_OUT);
-check("package search finds the repository packages and the Flatpak",
+
+// The RPM first, because it is the source `apex install` uses for a bare name.
+check("package search finds the repository packages before the Flatpaks",
       pkgs.map(p => p.name),
-      ["blender", "blender-fonts", "org.blender.Blender"]);
+      ["blender", "YafaRay-blender", "blender-luxcorerender", "blender-rpm-macros",
+       "org.blender.Blender", "org.upbge.UPBGE", "de.bforartists.Bforartists"]);
+// THE REGRESSION. Zero repository rows is what the dnf4-shaped regex produced,
+// and it looked exactly like "nothing matched".
+check("§15's flagship example finds the RPM, not only the Flatpak",
+      pkgs.filter(p => p.source === "rpm").length > 0, true);
 check("the architecture is not part of the package name", pkgs[0].name, "blender");
-check("the source is recorded", pkgs.map(p => p.source), ["rpm", "rpm", "flatpak"]);
+check("the source is recorded",
+      pkgs.map(p => p.source),
+      ["rpm", "rpm", "rpm", "rpm", "flatpak", "flatpak", "flatpak"]);
 check("the summary comes along",
-      pkgs[0].summary, "3D modelling, animation and rendering");
+      pkgs[0].summary, "3D modeling, animation, rendering and post-production");
+check("dnf5's repeated group header is not a package",
+      pkgs.filter(p => /Matched/.test(p.name)), []);
 check("the rules and the trailing hint are not packages",
       pkgs.filter(p => p.name.indexOf("─") >= 0 || p.name.indexOf("apex") === 0), []);
+// dnf4's separator still works: apex-pkg calls whichever dnf5 is installed, and
+// the output of a tool is not a contract.
+check("the older ' : ' separator is still read",
+      S.parsePackageSearch("gimp.x86_64 : GNU Image Manipulation Program")
+          .map(p => p.name), ["gimp"]);
 check("empty output is no packages", S.parsePackageSearch(""), []);
 check("a package is listed once even if it matched twice",
       S.parsePackageSearch("a.x86_64 : one\na.noarch : two").length, 1);

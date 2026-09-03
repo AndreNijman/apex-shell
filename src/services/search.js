@@ -737,6 +737,7 @@ var ACTIONS = {
         klass: KLASS.CHANGES,
         permission: PERMISSION.POLKIT,
         arg: "",
+        titleWith: "",
         undoes: "systemctl restart bluetooth",
         what: "Restarts the bluetooth service. Paired devices reconnect on "
             + "their own; anything mid-transfer is dropped.",
@@ -751,6 +752,7 @@ var ACTIONS = {
         klass: KLASS.CHANGES,
         permission: PERMISSION.POLKIT,
         arg: "",
+        titleWith: "",
         undoes: "systemctl restart NetworkManager",
         what: "Restarts NetworkManager. Every connection drops and comes back; "
             + "a download in flight will not survive it.",
@@ -767,6 +769,7 @@ var ACTIONS = {
         // worth showing the user rather than lumping it in with the others.
         permission: PERMISSION.USER,
         arg: "",
+        titleWith: "",
         undoes: "systemctl --user restart pipewire",
         what: "Restarts PipeWire and WirePlumber for your session. Playing "
             + "audio stops; applications reconnect within a second or two.",
@@ -785,6 +788,7 @@ var ACTIONS = {
         klass: KLASS.CHANGES,
         permission: PERMISSION.NONE,
         arg: "",
+        titleWith: "",
         undoes: "unlock with your password",
         what: "Locks the screen. Everything keeps running.",
         argv: function (arg, ctx) {
@@ -798,6 +802,7 @@ var ACTIONS = {
         klass: KLASS.CHANGES,
         permission: PERMISSION.NONE,
         arg: "",
+        titleWith: "",
         undoes: "press a key to wake",
         what: "Suspends to RAM. Open applications survive.",
         argv: function (arg, ctx) {
@@ -811,6 +816,7 @@ var ACTIONS = {
         klass: KLASS.DESTRUCTIVE,
         permission: PERMISSION.NONE,
         arg: "",
+        titleWith: "",
         undoes: "",
         what: "Ends this session. Unsaved work in any open application is lost.",
         argv: function (arg, ctx) {
@@ -824,6 +830,7 @@ var ACTIONS = {
         klass: KLASS.DESTRUCTIVE,
         permission: PERMISSION.NONE,
         arg: "",
+        titleWith: "",
         undoes: "",
         what: "Restarts the machine. Unsaved work in any open application is "
             + "lost.",
@@ -838,6 +845,7 @@ var ACTIONS = {
         klass: KLASS.DESTRUCTIVE,
         permission: PERMISSION.NONE,
         arg: "",
+        titleWith: "",
         undoes: "",
         what: "Powers the machine off. Unsaved work in any open application is "
             + "lost.",
@@ -858,6 +866,7 @@ var ACTIONS = {
         klass: KLASS.CHANGES,
         permission: PERMISSION.SUDO,
         arg: "package",
+        titleWith: "Install %s",
         undoes: "sudo apex remove <package>",
         what: "Adds the package to this machine's system extension. The OS "
             + "keeps updating normally and `apex rollback` still works.",
@@ -873,6 +882,7 @@ var ACTIONS = {
         klass: KLASS.DESTRUCTIVE,
         permission: PERMISSION.SUDO,
         arg: "package",
+        titleWith: "Remove %s",
         undoes: "",
         what: "Removes the package and rebuilds the system extension. Anything "
             + "the package created outside the package itself stays.",
@@ -888,6 +898,7 @@ var ACTIONS = {
         klass: KLASS.CHANGES,
         permission: PERMISSION.SUDO,
         arg: "",
+        titleWith: "",
         undoes: "sudo apex rollback",
         what: "Fetches the next image and stages it for the next boot. Nothing "
             + "changes until you restart, and `apex rollback` returns to this "
@@ -903,6 +914,7 @@ var ACTIONS = {
         klass: KLASS.DESTRUCTIVE,
         permission: PERMISSION.SUDO,
         arg: "",
+        titleWith: "",
         undoes: "",
         what: "Makes the previous deployment the default and restarts into it. "
             + "Anything staged for the current one is discarded.",
@@ -923,6 +935,7 @@ var ACTIONS = {
         klass: KLASS.SAFE,
         permission: PERMISSION.NONE,
         arg: "device",
+        titleWith: "Open a terminal on %s",
         undoes: "close the terminal",
         what: "Opens a terminal and connects with ssh. Nothing is probed until "
             + "you do.",
@@ -938,6 +951,7 @@ var ACTIONS = {
         klass: KLASS.SAFE,
         permission: PERMISSION.RUNTIME,
         arg: "session",
+        titleWith: "Attach to session %s",
         undoes: "detach",
         what: "Opens the session's real terminal. The Agent Center is a "
             + "navigator, not a replacement for it.",
@@ -952,6 +966,7 @@ var ACTIONS = {
         klass: KLASS.DESTRUCTIVE,
         permission: PERMISSION.RUNTIME,
         arg: "session",
+        titleWith: "Stop session %s",
         undoes: "",
         what: "Kills the session's process tree. Whatever it was part-way "
             + "through is not resumed.",
@@ -966,6 +981,7 @@ var ACTIONS = {
         klass: KLASS.SAFE,
         permission: PERMISSION.RUNTIME,
         arg: "project",
+        titleWith: "Go to %s",
         undoes: "switch back",
         what: "Switches to the workspace this project's windows are on.",
         argv: function (arg, ctx) {
@@ -979,6 +995,7 @@ var ACTIONS = {
         klass: KLASS.SAFE,
         permission: PERMISSION.NONE,
         arg: "path",
+        titleWith: "Open %s",
         undoes: "close it",
         what: "Hands the path to the desktop's default handler.",
         argv: function (arg, ctx) {
@@ -995,6 +1012,7 @@ var ACTIONS = {
         klass: KLASS.CHANGES,
         permission: PERMISSION.NONE,
         arg: "window",
+        titleWith: "Close %s",
         undoes: "reopen the application",
         what: "Asks the window to close, the same as its own close button. The "
             + "application decides what to do about unsaved work.",
@@ -1046,7 +1064,15 @@ function actionPreview(id, arg, ctx) {
 
     return {
         id:         id,
-        title:      v === "" ? a.title : a.title.replace(/\ba (package|device|session|project|path|window)\b/, v),
+        // The headline names the target. Built from the action's own explicit
+        // template rather than by rewriting its title with a regex: the regex
+        // version fired for "Install a package" and for nothing else, so a
+        // destructive preview read "Stop an agent session" without ever naming
+        // the session. On a surface whose whole justification is showing what
+        // will happen before it is committed, the headline has to say to what.
+        title:      (v === "" || a.titleWith === "")
+                        ? a.title
+                        : a.titleWith.replace("%s", v),
         klass:      a.klass,
         klassLabel: KLASS_LABELS[a.klass],
         permission: a.permission,
@@ -1516,9 +1542,31 @@ function parseHostRegistry(text) {
 // the shell's problem, and a parser that fails yields no rows rather than
 // wrong ones.
 //
-// dnf5's shape is "name.arch : summary" with section headers ending in ":".
-// flatpak's --columns output is tab-separated. Anything that matches neither is
-// dropped, including the rules and the trailing hint.
+// ── THE SHAPE, TRANSCRIBED RATHER THAN ASSUMED ───────────────────────────────
+//
+// The first version of this function was written from memory of dnf4, which
+// separates the name from the summary with " : ". dnf5 does not. Captured from
+// `dnf5 search blender` on dnf5 5.2.18.0, Fedora 43, with cat -A:
+//
+//     Matched fields: name (exact)$
+//      blender.x86_64\t3D modeling, animation, rendering and post-production$
+//     Matched fields: name, summary$
+//      YafaRay-blender.x86_64\tBlender integration scripts for YafaRay$
+//
+// A leading space, then `name.arch`, then a TAB. No colon anywhere, and the
+// "Matched fields:" header repeats between groups rather than appearing once.
+// The dnf4-shaped regex matched NOTHING, so the flagship §15 example —
+// "install Blender" — returned the Flatpak and never the RPM that
+// `apex install` would actually use for a bare name. It failed silently,
+// because "a parser that fails yields no rows" is exactly what it did.
+//
+// Both separators are accepted now: a TAB where dnf5 puts one, and " : " for
+// the dnf4 form, since apex-pkg calls whichever dnf5 is installed and the
+// output of a tool is not a contract. The fixtures in tests/search-test.js are
+// the captured bytes, not a reconstruction.
+//
+// flatpak's --columns output is tab-separated, which the same capture confirms:
+//     org.blender.Blender\tBlender\tfedora,flathub$
 function parsePackageSearch(text) {
     var lines = String(text === undefined || text === null ? "" : text).split("\n");
     var out = [];
@@ -1527,18 +1575,27 @@ function parsePackageSearch(text) {
 
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i];
-        if (line === "") continue;
+        if (line.replace(/^[ \t]+|[ \t]+$/g, "") === "") continue;
         if (line.indexOf("── Flatpak") === 0) { section = "flatpak"; continue; }
         if (line.indexOf("── repository") === 0) { section = "repo"; continue; }
         if (line.indexOf("apex resolve") === 0) continue;
-        // dnf5 prints "Matched fields: name" style headers and section titles
-        // that end in a colon with nothing after it.
-        if (/^[A-Z][^:]*:\s*$/.test(line)) continue;
         if (line.indexOf("(no Flatpak remote") === 0) continue;
+        // dnf5's own group headers. It prints one per match class, so this is
+        // not a once-at-the-top rule — "Matched fields: name, summary" appears
+        // in the middle of the list.
+        if (/^[ \t]*Matched fields:/.test(line)) continue;
+        // A section title that ends at its colon, for any other tool that
+        // prints one.
+        if (/^[A-Z][^:]*:[ \t]*$/.test(line)) continue;
 
-        if (section === "flatpak" && line.indexOf("\t") >= 0) {
+        var tab = line.indexOf("\t");
+
+        if (section === "flatpak") {
+            if (tab < 0) continue;
             var f = line.split("\t");
-            var appid = f[0].replace(/^ +| +$/g, "");
+            var appid = f[0].replace(/^[ \t]+|[ \t]+$/g, "");
+            // A Flatpak id is reverse-DNS, so it always has a dot. Anything
+            // else in this section is a heading or a stray line.
             if (appid === "" || appid.indexOf(".") < 0) continue;
             if (seen[appid]) continue;
             seen[appid] = true;
@@ -1547,12 +1604,25 @@ function parsePackageSearch(text) {
             continue;
         }
 
-        var m = /^([A-Za-z0-9][A-Za-z0-9._+-]*?)(?:\.(?:x86_64|noarch|i686|aarch64))?\s+:\s+(.*)$/.exec(line);
-        if (m === null) continue;
-        var nm = m[1];
+        var nm, summary;
+        if (tab >= 0) {
+            nm = line.slice(0, tab).replace(/^[ \t]+|[ \t]+$/g, "");
+            summary = line.slice(tab + 1);
+        } else {
+            var m = /^[ \t]*(\S+)[ \t]+:[ \t]+(.*)$/.exec(line);
+            if (m === null) continue;
+            nm = m[1];
+            summary = m[2];
+        }
+
+        // Strip the architecture: `apex install` takes a bare name, and a row
+        // offering to install "blender.x86_64" would be offering something the
+        // user cannot type back.
+        nm = nm.replace(/\.(x86_64|noarch|i686|aarch64|src)$/, "");
+        if (!/^[A-Za-z0-9][A-Za-z0-9._+-]*$/.test(nm)) continue;
         if (seen[nm]) continue;
         seen[nm] = true;
-        out.push({ name: nm, source: "rpm", summary: _plain(m[2], MAX_DETAIL) });
+        out.push({ name: nm, source: "rpm", summary: _plain(summary, MAX_DETAIL) });
     }
     return out;
 }
