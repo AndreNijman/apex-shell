@@ -171,10 +171,12 @@ case "$comp" in
             printf 'misc:disable_hyprland_logo = true\n'
             printf 'misc:disable_splash_rendering = true\n'
             printf 'animations:enabled = false\n'
-            # Without this the nested Hyprland stops rendering the moment
-            # nothing is animating, the Qt window stops receiving frame
-            # callbacks, and the layout never re-polishes after a width change.
-            # Every measurement then reads the previous matrix point.
+            # Tried against the frozen-layout problem below and it did not
+            # help, so do not read this as the fix: a nested Hyprland stops
+            # asking its Qt client for frames whatever the frame-rate setting
+            # says. Kept because constant rendering is the right shape for a
+            # test host, and the QML refuses the host outright when the layout
+            # never moves.
             printf 'misc:vfr = false\n'
         } > "$W/cfg/hypr/hyprland.conf"
         before="$(list_sockets)"
