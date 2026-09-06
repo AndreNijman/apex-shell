@@ -136,13 +136,19 @@ EXPECT_FRAC=2
 ALLOW_STATE_RAW="
 src/services/agents/StateBadge.qml|working|the pulse, and only the pulse — motion in a status list has to mean 'this is changing', so exactly one state animates
 src/services/agents/RequestRow.qml|permission_request|the card IS a blocked request; it names the state it draws rather than testing one
+src/services/agents/AgentHelpContent.qml|waiting_for_user|help prose, not a colour: it teaches the reader the word the CLI prints
+src/services/agents/AgentHelpContent.qml|permission_request|the same, and the two are documented together because they are the pair that want you
 "
 
 # Membership is asserted from the rows above; the OCCURRENCE count separately,
 # for the reason the fraction list gives — StateBadge names "working" twice (the
 # animation's `running`, and the guard that resets opacity when it stops), and a
 # set alone cannot notice one of the two going away.
-EXPECT_STATES=3
+#
+# 5 rather than 3 since the Agents help landed: the guide names two states in
+# prose so the reader recognises what the CLI prints. Documentation naming a
+# state is not a row colouring one, which is what this check exists to stop.
+EXPECT_STATES=5
 
 # Workspace Visuals are fixed white-family colours for the workspace strip.
 # They are correct there and wrong everywhere else, and an agent state was the
