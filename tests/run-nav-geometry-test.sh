@@ -48,19 +48,38 @@ grep -q "^singleton DashboardLayout" "$root/src/qmldir" || {
     echo "      imports src/ can see it."
     exit 1; }
 
-comp=""
-for c in labwc sway; do
-    command -v "$c" >/dev/null 2>&1 && { comp="$c"; break; }
-done
+# The output size and the compositor are both selectable, because "verified at
+# 1440p" has to mean the shell was told it was on a 1440p output rather than
+# that a number was typed into a test. The matrix inside the QML drives the
+# scale factor by hand and is the same everywhere; the block it runs first is
+# not — that one asks Metrics what this output deserves and grades the answer.
+#
+#   NAV_GEOMETRY_MODE=2560x1080  NAV_GEOMETRY_COMP=sway  ./tests/run-nav-geometry-test.sh
+mode="${NAV_GEOMETRY_MODE:-1920x1080}"
+[[ "$mode" =~ ^[0-9]+x[0-9]+$ ]] || { echo "FAIL: NAV_GEOMETRY_MODE must be WxH"; exit 2; }
+
+comp="${NAV_GEOMETRY_COMP:-}"
+if [[ -n "$comp" ]]; then
+    command -v "$comp" >/dev/null 2>&1 || { echo "SKIP: $comp is not installed"; exit 0; }
+else
+    for c in labwc sway; do
+        command -v "$c" >/dev/null 2>&1 && { comp="$c"; break; }
+    done
+fi
 [[ -n "$comp" ]] || { echo "SKIP: no wlroots compositor (labwc or sway) to host the test"; exit 0; }
 
 W="$(mktemp -d)"
 staged="$root/.nav-geometry-test.qml"
 comp_pid=""
+nested_pid=""
+# Killed by pid, never by name: a pkill for a compositor on a developer's
+# machine takes down the session they are working in.
 cleanup() {
-    [[ -n "$comp_pid" ]] && kill "$comp_pid" 2>/dev/null
-    sleep 0.2
-    [[ -n "$comp_pid" ]] && kill -9 "$comp_pid" 2>/dev/null
+    [[ -n "$nested_pid" ]] && kill "$nested_pid" 2>/dev/null
+    [[ -n "$comp_pid" ]]   && kill "$comp_pid" 2>/dev/null
+    sleep 0.3
+    [[ -n "$nested_pid" ]] && kill -9 "$nested_pid" 2>/dev/null
+    [[ -n "$comp_pid" ]]   && kill -9 "$comp_pid" 2>/dev/null
     rm -f "$staged"
     rm -rf "$W"
     return 0
@@ -88,42 +107,106 @@ unset HYPRLAND_INSTANCE_SIGNATURE
 unset NIRI_SOCKET
 export WLR_BACKENDS=headless
 export WLR_LIBINPUT_NO_DEVICES=1
-export WLR_RENDERER=pixman
+export WLR_HEADLESS_OUTPUTS=1
 export XDG_SESSION_TYPE=wayland
 export QT_QPA_PLATFORM=wayland
+
+# Sockets in the private runtime dir. Diffed rather than scraped from a log,
+# because a nested compositor announces its display nowhere.
+list_sockets() {
+    local f b
+    for f in "$XDG_RUNTIME_DIR"/wayland-*; do
+        [[ -S "$f" ]] || continue
+        b="${f##*/}"
+        case "${b#wayland-}" in '' | *[!0-9]*) continue ;; esac
+        printf '%s\n' "$b"
+    done | sort
+}
+
+wait_for_new_socket() {
+    local before="$1" got=""
+    for _ in $(seq 1 60); do
+        got="$(comm -13 <(printf '%s\n' "$before") <(list_sockets) | head -1)"
+        [[ -n "$got" ]] && break
+        sleep 0.25
+    done
+    printf '%s' "$got"
+}
+
+before="$(list_sockets)"
 
 case "$comp" in
     labwc)
         mkdir -p "$W/cfg/labwc"
         cp "$here/labwc-test-rc.xml" "$W/cfg/labwc/rc.xml" 2>/dev/null || true
-        XDG_CONFIG_HOME="$W/cfg" "$comp" > "$W/comp.log" 2>&1 &
+        WLR_RENDERER=pixman XDG_CONFIG_HOME="$W/cfg" "$comp" > "$W/comp.log" 2>&1 &
+        comp_pid=$!
         ;;
     sway)
-        printf 'output HEADLESS-1 mode 1920x1080\n' > "$W/sway.cfg"
-        "$comp" -c "$W/sway.cfg" > "$W/comp.log" 2>&1 &
+        printf 'output HEADLESS-1 mode %s\n' "$mode" > "$W/sway.cfg"
+        WLR_RENDERER=pixman "$comp" -c "$W/sway.cfg" > "$W/comp.log" 2>&1 &
+        comp_pid=$!
+        ;;
+    Hyprland|hyprland)
+        # Hyprland does not speak WLR_BACKENDS — it is aquamarine, not wlroots —
+        # and its own headless backend will not create one here. So it runs
+        # nested inside a headless labwc, which is what the compositor question
+        # wanted anyway: a real Hyprland with its own instance signature laying
+        # the shell out, in a runtime dir where the developer's session is
+        # neither visible nor reachable.
+        #
+        # The host labwc must NOT be on the pixman renderer for this. Aquamarine
+        # asks it for a dmabuf, a software-rendered host has none to give, and
+        # the only symptom is CBackend::create() failing with nothing else said.
+        mkdir -p "$W/cfg/labwc" "$W/cfg/hypr"
+        cp "$here/labwc-test-rc.xml" "$W/cfg/labwc/rc.xml" 2>/dev/null || true
+        XDG_CONFIG_HOME="$W/cfg" labwc > "$W/comp.log" 2>&1 &
+        comp_pid=$!
+        host_sock="$(wait_for_new_socket "$before")"
+        [[ -n "$host_sock" ]] || {
+            echo "SKIP: the host labwc for the nested Hyprland did not come up"
+            tail -5 "$W/comp.log"; exit 0; }
+        {
+            printf 'monitor=,%s@60,0x0,1\n' "$mode"
+            printf 'misc:disable_hyprland_logo = true\n'
+            printf 'misc:disable_splash_rendering = true\n'
+            printf 'animations:enabled = false\n'
+            # Without this the nested Hyprland stops rendering the moment
+            # nothing is animating, the Qt window stops receiving frame
+            # callbacks, and the layout never re-polishes after a width change.
+            # Every measurement then reads the previous matrix point.
+            printf 'misc:vfr = false\n'
+        } > "$W/cfg/hypr/hyprland.conf"
+        before="$(list_sockets)"
+        env -u WLR_BACKENDS -u WLR_RENDERER \
+            WAYLAND_DISPLAY="$host_sock" \
+            AQ_BACKENDS=wayland AQ_NO_MODIFIERS=1 \
+            XDG_CONFIG_HOME="$W/cfg" \
+            "$comp" > "$W/hypr.log" 2>&1 &
+        nested_pid=$!
         ;;
 esac
-comp_pid=$!
 
-sock=""
-for _ in $(seq 1 60); do
-    for f in "$XDG_RUNTIME_DIR"/wayland-*; do
-        [[ -S "$f" ]] || continue
-        sock="$(basename "$f")"
-        break
-    done
-    [[ -n "$sock" ]] && break
-    sleep 0.25
-done
+sock="$(wait_for_new_socket "$before")"
 [[ -n "$sock" ]] || {
-    echo "SKIP: $comp did not come up headless"; tail -5 "$W/comp.log"; exit 0; }
+    echo "SKIP: $comp did not come up headless"
+    tail -5 "$W/comp.log" 2>/dev/null
+    [[ -f "$W/hypr.log" ]] && tail -5 "$W/hypr.log"
+    exit 0; }
 export WAYLAND_DISPLAY="$sock"
 
 # The window this test opens must land on the compositor above and nowhere else.
 [[ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]] || {
     echo "FAIL: WAYLAND_DISPLAY does not name a socket in the private runtime dir"
     exit 1; }
-echo "host: $comp on $WAYLAND_DISPLAY (headless, private XDG_RUNTIME_DIR and HOME)"
+
+# labwc has no output stanza in rc.xml, so the mode is set over wlr-output-
+# management once it is up. sway and Hyprland take it from their config.
+if [[ "$comp" == "labwc" ]] && command -v wlr-randr >/dev/null 2>&1; then
+    out="$(wlr-randr 2>/dev/null | awk 'NR==1{print $1}')"
+    [[ -n "$out" ]] && wlr-randr --output "$out" --custom-mode "$mode" >/dev/null 2>&1
+fi
+echo "host: $comp on $WAYLAND_DISPLAY at $mode (headless, private XDG_RUNTIME_DIR and HOME)"
 
 # quickshell stamps every console.log with a level and a category. Stripped, so
 # the assertion lines below are the shape the QML wrote them in.
@@ -144,6 +227,13 @@ if echo "$out" | grep -q "Failed to load configuration"; then
     echo "$out" | tail -25
     echo "RESULT: the test config failed to load"
     exit 1
+fi
+
+if echo "$out" | grep -q "nav-geometry: unusable-host"; then
+    echo "$out" | grep "nav-geometry: unusable-host"
+    echo "SKIP: $comp cannot host this suite — Qt's layout never re-polished, so"
+    echo "      every rectangle read back would be the previous matrix point."
+    exit 0
 fi
 
 summary="$(echo "$out" | grep -o 'nav-geometry: passed=[0-9]* failed=[0-9]*' | tail -1)"
