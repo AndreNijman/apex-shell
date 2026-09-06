@@ -316,7 +316,10 @@ CfgScroll {
     // "Discard" and "Revert" used to be a row label and a button label for the
     // same act. There is one word for it now.
     CfgCommit {
-        visible:   BlueprintService.available
+        // `held` as well as `available`: CfgCommit hides itself when there is
+        // nothing staged, and a page-level `visible` that ignored that would
+        // put a zero-height visible item in the Column and eat its spacing.
+        visible:   BlueprintService.available && count > 0
         count:     BlueprintService.pending ? BlueprintService.pending.length : 0
         noun:      "edit"
         canApply:  false
