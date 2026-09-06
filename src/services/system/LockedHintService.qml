@@ -64,7 +64,6 @@ Singleton {
 
     function _pump() {
         if (root._busy) return
-        if (root._desired === root._confirmed) return
 
         const user = Quickshell.env("USER")
         if (!user) {
