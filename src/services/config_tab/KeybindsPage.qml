@@ -2,7 +2,17 @@ import QtQuick
 import QtQuick.Controls
 import "../"
 import "../../"
+import "../../components/config"
+import "../../components/config/settings-semantics.js" as Semantics
 
+// Config → Keybinds
+//
+// THIS PAGE STAGES. Every other page's lifecycle is declared in one line at the
+// top of it; this one has its own Flickable rather than a CfgScroll, so it
+// places the CfgLifecycle itself.
+//
+// The draft lives in KeybindService, not here — see the comment there. A page
+// that owned it lost it every time the settings window was rebuilt.
 Item {
     id: root
 
@@ -16,28 +26,20 @@ Item {
     //   false →  hyprctl dispatch submap, reset
     onAnyCapturingChanged: KeybindService.isCapturing = anyCapturing
 
-    // ── Pending changes ───────────────────────────────────────────────────────
-    property var  _pending:   ({})
-    readonly property bool hasPending: Object.keys(_pending).length > 0
+    // ── Staged changes ───────────────────────────────────────────────────────
+    // Read-only here. The draft is KeybindService's, so both settings surfaces
+    // and every rebuilt window see the same one.
+    readonly property var  _pending:   KeybindService.staged
+    readonly property bool hasPending: KeybindService.hasStaged
 
-    function _addPending(action, mods, key) {
-        var copy = Object.assign({}, _pending)
-        copy[action] = { mods: mods, key: key }
-        _pending = copy
-    }
+    function _addPending(action, mods, key) { KeybindService.stage(action, mods, key) }
+    function _clearPending(action)          { KeybindService.unstage(action) }
 
-    function _clearPending(action) {
-        var copy = Object.assign({}, _pending)
-        delete copy[action]
-        _pending = copy
-    }
-
-	function _applyPending() {
-        // One service call for the whole batch: the merged map is written and
-        // reloaded once. Applying edit by edit spawned a write per action.
-        KeybindService.applyEdits(_pending)
-        _pending = {}
-    }
+    // Apply, not Save. On this page persisting and taking effect are the same
+    // write — the file IS what the compositor reads — so there is one act and
+    // it takes the word that promises the change becomes real. The bar says it
+    // also saved; see settings-semantics.js's APPLY_IS_ALSO_SAVE.
+    function _applyPending() { KeybindService.applyStaged() }
 
     // ── Groups ────────────────────────────────────────────────────────────────
     readonly property var _groups: {
@@ -52,67 +54,45 @@ Item {
         return order.map(function(g) { return { name: g, actions: groups[g] } })
     }
 
-    // ── Save banner ───────────────────────────────────────────────────────────
-    Rectangle {
-        id: _saveBanner
-        anchors { top: parent.top; left: parent.left; right: parent.right }
-        height: root.hasPending ? 44 : 0
-        clip:   true
-        color:  Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.07)
-        border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.20)
-        border.width: root.hasPending ? 1 : 0
-        radius: 8
+    // ── What this page does, and what it is holding ───────────────────────
+    // Two lines, both shared with every other settings page: the lifecycle
+    // statement, and the bar that appears only while there is a draft. Neither
+    // is hand-drawn here any more — the old banner had its own geometry, its
+    // own hardcoded colours and its own words ("Discard", "Save"), none of
+    // which any other page used.
+    CfgLifecycle {
+        id: _lifecycle
+        x: 0
+        y: 0
+        width: root.width
+        lifecycle: "staged"
+    }
 
-        Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+    CfgCommit {
+        id: _commit
+        x: 0
+        y: _lifecycle.height + (_commit.visible ? 6 : 0)
+        width: root.width
 
-        Row {
-            anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 10 }
-            spacing: 8
-            visible: root.hasPending
+        count: Object.keys(root._pending).length
+        noun:  "shortcut"
 
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: {
-                    var n = Object.keys(root._pending).length
-                    return n + " unsaved change" + (n > 1 ? "s" : "")
-                }
-                font.pixelSize: Theme.fs(11)
-                color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.70)
-            }
+        // One act, one button. The write to keybinds.json is what makes the
+        // shortcut work, so there is no honest Save that is not also an Apply.
+        canApply: true
+        canSave:  false
+        busy:     KeybindService.applying
+        error:    KeybindService.lastError
+        note:     KeybindService.lastError === "" ? Semantics.APPLY_IS_ALSO_SAVE : ""
 
-            // Discard
-            Rectangle {
-                width: 62; height: 26; radius: 7
-                color: _discardH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
-                border.color: Qt.rgba(1,1,1,0.13); border.width: 1
-                Behavior on color { ColorAnimation { duration: 100 } }
-                Text { anchors.centerIn: parent; text: "Discard"; font.pixelSize: Theme.fs(10)
-                    color: Qt.rgba(1,1,1,0.48) }
-                HoverHandler { id: _discardH; cursorShape: Qt.PointingHandCursor }
-                MouseArea { anchors.fill: parent; onClicked: root._pending = {} }
-            }
-
-            // Save
-            Rectangle {
-                width: 62; height: 26; radius: 7
-                color: _saveH.hovered
-                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28)
-                    : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
-                border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.42)
-                border.width: 1
-                Behavior on color { ColorAnimation { duration: 100 } }
-                Text { anchors.centerIn: parent; text: "Save"; font.pixelSize: Theme.fs(10)
-                    font.weight: Font.Medium; color: Theme.active }
-                HoverHandler { id: _saveH; cursorShape: Qt.PointingHandCursor }
-                MouseArea { anchors.fill: parent; onClicked: root._applyPending() }
-            }
-        }
+        onApplyRequested:  root._applyPending()
+        onRevertRequested: KeybindService.revertStaged()
     }
 
     // ── Scrollable list ───────────────────────────────────────────────────────
     Flickable {
         anchors {
-            top:         _saveBanner.bottom
+            top:         _commit.visible ? _commit.bottom : _lifecycle.bottom
             left:        parent.left
             right:       parent.right
             bottom:      parent.bottom
@@ -403,10 +383,16 @@ Item {
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
                             : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08))
                             
+                    // The staged tint is Theme.warning, the same one CfgCommit
+                    // paints its bar with, so the pill and the bar telling you
+                    // about it are visibly the same fact. It used to be
+                    // Qt.rgba(1.0, 0.74, 0.22) written out by hand — a colour
+                    // check-color-tokens.sh does not bound, because it does not
+                    // look at plain decimals, and so it drifted alone.
                     border.color: br._isUnbound
                         ? Qt.rgba(1, 1, 1, 0.1)
                         : (br._isPending
-                            ? Qt.rgba(1.0, 0.74, 0.22, 0.55)
+                            ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.55)
                             : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.24))
                             
                     border.width: 1
@@ -424,9 +410,9 @@ Item {
                         font.pixelSize: Theme.fs(10); font.family: "JetBrains Mono"
                         font.italic:    br._isUnbound 
                         
-                        color: br._isUnbound 
-                            ? Qt.rgba(1, 1, 1, 0.45) 
-                            : (br._isPending ? Qt.rgba(1.0, 0.74, 0.22, 1.0) : Theme.active)
+                        color: br._isUnbound
+                            ? Qt.rgba(1, 1, 1, 0.45)
+                            : (br._isPending ? Theme.warning : Theme.active)
                             
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
