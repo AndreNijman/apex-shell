@@ -164,7 +164,7 @@ QtObject {
 
             { k: "h", t: "What unrestricted does not buy you" },
             { k: "p", t: "An unrestricted session runs as your account and stops there. It gets no root. Dropping the sandbox and gaining root are separate layers, and -s unrestricted moves one of them." },
-            { k: "p", t: "One caveat worth knowing: APEX does not clear your sudo timestamp before it starts a session. If sudo is still remembering your password, an unrestricted agent can reach it. Run sudo -k first when that matters to you." },
+            { k: "p", t: "The caveat is not sudo inside the session. Managed sessions run with PR_SET_NO_NEW_PRIVS, so sudo and su start there and come up unprivileged whatever the sandbox. An unconfined session can write the files your own shell runs later: a shell rc file, a git hook, a systemd user unit. Those run as you, in a process that inherits none of a session's limits." },
 
             { k: "h", t: "Always Unrestricted" },
             { k: "p", t: "Config → Agents carries one toggle that makes unrestricted the default for new sessions. Switching it on asks for your password at the desktop's authentication prompt, which is outside any agent's terminal. Switching it off asks for nothing and takes effect at once." },
