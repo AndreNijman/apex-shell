@@ -20,6 +20,9 @@ import "../../"
 CfgScroll {
     id: root
 
+    lifecycle: "live"
+    lifecycleError: SettingsService.lastError
+
     // Set by ShellConfig and Nexus: "the Misc page is genuinely on screen".
     // Declared because SystemStats costs a subprocess and is refcounted on it;
     // PageRegistry marks this page needsScreen: true so both hosts bind it.
@@ -313,6 +316,11 @@ CfgScroll {
                         kbTimer.restart()
                     } else {
                         root._kbArmed = false
+                        // Reset goes past every change, including a draft the
+                        // Keybinds page is still holding. Leaving it staged
+                        // would mean the next Apply there put back exactly what
+                        // this button was pressed to remove.
+                        KeybindService.revertStaged()
                         // Set the map straight from defaults (exact casing, no
                         // conflict-bail from updateBinding), then persist + reload.
                         var fresh = {}
