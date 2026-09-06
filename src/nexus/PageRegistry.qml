@@ -97,6 +97,16 @@ QtObject {
             "component": agentsComp
         },
         {
+            "id": "firewall",
+            "title": "Firewall",
+            "subtitle": "What is reachable from the network, and what you opened",
+            "icon": "󰕥",
+            // FirewallService runs three reads on a slow sweep while this page
+            // is looked at, and nothing at all when it is not.
+            "needsScreen": true,
+            "component": firewallComp
+        },
+        {
             "id": "keybinds",
             "title": "Keybinds",
             "subtitle": "Shortcuts for every popup",
@@ -155,6 +165,9 @@ QtObject {
     }
     readonly property Component agentsComp: Component {
         AgentsPage {}
+    }
+    readonly property Component firewallComp: Component {
+        FirewallPage {}
     }
     readonly property Component keybindsComp: Component {
         KeybindsPage {}
