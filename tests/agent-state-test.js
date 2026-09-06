@@ -31,11 +31,11 @@
 //  file ~/.cache/apex-shell/colors.json is generated from. Six wallpapers, both
 //  modes, twelve palettes.
 //
-//  Both modes, because P0-021 asks for light as well as dark and the shell has
-//  only ever been looked at on dark. matugen renders light on request (`-m
-//  light`) and WallpaperService does not pass the flag today, so this is the
-//  measurement that has to hold BEFORE that flag becomes reachable rather than
-//  after somebody turns it on and finds a page of pale smears.
+//  Both modes, because P0-021 asks for light as well as dark and the shell had
+//  only ever been looked at on dark. These figures were measured before the
+//  flag was reachable — WallpaperService passes `-m` now, and section 10 holds
+//  it there, so the numbers below describe a palette a user can actually get to
+//  rather than one nobody can reach.
 //
 //  The dark surfaces cluster at #111410–#141311 and the light ones at
 //  #f9f9f9–#fdf9f3. That tightness is the reason a two-value status token
@@ -397,6 +397,50 @@ if (Object.keys(COLORS.pairs).length) {
           yes.join(", "));
     check("and they are drawn differently from each other",
           A.token("waiting_for_user") !== A.token("permission_request"));
+}
+
+// ── 10. the light half of every palette above is reachable ─────────────────
+//
+// Sections 3 to 7 measure twelve palettes, six of them light. That measurement
+// is worth nothing if no user can get to a light palette: matugen defaults to
+// dark, so a generator that never passes `-m` renders the dark half of every
+// template and the light values in Colors.qml are dead weight that still passes
+// every contrast assertion.
+//
+// So this is the section that keeps the other six honest. It reads the
+// generator rather than the palette.
+{
+    const wall = fs.readFileSync(
+        path.join(SRC, "services", "WallpaperService.qml"), "utf8");
+
+    check("WallpaperService has a palette mode",
+          /property\s+string\s+mode\s*:\s*"(dark|light)"/.test(wall));
+
+    // Both invocations. The second renders whatever templates the user keeps in
+    // their own matugen config; a shell in light beside a terminal still in dark
+    // is a worse outcome than either mode on its own.
+    const invocations = wall.split("\n").filter(l => /matugen image/.test(l));
+    check("both matugen invocations are still there", invocations.length === 2,
+          `found ${invocations.length}`);
+    check("every matugen invocation passes -m",
+          invocations.length === 2 && invocations.every(l => /-m \\"\$4\\"/.test(l)),
+          invocations.join(" | "));
+
+    // The flag has to carry the mode, not a constant. `-m dark` spelled out
+    // would satisfy the check above and leave light exactly as unreachable.
+    check("the mode reaches the command as an argument, not a literal",
+          /root\.scheme,\s*root\.mode/.test(wall));
+
+    check("the choice is persisted with the wallpaper",
+          /mode:\s*root\.mode/.test(wall) && /obj\.mode\s*===\s*"light"/.test(wall));
+
+    // A property no page writes is still unreachable, one screen further along.
+    const appearance = fs.readFileSync(
+        path.join(SRC, "services", "config_tab", "pages", "AppearancePage.qml"),
+        "utf8");
+    check("a control on the Appearance page sets it",
+          /WallpaperService\.setMode\(/.test(appearance)
+          && /WallpaperService\.modes/.test(appearance));
 }
 
 console.log(`\nagent-state: passed=${passed} failed=${failed}`);
