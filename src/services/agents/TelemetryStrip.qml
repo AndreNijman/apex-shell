@@ -37,10 +37,19 @@ import "../agenttelemetry.js" as Telemetry
 Item {
     id: strip
 
-    // Recomputed on every poll, which is what makes the age below tick rather
-    // than freeze at whatever it was when the page opened.
-    readonly property real now: Date.now() / 1000
-    readonly property var reading: Telemetry.fleet(AgentService.sessions, strip.now)
+    // `Date.now()` is called INSIDE the bindings below, never held in a
+    // property of its own.
+    //
+    // A binding whose only input is `Date.now()` has no dependencies, so QML
+    // evaluates it once and never again — and every countdown on this strip
+    // would then be computed against the moment the dashboard opened. Ten
+    // minutes later the reset would still say "2h 11m left" and the
+    // observation would never age. Written this way, each binding depends on
+    // `AgentService.sessions` (which the poll replaces) or on `strip.reading`
+    // (which depends on it), so the clock is read again every time the runtime
+    // is.
+    readonly property var reading:
+        Telemetry.fleet(AgentService.sessions, Date.now() / 1000)
 
     visible: !!strip.reading
     height: visible ? content.implicitHeight + Theme.px(12) : 0
@@ -75,7 +84,7 @@ Item {
             visible: text !== ""
             text: Telemetry.windowLine("5h", strip.reading ? strip.reading.fiveHour : null,
                                        strip.reading ? strip.reading.fiveHourReset : null,
-                                       strip.now)
+                                       Date.now() / 1000)
             color: Theme[Telemetry.tokenFor(strip.reading ? strip.reading.fiveHour : null)]
             font.pixelSize: Theme.fs(11)
             font.bold: true
@@ -85,7 +94,7 @@ Item {
             visible: text !== ""
             text: Telemetry.windowLine("7d", strip.reading ? strip.reading.sevenDay : null,
                                        strip.reading ? strip.reading.sevenDayReset : null,
-                                       strip.now)
+                                       Date.now() / 1000)
             color: Theme[Telemetry.tokenFor(strip.reading ? strip.reading.sevenDay : null)]
             font.pixelSize: Theme.fs(11)
             font.bold: true
