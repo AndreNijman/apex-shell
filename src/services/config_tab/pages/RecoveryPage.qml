@@ -44,6 +44,11 @@ import "../../"
 CfgScroll {
     id: root
 
+    // Criterion 1. Live: every control here acts on the machine when pressed.
+    // The one thing that does not take effect where you press it says so on its
+    // own row.
+    lifecycle: "live"
+
     // Set by ShellConfig and Nexus: "the Recovery page is genuinely on screen".
     // Declared because RecoveryService costs a subprocess per sweep and is
     // refcounted on it; PageRegistry marks this page needsScreen: true so both
@@ -357,7 +362,8 @@ CfgScroll {
 
         CfgRow {
             label:       "Boot the previous deployment"
-            description: "Run this in a terminal, then reboot. It needs root, so APEX Shell shows it instead of asking for a password."
+            description: "Run this in a terminal. It needs root, so APEX Shell shows it instead of asking for a password."
+            effect:      "reboot"
             Text {
                 text:           RecoveryService.rollbackCommand
                 font.pixelSize: Theme.fs(11)

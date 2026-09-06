@@ -112,6 +112,33 @@ QtObject {
     property var draft: []
     property bool dirty: false
 
+    // How many fields the draft changes, so the commit bar can say what it is
+    // holding rather than only that it is holding something. Counted per
+    // FIELD, not per output: turning off one monitor and rescaling another is
+    // two changes, and "1 staged change" for both would be a worse lie than no
+    // number at all.
+    readonly property int stagedCount: {
+        if (!root.dirty) return 0
+        const was = {}
+        for (const o of root.outputs) was[o.name] = o
+        let n = 0
+        for (const d of root.draft) {
+            const w = was[d.name]
+            if (!w) { n++; continue }          // an output the list did not have
+            if ((d.enabled !== false) !== (w.enabled !== false)) n++
+            if (Number(d.scale || 1) !== Number(w.scale || 1)) n++
+            if (String(d.transform || "normal") !== String(w.transform || "normal")) n++
+            if (!!d.adaptive_sync !== !!w.adaptive_sync) n++
+            if (Math.round(d.x || 0) !== Math.round(w.x || 0)
+                || Math.round(d.y || 0) !== Math.round(w.y || 0)) n++
+            const dm = d.mode || {}
+            const wm = w.mode || {}
+            if (dm.width !== wm.width || dm.height !== wm.height
+                || Number(dm.refresh || 0).toFixed(2) !== Number(wm.refresh || 0).toFixed(2)) n++
+        }
+        return n
+    }
+
     // ── Apply state ───────────────────────────────────────────────────────────
     property bool applying: false
     // Seconds left before an unconfirmed apply is reverted. 0 = not pending.
