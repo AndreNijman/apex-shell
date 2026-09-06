@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import "agentstate.js" as AgentState
+import "notifybus.js" as NotifyBus
 
 // ─── AgentService ─────────────────────────────────────────────────────────────
 // The shell's view of the APEX agent runtime (roadmap §2, §3, §7).
@@ -100,6 +101,12 @@ QtObject {
                 if (Array.isArray(fresh)) {
                     root._noticeChanges(fresh)
                     root.sessions = fresh
+                    // After the assignment, never before: retraction asks what
+                    // is true NOW, and `root.sessions` is the answer only once
+                    // the fresh list is in it. Reading the previous list here
+                    // would retract on last poll's truth, one tick late, every
+                    // time.
+                    root._retractEnded()
                     // Once, on the first successful poll. Makes the data path
                     // observable: without it a page that never polled looks
                     // exactly like a page with nothing to show, both in a bug
@@ -148,8 +155,57 @@ QtObject {
     // lesson from the modai watchdog, which re-fired a critical notification
     // every fifteen seconds because systemd kept restarting it after it exited
     // on "complete".
+    //
+    // ── AND ON TRANSITIONS ALONE WAS NOT ENOUGH (P1-022) ─────────────────────
+    //
+    // Six agents were running against this repository while this was written,
+    // and a transition is a much noisier thing than it sounds. apexd's PTY
+    // fallback promotes a session that has been silent for
+    // IDLE_TO_WAITING_SECS = 10 to `waiting_for_user`, so an agent thinking
+    // between two tool calls transitions into an attention state and back out
+    // of it several times a minute. Worse, one event genuinely arrives twice:
+    // an agent asking for a privilege decision shows up as a session state
+    // here AND as a record in `apex request pending` a poll later, and both
+    // paths raised their own notification about the same decision.
+    //
+    // notifybus.js decides what a person actually sees. Every notification
+    // this file raises goes through it, keyed by WHAT THE NEWS IS ABOUT rather
+    // than by which poll noticed it, so the two paths collide on purpose. See
+    // that file for the three rules and why each exists.
+    //
+    // ── AND ONE SHARED Process COULD ONLY CARRY ONE OF THEM ──────────────────
+    //
+    // This used to funnel every notification through a single `Process`
+    // running `notify-send --wait`, which does not exit until the notification
+    // is dismissed or acted on. A Process holds AT MOST ONE PENDING COMMAND
+    // and a new assignment overwrites it, which has two consequences, both
+    // measured in tests/run-notify-spawn-test.sh against a real one rather
+    // than reasoned about:
+    //
+    //   * two notifications raised in the SAME TICK — which is what the loop
+    //     below does when two agents changed state since the last poll — run
+    //     only the second. The first never starts.
+    //   * everything raised while one is blocked is destroyed except the
+    //     newest, and that one does not appear until somebody dismisses the
+    //     notification blocking it.
+    //
+    // So six agents needing attention while nobody is at the desk produced one
+    // notification, silently, with nothing logged and nothing failing. On the
+    // machine this was written on, one of those `notify-send --wait` processes
+    // had been blocked for four hours and fifty minutes on "Claude is waiting
+    // for you".
+    //
+    // `Quickshell.execDetached` gives each notification its own process, so a
+    // blocked one cannot swallow or delay the next. Nothing is read back from
+    // it — the `sh -c` script dispatches its own action, which is the only
+    // thing the exit status was ever used for.
     property var _lastState: ({})   // session id -> last state seen
     property var _seenRequests: ({})
+
+    // notifybus.js's history: key -> { at, id, kind, body, open }. Written
+    // here, read there. See notifybus.js for why an entry outlives its own
+    // retraction.
+    property var _seen: ({})
 
     function _noticeChanges(fresh) {
         var next = {}
@@ -184,42 +240,124 @@ QtObject {
         root._seenRequests = next
     }
 
-    property var _notifyProc: Process { command: []; running: false }
+    // ── The one place a notification reaches the bus ──────────────────────────
+    //
+    // Everything below funnels through here so the dedup rule cannot be
+    // bypassed by adding a caller. `script` is built by the caller because the
+    // actions differ; this decides whether it runs at all, and with what
+    // identity.
+    // `build` is a function of (key, replaceId) rather than a template with
+    // placeholders in it. A template would have to be substituted into after
+    // the agent's own project name and reason were already in the string, and
+    // substituting into a string that holds text the agent controls is how a
+    // placeholder becomes an injection.
+    function _raise(kind, subject, body, build) {
+        var now = Date.now() / 1000
+        var d = NotifyBus.decide(root._seen,
+                                 { kind: kind, subject: subject, body: body }, now)
+        if (!d.emit) return
+
+        // The live id is the notification server's, not ours. This shell IS
+        // that server, so NotificationService knows it; when some other daemon
+        // holds the name it does not, and a replace id of 0 means a new
+        // notification — the behaviour before any of this existed. Degrading
+        // to the old behaviour is the right failure here.
+        var replaceId = NotificationService.idForKey(d.key) || d.replaceId || 0
+
+        Quickshell.execDetached(["sh", "-c", build(d.key, replaceId)])
+
+        var h = root._seen
+        h[d.key] = { at: now, id: replaceId, kind: kind, body: body, open: true }
+        root._seen = h
+    }
+
+    // Close what has stopped being true, and forget what can no longer
+    // suppress anything. Runs on every poll rather than on a transition,
+    // because a condition ending is not always a transition anybody saw — a
+    // session that exits while the shell was asleep simply is not in the list
+    // any more.
+    function _retractEnded() {
+        var live = NotifyBus.liveKeys(root.sessions)
+        // A pending privilege record keeps its own key alive. Without this the
+        // notification would be retracted the moment the SESSION stopped
+        // reporting `permission_request`, while the decision is still waiting.
+        for (var i = 0; i < root.requests.length; i++)
+            live.push(NotifyBus.key("permission", root._requestSubject(root.requests[i])))
+
+        var gone = NotifyBus.retractions(root._seen, live)
+        var h = root._seen
+        for (var g = 0; g < gone.length; g++) {
+            NotificationService.retract(gone[g])
+            h[gone[g]].open = false
+            h[gone[g]].id = 0
+        }
+        var old = NotifyBus.stale(h, Date.now() / 1000)
+        for (var o = 0; o < old.length; o++) delete h[old[o]]
+        if (gone.length > 0 || old.length > 0) root._seen = h
+    }
+
+    // A request filed from inside a session is news about that session, so it
+    // shares the session's key — that is the collision that turns two
+    // notifications about one decision into one. A request filed from outside
+    // a session has nothing to collide with and keys on itself.
+    function _requestSubject(req) {
+        return (req && req.session !== null && req.session !== undefined)
+            ? req.session : ("r" + (req ? req.id : "?"))
+    }
 
     function _notify(session, what, urgency) {
         var who = _agentLabel(session)
         var where = session.project_name || _basename(session.cwd)
+        var kind = NotifyBus.kindForState(session.state)
+        if (kind === null) return
         // --wait blocks until the notification is dismissed or an action is
         // chosen, and prints the chosen action id. That is why this runs
         // through `sh -c`: the action has to be dispatched after the wait
-        // returns, and Process cannot express "then".
-        _notifyProc.command = ["sh", "-c",
-            'a=$(notify-send --app-name "APEX Agents" --wait ' +
-            '--urgency ' + urgency + ' ' +
-            '--action focus=Focus\\ terminal --action logs=View\\ output ' +
-            _q(who + " " + what) + " " + _q(where) + ' 2>/dev/null); ' +
-            'case "$a" in ' +
-            '  focus) exec /usr/libexec/apex-agent-focus ' + session.id + ' ;; ' +
-            '  logs)  exec /usr/libexec/apex-agent-focus ' + session.id + ' ;; ' +
-            'esac']
-        _notifyProc.running = true
+        // returns, and no single call can express "then".
+        //
+        // It also means retraction cleans up after itself: closing the
+        // notification from the server ends the wait, so a retracted
+        // notification's helper exits rather than lingering.
+        root._raise(kind, session.id, who + " " + what,
+            function(key, replaceId) {
+                return 'a=$(notify-send --app-name "APEX Agents" --wait ' +
+                    '--urgency ' + urgency + ' ' +
+                    '--replace-id ' + Number(replaceId) + ' ' +
+                    '--hint=string:x-apex-key:' + _q(key) + ' ' +
+                    '--action focus=Focus\\ terminal --action logs=View\\ output ' +
+                    _q(who + " " + what) + " " + _q(where) + ' 2>/dev/null); ' +
+                    'case "$a" in ' +
+                    '  focus) exec /usr/libexec/apex-agent-focus ' + Number(session.id) + ' ;; ' +
+                    '  logs)  exec /usr/libexec/apex-agent-focus ' + Number(session.id) + ' ;; ' +
+                    'esac'
+            })
     }
 
     function _notifyRequest(req) {
-        // A privilege request cannot be approved from a notification, and that
-        // is deliberate: approving performs the operation with the user's own
-        // root, so it belongs in a terminal where the prompt and the sudo
+        // A privilege request is not decided from a notification, and that is
+        // deliberate: acting on it performs the operation with the user's own
+        // authority, so it belongs in a terminal where the prompt and the
         // authentication are visible. The action opens that terminal.
         var op = "apex " + (req.verb === "install" || req.verb === "remove"
             ? req.verb + " " + (req.packages || []).join(" ")
             : req.verb)
-        _notifyProc.command = ["sh", "-c",
-            'a=$(notify-send --app-name "APEX Agents" --wait --urgency critical ' +
-            '--action review=Review ' +
-            _q((req.agent || "An agent") + " requests privilege") + " " +
-            _q(op + "\n" + (req.reason || "")) + ' 2>/dev/null); ' +
-            '[ "$a" = review ] && exec /usr/libexec/apex-agent-review ' + req.id]
-        _notifyProc.running = true
+        // The body is richer than the state change's, and that is the point:
+        // when both paths report one decision, this one arrives second and
+        // REWRITES the standing notification with the operation and the
+        // reason. One notification, the better text. §P1-022's "enriched, not
+        // duplicated" is that sentence.
+        root._raise("permission", root._requestSubject(req), op,
+            function(key, replaceId) {
+                return 'a=$(notify-send --app-name "APEX Agents" --wait ' +
+                    '--urgency critical ' +
+                    '--replace-id ' + Number(replaceId) + ' ' +
+                    '--hint=string:x-apex-key:' + _q(key) + ' ' +
+                    '--action review=Review ' +
+                    _q((req.agent || "An agent") + " requests privilege") + " " +
+                    _q(op + "\n" + (req.reason || "")) + ' 2>/dev/null); ' +
+                    '[ "$a" = review ] && exec /usr/libexec/apex-agent-review '
+                    + Number(req.id)
+            })
     }
 
     // Single-quote for `sh -c`. Embedded single quotes are closed, escaped and
