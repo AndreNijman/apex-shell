@@ -108,12 +108,9 @@ log="$(mktemp)"
 log2="$(mktemp)"
 qs_pid=""
 daemon_pid=""
-<<<<<<< HEAD
 comp_pid=""
-=======
 # Killed BY PID, never by name. A pkill for quickshell on a developer's machine
 # takes down the shell they are working in.
->>>>>>> 4a0ed98 (feat(agents): the Agent Center said what was running and never what any of it was)
 cleanup() {
     [[ -n "$qs_pid" ]]     && kill "$qs_pid" 2>/dev/null
     [[ -n "$daemon_pid" ]] && kill "$daemon_pid" 2>/dev/null
@@ -297,10 +294,8 @@ count="$(printf '%s' "$seen" | grep -o '[0-9]\+')"
     echo "FAIL: the page saw $count session(s), expected at least 5 — one per state"
     exit 1; }
 
-<<<<<<< HEAD
 echo "RESULT: the Agent Center drew ${sessions} session(s) across all five states"
 echo "        and ${requests} request(s) against a live runtime, with no errors"
-=======
 # ─────────────────────────────────────────────────────────────────────────────
 #  §43: the help strip, and a dismissal that survives a restart
 # ─────────────────────────────────────────────────────────────────────────────
@@ -427,4 +422,3 @@ grep -E "ERROR" "$log2" | grep -vE "$noise" | sort -u | head -10
 echo
 echo "RESULT: the Agent Center rendered ${sessions} session(s) and ${requests} request(s) cleanly,"
 echo "        and §43's help entry, first-run card and guide behaved across a restart"
->>>>>>> 4a0ed98 (feat(agents): the Agent Center said what was running and never what any of it was)
