@@ -39,6 +39,12 @@ import "./src/services/config_tab"
 // Then it puts the permissions back and applies again, which is criterion 6:
 // the page has to read the effective state back rather than assume it landed.
 //
+// It breaks the LIVE pages' write the same way. Six of the ten persist through
+// SettingsService, none of them stages anything, and until P0-023 that service
+// never read its own exit code — so the slider moved, the shell reflowed, and
+// the value was gone at the next login. The same directory holds both files, so
+// one chmod covers both.
+//
 // It opens no window. There is no PanelWindow or Window here — the pages are
 // instantiated inside a plain Item, which is enough to build every object and
 // evaluate every binding, and the compositor behind it is headless and private.
@@ -120,6 +126,45 @@ ShellRoot {
         }
     }
 
+    // The other file a settings page persists through. Six of the ten pages
+    // write here and none of them could report a failure before P0-023, so a
+    // home directory the shell could not write to looked exactly like one it
+    // could until the next login threw the changes away.
+    property string savedSettings: ""
+    property var readSettings: Process {
+        command: ["bash", "-c",
+                  "cat \"$HOME/.config/apex-shell/src/user_data/settings.json\" 2>/dev/null || echo '{}'"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: rootScope.savedSettings = text.trim()
+        }
+    }
+
+    function savedSetting(key) {
+        try {
+            const j = JSON.parse(rootScope.savedSettings)
+            return j[key] !== undefined ? j[key] : null
+        } catch (e) {
+            return "unparseable"
+        }
+    }
+
+    // The lifecycle line the Keybinds page places itself, found by what it is.
+    // A refused write with NO draft has nowhere else to appear: the commit bar
+    // hides itself when the count is zero, and the per-row reset and Misc's
+    // "reset all shortcuts" both write without staging anything.
+    function lifecycleOf(page) {
+        if (!page) return null
+        if (page.lifecycle !== undefined && page.error !== undefined) return page
+        const kids = page.children
+        if (kids)
+            for (let i = 0; i < kids.length; i++) {
+                const hit = rootScope.lifecycleOf(kids[i])
+                if (hit) return hit
+            }
+        return null
+    }
+
     function savedCombo(act) {
         try {
             const j = JSON.parse(rootScope.savedJson)
@@ -130,13 +175,21 @@ ShellRoot {
         }
     }
 
-    // The runner owns the permissions; this only asks for them to change, so
-    // the failing write is a real EACCES from a real directory rather than a
-    // flag the service was told to honour.
+    // The failing write is a real EACCES from a real filesystem rather than a
+    // flag a service was told to honour.
+    //
+    // The DIRECTORY and the FILES, because they refuse different things. A
+    // directory at 0500 stops a redirect that has to CREATE the file, which is
+    // what the first keybinds write does; it does not stop a redirect that
+    // truncates one already there, because that needs permission on the file
+    // and not on the directory. Only doing the directory made two of these
+    // assertions pass for the wrong reason and then fail once the file existed.
     property var chmodProc: Process { command: []; running: false }
-    function setConfigMode(mode) {
-        chmodProc.command = ["bash", "-c",
-                             "chmod " + mode + " \"$HOME/.config/apex-shell/src/user_data\""]
+    function setConfigWritable(on) {
+        const dir = "\"$HOME/.config/apex-shell/src/user_data\""
+        chmodProc.command = ["bash", "-c", on
+            ? "chmod 0700 " + dir + "; chmod 0600 " + dir + "/*.json 2>/dev/null; true"
+            : "chmod 0400 " + dir + "/*.json 2>/dev/null; chmod 0500 " + dir + "; true"]
         chmodProc.running = false
         chmodProc.running = true
     }
@@ -245,7 +298,7 @@ ShellRoot {
                                 hostB.item && hostB.item.hasPending === true)
 
                 // ── 5. the write fails ─────────────────────────────────────
-                rootScope.setConfigMode("0500")
+                rootScope.setConfigWritable(false)
                 rootScope.step = 7
                 driver.waited = 0
                 return
@@ -270,7 +323,7 @@ ShellRoot {
                 rootScope.check("a refused write keeps the staged edit",
                                 pageA.hasPending === true
                                 && rootScope.pendingCount(pageA) === 1)
-                rootScope.setConfigMode("0700")
+                rootScope.setConfigWritable(true)
                 rootScope.step = 9
                 driver.waited = 0
                 return
@@ -307,8 +360,77 @@ ShellRoot {
                                 KeybindService.keybinds[rootScope.action]
                                 && KeybindService.keybinds[rootScope.action].mods === rootScope.newMods
                                 && KeybindService.keybinds[rootScope.action].key === rootScope.newKey)
+                // ── 7. the live pages' write ───────────────────────────────
+                // Six pages persist through SettingsService and none of them
+                // stages anything, so this is the other half of criterion 4.
+                // 23 is not the shipped default, so a file that reads 23 was
+                // written by this and not by the loader.
+                SettingsService.set("cornerRadius", 23)
+                rootScope.step = 12
+                driver.waited = 0
+                return
+
+            case 12:
+                if (driver.waited < 8) return    // past the 350ms debounce
+                rootScope.savedSettings = ""
+                rootScope.readSettings.running = false
+                rootScope.readSettings.running = true
+                rootScope.step = 13
+                driver.waited = 0
+                return
+
+            case 13:
+                if (rootScope.savedSettings === "") return
+                rootScope.check("a live page's write reaches the file",
+                                rootScope.savedSetting("cornerRadius") === 23,
+                                String(rootScope.savedSetting("cornerRadius")))
+                rootScope.check("and reports no error when it worked",
+                                typeof SettingsService.lastError === "string"
+                                && SettingsService.lastError === "")
+                rootScope.setConfigWritable(false)
+                rootScope.step = 14
+                driver.waited = 0
+                return
+
+            case 14:
+                if (driver.waited < 3) return
+                SettingsService.set("cornerRadius", 29)
+                rootScope.step = 15
+                driver.waited = 0
+                return
+
+            case 15:
+                if (driver.waited < 10) return
+                rootScope.check("a live page's refused write says so, in words",
+                                typeof SettingsService.lastError === "string"
+                                && SettingsService.lastError.length > 0,
+                                String(SettingsService.lastError))
+
+                // ── 8. a refused write with nothing staged ─────────────────
+                // The per-row reset writes without staging, so the commit bar
+                // is not there to carry the failure. It has to land on the
+                // page's lifecycle line instead.
+                KeybindService.lastError = ""
+                KeybindService.resetBinding(rootScope.action)
+                rootScope.step = 16
+                driver.waited = 0
+                return
+
+            case 16: {
+                if (driver.waited < 10) return
+                rootScope.check("a refused reset says so even with nothing staged",
+                                typeof KeybindService.lastError === "string"
+                                && KeybindService.lastError.length > 0)
+                const line = rootScope.lifecycleOf(pageA)
+                rootScope.check("the Keybinds page has a lifecycle line to say it on",
+                                line !== null)
+                rootScope.check("and the refusal is on it",
+                                line !== null && line.error === KeybindService.lastError
+                                && line.error !== "")
+                rootScope.setConfigWritable(true)
                 rootScope.finish()
                 return
+            }
             }
         }
     }
