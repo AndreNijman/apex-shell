@@ -206,10 +206,15 @@ QtObject {
         var o = {}
         for (var i = 0; i < _keys.length; i++) o[_keys[i]] = root[_keys[i]]
         var json = JSON.stringify(o)
-        // JSON and path go in as positional arguments, never spliced into the
-        // script. `lockBackground` is a path the user types, and one with an
-        // apostrophe in it used to end the quoted string the write was built
-        // from — the same rule KeybindService and Compositor already follow.
+        // JSON and path go in as positional arguments rather than spliced into
+        // the script, the rule KeybindService and Compositor already follow.
+        //
+        // Not a bug fix, and the commit that introduced it said it was: the
+        // form this replaced escaped apostrophes correctly ('\'' for each one)
+        // and `lockBackground` with a quote in it round-tripped. What it
+        // removes is the need to hold that argument in your head — and the
+        // path, which was spliced unescaped, so a $HOME with a quote in it
+        // really did break it.
         _saveProc.command = ["bash", "-c",
             "mkdir -p \"$(dirname \"$2\")\" && printf '%s' \"$1\" > \"$2\"",
             "--", json, root._cfgPath]
