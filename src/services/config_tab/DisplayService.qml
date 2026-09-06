@@ -623,6 +623,15 @@ QtObject {
                     root.lastNotice =
                         "The last display change went unconfirmed, so the " +
                         "previous layout came back."
+                } else if (state === "revert-failed") {
+                    // The guard tried again on the way in here and still could
+                    // not reach the engine. Say so, because this is the one
+                    // state where the screen the user is looking at is a layout
+                    // nobody approved and nothing is going to fix it on its own.
+                    root.lastError =
+                        "The last display change went unconfirmed and the " +
+                        "previous layout could not be restored. This screen " +
+                        "is showing a layout that was never confirmed."
                 }
             }
         }
