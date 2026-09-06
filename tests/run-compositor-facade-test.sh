@@ -6,31 +6,50 @@
 # into the repo root for the duration of the run and removed afterwards — the
 # same arrangement run-service-tier-test.sh uses.
 #
-# Requires a Wayland session. Skips cleanly with status 0 when there is none, so
-# CI without a display does not fail the build. The test reads live compositor
-# state and deliberately never mutates it; see the header of the .qml.
-set -euo pipefail
+# ── What it now measures, which is not quite what it used to ─────────────────
+#
+# This suite reads live compositor state. It used to read the DEVELOPER'S live
+# compositor state, over the inherited WAYLAND_DISPLAY, and open its window on
+# their desktop while doing so. It now stands up a headless labwc (or sway) from
+# tests/lib/headless.sh and reads that.
+#
+# That is a coverage change and worth saying plainly: on a Hyprland desktop this
+# used to exercise the Hyprland adapter, and now it exercises the wlroots one.
+# Hyprland-specific facade coverage lives behind
+# APEX_TEST_ALLOW_NESTED_ON_DESK=1 in tests/run-hypr-configerrors-test.sh; there
+# is no way to get it without a Hyprland instance, and no way to get a Hyprland
+# instance without a session to nest in (0.56.2 will not start headless on a GPU
+# box with no DRM master — measured on katana, twice).
+#
+# The test deliberately never mutates the compositor it reads; see the .qml.
+#
+# Skips cleanly (status 0) without quickshell or without a compositor to host it.
+set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/.." && pwd)"
+. "$here/lib/headless.sh"
 
-if ! command -v quickshell >/dev/null 2>&1; then
-    echo "SKIP: quickshell not installed"
-    exit 0
-fi
-
-if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
-    echo "SKIP: no WAYLAND_DISPLAY; quickshell needs a compositor"
-    exit 0
-fi
+headless_require quickshell
 
 staged="$root/.compositor-facade-test.qml"
-cleanup() { rm -f "$staged"; rm -rf "${XDG_RUNTIME_DIR:-/tmp}/apex-compositor-test"; }
-trap cleanup EXIT
+cleanup() {
+    rm -f "$staged"
+    rm -rf "${XDG_RUNTIME_DIR:-/tmp}/apex-compositor-test"
+    headless_cleanup
+}
+trap cleanup EXIT INT TERM
+
+headless_begin
+headless_start || exit 0
+
+# The suite asserts a toplevel exists before it reads the window list. An empty
+# compositor would turn ten assertions into vacuous passes.
+headless_filler || exit 1
 
 cp "$here/compositor-facade-test.qml" "$staged"
 
-out="$(QT_LOGGING_RULES="qml=true" timeout 90 quickshell -p "$staged" 2>&1 || true)"
+out="$(QT_LOGGING_RULES="qml=true" timeout 120 quickshell -p "$staged" 2>&1 || true)"
 echo "$out" | grep -E "PASS|FAIL|^\[|passed=" || true
 
 if echo "$out" | grep -q "Failed to load configuration"; then
@@ -39,18 +58,13 @@ if echo "$out" | grep -q "Failed to load configuration"; then
     exit 1
 fi
 
-if ! echo "$out" | grep -q "passed="; then
+summary="$(echo "$out" | grep -o "passed=[0-9]* failed=[0-9]*" | tail -1)"
+if [[ -z "$summary" ]]; then
     echo "$out" | tail -30
     echo "RESULT: the test never reached its summary"
     exit 1
 fi
 
-# `set +e` around the pipeline: a non-zero grep on a matching line still trips
-# pipefail, which is how a passing suite reported failure here before.
-set +e
-summary="$(echo "$out" | grep -o "passed=[0-9]* failed=[0-9]*" | tail -1)"
-failed="$(echo "$summary" | grep -o "failed=[0-9]*" | grep -o "[0-9]*")"
-set -e
-
+failed="${summary##*failed=}"
 echo "RESULT: $summary"
-[[ "$failed" == "0" ]]
+[[ "$failed" -eq 0 ]]
