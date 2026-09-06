@@ -38,17 +38,10 @@ PanelWindow {
     readonly property bool pageLive: root.windowVisible && !LockState.locked
 
     // ── Per-page content widths ───────────────────────────────────────────────
-    readonly property var _pageWidths: ({
-        "home":     900,
-        "stats":    900,
-        "kanban":   900,
-        "launcher": 560,
-        "config":   900
-    })
-
+    // The rule lives in DashboardLayout, not here: this is a PanelWindow, and a
+    // geometry test cannot build one without a compositor and a screen.
     function _applyPageWidth(p) {
-        var w = _pageWidths[p]
-        Popups.dashboardPageWidth = (w !== undefined) ? w : 900
+        Popups.dashboardPageWidth = DashboardLayout.widthFor(p, root.width)
     }
 
     onPageChanged: _applyPageWidth(page)
@@ -143,10 +136,10 @@ PanelWindow {
             id: content
             anchors {
                 fill:         parent
-                topMargin:    root.fh + 8
-                leftMargin:   root.fw + 8
-                rightMargin:  root.fw + 8
-                bottomMargin: 8
+                topMargin:    root.fh + DashboardLayout.contentInset
+                leftMargin:   root.fw + DashboardLayout.contentInset
+                rightMargin:  root.fw + DashboardLayout.contentInset
+                bottomMargin: DashboardLayout.contentInset
             }
 
             opacity: root.open ? 1 : 0
@@ -168,14 +161,7 @@ PanelWindow {
                     orientation: "horizontal"
                     width:       parent.width
                     currentPage: root.page
-                    model: [
-                        { key: "home",     icon: "󰋜", label: "Home"   },
-                        { key: "stats",    icon: "󰻠", label: "System" },
-                        { key: "agents",   icon: "󰚩", label: "Agents" },
-                        { key: "kanban",   icon: "󰄬", label: "Tasks"  },
-                        { key: "launcher", icon: "󱓞", label: "Apps"   },
-                        { key: "config",   icon: "󰒓", label: "Config" },
-                    ]
+                    model:       DashboardLayout.tabs
                     onPageChanged: function(key) { Popups.dashboardPage = key }
                 }
 
