@@ -422,6 +422,21 @@ jobs:
           # agrees with the stub.
           ./tests/run-input-settings-test.sh
 
+      - name: Display recovery against real hotplug
+        run: |
+          # The scenarios the labwc harness above cannot reach, because labwc
+          # cannot add or remove an output while it is running. sway's headless
+          # backend can: `swaymsg create_output` and `output <name> unplug` are
+          # genuine wlroots hotplugs, seen by every layer.
+          #
+          # Four arms, all of P0-018 criterion 5 and 6: a timeout compared
+          # field for field across two outputs rather than on the one value the
+          # assertion happened to look at; an output destroyed before Apply; an
+          # output the ROLLBACK names destroyed during the countdown; and the
+          # engine failing while the guard is trying to put the layout back.
+          # The last two each found a defect the static checks could not see.
+          ./tests/run-display-unplug-test.sh
+
       - name: Plugin platform decision logic
         run: |
           # Roadmap §16. Manifest validation, the apiVersion compatibility
