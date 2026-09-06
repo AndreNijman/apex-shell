@@ -59,6 +59,9 @@ SessionRow agents/SessionRow.qml
 # the reason the note above gives — SessionRow is reached through this file, so
 # `SubagentRow is not a type` is what a sibling import would produce.
 SubagentRow agents/SubagentRow.qml
+# P1-021's account-wide rate-limit strip. Same rule again: it is reached
+# through AgentCenter, which is reached through this file.
+TelemetryStrip agents/TelemetryStrip.qml
 UnrestrictedBanner agents/UnrestrictedBanner.qml
 SectionHeading agents/SectionHeading.qml
 SmallIconButton agents/SmallIconButton.qml

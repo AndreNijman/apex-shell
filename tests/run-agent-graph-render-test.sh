@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  Run tests/agent-graph-render-test.qml — the session graph as Qt builds it,
-#  rather than as the source reads (P1-020).
+#  Run tests/agent-graph-render-test.qml — the Agent Center's rows as Qt builds
+#  them, rather than as the source reads: the session graph (P1-020) and the
+#  status-line telemetry (P1-021).
 #
 #  ── It brings its own compositor, always ────────────────────────────────────
 #
@@ -41,6 +42,10 @@ if [[ ! -f "$root/src/services/agents/SubagentRow.qml" ]]; then
     echo "      defect this test measures. Nothing to render."
     exit 1
 fi
+grep -q "^TelemetryStrip " "$root/src/services/qmldir" || {
+    echo "FAIL: TelemetryStrip is not registered in src/services/qmldir, so"
+    echo "      AgentCenter cannot see it and the whole shell fails to load."
+    exit 1; }
 grep -q "^SubagentRow " "$root/src/services/qmldir" || {
     # SessionRow is loaded THROUGH src/services/qmldir, so its directory is not
     # on the import path and a sibling that is not registered there is invisible
@@ -133,4 +138,5 @@ if echo "$out" | grep -q "  FAIL"; then
     exit 1
 fi
 
-echo "RESULT: the graph rows resolve, grow the card, and stay out of its tap target"
+echo "RESULT: the rows resolve, grow the card for what they have to say, and keep"
+echo "        the account-wide numbers off the per-session lines"
