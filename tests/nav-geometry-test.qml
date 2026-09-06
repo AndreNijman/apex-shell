@@ -37,10 +37,20 @@ import "./src/components"
 //   horizontal — no two pills overlap, no pill leaves its own slot, no label
 //                leaves its pill, the bar is tall enough for the text it holds,
 //                and the click target is the whole slot rather than the pill
-//   vertical   — no two rows overlap, rows stay inside the column, and a row
-//                stays big enough to hit
+//   vertical   — no two rows overlap, rows stay inside the column or scroll,
+//                a row stays big enough to hit, no label leaves the pane
 //   width      — the dashboard fits the output it opens on, together with the
 //                two notches it opens between, at every scale
+//
+// ── Hosts it cannot run on ──────────────────────────────────────────────────
+//
+// A Hyprland nested inside a headless compositor comes up, hands the shell a
+// 0x0 output and then never asks its Qt client for another frame, so the layout
+// stops re-polishing and every rectangle read back is the previous matrix
+// point. The suite detects that — the geometry has to AGREE with the size just
+// staged, not merely hold still — and stops with "unusable-host" rather than
+// reporting a few hundred overlaps that are an artefact of the harness.
+// labwc and sway on the wlroots headless backend drive it correctly.
 // ─────────────────────────────────────────────────────────────────────────────
 
 ShellRoot {
@@ -503,8 +513,80 @@ ShellRoot {
     property string origMode: ""
     property real origManual: 1.0
 
+    // ── Waiting for the layout instead of hoping ─────────────────────────────
+    // A fixed delay between changing a width and reading the rectangles is a
+    // guess about how fast the compositor delivers frame callbacks, and it is
+    // wrong on at least one: a Hyprland nested inside a headless host throttles
+    // them hard enough that a 90ms tick reads the PREVIOUS matrix point, which
+    // then fails assertions about a geometry it was never in.
+    //
+    // So nothing is graded until the geometry stops moving: the same numbers
+    // twice in a row is settled, anything else waits. The retry cap turns a
+    // layout that never settles into one loud failure rather than a hang.
+    property string lastSignature: ""
+    property int settleTries: 0
+    property int stuck: 0
+    readonly property int settleMax: 40
+
+    // Does what Qt laid out match the width or height that was just asked for?
+    function agreesWithStage(stepData) {
+        const vertical = stepData.kind === "v" || stepData.kind === "liveV"
+        const sw = vertical ? vSwitcher : hSwitcher
+        const n  = vertical ? root.configTabs.length : DashboardLayout.tabs.length
+        const s  = root.slotsOf(sw, n, 4)
+        if (s.length !== n)
+            return false
+        if (vertical)
+            return Math.abs(s[0].width - vHost.width) <= 1.5
+        const last = s[n - 1]
+        return Math.abs(last.x + last.width - hHost.width) <= 1.5
+    }
+
+    function signatureOf(stepData) {
+        const vertical = stepData.kind === "v" || stepData.kind === "liveV"
+        const sw = vertical ? vSwitcher : hSwitcher
+        const n  = vertical ? root.configTabs.length : DashboardLayout.tabs.length
+        const s  = root.slotsOf(sw, n, 4)
+        if (s.length !== n)
+            return "incomplete:" + s.length
+        var out = vertical ? "v" + vHost.height + ":" : "h" + hHost.width + ":"
+        for (var i = 0; i < n; i++) {
+            const it = s[i]
+            const p  = it.mapToItem(sw, 0, 0)
+            out += p.x.toFixed(2) + "," + p.y.toFixed(2) + ","
+                 + it.width.toFixed(2) + "," + it.height.toFixed(2) + ","
+                 + (it.children.length > 0 ? it.children[0].width.toFixed(2) : "-") + ";"
+        }
+        return out
+    }
+
+    // ── The output this run is actually on ───────────────────────────────────
+    // Everything else here drives Theme.scale by hand, which makes the suite
+    // say the same thing whatever the compositor hands it — useful for coverage
+    // and useless as evidence that a particular monitor is fine. So the run
+    // opens on the output it was given, at the scale Metrics derives for that
+    // output on its own, and grades the real thing before it starts pretending.
+    // Run it under a compositor set to 2560x1080 and this block is about
+    // 2560x1080.
+    readonly property var liveScreen: {
+        const s = Metrics.referenceScreen
+        return { w: s ? s.width : 0, h: s ? s.height : 0,
+                 name: (s ? s.name : "none") + " as-is" }
+    }
+
     function buildPlan() {
         const out = []
+        // The live output first, before scaleMode is forced to manual. Left out
+        // entirely when the compositor has not published a size: grading a
+        // 0x0 output measures the compositor's startup, not the shell.
+        if (root.liveScreen.w > 0 && root.liveScreen.h > 0) {
+            for (var l = 0; l < DashboardLayout.tabs.length; l++)
+                out.push({ kind: "live", screen: root.liveScreen,
+                           page: DashboardLayout.tabs[l].key })
+            for (var m = 0; m < root.dashHeights.length; m++)
+                out.push({ kind: "liveV", dashHeight: root.dashHeights[m] })
+        }
+
         for (var a = 0; a < root.scales.length; a++) {
             const sc = root.scales[a]
             for (var b = 0; b < root.screens.length; b++) {
@@ -521,19 +603,38 @@ ShellRoot {
     }
 
     function stage(stepData) {
-        SettingsService.set("scaleManual", stepData.scale)
-        if (stepData.kind === "h" || stepData.kind === "stress") {
+        const live = stepData.kind === "live" || stepData.kind === "liveV"
+        if (live) {
+            SettingsService.set("scaleMode", "auto")
+        } else {
+            SettingsService.set("scaleMode", "manual")
+            SettingsService.set("scaleManual", stepData.scale)
+        }
+        if (stepData.kind === "h" || stepData.kind === "stress"
+                || stepData.kind === "live") {
             hHost.width  = DashboardLayout.barWidthFor(stepData.page, stepData.screen.w)
             hHost.height = hSwitcher.implicitHeight
         } else {
             vHost.height = root.configNavHeight(stepData.dashHeight)
             vHost.width  = Math.round(
-                (DashboardLayout.barWidthFor("config", 1920) - 12) * 0.30)
+                (DashboardLayout.barWidthFor("config",
+                    live ? root.liveScreen.w : 1920) - 12) * 0.30)
         }
     }
 
     function grade(stepData) {
-        if (stepData.kind === "h") {
+        if (stepData.kind === "live") {
+            const ltag = "live " + stepData.screen.name + " @"
+                       + Metrics.scale + "x " + stepData.page
+            root.measureWidth(ltag, stepData.page, stepData.screen.w)
+            root.measureHorizontal(ltag + " bar=" + hHost.width, hHost.width)
+            root.measureHorizontalHeight(ltag)
+        } else if (stepData.kind === "liveV") {
+            root.measureVertical("live " + root.liveScreen.name + " @"
+                                 + Metrics.scale + "x dashHeight="
+                                 + stepData.dashHeight + " col=" + vHost.height,
+                                 vHost.height)
+        } else if (stepData.kind === "h") {
             const tag = "h " + stepData.scale + "x " + stepData.screen.name
                       + " " + stepData.page
             root.measureWidth(tag, stepData.page, stepData.screen.w)
@@ -556,12 +657,48 @@ ShellRoot {
 
     Timer {
         id: step
-        interval: 90
+        interval: 45
         repeat: false
         onTriggered: {
-            if (root.pi >= 0)
+            if (root.pi >= 0) {
+                const sig = root.signatureOf(root.plan[root.pi])
+                // Two conditions, and stability alone is not enough: a layout
+                // that stopped updating is perfectly stable at the wrong size.
+                // It also has to AGREE with the size that was just staged.
+                const ready = sig === root.lastSignature
+                            && sig.indexOf("incomplete") !== 0
+                            && root.agreesWithStage(root.plan[root.pi])
+                if (!ready && root.settleTries < root.settleMax) {
+                    root.lastSignature = sig
+                    root.settleTries++
+                    step.restart()
+                    return
+                }
+                if (root.settleTries >= root.settleMax) {
+                    // A host that cannot drive Qt's layout is not a failing
+                    // shell, and reporting it as 240 overlapping tabs would be a
+                    // lie in the loudest possible font. Three points in a row
+                    // that never move is the host, not the code — a Hyprland
+                    // nested inside a headless compositor does exactly this,
+                    // because its Qt client is never asked for another frame.
+                    root.stuck++
+                    if (root.stuck >= 3) {
+                        console.log("nav-geometry: unusable-host — the layout did"
+                                    + " not re-polish after " + root.stuck
+                                    + " staged changes, so nothing here was measured")
+                        Qt.exit(2)
+                        return
+                    }
+                    root.check("point " + root.pi + ": the layout settled within "
+                               + root.settleMax + " ticks", false, sig.substring(0, 80))
+                } else {
+                    root.stuck = 0
+                }
                 root.grade(root.plan[root.pi])
+            }
             root.pi++
+            root.settleTries = 0
+            root.lastSignature = ""
             if (root.pi >= root.plan.length) {
                 SettingsService.set("scaleManual", root.origManual)
                 SettingsService.set("scaleMode", root.origMode)
@@ -577,18 +714,36 @@ ShellRoot {
         }
     }
 
+    // Wait for the compositor to publish an output before deciding what the
+    // live block is. A nested Hyprland reports 0x0 for the first second or so,
+    // and a plan built off that grades the shell against a screen with no size.
+    property int bootTries: 0
+
     Timer {
-        interval: 1200
+        id: boot
+        interval: 300
         running:  true
+        repeat:   true
         onTriggered: {
+            root.bootTries++
+            const s = Metrics.referenceScreen
+            const sized = s && s.width > 0 && s.height > 0
+            if (!sized && root.bootTries < 40)
+                return
+            boot.running = false
+            if (!sized)
+                console.log("[rig] the compositor never published an output size;"
+                            + " the live-output block is skipped")
             root.origMode   = SettingsService.scaleMode
             root.origManual = SettingsService.scaleManual
             root.plan = root.buildPlan()
             console.log("[rig] settings home " + Quickshell.env("HOME"))
+            console.log("[rig] output " + root.liveScreen.name.replace(" as-is", "")
+                        + " " + root.liveScreen.w + "x" + root.liveScreen.h
+                        + " autoScale=" + Metrics.autoScale)
             console.log("[rig] " + DashboardLayout.tabs.length + " dashboard tabs, "
                         + root.configTabs.length + " settings pages, "
                         + root.plan.length + " matrix points")
-            SettingsService.set("scaleMode", "manual")
             step.restart()
         }
     }
