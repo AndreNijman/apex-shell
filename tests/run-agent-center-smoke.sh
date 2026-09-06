@@ -108,9 +108,9 @@ log="$(mktemp)"
 log2="$(mktemp)"
 qs_pid=""
 daemon_pid=""
-comp_pid=""
 # Killed BY PID, never by name. A pkill for quickshell on a developer's machine
 # takes down the shell they are working in.
+comp_pid=""
 cleanup() {
     [[ -n "$qs_pid" ]]     && kill "$qs_pid" 2>/dev/null
     [[ -n "$daemon_pid" ]] && kill "$daemon_pid" 2>/dev/null
@@ -170,7 +170,10 @@ else
     comp_pid=$!
     for _ in $(seq 1 60); do
         for f in "$XDG_RUNTIME_DIR"/wayland-*; do
-            [[ -S "$f" ]] && { export WAYLAND_DISPLAY="$(basename "$f")"; break; }
+            [[ -S "$f" ]] || continue
+            sock_name="$(basename "$f")"
+            export WAYLAND_DISPLAY="$sock_name"
+            break
         done
         [[ -n "${WAYLAND_DISPLAY:-}" ]] && break
         sleep 0.25
@@ -201,7 +204,12 @@ run_agent() { apex agent run --agent generic --sandbox unrestricted \
 
 # Ids are printed by `apex agent run -d`; captured so the event below can be
 # aimed at one session rather than at whatever happens to be newest.
+# Named rather than discarded: the names are what make the five states below
+# readable, and two of them are never referenced again on purpose — the session
+# only has to exist and stay in that state for the page to draw it.
+# shellcheck disable=SC2034
 id_working="$(run_agent 'while :; do echo working; sleep 1; done' | grep -o '[0-9]\+' | head -1)"
+# shellcheck disable=SC2034
 id_waiting="$(run_agent 'sleep 600'                                | grep -o '[0-9]\+' | head -1)"
 id_blocked="$(run_agent 'sleep 600'                                | grep -o '[0-9]\+' | head -1)"
 run_agent 'exit 0' >/dev/null
@@ -294,8 +302,6 @@ count="$(printf '%s' "$seen" | grep -o '[0-9]\+')"
     echo "FAIL: the page saw $count session(s), expected at least 5 — one per state"
     exit 1; }
 
-echo "RESULT: the Agent Center drew ${sessions} session(s) across all five states"
-echo "        and ${requests} request(s) against a live runtime, with no errors"
 # ─────────────────────────────────────────────────────────────────────────────
 #  §43: the help strip, and a dismissal that survives a restart
 # ─────────────────────────────────────────────────────────────────────────────
