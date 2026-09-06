@@ -69,6 +69,14 @@ QtObject {
     property int dashboardWidth:  Metrics.dashboardWidth
     property int dashboardHeight: Metrics.dashboardHeight
 
+    property int dashboardSideReserve: Metrics.dashboardSideReserve
+    property int dashboardMinWidth:    Metrics.dashboardMinWidth
+
+    // Fit a dashboard page to the output it is opening on. See Metrics for what
+    // the two clamps are protecting against.
+    function dashboardWidthFor(available, want)  { return Metrics.dashboardWidthFor(available, want) }
+    function dashboardHeightFor(available, want) { return Metrics.dashboardHeightFor(available, want) }
+
     property int notificationsWidth: Metrics.notificationsWidth
     property int notificationToastWidth: Metrics.notificationToastWidth
     property int networkPopupWidth:  Metrics.networkPopupWidth

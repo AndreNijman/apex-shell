@@ -132,6 +132,54 @@ QtObject {
     property int dashboardWidth:  px(SettingsService.dashboardWidth)
     property int dashboardHeight: px(SettingsService.dashboardHeight)
 
+    // -- Dashboard responsive bounds --
+    // The dashboard hangs off the centre notch, so while it is open its width IS
+    // the centre notch's width. Three things bound it and only one of them used
+    // to be consulted: the page's preferred width, the room the two side notches
+    // need either side of it, and the output's logical width.
+    //
+    // Leaving the last two out is what a user saw. A preferred width is written
+    // in 1080p-baseline units and used to go straight into the window, so a
+    // 1280x720 panel at 150% compositor scale — 853 logical pixels wide — still
+    // got a dashboard asking for 900 of them. Its own edges ran off the screen,
+    // and the workspace and tray notches, which are content-sized and knew
+    // nothing about it, drew straight through it.
+    //
+    // The reserve is each side notch's MINIMUM width plus the shoulder the seam
+    // shape draws around it. Minimum rather than actual: the actual widths are
+    // content-sized and live in the bar, and a dashboard whose width depended on
+    // them would resize itself every time a workspace appeared. TopBar clamps
+    // the side notches down into whatever this leaves them — see its
+    // sideClearance — so the reserve is a floor for them, not a guess.
+    property int dashboardSideReserve: lNotchMinWidth + notchRadius + px(12)
+
+    // Below this the dashboard stops giving way: a strip narrower than this
+    // cannot show a settings page at all, so the side notches give up their
+    // clearance first and clip, which they already do by design.
+    property int dashboardMinWidth: px(320)
+
+    function dashboardWidthFor(available, want) {
+        if (!available || available <= 0)
+            return want
+        // What is left once both side notches have their minimum and shoulder.
+        const room = available - 2 * root.dashboardSideReserve
+        // And what the output can physically show, flares included. This one is
+        // last because it outranks the minimum: a shell scaled far past its
+        // screen gives up the side notches before it gives up fitting on the
+        // display at all.
+        const ceiling = available - 2 * (root.notchRadius + px(4))
+        return Math.min(ceiling,
+                        Math.max(root.dashboardMinWidth, Math.min(want, room)))
+    }
+
+    // The dashboard is anchored to the top of the output and cannot scroll its
+    // own frame, so a page taller than the screen simply loses its bottom edge.
+    function dashboardHeightFor(available, want) {
+        if (!available || available <= 0)
+            return want
+        return Math.min(want, available - px(12))
+    }
+
     // -- Notifications Popup Width -- (Config → Layout & Behavior)
     property int notificationsWidth: px(SettingsService.notificationsWidth)
     property int notificationToastWidth: notificationsWidth / 1.2

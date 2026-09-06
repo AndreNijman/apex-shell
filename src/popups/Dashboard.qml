@@ -38,20 +38,40 @@ PanelWindow {
     readonly property bool pageLive: root.windowVisible && !LockState.locked
 
     // ── Per-page content widths ───────────────────────────────────────────────
-    readonly property var _pageWidths: ({
-        "home":     900,
-        "stats":    900,
-        "kanban":   900,
-        "launcher": 560,
-        "config":   900
-    })
-
-    function _applyPageWidth(p) {
-        var w = _pageWidths[p]
-        Popups.dashboardPageWidth = (w !== undefined) ? w : 900
+    // Every page but one wants the configured dashboard width. The launcher
+    // wants to be narrow: a search field and a single column of results read
+    // badly stretched across a whole page.
+    //
+    // These are preferences, not sizes, and the difference is the bug. They used
+    // to be raw 1080p literals written straight into the window's width, so they
+    // neither grew with the shell's scale factor nor shrank to fit the output.
+    // Theme.dashboardWidthFor() decides what this screen can actually show; see
+    // theme/Metrics.qml for what it is protecting against.
+    function _preferredWidth(p) {
+        return p === "launcher" ? Theme.px(560) : Theme.dashboardWidth
     }
 
-    onPageChanged: _applyPageWidth(page)
+    // The output the dashboard is opening on, which is not necessarily the one
+    // that set the shell's scale factor.
+    readonly property int availableWidth:  root.screen ? root.screen.width  : 0
+    readonly property int availableHeight: root.screen ? root.screen.height : 0
+
+    readonly property int pageWidth:
+        Theme.dashboardWidthFor(root.availableWidth, root._preferredWidth(root.page))
+
+    readonly property int pageHeight:
+        Theme.dashboardHeightFor(root.availableHeight, Theme.dashboardHeight)
+
+    // The top bar reads this to size the centre notch the dashboard hangs from,
+    // so the two cannot disagree about how wide the dashboard is. Bound rather
+    // than assigned: it has to follow a scale change or a mode change, not just
+    // a tab click.
+    Binding {
+        target:   Popups
+        property: "dashboardPageWidth"
+        value:    root.pageWidth
+        when:     root.open
+    }
 
     color:   "transparent"
     visible: windowVisible
@@ -80,7 +100,6 @@ PanelWindow {
         if (root.open) {
             closeTimer.stop()
             root.windowVisible = true
-            root._applyPageWidth(root.page)
             focusGrabTimer.restart() // Delay the grab slightly
         } else {
             root.wantsFocus = false // Release instantly
@@ -115,8 +134,8 @@ PanelWindow {
         anchors.horizontalCenter: parent.horizontalCenter
         clip: true
 
-        width:  root.open ? Popups.dashboardPageWidth + 2 * root.fw : Theme.cNotchMinWidth + 2 * root.fw
-        height: root.open ? Theme.dashboardHeight : Theme.notchHeight / 2
+        width:  root.open ? root.pageWidth + 2 * root.fw : Theme.cNotchMinWidth + 2 * root.fw
+        height: root.open ? root.pageHeight : Theme.notchHeight / 2
 
         Behavior on width  { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
         Behavior on height { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
@@ -145,11 +164,15 @@ PanelWindow {
             objectName: "dashboard-content"
             anchors {
                 fill:         parent
-                topMargin:    root.fh + 8
-                leftMargin:   root.fw + 8
-                rightMargin:  root.fw + 8
-                bottomMargin: 8
+                topMargin:    root.fh + Theme.px(8)
+                leftMargin:   root.fw + Theme.px(8)
+                rightMargin:  root.fw + Theme.px(8)
+                bottomMargin: Theme.px(8)
             }
+
+            // Escape lives here rather than on the page area so it still closes
+            // the dashboard when keyboard focus is on a tab rather than a page.
+            Keys.onEscapePressed: Popups.dashboardOpen = false
 
             opacity: root.open ? 1 : 0
             Behavior on opacity {
@@ -187,7 +210,7 @@ PanelWindow {
                     id: pageArea
                     objectName: "dashboard-pagearea"
                     focus: true
-                    
+
                     width:  parent.width
                     height: parent.height - tabBar.height
 
@@ -262,8 +285,6 @@ PanelWindow {
                             }
                         }
                     }
-                    
-                    Keys.onEscapePressed: Popups.dashboardOpen = false
                 }
             }
         }

@@ -116,10 +116,35 @@ PanelWindow {
         }
     }
 
-    readonly property int lWidth: Math.max(
-        Theme.lNotchMinWidth,
-        Math.min(Theme.lNotchMaxWidth,
-                 leftContent.implicitWidth + Theme.notchPadding * 2)
+    // ── How much room a side notch has ───────────────────────────────────────
+    // The centre notch is centred, so each side gets half of what is left over,
+    // less the shoulder the seam shape draws where the two meet. While the
+    // dashboard is open cWidth is the dashboard's own width, which on a small or
+    // heavily scaled output is most of the bar; without this ceiling the three
+    // notches simply drew on top of one another and the workspace pills ran
+    // under the dashboard's left edge.
+    //
+    // Theme.dashboardSideReserve keeps the dashboard from claiming more than
+    // this leaves, so on any output wide enough to run the shell at all the
+    // ceiling lands above the notch minimums and nothing here binds.
+    //
+    // It is applied OUTSIDE the minimum, deliberately. The minimums are 1080p
+    // tokens like everything else, so at a large manual scale on a small output
+    // their sum alone is wider than the bar. A notch that has run out of room
+    // clips its content, which it is built to do; a notch that insists on its
+    // minimum draws over its neighbour, which nothing recovers from.
+    readonly property int sideClearance:
+        Math.max(0, Math.floor((root.width - root.cWidth) / 2) - Theme.notchRadius)
+
+    // Content widths are fractional. Rounding a notch DOWN onto its content
+    // clips the last column of the last tray icon, so round up.
+    readonly property int lWidth: Math.min(
+        root.sideClearance,
+        Math.max(
+            Theme.lNotchMinWidth,
+            Math.min(Theme.lNotchMaxWidth,
+                     Math.ceil(leftContent.implicitWidth) + Theme.notchPadding * 2)
+        )
     )
 
     // cWidth uses Popups.dashboardPageWidth when the dashboard is open,
@@ -136,9 +161,13 @@ PanelWindow {
     }
 
     // Width matches sizer open width: popupWidth + notchRadius (fw) in both popups
-    property int rWidth: Math.max(
-        Theme.rNotchMinWidth,
-        Math.min(Theme.rNotchMaxWidth, rightContent.implicitWidth + Theme.notchPadding * 2)
+    property int rWidth: Math.min(
+        root.sideClearance,
+        Math.max(
+            Theme.rNotchMinWidth,
+            Math.min(Theme.rNotchMaxWidth,
+                     Math.ceil(rightContent.implicitWidth) + Theme.notchPadding * 2)
+        )
     )
 
     // ── Border strip (focus mode) ────────────────────────────────────────────
@@ -242,7 +271,7 @@ PanelWindow {
             width:         root.rWidth
             height:        Theme.notchHeight
             anchors.right: parent.right
-            
+
             clip: true
 
             RightContent {

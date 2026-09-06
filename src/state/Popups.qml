@@ -19,7 +19,11 @@ QtObject {
     property bool contextMenuOpen:   false
 
     // ── Dashboard — per-page state ───────────────────────────────────────────
-    property int    dashboardPageWidth: 900
+    // The open dashboard drives this from popups/Dashboard.qml, which is the
+    // only thing that knows the output it landed on. The default is what the
+    // centre notch would grow to on the screen the shell took its scale from —
+    // a resting value, and never the raw 1080p literal it used to be.
+    property int    dashboardPageWidth: Theme.dashboardWidth
     property string dashboardPage:      "home"
     
     // ── Audio popup — per-page state ─────────────────────────────────────────
