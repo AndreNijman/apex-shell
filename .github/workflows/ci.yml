@@ -406,6 +406,22 @@ jobs:
           # is not something a mock can produce.
           ./tests/run-display-transaction-test.sh
 
+      - name: Input settings behavioural test
+        run: |
+          # UI-003 / P0-019. Needs labwc, quickshell and the input generator,
+          # and skips cleanly without them — so this documents the entry point
+          # rather than it silently not existing.
+          #
+          # It runs the service twice against the REAL generator, once as
+          # labwc and once as niri, because the interesting behaviour is a
+          # refusal: niri has no three-finger drag and no click method that
+          # produces no button, and a control the compositor cannot honour has
+          # to be refused rather than written and reported as applied. That is
+          # the whole of "changing Input configuration has no effect", and it
+          # cannot be checked against a stub — a stub would prove the page
+          # agrees with the stub.
+          ./tests/run-input-settings-test.sh
+
       - name: Plugin platform decision logic
         run: |
           # Roadmap §16. Manifest validation, the apiVersion compatibility
