@@ -946,6 +946,26 @@ jobs:
           # stay GREEN.
           ./tests/check-recovery-ui.sh
 
+      - name: Agents & Workspaces help invariants
+        run: |
+          # §43's guide. A help page is the one surface where a plausible
+          # sentence is worse than a crash: a user who types a flag this page
+          # invented gets an error and no way to tell whether the page or the
+          # CLI is wrong.
+          #
+          # So this reads every `apex …` command out of the guide's strings and
+          # checks each verb against the clap enums in apex-os when a checkout
+          # is present, asserts that every permission mode the roadmap only
+          # PLANS carries a NOT-IN-THIS-BUILD block, asserts all six permission
+          # layers and all three invariants of §3.1 are stated, and runs the
+          # stop-slop rules over the prose.
+          #
+          # Self-tested the way check-recovery-ui.sh is: five mutants that must
+          # each go red, a hard failure for a mutant that did not change the
+          # file, and an inverse mutant proving the checks read the guide and
+          # not this script's own header.
+          ./tests/check-agent-help.sh
+
       - name: Remote agent status smoke test
         run: |
           # Needs a compositor AND the apex-os runtime built; the harness skips
