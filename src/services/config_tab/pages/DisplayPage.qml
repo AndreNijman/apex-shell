@@ -6,8 +6,8 @@ import "../../../components/config"
 
 // Config → Display  (roadmap §18, settings parity)
 //
-// One model, ~/.config/apex-shell/display.json, applied live through hyprctl or
-// wlr-randr and persisted as a Hyprland monitor conf plus a kanshi profile.
+// One model, ~/.config/apex-shell/display.json, applied live through hyprctl eval or
+// wlr-randr and persisted as ~/.config/hypr/apex/monitors.lua plus a kanshi profile.
 // Nothing here knows which compositor is running.
 //
 // THIS PAGE DOES NOT WRITE AS YOU DRAG
@@ -279,7 +279,7 @@ CfgScroll {
 
         CfgRow {
             label:       "Save without applying"
-            description: "Writes the Hyprland monitor conf and the kanshi profile. " +
+            description: "Writes the Hyprland monitor module and the kanshi profile. " +
                          "Takes effect at the next login or hotplug."
             CfgButton {
                 label:   "Save"
