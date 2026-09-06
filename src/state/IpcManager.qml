@@ -125,7 +125,6 @@ QtObject {
         return ids.join(" ")
     }
 
-<<<<<<< HEAD
     // ── Display transactions ─────────────────────────────────
     // The one settings domain that can take away the pointer you would use to
     // fix it. The dialog is now built on every output so it survives the apply
@@ -197,7 +196,6 @@ QtObject {
         }
     }
 
-=======
     // ── Agents & Workspaces help (§43) ───────────────────────
     // The guide's own "Keys and commands" section prints these lines, so a user
     // who dismissed the first-run card has a documented way to get it back and
@@ -278,7 +276,6 @@ QtObject {
         return false
     }
 
->>>>>>> 4a0ed98 (feat(agents): the Agent Center said what was running and never what any of it was)
     // ── Audio Toggles ────────────────────────────────────────
 
     property var audioOut: IpcHandler {
