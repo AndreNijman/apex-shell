@@ -4,19 +4,40 @@ import "../../../theme"
 import "../"
 import "../../../components/config"
 
-// Config → Blueprint  (roadmap §10, "GUI editing without hand-editing TOML")
+// Config → Blueprint  (roadmap §10 and P1-048, "a guided experience")
 //
 // The blueprint is the declarative statement of what this machine should be.
 // This page edits that file and nothing else.
+//
+// ── WHAT P1-048 CHANGED, AND WHY ─────────────────────────────────────────────
+//
+// The page was correct and unreadable. It opened on a file path and a sentence
+// about why the editor must not write the generated-state file — an invariant
+// worth keeping and the second thing a new user read. Nothing on it said what a
+// blueprint IS. The plan rendered every change as one layout, so the row that
+// deletes something looked exactly like the row that installs something. And
+// the empty state, on a machine with no blueprint at all, was the full editor
+// with "converge", "privilege domain" and "matugen scheme" in it.
+//
+// So the order is now: what this is, what you have, what you want, what would
+// change, and only then the machinery. The words that need a maintainer's
+// context to parse are still here — they are true and someone needs them — but
+// they are at the bottom under Advanced instead of at the top.
 //
 // ── THE THREE THINGS THIS PAGE DOES NOT DO ───────────────────────────────────
 //
 // 1. It never authors TOML. Every value is read from `blueprint show --json`
 //    and written back through `blueprint set --json -`, which puts it through
 //    the same parser and atomic write a hand-edited file goes through. The TOML
-//    shown at the bottom is the CLI rendering the SAVED file — it is display
+//    shown under Advanced is the CLI rendering the SAVED file — it is display
 //    only, and there is deliberately no preview of unsaved state, because
 //    rendering a draft would mean implementing the schema twice.
+//
+//    This is also why there is no raw editor here, which P1-048 asks for. The
+//    only write verb takes JSON; a text box that posted TOML would need a
+//    second serialiser aimed at a file the user owns. The file is named under
+//    Advanced and Reload picks up a hand edit, so raw editing stays available
+//    in the one form that cannot corrupt anything.
 //
 // 2. It never applies on edit. Editing stages a draft in memory; Save writes
 //    the file; Apply converges the machine. Three separate actions, in that
@@ -43,6 +64,16 @@ CfgScroll {
     lifecycleError: BlueprintService.dirty ? "" : BlueprintService.lastError
 
     Component.onCompleted: BlueprintService.compare()
+
+    // True before the first Save on a machine that has never had a blueprint.
+    // The editor is shown in this state — it is how you make one — but it is
+    // introduced rather than just presented.
+    readonly property bool fresh: BlueprintService.available
+                                  && BlueprintService.loaded
+                                  && BlueprintService.source === ""
+
+    readonly property bool editable: BlueprintService.available
+                                     && BlueprintService.draft !== null
 
     // ── The CLI is not on this image ──────────────────────────────────────────
     // First and alone: with no `apex blueprint`, every other section would be an
@@ -72,56 +103,82 @@ CfgScroll {
         }
     }
 
-    // ── Where this blueprint comes from ───────────────────────────────────────
-    // Said before the first Save, not after it. `set` writes the user's own file
-    // unconditionally, so saving while the site default is loaded forks it — and
-    // from then on the administrator's changes stop arriving.
+    // ── What a blueprint is ───────────────────────────────────────────────────
+    // P1-048's first criterion, and the thing the page never said. Three
+    // sentences, no jargon, and the one promise that matters most is last:
+    // reading this page cannot change anything.
     CfgSection {
-        title: "This file"
+        title: "What this is"
         first: !(BlueprintService.loaded && !BlueprintService.available)
         visible: BlueprintService.available
 
         CfgRow {
-            label: BlueprintService.source === ""
-                ? "No blueprint on this machine yet"
-                : BlueprintService.source
-            description: BlueprintService.saveNotice
+            label: "A description of how you want this computer set up"
+            description: "Which desktop it uses, which apps it should have, " +
+                         "which coding assistant answers when you ask for one. " +
+                         "It is a file, so you can copy it to another machine " +
+                         "and set that one up the same way."
             hoverable: false
         }
         CfgRow {
-            label: "Generated state"
-            description: (BlueprintService.paths.applied_state || "~/.local/state/apex/blueprint-state.toml") +
-                         " — written by apex apply, never by this page. " +
-                         "Keeping the two apart is what stops diff agreeing " +
-                         "with apply by construction."
+            label: "Editing here changes nothing on its own"
+            description: "Your edits are held on this page until you Save them " +
+                         "to the file. Changing the machine to match the file " +
+                         "is a second, separate step — the Apply button near " +
+                         "the bottom, which you press yourself."
             hoverable: false
-        }
-        CfgRow {
-            label: "Reload from disk"
-            description: "The blueprint is a normal file and can be edited by hand"
-            CfgButton {
-                label: "Reload"
-                onClicked: BlueprintService.refresh()
-            }
         }
     }
 
-    // The read error used to be a "Problem" section here. It is the page's
-    // `lifecycleError` now — the same line every settings page reports a
-    // refused read or write on.
-
-    // ── [desktop] ─────────────────────────────────────────────────────────────
-    // "Not managed" is a real, distinct choice everywhere on this page: an
-    // absent section means APEX does not manage that thing, NOT that it should
-    // be set to a default. A blueprint that asserted defaults for everything it
-    // did not mention would reformat a machine the first time it ran.
+    // ── Nothing here yet ──────────────────────────────────────────────────────
+    // The empty state P1-048 asks to be useful. It replaces nothing: on a fresh
+    // machine the old page went straight from a file path into the editor, so
+    // the first thing anyone saw was a Compositor dropdown with no reason to
+    // touch it.
     CfgSection {
-        title: "Desktop"
-        visible: BlueprintService.available && BlueprintService.draft !== null
+        title: "Nothing here yet"
+        visible: root.fresh
 
         CfgRow {
-            label: "Compositor"
-            description: "Which session the greeter selects."
+            label: "This machine has no blueprint"
+            description: "APEX is not looking after anything here, and nothing " +
+                         "below is set. Choose only what you want it to keep " +
+                         "— whatever you leave alone stays out of the file, " +
+                         "and APEX will not touch it."
+            hoverable: false
+        }
+        CfgRow {
+            label: "When you are ready"
+            description: "Save writes the file. Nothing on this computer " +
+                         "changes until you Apply after that."
+            hoverable: false
+        }
+    }
+
+    // ── What this machine should be ───────────────────────────────────────────
+    // "Not managed" is a real, distinct choice everywhere below: an absent
+    // section means APEX does not manage that thing, NOT that it should be set
+    // to a default. A blueprint that asserted defaults for everything it did not
+    // mention would reformat a machine the first time it ran.
+    //
+    // That used to be a comment here and nowhere else, so the difference between
+    // "Not managed" and "no" — which is the difference between leaving something
+    // alone and asserting it — was invisible on every control that offered both.
+    // It is said once, in the open, above the controls it applies to.
+    CfgSection {
+        title: "Desktop"
+        visible: root.editable
+
+        CfgRow {
+            label: "\"Not managed\" means leave it alone"
+            description: "It is not the same as picking a value. A managed " +
+                         "setting is one APEX will put back if it drifts; an " +
+                         "unmanaged one is yours to change however you like."
+            hoverable: false
+        }
+        CfgRow {
+            label: "Desktop"
+            description: "Which desktop you get when you log in."
             effect: "relogin"
             CfgSegmented {
                 options: [{ value: "", label: "Not managed" }]
@@ -131,8 +188,8 @@ CfgScroll {
             }
         }
         CfgRow {
-            label: "Colour scheme"
-            description: "The matugen scheme derived from the wallpaper"
+            label: "Colours"
+            description: "How the shell picks its palette out of your wallpaper."
             CfgSegmented {
                 options: [{ value: "", label: "Not managed" }]
                     .concat(BlueprintService.themes.map(t => ({ value: t, label: t })))
@@ -143,12 +200,17 @@ CfgScroll {
     }
 
     // ── [agent] ───────────────────────────────────────────────────────────────
+    // Both rows had a label and no description. The vocabulary comes from the
+    // CLI, so a reader who did not already know what "strict" meant had nowhere
+    // to find out without leaving the page.
     CfgSection {
-        title: "Agent"
-        visible: BlueprintService.available && BlueprintService.draft !== null
+        title: "Coding assistant"
+        visible: root.editable
 
         CfgRow {
-            label: "Default agent"
+            label: "Which one to use"
+            description: "The assistant that answers when you ask for one " +
+                         "without naming it."
             CfgSegmented {
                 options: [{ value: "", label: "Not managed" }]
                     .concat(BlueprintService.agents.map(a => ({ value: a, label: a })))
@@ -157,7 +219,10 @@ CfgScroll {
             }
         }
         CfgRow {
-            label: "Sandbox policy"
+            label: "How much it can reach"
+            description: "unrestricted: your whole account. project: only the " +
+                         "folder you started it in. strict: that folder, and " +
+                         "no network."
             CfgSegmented {
                 options: [{ value: "", label: "Not managed" }]
                     .concat(BlueprintService.sandboxes.map(s => ({ value: s, label: s })))
@@ -172,15 +237,14 @@ CfgScroll {
     // existence. The CLI validates it; this page does not try to, and shows the
     // CLI's refusal verbatim if it comes.
     CfgSection {
-        title: "Apps to install"
-        visible: BlueprintService.available && BlueprintService.draft !== null
+        title: "Apps"
+        visible: root.editable
 
         CfgRow {
-            label: "Add"
-            description: "Repository package names and Flatpak application ids, " +
-                         "classified the same way `apex install` classifies its " +
-                         "arguments. A local .rpm is refused: a blueprint has to " +
-                         "reproduce on another machine."
+            label: "Add an app"
+            description: "A package name like firefox, or a Flatpak id like " +
+                         "md.obsidian.Obsidian. APEX turns down a downloaded " +
+                         ".rpm: a blueprint has to work on another machine too."
             CfgTextField {
                 id: appField
                 placeholder: "firefox or md.obsidian.Obsidian"
@@ -206,8 +270,8 @@ CfgScroll {
         }
 
         CfgRow {
-            label: "Nothing listed"
-            description: "APEX does not manage which apps are installed"
+            label: "No apps listed"
+            description: "APEX is not managing which apps this machine has"
             hoverable: false
             visible: BlueprintService.listOf("apps", "install").length === 0
         }
@@ -215,14 +279,15 @@ CfgScroll {
 
     // ── [development] ─────────────────────────────────────────────────────────
     CfgSection {
-        title: "Languages"
-        visible: BlueprintService.available && BlueprintService.draft !== null
+        title: "Programming languages"
+        visible: root.editable
 
         CfgRow {
-            label: "Recorded and diffed, not installed"
-            description: "Toolchain installation belongs to `apex env` capsules. " +
-                         "Until then apply reports this section rather than " +
-                         "guessing at a toolchain."
+            label: "Written down, not installed"
+            description: "Ticking a language records that this machine is meant " +
+                         "to have it, and Apply will tell you when it does not. " +
+                         "Installing the toolchain is a separate job APEX does " +
+                         "not do yet, so it says so rather than guessing."
             hoverable: false
         }
 
@@ -248,17 +313,18 @@ CfgScroll {
     // ── [gaming] ──────────────────────────────────────────────────────────────
     CfgSection {
         title: "Gaming"
-        visible: BlueprintService.available && BlueprintService.draft !== null
+        visible: root.editable
 
         CfgRow {
-            label: "Observed and reported, never converged"
-            description: "A Gaming machine is an image, not a package set. No " +
-                         "command turns Daily into Gaming, so this is diffed and " +
-                         "reported rather than applied."
+            label: "Checked, but never changed for you"
+            description: "The APEX edition you installed decides whether this " +
+                         "is a gaming machine, and no command turns one into " +
+                         "the other. Apply reports a mismatch here instead of " +
+                         "trying to fix it."
             hoverable: false
         }
         CfgRow {
-            label: "Expect a gaming edition"
+            label: "This should be a gaming machine"
             CfgSegmented {
                 options: [{ value: "", label: "Not managed" },
                           { value: "yes", label: "yes" },
@@ -283,7 +349,7 @@ CfgScroll {
     // is no verb that renders an unsaved draft, and writing one here is the one
     // thing this page must not do.
     CfgSection {
-        title: "Unsaved edits"
+        title: "Not saved yet"
         visible: BlueprintService.available && BlueprintService.dirty
 
         Repeater {
@@ -298,10 +364,10 @@ CfgScroll {
         }
 
         CfgRow {
-            label: "This would unmanage everything"
-            description: "Saving an empty blueprint writes an empty file, which " +
-                         "silently stops APEX managing anything it managed " +
-                         "before. Nothing else on this page needs confirming."
+            label: "This would stop APEX managing anything"
+            description: "You have cleared every setting. Saving now writes an " +
+                         "empty file, and APEX will stop looking after all the " +
+                         "things it was looking after before."
             hoverable: false
             visible: BlueprintService.eraseWarning
         }
@@ -312,9 +378,6 @@ CfgScroll {
     // this page really has: no Apply here. Apply converges the machine and
     // reads the FILE, so it cannot act on a draft; it lives further down, next
     // to what it would change, and refuses to run while anything is unsaved.
-    //
-    // "Discard" and "Revert" used to be a row label and a button label for the
-    // same act. There is one word for it now.
     CfgCommit {
         // `held` as well as `available`: CfgCommit hides itself when there is
         // nothing staged, and a page-level `visible` that ignored that would
@@ -336,11 +399,11 @@ CfgScroll {
     }
 
     // ── Save result ───────────────────────────────────────────────────────────
-    // The CLI's stderr, verbatim. An editor's rejection has to be identical to a
+    // The CLI's stdout, verbatim. An editor's rejection has to be identical to a
     // hand-edit's rejection; paraphrasing it here would make this page a second,
     // worse validator that drifts from the real one.
     CfgSection {
-        title: "Save"
+        title: "Saved"
         visible: BlueprintService.available
                  && BlueprintService.saveError === ""
                  && BlueprintService.saveMessage !== ""
@@ -356,20 +419,39 @@ CfgScroll {
         }
     }
 
-    // ── What this would change ────────────────────────────────────────────────
+    // ── What Apply would do ───────────────────────────────────────────────────
+    // Was one heading, "This machine vs the blueprint", over one undifferentiated
+    // list. The three groups below are the same rows sorted by what they do to
+    // the machine, which is the question somebody about to press Apply is
+    // actually asking.
     CfgSection {
-        title: "This machine vs the blueprint"
-        visible: BlueprintService.available && BlueprintService.draft !== null
+        title: "What Apply would do"
+        visible: root.editable
 
         CfgRow {
-            label: BlueprintService.planning ? "Measuring…" : BlueprintService.planSummary
+            label: BlueprintService.planning ? "Checking…" : BlueprintService.planSummary
             description: BlueprintService.dirty
-                ? "Measured against the SAVED file, not your unsaved edits."
-                : "The machine is probed every time; there is no cached current state."
+                ? "Measured against the file as it is SAVED, so your unsaved " +
+                  "edits above are not included."
+                : "The machine is checked afresh every time; nothing here is " +
+                  "remembered from last time."
             hoverable: false
         }
+        // Led with, not buried in the list, because it is the one number on the
+        // page that describes something you cannot get back by running Apply
+        // again.
         CfgRow {
-            label: "Re-measure"
+            label: BlueprintService.removalCount === 1
+                ? "1 thing would be removed"
+                : BlueprintService.removalCount + " things would be removed"
+            description: "Listed on their own below."
+            status: "check this"
+            statusWarns: true
+            hoverable: false
+            visible: BlueprintService.removalCount > 0
+        }
+        CfgRow {
+            label: "Check again"
             CfgButton {
                 label: "Compare"
                 enabled: !BlueprintService.planning
@@ -381,9 +463,30 @@ CfgScroll {
                 onClicked: BlueprintService.preview()
             }
         }
+    }
+
+    CfgSection {
+        title: "Would be added"
+        visible: root.editable && BlueprintService.planAdds.length > 0
 
         Repeater {
-            model: BlueprintService.plan ? BlueprintService.plan.user : []
+            model: BlueprintService.planAdds
+
+            delegate: CfgRow {
+                required property var modelData
+                label: modelData.desired
+                description: modelData.what + "   ·   " + modelData.step
+                hoverable: false
+            }
+        }
+    }
+
+    CfgSection {
+        title: "Would be changed"
+        visible: root.editable && BlueprintService.planEdits.length > 0
+
+        Repeater {
+            model: BlueprintService.planEdits
 
             delegate: CfgRow {
                 required property var modelData
@@ -393,15 +496,54 @@ CfgScroll {
                 hoverable: false
             }
         }
+    }
+
+    // ── Would be removed ──────────────────────────────────────────────────────
+    // Its own section, and the only one on the page whose rows are marked. P1-048
+    // asks for destructive removals to be separated from additions and changes;
+    // before this they were the same row layout in the same list, distinguishable
+    // only by reading which side of the arrow was empty.
+    CfgSection {
+        title: "Would be removed"
+        visible: root.editable && BlueprintService.planRemovals.length > 0
+
+        CfgRow {
+            label: "Apply takes these away"
+            description: "The blueprint does not list them, so Apply removes " +
+                         "them from this machine. Running Apply again will not " +
+                         "bring them back — add them above first if you want " +
+                         "to keep them."
+            hoverable: false
+        }
+
+        Repeater {
+            model: BlueprintService.planRemovals
+
+            delegate: CfgRow {
+                required property var modelData
+                label: modelData.current
+                description: modelData.what + "   ·   " + modelData.step
+                status: "removed"
+                statusWarns: true
+                hoverable: false
+            }
+        }
+    }
+
+    CfgSection {
+        title: "APEX does not recognise these"
+        visible: root.editable && BlueprintService.plan !== null &&
+                 BlueprintService.plan.unknown.length > 0
 
         Repeater {
             model: BlueprintService.plan ? BlueprintService.plan.unknown : []
 
             delegate: CfgRow {
                 required property var modelData
-                label: modelData.what + "  (unrecognised)"
-                description: "This build does not know which privilege domain " +
-                             "closes this gap: " + modelData.step
+                label: modelData.what
+                description: "This version of APEX cannot tell whether this " +
+                             "needs an administrator, so it will not attempt " +
+                             "it: " + modelData.step
                 hoverable: false
             }
         }
@@ -415,10 +557,10 @@ CfgScroll {
 
         CfgRow {
             label: BlueprintService.rootNotice
-            description: "Run it yourself in a terminal. `apex apply` converges " +
-                         "only the privilege domain it is already running in and " +
-                         "reports the other, which is why it never raises an " +
-                         "authentication prompt. This page does not escalate."
+            description: "Run it yourself in a terminal. `apex apply` only " +
+                         "changes the things it already has permission for and " +
+                         "reports the rest, which is why it never pops up a " +
+                         "password box. This page does not escalate."
             hoverable: false
         }
 
@@ -427,9 +569,17 @@ CfgScroll {
 
             delegate: CfgRow {
                 required property var modelData
+                readonly property bool takesAway:
+                    BlueprintService.kindOf(modelData) === "remove"
                 label: modelData.what
                 description: modelData.current + "  →  " + modelData.desired +
                              "   ·   " + modelData.step
+                // Marked in place rather than split out: these rows are grouped
+                // by who has to run them, and a removal moved into the section
+                // above would be listed twice or lose the fact that Apply here
+                // will not perform it.
+                status: takesAway ? "removed" : ""
+                statusWarns: takesAway
                 hoverable: false
             }
         }
@@ -440,7 +590,7 @@ CfgScroll {
     // are blocked reports converged, so folding these into the summary would
     // hide exactly the rows that need explaining.
     CfgSection {
-        title: "APEX cannot converge these"
+        title: "APEX cannot do these at all"
         visible: BlueprintService.available && BlueprintService.plan !== null &&
                  BlueprintService.plan.blocked.length > 0
 
@@ -463,13 +613,15 @@ CfgScroll {
     // timer, a binding or a save.
     CfgSection {
         title: "Apply"
-        visible: BlueprintService.available && BlueprintService.draft !== null
+        visible: root.editable
 
         CfgRow {
-            label: BlueprintService.applying ? "Applying…" : "Converge this machine"
-            description: "Runs `apex apply` as you. Performs the changes in your " +
-                         "own privilege domain and re-measures afterwards rather " +
-                         "than trusting an exit code."
+            label: BlueprintService.applying
+                ? "Applying…"
+                : "Make this machine match the blueprint"
+            description: "Runs the changes listed above that do not need an " +
+                         "administrator, then checks the machine again rather " +
+                         "than assuming it worked."
             CfgButton {
                 label: "Apply"
                 enabled: !BlueprintService.applying && !BlueprintService.dirty
@@ -478,22 +630,61 @@ CfgScroll {
         }
         CfgRow {
             label: "Save first"
-            description: "Apply reads the file, not this page. Unsaved edits " +
-                         "would not be part of it."
+            description: "Apply reads the file, not this page. Your unsaved " +
+                         "edits would not be part of it."
             hoverable: false
             visible: BlueprintService.dirty
         }
         CfgRow {
-            label: "Failed"
+            label: "It did not work"
             description: BlueprintService.applyError
             hoverable: false
             visible: BlueprintService.applyError !== ""
         }
         CfgRow {
-            label: "Result"
+            label: "What happened"
             description: BlueprintService.applyOutput
             hoverable: false
             visible: BlueprintService.applyOutput !== ""
+        }
+    }
+
+    // ── Advanced ──────────────────────────────────────────────────────────────
+    // Everything below here is true, needed by somebody, and was previously at
+    // the top of the page. The file's location, the record apply writes, and the
+    // saved TOML are all things a maintainer wants and a first-time reader does
+    // not need in order to set up a machine.
+    CfgSection {
+        title: "Advanced"
+        visible: BlueprintService.available
+
+        CfgRow {
+            label: BlueprintService.source === ""
+                ? "No blueprint file yet"
+                : BlueprintService.source
+            description: BlueprintService.saveNotice
+            hoverable: false
+        }
+        CfgRow {
+            label: "Edit it by hand if you prefer"
+            description: "It is an ordinary text file. Change it in any editor " +
+                         "and press Reload to pick that up. There is no raw " +
+                         "editor on this page on purpose: the only safe way in " +
+                         "is the same one a hand edit takes."
+            CfgButton {
+                label: "Reload"
+                onClicked: BlueprintService.refresh()
+            }
+        }
+        CfgRow {
+            label: "Where APEX records what it applied"
+            description: (BlueprintService.paths.applied_state || "~/.local/state/apex/blueprint-state.toml") +
+                         ". Written by apex apply, never by this page. They are " +
+                         "kept apart on purpose — if this editor could write " +
+                         "that file, the comparison above would agree with " +
+                         "Apply because both came from here, rather than " +
+                         "because the machine was measured."
+            hoverable: false
         }
     }
 
