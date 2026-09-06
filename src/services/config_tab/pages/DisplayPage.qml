@@ -98,6 +98,56 @@ CfgScroll {
         }
     }
 
+    // ── Shell scaling across a mixed desk (P1-040) ───────────────────────────
+    //
+    // APEX Shell magnifies itself by ONE factor for the whole session, derived
+    // from one output's logical size. Two outputs of different densities at
+    // compositor scale 1 therefore get the same factor and it is wrong for one
+    // of them: measured, a 4K beside a 1080p gives 1.5 to both, which is half
+    // again too large on the 1080p panel.
+    //
+    // The fix is a display setting rather than a shell setting, which is why it
+    // is on this page: put each output on a compositor scale that brings its
+    // logical size into the band the shell was calibrated for, and the single
+    // factor is then correct everywhere. Staged like everything else here — the
+    // commit bar's Apply is what reaches the hardware, with the countdown and
+    // the rollback that go with it.
+    CfgSection {
+        title: "Shell scaling"
+        visible: DisplayService.loaded && DisplayService.draft.length > 0
+        first: root.nothingAbove && DisplayService.draft.length > 0
+
+        CfgRow {
+            label: "One size for every display"
+            description: DisplayService.scalesDisagree
+                ? "These displays want different sizes and APEX Shell has one "
+                  + "to give, so its bar and panels will be wrong on at least "
+                  + "one of them. Putting each display on its recommended scale "
+                  + "brings them into the same size class."
+                : "Every enabled display lands in the same size class, so one "
+                  + "shell size is right for all of them."
+            statusWarns: DisplayService.scalesDisagree
+            status: DisplayService.scalesDisagree ? "Mixed" : ""
+            hoverable: false
+        }
+
+        CfgRow {
+            label:       "Recommended scales"
+            description: DisplayService.offRecommendation === 0
+                ? "Every display is already on the scale APEX Shell would pick."
+                : DisplayService.offRecommendation
+                  + (DisplayService.offRecommendation === 1
+                        ? " display is not on it." : " displays are not on it.")
+                  + " Staging it here does not change anything until you apply."
+            CfgButton {
+                label:   "Use recommended scales"
+                icon:    "󰍹"
+                enabled: DisplayService.offRecommendation > 0
+                onClicked: DisplayService.stageRecommendedScales()
+            }
+        }
+    }
+
     // ── One section per output ────────────────────────────────────────────────
     Repeater {
         model: DisplayService.draft
@@ -113,7 +163,9 @@ CfgScroll {
 
             title: (card.out.name || "?") +
                    (card.out.model && card.out.model !== "" ? "  ·  " + card.out.model : "")
-            first: card.index === 0 && root.nothingAbove
+            // Never the top of the page any more: the Shell scaling section
+            // above is visible whenever there is an output card to be below it.
+            first: false
 
             CfgRow {
                 label:       "Enabled"
@@ -187,10 +239,23 @@ CfgScroll {
             }
 
             CfgRow {
-                label:       "Scale"
-                description: "Fractional scaling is supported; 1.5 and 1.75 are " +
-                             "the usual choices on a high-DPI panel"
-                visible:     card.on
+                label: "Scale"
+                // The recommendation is per output and it is arithmetic, not a
+                // taste: the value that brings this panel's LOGICAL size into
+                // the band APEX Shell's own token set was calibrated against.
+                description: {
+                    const rec = DisplayService.recommendedScale(card.out)
+                    const now = Number(card.out.scale || 1)
+                    const m   = card.out.mode || {}
+                    if (!m.height) return "Fractional scaling is supported"
+                    const logical = Math.round(m.height / (now > 0 ? now : 1))
+                    const line = "This panel is " + m.width + "×" + m.height
+                               + ", so the shell sees " + logical + " rows."
+                    return now === rec
+                        ? line + " That is the recommended " + rec + "×."
+                        : line + " " + rec + "× is recommended."
+                }
+                visible: card.on
                 CfgSlider {
                     value:  Number(card.out.scale || 1)
                     from:   0.5
