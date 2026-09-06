@@ -85,6 +85,18 @@ QtObject {
             "component": recoveryComp
         },
         {
+            "id": "agents",
+            "title": "Agents",
+            "subtitle": "The sandbox new agent sessions start in",
+            "icon": "󰚩",
+            // AgentService forks `apex agent list` on a timer and is
+            // refcounted on it. The page lists what is running so it can show
+            // each session's own mode, so it holds a ref and has to be told
+            // whether anyone is looking.
+            "needsScreen": true,
+            "component": agentsComp
+        },
+        {
             "id": "keybinds",
             "title": "Keybinds",
             "subtitle": "Shortcuts for every popup",
@@ -140,6 +152,9 @@ QtObject {
     }
     readonly property Component recoveryComp: Component {
         RecoveryPage {}
+    }
+    readonly property Component agentsComp: Component {
+        AgentsPage {}
     }
     readonly property Component keybindsComp: Component {
         KeybindsPage {}

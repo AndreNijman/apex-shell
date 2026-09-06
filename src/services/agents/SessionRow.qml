@@ -2,6 +2,7 @@ import QtQuick
 import "../"
 import "../../"
 import "../agentstate.js" as AgentState
+import "../agentpolicy.js" as Policy
 
 // One agent session in the Agent Center.
 //
@@ -23,6 +24,20 @@ import "../agentstate.js" as AgentState
 // foreground, is a page that reads as white — which is how P0-021 was reported.
 // The stripe is what makes the LIST look like a status list from across the
 // desk, before anything has been read.
+//
+// ── THE SANDBOX CHIP, AND WHY IT IS READ FROM THE SESSION ───────────────────
+//
+// §42.1 criterion 8: a running session displays its actual mode, and changing
+// the default does not lie about sessions already running. `sandboxMode` reads
+// this session's own record — the daemon flattens the six dimensions it
+// normalised at fork time onto `SessionInfo` — and AgentPolicyService, which
+// knows what a NEW session would get, is deliberately not consulted here. A
+// row that read the setting would relabel four running agents the instant
+// somebody moved a toggle, and every one of those labels would be wrong.
+//
+// Only the unconfined mode gets a colour. `project` is the default and `strict`
+// is tighter still, and a status list that shouts about its own normal state
+// teaches people to stop reading it.
 
 Rectangle {
     id: row
@@ -32,6 +47,10 @@ Rectangle {
     readonly property bool live:
         session.exit_code === null && session.exit_signal === null
     readonly property bool needsYou: AgentState.needsYou(session.state)
+
+    // This session's real sandbox, from this session's record.
+    readonly property string sandboxMode: Policy.sessionSandbox(session)
+    readonly property bool unconfined: row.sandboxMode === Policy.UNRESTRICTED
 
     height: Theme.px(52)
     radius: Theme.px(8)
@@ -118,6 +137,38 @@ Rectangle {
                         text: "󰘬 " + row.session.worktree
                         color: Theme.active
                         font.pixelSize: Theme.fs(9)
+                    }
+                }
+
+                // The session's own sandbox. Always drawn, so `project` is a
+                // fact the reader has seen rather than an absence they have to
+                // infer — an indicator that only ever appears when something is
+                // wrong cannot be distinguished from one that is broken.
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    radius: Theme.px(3)
+                    color: row.unconfined
+                        ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.18)
+                        : "transparent"
+                    border.width: row.unconfined ? 0 : Math.max(1, Theme.px(1))
+                    border.color: Qt.rgba(Theme.subtext.r, Theme.subtext.g,
+                                          Theme.subtext.b, 0.28)
+                    width:  sandboxLabel.implicitWidth + Theme.fs(8)
+                    height: sandboxLabel.implicitHeight + Theme.fs(3)
+                    Text {
+                        id: sandboxLabel
+                        anchors.centerIn: parent
+                        // The mode, and dimension 1 beside it when the runtime
+                        // was told to move it. `inherit` is left out: it means
+                        // APEX passed no flag and the agent's own profile
+                        // decided, so naming a mode would claim knowledge of a
+                        // file the runtime never read.
+                        text: row.sandboxMode
+                            + (Policy.sessionNative(row.session) === "inherit"
+                               ? "" : " · " + Policy.sessionNative(row.session))
+                        color: row.unconfined ? Theme.danger : Theme.subtext
+                        font.pixelSize: Theme.fs(9)
+                        font.bold: row.unconfined
                     }
                 }
             }
