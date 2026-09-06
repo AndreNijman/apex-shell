@@ -55,3 +55,11 @@ SmallIconButton agents/SmallIconButton.qml
 singleton RemoteAgentService 1.0 RemoteAgentService.qml
 RemoteHostRow agents/RemoteHostRow.qml
 RemoteSessionRow agents/RemoteSessionRow.qml
+# §43's help surfaces. Same rule as the rows above: AgentCenter is loaded
+# THROUGH this qmldir, so its directory is not on the import path. The two
+# AgentHelp singletons are in src/qmldir instead, deliberately — see the note
+# there.
+AgentHelpEntry agents/AgentHelpEntry.qml
+AgentHelpCard agents/AgentHelpCard.qml
+AgentHelpPanel agents/AgentHelpPanel.qml
+AgentHelpBlock agents/AgentHelpBlock.qml
