@@ -29,7 +29,7 @@ import "./src/components"
 // stack of overlapping tabs. That is a false FAIL, which is as useless as a
 // false PASS. The runner therefore starts a headless wlroots compositor in a
 // private XDG_RUNTIME_DIR and refuses to run if WAYLAND_DISPLAY is not the
-// socket it just created, which is a stronger guarantee than opening no window:
+// socket it created, which is a stronger guarantee than opening no window:
 // there is no session here to draw on.
 //
 // ── What it asserts ─────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ import "./src/components"
 // 0x0 output and then never asks its Qt client for another frame, so the layout
 // stops re-polishing and every rectangle read back is the previous matrix
 // point. The suite detects that — the geometry has to AGREE with the size just
-// staged, not merely hold still — and stops with "unusable-host" rather than
+// staged, not only hold still — and stops with "unusable-host" rather than
 // reporting a few hundred overlaps that are an artefact of the harness.
 // labwc and sway on the wlroots headless backend drive it correctly.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -528,7 +528,7 @@ ShellRoot {
     property int stuck: 0
     readonly property int settleMax: 40
 
-    // Does what Qt laid out match the width or height that was just asked for?
+    // Does what Qt laid out match the width or height that was asked for?
     function agreesWithStage(stepData) {
         const vertical = stepData.kind === "v" || stepData.kind === "liveV"
         const sw = vertical ? vSwitcher : hSwitcher
@@ -560,7 +560,7 @@ ShellRoot {
         return out
     }
 
-    // ── The output this run is actually on ───────────────────────────────────
+    // ── The output this run is on ────────────────────────────────────────────
     // Everything else here drives Theme.scale by hand, which makes the suite
     // say the same thing whatever the compositor hands it — useful for coverage
     // and useless as evidence that a particular monitor is fine. So the run
@@ -664,7 +664,7 @@ ShellRoot {
                 const sig = root.signatureOf(root.plan[root.pi])
                 // Two conditions, and stability alone is not enough: a layout
                 // that stopped updating is perfectly stable at the wrong size.
-                // It also has to AGREE with the size that was just staged.
+                // It also has to AGREE with the size that was staged.
                 const ready = sig === root.lastSignature
                             && sig.indexOf("incomplete") !== 0
                             && root.agreesWithStage(root.plan[root.pi])

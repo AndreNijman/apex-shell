@@ -96,7 +96,7 @@ QtObject {
                         Math.min(want, root.minWidth))
     }
 
-    // What the tab bar across the top of that page actually gets.
+    // What the tab bar across the top of that page gets.
     function barWidthFor(page, screenWidth) {
         return Math.max(0, root.widthFor(page, screenWidth) - 2 * root.contentInset)
     }
