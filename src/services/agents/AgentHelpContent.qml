@@ -167,9 +167,10 @@ QtObject {
             { k: "p", t: "One caveat worth knowing: APEX does not clear your sudo timestamp before it starts a session. If sudo is still remembering your password, an unrestricted agent can reach it. Run sudo -k first when that matters to you." },
 
             { k: "h", t: "Always Unrestricted" },
-            { k: "p", t: "A Config page toggle that makes unrestricted the default for new sessions, behind a real local password prompt. Turning it off wants no password. A session already running keeps the mode it started with, and the Agents tab will say which mode each one is in. A warning indicator stays on screen for as long as unrestricted remains the default." },
-            { k: "p", t: "It will grant no root, switch off no secret broker and enable no break-glass mode." },
-            { k: "todo", t: "This build has no Config page for it. Per-session -s unrestricted is what exists today." },
+            { k: "p", t: "Config → Agents carries one toggle that makes unrestricted the default for new sessions. Switching it on asks for your password at the desktop's authentication prompt, which is outside any agent's terminal. Switching it off asks for nothing and takes effect at once." },
+            { k: "p", t: "It grants no root, switches off no secret broker and opens no break-glass mode. It moves the sandbox layer and leaves the other five where they were, so a Claude profile set to bypassPermissions keeps it in both directions." },
+            { k: "p", t: "A session already running keeps the mode it started with. Each row in the Agents tab carries its own mode, and a warning banner sits above the list for as long as unrestricted is the default." },
+            { k: "kv", t: "What the toggle writes", d: "sandbox in ~/.config/apex/agent.json, the same key you can set by hand", md: true },
 
             { k: "h", t: "System access" },
             { k: "p", t: "A separate grant that lets one session perform root operations. You authenticate outside the agent's terminal, so the agent cannot see or drive the prompt. The grant is opaque to the agent, bound to that session, scoped to named capabilities, limited in time, non-transferable, and the agent cannot renew it." },
