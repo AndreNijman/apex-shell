@@ -336,6 +336,24 @@ jobs:
           # mentions hyprctl.
           ./tests/check-compositor-backends.sh
 
+      - name: Display transaction invariants
+        run: |
+          # P0-018. The user pressed Apply, the fifteen-second confirmation
+          # never appeared, and the layout they wanted was reverted from under
+          # them. The cause was structural: the Keep button lived in a section
+          # of the Display PAGE, and both places that page is shown are torn
+          # down by the very apply they were asking about — the dashboard's
+          # Config tab is a popup that closes on a compositor focus change, and
+          # the Nexus window is one per output.
+          #
+          # These are the properties a refactor would quietly undo: the
+          # confirmation is a layer-shell window built for every output, the
+          # countdown has an owner outside the shell process, and a temporary
+          # apply cannot write the persisted model. The behavioural suite next
+          # to it needs a wlroots session and the installed engine, so it skips
+          # here; this does not.
+          ./tests/check-display-transaction.sh
+
       - name: Blueprint editor invariants
         run: |
           # The properties that make §10's editor safe are properties of the
@@ -372,6 +390,21 @@ jobs:
           # the only way to exercise the pushed-state branches without
           # rebooting; both runs are 48/48.
           ./tests/run-compositor-facade-test.sh
+
+      - name: Display transaction behavioural test
+        run: |
+          # Needs labwc, wlr-randr and the installed display engine, and skips
+          # cleanly without them — so this documents the entry point rather
+          # than it silently not existing.
+          #
+          # On a machine that has them it starts its OWN headless wlroots
+          # session with two virtual outputs shaped like the desk this was
+          # reported from, and covers all six of P0-018's required scenarios:
+          # confirm, timeout, manual revert, invalid mode, disconnected output,
+          # and SIGKILLing the shell mid-countdown. The last two are why it
+          # needs a real compositor — an output that leaves Quickshell.screens
+          # is not something a mock can produce.
+          ./tests/run-display-transaction-test.sh
 
       - name: Plugin platform decision logic
         run: |
@@ -653,6 +686,18 @@ jobs:
           done
           grep -q "confirmSeconds" src/services/config_tab/pages/DisplayPage.qml \
             || { echo "✗ the Display page never shows the revert countdown"; fail=1; }
+          # …but the page must never be the ONLY place the countdown can be
+          # answered. That was P0-018: the Keep button was a section of a page
+          # shown inside surfaces the apply itself tears down, so the user saw
+          # no confirmation at all. tests/check-display-transaction.sh checks
+          # this and thirty more; it is duplicated here because this is the
+          # step a reviewer opens for display invariants.
+          test -s src/windows/DisplayConfirm.qml \
+            || { echo "✗ there is no confirmation window; the page cannot be the only one asked"; fail=1; }
+          grep -qE "DisplayConfirm \{ *screen: modelData" shell.qml \
+            || { echo "✗ the confirmation is not built per output; an apply can destroy the only copy"; fail=1; }
+          test -x src/scripts/apex-display-guard.sh \
+            || { echo "✗ no display guard; a shell that dies during the countdown never reverts"; fail=1; }
           # save() must stay distinct from apply(): it is the action that writes
           # persistence WITHOUT touching hardware.
           grep -q "function save()" src/services/config_tab/DisplayService.qml \
