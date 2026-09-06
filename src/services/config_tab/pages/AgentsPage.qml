@@ -84,7 +84,7 @@ CfgScroll {
         CfgRow {
             label: "Always unrestricted agents"
             description: root._on
-                ? "New sessions read and write every file you can."
+                ? "New sessions read and write any file you can."
                 : "New sessions get the project sandbox: the project writable, the rest of $HOME masked."
 
             CfgSwitch {
@@ -107,7 +107,7 @@ CfgScroll {
             width: parent.width - Theme.px(20)
             x:     Theme.px(10)
             text: root._on
-                ? "Switching this off takes effect immediately and asks for nothing."
+                ? "Switching this off takes effect at once and asks for nothing."
                 : "Switching this on asks for your password at the desktop's "
                   + "authentication prompt, not in an agent's terminal."
             font.pixelSize: Theme.fs(10)
@@ -147,7 +147,8 @@ CfgScroll {
         CfgRow {
             label: "Stored in"
             description: AgentPolicyService.configPath
-                       + " — the agent runtime's own file, so the setting survives a reboot."
+                       + ". The agent runtime reads it when it starts a session, so the "
+                       + "setting survives a reboot."
             hoverable: false
 
             Text {
