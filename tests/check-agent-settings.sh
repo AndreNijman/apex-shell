@@ -203,6 +203,15 @@ check_tree() {
         has "$svc" 'actionId: "org\.apexos\.shell\.agent\.set-always-unrestricted"'
     want "the polkit action file declares that same id" \
         xml_has "$policy" '<action id="org\.apexos\.shell\.agent\.set-always-unrestricted">'
+    # A malformed action file has exactly one symptom, forever: polkitd does not
+    # register the action and pkcheck exits 127. Nothing else complains. This
+    # one was malformed on its first draft, because an XML comment may not
+    # contain a double hyphen and the comment quoted a pkcheck command line.
+    # --nonet so the run does not depend on fetching the DTD.
+    if command -v xmllint >/dev/null 2>&1; then
+        want "the polkit action file is well-formed XML" \
+            xmllint --noout --nonet "$policy"
+    fi
     # Without --allow-user-interaction pkcheck exits 2 on a challenge and never
     # raises a prompt, so the toggle would refuse every time with no dialog.
     want "pkcheck is allowed to raise a prompt" \
@@ -513,6 +522,14 @@ open(p, "w").write(s.replace(old, new))
 M7
 assert_changed "$MUT/m7" src/services/AgentPolicyService.qml \
     && expect "JSON that is not passed positionally is caught" "$MUT/m7" red
+
+# The action file that will never register. Its only symptom in the wild is
+# pkcheck exiting 127 forever, which reads as "not installed".
+fresh_copy "$MUT/m12"
+sed -i 's|<vendor>APEX Shell</vendor>|<vendor>APEX Shell</vendor|' \
+    "$MUT/m12/dots-extra/polkit/org.apexos.shell.agent.policy"
+assert_changed "$MUT/m12" dots-extra/polkit/org.apexos.shell.agent.policy \
+    && expect "a polkit action file that will not parse is caught" "$MUT/m12" red
 
 # The banner that stops reporting anything.
 fresh_copy "$MUT/m8"
