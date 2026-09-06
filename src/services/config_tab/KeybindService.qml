@@ -10,12 +10,16 @@ QtObject {
 
     readonly property string _shellDir: Quickshell.shellDir
     readonly property string _configDir: Quickshell.env("HOME") + "/.config/apex-shell"
-    readonly property string _luaPath:  _configDir + "/ApexShellKeybinds.lua"
-    readonly property string _confPath: _configDir + "/ApexShellKeybinds.conf"
+    // The Hyprland artifact is a Lua module under the compositor's own config
+    // directory, because that is the only place `require("apex.shell-keybinds")`
+    // resolves: Hyprland prepends the config FILE's directory to package.path,
+    // so a module anywhere else cannot be named. It used to be a hyprlang
+    // fragment beside the niri one in ~/.config/apex-shell, sourced by an
+    // absolute path (P0-025).
+    readonly property string _hyprDir:  Quickshell.env("HOME") + "/.config/hypr"
+    readonly property string _luaPath:  _hyprDir + "/apex/shell-keybinds.lua"
     readonly property string _kdlPath:  _configDir + "/ApexShellKeybinds.kdl"
     readonly property string _jsonPath: _configDir + "/src/user_data/keybinds.json"
-    
-    property string configProvider: ShellState.configProvider
 
     // ── Capture gate ──────────────────────────────────────────────────────────
     // Set true by KeybindsPage while a combo is being recorded.
@@ -518,16 +522,25 @@ QtObject {
     property var _writeProc: Process { command: []; running: false }
 
     function _writeFiles() {
-        var lua  = _genLua()
-        var conf = _genConf()
-        var kdl  = _genKdl()
+        var lua = _genLua()
+        var kdl = _genKdl()
 
-        // Write all three artifacts so the user has them regardless of what they
-        // run (Hyprland .lua/.conf, niri .kdl). Contents + paths go in as
-        // positional args, never spliced into the script.
+        // Both artifacts, so the bindings are already in place whichever session
+        // the user picks at the greeter. Contents + paths go in as positional
+        // args, never spliced into the script.
+        //
+        // The hyprlang .conf is no longer written. Hyprland 0.56.2 loads
+        // hyprland.lua and never mentions a .conf beside it, so continuing to
+        // write one would produce a file that looks current, is read by nothing,
+        // and gives no error to say so.
+        //
+        // mkdir -p because ~/.config/hypr/apex may not exist yet: the
+        // provisioner deliberately stopped pre-creating the generated modules
+        // once hyprland.lua's loader learned to skip an absent one.
         _writeProc.command = ["bash", "-c",
-            "printf '%s' \"$1\" > \"$4\" && printf '%s' \"$2\" > \"$5\" && printf '%s' \"$3\" > \"$6\"",
-            "--", lua, conf, kdl, root._luaPath, root._confPath, root._kdlPath]
+            "mkdir -p \"$(dirname \"$3\")\" \"$(dirname \"$4\")\" "
+            + "&& printf '%s' \"$1\" > \"$3\" && printf '%s' \"$2\" > \"$4\"",
+            "--", lua, kdl, root._luaPath, root._kdlPath]
 
         _writeProc.running = false
         _writeProc.running = true
@@ -578,20 +591,78 @@ QtObject {
         return { groups: groups, order: order }
     }
 
-    // Note: this provider emits plain `hl.bind` for every entry, including the
-    // ones flagged `repeat` — holding volume or brightness steps once here,
-    // whereas the .conf provider below emits `bindel` and repeats.
+    // ── Hyprland dispatcher -> Lua ────────────────────────────────────────────
+    // Every name checked against /usr/share/hypr/stubs/hl.meta.lua for the
+    // Hyprland the image ships, not the wiki.
+    //
+    // These used to be emitted as `hl.dsp.exec_cmd("hyprctl dispatch <verb>")`:
+    // the compositor spawning a shell to run a client that talks back to the
+    // compositor, once per keypress, for something the Lua API does directly.
+    // It also meant every window-management bind depended on hyprctl being on
+    // PATH inside the session.
+    //
+    // hyprlang took one-letter directions (`movefocus, l`); the Lua dispatcher
+    // spells them out.
+    readonly property var _luaDirections: ({
+        l: "left", r: "right", u: "up", d: "down"
+    })
+
+    function _luaStr(s) {
+        return '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"'
+    }
+
+    // Returns the Lua dispatcher expression for a dispatch entry, or "" when
+    // there is no equivalent — reported in the file rather than guessed at.
+    function _luaDispatch(e) {
+        var arg = e.arg || ""
+        switch (e.dispatcher) {
+        case "killactive":             return "hl.dsp.window.close()"
+        case "fullscreen":             return "hl.dsp.window.fullscreen({ mode = " + (arg || "0") + " })"
+        case "togglefloating":         return 'hl.dsp.window.float({ action = "toggle" })'
+        case "pseudo":                 return "hl.dsp.window.pseudo()"
+        case "layoutmsg":              return "hl.dsp.layout(" + root._luaStr(arg) + ")"
+        case "togglespecialworkspace": return "hl.dsp.workspace.toggle_special(" + root._luaStr(arg || "special") + ")"
+        case "movefocus":
+            if (!root._luaDirections[arg]) return ""
+            return "hl.dsp.focus({ direction = " + root._luaStr(root._luaDirections[arg]) + " })"
+        case "movewindow":
+            if (!root._luaDirections[arg]) return ""
+            return "hl.dsp.window.move({ direction = " + root._luaStr(root._luaDirections[arg]) + " })"
+        case "workspace":
+            return "hl.dsp.focus({ workspace = " + (/^\d+$/.test(arg) ? arg : root._luaStr(arg)) + " })"
+        case "movetoworkspace":
+            return "hl.dsp.window.move({ workspace = " + (/^\d+$/.test(arg) ? arg : root._luaStr(arg)) + " })"
+        }
+        return ""
+    }
+
+    // Command variables, resolved. Matches _niriApps below — `$browser` is NOT
+    // a browser name: apex-open-browser opens whichever browser the user has
+    // set as default, which is the whole reason nothing in APEX hardcodes one.
+    // This generator used to substitute `firefox` here while the niri and conf
+    // paths used the helper, so a Hyprland user's SUPER+W ignored their own
+    // default browser and every other session honoured it.
+    function _luaCommand(command) {
+        return String(command)
+            .replace("$terminal",    "alacritty")
+            .replace("$browser",     "/usr/libexec/apex-open-browser")
+            .replace("$fileManager", "thunar")
+            .replace("$qsIpc",       "qs -p " + root._shellDir + " ipc call")
+    }
+
     function _genLua() {
-        var sd   = root._shellDir.replace(/"/g, "\\\"")
         var data = _grouped()
-        
+
         var lines = [
             "-- ==============================================================================",
             "-- APEX Shell Keybinds",
             "-- Auto-generated by Quickshell. Do not edit manually.",
+            "--",
+            "-- Required by ~/.config/hypr/hyprland.lua as `apex.shell-keybinds`, and loaded",
+            "-- after apex/keybindings.lua so these win.",
             "-- ==============================================================================",
             "",
-            "local shell = \"" + sd + "\"",
+            "local shell = " + root._luaStr(root._shellDir),
             "",
             "-- ==============================================================================",
             "-- ApexShell Capture Submap (Disables all normal binds during recording)",
@@ -605,11 +676,29 @@ QtObject {
             "end)",
             "",
             "-- ==============================================================================",
-            "-- User Defined Bindings",
+            "-- Switch off the APEX default on every combo this file claims",
             "-- ==============================================================================",
+            "-- hl.bind returns a handle with :set_enabled(false), and",
+            "-- apex/keybindings.lua keeps one per default under a canonical combo key. So",
+            "-- a combo bound here has its APEX default switched off first, and the key",
+            "-- does ONE thing — Hyprland fires BOTH actions for a doubly-bound combo,",
+            "-- which is how SUPER+Q once closed the window AND opened the launcher.",
+            "--",
+            "-- The hyprlang generator emitted an `unbind` line for every APEX default on",
+            "-- every write, whether or not the user had touched it, because hyprlang could",
+            "-- only remove a bind by key and had no way to disable one. disable() touches",
+            "-- exactly the bind being replaced and is a no-op when there is nothing there.",
+            "--",
+            "-- pcall because a hand-written hyprland.lua need not load the APEX modules at",
+            "-- all; without the APEX defaults there is nothing to disable and these binds",
+            "-- stand alone.",
+            "local ok, defaults = pcall(require, \"apex.keybindings\")",
+            "local function claim(mods, key)",
+            "    if ok and defaults and defaults.disable then defaults.disable(mods, key) end",
+            "end",
             ""
         ]
-        
+
         for (var gi = 0; gi < data.order.length; gi++) {
             var g = data.order[gi]
             lines.push("-- " + g)
@@ -617,87 +706,45 @@ QtObject {
             for (var ei = 0; ei < entries.length; ei++) {
                 var e = entries[ei]
                 var combo = e.mods ? e.mods + " + " + e.key : e.key
+
+                var expression
                 if (e.type === "dispatch") {
-                    var dispatchCmd = "hyprctl dispatch " + e.dispatcher + (e.arg ? " " + e.arg : "")
-                    lines.push("hl.bind(\"" + combo + "\", hl.dsp.exec_cmd(\"" + dispatchCmd + "\"))")
+                    expression = root._luaDispatch(e)
+                    if (expression === "") {
+                        // Recorded in the file rather than guessed at or
+                        // silently skipped, the way the niri generator does it.
+                        lines.push("-- " + e.k + ": no Lua equivalent of "
+                                   + e.dispatcher + " " + (e.arg || ""))
+                        continue
+                    }
                 } else if (e.type === "exec") {
-                    var execCmd = e.command
-                        .replace("$terminal", "alacritty")
-                        .replace("$browser", "firefox")
-                        .replace("$fileManager", "thunar")
-                        .replace("$qsIpc", "qs -p " + sd + " ipc call")
-                    lines.push("hl.bind(\"" + combo + "\", hl.dsp.exec_cmd(\"" + execCmd.replace(/\"/g, "\\\"") + "\"))")
+                    expression = "hl.dsp.exec_cmd(" + root._luaStr(root._luaCommand(e.command)) + ")"
                 } else {
-                    lines.push("hl.bind(\"" + combo + "\", hl.dsp.exec_cmd(\"qs -p \" .. shell .. \" ipc call " + e.k + " toggle\"))")
+                    expression = "hl.dsp.exec_cmd(\"qs -p \" .. shell .. \" ipc call "
+                                 + e.k + " toggle\")"
                 }
+
+                // `repeat` is hyprlang's bindel: repeats while held AND fires
+                // with the screen locked or off. Volume and brightness are
+                // useless without it. The old Lua provider dropped the flag
+                // entirely and emitted a plain bind, so holding a volume key on
+                // a Lua config stepped exactly once.
+                var opts = e.repeat ? ", { locked = true, repeating = true }" : ""
+
+                lines.push("claim(" + root._luaStr(e.mods) + ", " + root._luaStr(e.key) + ")")
+                lines.push("hl.bind(" + root._luaStr(combo) + ", " + expression + opts + ")")
             }
             lines.push("")
         }
         return lines.join("\n")
     }
 
-    function _genConf() {
-        var data = _grouped()
-        
-        var lines = [
-            "# ==============================================================================",
-            "# APEX Shell Keybinds",
-            "# Auto-generated by Quickshell. Do not edit manually.",
-            "# ==============================================================================",
-            "",
-            "# ==============================================================================",
-            "# ApexShell Capture Submap (Disables all normal binds during recording)",
-            "# ==============================================================================",
-            "submap = ApexShell_clean",
-            "bind = CTRL, ESCAPE, exec, notify-send 'ApexShell' 'Emergency Exit: Keybinds re-enabled.'",
-            "bind = CTRL, ESCAPE, submap, reset",
-            "submap = reset",
-            "",
-            "# ==============================================================================",
-            "# User Defined Bindings",
-            "# ==============================================================================",
-            ""
-        ]
-
-        // Native APEX defaults are also present in the seeded Hyprland config.
-        // Remove those first so this generated file is authoritative: changing
-        // SUPER+Q here must replace, not duplicate, the static killactive bind.
-        var defs = root._defaults
-        var dkeys = Object.keys(defs)
-        for (var di = 0; di < dkeys.length; di++) {
-            var def = defs[dkeys[di]]
-            if (!def.type) continue
-            var defMods = def.mods.replace(/\s*\+\s*/g, " ")
-            lines.push("unbind = " + defMods + ", " + def.key)
-        }
-        lines.push("")
-        
-        for (var gi = 0; gi < data.order.length; gi++) {
-            var g = data.order[gi]
-            lines.push("# " + g)
-            var entries = data.groups[g]
-            for (var ei = 0; ei < entries.length; ei++) {
-                var e = entries[ei]
-                // Hyprland .conf format drops the '+' symbol between modifiers
-                var confMods = e.mods.replace(/\s*\+\s*/g, " ")
-                // `bindel` = repeat while held, and still fires with the screen
-                // locked or off. Volume and brightness are useless without it;
-                // everything else must stay one-shot.
-                var verb = e.repeat ? "bindel" : "bind"
-                if (e.type === "dispatch") {
-                    lines.push(verb + " = " + confMods + ", " + e.key + ", " + e.dispatcher
-                               + (e.arg ? ", " + e.arg : ""))
-                } else {
-                    var cmd = e.type === "exec"
-                        ? e.command
-                        : "qs -p " + root._shellDir + " ipc call " + e.k + " toggle"
-                    lines.push(verb + " = " + confMods + ", " + e.key + ", exec, " + cmd)
-                }
-            }
-            lines.push("")
-        }
-        return lines.join("\n")
-    }
+    // _genConf is gone. It wrote the hyprlang fragment the seeded
+    // hyprland.conf sourced, and emitted an `unbind` line for every APEX
+    // default on every save because hyprlang had no way to disable one.
+    // Hyprland 0.56.2 loads hyprland.lua and never mentions a .conf beside
+    // it, so keeping the generator would have produced a file that looks
+    // current, is read by nothing, and says nothing when it is ignored.
 
     // ── niri KDL generation ───────────────────────────────────────────────────
     // niri config is KDL. Bindings live in a top-level `binds { }` block; each
@@ -871,32 +918,46 @@ QtObject {
     property var _includeProc: Process { command: []; running: false }
 
     function _ensureInclude() {
-        // Hyprland only: append a source/dofile line to the user's hyprland config.
-        // niri users add the `include` line manually (see the .kdl header comment) —
-        // we never rewrite config.kdl to avoid breaking pre-v25.11 niri.
+        // Hyprland only: make sure the user's hyprland.lua actually loads what
+        // this service just wrote. niri users add the `include` line manually
+        // (see the .kdl header comment) — we never rewrite config.kdl, to avoid
+        // breaking pre-v25.11 niri.
         if (!Compositor.isHyprland) return
 
-        var lp = root._luaPath.replace(/"/g, "\\\"")
-        var cp = root._confPath.replace(/"/g, "\\\"")
-
-        if (configProvider === "lua") {
-            _includeProc.command = ["bash", "-c", [
-                "MARKER='ApexShellKeybinds'",
-                "LUA=\"$HOME/.config/hypr/hyprland.lua\"",
-                "if [ -f \"$LUA\" ] && ! grep -qF \"$MARKER\" \"$LUA\"; then",
-                "  printf '\\n-- ApexShellKeybinds\\ndofile(\"" + lp + "\")\\n' >> \"$LUA\"",
-                "fi",
-            ].join("\n")]
-        } else {
-            _includeProc.command = ["bash", "-c", [
-                "MARKER='ApexShellKeybinds'",
-                "CONF=\"$HOME/.config/hypr/hyprland.conf\"",
-                "if [ -f \"$CONF\" ] && ! grep -qF \"$MARKER\" \"$CONF\"; then",
-                "  printf '\\n# ApexShellKeybinds\\nsource = " + cp + "\\n' >> \"$CONF\"",
-                "fi",
-            ].join("\n")]
+        // The APEX-seeded hyprland.lua already requires this module, so on an
+        // APEX machine this is a no-op every time. It exists for a hyprland.lua
+        // the user wrote themselves, or one from before the module existed.
+        //
+        // `require`, not `dofile`. The previous Lua branch appended
+        // dofile("<absolute path>"), which worked but pinned the file to one
+        // home directory and re-ran the chunk on every reload without going
+        // through package.loaded. require resolves because Hyprland prepends the
+        // config file's own directory to package.path — which is also why the
+        // module had to move into ~/.config/hypr/apex to be nameable at all.
+        //
+        // Appended at the END so it loads after the APEX defaults, which is what
+        // makes claim()/disable() reach a bind that already exists.
+        // A machine still on hyprlang gets NOTHING out of this, and would get it
+        // silently: the module is written, no hyprland.lua exists to require it,
+        // and the Keybinds page looks like it worked. That is the exact shape of
+        // the regression ShellState documents, so it is said out loud instead.
+        // /usr/libexec/apex-hypr-migrate is what fixes it, and on APEX it has
+        // already run at login.
+        if (ShellState.configProvider !== "lua") {
+            console.warn("KeybindService: this session has no ~/.config/hypr/hyprland.lua, "
+                         + "so the generated keybinds are not loaded by anything. "
+                         + "Hyprland 0.55 deprecated hyprlang; run "
+                         + "/usr/libexec/apex-hypr-migrate to convert the config.")
         }
-        
+
+        _includeProc.command = ["bash", "-c", [
+            "LUA=\"$HOME/.config/hypr/hyprland.lua\"",
+            "[ -f \"$LUA\" ] || exit 0",
+            "grep -q 'apex\\.shell-keybinds' \"$LUA\" && exit 0",
+            "grep -q 'apex(\"shell-keybinds\")' \"$LUA\" && exit 0",
+            "printf '\\n-- APEX Shell keybinds\\nrequire(\"apex.shell-keybinds\")\\n' >> \"$LUA\"",
+        ].join("\n")]
+
         _includeProc.running = false
         _includeProc.running = true
     }
