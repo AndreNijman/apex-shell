@@ -18,13 +18,15 @@
 #
 #  ── It checks the invariant, not the library ────────────────────────────────
 #  "Did you source lib/headless.sh" would be the easy check and the wrong one.
-#  Seven suites — run-nav-geometry-test.sh, run-settings-pages-test.sh,
+#  Eight suites — run-nav-geometry-test.sh, run-settings-pages-test.sh,
 #  run-settings-staged-test.sh, run-agent-settings-test.sh,
 #  run-agent-state-render-test.sh, run-input-settings-test.sh,
-#  run-display-unplug-test.sh — were already correct before the library existed
-#  and bring their own headless compositor inline. They pass here on their own
-#  merits, and a future runner that does something smarter than the library
-#  must be able to as well.
+#  run-display-unplug-test.sh and run-display-transaction-test.sh — were
+#  already correct before the library existed and bring their own headless
+#  compositor inline. They pass here on their own merits, and a future runner
+#  that does something smarter than the library must be able to as well. Each
+#  is named in its own assertion below, so a rule that came to recognise only
+#  lib/headless.sh could not quietly stop checking them.
 #
 #  ── The four rules ──────────────────────────────────────────────────────────
 #  Applied to comment-, quote- and heredoc-stripped source, in file order,
@@ -347,7 +349,9 @@ def head(seg):
                 pos = m2.end()
             continue
         if word.startswith("-"):
-            if saw_command and word in ("-v", "-V", "-p"):
+            # -v and -V print a path; -p RUNS the command with the default
+            # PATH, so `command -p quickshell` is a launch like any other.
+            if saw_command and word in ("-v", "-V"):
                 return None, None
             continue
         if word in PROBES:
@@ -515,14 +519,14 @@ else
     sed "s|^$root/||; s/^/          /" <<< "$violations"
 fi
 
-# ── The seven that never used the library still pass ─────────────────────────
+# ── The eight that never used the library still pass ─────────────────────────
 # Named one by one rather than counted. If one of them is rewritten to source
 # the library that is fine, but it must not be able to go the other way — a
 # rule that only recognises lib/headless.sh would quietly stop checking these.
 for f in run-nav-geometry-test.sh run-settings-pages-test.sh \
          run-settings-staged-test.sh run-agent-settings-test.sh \
          run-agent-state-render-test.sh run-input-settings-test.sh \
-         run-display-unplug-test.sh; do
+         run-display-unplug-test.sh run-display-transaction-test.sh; do
     if [ -f "$root/tests/$f" ]; then
         want "$f is clean without sourcing the library" scan "$root/tests/$f"
     fi

@@ -1042,6 +1042,27 @@ jobs:
       - name: Colour-token discipline (theme tokens, allowlisted exceptions)
         run: ./tests/check-color-tokens.sh
 
+      # Twelve runners in tests/ started quickshell, a compositor, or the whole
+      # shell on whatever WAYLAND_DISPLAY they inherited, and run-nested-labwc.sh
+      # said so in its own first line. On a build box that is nothing; on the
+      # machine somebody is working at it is twenty windows landing on top of
+      # them. tests/lib/headless.sh was the repair and this is what keeps it,
+      # because the next suite gets written by copying the one next to it.
+      #
+      # Four rules, and the fourth is the one that matters: a launch covered by
+      # an earlier unset or its own `env -u` prefix; no read of
+      # $WAYLAND_DISPLAY before dropping it; no use outside lib/ of the
+      # HEADLESS_AMBIENT_* values the library keeps in order to refuse; and no
+      # defaulting the variable back to a guess. `${WAYLAND_DISPLAY:-wayland-1}`
+      # after headless_begin satisfies the first three and still lands the run
+      # on somebody's session — that mutation was written by hand, it passed,
+      # and rule D exists because of it.
+      #
+      # Source-level, so it needs no compositor. Four mutants and a control run
+      # every time, one per rule.
+      - name: Headless discipline (no suite opens a window on the live session)
+        run: ./tests/check-headless-runners.sh
+
       # UI-004: "Scrolling over sliders changes values." Every settings page is
       # read by scrolling, the shared CfgSlider carried a WheelHandler, and so
       # reading a page edited it. The same handler had been copied onto five
