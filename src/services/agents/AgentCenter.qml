@@ -110,6 +110,18 @@ Item {
 
         AgentHelpEntry { width: parent.width }
         AgentHelpCard   { width: parent.width }
+
+        // §42.1 criterion 9. Pinned for the same reason the help strip is: the
+        // reader who most needs to know the sandbox default is off is the one
+        // looking at an empty list or at "the runtime is not running", and
+        // neither of those draws the session list at all.
+        //
+        // It says nothing about the sessions below it, which have their own
+        // recorded modes on their own rows. This is about the next one.
+        UnrestrictedBanner {
+            width:   parent.width
+            visible: AgentPolicyService.alwaysUnrestricted
+        }
     }
 
     // Everything the page had before, moved down by the strip's height. An
