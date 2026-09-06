@@ -130,6 +130,21 @@ function missingTools(g) {
     return out
 }
 
+// The setup checks, in SETUP's order, each with its verdict and where the CLI
+// looked. These are things an image ships rather than things you install, which
+// is why they are a separate list: offering an install line beside them would
+// be wrong, and so would leaving them out of a page somebody is using to work
+// out why Gaming Mode will not start.
+function setupChecks(g) {
+    var out = []
+    if (!g || !g.ok) return out
+    for (var i = 0; i < SETUP.length; i++)
+        out.push({ key: SETUP[i].key, label: SETUP[i].label,
+                   passed: checkPassed(g, SETUP[i].key),
+                   source: checkSource(g, SETUP[i].key) })
+    return out
+}
+
 // Everything the CLI reported that neither list above names. Shown rather than
 // dropped: a probe added on the OS side must appear somewhere, or the page
 // quietly under-reports what is wrong with the machine.
@@ -235,7 +250,8 @@ if (typeof module !== "undefined" && module.exports)
     module.exports = {
         TOOLS: TOOLS, SETUP: SETUP,
         readGaming: readGaming, checkPassed: checkPassed, checkSource: checkSource,
-        missingTools: missingTools, otherChecks: otherChecks,
+        missingTools: missingTools, setupChecks: setupChecks,
+        otherChecks: otherChecks,
         installLine: installLine, readiness: readiness,
         readModeStatus: readModeStatus, inGamingMode: inGamingMode,
         policyLine: policyLine
