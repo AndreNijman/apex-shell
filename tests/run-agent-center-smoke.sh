@@ -108,9 +108,9 @@ log="$(mktemp)"
 log2="$(mktemp)"
 qs_pid=""
 daemon_pid=""
+comp_pid=""
 # Killed BY PID, never by name. A pkill for quickshell on a developer's machine
 # takes down the shell they are working in.
-comp_pid=""
 cleanup() {
     [[ -n "$qs_pid" ]]     && kill "$qs_pid" 2>/dev/null
     [[ -n "$daemon_pid" ]] && kill "$daemon_pid" 2>/dev/null
