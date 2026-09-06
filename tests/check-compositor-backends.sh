@@ -108,13 +108,13 @@ SURFACE=(ready capabilities windowsWanted titleWanted workspaces windows
          focusedTitle focusedAppName focusedOutput focusedWorkspaceId
          windowBoxScript outputBoxScript
          windowsPolled titlePolled
-         screenShader nightLightActive
+         screenShader nightLightProcess
          displayName versionCommand)
 METHODS=(focusWorkspace toggleSpecialWorkspace focusWindow closeWindow
          moveWindowToWorkspace toggleOverview setAccentBorder setGaps readGaps
          setLayout
          setKeyboardInterception
-         setScreenShader refreshScreenShader setNightLight)
+         setScreenShader refreshScreenShader nightLightArgv)
 
 # The facade binds a Connections to `backend.focusMoved`. A backend that does
 # not declare it makes that binding silently dead — popups would simply stop
@@ -138,6 +138,64 @@ for b in "${BACKENDS[@]}"; do
         bad "$b is missing:$missing"
     fi
 done
+
+# ── Night light: one behaviour, four declarations ────────────────────────────
+#
+# The backends used to each own a night light — which meant exactly one of them
+# did and the other three declared `false` and hid the tile. Now they declare
+# DATA and CompositorService owns the process, so this section asserts the split
+# holds rather than trusting a comment.
+#
+# The mechanisms and the protocols behind them, read out of a live registry with
+# tests/run-night-light-test.sh rather than assumed:
+#
+#   Hyprland 0.56.2  hyprsunset  hyprland-ctm-control-v1 (also offers wlr-gamma)
+#   labwc 0.9.6      gammastep   zwlr_gamma_control_manager_v1
+#   niri 26.04       gammastep   zwlr_gamma_control_manager_v1, DRM backend only
+#   (none)           —           no mechanism
+
+want "the facade owns the night-light process, not a backend" \
+    grep -q '_nightLightProc' "$dir/CompositorService.qml"
+
+for b in "${BACKENDS[@]}"; do
+    if grep -qE '^\s*nightLight:\s*true' "$dir/$b.qml"; then
+        # A backend that claims the capability must name a tool and build an
+        # argv that actually mentions it. An empty process name with the
+        # capability true is the shape that puts a live tile in front of a user
+        # and then spawns nothing.
+        tool="$(sed -n 's/^\s*readonly property string nightLightProcess:\s*"\([^"]*\)".*/\1/p' "$dir/$b.qml" | head -1)"
+        if [ -n "$tool" ] && grep -A4 'function nightLightArgv' "$dir/$b.qml" | grep -q "\"$tool\""; then
+            ok "$b declares nightLight and its argv runs $tool"
+        else
+            bad "$b declares nightLight: true but its argv does not run its own nightLightProcess"
+        fi
+    else
+        tool="$(sed -n 's/^\s*readonly property string nightLightProcess:\s*"\([^"]*\)".*/\1/p' "$dir/$b.qml" | head -1)"
+        if [ -z "$tool" ]; then
+            ok "$b declares no night-light capability and names no tool"
+        else
+            bad "$b names the tool $tool but declares nightLight: false"
+        fi
+    fi
+done
+
+# The dashboard tile must NOT be gated on the capability any more: every
+# compositor the shell detects has a mechanism, so `visible:` on that capability
+# could only ever hide the control on a session nobody has tested — which is the
+# failure this whole map exists to prevent.
+#
+# Matched against the whole file rather than a window around the tile: an
+# earlier version of this check used `grep -A12` from the tile's label, the
+# mutant put the `visible:` line ABOVE the label, and the check stayed green
+# while the tile went back to hiding itself. There is no other legitimate use
+# of this binding in that file, so the file is the right scope.
+qs="$(cd "$dir/../.." && pwd)"
+if grep -q 'visible: *CompositorService\.can\.nightLight' \
+        "$qs/services/home/QuickSettings.qml"; then
+    bad "the Night Light tile still hides itself on the capability"
+else
+    ok "the Night Light tile is present on every compositor and says when it cannot act"
+fi
 
 # ── The hyprctl boundary ─────────────────────────────────────────────────────
 # 5.2's actual finish line: `hyprctl` is spawned from ONE directory. Everything

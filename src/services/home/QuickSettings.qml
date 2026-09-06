@@ -115,9 +115,20 @@ StatCard {
     // ─────────────────────────────────────────────────────────────────────────
     //  Night Light
     // ─────────────────────────────────────────────────────────────────────────
-    // The daemon, the process that adopts an already-running one, and the kill
-    // all moved into HyprlandBackend. This tile owns no processes at all now.
+    // The tool, the process that adopts an already-running one, the kill and the
+    // temperature all live in CompositorService, once, for every compositor.
+    // This tile owns no processes at all.
     readonly property bool nightLightOn: CompositorService.nightLightActive
+
+    // What the tile says under its label. In order: the failure the mechanism
+    // reported, the temperature while it is on, and — when the compositor has
+    // no mechanism at all — the reason, rather than nothing.
+    readonly property string nightLightSub: {
+        if (CompositorService.nightLightError !== "") return "Failed"
+        if (!CompositorService.nightLightSupported) return "Unsupported here"
+        if (root.nightLightOn) return CompositorService.nightLightTemperature + "K"
+        return ""
+    }
 
     function _nightLightToggle() {
         CompositorService.setNightLight(!root.nightLightOn)
@@ -813,14 +824,18 @@ StatCard {
                         onToggled: root._hotspotToggle()
                     }
                     TglBtn {
-                        // Hidden on a capability, not a compositor name.
-                        // hyprsunset shifts colour temperature through a
-                        // Hyprland-only protocol; wlsunset would be the wlroots
-                        // equivalent and APEX does not ship it, so the backends
-                        // that would use it declare false.
-                        visible: CompositorService.can.nightLight
+                        // NOT hidden on a capability any more. Every compositor
+                        // this shell detects has a mechanism — hyprsunset on
+                        // Hyprland, gammastep on labwc and niri — so the only
+                        // way to reach `false` is a session the shell does not
+                        // recognise, and on that one the tile says "Unsupported
+                        // here" instead of disappearing. A control that vanishes
+                        // is how a feature quietly stops existing on the
+                        // compositor nobody tested; Caffeine next to it made the
+                        // same argument first.
                         width: tileGrid.btnW; height: tileGrid.btnH
                         on: root.nightLightOn; icon: "󰖐"; label: "Night Light"
+                        sublabel: root.nightLightSub
                         onToggled: root._nightLightToggle()
                     }
                     TglBtn {
