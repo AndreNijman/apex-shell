@@ -670,6 +670,8 @@ StatCard {
                             radius: parent.radius; color: Theme.active
                             Behavior on width { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
                         }
+                        // Drag or click to set brightness. No wheel handler: a
+                        // value bar in this shell never reads the wheel.
                         MouseArea {
                             anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                             function _c(mx) {
@@ -679,14 +681,8 @@ StatCard {
                             onPressed:         root._setBright(_c(mouseX))
                             onPositionChanged: if (pressed) root._setBright(_c(mouseX))
                         }
-                        }
-
-                     WheelHandler {
-                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                        onWheel: function(e) {
-                            root._setBright(root._brightVal + (e.angleDelta.y > 0 ? 0.05 : -0.05))
-                        }
                     }
+
                     Rectangle {
                         width: btw.thumbD; height: btw.thumbD; radius: btw.thumbD / 2
                         color: Theme.fixedLight; anchors.verticalCenter: parent.verticalCenter
