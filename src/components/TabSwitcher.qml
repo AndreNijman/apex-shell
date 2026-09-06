@@ -82,7 +82,7 @@ Item {
 
 	// The room a pill may occupy without touching its neighbour. Everything
 	// below is clamped to it, which is what makes an overlap unrepresentable
-	// rather than merely unlikely.
+	// rather than unlikely.
 	readonly property real hSlotRoom: Math.max(0, root.hSlotWidth - root.hGutter)
 
 	// ── Measuring the widest tab ──────────────────────────────────────────────
@@ -280,16 +280,16 @@ Item {
 	}
 
 	// ── VERTICAL metrics ──────────────────────────────────────────────────────
-	readonly property int vRowPreferred: Theme.px(56)
+	readonly property int vRowPreferred: Theme.px(60)
 	readonly property int vRowMin:       Math.max(root.minTouch, Theme.px(30))
 	readonly property int vGap:          Theme.px(4)
 	readonly property int vLeftPad:      Theme.px(16)
 	readonly property int vIconGap:      Theme.px(12)
 
-	// Rows take an equal share of what there is, between a floor you can still
-	// hit and a ceiling that keeps a short list from looking stretched. This
-	// replaces the old spread-the-slack spacing, which had no floor and went
-	// negative — the rows drew over each other rather than running out of room.
+	// A row is as tall as its share of the column, between a floor you can still
+	// hit and the 60px it has always been. Only the floor is new: the old code
+	// pinned the height at 60 and spread whatever was left over as spacing, so
+	// nine rows in a 381px column asked for -19.9px of spacing and Qt obliged.
 	readonly property int vRowHeight: {
 		var n = root.model.length
 		if (n <= 0)
@@ -298,10 +298,22 @@ Item {
 		return Math.max(root.vRowMin, Math.min(root.vRowPreferred, fit))
 	}
 
+	// Slack still goes into the gaps, so a switcher with room to spare looks
+	// exactly as it did — three audio tabs down the side of the popup are spread
+	// over the whole height, not bunched in the middle. What is new is the floor
+	// under it, which is where the overlap used to come from.
+	readonly property int vSpacing: {
+		var n = root.model.length
+		if (n <= 1)
+			return 0
+		var slack = root.height - n * root.vRowHeight
+		return Math.max(root.vGap, Math.floor(slack / (n - 1)))
+	}
+
 	readonly property int vContentHeight:
 		root.model.length > 0
 			? root.model.length * root.vRowHeight
-			  + (root.model.length - 1) * root.vGap
+			  + (root.model.length - 1) * root.vSpacing
 			: 0
 
 	// ── VERTICAL layout — Column in a Flickable ───────────────────────────────
@@ -323,7 +335,7 @@ Item {
 		Column {
 			id: vCol
 			width:   vFlick.width
-			spacing: root.vGap
+			spacing: root.vSpacing
 			// Centred while there is slack, so a short list keeps the balanced
 			// look it had; pinned to the top once it scrolls, because a
 			// centred list you can scroll starts halfway through itself.
