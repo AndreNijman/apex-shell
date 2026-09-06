@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "../../theme/scaling.js" as Scaling
 
 // ─── DisplayService ───────────────────────────────────────────────────────────
 // The graphical half of §18's display settings parity.
@@ -679,6 +680,65 @@ QtObject {
                     // restore; the guard's own deadline still does.
                 }
             }
+        }
+    }
+
+    // ── Scale, and the mixed-DPI desk (P1-040) ───────────────────────────────
+    //
+    // The shell magnifies itself by ONE process-wide factor derived from one
+    // output's LOGICAL height. On a 4K next to a 1080p, both at compositor
+    // scale 1, that factor is 1.5 and the 1080p panel gets a shell half again
+    // too big — measured against two headless outputs, not inferred.
+    //
+    // Per-item scaling is not something the shell can express: Theme and
+    // Metrics are singletons read at 831 call sites. What IS expressible is
+    // giving each output a compositor scale that brings it into the band the
+    // token set was calibrated for, after which one factor is right for all of
+    // them. That is a display setting, so it belongs here, staged, and applied
+    // through the same transaction and the same watchdog as every other one.
+
+    /// The compositor scale this output should have. Its own current scale is
+    /// not an input: the recommendation is a property of the panel.
+    function recommendedScale(o) {
+        const m = (o && o.mode) || {}
+        if (!m.width || !m.height) return 1
+        return Scaling.recommendedScale(m.width, m.height)
+    }
+
+    /// True when the staged layout leaves the shell no single correct factor.
+    /// Read off the DRAFT rather than the hardware, so the warning clears as
+    /// soon as the user stages the fix rather than after they apply it.
+    readonly property bool scalesDisagree: {
+        const list = []
+        for (const o of root.draft) {
+            if (o.enabled === false) continue
+            const m = o.mode || {}
+            if (!m.width || !m.height) continue
+            list.push({ width: m.width, height: m.height, scale: Number(o.scale || 1) })
+        }
+        return list.length > 1 && Scaling.bucketsDisagree(list)
+    }
+
+    /// How many enabled outputs are not on their recommended scale.
+    readonly property int offRecommendation: {
+        let n = 0
+        for (const o of root.draft) {
+            if (o.enabled === false) continue
+            const m = o.mode || {}
+            if (!m.width || !m.height) continue
+            if (Number(o.scale || 1) !== root.recommendedScale(o)) n++
+        }
+        return n
+    }
+
+    /// Stage the recommendation on every enabled output. STAGE, not apply: the
+    /// user presses the page's own Apply and gets the countdown and the
+    /// rollback, exactly as if they had moved each slider by hand.
+    function stageRecommendedScales() {
+        for (const o of root.draft) {
+            if (o.enabled === false) continue
+            const rec = root.recommendedScale(o)
+            if (Number(o.scale || 1) !== rec) root.stage(o.name, "scale", rec)
         }
     }
 

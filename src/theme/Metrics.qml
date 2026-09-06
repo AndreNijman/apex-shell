@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import "../services"
+import "scaling.js" as Scaling
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Metrics — geometry & timing tokens, scaled to the display.
@@ -28,12 +29,22 @@ import "../services"
 //
 // ── Multi-monitor ───────────────────────────────────────────────────────────
 // This is a GLOBAL factor. Theme and Metrics are QML singletons read directly by
-// ~100 files, so one process-wide value is what the architecture can express;
-// genuinely per-monitor tokens would need the scale resolved per item (an
-// attached property, as upstream does in C++) or threaded through every
+// 82 files at 831 call sites, so one process-wide value is what the architecture
+// can express; genuinely per-monitor tokens would need the scale resolved per
+// item (an attached property, as upstream does in C++) or threaded through every
 // component. What is supported is CHOOSING which monitor sets the scale, via
 // `SettingsService.scaleScreen` — on a mixed 4K + 1080p desk you pick the one
 // you actually work on. Default is the tallest connected output.
+//
+// The answer to a mixed-DPI desk is therefore NOT here. It is on the Display
+// page: give each output a compositor scale that brings its LOGICAL size into
+// the band this file was calibrated for, and one global factor is then correct
+// for all of them. Measured: a 3840x2160 and a 1920x1080 output both at
+// compositor scale 1 give a single factor of 1.5, which is 50% too large on the
+// 1080p panel; with the 4K at compositor scale 2 both arrive as 1920x1080 and
+// the factor is 1.0 for both. theme/scaling.js computes the recommendation and
+// DisplayService stages it through the same transaction every other display
+// change goes through.
 //
 // User settings are expressed in 1080p-baseline units and scaled from there, so
 // a settings.json stays correct when moved between machines.
@@ -67,20 +78,28 @@ QtObject {
 
     readonly property int referenceHeight: referenceScreen ? referenceScreen.height : baselineHeight
 
-    // Sublinear breakpoints. Below 1080p the UI shrinks a little so a 1366x768
-    // laptop does not lose half its vertical space to the bar.
+    // Sublinear breakpoints, and they live in theme/scaling.js rather than here.
     // 1200 sits in the baseline bucket deliberately: a 1920x1200 panel is 11%
     // taller than 1080p, not a density class of its own, and the shell was
     // calibrated on exactly such a panel. Putting it in the 1440p bucket would
     // enlarge the UI on the reference machine — a regression dressed up as a
     // feature.
-    readonly property real autoScale: {
-        const h = root.referenceHeight
-        if (h < 900)  return 0.85   // 1366x768 and friends
-        if (h < 1250) return 1.00   // 1080p and 1200p — the calibrated baseline
-        if (h < 1600) return 1.20   // 1440p
-        if (h < 2000) return 1.35   // 1600p / 1800p
-        return 1.50                 // 2160p and up
+    //
+    // The table moved out because it was unreachable from anything but a running
+    // quickshell, so tests/scaling-test.qml kept its own copy of it and asserted
+    // the copy. Every breakpoint assertion in that suite passed whatever this
+    // file said.
+    readonly property real autoScale: Scaling.scaleForHeight(root.referenceHeight)
+
+    /// The breakpoint table, callable. The suite drives THIS, at heights this
+    /// machine does not have, rather than a second copy of the arithmetic.
+    function scaleForHeight(h) { return Scaling.scaleForHeight(h) }
+
+    /// What this output would deserve on its own, ignoring every other screen.
+    /// Nothing in the shell lays out with it — the tokens below are one global
+    /// set — but the Display page needs it to say which outputs disagree.
+    function scaleForScreen(screen) {
+        return screen ? Scaling.scaleForHeight(screen.height) : 1.0
     }
 
     readonly property real scale: SettingsService.scaleMode === "manual"
