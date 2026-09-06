@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import "../theme"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DashboardLayout — the dashboard's tab list and its content width, in one
@@ -50,21 +51,53 @@ QtObject {
 
     // Padding between the sizer's edge and the page inside it, on all four
     // sides. The tab bar's usable width is what is left.
-    readonly property int contentInset: 8
+    readonly property int contentInset: Theme.px(8)
+
+    // ── Room between the two notches ─────────────────────────────────────────
+    // The dashboard is the centre notch, grown. windows/TopBar.qml anchors the
+    // other two to the screen edges and caps each at Theme.[lr]NotchMaxWidth,
+    // padded by one notch radius; a centre notch wider than what is left over
+    // is drawn straight through them.
+    //
+    // Reserved at the CAP rather than at the width the notches happen to be
+    // right now. Their width is content-driven — a long window title, a fuller
+    // tray — so a dashboard sized against today's left notch collides the first
+    // time something in it gets longer, and it would collide by animating into
+    // the collision, which is worse than being narrow.
+    readonly property int sideReserve:
+        Math.max(Theme.lNotchMaxWidth, Theme.rNotchMaxWidth)
+        + Theme.notchRadius + Theme.spacing
+
+    function roomOn(screenWidth) {
+        return Math.max(0, screenWidth - 2 * root.sideReserve)
+    }
 
     // The width the dashboard opens to on an output `screenWidth` wide.
     //
-    // It currently answers the same number for every output and every scale
-    // factor, which is the defect P0-017 names: the fonts inside are multiplied
-    // by Theme.scale and the box holding them is not, so the content grows into
-    // a container that never moves. Moved here first, unchanged, so the geometry
-    // suite can measure the rule that exists before it is replaced.
+    // Two things it did not used to do. It scales: the base width is a 1080p
+    // measurement and everything drawn inside it is multiplied by Theme.scale,
+    // so a container that stayed at 900 was a container the content grew out
+    // of. And it yields: on an output too narrow to hold the wanted width
+    // between the notches, the width that fits wins.
+    // Six icon-only tabs and some air. Below this there is no dashboard, only a
+    // sliver, so this is where yielding stops.
+    readonly property int minWidth: Theme.px(280)
+
     function widthFor(page, screenWidth) {
-        return root.baseWidthFor(page)
+        var want = Theme.px(root.baseWidthFor(page))
+        if (!screenWidth || screenWidth <= 0)
+            return want
+        // On an output with no room for both, the dashboard wins: overlapping a
+        // notch is a cosmetic defect on a bar, and a dashboard narrower than its
+        // own tab bar is not a dashboard. Reachable only by forcing a scale
+        // factor an output cannot carry — 150% on a 1280x720 panel leaves
+        // 853x480 of usable space — and it must degrade rather than collapse.
+        return Math.max(Math.min(want, root.roomOn(screenWidth)),
+                        Math.min(want, root.minWidth))
     }
 
     // What the tab bar across the top of that page actually gets.
     function barWidthFor(page, screenWidth) {
-        return root.widthFor(page, screenWidth) - 2 * root.contentInset
+        return Math.max(0, root.widthFor(page, screenWidth) - 2 * root.contentInset)
     }
 }
