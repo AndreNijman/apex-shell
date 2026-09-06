@@ -415,6 +415,56 @@ else
     echo "        vocabularies are asserted by tests/blueprint-editor-test.js instead"
 fi
 
+# ── P1-048: the page is ordered for somebody who has not read the source ────
+#
+# The invariants above are about safety and none of them noticed that the page
+# opened on a file path, explained the applied-state file second, and rendered
+# a deletion with the same layout as an installation. These are about whether it
+# can be read. They are checked structurally — section membership and file order
+# — because a check that grepped for reassuring sentences would be satisfied by
+# writing more of them.
+
+# First occurrence of a literal, as a line number. Used for ordering only.
+line_of() { grep -n -F -- "$2" "$1" | head -1 | cut -d: -f1; }
+
+want "the page says what a blueprint is before it offers a single control" \
+    test "$(line_of "$cpage" 'title: "What this is"')" -lt "$(line_of "$cpage" 'CfgSegmented')"
+# The applied-state row is still required to exist (asserted far above). What
+# changed is where: it was the second thing on the page and it is now below
+# Apply, because it explains a property of the editor rather than anything the
+# reader has to decide.
+want "the generated-state path sits below Apply, not above the editor" \
+    test "$(line_of "$cpage" 'applied_state')" -gt "$(line_of "$cpage" 'title: "Apply"')"
+want "a machine with no blueprint gets its own state" \
+    grep -q 'title: "Nothing here yet"' "$cpage"
+want "that state keys off having no file, not off a failed read" \
+    grep -qF 'BlueprintService.source === ""' "$cpage"
+
+# ── Removals are separated from additions and changes ───────────────────────
+# The destructive half of a plan. Before this it was the same row in the same
+# list, told apart only by noticing which side of the arrow was empty.
+want "removals have a section of their own" \
+    grep -q 'title: "Would be removed"' "$cpage"
+want "the removals section is driven by planRemovals" \
+    bash -c 'sed -n "/title: \"Would be removed\"/,/^    }$/p" "$1" | grep -q "BlueprintService.planRemovals"' _ "$cpage"
+want "removal rows are marked, not merely grouped" \
+    bash -c 'sed -n "/title: \"Would be removed\"/,/^    }$/p" "$1" | grep -q "statusWarns: true"' _ "$cpage"
+want "no addition can render inside the removals section" \
+    bash -c '! sed -n "/title: \"Would be removed\"/,/^    }$/p" "$1" | grep -q "planAdds"' _ "$cpage"
+want "additions and changes are separate sections too" \
+    bash -c 'grep -q "title: \"Would be added\"" "$1" && grep -q "title: \"Would be changed\"" "$1"' _ "$cpage"
+
+# ── One place decides what a removal is ─────────────────────────────────────
+# Three Repeaters each doing their own comparison would be three places for a
+# deletion to stop counting as one, and the page is where that would happen
+# unnoticed — the node suite cannot see a QML binding.
+want "the service splits the plan by direction" \
+    bash -c 'grep -q "planAdds" "$1" && grep -q "planEdits" "$1" && grep -q "planRemovals" "$1"' _ "$csvc"
+want "the leading count spans both privilege domains" \
+    grep -qF "BP.removals(root.plan)" "$csvc"
+want "the page classifies nothing itself" \
+    bash -c '! grep -qE "\.filter\(|changeKind\(" "$1"' _ "$cpage"
+
 echo
 echo "passed=$pass failed=$fail"
 [ "$fail" -eq 0 ]
