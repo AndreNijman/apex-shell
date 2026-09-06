@@ -23,6 +23,17 @@
 #  1920x1200 and a 2560x1080 ultrawide, which is short rather than narrow and so
 #  runs the dashboard out of vertical room first.
 #
+#  ── The two compositors ─────────────────────────────────────────────────────
+#  sway runs headless directly, and `swaymsg output` gives both the mode and a
+#  fractional scale, which is the whole matrix in two commands.
+#
+#  Hyprland cannot: aquamarine has no headless fallback on a machine with no
+#  seat and no DRM master, and `Hyprland -c` over ssh dies in
+#  CBackend::create(). So it is nested inside a headless sway instead — the same
+#  trick tests/run-nested-labwc.sh uses — and its output is WL-1 rather than
+#  HEADLESS-1. This is worth doing because it is what the reporter runs, even
+#  though the layout under test is the shell's own and not the compositor's.
+#
 #  usage: tests/run-dashboard-nav-test.sh [sway|hyprland]
 #  env:   APEX_NAV_MATRIX=quick   one scale per output instead of the full sweep
 # ─────────────────────────────────────────────────────────────────────────────
@@ -49,10 +60,13 @@ cp "$here/dashboard-nav-test.qml" "$staged"
 fakehome="$(mktemp -d)"
 comp_log="$(mktemp)"
 comp_pid=""
+host_pid=""
 
 cleanup() {
     [[ -n "$comp_pid" ]] && kill "$comp_pid" 2>/dev/null
     [[ -n "$comp_pid" ]] && wait "$comp_pid" 2>/dev/null
+    [[ -n "$host_pid" ]] && kill "$host_pid" 2>/dev/null
+    [[ -n "$host_pid" ]] && wait "$host_pid" 2>/dev/null
     rm -f "$staged" "$comp_log"
     rm -rf "$fakehome"
     return 0
@@ -92,9 +106,37 @@ SWAY
     output_name="HEADLESS-1"
     ;;
 hyprland)
+    # A headless sway to host it, sized large enough that a nested 4K output is
+    # not the host's problem.
+    hostcfg="$(mktemp)"
+    cat > "$hostcfg" <<'SWAY'
+output * bg #000000 solid_color
+output HEADLESS-1 mode 3840x2160
+default_border none
+SWAY
+    WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman \
+    WLR_HEADLESS_OUTPUTS=1 XDG_CURRENT_DESKTOP=sway:wlroots \
+    env -u HYPRLAND_INSTANCE_SIGNATURE -u NIRI_SOCKET -u WAYLAND_DISPLAY \
+        sway -c "$hostcfg" >"$comp_log" 2>&1 &
+    host_pid=$!
+
+    host=""
+    for _ in $(seq 1 80); do
+        host="$(comm -13 <(echo "$before") <(list_sockets) | head -1)"
+        [[ -n "$host" ]] && break
+        sleep 0.25
+    done
+    if [[ -z "$host" ]]; then
+        echo "FAIL: the host sway did not come up"
+        tail -20 "$comp_log"
+        rm -f "$hostcfg"
+        exit 1
+    fi
+    before="$(list_sockets)"
+
     cfg="$(mktemp)"
     cat > "$cfg" <<'HYPR'
-monitor = HEADLESS-1, 1920x1080@60, 0x0, 1
+monitor = WL-1, 1920x1080@60, 0x0, 1
 misc {
     disable_hyprland_logo = true
     disable_splash_rendering = true
@@ -103,11 +145,12 @@ misc {
 animations { enabled = false }
 decoration { blur { enabled = false } }
 HYPR
-    AQ_FORCE_BACKEND=headless AQ_HEADLESS_OUTPUTS=1 XDG_CURRENT_DESKTOP=Hyprland \
-    env -u WAYLAND_DISPLAY -u DISPLAY -u NIRI_SOCKET \
-        Hyprland -c "$cfg" >"$comp_log" 2>&1 &
+    XDG_CURRENT_DESKTOP=Hyprland WAYLAND_DISPLAY="$host" \
+    env -u NIRI_SOCKET -u HYPRLAND_INSTANCE_SIGNATURE -u DISPLAY \
+        Hyprland -c "$cfg" >>"$comp_log" 2>&1 &
     comp_pid=$!
-    output_name="HEADLESS-1"
+    rm -f "$hostcfg"
+    output_name="WL-1"
     ;;
 *)
     echo "FAIL: unsupported compositor '$compositor' (sway or hyprland)"
@@ -135,8 +178,23 @@ if [[ "$compositor" == "sway" ]]; then
     SWAYSOCK="$(ls -t "$XDG_RUNTIME_DIR"/sway-ipc.*.sock 2>/dev/null | head -1)"
     export SWAYSOCK
 else
-    HYPRLAND_INSTANCE_SIGNATURE="$(ls -t "$XDG_RUNTIME_DIR"/hypr 2>/dev/null | head -1)"
-    export HYPRLAND_INSTANCE_SIGNATURE
+    # Crashed runs leave signature directories behind, so wait for one with a
+    # socket that actually answers rather than taking the newest name.
+    for _ in $(seq 1 40); do
+        for sig in $(ls -t "$XDG_RUNTIME_DIR"/hypr 2>/dev/null); do
+            [[ -S "$XDG_RUNTIME_DIR/hypr/$sig/.socket.sock" ]] || continue
+            if HYPRLAND_INSTANCE_SIGNATURE="$sig" hyprctl monitors >/dev/null 2>&1; then
+                export HYPRLAND_INSTANCE_SIGNATURE="$sig"
+                break 2
+            fi
+        done
+        sleep 0.25
+    done
+    if [[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+        echo "FAIL: Hyprland came up but its IPC socket never answered"
+        tail -20 "$comp_log"
+        exit 1
+    fi
 fi
 
 echo "$compositor headless on $nested, output $output_name"
