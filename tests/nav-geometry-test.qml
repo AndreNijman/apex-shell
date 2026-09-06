@@ -5,6 +5,7 @@ import "./src/theme"
 import "./src/services"
 import "./src/nexus"
 import "./src/components"
+import "./src/components/config"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The dashboard and settings navigation, measured. Run via
@@ -43,6 +44,16 @@ import "./src/components"
 //   short        column with equal gaps rather than bunching in the middle
 //   width      — the dashboard fits the output it opens on, together with the
 //                two notches it opens between, at every scale
+//   pages      — every settings page PageRegistry declares, laid out in a pane
+//                the size the Nexus window gives it: no two rows on top of
+//                each other, no row wider than the pane, and no line of text
+//                outside the row that is supposed to contain it
+//
+// The page block is P0-024's third criterion. It is here rather than in a suite
+// of its own because it is the same question — where did Qt put the rectangles,
+// at every scale — and because the settle detection, the stale-layout refusal
+// and the unusable-host verdict all had to exist before it could be asked at
+// all. A second harness would have had to grow its own copies.
 //
 // ── Hosts it cannot run on ──────────────────────────────────────────────────
 //
@@ -113,6 +124,16 @@ ShellRoot {
     // The dashboard height slider's two ends and its default.
     readonly property var dashHeights: [360, 520, 900]
 
+    // The scales and pane widths the settings pages are laid out at. 0.85 and
+    // 2.00 are the ends of the range the shell supports; 1.00 and 1.50 are the
+    // two a person is most likely to be on.
+    readonly property var pageScales: [0.85, 1.00, 1.50, 2.00]
+
+    // 560 is what a 920-wide Nexus card leaves after the 244px navigation pane
+    // and the margins; 360 is the narrower one the dashboard's Config tab hands
+    // a page at 70% of a 1080p bar.
+    readonly property var pagePanes: [560, 360]
+
     // Unscaled column heights for the three-tab switcher, in the range the
     // audio popup lives in. Every one of them has room for three rows at every
     // scale in the matrix, which is the point: this is the case where the
@@ -174,6 +195,22 @@ ShellRoot {
                 orientation:  "vertical"
                 currentPage:  vSwitcher.model.length > 0 ? vSwitcher.model[0].key : ""
                 model:        root.configTabs
+            }
+        }
+
+        // A settings page, in a pane the size the Nexus window hands one. The
+        // Loader is swapped per matrix point rather than ten pages being built
+        // at once: a hidden page still lays out, and ten of them in the same
+        // window would make every settle read the wrong one's rectangles.
+        Item {
+            id: pageHost
+            x: 1000
+            y: 0
+            width:  560
+            height: 520
+            Loader {
+                id: pageLoader
+                anchors.fill: parent
             }
         }
 
@@ -296,6 +333,144 @@ ShellRoot {
                 return f
         }
         return null
+    }
+
+    // ── Reading a settings page back ─────────────────────────────────────────
+    // By what an object IS. A CfgRow is the only thing in the tree carrying
+    // both `effect` and `hoverable`; a CfgButton is the only thing carrying
+    // both `variant` and `label`. Neither is matched on a type name, because
+    // the QML engine does not hand one out and a name comparison would be a
+    // string that goes stale silently.
+    function partsOf(item, pred, out, depth) {
+        if (!item || depth < 0) return out
+        if (pred(item)) out.push(item)
+        const kids = item.children
+        if (kids)
+            for (var i = 0; i < kids.length; i++)
+                root.partsOf(kids[i], pred, out, depth - 1)
+        return out
+    }
+
+    // A CfgRow is the only thing in the tree carrying both `effect` and
+    // `hoverable`. The Keybinds page draws none — it has its own BindRow, which
+    // is the only thing carrying both `action` and `pendingCombo` — and a
+    // definition that missed it would have reported that page as "laid out
+    // nothing" at every point rather than measuring it.
+    function isRow(o)  {
+        return (o.effect !== undefined && o.hoverable !== undefined)
+            || (o.action !== undefined && o.pendingCombo !== undefined)
+    }
+    function isCtl(o)  { return o.variant !== undefined && o.label !== undefined }
+    function isText(o) { return o.text !== undefined && o.wrapMode !== undefined }
+
+    function livePartsOf(page, pred) {
+        const all = root.partsOf(page, pred, [], 12)
+        const out = []
+        for (const o of all)
+            if (o.visible && o.width > 0.5 && o.height > 0.5)
+                out.push(o)
+        return out
+    }
+
+    // ── A settings page, measured ────────────────────────────────────────────
+    //
+    // Vertical containment is deliberately NOT asserted against the pane: a page
+    // scrolls, so a row below the fold is correctly outside it. What is asserted
+    // is scroll-independent — that rows do not sit on top of each other, that
+    // none is wider than the pane it is in, and that every line of text is
+    // inside the row that draws it.
+    //
+    // The last one is the assertion that has teeth. A CfgRow's height is a
+    // constant chosen for the number of lines it expects, so a row that grows a
+    // line and does not grow its height clips it, and nothing else in the suite
+    // would notice: the row's own rectangle is fine, its neighbours are fine,
+    // and the sentence is simply gone.
+    //
+    // ── What this block does NOT reach ──────────────────────────────────────
+    // A row behind a backend condition. The stubs on PATH answer every page
+    // with an empty machine, so a section that appears only when the blueprint
+    // is readable, or when a rollback is available, is invisible here and its
+    // rows are not measured. That is a real gap and it is stated rather than
+    // papered over: the two rows in the tree that carry an `effect` are both
+    // behind such a condition, so the assertion that a deferred row grows to
+    // fit its caption lives in tests/settings-controls-test.qml, on a fixture
+    // where it can be made to appear.
+    function measurePage(label, pane) {
+        const page = pageLoader.item
+        if (!page) {
+            root.check(label + ": the page built", false, "loader is empty")
+            return
+        }
+        const rows = root.livePartsOf(page, root.isRow)
+        if (rows.length === 0) {
+            root.check(label + ": the page laid out at least one row", false,
+                       "found none")
+            return
+        }
+
+        var worstOverlap = -1e9, worstOverlapAt = ""
+        var worstSpill   = -1e9, worstSpillAt   = ""
+        var worstClip    = -1e9, worstClipAt    = ""
+        var worstCtl     = -1e9, worstCtlAt     = ""
+
+        // Sorted by where they ended up rather than by the order they were
+        // found: the walk order is the object tree's, and two sections' rows
+        // interleave in it.
+        const placed = []
+        for (const r of rows) {
+            const p = r.mapToItem(page, 0, 0)
+            placed.push({ item: r, top: p.y, bottom: p.y + r.height,
+                          left: p.x, right: p.x + r.width })
+        }
+        placed.sort(function (a, b) { return a.top - b.top })
+
+        for (var i = 0; i < placed.length; i++) {
+            const r = placed[i]
+
+            if (i > 0) {
+                const over = placed[i - 1].bottom - r.top
+                if (over > worstOverlap) {
+                    worstOverlap = over
+                    worstOverlapAt = "row " + i + " starts "
+                                   + over.toFixed(1) + "px above the one before it"
+                }
+            }
+
+            const spill = Math.max(-r.left, r.right - pane)
+            if (spill > worstSpill) {
+                worstSpill = spill
+                worstSpillAt = "row " + i + " spans " + r.left.toFixed(1)
+                             + ".." + r.right.toFixed(1) + " in a " + pane + "px pane"
+            }
+
+            for (const tx of root.livePartsOf(r.item, root.isText)) {
+                if (String(tx.text) === "") continue
+                const tp = tx.mapToItem(r.item, 0, 0)
+                const out = Math.max(-tp.y, tp.y + tx.height - r.item.height)
+                if (out > worstClip) {
+                    worstClip = out
+                    worstClipAt = "\"" + String(tx.text).substring(0, 34)
+                                + "\" sits " + out.toFixed(1)
+                                + "px outside a row " + r.item.height.toFixed(1) + "px tall"
+                }
+            }
+        }
+
+        for (const c of root.livePartsOf(page, root.isCtl)) {
+            const cp = c.mapToItem(page, 0, 0)
+            const out = Math.max(-cp.x, cp.x + c.width - pane)
+            if (out > worstCtl) {
+                worstCtl = out
+                worstCtlAt = "\"" + String(c.label).substring(0, 20) + "\" ends "
+                           + (cp.x + c.width).toFixed(1) + " in a " + pane + "px pane"
+            }
+        }
+
+        root.check(label + ": no two rows overlap", worstOverlap <= 1.5, worstOverlapAt)
+        root.check(label + ": no row is wider than the pane", worstSpill <= 1.5, worstSpillAt)
+        root.check(label + ": no text is drawn outside its row", worstClip <= 1.0, worstClipAt)
+        root.check(label + ": no control is pushed out of the pane",
+                   worstCtl <= 1.5, worstCtlAt)
     }
 
     // ── Horizontal ───────────────────────────────────────────────────────────
@@ -660,6 +835,16 @@ ShellRoot {
 
     // Does what Qt laid out match the width or height that was asked for?
     function agreesWithStage(stepData) {
+        if (stepData.kind === "page") {
+            const pg = pageLoader.item
+            if (!pg) return false
+            // The page has to have been resized to the pane that was just
+            // staged, and to have laid something out inside it. A page still
+            // reporting the previous pane's width is a stale read, which is the
+            // whole reason this function exists.
+            return Math.abs(pg.width - pageHost.width) <= 1.5
+                && root.livePartsOf(pg, root.isRow).length > 0
+        }
         const v  = root.vRigFor(stepData)
         const sw = v ? v.sw : hSwitcher
         const n  = v ? v.n  : DashboardLayout.tabs.length
@@ -673,6 +858,19 @@ ShellRoot {
     }
 
     function signatureOf(stepData) {
+        if (stepData.kind === "page") {
+            const pg = pageLoader.item
+            if (!pg) return "incomplete:0"
+            const rows = root.livePartsOf(pg, root.isRow)
+            if (rows.length === 0) return "incomplete:0"
+            var sig = "p" + stepData.pageIndex + ":" + pageHost.width + ":"
+            for (const r of rows) {
+                const q = r.mapToItem(pg, 0, 0)
+                sig += q.x.toFixed(2) + "," + q.y.toFixed(2) + ","
+                     + r.width.toFixed(2) + "," + r.height.toFixed(2) + ";"
+            }
+            return sig
+        }
         const v  = root.vRigFor(stepData)
         const sw = v ? v.sw : hSwitcher
         const n  = v ? v.n  : DashboardLayout.tabs.length
@@ -732,6 +930,18 @@ ShellRoot {
                 out.push({ kind: "vShort", scale: sc,
                            columnBase: root.shortColumns[e] })
         }
+
+        // Every settings page, at the four scales that bracket the range, in
+        // the two pane widths the Nexus window and the dashboard's Config tab
+        // hand one. The full eight-scale sweep is what the tab column needs
+        // because its spacing is arithmetic on the height; a page's rows are
+        // stacked by a Column and the failure mode is a row that does not grow
+        // with its text, which the ends and the middle catch.
+        for (var f = 0; f < root.pageScales.length; f++)
+            for (var g = 0; g < root.pagePanes.length; g++)
+                for (var h = 0; h < PageRegistry.pages.length; h++)
+                    out.push({ kind: "page", scale: root.pageScales[f],
+                               pane: root.pagePanes[g], pageIndex: h })
         return out
     }
 
@@ -743,7 +953,13 @@ ShellRoot {
             SettingsService.set("scaleMode", "manual")
             SettingsService.set("scaleManual", stepData.scale)
         }
-        if (stepData.kind === "vShort") {
+        if (stepData.kind === "page") {
+            pageHost.width  = stepData.pane
+            pageHost.height = 520
+            const wanted = PageRegistry.pages[stepData.pageIndex].component
+            if (pageLoader.sourceComponent !== wanted)
+                pageLoader.sourceComponent = wanted
+        } else if (stepData.kind === "vShort") {
             // Scaled, because the popup this stands for is: its switcher takes
             // the popup's height and the popup is drawn in Theme.px.
             vShortHost.height = Theme.px(stepData.columnBase)
@@ -786,6 +1002,10 @@ ShellRoot {
             const stag = "stress " + stepData.scale + "x " + stepData.screen.name
                        + " " + stepData.page
             root.measureDegraded(stag, stepData.page, stepData.screen.w)
+        } else if (stepData.kind === "page") {
+            root.measurePage("page " + stepData.scale + "x "
+                             + PageRegistry.pages[stepData.pageIndex].id
+                             + " pane=" + stepData.pane, stepData.pane)
         } else if (stepData.kind === "vShort") {
             root.measureVerticalSpread(
                 "vShort " + stepData.scale + "x col=" + vShortHost.height,
@@ -885,6 +1105,8 @@ ShellRoot {
             console.log("[rig] " + DashboardLayout.tabs.length + " dashboard tabs, "
                         + root.configTabs.length + " settings pages, "
                         + root.audioTabs.length + " audio tabs, "
+                        + (root.pageScales.length * root.pagePanes.length
+                           * PageRegistry.pages.length) + " page layouts, "
                         + root.plan.length + " matrix points")
             step.restart()
         }
