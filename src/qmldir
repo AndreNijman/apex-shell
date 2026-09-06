@@ -20,3 +20,11 @@ singleton UpdateService 1.0 services/UpdateService.qml
 singleton SettingsService 1.0 services/SettingsService.qml
 singleton WolframService 1.0 services/WolframService.qml
 singleton SearchService 1.0 services/SearchService.qml
+# §43's Agents & Workspaces guide. Registered HERE and not in services/qmldir,
+# even though the files live under services/agents/: a singleton declared in two
+# modules is instantiated twice, one per module, and the two copies would
+# disagree about whether the first-run card is dismissed. src/ is the module
+# every consumer already imports — AgentCenter through `import "../../"`,
+# IpcManager through `import "../"`.
+singleton AgentHelp 1.0 services/agents/AgentHelp.qml
+singleton AgentHelpContent 1.0 services/agents/AgentHelpContent.qml
