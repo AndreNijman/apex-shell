@@ -162,6 +162,19 @@ jobs:
           # reads no file, so there is nothing here that can skip.
           node tests/blueprint-editor-test.js
 
+      - name: Test Gaming settings logic
+        run: |
+          # P1-049's page has to be good at ONE state above all: not installed.
+          # Steam, gamescope and the overlay are on-demand `apex install`
+          # packages and a fresh image carries none of them, so the fixture here
+          # is the real `apex gaming --json` from a machine with all three
+          # missing. Two refusals are asserted: a check the report does not
+          # carry must not read as passing (a renamed probe would otherwise
+          # report a machine ready on a build that had stopped looking), and a
+          # check the CLI reports that the shell cannot name must be surfaced
+          # rather than dropped. Spawns no process, reads no file, cannot skip.
+          node tests/gaming-settings-test.js
+
       - name: Lint test harness scripts
         run: |
           # -S warning matches the threshold apex-os uses: style/info findings in
@@ -367,6 +380,23 @@ jobs:
           # `apex apply` or a `blueprint set`. That is not hypothetical: a test
           # in this repo once reconfigured the developer's live display.
           ./tests/check-blueprint-editor.sh
+
+      - name: Gaming settings discipline (no invented daemon, no escalation)
+        run: |
+          # P1-049 asks for a master "optimise games automatically" control, and
+          # `apex mode set --auto` is documented one-shot: "APEX ships nothing
+          # that re-evaluates this on a timer." A poller in the shell would be
+          # this page inventing the daemon the OS declined to ship, and it would
+          # do it invisibly — the page would appear to work while overriding a
+          # mode the user had set by hand. So: no Timer in either file, exactly
+          # one command that can change anything, reachable from one function,
+          # and a re-read of `apex mode status` after every switch rather than
+          # trust in an exit code.
+          #
+          # Installing the missing packages needs root; the command is shown as
+          # text with no button beside it, the same rule the Blueprint page
+          # follows for `sudo apex apply`.
+          ./tests/check-gaming-settings.sh
       - name: niri keybind generation
         run: |
           # niri rejects a bad include WHOLESALE — one unknown action verb and
@@ -1392,6 +1422,11 @@ jobs:
             "src/services/config_tab/pages/BlueprintPage.qml"
             "tests/blueprint-editor-test.js"
             "tests/check-blueprint-editor.sh"
+            "src/services/config_tab/gaming.js"
+            "src/services/config_tab/GamingService.qml"
+            "src/services/config_tab/pages/GamingPage.qml"
+            "tests/gaming-settings-test.js"
+            "tests/check-gaming-settings.sh"
             "src/services/recovery.js"
             "src/services/RecoveryService.qml"
             "src/services/config_tab/pages/RecoveryPage.qml"
