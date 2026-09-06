@@ -1,6 +1,7 @@
 import QtQuick
 import "../"
 import "../../"
+import "../agentstate.js" as AgentState
 
 // One agent session on a REMOTE device.
 //
@@ -26,7 +27,8 @@ import "../../"
 // It does read AgentService's stateIcon / stateLabel / elapsed. Those are pure
 // formatters over a state string and a record's own timestamps: they take no id
 // and they reach no runtime, which is the distinction that makes them safe here
-// while the verbs above are not.
+// while the verbs above are not. StateBadge is safe on the same grounds: it
+// takes a state string and returns a picture of it.
 
 Item {
     id: srow
@@ -35,9 +37,7 @@ Item {
 
     readonly property bool live:
         srow.session.exit_code === null && srow.session.exit_signal === null
-    readonly property bool needsYou:
-        srow.session.state === "waiting_for_user"
-        || srow.session.state === "permission_request"
+    readonly property bool needsYou: AgentState.needsYou(srow.session.state)
 
     height: Theme.px(30)
 
@@ -56,33 +56,20 @@ Item {
             font.pixelSize: Theme.fs(10)
         }
 
-        Text {
+        // The same badge the local row draws, smaller. Deliberately identical,
+        // because a remote agent working and a local one working are the same
+        // fact about the world — including the pulse, which lives in the badge
+        // so the two rows cannot drift apart again.
+        StateBadge {
+            id: badge
             anchors.verticalCenter: parent.verticalCenter
-            width: Theme.px(16)
-            horizontalAlignment: Text.AlignHCenter
-            text: AgentService.stateIcon(srow.session.state)
-            font.pixelSize: Theme.fs(13)
-            color: srow.needsYou ? Theme.active
-                 : srow.session.state === "failed" ? Theme.wsUrgent
-                 : srow.live ? Theme.text : Theme.subtext
-
-            // Same rule as the local row: a working session animates and
-            // nothing else does, so motion in the list means "this is
-            // changing". Deliberately identical, because a remote agent working
-            // and a local one working are the same fact about the world.
-            SequentialAnimation on opacity {
-                running: srow.session.state === "working"
-                loops: Animation.Infinite
-                NumberAnimation { to: 0.45; duration: 900; easing.type: Easing.InOutQuad }
-                NumberAnimation { to: 1.0;  duration: 900; easing.type: Easing.InOutQuad }
-            }
-            onOpacityChanged: if (srow.session.state !== "working") opacity = 1.0
+            sessionState: srow.session.state
+            size: Theme.px(18)
         }
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: ((srow.session.agent || "agent").charAt(0).toUpperCase()
-                   + (srow.session.agent || "agent").slice(1))
+            text: AgentState.agentName(srow.session.agent)
             color: Theme.text
             font.pixelSize: Theme.fs(11)
             font.bold: true
@@ -95,22 +82,44 @@ Item {
             font.pixelSize: Theme.fs(9)
         }
 
-        Text {
+        // Same split as the local row: the state word carries the tone, the
+        // rest stays muted, and only the project elides.
+        Row {
+            id: meta
             anchors.verticalCenter: parent.verticalCenter
             width: srow.width - Theme.fs(190)
-            elide: Text.ElideRight
-            text: {
-                var bits = []
-                var where = srow.session.project_name
-                    || AgentService._basename(srow.session.cwd)
-                if (where) bits.push(where)
-                bits.push(AgentService.stateLabel(srow.session.state))
+            spacing: 0
+
+            readonly property string where:
+                srow.session.project_name
+                || AgentService._basename(srow.session.cwd)
+                || ""
+            readonly property string tail: {
                 var e = AgentService.elapsed(srow.session)
-                if (e) bits.push(e)
-                return bits.join("  ·  ")
+                return e ? "  ·  " + e : ""
             }
-            color: srow.needsYou ? Theme.active : Theme.subtext
-            font.pixelSize: Theme.fs(9)
+
+            Text {
+                text: meta.where === "" ? "" : meta.where + "  ·  "
+                color: Theme.subtext
+                font.pixelSize: Theme.fs(9)
+                elide: Text.ElideRight
+                width: Math.max(0, Math.min(implicitWidth,
+                         meta.width - stateWord.implicitWidth - tailText.implicitWidth))
+            }
+            Text {
+                id: stateWord
+                text: AgentService.stateLabel(srow.session.state)
+                color: badge.toneColor
+                font.pixelSize: Theme.fs(9)
+                font.bold: true
+            }
+            Text {
+                id: tailText
+                text: meta.tail
+                color: Theme.subtext
+                font.pixelSize: Theme.fs(9)
+            }
         }
     }
 }
