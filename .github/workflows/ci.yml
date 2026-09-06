@@ -966,6 +966,41 @@ jobs:
           # not this script's own header.
           ./tests/check-agent-help.sh
 
+      - name: Agent sandbox default logic
+        run: |
+          # §42.1's Always Unrestricted toggle, at the layer where its edge
+          # cases are. Drives src/services/agentpolicy.js — the file the shell
+          # loads — over configuration shapes transcribed from apex-agent-core
+          # rather than invented.
+          #
+          # Two assertions exist because the obvious code is wrong. apex's
+          # `Config::normalise` resets ALL SIX permission dimensions when a
+          # stored default fails `validate`, so writing `sandbox: unrestricted`
+          # into a file that also says `network: offline` silently discards the
+          # user's `native: bypass` as well and changes no sandbox at all. And
+          # a session's mode is read from the session's own record, never from
+          # the default, so the function that answers it is given no way to see
+          # one.
+          node tests/agent-policy-test.js
+
+      - name: Agent sandbox default invariants
+        run: |
+          # Static half, and the part the node suite cannot see: that the
+          # password is asked for on the way IN and never on the way out, at a
+          # polkit action that authenticates the user rather than an
+          # administrator and caches nothing, through no root helper at all,
+          # writing one key of a path resolved the way apex-agent-core's
+          # paths.rs resolves it.
+          #
+          # Self-tested the way check-remote-agents.sh is: twelve mutants that
+          # must each go red, a bound on how many checks one may break, a hard
+          # failure for a mutant that did not change the file, and a prose-only
+          # copy quoting every one of those bugs that must stay GREEN. The
+          # baseline mutant earned its place here immediately — it caught an
+          # ordering check whose awk variables were being set on the wrong side
+          # of a pipe, which made it green for any input at all.
+          ./tests/check-agent-settings.sh
+
       - name: Remote agent status smoke test
         run: |
           # Needs a compositor AND the apex-os runtime built; the harness skips
