@@ -3,6 +3,7 @@ import QtQuick.Controls
 import "../"
 import "../../"
 import "../../components"
+import "../agentstate.js" as AgentState
 
 // ─── AgentCenter ──────────────────────────────────────────────────────────────
 // The dashboard's Agents page (roadmap §3, §7).
@@ -66,10 +67,10 @@ Item {
 
     readonly property var _requests: AgentService.requests
     readonly property var _needsYou: AgentService.sessions.filter(function(s) {
-        return s.state === "waiting_for_user" || s.state === "permission_request"
+        return AgentState.needsYou(s.state)
     })
     readonly property var _others: AgentService.sessions.filter(function(s) {
-        return s.state !== "waiting_for_user" && s.state !== "permission_request"
+        return !AgentState.needsYou(s.state)
     }).slice().sort(function(a, b) {
         // Live first, then most recently active. A finished session sinking
         // below a running one is what makes the list readable at a glance.
@@ -173,6 +174,9 @@ Item {
                 visible: root._requests.length > 0
                 text: "Waiting for your decision"
                 accent: true
+                // Every card under this heading is a blocked request, so the
+                // heading wears the same tone they do.
+                tone: Theme.attention
             }
             Repeater {
                 model: root._requests

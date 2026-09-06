@@ -1,6 +1,7 @@
 import QtQuick
 import "../"
 import "../../"
+import "../agentstate.js" as AgentState
 
 // One pending privilege request in the Agent Center (roadmap §4's prompt).
 //
@@ -12,6 +13,15 @@ import "../../"
 // can authenticate and where the full prompt and the resulting output are
 // visible. An [Allow] button in a status list would be one unconfirmed click
 // away from an OS change, judged from a two-line summary.
+//
+// ── IT IS TONED LIKE A BLOCKED SESSION, BECAUSE IT IS ONE ───────────────────
+//
+// A pending request and a session in `permission_request` are the same event
+// seen from two sides, and this page shows both — the card up top, the session
+// further down. They were coloured differently, the card in the wallpaper's
+// primary and the session in whatever the state ternary landed on, so nothing
+// connected them. Both now carry the `attention` tone, which is what makes the
+// pair legible as one thing that is waiting on you.
 
 Rectangle {
     id: row
@@ -27,9 +37,9 @@ Rectangle {
 
     height: body.implicitHeight + Theme.fs(20)
     radius: Theme.px(8)
-    color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.10)
-    border.width: 1
-    border.color: Theme.active
+    color: Qt.rgba(Theme.attention.r, Theme.attention.g, Theme.attention.b, 0.10)
+    border.width: Math.max(1, Theme.px(1))
+    border.color: Theme.attention
 
     Row {
         id: body
@@ -37,24 +47,22 @@ Rectangle {
         anchors.margins: Theme.px(10)
         spacing: Theme.px(10)
 
-        Text {
+        // The badge a blocked session wears, drawn at the same weight — filled,
+        // because this is the one card on the page that will not clear itself.
+        StateBadge {
             anchors.top: parent.top
-            width: Theme.px(22)
-            horizontalAlignment: Text.AlignHCenter
-            text: "󰌾"
-            font.pixelSize: Theme.fs(17)
-            color: Theme.active
+            sessionState: "permission_request"
+            size: Theme.px(26)
         }
 
         Column {
-            width: parent.width - Theme.fs(22) - reviewBtn.width - Theme.fs(30)
+            width: parent.width - Theme.fs(26) - reviewBtn.width - Theme.fs(30)
             spacing: Theme.px(3)
 
             Text {
                 text: (row.request.agent
-                        ? row.request.agent.charAt(0).toUpperCase()
-                          + row.request.agent.slice(1)
-                        : "An agent") + " requests privilege"
+                       ? AgentState.agentName(row.request.agent)
+                       : "An agent") + " requests privilege"
                 color: Theme.text
                 font.pixelSize: Theme.fs(12)
                 font.bold: true
@@ -66,7 +74,7 @@ Rectangle {
                 width: parent.width
                 elide: Text.ElideRight
                 text: row.operation
-                color: Theme.active
+                color: Theme.attention
                 font.family: "monospace"
                 font.pixelSize: Theme.fs(11)
             }
@@ -99,8 +107,8 @@ Rectangle {
             height: reviewLabel.implicitHeight + Theme.fs(10)
             radius: Theme.px(6)
             color: reviewHover.hovered
-                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
-                : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.20)
+                ? Qt.rgba(Theme.attention.r, Theme.attention.g, Theme.attention.b, 0.35)
+                : Qt.rgba(Theme.attention.r, Theme.attention.g, Theme.attention.b, 0.20)
 
             Behavior on color { ColorAnimation { duration: 90 } }
 

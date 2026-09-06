@@ -107,6 +107,47 @@ src/components/TimeInput.qml|235/255, 240/255, 255/255|x2 — a blue-tinted near
 EXPECT_TOTAL=9
 EXPECT_FRAC=2
 
+# ── The Agent Center's own rule (roadmap P0-021) ────────────────────────────
+# The colour half of this file's problem had a second shape in src/services/
+# agents/, and no literal was involved, so nothing above could see it. Both
+# session rows decided a state's colour inline:
+#
+#     color: needsYou ? Theme.active
+#          : state === "failed" ? Theme.wsUrgent
+#          : live ? Theme.text : Theme.subtext
+#
+# Every colour there is a token, so the check passed. It is still wrong twice
+# over. Seven runtime states collapse onto three values, two of which are the
+# palette's FOREGROUND — on a matugen dark scheme `text` is #e3e2e5 — so
+# starting, working, complete and exited all render near-white, which is
+# precisely the bug a user reported as "APEX agents display only in white".
+# And `wsUrgent` is a Workspace Visuals token: a fixed pink borrowed from the
+# workspace strip, so the agent list's red moved whenever the workspace strip's
+# did, for no reason either file stated.
+#
+# Both rows carried their own copy, and the copies had already begun to differ.
+# So the rule is structural rather than about colour values: an agent row does
+# not decide what a state looks like. src/services/agentstate.js does, once,
+# and tests/agent-state-test.js measures the result.
+#
+# Two literals survive, and neither is a mapping — they are listed WITH THE
+# REASON for the same purpose as the colour allowlist above.
+ALLOW_STATE_RAW="
+src/services/agents/StateBadge.qml|working|the pulse, and only the pulse — motion in a status list has to mean 'this is changing', so exactly one state animates
+src/services/agents/RequestRow.qml|permission_request|the card IS a blocked request; it names the state it draws rather than testing one
+"
+
+# Membership is asserted from the rows above; the OCCURRENCE count separately,
+# for the reason the fraction list gives — StateBadge names "working" twice (the
+# animation's `running`, and the guard that resets opacity when it stops), and a
+# set alone cannot notice one of the two going away.
+EXPECT_STATES=3
+
+# Workspace Visuals are fixed white-family colours for the workspace strip.
+# They are correct there and wrong everywhere else, and an agent state was the
+# place they leaked to.
+WS_FORBIDDEN_DIR="services/agents"
+
 # ── The extractor ───────────────────────────────────────────────────────────
 TMP=$(mktemp -d) || exit 2
 trap 'rm -rf "$TMP"' EXIT
@@ -153,10 +194,30 @@ def strip_comments(t):
         out.append(c); i += 1
     return "".join(out)
 
+STATES = ("starting", "working", "waiting_for_user", "permission_request",
+          "complete", "failed", "exited")
+
 rows = []
 for p in sorted(root.rglob("*.qml")):
     rel = p.relative_to(root.parent) if root.name == "src" else p
     rel = str(rel)
+
+    if mode in ("states", "ws"):
+        # Agent rows only. Matched on the directory names rather than on a
+        # string prefix, so pointing APEX_COLOR_SRC at another tree still works.
+        if not (p.parent.name == "agents" and p.parent.parent.name == "services"):
+            continue
+        code = strip_comments(p.read_text(errors="replace"))
+        if mode == "ws":
+            for m in re.finditer(r"\bTheme\.(ws[A-Z]\w*)", code):
+                line = code[:m.start()].count("\n") + 1
+                rows.append(f"{rel}|{m.group(1)}|{line}")
+            continue
+        for m in re.finditer(r'"(%s)"' % "|".join(STATES), code):
+            line = code[:m.start()].count("\n") + 1
+            rows.append(f"{rel}|{m.group(1)}|{line}")
+        continue
+
     if rel.startswith("src/theme/"):
         continue                          # the theme is where colours live
     code = strip_comments(p.read_text(errors="replace"))
@@ -250,7 +311,7 @@ fi
 # Without them the check is theatre: it would be enforcing "no literals" on a
 # tree with nowhere for a colour to come from.
 missing_tok=""
-for tok in danger warning success fixedLight fixedDark dangerFill dangerFillHover; do
+for tok in danger warning success info attention fixedLight fixedDark dangerFill dangerFillHover; do
     grep -qE "^[[:space:]]*property color[[:space:]]+${tok}:" "$SRC/theme/Colors.qml" 2>/dev/null \
         || missing_tok="$missing_tok $tok"
 done
@@ -264,7 +325,7 @@ fi
 # Every call site in the tree says Theme.*; a token on Colors alone would send
 # readers to two different singletons for their colours.
 missing_mirror=""
-for tok in danger warning success fixedLight fixedDark dangerFill dangerFillHover; do
+for tok in danger warning success info attention fixedLight fixedDark dangerFill dangerFillHover; do
     grep -qE "^[[:space:]]*property color[[:space:]]+${tok}:[[:space:]]*Colors\.${tok}" \
         "$SRC/theme/Theme.qml" 2>/dev/null || missing_mirror="$missing_mirror $tok"
 done
@@ -272,6 +333,48 @@ if [ -z "$missing_mirror" ]; then
     ok "Theme.qml mirrors every one of them, so call sites read one singleton"
 else
     bad "Theme.qml does not mirror:$missing_mirror"
+fi
+
+# ── 8. no Workspace Visuals token in the Agent Center ───────────────────────
+ws_found=$(run_extract "$SRC" ws)
+if [ -z "$(printf '%s' "$ws_found" | tr -d '[:space:]')" ]; then
+    ok "no Workspace Visuals token leaks into $WS_FORBIDDEN_DIR"
+else
+    printf '%s\n' "$ws_found" | sed 's/^/       ws token: /' | head -10
+    bad "a Workspace Visuals token is being used for an agent state"
+fi
+
+# ── 9. an agent row does not decide what a state looks like ─────────────────
+# Asserted as a (file, state) SET against the allowlist, and both directions,
+# for the same reason the colour list is: a per-file tally passes when one
+# mapping is swapped for another, and a stale entry lets the list rot.
+states_found=$(run_extract "$SRC" states)
+states_allow=$(norm_allow "$ALLOW_STATE_RAW")
+states_unexpected=$(printf '%s\n' "$states_found" | norm_found | uniq \
+                    | comm -23 - <(printf '%s\n' "$states_allow"))
+states_stale=$(printf '%s\n' "$states_allow" \
+               | comm -13 <(printf '%s\n' "$states_found" | norm_found | uniq) -)
+n_states=$(printf '%s\n' "$states_found" | sed '/^[[:space:]]*$/d' | wc -l | tr -d ' ')
+if [ -z "$states_unexpected" ] && [ -z "$states_stale" ] \
+   && [ "$n_states" -eq "$EXPECT_STATES" ]; then
+    ok "no agent row maps a runtime state to a colour itself (agentstate.js does)"
+else
+    printf '%s\n' "$states_unexpected" | sed '/^$/d;s/^/       unexpected: /' | head -10
+    printf '%s\n' "$states_stale"      | sed '/^$/d;s/^/       stale:      /' | head -10
+    [ "$n_states" -eq "$EXPECT_STATES" ] \
+        || printf '       expected exactly %s state literals, found %s\n' \
+                  "$EXPECT_STATES" "$n_states"
+    bad "no agent row maps a runtime state to a colour itself (agentstate.js does)"
+fi
+
+# ── 10. every allowlisted state literal carries a reason ────────────────────
+missing_sreason=$(printf '%s\n' "$ALLOW_STATE_RAW" | sed '/^[[:space:]]*$/d' \
+                  | awk -F'|' 'NF < 3 || length($3) < 20 {print $1 "|" $2}')
+if [ -z "$missing_sreason" ]; then
+    ok "every allowlisted state literal states why it is not a mapping"
+else
+    printf '%s\n' "$missing_sreason" | sed 's/^/       no reason: /'
+    bad "every allowlisted state literal states why it is not a mapping"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -362,6 +465,38 @@ recheck_token() {
 }
 mutate "the danger token deleted from Colors.qml" \
     "src/theme/Colors.qml" "property color danger:" "property color dangerX:" recheck_token
+
+# (g) the Workspace Visuals leak, put back exactly as it was
+recheck_ws() {
+    [ -n "$(printf '%s' "$(run_extract "$TMP/src" ws)" | tr -d '[:space:]')" ]
+}
+mutate "a workspace token used for an agent state" \
+    "src/services/agents/SessionRow.qml" \
+    "border.color: badge.toneColor" "border.color: Theme.wsUrgent" recheck_ws
+
+# (h) a row deciding a state's colour again, in the idiom that caused P0-021
+recheck_states() {
+    local f u s n
+    f=$(run_extract "$TMP/src" states)
+    u=$(printf '%s\n' "$f" | norm_found | uniq \
+        | comm -23 - <(norm_allow "$ALLOW_STATE_RAW"))
+    s=$(norm_allow "$ALLOW_STATE_RAW" \
+        | comm -13 <(printf '%s\n' "$f" | norm_found | uniq) -)
+    n=$(printf '%s\n' "$f" | sed '/^[[:space:]]*$/d' | wc -l | tr -d ' ')
+    [ -n "$u" ] || [ -n "$s" ] || [ "$n" -ne "$EXPECT_STATES" ]
+}
+mutate "a row deciding a state's colour inline" \
+    "src/services/agents/SessionRow.qml" \
+    "color: badge.toneColor" \
+    'color: row.session.state === "failed" ? Theme.danger : Theme.text' \
+    recheck_states
+
+# (i) and the other direction — an allowlisted state literal removed. Without
+#     this the list can describe a mapping that no longer exists, which is the
+#     rot the colour list above is shaped to prevent.
+mutate "an allowlisted state literal removed" \
+    "src/services/agents/StateBadge.qml" \
+    'running: badge.sessionState === "working"' "running: false" recheck_states
 
 # ── the inverse mutants: prose must NOT trip any of this ────────────────────
 # Without these, the check could be passing on comments rather than on code.
