@@ -96,8 +96,8 @@ var BANNED_LABELS = {
     "Undo":     "Revert",
     "Forget":   "Revert",
     "Restore":  "Reset, when it means the shipped default; Revert when it means the last value",
-    "Commit":   "Save",
-    "Write":    "Save"
+    "Commit":   "Save — a commit is a git thing in this project, and this writes a settings file",
+    "Write":    "Save — the user does not care that it is a write, only that it lasts"
 }
 
 // ── When a change reaches the machine ───────────────────────────────────────
