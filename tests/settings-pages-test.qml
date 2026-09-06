@@ -74,6 +74,12 @@ ShellRoot {
             delegate: Loader {
                 required property var modelData
                 anchors.fill: parent
+                // Ten pages stacked on one Item, none of them shown. Nothing
+                // this suite asks depends on visibility — a lifecycle is a
+                // string, a label is a string, an effect is a string — and
+                // there is no window here to lay anything out in anyway.
+                // Where a rectangle IS the question, the suite is
+                // tests/nav-geometry-test.qml, which opens one.
                 visible: false
                 sourceComponent: modelData.component
             }

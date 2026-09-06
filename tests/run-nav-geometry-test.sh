@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  Run tests/nav-geometry-test.qml — where Qt puts the dashboard's six tabs and
-#  the settings navigation's nine rows, at every width, height and scale factor
-#  the shell supports.
+#  Run tests/nav-geometry-test.qml — where Qt puts the dashboard's six tabs, the
+#  settings navigation's rows, and the rows of every settings page, at every
+#  width, height and scale factor the shell supports.
 #
 #  ── It brings its own compositor, and its own home directory ────────────────
 #
@@ -25,6 +25,15 @@
 #
 #  Skips cleanly (status 0) without quickshell or without a headless compositor,
 #  so CI on a machine with neither does not fail the build.
+#
+#  ── AND FAKES FOR EVERYTHING A PAGE SHELLS OUT TO ───────────────────────────
+#
+#  The page block builds real settings pages, and a real settings page asks the
+#  real machine: `apex recover status`, `hyprctl`, `wlr-randr`, `git describe`,
+#  a wallpaper scan. Left alone this suite would interrogate — and the
+#  Appearance page could apply from — the developer's own desktop while
+#  measuring rectangles. So stubs go first on PATH. The pages under test are the
+#  shipped files; only the machine they interrogate is a stub.
 #
 #  Quickshell refuses to import QML from outside the directory holding the entry
 #  point, so the test is staged into the repo root for the run and removed
@@ -88,13 +97,38 @@ trap cleanup EXIT INT TERM
 
 cp "$here/nav-geometry-test.qml" "$staged"
 
+mkdir -p "$W/bin"
+cat > "$W/bin/_stub" <<'FAKE'
+#!/usr/bin/env bash
+case "$*" in
+    *--json*|*-j*|*json*) echo "{}" ;;
+    *)                    : ;;
+esac
+exit 0
+FAKE
+chmod +x "$W/bin/_stub"
+for n in apex hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
+         brightnessctl pkcheck notify-send swww; do
+    ln -sf "$W/bin/_stub" "$W/bin/$n"
+done
+cat > "$W/bin/git" <<'FAKE'
+#!/usr/bin/env bash
+case "$*" in
+    *describe*) echo "v0.0.0-test" ;;
+    *)          : ;;
+esac
+exit 0
+FAKE
+chmod +x "$W/bin/git"
+export PATH="$W/bin:$PATH"
+
 real_home="$(getent passwd "$(id -u)" | cut -d: -f6)"
 
 export XDG_RUNTIME_DIR="$W/run"
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 0700 "$XDG_RUNTIME_DIR"
 export HOME="$W/home"
-mkdir -p "$HOME/.config" "$HOME/.local/share"
+mkdir -p "$HOME/.config/apex-shell/src/user_data" "$HOME/.local/share" "$HOME/Pictures/Wallpapers"
 export XDG_STATE_HOME="$W/state"
 export XDG_CACHE_HOME="$W/cache"
 mkdir -p "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
@@ -232,7 +266,7 @@ echo "host: $comp on $WAYLAND_DISPLAY at $mode (headless, private XDG_RUNTIME_DI
 
 # quickshell stamps every console.log with a level and a category. Stripped, so
 # the assertion lines below are the shape the QML wrote them in.
-out="$(QT_LOGGING_RULES="qml=true" timeout 600 quickshell -p "$staged" 2>&1 \
+out="$(QT_LOGGING_RULES="qml=true" timeout 900 quickshell -p "$staged" 2>&1 \
        | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/^[[:space:]]*DEBUG qml: //')"
 
 # The per-point FAIL lines are deliberately not echoed: 312 matrix points times
