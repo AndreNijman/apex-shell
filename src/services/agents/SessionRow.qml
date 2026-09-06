@@ -3,6 +3,7 @@ import "../"
 import "../../"
 import "../agentstate.js" as AgentState
 import "../agentgraph.js" as Graph
+import "../agenttelemetry.js" as Telemetry
 import "../agentpolicy.js" as Policy
 
 // One agent session in the Agent Center.
@@ -95,6 +96,13 @@ Rectangle {
     readonly property string graphState: Graph.supported(row.session)
     readonly property var graphKids: Graph.subagents(row.session)
     readonly property var graphRoots: Graph.processRoots(row.session)
+    // What Claude's own status line last said about THIS session: the model,
+    // how full its context window is, and the branch. The account's rate-limit
+    // windows are deliberately absent — they belong to the login, not to a
+    // session, and six rows repeating one 62% is the P1-022 lesson on a second
+    // surface. TelemetryStrip says them once.
+    readonly property var telemetry:
+        Telemetry.sessionLine(row.session, Date.now() / 1000)
     readonly property bool hasGraph:
         row.graphState === "some"
         && (row.graphKids.length > 0 || row.graphRoots.length > 0)
@@ -154,7 +162,11 @@ Rectangle {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        height: Theme.px(52)
+        // Taller only when there is a third line to put in it. A row that
+        // reserved the space unconditionally would leave a gap under every
+        // agent that is not Claude, and under every Claude session before its
+        // first status-line refresh.
+        height: Theme.px(52) + (row.telemetry ? Theme.px(13) : 0)
 
     // The whole row focuses the terminal. §3: "Focus the existing terminal when
     // the user clicks an agent in APEX Shell."
@@ -349,6 +361,40 @@ Rectangle {
                     text: meta.graph === "" ? "" : "  ·  " + meta.graph
                     color: Theme.subtext
                     font.pixelSize: Theme.fs(10)
+                }
+            }
+
+            // The third line, and only when a status line has actually run.
+            //
+            // The context percentage carries the tone; the model and the
+            // branch do not. A number approaching its limit is the only part
+            // worth a colour, and the thresholds are the ones the terminal
+            // status line already uses so the two surfaces cannot disagree
+            // about when a context window is worth worrying about.
+            Row {
+                id: telemetryLine
+                visible: !!row.telemetry
+                spacing: 0
+
+                Text {
+                    text: row.telemetry ? row.telemetry.text : ""
+                    color: Theme[Telemetry.tokenFor(
+                        row.telemetry ? row.telemetry.contextPct : null)]
+                    font.pixelSize: Theme.fs(9)
+                    elide: Text.ElideRight
+                    width: Math.min(implicitWidth,
+                                    Math.max(0, meta.width - staleText.implicitWidth))
+                }
+                // Said only once the reading stops being current. A status
+                // line runs on a timer, so a session that has been quiet for
+                // an hour last reported an hour ago, and drawing that as
+                // though it were current is a claim the shell cannot support.
+                Text {
+                    id: staleText
+                    text: (row.telemetry && row.telemetry.freshness !== "fresh")
+                        ? "  ·  " + Telemetry.agoLabel(row.telemetry.ageSecs) : ""
+                    color: Theme.subtext
+                    font.pixelSize: Theme.fs(9)
                 }
             }
         }
