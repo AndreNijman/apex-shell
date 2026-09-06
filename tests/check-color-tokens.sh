@@ -324,13 +324,20 @@ fi
 # Settings; Colors.qml carries the explanation next to the light values it
 # blocks.
 #
-# A ceiling rather than a ban: 212 sites is not a thing to fix in one branch,
+# A ceiling rather than a ban: 211 sites is not a thing to fix in one branch,
 # and a check that fails today teaches everyone to skip it. It fails if the
 # number goes UP, which is what keeps Colors.qml's comment true, and it fails if
 # the number goes DOWN without EXPECT_WHITE_FG being lowered with it — so paying
 # the debt down means saying so here, and light mode gets closer on purpose
 # rather than by accident.
-EXPECT_WHITE_FG=212
+#
+# 212 -> 211 when P0-018 landed on the integration branch beside P0-023. P0-018
+# measured 212 on its own base; P0-023's settings rework had meanwhile folded
+# two of CfgRow.qml's translucent whites into one conditional and removed two
+# from KeybindsPage.qml, for a net -1. The ratchet is doing exactly what it was
+# written to do — the debt went down and somebody had to say so here — and light
+# mode is not reachable at 211 either.
+EXPECT_WHITE_FG=211
 n_white=$(grep -rnE '^[[:space:]]*color:.*Qt\.rgba\([[:space:]]*1[[:space:]]*,[[:space:]]*1[[:space:]]*,[[:space:]]*1' "$SRC" \
           | wc -l | tr -d ' ')
 if [ "$n_white" -eq "$EXPECT_WHITE_FG" ]; then
