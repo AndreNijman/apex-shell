@@ -346,6 +346,52 @@ check("a null fresh digest is stale",    BP.isStale("abc123", null), true);
 check("the stale notice says nothing was written",
       /Nothing was written/.test(BP.staleNotice()), true);
 
+// ── changeKind(): which way a change goes ────────────────────────────────────
+// The CLI sorts by privilege domain. A reader needs to know whether apply is
+// about to take something away, and until this existed a removal and an
+// addition rendered as the same row.
+const addChange    = { what: "[apps] install", current: "", desired: "firefox",
+                       step: "install firefox", domain: "user", blocked: null };
+const removeChange = { what: "[apps] install", current: "obs-studio", desired: "",
+                       step: "remove obs-studio", domain: "user", blocked: null };
+
+check("an empty current is an addition",   BP.changeKind(addChange),    "add");
+check("an empty desired is a removal",     BP.changeKind(removeChange), "remove");
+check("two values is a change",            BP.changeKind(userChange),   "change");
+// Whitespace is not a value. The CLI stringifies through serde, and a field
+// that came back as " " would otherwise read as something the machine has.
+check("whitespace counts as absent",
+      BP.changeKind({ what: "x", current: "   ", desired: "firefox" }), "add");
+// Neither side set is not a removal. It is a row this build cannot read, and
+// calling it destructive would put it under the heading that says apply is
+// about to delete something.
+check("neither side set is not a removal",
+      BP.changeKind({ what: "x", current: "", desired: "" }), "change");
+check("a non-object is not a removal",     BP.changeKind(null),         "change");
+
+check("ofKind picks only the removals",
+      BP.ofKind([addChange, removeChange, userChange], "remove").length, 1);
+// Mapped rather than indexed. `ofKind(...)[0].what` throws when a mutant makes
+// the list empty, and a suite that dies partway reports fewer failures than it
+// found — the remaining assertions never run at all.
+check("ofKind returns the entries themselves",
+      BP.ofKind([addChange, removeChange], "remove").map(e => e.what),
+      ["[apps] install"]);
+check("ofKind on a non-list is empty",     BP.ofKind(null, "remove"),   []);
+
+// removals() spans both privilege domains: a root-domain deletion is still a
+// deletion, and a page that only listed the user ones would under-report what
+// apply takes away by exactly the rows that need sudo.
+const rootRemoval = { what: "[desktop] compositor", current: "niri", desired: "",
+                      step: "deselect session niri", domain: "root", blocked: null };
+let rp = BP.classify(plan(false, [addChange, removeChange, rootRemoval]));
+check("removals span user and root",       BP.removals(rp).length, 2);
+check("removals exclude additions",
+      BP.removals(rp).every(e => e.desired === ""), true);
+check("a plan that could not be read has no removals",
+      BP.removals(BP.classify("")), []);
+check("a null plan has no removals",       BP.removals(null), []);
+
 // ── toStdin(): what goes down the pipe ──────────────────────────────────────
 check("the draft is serialised as JSON",
       BP.toStdin({ desktop: { theme: "neutral" } }), '{"desktop":{"theme":"neutral"}}');
