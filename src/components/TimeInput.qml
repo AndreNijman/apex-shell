@@ -4,6 +4,10 @@ import "../"
 // TimeInput — reusable HH:MM input
 // Props : hours (int, readonly), minutes (int, readonly), minuteStep (int, default 1)
 // Call  : initialize(h, m) to push values from outside
+//
+// The ▲▼ buttons are the only way the digits move. The wheel used to drive them
+// too, and accepted the event on the way, so scrolling past an alarm both reset
+// its time and left the page under it standing still.
 
 Item {
     id: root
@@ -62,15 +66,6 @@ Item {
                     font.family: "JetBrains Mono"
                     color: Qt.rgba(235/255, 240/255, 255/255, 0.9)
                 }
-
-                WheelHandler {
-                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                    onWheel: function(ev) {
-                        ev.accepted = true
-                        if (ev.angleDelta.y > 0) root.incH()
-                        else                     root.decH()
-                    }
-                }
             }
 
             Rectangle {
@@ -125,15 +120,6 @@ Item {
                     font.pixelSize: Theme.fs(20); font.weight: Font.Bold
                     font.family: "JetBrains Mono"
                     color: Qt.rgba(235/255, 240/255, 255/255, 0.9)
-                }
-
-                WheelHandler {
-                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                    onWheel: function(ev) {
-                        ev.accepted = true
-                        if (ev.angleDelta.y > 0) root.incM()
-                        else                     root.decM()
-                    }
                 }
             }
 
