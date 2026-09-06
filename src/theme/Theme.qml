@@ -18,12 +18,22 @@ QtObject {
     // Status and fixed-contrast tokens. Mirrored here because every call site in
     // the tree reads Theme.*, so exposing these on Colors alone would have left
     // the shell reading two different singletons for its colours.
-    property color danger:  Colors.danger
-    property color warning: Colors.warning
-    property color success: Colors.success
+    property color danger:    Colors.danger
+    property color warning:   Colors.warning
+    property color success:   Colors.success
+    property color info:      Colors.info
+    property color attention: Colors.attention
 
     property color fixedLight: Colors.fixedLight
     property color fixedDark:  Colors.fixedDark
+
+    // True while the palette's surface is dark. Read it to choose a treatment,
+    // never to choose a colour — a call site that branches on it is writing a
+    // second palette next to this one.
+    readonly property bool darkSurface: Colors.darkSurface
+
+    // The readable foreground for a glyph or label drawn ON a status fill.
+    function onStatus(fill) { return Colors.onStatus(fill) }
 
     property color dangerFill:      Colors.dangerFill
     property color dangerFillHover: Colors.dangerFillHover
