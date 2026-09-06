@@ -66,6 +66,14 @@ Item {
         y: 0
         width: root.width
         lifecycle: "staged"
+
+        // One place at a time, the rule the Display page follows: while there
+        // is a draft the failure belongs on the bar, beside the intent it did
+        // not destroy. With no draft there is no bar — and the per-row ↺ and
+        // Misc's "reset all shortcuts" both write without staging anything, so
+        // without this a refused write from either was graded and then had
+        // nowhere to appear.
+        error: KeybindService.hasStaged ? "" : KeybindService.lastError
     }
 
     CfgCommit {
