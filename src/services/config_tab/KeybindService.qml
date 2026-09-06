@@ -108,6 +108,67 @@ QtObject {
 
     property var keybinds: ({})
 
+    // ── Staged edits (roadmap P0-023, criterion 3) ────────────────────────────
+    //
+    // These used to live on KeybindsPage, as a `_pending` object on the page's
+    // root Item. That was wrong in a way nothing on the page could show: the
+    // settings pages are presented in TWO hosts — the dashboard's Config tab
+    // and the Nexus window — and each host's Repeater builds its own instance
+    // from PageRegistry. Two instances, two `_pending` maps. A user who staged
+    // four rebinds in the dashboard and pressed "Open in window" arrived at an
+    // empty Keybinds page and was told nothing.
+    //
+    // Worse, both hosts are rebuilt per entry in Quickshell.screens, so an
+    // output arriving or leaving destroys and reconstructs every settings page
+    // on the machine. Applying a display change is exactly that. The draft was
+    // being thrown away by a different settings page.
+    //
+    // A singleton outlives all of it: one draft per session, seen by every
+    // surface, surviving anything short of a shell restart.
+    //
+    // NOTHING HERE TOUCHES DISK. Staged means staged.
+    property var staged: ({})
+    readonly property bool hasStaged: Object.keys(root.staged).length > 0
+
+    // Non-empty when the last write was refused. The page shows it and KEEPS
+    // the staged edits, so the user's intent is still where they left it
+    // (criterion 4).
+    property string lastError: ""
+
+    // True from the moment an apply starts until its write has been graded.
+    property bool applying: false
+
+    // The map to put back if the write is refused, and whether the write was
+    // started by an apply. Both are read once, in _saveProc's onExited.
+    property var  _rollback: null
+    property bool _writeIsApply: false
+
+    function stage(action, mods, key) {
+        if (!root._defaults[action]) return
+        var copy = Object.assign({}, root.staged)
+        copy[action] = { mods: mods, key: key }
+        root.staged = copy
+    }
+
+    function unstage(action) {
+        if (root.staged[action] === undefined) return
+        var copy = Object.assign({}, root.staged)
+        delete copy[action]
+        root.staged = copy
+    }
+
+    // Revert: put back what was there before. The saved map is untouched, so
+    // this is a drop rather than a write.
+    function revertStaged() {
+        root.staged = ({})
+        root.lastError = ""
+    }
+
+    function applyStaged() {
+        if (root.applying || !root.hasStaged) return
+        root.applyEdits(root.staged)
+    }
+
     // ── Hyprland binds cache ──────────────────────────────────────────────────
     // Refreshed each time a BindRow enters capture mode.
     property var _hyprBinds: []
@@ -305,7 +366,45 @@ QtObject {
         root._writeFiles()
     }
 
-    property var _saveProc: Process { command: []; running: false }
+    // The exit code decides what happened. Before this it was never read: a
+    // home directory the shell could not write to looked exactly like one it
+    // could, the page cleared its draft, and the shortcuts came back at the
+    // next login.
+    property var _saveProc: Process {
+        command: []
+        running: false
+        onExited: function(code, status) {
+            var wasApply = root._writeIsApply
+            var back     = root._rollback
+            root._writeIsApply = false
+            root._rollback     = null
+
+            if (code === 0) {
+                root.lastError = ""
+                if (wasApply) {
+                    root.staged = ({})
+                    // Criterion 6: read the effective state back rather than
+                    // assume the map in memory is what landed. The file is
+                    // re-read and re-merged with the defaults, which is the
+                    // same path a fresh session takes.
+                    root.load()
+                }
+                root.applying = false
+                return
+            }
+
+            // Refused. Put the map back where it was, so the shell is not
+            // showing shortcuts the compositor has never been told about, and
+            // leave `staged` exactly as the user left it.
+            if (back !== null) {
+                root.keybinds = back
+                root._writeFiles()
+            }
+            root.lastError = "Could not write " + root._jsonPath
+                             + " (exit " + code + "). Your changes are still staged."
+            root.applying = false
+        }
+    }
 
     property var _reloadProc: Process {
         command: ["hyprctl", "reload"]
@@ -344,6 +443,7 @@ QtObject {
     // An entry with an empty key unbinds its action.
     function applyEdits(pending) {
         if (!pending) return
+        if (root.applying) return
         var ks = Object.keys(pending)
         if (ks.length === 0) return
 
@@ -366,8 +466,20 @@ QtObject {
         if (dupes.length > 0)
             console.warn("KeybindService: applied keybinds with duplicate combos:", dupes.join(", "))
 
-        root.keybinds = copy
+        root._rollback     = root.keybinds
+        root._writeIsApply = true
+        root.applying      = true
+        root.lastError     = ""
+        root.keybinds      = copy
         saveAndReload()
+    }
+
+    // Re-read the saved file and merge it over the defaults. Used at startup
+    // and again after a successful apply, so what the page shows is what is on
+    // disk rather than what the page believes it put there.
+    function load() {
+        _loadProc.running = false
+        _loadProc.running = true
     }
 
     // Updates in-memory only — does NOT persist.
@@ -789,5 +901,5 @@ QtObject {
         _includeProc.running = true
     }
 
-    Component.onCompleted: _loadProc.running = true
+    Component.onCompleted: root.load()
 }
