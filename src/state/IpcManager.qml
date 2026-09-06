@@ -125,6 +125,7 @@ QtObject {
         return ids.join(" ")
     }
 
+<<<<<<< HEAD
     // ── Display transactions ─────────────────────────────────
     // The one settings domain that can take away the pointer you would use to
     // fix it. The dialog is now built on every output so it survives the apply
@@ -196,6 +197,88 @@ QtObject {
         }
     }
 
+=======
+    // ── Agents & Workspaces help (§43) ───────────────────────
+    // The guide's own "Keys and commands" section prints these lines, so a user
+    // who dismissed the first-run card has a documented way to get it back and
+    // a keybind target for the guide itself.
+    //
+    // `toggle` takes nothing and `open` takes a section, because quickshell
+    // requires every declared argument at the call site: `ipc call agent-help
+    // open` with no argument is refused, not defaulted. One verb per arity is
+    // the only shape that gives a keybind a bare command AND gives the guide a
+    // way to jump to a page.
+    //
+    // Both pull the Agents tab up with them. A guide floating over the Home
+    // page would explain a list the user cannot see.
+    property var agentHelp: IpcHandler {
+        target: "agent-help"
+
+        function toggle(): string {
+            if (AgentHelp.panelOpen) {
+                AgentHelp.close()
+                return "agent help closed"
+            }
+            return root.openAgentHelp(AgentHelp.section)
+        }
+
+        function open(section: string): string {
+            return root.openAgentHelp(section)
+        }
+
+        function close(): string {
+            AgentHelp.close()
+            return "agent help closed"
+        }
+
+        // Permanent, and the one call the first-run card's button makes.
+        function dismiss(): string {
+            AgentHelp.dismissOnboarding()
+            return "first-run card dismissed"
+        }
+
+        function reset(): string {
+            AgentHelp.resetOnboarding()
+            return "first-run card restored"
+        }
+
+        function state(): string {
+            return (AgentHelp.panelOpen ? "guide open at " + AgentHelp.section : "guide closed")
+                 + ", first-run card "
+                 + (AgentHelp.showOnboarding ? "shown" : "dismissed")
+        }
+
+        function sections(): string {
+            return root.agentHelpSections()
+        }
+    }
+
+    function openAgentHelp(section) {
+        const id = (section === undefined || section === null) ? "" : String(section)
+        if (id !== "" && !agentHelpHas(id))
+            return "unknown section: " + id + " (try: " + agentHelpSections() + ")"
+        if (!Popups.dashboardOpen || Popups.dashboardPage !== "agents")
+            toggleDashboard("agents")
+        AgentHelp.open(id)
+        return "agent help open at " + AgentHelp.section
+    }
+
+    // Asked of the content singleton rather than listed here, so the ids the
+    // IPC accepts cannot drift from the sections the guide draws.
+    function agentHelpSections() {
+        const ids = []
+        for (const s of AgentHelpContent.sections)
+            ids.push(s.id)
+        return ids.join(" ")
+    }
+
+    function agentHelpHas(id) {
+        for (const s of AgentHelpContent.sections)
+            if (s.id === id) return true
+        return false
+    }
+
+>>>>>>> 4a0ed98 (feat(agents): the Agent Center said what was running and never what any of it was)
     // ── Audio Toggles ────────────────────────────────────────
 
     property var audioOut: IpcHandler {

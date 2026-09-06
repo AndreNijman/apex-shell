@@ -1,0 +1,24 @@
+# Strings slopcheck must skip, one exact substring per line.
+#
+# Run:  python3 ~/.claude/skills/stop-slop/scripts/slopcheck.py \
+#           --allow-file .slopcheck-allow src/services/agents/AgentHelpContent.qml
+#
+# ROADMAP.md §41 (line 1601): "Do not stop-slop machine interfaces. Preserve
+# literal commands, code identifiers, paths, config keys, API names, protocol
+# fields, logs and technical values when changing them would reduce
+# correctness." Each entry below is one of those, or a QML keyword.
+#
+# Rule: an entry names the identifier, never a sentence of prose. Allowing a
+# whole sentence would exempt every future edit to that sentence too.
+
+# QML's own keyword. `readonly property` is how a singleton declares an
+# immutable property; slopcheck reads the -ly and calls it an adverb.
+readonly property
+
+# The product name for the Config toggle in ROADMAP.md §42.1, which the help
+# has to call by its name or the user cannot find the setting.
+Always Unrestricted
+
+# The break-glass flag from ROADMAP.md §3.4 and §4.5. "everything" is in the
+# flag, not in the prose describing it.
+--unsafe-everything
