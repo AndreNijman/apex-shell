@@ -314,6 +314,35 @@ else
     bad "Qt.rgba(n/255,...) colours: expected $EXPECT_FRAC allowlisted, found $n_frac"
 fi
 
+# ── 5b. the ratchet on translucent white ────────────────────────────────────
+#
+# Qt.rgba(1, 1, 1, α) is not a hex literal in disguise, so section 5 does not
+# see it — and it was harmless for as long as dark was the only palette the
+# shell could reach. P0-021 made light reachable (WallpaperService passes
+# matugen `-m`), and every one of these became a foreground that is invisible on
+# a light surface. That is the single reason there is no Light/Dark control in
+# Settings; Colors.qml carries the explanation next to the light values it
+# blocks.
+#
+# A ceiling rather than a ban: 212 sites is not a thing to fix in one branch,
+# and a check that fails today teaches everyone to skip it. It fails if the
+# number goes UP, which is what keeps Colors.qml's comment true, and it fails if
+# the number goes DOWN without EXPECT_WHITE_FG being lowered with it — so paying
+# the debt down means saying so here, and light mode gets closer on purpose
+# rather than by accident.
+EXPECT_WHITE_FG=212
+n_white=$(grep -rnE '^[[:space:]]*color:.*Qt\.rgba\([[:space:]]*1[[:space:]]*,[[:space:]]*1[[:space:]]*,[[:space:]]*1' "$SRC" \
+          | wc -l | tr -d ' ')
+if [ "$n_white" -eq "$EXPECT_WHITE_FG" ]; then
+    ok "$EXPECT_WHITE_FG translucent-white foregrounds, unchanged — light mode's blocker has not grown"
+elif [ "$n_white" -lt "$EXPECT_WHITE_FG" ]; then
+    bad "translucent-white foregrounds dropped to $n_white; lower EXPECT_WHITE_FG to $n_white and check whether light mode is reachable yet"
+else
+    grep -rnE '^[[:space:]]*color:.*Qt\.rgba\([[:space:]]*1[[:space:]]*,[[:space:]]*1[[:space:]]*,[[:space:]]*1' "$SRC" \
+        | tail -5 | sed 's/^/       /'
+    bad "translucent-white foregrounds rose to $n_white from $EXPECT_WHITE_FG; each one is a label that disappears on a light palette"
+fi
+
 # ── 6. the tokens this check drove the tree onto still exist ────────────────
 # Without them the check is theatre: it would be enforcing "no literals" on a
 # tree with nowhere for a colour to come from.
