@@ -1,0 +1,216 @@
+#!/usr/bin/env bash
+# Static invariants for the display apply transaction (P0-018).
+#
+# ── Why this exists next to the behavioural suite ────────────────────────────
+# run-display-transaction-test.sh needs a wlroots session and the installed
+# display engine, and skips without them — which is every CI runner. A suite
+# that skips is a suite that proves nothing, and this repo has already shipped
+# assertions that passed because they never ran.
+#
+# So the properties that a refactor would quietly undo are checked here, by
+# grep, headless: that the confirmation is a window of its own and not a
+# section of a page, that shell.qml builds one per output, that the countdown
+# has a second owner outside this process, and that a temporary apply cannot
+# write the persisted model.
+#
+# The bug being guarded against is the one that was reported: the user pressed
+# Apply, no confirmation appeared, and fifteen seconds later the layout they
+# wanted was gone.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root="$(cd "$here/.." && pwd)"
+
+svc="$root/src/services/config_tab/DisplayService.qml"
+page="$root/src/services/config_tab/pages/DisplayPage.qml"
+win="$root/src/windows/DisplayConfirm.qml"
+guard="$root/src/scripts/apex-display-guard.sh"
+
+pass=0
+fail=0
+ok()  { echo "  PASS  $1"; pass=$((pass + 1)); }
+bad() { echo "  FAIL  $1"; fail=$((fail + 1)); }
+want() { local desc="$1"; shift; if "$@"; then ok "$desc"; else bad "$desc"; fi; }
+
+# Code lines only. Half of this repo's prose is about what it used to do, and a
+# check a comment can satisfy is a check that stops being one.
+code() { grep -vE '^\s*(//|#)' "$1" 2>/dev/null; }
+
+# ── The files exist ──────────────────────────────────────────────────────────
+want "DisplayConfirm.qml exists and is non-empty"      test -s "$win"
+want "apex-display-guard.sh exists and is non-empty"   test -s "$guard"
+want "apex-display-guard.sh is executable"             test -x "$guard"
+
+# ── The confirmation is a window, on every output ────────────────────────────
+#
+# This is the bug. The Keep/Revert buttons used to live in a CfgSection inside
+# DisplayPage, which is presented in two places and neither survives its own
+# apply: the dashboard's Config tab is a popup that PopupDismiss closes on
+# CompositorService.focusMoved (reconfiguring a monitor moves focus), and the
+# Nexus window is one-per-output, so an apply that disables that output
+# destroys it. Both are also scrolled, and Apply is at the bottom of the page
+# while the confirmation was at the top.
+want "the confirmation is a PanelWindow" \
+    grep -qE '^\s*PanelWindow\s*\{' "$win"
+want "the confirmation is an overlay layer surface" \
+    grep -q "WlrLayershell.layer: WlrLayer.Overlay" "$win"
+want "shell.qml builds a DisplayConfirm per output" \
+    grep -qE 'DisplayConfirm \{ *screen: modelData' "$root/shell.qml"
+
+# Inside the Variants delegate, which is what "per output" means here. A
+# DisplayConfirm moved out to the top level would be a single window on the
+# first screen, and this check would still see the line above.
+delegate_has_confirm() {
+    awk '/Variants \{/,/^    \}$/' "$root/shell.qml" | grep -q "DisplayConfirm"
+}
+want "the DisplayConfirm is inside the per-screen Variants delegate" delegate_has_confirm
+
+# The page may still MENTION the countdown — it is useful to see there — but it
+# must not be the only place it can be answered.
+want "the Display page no longer owns the only Revert button" \
+    test "$(code "$page" | grep -c 'DisplayService.revertApplied()')" -eq 0
+want "the confirmation window answers with the service's own verbs" \
+    bash -c 'grep -q "DisplayService.confirm()" "$1" && grep -q "DisplayService.revertApplied()" "$1"' _ "$win"
+
+# A user who cannot read the screen has to be told, in words, that waiting is
+# safe. That sentence is the whole reason the dialog is not just a spinner.
+want "the dialog says what happens if the user does nothing" \
+    grep -q "If you do nothing" "$win"
+want "the dialog is answerable from the keyboard" \
+    bash -c 'grep -q "Keys.onReturnPressed" "$1" && grep -q "Keys.onEscapePressed" "$1"' _ "$win"
+
+# ── A safe active output ─────────────────────────────────────────────────────
+# The dialog must not be aimed at an output this very apply is turning off.
+want "the service picks the output the dialog is safe on" \
+    grep -q "readonly property string confirmScreen" "$svc"
+want "the safe output is chosen from the live screen list" \
+    bash -c 'sed -n "/property string confirmScreen/,/^    }/p" "$1" | grep -q "Quickshell.screens"' _ "$svc"
+want "the safe output skips one the pending model disables" \
+    bash -c 'sed -n "/property string confirmScreen/,/^    }/p" "$1" | grep -q "enabled === false"' _ "$svc"
+
+# The settings window has to come back too, or the user cannot reach the page
+# again after an apply rebuilt the screen list.
+want "Nexus maps itself when it is born already live" \
+    grep -q "Component.onCompleted: if (root.live) root.windowVisible = true" "$root/src/nexus/Nexus.qml"
+want "Nexus falls back to a screen that still exists" \
+    grep -q "readonly property string effectiveScreen" "$root/src/nexus/NexusState.qml"
+
+# ── The countdown has an owner outside this process ──────────────────────────
+#
+# Criterion 6. A QML Timer cannot revert a layout for a shell that is no longer
+# running, and "the shell crashed while my screen was black" is the failure the
+# countdown exists to prevent.
+want "the service detaches a guard for the transaction" \
+    grep -qE '"\$5" spawn "\$1"' "$svc"
+want "the guard detaches itself from the shell's process group" \
+    grep -qE '^\s*setsid -f "\$0" run "\$dir"' "$guard"
+want "the guard reverts when the deadline passes with no verdict" \
+    bash -c 'sed -n "/^cmd_run()/,/^}/p" "$1" | grep -q "restore \"\$dir\""' _ "$guard"
+want "the shell settles an abandoned transaction at startup" \
+    grep -q '"reconcile", root.txnDir' "$svc"
+want "the countdown is derived from a deadline, not decremented" \
+    bash -c 'sed -n "/property var _countdown/,/^    }/p" "$1" | grep -q "_deadline"' _ "$svc"
+
+# One implementation of "put it back", used by the button, the deadline and the
+# startup reconciliation. Two would agree until one of them was edited.
+want "the shell reverts through the guard rather than the engine" \
+    grep -qE '\["bash", root.guard, "restore", root.txnDir\]' "$svc"
+want "the guard falls back when the recorded mode is gone" \
+    bash -c 'sed -n "/^restore()/,/^}/p" "$1" | grep -q "rollback-modeless.json"' _ "$guard"
+
+# ── A temporary apply is temporary ───────────────────────────────────────────
+#
+# The apply used to write display.json before the engine had been asked whether
+# the layout was even valid, so a mode the panel does not have was rejected on
+# screen and applied at the next login.
+want "the apply runs the engine against the transaction file" \
+    grep -qE 'apply --model "\$1/target.json"' "$svc"
+apply_leaves_model_alone() {
+    ! sed -n '/function _begin()/,/^    }/p' "$svc" | grep -q "root.modelPath"
+}
+want "the apply never names the persisted model" apply_leaves_model_alone
+want "only Keep promotes the tried layout to the persisted model" \
+    bash -c 'sed -n "/function confirm()/,/^    }/p" "$1" | grep -q "target.json"' _ "$svc"
+
+# ── The staged values survive a failure ──────────────────────────────────────
+want "the draft is reconciled against the hardware before applying" \
+    grep -q "function problemsWith(" "$svc"
+want "an output that went away is named in the error" \
+    grep -q "is no longer connected" "$svc"
+want "a mode the output does not have is named in the error" \
+    grep -q "does not offer" "$svc"
+want "a refused apply says the staged values are kept" \
+    grep -q "still staged" "$svc"
+
+# THE DISPLAY PAGE STILL MUST NOT APPLY AUTOMATICALLY. Duplicated from ci.yml
+# on purpose: this is the file a reviewer opens for display invariants.
+if grep -qE "onTriggered:\s*root\.apply\(\)" "$svc"; then
+    bad "DisplayService applies from a timer; display changes must be explicit"
+else
+    ok "DisplayService never applies from a timer"
+fi
+
+# ── The shipped countdown is fifteen seconds ─────────────────────────────────
+# The page promises it and the user was told it. The environment override
+# exists so the behavioural suite does not sit through it six times, and a
+# default that drifted would make every one of those runs a lie.
+want "the countdown defaults to 15 seconds" \
+    bash -c 'sed -n "/readonly property int confirmTotal/,/^    }/p" "$1" | grep -qE ": 15$"' _ "$svc"
+
+# ── The guard is asked to work, not just to contain the right words ──────────
+#
+# Five checks in this repo have been satisfied by a file's own comments, so the
+# detachment is exercised rather than grepped: spawn one, and see whether a
+# process is still watching the transaction after the caller has returned.
+#
+# Nothing here can reach a compositor. APEX_DISPLAY_ENGINE is /bin/true, so the
+# worst a guard can do is write files in a temp directory — and the verdict is
+# written immediately, so it exits at once rather than sitting on a deadline.
+mut="$(mktemp -d)"
+trap 'rm -rf "$mut"' EXIT
+
+arm_txn() {
+    local dir="$1"
+    mkdir -p "$dir"
+    printf '{"outputs":[]}\n' > "$dir/rollback.json"
+    printf '{"outputs":[]}\n' > "$dir/target.json"
+    printf '%s\n' "$(( $(date +%s) + 3600 ))" > "$dir/deadline"
+    rm -f "$dir/verdict" "$dir/state" "$dir/guard.pid"
+}
+
+# spawns <guard-script> — 0 when a guard is genuinely watching afterwards.
+spawns() {
+    local script="$1" dir="$mut/txn"
+    rm -rf "$dir"
+    arm_txn "$dir"
+    APEX_DISPLAY_ENGINE=/bin/true APEX_DISPLAY_GUARD_POLL=0.1 \
+        bash "$script" spawn "$dir" >/dev/null 2>&1
+    local pid=""
+    for _ in $(seq 1 30); do
+        [ -f "$dir/guard.pid" ] && pid="$(tr -d '[:space:]' < "$dir/guard.pid")"
+        [ -n "$pid" ] && break
+        sleep 0.1
+    done
+    [ -n "$pid" ] || return 1
+    kill -0 "$pid" 2>/dev/null || return 1
+    # Stand it down rather than leaving it to sit out the hour.
+    APEX_DISPLAY_ENGINE=/bin/true bash "$script" verdict "$dir" cancel >/dev/null 2>&1
+    return 0
+}
+
+want "the real guard keeps watching after spawn returns" spawns "$guard"
+
+# Take the detachment away and leave behind a comment that says setsid and
+# names the run verb. Everything a grep could want, and no code.
+cp "$guard" "$mut/mutant.sh"
+grep -v '^\s*setsid -f' "$guard" > "$mut/mutant.sh"
+cat >> "$mut/mutant.sh" <<'MUTANT'
+# The guard is detached with `setsid -f "$0" run "$dir"` so it is not in the
+# shell's process group and does not die with it.
+MUTANT
+mutant_does_not_spawn() { ! spawns "$mut/mutant.sh"; }
+want "a detachment replaced by a comment about detachment spawns nothing" mutant_does_not_spawn
+
+echo
+echo "passed=$pass failed=$fail"
+[ "$fail" -eq 0 ]
