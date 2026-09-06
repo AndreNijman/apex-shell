@@ -899,6 +899,43 @@ jobs:
           pacman -S --needed --noconfirm qt6-declarative qt6-base
           ./tests/run-slider-wheel-test.sh
 
+      - name: Settings vocabulary (P0-023)
+        run: |
+          # The words a settings page may use, and the pages that have to speak
+          # them. Ten surfaces had grown three mental models and no shared
+          # words: Save persisted something already real on one page, made
+          # something real on another, and did not exist on six.
+          #
+          # Here rather than only in the two QML suites below because those need
+          # a compositor and skip without one, which is every runner this
+          # project has. A suite that skips proves nothing, and this repository
+          # has shipped assertions that passed because they never ran. This one
+          # needs a file reader.
+          #
+          # It reads src/components/config/settings-semantics.js — the file the
+          # shell loads — and scans the pages against it: every page declares
+          # which of the four states its controls are in, no control is
+          # labelled with one of the four verbs' other names, and every page
+          # that holds a draft reaches the shared bar rather than drawing its
+          # own. Self-tested in both directions: a banned word in a comment must
+          # not trip it, and a real label must still be seen.
+          node tests/settings-semantics-test.js
+
+      - name: Settings controls (real clicks, offscreen)
+        run: |
+          # The runtime half of the vocabulary, on the shared controls. Same
+          # recipe as the slider wheel suite above — qmltestrunner on the
+          # offscreen platform, so it needs no compositor and actually runs on
+          # a CI box.
+          #
+          # It presses the commit bar: one button per act, a busy bar that emits
+          # nothing so a second Apply cannot land on the first, and a refused
+          # write that replaces the hint WITHOUT touching the count, because a
+          # page that clears its draft and then reports a failure has told the
+          # user about work it already destroyed.
+          pacman -S --needed --noconfirm qt6-declarative qt6-base
+          ./tests/run-settings-controls-test.sh
+
       - name: Remote agent status invariants
         run: |
           # Static half. Also SELF-TESTS its own checks: it mutates copies of
@@ -1021,6 +1058,53 @@ jobs:
           #
           # Skips cleanly without quickshell or a compositor.
           ./tests/run-agent-settings-test.sh
+
+      - name: Every settings page, built and asked what it is
+        run: |
+          # Criterion 1 of the settings regression harness: every page, not a
+          # sample. The model is PageRegistry itself, so a page added tomorrow
+          # is exercised the day it is added and cannot be forgotten here.
+          #
+          # Three things only Qt can answer. That the page LOADS — every page
+          # is reached through a qmldir, and a missing entry is not a broken
+          # page, it is "CfgCommit is not a type" and the whole shell fails to
+          # start. What a control is LABELLED — the label is an expression, so
+          # the source tells you the expression and only the engine tells you
+          # the word. And which lifecycle a page CLAIMS — nine declare it on
+          # their CfgScroll and one places the line by hand, so there is no
+          # single string to grep for.
+          #
+          # Brings its own headless compositor in a private XDG_RUNTIME_DIR,
+          # its own home, and stubs for everything a page shells out to:
+          # building ten real pages otherwise means `apex recover status`,
+          # `hyprctl`, `df` and a wallpaper scan against the runner.
+          #
+          # Skips cleanly without quickshell or a compositor.
+          ./tests/run-settings-pages-test.sh
+
+      - name: A staged settings edit, and what it survives
+        run: |
+          # Criteria 3, 4 and 6 of P0-023, none of which a grep can answer,
+          # because all three are about object lifetime and exit codes.
+          #
+          # The settings pages are presented in two hosts and each host's
+          # Repeater builds its OWN instance, so "the staged state" was never
+          # one thing: a user who staged four rebinds in the dashboard and
+          # pressed "Open in window" arrived at an empty page and was told
+          # nothing. Both hosts are also rebuilt per entry in
+          # Quickshell.screens, so applying a display change threw the draft
+          # away — one settings page destroying another's work.
+          #
+          # It holds two pages the way the two hosts do, switches tabs in a
+          # real ShellConfig, destroys and rebuilds a host, and then chmods the
+          # directory holding keybinds.json to 0500 and applies into it —
+          # because "a backend failure keeps the user's intent recoverable"
+          # cannot be tested while every write succeeds. Private home
+          # throughout, so the permissions it breaks are never anybody's real
+          # ones.
+          #
+          # Skips cleanly without quickshell or a compositor.
+          ./tests/run-settings-staged-test.sh
 
       - name: Remote agent status smoke test
         run: |
@@ -1179,6 +1263,16 @@ jobs:
             "tests/check-wheel-value.sh"
             "tests/slider-wheel-test.qml"
             "tests/run-slider-wheel-test.sh"
+            "src/components/config/settings-semantics.js"
+            "src/components/config/CfgCommit.qml"
+            "src/components/config/CfgLifecycle.qml"
+            "tests/settings-semantics-test.js"
+            "tests/settings-controls-test.qml"
+            "tests/run-settings-controls-test.sh"
+            "tests/settings-pages-test.qml"
+            "tests/run-settings-pages-test.sh"
+            "tests/settings-staged-test.qml"
+            "tests/run-settings-staged-test.sh"
           )
           FAILED=()
           for f in "${REQUIRED[@]}"; do
