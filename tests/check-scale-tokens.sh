@@ -144,5 +144,47 @@ else
 fi
 rm -f "$TMP/src/InverseMutant.qml"
 
+# ── One breakpoint table (P1-040) ───────────────────────────────────────────
+#
+# The table lived inside Metrics.qml, where nothing but a running quickshell
+# could reach it, so tests/scaling-test.qml kept a copy called `bucket()` and
+# asserted the copy against its own literals. Measured: moving the 1440p
+# breakpoint from 1600 to 1500 in Metrics.qml left that suite at 25 passed, 0
+# failed. It is now src/theme/scaling.js, and this keeps it there.
+
+if [ -f "$SRC/theme/scaling.js" ]; then
+    ok "the breakpoint table is a module both the shell and node can read"
+else
+    bad "src/theme/scaling.js is missing; the table is unreachable from a node test again"
+fi
+
+# An import STATEMENT, not the word. Metrics.qml explains itself at length and
+# names the module in its own prose, so `grep -q scaling.js` passed on the
+# comment after the import had been removed — the same shape as five earlier
+# checks in this tree that matched documentation instead of code.
+if grep -qE '^[[:space:]]*import[[:space:]]+"scaling\.js"' "$SRC/theme/Metrics.qml"; then
+    ok "Metrics reads the table rather than carrying one"
+else
+    bad "Metrics.qml no longer imports theme/scaling.js"
+fi
+
+# A second copy of the arithmetic, wherever it is written, is the defect. The
+# factors are distinctive enough to find on their own: a file outside
+# theme/scaling.js that contains three or more of them is re-implementing it.
+copies=""
+for f in $(grep -rl '0\.85' --include='*.qml' --include='*.js' "$SRC" tests 2>/dev/null); do
+    case "$f" in *theme/scaling.js) continue ;; esac
+    n=0
+    for v in '0\.85' '1\.20' '1\.35' '1\.50'; do
+        grep -qE "return[[:space:]]+$v|\[[0-9]+,[[:space:]]*$v" "$f" && n=$((n+1))
+    done
+    [ "$n" -ge 3 ] && copies="$copies $f"
+done
+if [ -z "$copies" ]; then
+    ok "nothing outside theme/scaling.js re-implements the breakpoint table"
+else
+    bad "the breakpoint table is duplicated in:$copies"
+fi
+
 printf '\ncheck-scale-tokens: passed=%d failed=%d\n' "$pass" "$fail"
 [ "$fail" -eq 0 ] || exit 1
