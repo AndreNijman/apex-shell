@@ -33,6 +33,33 @@ import Quickshell.Io
 // time and touching one control does not quietly change four other things.
 // tests/test-apex-input.sh in apex-os asserts that ("default reproduces
 // <tap>yes</tap>" and three more).
+//
+// ── UI-003: a key existing is not the same as a control working ──────────────
+//
+// The parity above proves the generator READS every key. It says nothing about
+// whether the compositor running right now can act on it, and that is where
+// "changing Input configuration has no effect" actually came from — niri has no
+// three-finger drag, neither niri nor Hyprland has a click method that produces
+// no button at all, and four touchpad settings exist on Hyprland only as a
+// named device. Nine controls were writing the model and reaching nothing.
+//
+// So this service asks the generator three questions rather than assuming:
+//
+//   --capabilities  what the running compositor can do, and the REASON where it
+//                   cannot. A control whose answer is "cannot" is switched off
+//                   in the page and shows the reason. It is never written.
+//   --devices       what is plugged in, classified, so per-device settings can
+//                   name a real touchpad instead of guessing.
+//   --read-back     what is in EFFECT, and whether that came from the
+//                   compositor or from the file it loads. A control that writes
+//                   and never reads cannot tell a working setting from one
+//                   whose option was renamed upstream — which is how this page
+//                   filled up with switches that did nothing in the first
+//                   place, silently, with every test passing.
+//
+// None of those answers are duplicated here. The generator is the one place
+// that knows what each compositor accepts, because it is the thing that has to
+// produce it.
 // ──────────────────────────────────────────────────────────────────────────────
 
 QtObject {
@@ -114,9 +141,144 @@ QtObject {
     property string lastNotes: ""
     property bool   applying: false
 
+    // ── What the running compositor can actually do ───────────────────────────
+    // `{ running: "hyprland", controls: { "touchpad.tap": { hyprland: {...} } } }`
+    // straight from the generator. Empty until it answers, and an empty table
+    // means "not asked yet", which is why nothing here treats a missing entry as
+    // unsupported: a control that greys itself out because a Process has not
+    // returned is a worse lie than the one this replaces.
+    property var capabilities: ({})
+    readonly property string compositor: root.capabilities.running || ""
+
+    function _cap(prop) {
+        const e = root.schema[prop]
+        if (e === undefined || !root.capabilities.controls || root.compositor === "")
+            return null
+        const entry = root.capabilities.controls[e.s + "." + e.k]
+        return entry ? entry[root.compositor] || null : null
+    }
+
+    // "" when the control works here, otherwise the sentence to show instead.
+    function reasonFor(prop) {
+        const c = root._cap(prop)
+        return (c && c.supported === false) ? (c.reason || "") : ""
+    }
+
+    function supported(prop) { return root.reasonFor(prop) === "" }
+
+    // A control can be supported and still have a value that is not: neither
+    // Hyprland nor niri has a touchpad click method that produces no button.
+    // Those options are dropped from the choice rather than offered and ignored.
+    function valueSupported(prop, value) {
+        const c = root._cap(prop)
+        if (!c || !c.unsupported_values) return true
+        return c.unsupported_values[value] === undefined
+    }
+
+    function valueReason(prop, value) {
+        const c = root._cap(prop)
+        if (!c || !c.unsupported_values) return ""
+        return c.unsupported_values[value] || ""
+    }
+
+    // Options minus the ones this compositor cannot express. Given the whole
+    // list so the page states its choices once.
+    function optionsFor(prop, options) {
+        return options.filter(o => root.valueSupported(prop, o.value))
+    }
+
+    // ── What is in effect, as opposed to what we asked for ────────────────────
+    property var effective: ({})
+    // Controls whose effective value is not the one in the model.
+    readonly property var diverged: root.effective.diverged || []
+    readonly property bool readBackReady: root.effective.values !== undefined
+
+    function _effectiveEntry(prop) {
+        const e = root.schema[prop]
+        if (e === undefined || !root.effective.values) return null
+        return root.effective.values[e.s + "." + e.k] || null
+    }
+
+    // A short readout for the page: what the compositor reports, and — when it
+    // came from a file rather than a query — that it came from a file. Empty
+    // when there is nothing to say, so a row shows a readout only where one
+    // exists.
+    function effectiveText(prop) {
+        const v = root._effectiveEntry(prop)
+        if (v === null) return ""
+        if (v.value === null || v.value === undefined) return "not set"
+        const shown = (typeof v.value === "boolean") ? (v.value ? "on" : "off")
+                                                     : String(v.value)
+        return v.source === "compositor" ? shown : shown + " (file)"
+    }
+
+    function divergedFrom(prop) {
+        const e = root.schema[prop]
+        if (e === undefined) return false
+        return root.diverged.some(d => d.control === e.s + "." + e.k)
+    }
+
+    // ── Input devices ─────────────────────────────────────────────────────────
+    // [{ name, type, hypr_name, hypr_name_source }], kernel names, classified by
+    // udev. `other` is dropped: a power button is an input device to the kernel
+    // and not one a settings page has anything to say about.
+    property var devices: []
+    readonly property var configurableDevices:
+        root.devices.filter(d => ["touchpad", "trackpoint", "mouse", "tablet",
+                                  "touchscreen"].indexOf(d.type) >= 0)
+    // Per-device overrides, `{ "<kernel name>": { type, key: value } }`. NOT in
+    // the schema table: that table is the flat section/key contract apex-os's
+    // check-input-parity reads, and a device map has no place in it.
+    property var deviceOverrides: ({})
+    // Which keys each kind of device accepts, from the generator, so the page
+    // does not decide that a touchscreen has a tap setting.
+    readonly property var deviceKeys: root.capabilities.device_keys || ({})
+    readonly property var perDeviceCapability: {
+        const p = root.capabilities.per_device
+        if (!p || root.compositor === "") return null
+        return p[root.compositor] || null
+    }
+    readonly property string perDeviceReason: {
+        const p = root.perDeviceCapability
+        return (p && p.supported === false) ? (p.reason || "") : ""
+    }
+
+    function deviceValue(name, key) {
+        const d = root.deviceOverrides[name]
+        return (d && d[key] !== undefined) ? d[key] : undefined
+    }
+
+    function setDevice(name, type, key, value) {
+        const next = JSON.parse(JSON.stringify(root.deviceOverrides))
+        if (next[name] === undefined) next[name] = { "type": type }
+        next[name][key] = value
+        root.deviceOverrides = next
+        root._scheduleWrite()
+    }
+
+    function clearDevice(name) {
+        const next = JSON.parse(JSON.stringify(root.deviceOverrides))
+        delete next[name]
+        root.deviceOverrides = next
+        root._scheduleWrite()
+    }
+
     function set(prop, value) {
         if (root.schema[prop] === undefined) {
             console.warn("InputService: no such setting:", prop)
+            return
+        }
+        // The last line of defence for criterion 8. A control the compositor
+        // cannot honour is already switched off in the page; refusing the write
+        // here as well means a future page that forgets to ask still cannot
+        // report success for a value that goes nowhere.
+        const reason = root.reasonFor(prop)
+        if (reason !== "") {
+            root.lastNotes = reason
+            return
+        }
+        if (!root.valueSupported(prop, value)) {
+            root.lastNotes = root.valueReason(prop, value)
             return
         }
         root[prop] = value
@@ -126,6 +288,7 @@ QtObject {
     function resetAll() {
         for (const p of Object.keys(root.schema))
             root[p] = root.schema[p].d
+        root.deviceOverrides = ({})
         root._scheduleWrite()
     }
 
@@ -137,7 +300,7 @@ QtObject {
     readonly property bool anyChanged: {
         for (const p of Object.keys(root.schema))
             if (root[p] !== root.schema[p].d) return true
-        return false
+        return Object.keys(root.deviceOverrides).length > 0
     }
 
     // ── The model, in the generator's own shape ───────────────────────────────
@@ -147,6 +310,8 @@ QtObject {
             const e = root.schema[p]
             out[e.s][e.k] = root[p]
         }
+        if (Object.keys(root.deviceOverrides).length > 0)
+            out["devices"] = JSON.parse(JSON.stringify(root.deviceOverrides))
         return out
     }
 
@@ -160,6 +325,8 @@ QtObject {
             else if (typeof e.d === "number")  root[p] = Number(v)
             else                               root[p] = String(v)
         }
+        root.deviceOverrides = (o.devices && typeof o.devices === "object")
+            ? JSON.parse(JSON.stringify(o.devices)) : ({})
     }
 
     // ── Load ──────────────────────────────────────────────────────────────────
@@ -226,6 +393,70 @@ QtObject {
             root.applying = false
             if (code !== 0 && root.lastNotes === "")
                 root.lastNotes = "apex-input-apply exited " + code
+            // Read back AFTER every apply, because the point of reading back is
+            // to find out whether the apply took. A page that refreshes its
+            // effective state only on open would show the last successful write
+            // forever.
+            root.refreshEffective()
+        }
+    }
+
+    // ── Asking the generator the three questions ──────────────────────────────
+    function refreshCapabilities() { root._capsProc.running = true }
+    function refreshDevices()      { root._devicesProc.running = true }
+    function refreshEffective()    { root._readBackProc.running = true }
+
+    property var _capsProc: Process {
+        command: [root.generator, "--capabilities"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    root.capabilities = JSON.parse(text.trim() || "{}")
+                } catch (e) {
+                    // Left empty on purpose. An unparseable answer means the
+                    // page does not know what this compositor can do, and
+                    // guessing "everything" is how the fake toggles got here.
+                    console.warn("InputService: cannot parse --capabilities", e)
+                }
+            }
+        }
+    }
+
+    property var _devicesProc: Process {
+        command: [root.generator, "--devices"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const parsed = JSON.parse(text.trim() || "{}")
+                    root.devices = parsed.devices || []
+                    if (parsed.notes && parsed.notes.length > 0)
+                        root.lastNotes = parsed.notes.join("; ")
+                } catch (e) {
+                    console.warn("InputService: cannot parse --devices", e)
+                }
+            }
+        }
+    }
+
+    // NOT started on construction, unlike the two above. This service is in the
+    // eager singleton chain — it is constructed at every shell start whether or
+    // not anybody opens Settings — and on Hyprland a read-back is seventeen
+    // serial `hyprctl getoption` calls. Twenty processes on every login, for a
+    // page most logins never open. The Input page asks for it when it opens,
+    // and every apply asks for it again.
+    property var _readBackProc: Process {
+        command: [root.generator, "--read-back"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    root.effective = JSON.parse(text.trim() || "{}")
+                } catch (e) {
+                    console.warn("InputService: cannot parse --read-back", e)
+                }
+            }
         }
     }
 }
