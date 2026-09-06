@@ -78,6 +78,7 @@ The installer automatically:
 - ✓ Renders a portable matugen config (no hardcoded paths) into `~/.config/apex-shell/matugen.toml`
 - ✓ Creates configuration directories
 - ✓ Installs a tightly scoped polkit rule for passwordless sing-box VPN toggling (only when sing-box is present)
+- ✓ Registers the polkit action behind the Always Unrestricted agent toggle
 
 **After installation, restart Hyprland for changes to take effect.**
 
@@ -111,6 +112,44 @@ image-based systems (e.g. APEX-OS) ship it read-only under
 `/usr/share/polkit-1/rules.d/` instead. APEX Shell assumes `sing-box.service` is
 installed **disabled** (it never autostarts) with its config at
 `/etc/sing-box/config.json`.
+
+---
+
+<h2>
+  Agent sandbox default (Always Unrestricted)
+</h2>
+
+**Config → Agents** carries one toggle. On, an agent session started from
+then on runs with no APEX sandbox: it reads and writes any file you can, the
+same as a program you launch yourself. Off is the normal default, where the
+project is writable and the rest of `$HOME` is masked.
+
+Switching it **on** takes your password at the desktop's polkit authentication
+prompt. Switching it **off** takes effect at once and asks for nothing.
+
+The toggle writes `sandbox` in `~/.config/apex/agent.json` — the agent
+runtime's own configuration file, the one `apex agent run` reads, so the
+setting survives a reboot and applies to `a` from a terminal as much as to
+anything started from the shell. It moves that one key and no other, so a
+Claude profile set to `bypassPermissions` survives either direction.
+
+It grants **no root** and hands over **no secrets**. Sessions keep the kernel's
+`no_new_privs` flag whichever sandbox they have, so `sudo` fails inside one,
+and the secret broker performs a granted operation without ever returning the
+credential.
+
+The password prompt needs a polkit **action** registered — an action, not a
+rule; it grants nothing and only declares that the id exists and is answered
+with your own password (`auth_self`, not `auth_admin`, and not cached):
+
+```bash
+sudo install -Dm644 dots-extra/polkit/org.apexos.shell.agent.policy \
+     /usr/share/polkit-1/actions/org.apexos.shell.agent.policy
+```
+
+The Arch installer does this for you. Without it the toggle cannot be switched
+on and says so: `pkcheck` exits 127 with *is not registered*. Image builds ship
+it read-only at the same path.
 
 ---
 
