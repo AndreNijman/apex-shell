@@ -111,7 +111,22 @@ want "the guard detaches itself from the shell's process group" \
 want "neither caller relies on the guard being executable" \
     bash -c '! grep -qE "^\s*setsid -f \"" "$1"' _ "$guard"
 want "the guard reverts when the deadline passes with no verdict" \
-    bash -c 'sed -n "/^cmd_run()/,/^}/p" "$1" | grep -q "restore \"\$dir\""' _ "$guard"
+    bash -c 'sed -n "/^cmd_run()/,/^}/p" "$1" | grep -q "settle_revert \"\$dir\""' _ "$guard"
+# Recording `reverted` after a restore that did nothing is worse than recording
+# nothing: `reconcile` reads that word at the next shell start, concludes the
+# transaction is settled, and the machine keeps a layout nobody confirmed with a
+# note saying it was put back. Every path that records the outcome has to be the
+# one that knows whether the restore worked.
+want "no path records a revert without checking that it happened" \
+    bash -c '! grep -nE "^\s+restore \"\\\$dir\"\s*$" "$1"' _ "$guard"
+want "a failed restore is recorded as such, not as a revert" \
+    bash -c 'sed -n "/^settle_revert()/,/^}/p" "$1" | grep -q "state revert-failed"' _ "$guard"
+want "a failed restore is retried before it is given up on" \
+    bash -c 'sed -n "/^settle_revert()/,/^}/p" "$1" | grep -q "APEX_DISPLAY_GUARD_RESTORE_TRIES"' _ "$guard"
+want "reconcile treats a failed revert as work still to do" \
+    bash -c 'sed -n "/^cmd_reconcile()/,/^}/p" "$1" | grep -q "revert-failed"' _ "$guard"
+want "the shell tells the user when the previous layout could not be restored" \
+    grep -q 'revert-failed' "$svc"
 want "the shell settles an abandoned transaction at startup" \
     grep -q '"reconcile", root.txnDir' "$svc"
 want "the countdown is derived from a deadline, not decremented" \
@@ -123,6 +138,14 @@ want "the shell reverts through the guard rather than the engine" \
     grep -qE '\["bash", root.guard, "restore", root.txnDir\]' "$svc"
 want "the guard falls back when the recorded mode is gone" \
     bash -c 'sed -n "/^restore()/,/^}/p" "$1" | grep -q "rollback-modeless.json"' _ "$guard"
+# wlr-randr rejects the whole invocation over one unknown output, so a monitor
+# unplugged during the countdown makes the revert fail outright and the machine
+# keeps the layout nobody confirmed. Reproduced live in
+# tests/run-display-unplug-test.sh; this is the static half.
+want "the guard falls back when an output in the rollback is gone" \
+    bash -c 'sed -n "/^restore()/,/^}/p" "$1" | grep -q "rollback-present.json"' _ "$guard"
+want "the pruned rollback is built from a fresh enumeration, not the stale one" \
+    bash -c 'sed -n "/^restore()/,/^}/p" "$1" | grep -q "\\\$engine\" list"' _ "$guard"
 
 # ── A temporary apply is temporary ───────────────────────────────────────────
 #
