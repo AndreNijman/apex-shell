@@ -33,6 +33,16 @@ WlSessionLock {
     // the compositor lock.
     locked: LockState.locked
 
+    // Mirror the compositor-ACKNOWLEDGED lock state to logind, so
+    // `loginctl show-session -p LockedHint` means something — P0-015's
+    // lock-state policy for autonomous sessions keys off exactly that
+    // property, and until now nothing ever set it. Bound to `secure`, not to
+    // `locked` above: `secure` only flips once ext-session-lock has actually
+    // engaged (or been released), so a lock that fails to engage is never
+    // reported to logind as engaged. See LockedHintService for why this has
+    // to be the shell's job and not apexd's.
+    onSecureStateChanged: LockedHintService.setLocked(sessionLock.secure)
+
     // ── Per-output lock surface ──────────────────────────────────────
     WlSessionLockSurface {
         id: surface

@@ -10,6 +10,7 @@ singleton GpuService 1.0 ./system/GpuService.qml
 singleton CpuService 1.0 ./system/CpuService.qml
 singleton CpuFreqService 1.0 ./system/CpuFreqService.qml
 singleton PowerProfileService 1.0 ./system/PowerProfileService.qml
+singleton LockedHintService 1.0 ./system/LockedHintService.qml
 singleton DiskService 1.0 ./system/DiskService.qml
 singleton BrightnessService 1.0 ./system/BrightnessService.qml
 DashHome home/DashHome.qml
