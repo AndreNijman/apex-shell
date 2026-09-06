@@ -139,18 +139,38 @@ check_group secret  "$SECRET_VERBS"
 check_group host    "$HOST_VERBS"
 
 # ── 2. Planned features are marked absent, not documented as usable ─────────
-# Each of these appears in ROADMAP §3.4, §4.4 and §42.1 and in NO shipped
-# binary. Naming one without a `todo` block beside it is how a plan becomes a
-# promise.
+# Each of these appears in ROADMAP §3.4 and §4.4 and in NO shipped binary.
+# Naming one without a `todo` block beside it is how a plan becomes a promise.
+#
+# §42.1's Always Unrestricted was on this list until P0-016 built it. It is now
+# checked in the other direction, below: the guide has to say where the toggle
+# is, and NO todo block may still claim it is missing. A stale "this build has
+# no Config page for it" is the same defect as a premature promise, pointing
+# the other way — it sends a user looking for a per-session flag when the
+# setting they want is two clicks away.
 todo_bodies="$(grep -o '{ k: "todo"[^}]*}' "$CONTENT")"
 unbuilt_ok=1
-for pair in '--unsafe-everything|--unsafe-everything' '--system-access|--system-access' 'Always Unrestricted|Config page'; do
+for pair in '--unsafe-everything|--unsafe-everything' '--system-access|--system-access'; do
     name="${pair%%|*}"; marker="${pair##*|}"
     grep -q -- "$name" "$CONTENT" || { bad "the guide never mentions $name"; unbuilt_ok=0; continue; }
     printf '%s' "$todo_bodies" | grep -q -- "$marker" \
         || { bad "$name is described but no \"todo\" block says it is absent"; unbuilt_ok=0; }
 done
 [ "$unbuilt_ok" -eq 1 ] && ok "every unbuilt permission mode carries a NOT-IN-THIS-BUILD block"
+
+# ── 2b. Always Unrestricted is documented as shipped, and located ────────────
+# P0-016. Two halves, because either one alone can be true while the guide is
+# still useless: a page nobody can find, or a name with a stale disclaimer.
+if grep -q "Config → Agents" "$CONTENT"; then
+    ok "the guide says where the Always Unrestricted toggle is"
+else
+    bad "Always Unrestricted is described but the guide never says which page carries it"
+fi
+if printf '%s' "$todo_bodies" | grep -qi "Config page"; then
+    bad "a todo block still says this build has no Config page for Always Unrestricted"
+else
+    ok "no todo block claims the Always Unrestricted page is missing"
+fi
 
 # The Android client is roadmap P1-053..060 and ships nothing today.
 if printf '%s' "$todo_bodies" | grep -q "phone client"; then
@@ -278,6 +298,20 @@ recheck_todo() {
 mutate "the break-glass flag losing its NOT-IN-THIS-BUILD block" \
     '{ k: "todo", t: "This build has no --unsafe-everything flag and no --ttl flag." },' \
     '{ k: "p", t: "Reach for it when you need it." },' recheck_todo
+
+# (b2) the shipped Always Unrestricted toggle losing its address. P0-016 built
+# the page; a guide that names the setting and not the page it is on is the
+# same dead end as a flag that does not exist.
+recheck_located() { ! grep -q "Config → Agents" "$TMP/content.qml"; }
+mutate "the Always Unrestricted toggle losing the page it is on" \
+    "Config → Agents carries one toggle" "There is a toggle" recheck_located
+
+# (b3) a stale disclaimer surviving the feature that answered it.
+recheck_stale() { grep -o '{ k: "todo"[^}]*}' "$TMP/content.qml" | grep -qi "Config page"; }
+mutate "a stale todo claiming there is no Config page for it" \
+    '{ k: "kv", t: "What the toggle writes"' \
+    '{ k: "todo", t: "This build has no Config page for it." }, { k: "kv", t: "What the toggle writes"' \
+    recheck_stale
 
 # (c) two permission layers collapsed into one
 recheck_layers() {

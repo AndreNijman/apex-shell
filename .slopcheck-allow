@@ -22,3 +22,8 @@ Always Unrestricted
 # The break-glass flag from ROADMAP.md §3.4 and §4.5. "everything" is in the
 # flag, not in the prose describing it.
 --unsafe-everything
+
+# The control's own name, from ROADMAP.md §42.1 and CURRENT_ISSUES.md UI-009.
+# The toggle has to be findable by the name the user was given for it, and
+# "always" is in that name rather than in prose around it.
+Always unrestricted agents

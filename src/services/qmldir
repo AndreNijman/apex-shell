@@ -41,6 +41,12 @@ BlueprintPage ./config_tab/pages/BlueprintPage.qml
 singleton RecoveryService 1.0 RecoveryService.qml
 RecoveryPage ./config_tab/pages/RecoveryPage.qml
 singleton AgentService 1.0 AgentService.qml
+# §42.1's sandbox default. A singleton because the Agents settings page, the
+# Agent Center's banner and the session rows all have to agree about what a new
+# session would get, and two instances would each hold their own FileView and
+# their own answer.
+singleton AgentPolicyService 1.0 AgentPolicyService.qml
+AgentsPage ./config_tab/pages/AgentsPage.qml
 AgentCenter agents/AgentCenter.qml
 # The Agent Center's own parts. Declared here rather than relying on implicit
 # sibling resolution: AgentCenter is loaded THROUGH this qmldir, so its
@@ -48,6 +54,7 @@ AgentCenter agents/AgentCenter.qml
 # you get instead.
 RequestRow agents/RequestRow.qml
 SessionRow agents/SessionRow.qml
+UnrestrictedBanner agents/UnrestrictedBanner.qml
 SectionHeading agents/SectionHeading.qml
 SmallIconButton agents/SmallIconButton.qml
 StateBadge agents/StateBadge.qml
