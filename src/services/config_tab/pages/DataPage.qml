@@ -172,11 +172,17 @@ CfgScroll {
     CfgSection {
         title: "Open folders"
 
+        // A Flow, not a Row. Three buttons whose widths come from Theme.fs()
+        // text fit across the dashboard's narrow Config pane at scale 1.0 and
+        // pushed the third one out of it from 1.5x upward.
         Item {
             width:  parent.width
-            height: 34
-            Row {
+            height: folders.implicitHeight + 8
+            Flow {
+                id: folders
                 x:       10
+                y:       4
+                width:   parent.width - 20
                 spacing: 8
                 CfgButton { label: "Config";     icon: "󰉋"; onClicked: root.openPath("~/.config/apex-shell") }
                 CfgButton { label: "Cache";      icon: "󰉋"; onClicked: root.openPath("~/.cache/apex-shell") }
