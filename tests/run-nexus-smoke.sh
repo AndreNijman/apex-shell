@@ -1,12 +1,32 @@
 #!/usr/bin/env bash
+# Open, toggle and close the Nexus settings surface over IPC, and report what
+# the shell logged while doing it.
+#
+# On a headless labwc from tests/lib/headless.sh, with a private HOME: this
+# starts the whole shell, and it used to start it on the inherited
+# WAYLAND_DISPLAY.
 set -uo pipefail
-command -v quickshell >/dev/null 2>&1 || { echo "SKIP: quickshell not installed"; exit 0; }
-[[ -n "${WAYLAND_DISPLAY:-}" ]] || { echo "SKIP: no WAYLAND_DISPLAY"; exit 0; }
-cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
-log="$(mktemp)"
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root="$(cd "$here/.." && pwd)"
+. "$here/lib/headless.sh"
+
+headless_require quickshell
+
+pid=""
+cleanup() {
+    [[ -n "$pid" ]] && kill "$pid" 2>/dev/null
+    headless_cleanup
+}
+trap cleanup EXIT INT TERM
+
+headless_begin
+headless_start || exit 0
+
+cd "$root" || exit 1
+log="$HEADLESS_W/shell.log"
 quickshell -p ./shell.qml >"$log" 2>&1 &
 pid=$!
-trap 'kill "$pid" 2>/dev/null; rm -f "$log"' EXIT
 
 for _ in $(seq 1 60); do grep -q "Configuration Loaded" "$log" && break; sleep 0.25; done
 grep -q "Configuration Loaded" "$log" || { echo "FAIL: never loaded"; tail -20 "$log"; exit 1; }
@@ -27,7 +47,8 @@ echo "close      -> $(call close)"
 sleep 0.6
 
 echo "--- diagnostics ---"
-grep -E "ERROR|WARN" "$log" \
-  | grep -vE "qt.qpa.wayland.textinput|Could not register notification server|Registration will be attempted" \
-  | sort -u | head -20
-echo "--- ERROR count: $(grep -c ERROR "$log") ---"
+# PipeWire is in here for the reason tests/run-popup-smoke.sh spells out: its
+# socket lives in the session's runtime dir and this run has its own.
+noise='qt.qpa.wayland.textinput|Could not register notification server|Registration will be attempted|Failed to connect pipewire context'
+grep -E "ERROR|WARN" "$log" | grep -vE "$noise" | sort -u | head -20
+echo "--- ERROR count: $(grep -E ERROR "$log" | grep -cvE "$noise") ---"
