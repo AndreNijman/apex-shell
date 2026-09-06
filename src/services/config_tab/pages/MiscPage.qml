@@ -194,7 +194,7 @@ CfgScroll {
         Text {
             x:        10
             width:    parent.width - 20
-            text:     "Detected " + Compositor.detected + " from the environment. Choose which compositor APEX Shell targets — Auto follows detection. Hyprland-only features (layout indicator, night light, shader filter, special workspace) degrade automatically on niri."
+            text:     "Detected " + Compositor.detected + " from the environment. Auto follows detection. Override it only if detection is wrong, for example a launcher or nested session that does not set the usual environment variables. Hyprland-only features (layout indicator, night light, shader filter, special workspace) degrade automatically on niri."
             font.pixelSize: Theme.fs(10)
             color:    Qt.rgba(1,1,1,0.4)
             wrapMode: Text.WordWrap
