@@ -513,9 +513,14 @@ mutate "the danger token deleted from Colors.qml" \
 recheck_ws() {
     [ -n "$(printf '%s' "$(run_extract "$TMP/src" ws)" | tr -d '[:space:]')" ]
 }
+# The first `badge.toneColor` in that file is the row's own border, which is
+# what this has always mutated. Matched on the token alone rather than on the
+# whole property line: P0-005 put a break-glass ternary in front of it, the
+# old exact-line search stopped applying, and a mutation that does not apply
+# proves nothing while still reporting.
 mutate "a workspace token used for an agent state" \
     "src/services/agents/SessionRow.qml" \
-    "border.color: badge.toneColor" "border.color: Theme.wsUrgent" recheck_ws
+    "badge.toneColor" "Theme.wsUrgent" recheck_ws
 
 # (h) a row deciding a state's colour again, in the idiom that caused P0-021
 recheck_states() {
