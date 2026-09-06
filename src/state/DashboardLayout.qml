@@ -1,6 +1,6 @@
 pragma Singleton
 import QtQuick
-import "../theme"
+import "../"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DashboardLayout — the dashboard's tab list and its content width, in one
