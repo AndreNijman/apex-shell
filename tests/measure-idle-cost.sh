@@ -27,12 +27,28 @@
 #
 # usage: tests/measure-idle-cost.sh [target] [pairs] [seconds-per-window]
 #   target: "packaged" (the installed shell) or "worktree" (this checkout)
+#
+# ── This one cannot be headless, so it refuses by default ────────────────────
+#
+# The number it reports is the fork rate of a real desktop with a real shell
+# mapped on it, so there is no headless version of the measurement: `worktree`
+# starts a second shell on the session you are looking at, and `packaged`
+# SIGSTOPs the one you are using, sixteen times, for eight seconds each.
+#
+# Every other runner under tests/ was changed to bring its own headless
+# compositor. This one is asked for explicitly instead:
+#
+#     APEX_TEST_ALLOW_NESTED_ON_DESK=1 tests/measure-idle-cost.sh
 set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$here/lib/headless.sh"
+headless_require_nested_optin "measuring idle cost"
 
 target="${1:-worktree}"
 pairs="${2:-8}"
 secs="${3:-8}"
-repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo="$(cd "$here/.." && pwd)"
 
 # No forks inside the sampling path: $(<file) is a bash builtin read.
 forks() { local s; s=$(</proc/stat); s="${s#*processes }"; echo "${s%%$'\n'*}"; }

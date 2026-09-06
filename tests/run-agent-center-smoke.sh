@@ -58,20 +58,21 @@
 #  its own and kills that pid, because a stray `pkill apex-agentd` in here once
 #  took down a developer's live runtime mid-session.
 #
-#  ── TWO WAYS TO GET A COMPOSITOR ────────────────────────────────────────────
+#  ── ONE WAY TO GET A COMPOSITOR ─────────────────────────────────────────────
 #
-#  Nested, when there is a session to nest in: the real runtime dir is mirrored
-#  in with symlinks, because every socket the shell needs — Wayland, pipewire,
-#  the compositor's own, the session bus — lives there, and overriding it
-#  wholesale would cut the shell off from the compositor it has to draw on.
+#  A headless wlroots compositor inside a private runtime directory, from
+#  tests/lib/headless.sh. Always, not "unless there is a session to nest in".
 #
-#  Self-hosted otherwise: a headless wlroots compositor started inside the
-#  private runtime dir. That is what makes this runnable on a build box with no
-#  display, which is where it wants to run — a smoke test that only works on a
-#  developer's own desktop is a smoke test that gets run once.
+#  There used to be a second path that preferred the running session and
+#  mirrored the real runtime dir in with symlinks, on the grounds that the shell
+#  needs pipewire and a session bus to draw. It draws without them — this run
+#  proves it, and the one ERROR line PipeWire leaves behind is filtered by name
+#  at the bottom. What the mirror bought instead was the whole agent centre
+#  appearing on the desktop of whoever ran the suite, one symlink away from the
+#  live apex-agentd and the sessions they had open.
 #
-#  Skips cleanly without quickshell, without any compositor at all, or without
-#  the runtime built.
+#  Skips cleanly without quickshell, without a compositor to host one, or
+#  without the runtime built.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
@@ -80,20 +81,10 @@ root="$(cd "$here/.." && pwd)"
 # The OS repo sits beside the shell checkout in the normal layout.
 osroot="${APEX_OS_ROOT:-$(cd "$root/../apex-os" 2>/dev/null && pwd)}"
 
-command -v quickshell >/dev/null 2>&1 || { echo "SKIP: quickshell not installed"; exit 0; }
-[[ -n "$osroot" && -d "$osroot/apexd" ]] || { echo "SKIP: apex-os checkout not found (set APEX_OS_ROOT)"; exit 0; }
+. "$here/lib/headless.sh"
 
-nested=0
-host_comp=""
-if [[ -n "${WAYLAND_DISPLAY:-}" && -n "${XDG_RUNTIME_DIR:-}" ]]; then
-    nested=1
-else
-    for c in labwc sway; do
-        command -v "$c" >/dev/null 2>&1 && { host_comp="$c"; break; }
-    done
-    [[ -n "$host_comp" ]] || {
-        echo "SKIP: no Wayland session and no headless compositor to host one"; exit 0; }
-fi
+headless_require quickshell
+[[ -n "$osroot" && -d "$osroot/apexd" ]] || { echo "SKIP: apex-os checkout not found (set APEX_OS_ROOT)"; exit 0; }
 
 BIN="$osroot/apexd/target/debug"
 if [[ ! -x "$BIN/apex-agentd" || ! -x "$BIN/apex" ]]; then
@@ -108,80 +99,30 @@ log="$(mktemp)"
 log2="$(mktemp)"
 qs_pid=""
 daemon_pid=""
-comp_pid=""
 # Killed BY PID, never by name. A pkill for quickshell on a developer's machine
 # takes down the shell they are working in.
 cleanup() {
     [[ -n "$qs_pid" ]]     && kill "$qs_pid" 2>/dev/null
     [[ -n "$daemon_pid" ]] && kill "$daemon_pid" 2>/dev/null
-    [[ -n "$comp_pid" ]]   && kill "$comp_pid" 2>/dev/null
     sleep 0.3
     [[ -n "$daemon_pid" ]] && kill -9 "$daemon_pid" 2>/dev/null
-    [[ -n "$comp_pid" ]]   && kill -9 "$comp_pid" 2>/dev/null
     rm -rf "$W"
     rm -f "$log" "$log2"
+    headless_cleanup
     return 0
 }
 trap cleanup EXIT INT TERM
 
-# ── an isolated runtime that can still reach a compositor ────────────────────
-REAL_RUNTIME="${XDG_RUNTIME_DIR:-}"
-export XDG_RUNTIME_DIR="$W/run"
-export XDG_STATE_HOME="$W/state"
-export XDG_CONFIG_HOME="$W/config"
-mkdir -p "$XDG_RUNTIME_DIR" "$XDG_STATE_HOME" "$XDG_CONFIG_HOME"
-chmod 0700 "$XDG_RUNTIME_DIR"
+# ── an isolated runtime, on a compositor of its own ──────────────────────────
+# The library owns XDG_RUNTIME_DIR, XDG_STATE_HOME, XDG_CONFIG_HOME and HOME,
+# so the daemon started below writes into the same sandbox the shell reads, and
+# the live apex-agentd is not reachable from here at all.
+headless_begin
+# The fixture project is a real git repository, because a session records the
+# branch it was started on.
+headless_unstub git
+headless_start || exit 0
 
-if [[ "$nested" -eq 1 ]]; then
-    # Everything in the real runtime dir is mirrored in, EXCEPT apex-agentd —
-    # which is the one thing being replaced.
-    #
-    # Mirrored wholesale rather than picked from a list. The first version
-    # linked only the Wayland socket, and the shell then failed on pipewire
-    # (errno 112) and on Hyprland's socket, both of which also live here. Every
-    # such failure looks like a QML fault in the log, so a list that has to be
-    # kept complete is a list that will send someone debugging the wrong file.
-    shopt -s nullglob dotglob
-    for entry in "$REAL_RUNTIME"/*; do
-        name="$(basename "$entry")"
-        [[ "$name" == "apex-agentd" ]] && continue
-        ln -sfn "$entry" "$XDG_RUNTIME_DIR/$name"
-    done
-    shopt -u nullglob dotglob
-    [[ -e "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]] || {
-        echo "SKIP: the Wayland socket is not in XDG_RUNTIME_DIR"; exit 0; }
-    echo "host: nested in the running session ($WAYLAND_DISPLAY)"
-else
-    unset WAYLAND_DISPLAY DISPLAY
-    export WLR_BACKENDS=headless
-    export WLR_LIBINPUT_NO_DEVICES=1
-    export WLR_RENDERER=pixman
-    export XDG_SESSION_TYPE=wayland
-    export QT_QPA_PLATFORM=wayland
-    case "$host_comp" in
-        labwc)
-            mkdir -p "$XDG_CONFIG_HOME/labwc"
-            cp "$here/labwc-test-rc.xml" "$XDG_CONFIG_HOME/labwc/rc.xml" 2>/dev/null || true
-            "$host_comp" > "$W/comp.log" 2>&1 & ;;
-        sway)
-            printf 'output HEADLESS-1 mode 1920x1080\n' > "$W/sway.cfg"
-            "$host_comp" -c "$W/sway.cfg" > "$W/comp.log" 2>&1 & ;;
-    esac
-    comp_pid=$!
-    for _ in $(seq 1 60); do
-        for f in "$XDG_RUNTIME_DIR"/wayland-*; do
-            [[ -S "$f" ]] || continue
-            sock_name="$(basename "$f")"
-            export WAYLAND_DISPLAY="$sock_name"
-            break
-        done
-        [[ -n "${WAYLAND_DISPLAY:-}" ]] && break
-        sleep 0.25
-    done
-    [[ -n "${WAYLAND_DISPLAY:-}" ]] || {
-        echo "SKIP: $host_comp did not come up headless"; tail -5 "$W/comp.log"; exit 0; }
-    echo "host: $host_comp headless on $WAYLAND_DISPLAY"
-fi
 # The shell talks to the runtime by running `apex`, so the dev build has to win.
 export PATH="$BIN:$PATH"
 
@@ -420,7 +361,12 @@ grep -q '"onboardingDismissed":false' "$state_file" \
     || fail "reset did not reach the state file: $(cat "$state_file")"
 echo "reset restores it:    $out"
 
-errors2="$(grep -c 'ERROR' "$log2")"
+# Filtered, like the first shell's count. It was not: the list printed below
+# dropped the noise and the number above it did not, so the restarted shell
+# failed on the one PipeWire line every other count in this file ignores. The
+# comment two hundred lines up says the two must agree; this is the copy that
+# did not.
+errors2="$(grep -E 'ERROR' "$log2" | grep -cvE "$noise")"
 echo "--- restarted shell ERROR count: $errors2 ---"
 grep -E "ERROR" "$log2" | grep -vE "$noise" | sort -u | head -10
 [[ "$errors2" -eq 0 ]] || { echo "RESULT: runtime errors in the restarted shell"; exit 1; }

@@ -7,25 +7,38 @@
 # page works, because nothing instantiates it until it is first shown. Without
 # this, a broken binding inside a lazily-loaded page ships silently.
 #
-# Requires a Wayland session. Skips cleanly (status 0) without one so it does not
-# fail a CI run that has no compositor.
+# ── On a compositor of its own, which is not a detail here ───────────────────
+#
+# This runner opens the entire shell — a bar, a dock, every popup in the fleet
+# and seven settings pages — and it used to open all of that on the inherited
+# WAYLAND_DISPLAY. That is the single worst offender in tests/: on a
+# workstation it puts the whole shell on top of whatever the person running it
+# was doing, twice per target, for about a minute.
+#
+# It now runs on a headless labwc from tests/lib/headless.sh with a private
+# HOME and a private XDG_RUNTIME_DIR. The private runtime dir is doing real work
+# beyond politeness: the shell looks for apex-agentd's control socket there, and
+# on the ambient one it would find the live daemon and start driving the agent
+# sessions somebody has open.
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/.." && pwd)"
+. "$here/lib/headless.sh"
 
-command -v quickshell >/dev/null 2>&1 || { echo "SKIP: quickshell not installed"; exit 0; }
-[[ -n "${WAYLAND_DISPLAY:-}" ]] || { echo "SKIP: no WAYLAND_DISPLAY"; exit 0; }
+headless_require quickshell
 
-log="$(mktemp)"
 qs_pid=""
 cleanup() {
     [[ -n "$qs_pid" ]] && kill "$qs_pid" 2>/dev/null
-    rm -f "$log"
-    return 0
+    headless_cleanup
 }
 trap cleanup EXIT INT TERM
 
+headless_begin
+headless_start || exit 0
+
+log="$HEADLESS_W/shell.log"
 quickshell -p "$root/shell.qml" >"$log" 2>&1 &
 qs_pid=$!
 
@@ -73,12 +86,21 @@ for t in "${targets[@]}"; do
 done
 
 echo "--- diagnostics ---"
-# Qt's own Wayland text-input chatter and the notification-server contention
-# (another shell already owns the name in a live session) are not ours.
-noise='qt.qpa.wayland.textinput|Could not register notification server|Registration will be attempted'
+# Two classes of noise, and the second is a consequence of the isolation above
+# rather than something to fix:
+#
+#   * Qt's own Wayland text-input chatter, and the notification-server name
+#     already being owned when a live shell is running.
+#   * PipeWire. Its socket lives in the SESSION's XDG_RUNTIME_DIR, and this run
+#     deliberately has its own, so the audio service cannot connect. Bridging
+#     the real socket in would give the shell under test a route to the volume
+#     of whoever is logged in, which is exactly the kind of reach this runner
+#     was changed to remove. No popup in the fleet is audio-gated, so the
+#     coverage cost is nil.
+noise='qt.qpa.wayland.textinput|Could not register notification server|Registration will be attempted|Failed to connect pipewire context'
 grep -E "ERROR|WARN" "$log" | grep -vE "$noise" | sort -u | head -20
 
-errors="$(grep -c 'ERROR' "$log")"
+errors="$(grep -E 'ERROR' "$log" | grep -cvE "$noise")"
 echo "--- ERROR count: $errors ---"
 [[ "$errors" -eq 0 ]] || { echo "RESULT: runtime errors present"; exit 1; }
 echo "RESULT: all pages and popups opened cleanly"
