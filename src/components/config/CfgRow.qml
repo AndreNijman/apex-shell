@@ -21,9 +21,22 @@ Item {
 
     default property alias control: slot.data
 
-    width:          parent ? parent.width : 0
-    implicitHeight: (description !== "" ? 56 : 44)
-                    + (root._effectNote !== "" ? 14 : 0)
+    width: parent ? parent.width : 0
+
+    // As tall as what it holds, with a floor.
+    //
+    // This used to be two constants — 56 with a description, 44 without —
+    // chosen for how tall two lines are at scale 1.0. The text inside is sized
+    // with Theme.fs(), which scales; the row was not, so from 1.5x upward every
+    // row with a description drew its second line outside itself. Nothing
+    // noticed, because a clipped line is not an error: the row's own rectangle
+    // is right, its neighbours are right, and the sentence is simply gone.
+    // tests/nav-geometry-test.qml's page block found 34 of them on the first
+    // run that graded a page.
+    //
+    // The control is in the maximum too: a taller one than the text beside it
+    // would have hung out of the bottom the same way.
+    implicitHeight: Math.max(44, texts.implicitHeight + 14, slot.height + 12)
     height:         implicitHeight
 
     Rectangle {
@@ -35,6 +48,7 @@ Item {
     HoverHandler { id: hov; enabled: root.hoverable }
 
     Column {
+        id: texts
         anchors.left:           parent.left
         anchors.leftMargin:     10
         anchors.right:          slot.left
