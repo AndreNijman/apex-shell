@@ -3,6 +3,14 @@
 #
 #     ./tests/run-hypr-configerrors-test.sh
 #
+# ── Run this on a machine you are not using ──────────────────────────────────
+#
+# It nests a Hyprland inside the session named by WAYLAND_DISPLAY, which means a
+# compositor window appears on that desktop for as long as the suite runs. It
+# cannot reach the host's configuration — separate HOME, separate runtime dir,
+# every hyprctl carries -i — but it is still a window on your screen. Run it on
+# a build box or a spare session, not on the desk you are working at.
+#
 # ── What this proves, and what it does not ───────────────────────────────────
 #
 # The acceptance criterion is "hyprctl reload and hyprctl configerrors are clean
