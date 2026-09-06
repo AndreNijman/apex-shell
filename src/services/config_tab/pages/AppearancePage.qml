@@ -225,7 +225,7 @@ CfgScroll {
             label: "Night light"
             description: CompositorService.nightLightSupported
                 ? "Warms the screen using " + CompositorService.nightLightMechanism
-                  + " on " + Compositor.detected
+                  + " on " + Compositor.name
                 : "This session is not a compositor APEX Shell has a "
                   + "colour-temperature mechanism for, so there is nothing to warm "
                   + "the screen with."
