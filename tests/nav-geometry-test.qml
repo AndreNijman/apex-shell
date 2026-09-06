@@ -101,6 +101,21 @@ ShellRoot {
     // The dashboard height slider's two ends and its default.
     readonly property var dashHeights: [360, 520, 900]
 
+    // ── Which pairs are graded in full ───────────────────────────────────────
+    // "Representative scaling", in the roadmap's words. A scale factor divides
+    // an output into logical pixels, and past a point there are not enough of
+    // them left to draw a desktop in: 1280x720 at 175% is 731x411, which is
+    // smaller than the dashboard's own minimum at that scale. Grading a shell
+    // against it measures nothing about the shell.
+    //
+    // 1024x600 is the floor — the smallest panel anyone still ships — so a pair
+    // is representative when the output keeps at least that much logical space.
+    // The pairs this excludes are still exercised below, on the assertions that
+    // remain meaningful there: the layout must degrade, not collapse.
+    function representative(scr, sc) {
+        return sc <= Math.min(scr.w / 1024, scr.h / 600) + 1e-9
+    }
+
     // ── Thresholds ───────────────────────────────────────────────────────────
     // A pointer target below about 24 logical pixels is a miss waiting to
     // happen, and a finger wants more. Scaled, because a "pixel" at scale 2 is
@@ -155,30 +170,76 @@ ShellRoot {
     }
 
     // ── Reading a switcher back ──────────────────────────────────────────────
-    // The delegates are anonymous items inside a Row or a Column that the
-    // component does not expose. Found by shape: the one child of the switcher
-    // holding exactly as many laid-out children as there are model entries. The
-    // Repeater sitting alongside them has no width and is skipped.
-    function slotsOf(sw, n) {
-        const kids = sw.children
-        for (var i = 0; i < kids.length; i++) {
-            const c = kids[i]
-            if (!c.children || c.width <= 0)
-                continue
-            const live = []
-            for (var j = 0; j < c.children.length; j++)
-                if (c.children[j].width > 0 && c.children[j].height > 0)
-                    live.push(c.children[j])
-            if (live.length === n)
-                return live
+    // The delegates are anonymous items inside a Row, or inside a Column inside
+    // a Flickable's content item. The component exposes none of it, so they are
+    // found by shape: the first container anywhere beneath the switcher holding
+    // exactly as many laid-out children as there are model entries. The Repeater
+    // alongside them has no size and is skipped.
+    //
+    // Searched to a depth rather than one level down, because a fix that moves
+    // the delegates one nesting level must not quietly turn every assertion into
+    // "found 0" — which is still a FAIL, but the wrong one.
+    function slotsOf(item, n, depth) {
+        if (!item || !item.children || depth < 0)
+            return []
+        const live = []
+        for (var j = 0; j < item.children.length; j++) {
+            const c = item.children[j]
+            if (c.width > 0 && c.height > 0)
+                live.push(c)
+        }
+        if (live.length === n && n > 0)
+            return live
+        for (var i = 0; i < item.children.length; i++) {
+            const found = root.slotsOf(item.children[i], n, depth - 1)
+            if (found.length === n)
+                return found
         }
         return []
+    }
+
+    // The icon-and-label Row inside one tab: the first descendant that has
+    // children and whose children carry text.
+    function contentRowOf(item, depth) {
+        if (!item || !item.children || depth < 0)
+            return null
+        for (var i = 0; i < item.children.length; i++) {
+            const c = item.children[i]
+            if (c.children && c.children.length > 0 && c.width > 0) {
+                for (var j = 0; j < c.children.length; j++)
+                    if (c.children[j].text !== undefined)
+                        return c
+            }
+        }
+        for (var k = 0; k < item.children.length; k++) {
+            const f = root.contentRowOf(item.children[k], depth - 1)
+            if (f)
+                return f
+        }
+        return null
+    }
+
+    // A Flickable somewhere under the switcher, identified by the two
+    // properties only a Flickable has. Null when the layout does not use one.
+    function scrollerOf(item, depth) {
+        if (!item || depth < 0)
+            return null
+        if (item.contentHeight !== undefined && item.boundsBehavior !== undefined)
+            return item
+        if (!item.children)
+            return null
+        for (var i = 0; i < item.children.length; i++) {
+            const f = root.scrollerOf(item.children[i], depth - 1)
+            if (f)
+                return f
+        }
+        return null
     }
 
     // ── Horizontal ───────────────────────────────────────────────────────────
     function measureHorizontal(label, barWidth) {
         const n = DashboardLayout.tabs.length
-        const s = root.slotsOf(hSwitcher, n)
+        const s = root.slotsOf(hSwitcher, n, 4)
         if (s.length !== n) {
             root.check(label + ": the bar laid out " + n + " tabs", false,
                        "found " + s.length)
@@ -221,16 +282,10 @@ ShellRoot {
                 worstSpillAt = DashboardLayout.tabs[i].label
             }
 
-            // Icon and label are drawn from a Row inside the tab; the MouseArea
-            // over it is a childless Item of the same width, so the Row is
-            // identified by having children of its own. Nothing that is drawn
-            // may be wider than the pill drawn behind it.
-            var content = null
-            for (var k = 0; k < tab.children.length; k++) {
-                const c = tab.children[k]
-                if (c !== pill && c.width > 0 && c.children && c.children.length > 0)
-                    content = c
-            }
+            // Icon and label are drawn from a Row. Found wherever it is —
+            // beside the pill or inside it — as the first descendant holding
+            // Text items. Nothing drawn may be wider than the pill behind it.
+            const content = root.contentRowOf(tab, 3)
             if (content) {
                 const bleed = content.width - pill.width
                 if (bleed > worstBleed) {
@@ -275,7 +330,7 @@ ShellRoot {
     // pixel size.
     function measureHorizontalHeight(label) {
         const n = DashboardLayout.tabs.length
-        const s = root.slotsOf(hSwitcher, n)
+        const s = root.slotsOf(hSwitcher, n, 4)
         if (s.length !== n)
             return
         var tallest = 0
@@ -299,7 +354,7 @@ ShellRoot {
     // ── Vertical ─────────────────────────────────────────────────────────────
     function measureVertical(label, columnHeight) {
         const n = root.configTabs.length
-        const s = root.slotsOf(vSwitcher, n)
+        const s = root.slotsOf(vSwitcher, n, 4)
         if (s.length !== n) {
             root.check(label + ": the column laid out " + n + " rows", false,
                        "found " + s.length)
@@ -310,9 +365,12 @@ ShellRoot {
         var minRow = 1e9
         var prevBottom = -1e9
         var top = 1e9, bottom = -1e9
+        var worstLabelBleed = -1e9, worstLabelAt = ""
 
         for (var i = 0; i < n; i++) {
             const rowItem = s[i]
+            // Mapped rather than read from .y: once the rows live inside a
+            // Flickable's content item, .y is relative to a thing that scrolls.
             const y = rowItem.mapToItem(vSwitcher, 0, 0).y
             if (i > 0 && y - prevBottom < worstGap) {
                 worstGap = y - prevBottom
@@ -322,19 +380,47 @@ ShellRoot {
             top = Math.min(top, y)
             bottom = Math.max(bottom, y + rowItem.height)
             minRow = Math.min(minRow, rowItem.height)
+
+            const content = root.contentRowOf(rowItem, 3)
+            if (content) {
+                const right = content.mapToItem(vSwitcher, 0, 0).x + content.width
+                if (right - vSwitcher.width > worstLabelBleed) {
+                    worstLabelBleed = right - vSwitcher.width
+                    worstLabelAt = root.configTabs[i].label
+                }
+            }
         }
+
+        // Rows that do not fit have to go somewhere. Scrolling is the deliberate
+        // answer and overlapping is the defect, so the bound depends on which
+        // one the component chose: a scroller's own content height when it is
+        // scrolling, the column otherwise.
+        const scroller = root.scrollerOf(vSwitcher, 3)
+        const scrolling = scroller !== null && scroller.interactive
+        const bound = scrolling ? scroller.contentHeight : columnHeight
 
         root.check(label + ": no two rows overlap", worstGap >= 0,
                    "closest pair above " + worstGapAt
                    + ", gap " + worstGap.toFixed(1) + "px")
-        root.check(label + ": the rows stay inside the column",
-                   top >= -0.5 && bottom <= columnHeight + 0.5,
+        root.check(label + ": the rows stay inside what holds them",
+                   top >= -0.5 && bottom <= bound + 0.5,
                    "rows span " + top.toFixed(1) + ".." + bottom.toFixed(1)
-                   + " in a " + columnHeight + "px column")
+                   + " in " + (scrolling ? "a " + bound + "px scroller"
+                                         : "a " + bound + "px column"))
+        root.check(label + ": rows that overflow are reachable by scrolling",
+                   bottom <= columnHeight + 0.5 || scrolling,
+                   "rows reach " + bottom.toFixed(1) + " in a " + columnHeight
+                   + "px column and nothing scrolls")
+        root.check(label + ": a scrolling column clips what it hides",
+                   !scrolling || scroller.clip,
+                   "the scroller paints outside its viewport")
         root.check(label + ": a row stays big enough to hit",
                    minRow >= root.minTouch(),
                    "shortest row " + minRow.toFixed(1)
                    + "px, floor " + root.minTouch() + "px")
+        root.check(label + ": no label is drawn outside the column",
+                   worstLabelBleed <= 0.5,
+                   worstLabelAt + " overhangs by " + worstLabelBleed.toFixed(1) + "px")
     }
 
     // ── Width policy ─────────────────────────────────────────────────────────
@@ -366,6 +452,38 @@ ShellRoot {
                    + " tabs, floor " + (DashboardLayout.tabs.length * root.minTouch()) + "px")
     }
 
+    // What has to hold even where the geometry is hopeless.
+    function measureDegraded(label, page, screenW) {
+        const w   = DashboardLayout.widthFor(page, screenW)
+        const bar = DashboardLayout.barWidthFor(page, screenW)
+        root.check(label + ": the dashboard keeps a positive width", w > 0,
+                   "width " + w)
+        root.check(label + ": the dashboard still fits the output", w <= screenW,
+                   "width " + w + " on a " + screenW + "px output")
+        root.check(label + ": the tab bar keeps a positive width", bar > 0,
+                   "bar " + bar)
+
+        const n = DashboardLayout.tabs.length
+        const s = root.slotsOf(hSwitcher, n, 4)
+        if (s.length !== n) {
+            root.check(label + ": the bar still lays out " + n + " tabs", false,
+                       "found " + s.length)
+            return
+        }
+        var worstGap = 1e9
+        var prevRight = -1e9
+        for (var i = 0; i < n; i++) {
+            const tab  = s[i]
+            const pill = tab.children[0]
+            const pl = tab.x + (tab.width - pill.width) / 2
+            if (i > 0)
+                worstGap = Math.min(worstGap, pl - prevRight)
+            prevRight = pl + pill.width
+        }
+        root.check(label + ": no two tabs overlap even here", worstGap >= 0,
+                   "closest gap " + worstGap.toFixed(1) + "px")
+    }
+
     // The height ShellConfig hands its tab column, from the chrome between the
     // dashboard's outer edge and the column: the sizer's top flare and its 8px
     // content inset, the horizontal tab bar, the Row's 8px margins top and
@@ -391,8 +509,9 @@ ShellRoot {
             const sc = root.scales[a]
             for (var b = 0; b < root.screens.length; b++) {
                 const scr = root.screens[b]
+                const full = root.representative(scr, sc)
                 for (var c = 0; c < DashboardLayout.tabs.length; c++)
-                    out.push({ kind: "h", scale: sc, screen: scr,
+                    out.push({ kind: full ? "h" : "stress", scale: sc, screen: scr,
                                page: DashboardLayout.tabs[c].key })
             }
             for (var d = 0; d < root.dashHeights.length; d++)
@@ -403,7 +522,7 @@ ShellRoot {
 
     function stage(stepData) {
         SettingsService.set("scaleManual", stepData.scale)
-        if (stepData.kind === "h") {
+        if (stepData.kind === "h" || stepData.kind === "stress") {
             hHost.width  = DashboardLayout.barWidthFor(stepData.page, stepData.screen.w)
             hHost.height = hSwitcher.implicitHeight
         } else {
@@ -420,6 +539,15 @@ ShellRoot {
             root.measureWidth(tag, stepData.page, stepData.screen.w)
             root.measureHorizontal(tag + " bar=" + hHost.width, hHost.width)
             root.measureHorizontalHeight(tag)
+        } else if (stepData.kind === "stress") {
+            // A scale this output cannot carry. Not graded on fitting between
+            // the notches or on the touch floor — neither is achievable, and
+            // asserting them would only ever say "1280x720 is not a 4K panel".
+            // Graded on degrading rather than collapsing: a width that is still
+            // a width, six tabs, and no two of them on top of each other.
+            const stag = "stress " + stepData.scale + "x " + stepData.screen.name
+                       + " " + stepData.page
+            root.measureDegraded(stag, stepData.page, stepData.screen.w)
         } else {
             const vtag = "v " + stepData.scale + "x dashHeight=" + stepData.dashHeight
             root.measureVertical(vtag + " col=" + vHost.height, vHost.height)
