@@ -50,13 +50,18 @@ Rectangle {
         // The badge a blocked session wears, drawn at the same weight — filled,
         // because this is the one card on the page that will not clear itself.
         StateBadge {
+            id: badge
             anchors.top: parent.top
             sessionState: "permission_request"
             size: Theme.px(26)
         }
 
         Column {
-            width: parent.width - Theme.fs(26) - reviewBtn.width - Theme.fs(30)
+            // Measured off the badge rather than repeating its size. The line
+            // this replaces subtracted Theme.fs(22) from a 22px-wide glyph —
+            // right at scale 1.0 and wrong at every other scale, because fs()
+            // and px() are different scalers.
+            width: parent.width - badge.width - reviewBtn.width - Theme.fs(30)
             spacing: Theme.px(3)
 
             Text {
