@@ -1248,6 +1248,33 @@ jobs:
           # exercise the page against a live runtime.
           ./tests/run-agent-center-smoke.sh
 
+      - name: Notification deduplication
+        run: |
+          # P1-022. Replays a fleet of agents through src/services/notifybus.js
+          # — the file the shell loads — and counts what a person would have
+          # been interrupted by. Needs node and nothing else, which matters:
+          # the behavioural half below wants a compositor and skips without
+          # one, so without this the rule would have no CI coverage at all.
+          #
+          # It carries its own mutants, including an inverse one, and it
+          # asserts the fixture is non-trivial BEFORE measuring anything —
+          # a property test handed an empty timeline proves nothing and this
+          # program has shipped one of those already.
+          node tests/notifybus-test.js
+
+      - name: One Process carries one notification
+        run: |
+          # The measured half of P1-022, and the reason the fix exists. A
+          # Quickshell Process holds one pending command and a new assignment
+          # overwrites it, so a `notify-send --wait` nobody has dismissed used
+          # to destroy every notification raised behind it except the newest.
+          # That is not in the type information, so it is asked of the engine
+          # under a headless compositor rather than remembered in a comment.
+          #
+          # Raises no desktop notification and opens no window; skips cleanly
+          # without quickshell or a wlroots compositor.
+          ./tests/run-notify-spawn-test.sh
+
       - name: Validate QML files exist and are non-empty
         run: |
           FAILED=()
@@ -1396,6 +1423,10 @@ jobs:
             "tests/run-settings-pages-test.sh"
             "tests/settings-staged-test.qml"
             "tests/run-settings-staged-test.sh"
+            "src/services/notifybus.js"
+            "tests/notifybus-test.js"
+            "tests/notify-spawn-test.qml"
+            "tests/run-notify-spawn-test.sh"
           )
           FAILED=()
           for f in "${REQUIRED[@]}"; do
