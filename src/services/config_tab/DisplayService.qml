@@ -6,9 +6,9 @@ import Quickshell.Io
 // ─── DisplayService ───────────────────────────────────────────────────────────
 // The graphical half of §18's display settings parity.
 //
-//     display.json  ──►  /usr/libexec/apex-display-apply  ──►  hyprctl keyword
+//     display.json  ──►  /usr/libexec/apex-display-apply  ──►  hyprctl eval
 //                                                         ├─►  wlr-randr
-//                                                         ├─►  apex-display.conf
+//                                                         ├─►  apex/monitors.lua
 //                                                         └─►  kanshi profile
 //
 // APPLY AND SAVE ARE DIFFERENT ACTIONS, AND THAT MATTERS

@@ -590,13 +590,75 @@ jobs:
           # Hyprland's plain `bind` fires once per press. A volume or brightness
           # key that does not repeat is technically bound and practically
           # useless, and nothing errors when the flag is lost.
+          #
+          # hyprlang spelled it `bindel`; the Lua option table spells it
+          # { locked = true, repeating = true }. The Lua generator dropped the
+          # flag entirely until P0-025 — it emitted a plain hl.bind for every
+          # entry — so holding a volume key on a Lua config stepped exactly once.
           fail=0
-          grep -q 'e.repeat ? "bindel" : "bind"' src/services/config_tab/KeybindService.qml \
-            || { echo "✗ the keybind generator no longer emits bindel"; fail=1; }
+          grep -q 'locked = true, repeating = true' src/services/config_tab/KeybindService.qml \
+            || { echo "✗ the keybind generator no longer emits a repeating bind"; fail=1; }
           grep -q 'repeat: true' src/services/config_tab/KeybindService.qml \
             || { echo "✗ no bind asks to repeat; volume/brightness will single-step"; fail=1; }
           [ "$fail" -eq 0 ] || exit 1
           echo "✓ held volume and brightness keys repeat"
+
+      - name: The Hyprland keybind generator writes Lua, not hyprlang
+        run: |
+          # Hyprland 0.55 deprecated hyprlang and 0.56.2 loads hyprland.lua in
+          # preference to a hyprland.conf beside it — without saying it ignored
+          # one. So a generator that went back to writing .conf would produce a
+          # file that looks current, is read by nothing, and reports nothing.
+          KS=src/services/config_tab/KeybindService.qml
+          fail=0
+
+          # Comment lines stripped first: a grep for a construct is otherwise
+          # satisfied by the prose explaining its removal. This file explicitly
+          # documents what _genConf used to do.
+          code=$(grep -v '^\s*//' "$KS")
+
+          # The path is assembled from _hyprDir + the leaf, so match the leaf and
+          # the directory separately rather than a string that is never literal.
+          grep -q '/apex/shell-keybinds.lua' <<<"$code" \
+            || { echo "✗ the Hyprland artifact is not apex/shell-keybinds.lua"; fail=1; }
+          grep -q '.config/hypr' <<<"$code" \
+            || { echo "✗ the Hyprland artifact is not under ~/.config/hypr"; fail=1; }
+          grep -q '_genConf' <<<"$code" \
+            && { echo "✗ the hyprlang generator is back"; fail=1; }
+          grep -q 'ApexShellKeybinds.conf' <<<"$code" \
+            && { echo "✗ the shell still writes a hyprlang keybind fragment"; fail=1; }
+
+          # The dispatchers must be real Lua calls. They used to be emitted as
+          # hl.dsp.exec_cmd("hyprctl dispatch <verb>") — the compositor spawning
+          # a shell to run a client that talks back to the compositor, once per
+          # keypress, for something the Lua API does directly.
+          grep -q 'hyprctl dispatch' <<<"$code" \
+            && { echo "✗ the Lua generator still shells out to hyprctl dispatch"; fail=1; }
+          grep -q 'hl.dsp.window.close()' <<<"$code" \
+            || { echo "✗ the Lua generator has no native dispatcher mapping"; fail=1; }
+
+          # SUPER+W must open the DEFAULT browser. The Lua path substituted
+          # `firefox` while the niri and conf paths used the helper, so a
+          # Hyprland user's SUPER+W ignored their own default browser.
+          grep -q 'apex-open-browser' <<<"$code" \
+            || { echo "✗ the browser bind does not use apex-open-browser"; fail=1; }
+          grep -qE '"\$browser",\s*"(firefox|zen)"' <<<"$code" \
+            && { echo "✗ the browser bind names a browser"; fail=1; }
+
+          # `hyprctl keyword` is refused by a Lua config ("keyword can't work
+          # with non-legacy parsers. Use eval."), so every live config write has
+          # to have a lua branch. setGaps was the one that did not.
+          if grep -n 'hyprctl keyword' src/services/compositor/HyprlandBackend.qml \
+             | grep -v '_lua' | grep -qv 'root._lua'; then
+            grep -q '_lua' src/services/compositor/HyprlandBackend.qml \
+              || { echo "✗ a live keyword write has no Lua branch"; fail=1; }
+          fi
+          grep -q "hyprctl eval 'hl.config({ general = { gaps_in =" \
+            src/services/compositor/HyprlandBackend.qml \
+            || { echo "✗ setGaps has no hyprctl eval branch; the gaps slider is inert on Lua"; fail=1; }
+
+          [ "$fail" -eq 0 ] || exit 1
+          echo "✓ the Hyprland keybind generator writes Lua and the live writes use eval"
 
       - name: labwc session support is wired up
         run: |

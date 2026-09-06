@@ -9,7 +9,7 @@ import Quickshell.Io
 // There is exactly ONE model — ~/.config/apex-shell/input.json — and one
 // generator that turns it into whatever each compositor understands:
 //
-//     input.json  ──►  /usr/libexec/apex-input-apply  ──►  Hyprland conf
+//     input.json  ──►  /usr/libexec/apex-input-apply  ──►  Hyprland apex/input.lua
 //                                                     ├─►  niri KDL
 //                                                     └─►  labwc <libinput>
 //
