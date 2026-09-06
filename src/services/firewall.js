@@ -193,6 +193,36 @@ function statusTone(unit) {
     }
 }
 
+// ── "Ports you have opened: nothing" is three different facts ───────────────
+//
+// The page had one sentence for an empty exception list — "Nothing. Every port
+// a program on this machine has open is reachable only from this machine
+// itself." — and it was shown whenever a sweep had returned and the list came
+// back empty. A read that FAILED comes back empty too, and so does a machine
+// with no firewall running, so the reassuring half of that sentence was
+// printed on the two machines where it is false.
+//
+// On katana, whose image predates `apex firewall`, the status verb exits
+// non-zero with "unrecognized subcommand" and nothing on stdout. The page said
+// the machine's ports were reachable only from itself, three lines under a
+// headline saying nothing was filtering them at all.
+//
+// So the sentence is chosen from what is actually known: the read either
+// answered or it did not, and the unit either owns a loaded ruleset or does
+// not. Returning "" means the page has nothing to say yet and draws nothing —
+// which is not the same as saying nothing is open.
+function emptyLine(checked, unit, status) {
+    if (!checked) return ""
+    if (!status || !status.ok)
+        return "Could not be read. `apex firewall status` did not answer on this machine, "
+             + "so what is open here is unknown rather than nothing."
+    if (unit !== "active")
+        return "Nothing opened here — and nothing is filtering either, so every port a "
+             + "program on this machine has open is reachable from the network."
+    return "Nothing. Every port a program on this machine has open is reachable only "
+         + "from this machine itself."
+}
+
 function allowCommand(name) { return "sudo apex firewall allow " + name }
 function denyCommand(name)  { return "sudo apex firewall deny " + name }
 var READ_COMMAND  = "sudo apex firewall status"
@@ -217,6 +247,7 @@ if (typeof module !== "undefined" && module.exports)
         parseCatalogue: parseCatalogue,
         statusLine: statusLine,
         statusTone: statusTone,
+        emptyLine: emptyLine,
         allowCommand: allowCommand,
         denyCommand: denyCommand,
         unopened: unopened,
