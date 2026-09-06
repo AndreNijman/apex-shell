@@ -237,9 +237,13 @@ function enableRefused(text) {
 // recalled: 0 authorized; 1 not authorized; 2 authentication was required and
 // could not be obtained; 126 the subject or the arguments were unusable; 127 a
 // polkit error, which is what an unregistered action id comes back as.
+//
+// Exit 2 is reported as "not completed" rather than as a missing authentication
+// agent. Both a session with no agent registered and a dialog the user closed
+// can land there, and telling them apart would take raising a real prompt.
 var AUTH_GRANTED = "granted";
 var AUTH_REFUSED = "refused";
-var AUTH_NO_AGENT = "no-agent";
+var AUTH_INCOMPLETE = "incomplete";
 var AUTH_UNREGISTERED = "unregistered";
 var AUTH_ERROR = "error";
 
@@ -252,7 +256,7 @@ function authOutcome(exitCode, stderr) {
     var err = String(stderr || "");
     if (exitCode === 0) return AUTH_GRANTED;
     if (exitCode === 1) return AUTH_REFUSED;
-    if (exitCode === 2) return AUTH_NO_AGENT;
+    if (exitCode === 2) return AUTH_INCOMPLETE;
     if (/is not registered/.test(err)) return AUTH_UNREGISTERED;
     return AUTH_ERROR;
 }
@@ -260,8 +264,12 @@ function authOutcome(exitCode, stderr) {
 var AUTH_MESSAGES = {
     granted: "",
     refused: "Authentication was refused, so nothing changed.",
-    "no-agent": "No authentication agent answered, so nothing changed. "
-              + "The desktop session needs one running.",
+    // Deliberately not "no authentication agent". pkcheck exits 2 when the
+    // authentication could not be obtained, and this build cannot tell a
+    // session with no agent registered from a dialog the user closed without
+    // raising a real prompt to find out. Naming one of the two would be a
+    // guess printed as a diagnosis.
+    incomplete: "Authentication was not completed, so nothing changed.",
     unregistered: "This machine has no polkit action for the setting, so it "
                 + "cannot be authenticated. Install "
                 + "dots-extra/polkit/org.apexos.shell.agent.policy.",
@@ -341,7 +349,7 @@ if (typeof module !== "undefined" && module.exports)
         MODE_TOKENS: MODE_TOKENS,
         AUTH_GRANTED: AUTH_GRANTED,
         AUTH_REFUSED: AUTH_REFUSED,
-        AUTH_NO_AGENT: AUTH_NO_AGENT,
+        AUTH_INCOMPLETE: AUTH_INCOMPLETE,
         AUTH_UNREGISTERED: AUTH_UNREGISTERED,
         AUTH_ERROR: AUTH_ERROR,
         parseConfig: parseConfig,
