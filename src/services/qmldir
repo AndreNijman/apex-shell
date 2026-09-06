@@ -54,6 +54,10 @@ AgentCenter agents/AgentCenter.qml
 # you get instead.
 RequestRow agents/RequestRow.qml
 SessionRow agents/SessionRow.qml
+# P1-020's second layer: what a session started. Registered here for exactly
+# the reason the note above gives — SessionRow is reached through this file, so
+# `SubagentRow is not a type` is what a sibling import would produce.
+SubagentRow agents/SubagentRow.qml
 UnrestrictedBanner agents/UnrestrictedBanner.qml
 SectionHeading agents/SectionHeading.qml
 SmallIconButton agents/SmallIconButton.qml
