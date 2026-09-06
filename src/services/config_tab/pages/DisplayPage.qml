@@ -6,8 +6,8 @@ import "../../../components/config"
 
 // Config → Display  (roadmap §18, settings parity)
 //
-// One model, ~/.config/apex-shell/display.json, applied live through hyprctl or
-// wlr-randr and persisted as a Hyprland monitor conf plus a kanshi profile.
+// One model, ~/.config/apex-shell/display.json, applied live through hyprctl eval or
+// wlr-randr and persisted as ~/.config/hypr/apex/monitors.lua plus a kanshi profile.
 // Nothing here knows which compositor is running.
 //
 // THIS PAGE DOES NOT WRITE AS YOU DRAG
@@ -268,9 +268,12 @@ CfgScroll {
         busy:  DisplayService.applying || DisplayService.confirmSeconds > 0
         error: DisplayService.lastError
 
+        // "module", not "conf": P0-018 made the Hyprland artifact a Lua module
+        // at ~/.config/hypr/apex/monitors.lua. The sentence is the only part of
+        // the bar this page owns, so this is where that fact belongs.
         note: "Do nothing after an apply and the previous layout comes back in "
               + DisplayService.confirmTotal + " seconds. Save writes the "
-              + "Hyprland monitor conf and the kanshi profile, which the next "
+              + "Hyprland monitor module and the kanshi profile, which the next "
               + "login or hotplug reads."
 
         onApplyRequested:  DisplayService.apply()
