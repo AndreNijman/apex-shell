@@ -124,6 +124,29 @@ QtObject {
     readonly property string planSummary: root.plan ? BP.summary(root.plan) : ""
     readonly property string rootNotice: root.plan ? BP.rootNotice(root.plan) : ""
 
+    // The user-domain plan split by direction, so the page can show what apply
+    // would take away under its own heading instead of mixing it into a list
+    // where a deletion and an installation are the same row.
+    //
+    // Split here rather than in three page bindings: a Repeater that filtered
+    // its own model is a third place for a removal to stop counting as one, and
+    // this is the value the destructive heading is drawn from.
+    readonly property var planAdds:
+        root.plan && root.plan.ok ? BP.ofKind(root.plan.user, "add") : []
+    readonly property var planEdits:
+        root.plan && root.plan.ok ? BP.ofKind(root.plan.user, "change") : []
+    readonly property var planRemovals:
+        root.plan && root.plan.ok ? BP.ofKind(root.plan.user, "remove") : []
+
+    // Across BOTH privilege domains, for the count the page leads with. A
+    // deletion that needs sudo is still a deletion, and leaving it out of the
+    // total would say "nothing will be removed" on a plan that removes things.
+    readonly property int removalCount: root.plan ? BP.removals(root.plan).length : 0
+
+    // For marking the root-domain list, which stays one list because those rows
+    // are grouped by who has to run them, not by what they do.
+    function kindOf(entry) { return BP.changeKind(entry) }
+
     // ── Write state ───────────────────────────────────────────────────────────
     property bool saving: false
     property string saveError: ""     // the CLI's stderr, verbatim
