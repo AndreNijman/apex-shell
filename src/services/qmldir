@@ -50,6 +50,7 @@ RequestRow agents/RequestRow.qml
 SessionRow agents/SessionRow.qml
 SectionHeading agents/SectionHeading.qml
 SmallIconButton agents/SmallIconButton.qml
+StateBadge agents/StateBadge.qml
 # §20's remote agent status. Same rule as the rows above: registered here
 # because AgentCenter is loaded THROUGH this qmldir.
 singleton RemoteAgentService 1.0 RemoteAgentService.qml

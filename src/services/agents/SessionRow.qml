@@ -1,6 +1,7 @@
 import QtQuick
 import "../"
 import "../../"
+import "../agentstate.js" as AgentState
 
 // One agent session in the Agent Center.
 //
@@ -13,6 +14,15 @@ import "../../"
 // undo and checkpoint are NOT here — they change a project's contents, and a
 // destructive action behind one unconfirmed click in a status list is how
 // people lose work. Those stay in the CLI where `apex agent undo` asks first.
+//
+// ── THE THREE PLACES THE STATE IS VISIBLE ───────────────────────────────────
+//
+// A badge, a stripe down the left edge, and the state word itself, all in the
+// one tone StateBadge resolves. Three because one was not enough: a single
+// glyph in a 22px column, on a row whose every other pixel is the palette's
+// foreground, is a page that reads as white — which is how P0-021 was reported.
+// The stripe is what makes the LIST look like a status list from across the
+// desk, before anything has been read.
 
 Rectangle {
     id: row
@@ -21,15 +31,17 @@ Rectangle {
 
     readonly property bool live:
         session.exit_code === null && session.exit_signal === null
-    readonly property bool needsYou:
-        session.state === "waiting_for_user" || session.state === "permission_request"
+    readonly property bool needsYou: AgentState.needsYou(session.state)
 
     height: Theme.px(52)
     radius: Theme.px(8)
     color: hover.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
                          : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
-    border.width: row.needsYou ? 1 : 0
-    border.color: Theme.active
+    // Bordered while the session is asking for something, in that state's own
+    // tone rather than in one shared accent — "it went quiet" and "it asked for
+    // root" arrive at the same place in the list and must not look alike.
+    border.width: row.needsYou ? Math.max(1, Theme.px(1)) : 0
+    border.color: badge.toneColor
 
     Behavior on color { ColorAnimation { duration: 90 } }
 
@@ -41,44 +53,46 @@ Rectangle {
         onTapped: AgentService.focusTerminal(row.session.id)
     }
 
+    // The state, at the scale you notice without looking. Inset from the
+    // rounded corner so it reads as part of the card rather than as a crop of
+    // it, and absent for a finished session because "exited" is not a status.
+    Rectangle {
+        id: stripe
+        visible: badge.tone !== "idle"
+        anchors.left: parent.left
+        anchors.leftMargin: Theme.px(3)
+        anchors.verticalCenter: parent.verticalCenter
+        width: Theme.px(3)
+        height: parent.height - Theme.px(16)
+        radius: width / 2
+        color: badge.toneColor
+        Behavior on color { ColorAnimation { duration: 120 } }
+    }
+
     Row {
         anchors.fill: parent
-        anchors.leftMargin: Theme.px(10)
+        anchors.leftMargin: Theme.px(12)
         anchors.rightMargin: Theme.px(8)
         spacing: Theme.px(10)
 
         // ── State ─────────────────────────────────────────────────────────────
-        Text {
+        StateBadge {
+            id: badge
             anchors.verticalCenter: parent.verticalCenter
-            width: Theme.px(22)
-            horizontalAlignment: Text.AlignHCenter
-            text: AgentService.stateIcon(row.session.state)
-            font.pixelSize: Theme.fs(17)
-            color: row.needsYou ? Theme.active
-                 : row.session.state === "failed" ? Theme.wsUrgent
-                 : row.live ? Theme.text : Theme.subtext
-
-            // A working session animates; nothing else does. Motion in a status
-            // list should mean "this is changing", or it is just noise.
-            SequentialAnimation on opacity {
-                running: row.session.state === "working"
-                loops: Animation.Infinite
-                NumberAnimation { to: 0.45; duration: 900; easing.type: Easing.InOutQuad }
-                NumberAnimation { to: 1.0;  duration: 900; easing.type: Easing.InOutQuad }
-            }
-            onOpacityChanged: if (row.session.state !== "working") opacity = 1.0
+            sessionState: row.session.state
+            size: Theme.px(26)
         }
 
         // ── Identity ──────────────────────────────────────────────────────────
         Column {
             anchors.verticalCenter: parent.verticalCenter
-            width: parent.width - Theme.fs(22) - controls.width - Theme.fs(40)
+            width: parent.width - badge.width - controls.width - Theme.fs(40)
             spacing: Theme.px(2)
 
             Row {
                 spacing: Theme.px(6)
                 Text {
-                    text: AgentService._agentLabel(row.session)
+                    text: AgentState.agentName(row.session.agent)
                     color: Theme.text
                     font.pixelSize: Theme.fs(12)
                     font.bold: true
@@ -108,24 +122,54 @@ Rectangle {
                 }
             }
 
-            Text {
+            // project · STATE · elapsed, with the state word in its own tone.
+            //
+            // Three Texts rather than one joined string, because the state is
+            // the only part that is coloured and QML has no way to tone a
+            // substring without building markup out of a project name the user
+            // controls. The project elides; the state and the tail never do,
+            // so the two things that identify what is happening survive a
+            // narrow window.
+            Row {
+                id: meta
                 width: parent.width
-                elide: Text.ElideRight
-                text: {
+                spacing: 0
+
+                readonly property string where:
+                    row.session.project_name
+                    || AgentService._basename(row.session.cwd)
+                    || ""
+                readonly property string tail: {
                     var bits = []
-                    var where = row.session.project_name
-                        || AgentService._basename(row.session.cwd)
-                    if (where) bits.push(where)
-                    bits.push(AgentService.stateLabel(row.session.state))
                     var e = AgentService.elapsed(row.session)
                     if (e) bits.push(e)
                     if (!row.live && row.session.exit_code !== null
                         && row.session.exit_code !== 0)
                         bits.push("exit " + row.session.exit_code)
-                    return bits.join("  ·  ")
+                    return bits.length ? "  ·  " + bits.join("  ·  ") : ""
                 }
-                color: row.needsYou ? Theme.active : Theme.subtext
-                font.pixelSize: Theme.fs(10)
+
+                Text {
+                    text: meta.where === "" ? "" : meta.where + "  ·  "
+                    color: Theme.subtext
+                    font.pixelSize: Theme.fs(10)
+                    elide: Text.ElideRight
+                    width: Math.max(0, Math.min(implicitWidth,
+                             meta.width - stateWord.implicitWidth - tailText.implicitWidth))
+                }
+                Text {
+                    id: stateWord
+                    text: AgentService.stateLabel(row.session.state)
+                    color: badge.toneColor
+                    font.pixelSize: Theme.fs(10)
+                    font.bold: true
+                }
+                Text {
+                    id: tailText
+                    text: meta.tail
+                    color: Theme.subtext
+                    font.pixelSize: Theme.fs(10)
+                }
             }
         }
 
