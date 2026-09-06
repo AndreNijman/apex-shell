@@ -83,7 +83,7 @@ QtObject {
         // wlsunset would work here through wlr-gamma-control, which labwc does
         // implement, but APEX does not ship it. See NiriBackend for the same
         // note — one `true` when it does.
-        nightLight:           false
+        nightLight:           true
     })
 
     // Both feeds are protocol objects the compositor pushes. Nothing polls, so
@@ -188,7 +188,23 @@ QtObject {
     readonly property string outputBoxScript: Boxes.WLR_OUTPUTS
 
     readonly property string screenShader:     ""
-    readonly property bool   nightLightActive: false
+
+    // ── Night light ───────────────────────────────────────────────────────────
+    // gammastep over `zwlr_gamma_control_manager_v1`, which labwc advertises —
+    // measured against labwc 0.9.6, headless: the global is in the registry.
+    // The ramp itself needs a gamma-capable output, which a headless backend has
+    // none of, so a nested run gets "Zero outputs support gamma adjustment" and
+    // the process stays up doing nothing. That is a property of the harness, not
+    // of labwc.
+    //
+    // The process is KEPT, not fired and forgotten: wlr-gamma-control restores
+    // the original ramp the moment its client disconnects, so a night light that
+    // exits is a night light that turns itself off. gammastep knows this — even
+    // in one-shot manual mode it prints "Press ctrl-c to stop" and waits.
+    readonly property string nightLightProcess: "gammastep"
+    function nightLightArgv(kelvin) {
+        return ["gammastep", "-m", "wayland", "-O", String(kelvin)]
+    }
 
     // ── Actions ───────────────────────────────────────────────────────────────
     function focusWorkspace(ref) {
@@ -215,5 +231,4 @@ QtObject {
     function setKeyboardInterception(on)       { /* unreachable: capability is false */ }
     function setScreenShader(path)             { /* unreachable: capability is false */ }
     function refreshScreenShader()             { /* nothing to read */ }
-    function setNightLight(on)                 { /* unreachable: capability is false */ }
 }

@@ -421,16 +421,188 @@ QtObject {
     }
 
     // ── Night light ───────────────────────────────────────────────────────────
-    // hyprsunset. A daemon rather than a compositor feature, but it shifts the
-    // colour temperature through `hyprland-ctm-control-v1` and so does nothing
-    // at all anywhere else, which makes it exactly the kind of thing this map
-    // exists to answer honestly.
-    readonly property bool nightLightActive:
-        root.backend ? root.backend.nightLightActive : false
+    //
+    // ONE control, ONE temperature, ONE piece of state — and a mechanism chosen
+    // per compositor. The backends declare DATA (`nightLightProcess` and
+    // `nightLightArgv(kelvin)`) and this file owns every behaviour: starting,
+    // adopting, killing, and noticing that the mechanism refused.
+    //
+    // It was a Hyprland-only tile before, implemented inside HyprlandBackend
+    // and hidden everywhere else. Hidden is the failure mode this whole
+    // capability map exists to prevent — a feature that quietly stops existing
+    // on the compositor nobody tested.
+    //
+    //   Hyprland   hyprsunset      `hyprland-ctm-control-v1` (a colour matrix)
+    //   labwc      gammastep       `zwlr_gamma_control_manager_v1` (gamma LUT)
+    //   niri       gammastep       the same, on the DRM backend only
+    //   unknown    —               no mechanism; the control says so
+    //
+    // Every one of those globals was read out of a live registry rather than
+    // assumed; see tests/run-night-light-test.sh.
+    //
+    // ── Why the process is kept ──────────────────────────────────────────────
+    // Both tools hold their adjustment for as long as they run. wlr-gamma-control
+    // restores the output's original ramp the instant the client disconnects, so
+    // "set it and exit" is indistinguishable from "off"; gammastep says as much
+    // itself, printing "Press ctrl-c to stop" even in one-shot manual mode.
+    //
+    // ── Why an exit is an error and not a shrug ──────────────────────────────
+    // A declared mechanism can still be refused at runtime: the binary is not
+    // installed, or the compositor does not advertise the protocol on the
+    // backend it happens to be running. niri does exactly that — it implements
+    // gamma control against the DRM GAMMA_LUT property, so a niri on a TTY
+    // offers it and a nested niri does not. So the tile follows the PROCESS,
+    // not the button: an early exit turns the state back off and puts the
+    // tool's own stderr in front of the user.
+
+    // Kelvin. Below 6500 is warmer; 6500 is neutral on both tools.
+    readonly property int nightLightTemperature: SettingsService.nightLightTemp
+
+    // The tool that would be used here, for the UI to name. Empty when the
+    // compositor has no mechanism at all.
+    readonly property string nightLightMechanism:
+        root.backend && root.can.nightLight ? root.backend.nightLightProcess : ""
+
+    readonly property bool nightLightSupported: root.nightLightMechanism !== ""
+
+    property bool nightLightActive: false
+
+    // Non-empty when the mechanism was asked for and refused. Cleared on the
+    // next successful start.
+    property string nightLightError: ""
 
     function setNightLight(on) {
-        return root._act("nightLight", "setNightLight", [on])
+        if (!root.nightLightSupported) return false
+        root._nightLightApply(on, root.nightLightTemperature)
+        return true
     }
+
+    /// Change the temperature. Restarts the tool when it is running, because
+    /// neither of them takes a new temperature over a socket.
+    function setNightLightTemperature(kelvin) {
+        SettingsService.set("nightLightTemp", kelvin)
+        if (root.nightLightActive)
+            root._nightLightApply(true, SettingsService.nightLightTemp)
+    }
+
+    function _nightLightApply(on, kelvin) {
+        const tool = root.backend.nightLightProcess
+
+        // Stopping our own process is a handle, not a signal — and the exit it
+        // produces is expected, so it must not be reported as the mechanism
+        // failing. That distinction is the whole of _nightLightExpectExit.
+        if (root._nightLightProc.running) {
+            root._nightLightExpectExit++
+            root._nightLightProc.running = false
+        }
+
+        if (!on) {
+            // By name as well, because the tool may have been started by a
+            // previous shell or by the user and this process has no handle on
+            // it. `-x` and never `-f`: see the probe below.
+            root._nightLightStopProc.command = ["pkill", "-x", tool]
+            root._nightLightStopProc.running = false
+            root._nightLightStopProc.running = true
+            root.nightLightActive = false
+            root.nightLightError = ""
+            return
+        }
+
+        root.nightLightError = ""
+        root._nightLightStderr = ""
+
+        // The kill and the start are ONE invocation, and they have to be.
+        // Two Processes race, and the race is not theoretical: an asynchronous
+        // `pkill -x gammastep` landed AFTER its replacement had started, killed
+        // it, and the shell reported "gammastep exited 15" a second after
+        // saying the light was on. `exec` leaves the tool as the process, so
+        // the adopt probe still finds it by name.
+        root._nightLightProc.command = ["bash", "-c",
+            'pkill -x "$1" >/dev/null 2>&1; shift; exec "$@"',
+            tool, tool].concat(root.backend.nightLightArgv(kelvin))
+        root._nightLightProc.running = true
+        root.nightLightActive = true
+    }
+
+    // Exits this shell asked for. Not a bool: two restarts in flight would
+    // clear a flag once and report the second death as a failure.
+    property int _nightLightExpectExit: 0
+
+    property Process _nightLightProc: Process {
+        command: []
+        running: false
+        stderr: StdioCollector {
+            onStreamFinished: root._nightLightStderr = this.text.trim()
+        }
+        onExited: function(code) {
+            if (root._nightLightExpectExit > 0) {
+                root._nightLightExpectExit--
+                return
+            }
+            // Only meaningful while the shell believes the light is on: a stop
+            // sets running = false itself and exits 0 or is killed.
+            if (!root.nightLightActive) return
+            root.nightLightActive = false
+            const said = root._nightLightStderr
+            // 127 is the shell's "no such command", and it is the one failure
+            // worth translating: the tool ships with APEX-OS, so on another
+            // distribution this is the whole story and bash's own wording
+            // ("line 1: exec: gammastep: not found") is not.
+            root.nightLightError =
+                (code === 127
+                    ? root.nightLightMechanism + " is not installed, so there is "
+                      + "nothing here that can shift the colour temperature."
+                    : said !== "" ? said
+                    : root.nightLightMechanism + " exited " + code)
+                + "  Night light is off."
+        }
+    }
+
+    property string _nightLightStderr: ""
+
+    property Process _nightLightStopProc: Process { command: []; running: false }
+
+    // Adopts a tool the user — or a previous shell — already started, so the
+    // control does not offer to turn on something that is already on.
+    //
+    // `-x`, and never `-f`. Without -x the pattern is a regex against the
+    // process NAME and also matches a `gammastep-something`; with -f it would
+    // match any command LINE containing the word, including the shell running
+    // the probe, which reports "running" unconditionally.
+    //
+    // One probe for every compositor, run once the backend is loaded. It used
+    // to be Hyprland's alone, inside HyprlandBackend.
+    property Process _nightLightProbeProc: Process {
+        command: []
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (this.text.trim() !== "") root.nightLightActive = true
+            }
+        }
+    }
+
+    // Both entry points, because the backend Loader is synchronous: on a normal
+    // startup the mechanism is already resolved by the time this object is
+    // constructed and the change signal never fires. It DOES fire when the user
+    // changes the compositor override on the Misc page, which is the other time
+    // the tool's name can change under a running shell.
+    property var _nightLightProbeOnce: Connections {
+        target: root
+        function onNightLightMechanismChanged() { root._probeNightLight() }
+    }
+
+    property bool _nightLightProbed: false
+
+    function _probeNightLight() {
+        if (root.nightLightMechanism === "") return
+        if (root._nightLightProbed) return
+        root._nightLightProbed = true
+        root._nightLightProbeProc.command = ["pgrep", "-x", root.nightLightMechanism]
+        root._nightLightProbeProc.running = true
+    }
+
+    Component.onCompleted: root._probeNightLight()
 
     // ── screenshot(): the picker, not the capture ─────────────────────────────
     // grim and slurp are wlroots protocols and work on all three compositors, so

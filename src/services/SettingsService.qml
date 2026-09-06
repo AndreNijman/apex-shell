@@ -44,6 +44,14 @@ QtObject {
     // the current desktop wallpaper", which is the historical behaviour.
     property string lockBackground:  ""
 
+    // ── Night light ──────────────────────────────────────────────────────────
+    // Kelvin. 6500 is neutral on both mechanisms, so the slider's top end is
+    // "no shift at all" rather than a warmer white. 5600 is what the tile has
+    // always used — it was a literal inside the hyprsunset invocation and there
+    // was no way to change it — so the default is that, and a user who never
+    // touches the slider sees exactly the shift they saw before.
+    property int nightLightTemp: 5600
+
     property int  dashboardWidth:    900
     property int  dashboardHeight:   520
     property int  notificationsWidth: 400
@@ -58,7 +66,8 @@ QtObject {
         "cornerRadius", "borderWidth", "notchRadius", "notchHeight",
         "barEnabled", "spacing", "exclusionGap", "animDuration", "reduceMotion",
         "dashboardWidth", "dashboardHeight", "notificationsWidth",
-        "lockBackground", "scaleMode", "scaleManual", "scaleScreen"
+        "lockBackground", "scaleMode", "scaleManual", "scaleScreen",
+        "nightLightTemp"
     ]
     readonly property var _defaults: ({
         cornerRadius: 17, borderWidth: 6, notchRadius: 15, notchHeight: 40,
@@ -66,7 +75,8 @@ QtObject {
         reduceMotion: false, dashboardWidth: 900, dashboardHeight: 520,
         notificationsWidth: 400,
         lockBackground: "",
-        scaleMode: "auto", scaleManual: 1.0, scaleScreen: ""
+        scaleMode: "auto", scaleManual: 1.0, scaleScreen: "",
+        nightLightTemp: 5600
     })
 
     // Bounds used by the UI sliders AND clamped on load so a hand-edited file
@@ -81,7 +91,11 @@ QtObject {
         // A scale below 0.5 makes the shell unreadable and above 3.0 makes it
         // unusable; either way the user would have to hand-edit the file to
         // recover, so clamp on load as well as in the UI.
-        scaleManual:       [0.5, 3.0]
+        scaleManual:       [0.5, 3.0],
+        // 1000K is the warmest either tool will take and 6500K is neutral.
+        // Above neutral both start ADDING blue, which is the opposite of what
+        // a control called Night Light is for.
+        nightLightTemp:    [1000, 6500]
     })
 
     readonly property bool isDefault: {
@@ -143,6 +157,7 @@ QtObject {
     onScaleModeChanged:         _scheduleSave()
     onScaleManualChanged:       _scheduleSave()
     onScaleScreenChanged:       _scheduleSave()
+    onNightLightTempChanged:    _scheduleSave()
 
     function _scheduleSave() { if (_loaded) _saveTimer.restart() }
 

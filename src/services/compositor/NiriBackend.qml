@@ -74,7 +74,7 @@ QtObject {
         // here through wlr-gamma-control, but APEX does not ship it. Declared
         // false rather than dispatching a binary that is probably absent — the
         // day it ships, this is the one line that changes.
-        nightLight:           false
+        nightLight:           true
     })
 
     // Nothing here costs anything — the event stream runs for the workspace
@@ -146,7 +146,21 @@ QtObject {
     readonly property string outputBoxScript: Boxes.WLR_OUTPUTS
 
     readonly property string screenShader:     ""
-    readonly property bool   nightLightActive: false
+
+    // ── Night light ───────────────────────────────────────────────────────────
+    // gammastep, the same tool and the same argv as labwc. niri implements
+    // `zwlr_gamma_control_manager_v1` against the DRM `GAMMA_LUT` property, so
+    // it is advertised on a TTY session and NOT under the nested winit backend —
+    // measured on niri 26.04: the global is absent nested, and real gammastep
+    // exits 1 with "Failed to start adjustment method: wayland".
+    //
+    // That is why the facade watches the process rather than trusting the
+    // capability. A mechanism that is declared and then refused at runtime is
+    // reported as an error the user can read, not as a tile that says it is on.
+    readonly property string nightLightProcess: "gammastep"
+    function nightLightArgv(kelvin) {
+        return ["gammastep", "-m", "wayland", "-O", String(kelvin)]
+    }
 
     // ── Actions ───────────────────────────────────────────────────────────────
     property Process _proc: Process { command: []; running: false }
@@ -187,5 +201,4 @@ QtObject {
     function setKeyboardInterception(on) { /* unreachable: capability is false */ }
     function setScreenShader(path)       { /* unreachable: capability is false */ }
     function refreshScreenShader()       { /* nothing to read */ }
-    function setNightLight(on)           { /* unreachable: capability is false */ }
 }

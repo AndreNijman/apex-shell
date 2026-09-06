@@ -75,7 +75,13 @@ QtObject {
     readonly property string outputBoxScript: ""
 
     readonly property string screenShader:     ""
-    readonly property bool   nightLightActive: false
+
+    // ── Night light ───────────────────────────────────────────────────────────
+    // No compositor was detected, so no colour-temperature mechanism can be
+    // named. The facade reports this to the user as a reason rather than hiding
+    // the control; see CompositorService.nightLightUnavailable.
+    readonly property string nightLightProcess: ""
+    function nightLightArgv(kelvin)            { return [] }
 
     // CompositorService gates every one of these on a capability, so none of
     // them can be reached. They exist so that a stray direct call on the backend
@@ -93,5 +99,4 @@ QtObject {
     function setKeyboardInterception(on)       {}
     function setScreenShader(path)             {}
     function refreshScreenShader()             {}
-    function setNightLight(on)                 {}
 }
