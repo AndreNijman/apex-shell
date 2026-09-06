@@ -222,7 +222,8 @@ checkTrue("the refusal says the file will be left alone",
 
 check("exit 0 is granted", P.authOutcome(0, ""), P.AUTH_GRANTED);
 check("exit 1 is refused", P.authOutcome(1, ""), P.AUTH_REFUSED);
-check("exit 2 is no authentication agent", P.authOutcome(2, ""), P.AUTH_NO_AGENT);
+check("exit 2 is an authentication that did not complete",
+      P.authOutcome(2, ""), P.AUTH_INCOMPLETE);
 check("an unregistered action is not reported as a refusal",
       P.authOutcome(127, "GDBus.Error:...: Action org.apexos.shell.agent."
                        + "set-always-unrestricted is not registered"),
@@ -231,7 +232,7 @@ check("any other polkit error is an error", P.authOutcome(127, "boom"), P.AUTH_E
 check("a usage failure is an error", P.authOutcome(126, ""), P.AUTH_ERROR);
 check("granted has no message to show", P.authMessage(P.AUTH_GRANTED), "");
 checkTrue("every other outcome has one",
-      [P.AUTH_REFUSED, P.AUTH_NO_AGENT, P.AUTH_UNREGISTERED, P.AUTH_ERROR]
+      [P.AUTH_REFUSED, P.AUTH_INCOMPLETE, P.AUTH_UNREGISTERED, P.AUTH_ERROR]
           .every(o => P.authMessage(o).length > 0));
 
 // ─── criterion 8: a running session reports its own mode ─────────────────────

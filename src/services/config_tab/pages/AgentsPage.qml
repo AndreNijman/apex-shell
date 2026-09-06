@@ -83,9 +83,13 @@ CfgScroll {
 
         CfgRow {
             label: "Always unrestricted agents"
+            // The off branch names the mode actually in force, not "project".
+            // A user whose file says `strict` was being told `project` by this
+            // line while the row below it said `strict`.
             description: root._on
                 ? "New sessions read and write any file you can."
-                : "New sessions get the project sandbox: the project writable, the rest of $HOME masked."
+                : "New sessions get the " + AgentPolicyService.defaultSandbox
+                  + " sandbox: your project writable, the rest of $HOME not there."
 
             CfgSwitch {
                 checked: root._on
@@ -178,8 +182,8 @@ CfgScroll {
                    + "the session does not receive the credential. This build has no route "
                    + "that hands over a raw one." },
                 { t: "The agent's own permission mode",
-                  d: "Claude's bypassPermissions and the equivalents are a separate "
-                   + "setting and stay where you left them, in both directions." }
+                  d: "A separate setting, in both directions. Claude's bypassPermissions "
+                   + "stays set if you had it set." }
             ]
 
             delegate: Item {
@@ -214,18 +218,23 @@ CfgScroll {
             }
         }
 
-        // The caveat the guide already carries, repeated where the switch is.
-        // APEX clears no sudo timestamp before starting a session, so a warm
-        // one from the user's own terminal is reachable from an unconfined
-        // agent. Stating it here is the difference between a page that
-        // describes the boundary and one that oversells it.
+        // The residual, next to the switch that creates it. The guide used to
+        // say a warm sudo timestamp was reachable from an unconfined agent;
+        // that was written before apexd/apex-agentd/src/pty.rs set
+        // PR_SET_NO_NEW_PRIVS on unconfined sessions too, and sudo now fails
+        // inside one whatever the sandbox. What survives is the one thing the
+        // flag cannot cover: a process the USER starts later does not inherit
+        // it, so a file the session wrote and your shell runs is the way out.
+        // Stating that is the difference between a page that describes the
+        // boundary and one that oversells it.
         Item { width: parent.width; height: Theme.px(6) }
         Text {
             width: parent.width - Theme.px(20)
             x:     Theme.px(10)
-            text: "One caveat: APEX does not clear a sudo timestamp before starting a "
-                + "session. If you authenticated sudo in a terminal minutes ago, an "
-                + "unrestricted agent can reach that timestamp."
+            text: "The caveat is not sudo inside the session, which fails. It is what "
+                + "an unconfined session can leave behind: your shell startup files, "
+                + "a git hook, a systemd user unit. Those run as you the next time "
+                + "you start a shell, with none of a session's limits on them."
             font.pixelSize: Theme.fs(10)
             color:    Theme.warning
             wrapMode: Text.WordWrap

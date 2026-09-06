@@ -6,15 +6,15 @@
 <!--
   APEX Shell — the password behind "Always unrestricted agents"
 
-  ROADMAP.md §42.1 asks that switching the APEX sandbox default off take a real
-  local password at a prompt the agent cannot reach, and that switching it back
-  on again be immediate. This action is that password. Config → Agents raises it
-  with:
+  ROADMAP.md §42.1 asks that turning the APEX sandbox OFF for new sessions take
+  a real local password at a prompt the agent cannot reach, and that turning it
+  back ON again be immediate and ask for nothing. This action is that password.
 
-      pkcheck --action-id org.apexos.shell.agent.set-always-unrestricted \
-              --process <the shell's pid> --allow-user-interaction
-
-  and writes ~/.config/apex/agent.json only when that exits 0.
+  Config → Agents raises it by running pkcheck against this action id, for the
+  shell's own process, with user interaction allowed, and writes
+  ~/.config/apex/agent.json only when that exits 0. The argv is in
+  src/services/AgentPolicyService.qml rather than quoted here: an XML comment
+  may not contain a double hyphen, and every flag it uses starts with one.
 
   ── auth_self, not auth_admin ───────────────────────────────────────────────
 

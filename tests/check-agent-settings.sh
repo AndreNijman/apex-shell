@@ -113,19 +113,30 @@ between_in_fn() {
 #
 # Every double-quoted literal in the comment-stripped source that carries a
 # space and four letters, which on these two files is the sentences and nothing
-# else. An earlier version keyed off `text:` and `description:` and silently
-# dropped both halves of every ternary, so the string a reader sees most of the
-# time was the one string this never looked at. The mutant that rewrites a
+# else. Two earlier versions of this got it wrong in opposite directions and
+# both are worth remembering, because the checks below are only as honest as
+# what they are handed.
+#
+# It keyed off `text:` and `description:` first, which silently dropped both
+# halves of every ternary — so the string a reader sees most of the time was
+# the one string the slop gate never looked at. The mutant that rewrites a
 # description to say "sandboxed and secure" is what found that.
+#
+# Then it took each literal on its own, which split a sentence written as three
+# concatenated lines into three "sentences" of nearly equal length and tripped
+# the rhythm rule on prose that reads as one line on screen. A run of literals
+# joined by `+` is ONE string to the reader, so it is joined here too.
 extract_copy() {
     python3 - "$@" <<'PYCOPY'
 import re, sys, pathlib
+LIT = r'"(?:[^"\\\n]|\\.)*"'
+RUN = re.compile("(?:" + LIT + r")(?:\s*\+\s*(?:" + LIT + "))*")
 out = []
 for f in sys.argv[1:]:
     src = pathlib.Path(f).read_text(errors="replace")
     src = re.sub(r"^[ \t]*//.*$", "", src, flags=re.M)
-    for m in re.finditer(r'"((?:[^"\\\n]|\\.)*)"', src):
-        s = m.group(1)
+    for m in RUN.finditer(src):
+        s = "".join(x[1:-1] for x in re.findall(LIT, m.group(0)))
         if " " in s and len(re.findall(r"[A-Za-z]", s)) >= 4:
             out.append(s)
 print("\n\n".join(out))
@@ -203,6 +214,15 @@ check_tree() {
         has "$svc" 'actionId: "org\.apexos\.shell\.agent\.set-always-unrestricted"'
     want "the polkit action file declares that same id" \
         xml_has "$policy" '<action id="org\.apexos\.shell\.agent\.set-always-unrestricted">'
+    # A malformed action file has exactly one symptom, forever: polkitd does not
+    # register the action and pkcheck exits 127. Nothing else complains. This
+    # one was malformed on its first draft, because an XML comment may not
+    # contain a double hyphen and the comment quoted a pkcheck command line.
+    # --nonet so the run does not depend on fetching the DTD.
+    if command -v xmllint >/dev/null 2>&1; then
+        want "the polkit action file is well-formed XML" \
+            xmllint --noout --nonet "$policy"
+    fi
     # Without --allow-user-interaction pkcheck exits 2 on a challenge and never
     # raises a prompt, so the toggle would refuse every time with no dialog.
     want "pkcheck is allowed to raise a prompt" \
@@ -307,8 +327,13 @@ check_tree() {
     # every file the user can.
     want "the copy does not call the mode safe or secure" \
         bash -c '! grep -qiE "\\b(safe|secure|protected|sandboxed and)\\b" <<<"$1"' _ "$copy"
-    want "the copy keeps the sudo-timestamp caveat next to the switch" \
-        grep -qE 'sudo timestamp' <<<"$copy"
+    # The residual, stated next to the switch that creates it — and stated as
+    # what it is. `no_new_privs` closes sudo INSIDE a session; the way out is a
+    # file the session wrote that the user's own shell runs later.
+    want "the copy states the residual an unconfined session leaves" \
+        grep -qE 'shell startup files|git hook' <<<"$copy"
+    want "the copy does not claim sudo works inside a session" \
+        bash -c '! grep -qiE "sudo timestamp" <<<"$1"' _ "$copy"
 }
 
 echo "── checks ──"
@@ -513,6 +538,14 @@ open(p, "w").write(s.replace(old, new))
 M7
 assert_changed "$MUT/m7" src/services/AgentPolicyService.qml \
     && expect "JSON that is not passed positionally is caught" "$MUT/m7" red
+
+# The action file that will never register. Its only symptom in the wild is
+# pkcheck exiting 127 forever, which reads as "not installed".
+fresh_copy "$MUT/m12"
+sed -i 's|<vendor>APEX Shell</vendor>|<vendor>APEX Shell</vendor|' \
+    "$MUT/m12/dots-extra/polkit/org.apexos.shell.agent.policy"
+assert_changed "$MUT/m12" dots-extra/polkit/org.apexos.shell.agent.policy \
+    && expect "a polkit action file that will not parse is caught" "$MUT/m12" red
 
 # The banner that stops reporting anything.
 fresh_copy "$MUT/m8"
