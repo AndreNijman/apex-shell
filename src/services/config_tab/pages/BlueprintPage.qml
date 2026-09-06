@@ -36,6 +36,12 @@ import "../../../components/config"
 CfgScroll {
     id: root
 
+    // Criterion 1. Staged, like Display and Keybinds — but this is the one page
+    // where Save and Apply are genuinely two acts, because the file it writes
+    // and the machine it converges are different things.
+    lifecycle: "staged"
+    lifecycleError: BlueprintService.dirty ? "" : BlueprintService.lastError
+
     Component.onCompleted: BlueprintService.compare()
 
     // ── The CLI is not on this image ──────────────────────────────────────────
@@ -100,17 +106,9 @@ CfgScroll {
         }
     }
 
-    // ── Read errors ───────────────────────────────────────────────────────────
-    CfgSection {
-        title: "Problem"
-        visible: BlueprintService.available && BlueprintService.lastError !== ""
-
-        CfgRow {
-            label: "Could not read the blueprint"
-            description: BlueprintService.lastError
-            hoverable: false
-        }
-    }
+    // The read error used to be a "Problem" section here. It is the page's
+    // `lifecycleError` now — the same line every settings page reports a
+    // refused read or write on.
 
     // ── [desktop] ─────────────────────────────────────────────────────────────
     // "Not managed" is a real, distinct choice everywhere on this page: an
@@ -123,8 +121,8 @@ CfgScroll {
 
         CfgRow {
             label: "Compositor"
-            description: "Which session the greeter selects. Applying this does " +
-                         "not log you out."
+            description: "Which session the greeter selects."
+            effect: "relogin"
             CfgSegmented {
                 options: [{ value: "", label: "Not managed" }]
                     .concat(BlueprintService.compositors.map(c => ({ value: c, label: c })))
@@ -308,27 +306,30 @@ CfgScroll {
             visible: BlueprintService.eraseWarning
         }
 
-        CfgRow {
-            label: BlueprintService.saving ? "Writing…" : "Save to the blueprint"
-            description: "Writes the file. Changes the machine not at all — " +
-                         "Apply is a separate action."
-            CfgButton {
-                label: BlueprintService.eraseWarning ? "Save anyway" : "Save"
-                enabled: !BlueprintService.saving
-                onClicked: BlueprintService.eraseWarning
-                    ? BlueprintService.confirmErase()
-                    : BlueprintService.save()
-            }
-        }
-        CfgRow {
-            label: "Discard"
-            CfgButton {
-                label: "Revert"
-                variant: "danger"
-                enabled: !BlueprintService.saving
-                onClicked: BlueprintService.revert()
-            }
-        }
+    }
+
+    // The same bar the Display and Keybinds pages show, with the one difference
+    // this page really has: no Apply here. Apply converges the machine and
+    // reads the FILE, so it cannot act on a draft; it lives further down, next
+    // to what it would change, and refuses to run while anything is unsaved.
+    //
+    // "Discard" and "Revert" used to be a row label and a button label for the
+    // same act. There is one word for it now.
+    CfgCommit {
+        visible:   BlueprintService.available
+        count:     BlueprintService.pending ? BlueprintService.pending.length : 0
+        noun:      "edit"
+        canApply:  false
+        canSave:   true
+        busy:      BlueprintService.saving
+        error:     BlueprintService.saveError
+        dangerous: BlueprintService.eraseWarning
+        note:      "Writes the file and changes the machine not at all."
+
+        onSaveRequested: BlueprintService.eraseWarning
+            ? BlueprintService.confirmErase()
+            : BlueprintService.save()
+        onRevertRequested: BlueprintService.revert()
     }
 
     // ── Save result ───────────────────────────────────────────────────────────
@@ -337,15 +338,13 @@ CfgScroll {
     // worse validator that drifts from the real one.
     CfgSection {
         title: "Save"
-        visible: BlueprintService.available &&
-                 (BlueprintService.saveError !== "" || BlueprintService.saveMessage !== "")
+        visible: BlueprintService.available
+                 && BlueprintService.saveError === ""
+                 && BlueprintService.saveMessage !== ""
 
-        CfgRow {
-            label: "Refused"
-            description: BlueprintService.saveError
-            hoverable: false
-            visible: BlueprintService.saveError !== ""
-        }
+        // The refusal is on the commit bar, beside the edits it did not
+        // destroy. This section is what is left: the CLI's own account of a
+        // write that WORKED.
         CfgRow {
             label: "Written"
             description: BlueprintService.saveMessage

@@ -44,6 +44,12 @@ import "../../agentstate.js" as AgentState
 CfgScroll {
     id: root
 
+    // Criterion 1. Live: the toggle writes agent.json when you flip it. The
+    // failure is NOT hoisted to this line — it stays beside the toggle, which
+    // is the only control on the page that writes anything, and a refused
+    // password belongs next to the switch that asked for it.
+    lifecycle: "live"
+
     // Set by ShellConfig and Nexus. AgentService is refcounted and forks
     // `apex agent list` on a timer, so the session section below has to be told
     // whether anyone is looking.

@@ -59,6 +59,12 @@ Item {
     // knows: which files a Save writes, how long a countdown runs.
     property string note: ""
 
+    // The act is destructive and the page has already said why, immediately
+    // above this bar. The button keeps its word — a second word for Save is how
+    // the vocabulary stops meaning anything — and takes the danger weight, so
+    // the change of meaning is visible without being renamed (criterion 5).
+    property bool dangerous: false
+
     signal applyRequested()
     signal saveRequested()
     signal revertRequested()
@@ -146,6 +152,7 @@ Item {
             }
             CfgButton {
                 visible: root.canSave
+                variant: root.dangerous ? "danger" : "default"
                 // Only one button says it is working, and it is the one that
                 // is: where a page offers both, `busy` belongs to Apply.
                 label:   (root.busy && !root.canApply)
