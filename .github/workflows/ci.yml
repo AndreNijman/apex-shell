@@ -1262,6 +1262,34 @@ jobs:
           # program has shipped one of those already.
           node tests/notifybus-test.js
 
+      - name: The agent/subagent graph
+        run: |
+          # P1-020. Replays the records apex agent list --json emits through
+          # src/services/agentgraph.js — the file the shell loads — and checks
+          # the two things the program itself got wrong: that liveness is
+          # derived from evidence rather than read out of a status field, and
+          # that an ABSENT `children` key is not an empty one. Every daemon in
+          # the shipped image writes no key at all, so reading the absence as
+          # "no subagents" would put a confident zero under every agent on the
+          # only machine anybody runs.
+          #
+          # Needs node and nothing else. It carries its own mutants, including
+          # an inverse one, and asserts the fixture is non-trivial before
+          # measuring anything.
+          node tests/agentgraph-test.js
+
+      - name: The graph rows, as Qt builds them
+        run: |
+          # The half the node suite cannot see: that SubagentRow resolves as a
+          # type at all (a component missing from src/services/qmldir fails the
+          # whole shell, not the page), that expanding a session grows its card
+          # instead of drawing over the next row, and that the child list sits
+          # outside the header's tap target.
+          #
+          # Brings its own headless compositor and a private XDG_RUNTIME_DIR;
+          # skips cleanly without quickshell or wlroots.
+          ./tests/run-agent-graph-render-test.sh
+
       - name: One Process carries one notification
         run: |
           # The measured half of P1-022, and the reason the fix exists. A
@@ -1425,6 +1453,11 @@ jobs:
             "tests/run-settings-staged-test.sh"
             "src/services/notifybus.js"
             "tests/notifybus-test.js"
+            "src/services/agentgraph.js"
+            "src/services/agents/SubagentRow.qml"
+            "tests/agentgraph-test.js"
+            "tests/agent-graph-render-test.qml"
+            "tests/run-agent-graph-render-test.sh"
             "tests/notify-spawn-test.qml"
             "tests/run-notify-spawn-test.sh"
           )
