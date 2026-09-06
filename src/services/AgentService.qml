@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "agentstate.js" as AgentState
 
 // ─── AgentService ─────────────────────────────────────────────────────────────
 // The shell's view of the APEX agent runtime (roadmap §2, §3, §7).
@@ -258,8 +259,13 @@ QtObject {
         var parts = String(p).replace(/\/+$/, "").split("/")
         return parts[parts.length - 1] || p
     }
+    // The name a person calls it, not the adapter id. `.charAt(0).toUpperCase()`
+    // produced "Opencode", and a notification that says Opencode while the
+    // vendor says OpenCode is a small thing that makes the whole surface look
+    // like it was not read. agentstate.js holds the table so the list, the rows
+    // and the notifications cannot disagree.
     function _agentLabel(s) {
-        return (s.agent || "agent").charAt(0).toUpperCase() + (s.agent || "agent").slice(1)
+        return AgentState.agentName(s ? s.agent : "")
     }
 
     readonly property var stateIcons: ({
