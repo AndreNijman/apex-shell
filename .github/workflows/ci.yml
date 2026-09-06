@@ -410,6 +410,32 @@ jobs:
           # rebooting; both runs are 48/48.
           ./tests/run-compositor-facade-test.sh
 
+      - name: Floating/labwc behavioural matrix
+        run: |
+          # P1-038, roadmap §21. Every labwc defect this shell has shipped had
+          # the same shape: it draws perfectly and ignores every click. A popup
+          # whose input region sits outside its own surface, a dismiss overlay
+          # stacked above the menu it dismisses, a bar mask over the titlebars
+          # labwc draws — none of them log anything, so run-popup-smoke.sh exits
+          # zero over all three. Three branches of them landed in August, each
+          # found by a person using the session rather than by CI.
+          #
+          # So this measures. It starts its OWN headless labwc in a private
+          # XDG_RUNTIME_DIR with a private HOME, publishes a filler toplevel so
+          # the dock has something real to list, and reads the geometry back off
+          # live objects: every mask inside its surface, the dismiss surface
+          # unmapped for the power menu and mapped for everything else, the bar
+          # mask down to the painted border, the dock inside its notch budget.
+          #
+          # labwc identity is a hard precondition, not a skip. Two of the four
+          # blocks assert the labwc arm of a Compositor.isLabwc branch, and on
+          # any other host they would pass over the arm they do not test — a
+          # green labwc suite that never saw labwc.
+          #
+          # Skips cleanly without quickshell or labwc, so a runner with neither
+          # does not fail the build.
+          ./tests/run-labwc-matrix-test.sh
+
       - name: Display transaction behavioural test
         run: |
           # Needs labwc, wlr-randr and the installed display engine, and skips
