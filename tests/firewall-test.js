@@ -8,7 +8,7 @@
 //
 // Every payload below was CAPTURED, not invented: the helper from the apex-os
 // worktree on branch `task/p1-044-firewall-live` was run on the katana build
-// box, unprivileged, against a bind-mounted exception directory —
+// box against a bind-mounted exception directory —
 //
 //   apex firewall status     (no exceptions)
 //   apex firewall status     (two working exceptions and one rejected)
@@ -16,6 +16,15 @@
 //   systemctl show apex-firewall.service -p LoadState -p ActiveState
 //                            (on a machine whose image predates the firewall)
 //   systemctl show sshd.service -p LoadState -p ActiveState
+//
+// Re-captured since, from the policy actually loaded in katana's kernel with
+// the unit installed and started, which is the one reading the first pass
+// could not take: `status` as root reporting "incoming dropped by default"
+// with one working and one rejected exception, and LoadState/ActiveState off
+// the real apex-firewall.service in all three of its states rather than off
+// sshd standing in for the running one. Every fixture below survived being
+// replayed against that output; the sentences and the em dash are the
+// helper's own.
 //
 // The shapes are therefore the helper's, including the parts a hand-written
 // fixture would have got wrong: the two `apex-firewall:` prefixed lines come
@@ -163,6 +172,27 @@ console.log("\n-- the commands the page shows --");
 check("allow", F.allowCommand("mdns"), "sudo apex firewall allow mdns");
 check("deny",  F.denyCommand("mdns"),  "sudo apex firewall deny mdns");
 check("the read command is the one that needs root", F.READ_COMMAND, "sudo apex firewall status");
+
+// ── "nothing is open" is three different facts ──────────────────────────────
+// An empty exception list comes back from a machine with nothing open, from a
+// machine whose status read failed, and from a machine with no firewall
+// running. The reassuring sentence belongs to one of them.
+console.log("\n-- an empty exception list --");
+const READ_OK = { ok: true, exceptions: [], alwaysAllowed: "", policy: "loaded" };
+const READ_NO = F.parseStatus(2, "");   // katana today: `unrecognized subcommand`
+check("before the first sweep the page says nothing at all",
+      F.emptyLine(false, "active", READ_OK), "");
+check("a status read that failed is not reported as nothing being open",
+      /unknown rather than nothing/.test(F.emptyLine(true, "active", READ_NO)), true);
+check("and it does not claim the ports are reachable only locally",
+      /only\s+from this machine/.test(F.emptyLine(true, "active", READ_NO)), false);
+check("with no unit running, an empty list does not read as protection",
+      /reachable from the network/.test(F.emptyLine(true, "absent", READ_OK)), true);
+check("the reassuring sentence needs the unit running AND the read answering",
+      F.emptyLine(true, "active", READ_OK),
+      "Nothing. Every port a program on this machine has open is reachable only from this machine itself.");
+check("an unrecognised subcommand parses as a read that did not answer",
+      READ_NO.ok, false);
 
 console.log(failed === 0 ? "\nfirewall: all checks passed" : `\nfirewall: ${failed} FAILED`);
 process.exit(failed === 0 ? 0 : 1);
