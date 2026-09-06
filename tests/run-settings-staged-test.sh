@@ -176,7 +176,7 @@ failed="${summary##*failed=}"
 # A suite that runs but asserts nothing is the failure this line exists to
 # catch: every early `return` in the driver is a path that reaches the summary
 # with a handful of checks behind it.
-if [[ "$passed" -lt 15 ]]; then
+if [[ "$passed" -lt 21 ]]; then
     echo "RESULT: only $passed assertions ran; the driver did not reach the end"
     exit 1
 fi
@@ -187,5 +187,6 @@ if [[ "$failed" -ne 0 ]]; then
     exit 1
 fi
 
-echo "RESULT: staged edits survive navigation and a rebuilt window, a refused"
-echo "        write keeps them and says why, and what applied is what is on disk"
+echo "RESULT: staged edits survive navigation and a rebuilt window, every"
+echo "        refused write says so and keeps what the user asked for, and"
+echo "        what applied is what is on disk"
