@@ -300,6 +300,59 @@ check_tree() {
     want "the page says out loud that a running session keeps its mode" \
         has "$page" 'keeps the mode it started with'
 
+    # ── P0-005 criterion 3: the agent's OWN permission mode is visible ───────
+    #
+    # The trap: `session.native` says what APEX did, and for the case that
+    # matters APEX did nothing. Claude's profile default is bypassPermissions,
+    # §4.1 says APEX must not override it, so `native` reads `inherit` — and a
+    # chip showing "inherit" beside a session running with confirmations off
+    # answers none of the criterion's question. `native_observed` is the
+    # agent's own report, and it has to WIN.
+    want "the session row shows dimension 1 through the label that prefers the report" \
+        has "$srow" 'Policy\.sessionNativeLabel\(session\)'
+    want "the row no longer reads the raw native field, which would show inherit" \
+        lacks "$srow" 'Policy\.sessionNative\(row\.session\)'
+    want "the label prefers the agent's own report over APEX's flag" \
+        in_fn "$js" '^function sessionNativeLabel\(session\) \{' \
+            'session\.native_observed'
+    want "and says nothing rather than naming a mode nobody reported" \
+        in_fn "$js" '^function sessionNativeLabel\(session\) \{' \
+            'selected === "inherit" \? "" : selected'
+
+    # ── P0-006 criterion 3: the prominent red break-glass indicator ──────────
+    want "the row knows which sessions are break-glass" \
+        has "$srow" 'Policy\.isBreakGlass\(session\)'
+    want "break-glass is both the mode AND a grant, so neither alone goes red" \
+        in_fn "$js" '^function isBreakGlass\(session\) \{' \
+            'sessionSystem\(session\) === "unsafe" && sessionGrant\(session\) !== null'
+    want "the indicator is drawn in the danger tone, not an invented colour" \
+        in_fn "$srow" 'id: breakGlassChip' 'Theme\.danger'
+    want "the indicator carries the countdown, so the window is a number" \
+        in_fn "$srow" 'id: grantText' 'row\.grantLabel'
+    want "the countdown ticks, or it is not a countdown" \
+        has "$srow" 'onTriggered: row\.nowMs = Date\.now\(\)'
+    want "break-glass outranks every other reason to border the row" \
+        has "$srow" 'border\.color: \(row\.breakGlass && row\.live\) \? Theme\.danger'
+    # §4.4's session grant keeps every kernel boundary and is NOT what §3.4's
+    # sentence is about. Two red things would make neither red.
+    want "a session grant is not drawn as break-glass" \
+        has "$js" 'sessionSystem\(session\) === "unsafe"'
+
+    # ── §3.4: revocation control always visible ──────────────────────────────
+    want "the row offers to end a break-glass window" \
+        has "$srow" 'AgentService\.revokeGrant'
+    want "the control is present exactly while there is something to revoke" \
+        in_fn "$srow" 'id: revokeButton' 'visible: row\.breakGlass && row\.live'
+    want "and it ends the grant rather than the session" \
+        in_fn "$srow" 'id: revokeButton' 'AgentService\.revokeGrant'
+    want "revoking goes to the runtime, which owns the grant" \
+        has "$r/src/services/AgentService.qml" '"agent", "revoke-grant"'
+    # Giving up privilege is free. A revoke that asked for a password would be
+    # a protection people leave in place because turning it off is a chore.
+    want "revoking asks for no authentication" \
+        notin_fn "$r/src/services/AgentService.qml" \
+            'function revokeGrant\(id\) \{' 'pkcheck'
+
     # ── criterion 9: the indicator ───────────────────────────────────────────
     want "the Agent Center draws the banner" \
         has "$centre" 'UnrestrictedBanner \{'
@@ -385,6 +438,7 @@ trap 'rm -rf "$MUT"' EXIT INT TERM
 FILES=(
     src/services/agentpolicy.js
     src/services/AgentPolicyService.qml
+    src/services/AgentService.qml
     src/services/config_tab/pages/AgentsPage.qml
     src/services/agents/UnrestrictedBanner.qml
     src/services/agents/SessionRow.qml
@@ -575,6 +629,36 @@ sed -i 's|    next.sandbox = on ? UNRESTRICTED : DEFAULT_SANDBOX;|    next.sandb
     "$MUT/m11/src/services/agentpolicy.js"
 assert_changed "$MUT/m11" src/services/agentpolicy.js \
     && expect "a write that also moves dimension 1 is caught" "$MUT/m11" red
+
+# The chip that reports what APEX did instead of what the agent is doing. This
+# is P0-005 criterion 3's near miss and the reason `sessionNativeLabel` exists:
+# the row still shows a permission mode, so it passes review, and the mode it
+# shows for the case that matters is "inherit" — which is APEX having passed no
+# flag, not Claude running with confirmations off.
+fresh_copy "$MUT/m13"
+sed -i 's|readonly property string nativeLabel: Policy.sessionNativeLabel(session)|readonly property string nativeLabel: Policy.sessionNative(session)|' \
+    "$MUT/m13/src/services/agents/SessionRow.qml"
+assert_changed "$MUT/m13" src/services/agents/SessionRow.qml \
+    && expect "a chip showing APEX's flag instead of the agent's mode is caught" \
+        "$MUT/m13" red
+
+# The red indicator spreading to §4.4's session grant. That mode keeps every
+# kernel boundary and is not what §3.4's sentence is about; two red things in
+# one list make neither of them red.
+fresh_copy "$MUT/m14"
+sed -i 's|    return sessionSystem(session) === "unsafe" \&\& sessionGrant(session) !== null;|    return sessionSystem(session) !== "none";|' \
+    "$MUT/m14/src/services/agentpolicy.js"
+assert_changed "$MUT/m14" src/services/agentpolicy.js \
+    && expect "an indicator that goes red for any elevation is caught" "$MUT/m14" red
+
+# Revocation behind a password. §3.4 asks for the control to be always visible,
+# and a control that costs a password is one people leave alone — which is the
+# same outcome as not having it.
+fresh_copy "$MUT/m15"
+sed -i 's|        _act(\["apex", "agent", "revoke-grant", String(id)\])|        _act(["pkcheck", "--action-id", "org.apexos.shell.agent.set-always-unrestricted"])|' \
+    "$MUT/m15/src/services/AgentService.qml"
+assert_changed "$MUT/m15" src/services/AgentService.qml \
+    && expect "revocation behind an authentication is caught" "$MUT/m15" red
 
 # ── the inverse mutant ───────────────────────────────────────────────────────
 # Prose quoting each bug above, including the exact strings the greps look for.
