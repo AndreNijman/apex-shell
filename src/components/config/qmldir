@@ -1,4 +1,6 @@
 CfgScroll     CfgScroll.qml
+CfgLifecycle  CfgLifecycle.qml
+CfgCommit     CfgCommit.qml
 CfgSection    CfgSection.qml
 CfgRow        CfgRow.qml
 CfgSwitch     CfgSwitch.qml

@@ -1,5 +1,6 @@
 import QtQuick
 import "../../"
+import "settings-semantics.js" as Semantics
 
 // A settings row: label (+ optional description) on the left, a control on the
 // right. Put the control as a child — it is placed in the right-hand slot.
@@ -8,10 +9,21 @@ Item {
     property string label:       ""
     property string description: ""
     property bool   hoverable:   true
+
+    // When this particular control reaches the machine, if it is not now. One
+    // of settings-semantics.js's EFFECTS: "relogin", "reboot", "apply",
+    // "reload". The default "now" renders nothing on purpose — a page that
+    // stamps "takes effect immediately" on every row has taught the reader to
+    // skip the one line that matters (roadmap P0-023, criterion 1).
+    property string effect: ""
+
+    readonly property string _effectNote: Semantics.effectNote(root.effect)
+
     default property alias control: slot.data
 
     width:          parent ? parent.width : 0
-    implicitHeight: description !== "" ? 56 : 44
+    implicitHeight: (description !== "" ? 56 : 44)
+                    + (root._effectNote !== "" ? 14 : 0)
     height:         implicitHeight
 
     Rectangle {
@@ -43,6 +55,16 @@ Item {
             text:           root.description
             font.pixelSize: Theme.fs(10)
             color:          Qt.rgba(1,1,1,0.38)
+            wrapMode:       Text.WordWrap
+            maximumLineCount: 2
+            elide:          Text.ElideRight
+        }
+        Text {
+            width:          parent.width
+            visible:        root._effectNote !== ""
+            text:           root._effectNote
+            font.pixelSize: Theme.fs(10)
+            color:          Theme.info
             wrapMode:       Text.WordWrap
             maximumLineCount: 2
             elide:          Text.ElideRight
