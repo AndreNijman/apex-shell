@@ -151,8 +151,9 @@ CfgScroll {
         Text {
             x:              Theme.px(10)
             width:          parent.width - Theme.px(20)
-            visible:        FirewallService.checked && FirewallService.exceptions.length === 0
-            text:           "Nothing. Every port a program on this machine has open is reachable only from this machine itself."
+            visible:        FirewallService.exceptions.length === 0
+                                && FirewallService.emptyLine !== ""
+            text:           FirewallService.emptyLine
             wrapMode:       Text.WordWrap
             font.pixelSize: Theme.fs(11)
             color:          Theme.subtext

@@ -153,6 +153,19 @@ check_tree() {
     want "the page reads the rejected flag" has "$page" 'modelData\.rejected'
     want "and shows it as a warning rather than as a value" \
         has "$page" 'statusWarns: modelData\.rejected'
+
+    # ── 7. an empty exception list is not one sentence ───────────────────────
+    # It comes back from a machine with nothing open, from a machine whose
+    # status read failed, and from a machine with no firewall running. The page
+    # had one sentence for all three and it was the reassuring one. The choice
+    # lives in firewall.js so the node suite can drive it; a sentence written
+    # into the page again would be the same bug wearing a literal.
+    want "the empty-list sentence is chosen, not written into the page" \
+        lacks "$page" 'reachable only from this machine'
+    want "and the page takes it from the service" \
+        has "$page" 'FirewallService\.emptyLine'
+    want "the service asks firewall.js which of the three it is" \
+        has "$svc" 'Fw\.emptyLine\(root\.checked, root\.unit, root\.status\)'
 }
 
 # ── the self-test ────────────────────────────────────────────────────────────
@@ -177,6 +190,8 @@ if [ "${1:-}" = "--self-test" ]; then
       "page|s/active: root\.onScreen/active: true/|the service polls whether or not anyone is looking"
       "qmldir|/^singleton FirewallService/d|the singleton is missing from the qmldir"
       "reg|/\"id\": \"firewall\"/d|the page is not in the registry"
+      "page|s|text:           FirewallService.emptyLine|text:           \"Nothing. Every port a program on this machine has open is reachable only from this machine itself.\"|;|the reassuring sentence is written back into the page"
+      "svc|s/Fw\.emptyLine(root\.checked, root\.unit, root\.status)/\"\"/|the service decides the sentence itself"
     )
     caught=0; missed=0
     for m in "${mutants[@]}"; do
