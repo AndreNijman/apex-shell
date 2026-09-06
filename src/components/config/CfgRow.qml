@@ -16,8 +16,15 @@ Item {
     // these strings come from rather than being written here.
     property string disabledReason: ""
     readonly property bool unavailable: disabledReason !== ""
-    // Shown on the right where a control would be, when the row has none.
+    // What is actually in effect, shown beside the control rather than in place
+    // of it. A control that writes and never reads cannot tell a working
+    // setting from one whose backend stopped listening, and a readout the user
+    // has to open a terminal to see is not a read-back.
     property string status: ""
+    // The readout disagrees with what this page asked for. Coloured rather than
+    // worded, because the row already has a label and a description and a third
+    // sentence would bury it.
+    property bool   statusWarns: false
     default property alias control: slot.data
 
     width:          parent ? parent.width : 0
@@ -35,7 +42,7 @@ Item {
     Column {
         anchors.left:           parent.left
         anchors.leftMargin:     10
-        anchors.right:          slot.left
+        anchors.right:          readout.visible ? readout.left : slot.left
         anchors.rightMargin:    12
         anchors.verticalCenter: parent.verticalCenter
         spacing: 3
@@ -74,16 +81,20 @@ Item {
         Behavior on opacity { NumberAnimation { duration: 120 } }
     }
 
-    // The right-hand slot for a row that reports rather than sets: the value
-    // the compositor says is in effect, or "unavailable" when it has none.
+    // The effective value. Sits to the LEFT of the control when there is one,
+    // so a row can both set and report — which is the whole of "controls read
+    // back actual effective state rather than assuming a write succeeded".
+    // Hidden while the row is disabled: a reason and a stale readout together
+    // say two different things about the same control.
     Text {
-        visible:                root.status !== "" && slot.children.length === 0
+        id: readout
+        visible:                root.status !== "" && !root.unavailable
         text:                   root.status
-        anchors.right:          parent.right
-        anchors.rightMargin:    8
+        anchors.right:          slot.children.length > 0 ? slot.left : parent.right
+        anchors.rightMargin:    slot.children.length > 0 ? 10 : 8
         anchors.verticalCenter: parent.verticalCenter
-        font.pixelSize:         Theme.fs(11)
+        font.pixelSize:         Theme.fs(10)
         font.family:            "JetBrains Mono"
-        color:                  Qt.rgba(1,1,1,0.45)
+        color:                  root.statusWarns ? Theme.attention : Qt.rgba(1,1,1,0.38)
     }
 }

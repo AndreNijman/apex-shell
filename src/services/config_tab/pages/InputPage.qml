@@ -35,6 +35,12 @@ import "../../../components/config"
 CfgScroll {
     id: root
 
+    // The read-back is not free — on Hyprland it is seventeen `hyprctl
+    // getoption` calls — and InputService is constructed at every shell start
+    // whether or not anyone opens this page. So it is asked for here, when the
+    // page that shows it appears, rather than on login.
+    Component.onCompleted: InputService.refreshEffective()
+
     readonly property bool _hasNotes:
         InputService.applying || InputService.lastNotes !== ""
 
@@ -44,6 +50,10 @@ CfgScroll {
         property string setting: ""
         disabledReason: InputService.reasonFor(setting)
         status:         InputService.effectiveText(setting)
+        // The mark the Session section promises. A page that says "each is
+        // marked below" and marks nothing is a worse answer than saying
+        // nothing at all.
+        statusWarns:    InputService.divergedFrom(setting)
     }
 
     // ── What the compositor said ──────────────────────────────────────────────
@@ -89,7 +99,7 @@ CfgScroll {
                     return "Every control below reads back the value it was set to"
                 return InputService.diverged.length + " setting"
                      + (InputService.diverged.length === 1 ? " is" : "s are")
-                     + " not what this page asked for; each is marked below"
+                     + " not what this page asked for; those readouts are highlighted below"
             }
             hoverable: false
             CfgButton {

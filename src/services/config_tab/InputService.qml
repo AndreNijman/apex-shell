@@ -440,9 +440,15 @@ QtObject {
         }
     }
 
+    // NOT started on construction, unlike the two above. This service is in the
+    // eager singleton chain — it is constructed at every shell start whether or
+    // not anybody opens Settings — and on Hyprland a read-back is seventeen
+    // serial `hyprctl getoption` calls. Twenty processes on every login, for a
+    // page most logins never open. The Input page asks for it when it opens,
+    // and every apply asks for it again.
     property var _readBackProc: Process {
         command: [root.generator, "--read-back"]
-        running: true
+        running: false
         stdout: StdioCollector {
             onStreamFinished: {
                 try {

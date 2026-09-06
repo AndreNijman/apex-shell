@@ -53,13 +53,27 @@ done
 # case while both halves are in flight. Set APEX_INPUT_GENERATOR_REAL to pin it.
 GEN="${APEX_INPUT_GENERATOR_REAL:-}"
 if [ -z "$GEN" ]; then
+    # A sibling checkout first, then a scratch worktree beside this one, then
+    # the installed copy. Worktrees are how both halves of this task are
+    # developed, and neither of the first two paths finds one.
     for cand in "$root/../apex-os/files/system/libexec/apex-input-apply" \
                 "$root/../../apex-os/files/system/libexec/apex-input-apply" \
+                "$root"/../wt-*-os/files/system/libexec/apex-input-apply \
                 /usr/libexec/apex-input-apply; do
         [ -f "$cand" ] && { GEN="$cand"; break; }
     done
 fi
 [ -f "$GEN" ] || { echo "SKIP: no input generator at $GEN (it ships with APEX-OS)"; exit 0; }
+
+# An INSTALLED generator older than this branch has none of the three questions
+# the page asks, and every assertion below would fail for that reason rather
+# than for anything about the shell. That is a skip with a sentence, not a red
+# suite: the pair only works when both halves have landed.
+if ! python3 "$GEN" --capabilities >/dev/null 2>&1; then
+    echo "SKIP: ${GEN} has no --capabilities; it predates P0-019."
+    echo "      Point APEX_INPUT_GENERATOR_REAL at an apex-os checkout that has it."
+    exit 0
+fi
 echo "generator: $GEN"
 
 sandbox="$(mktemp -d)"
