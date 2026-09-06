@@ -212,6 +212,49 @@ CfgScroll {
         }
     }
 
+    // ── Night light ───────────────────────────────────────────────────────────
+    //
+    // The dashboard tile is a switch and nothing else; this is where the
+    // temperature lives, because it is a preference and not a thing you reach
+    // for twice an evening. Both surfaces read and write the same two values, so
+    // there is one night light and not two.
+    CfgSection {
+        title: "Night light"
+
+        CfgRow {
+            label: "Night light"
+            description: CompositorService.nightLightSupported
+                ? "Warms the screen using " + CompositorService.nightLightMechanism
+                  + " on " + Compositor.detected
+                : "This session is not a compositor APEX Shell has a "
+                  + "colour-temperature mechanism for, so there is nothing to warm "
+                  + "the screen with."
+            disabledReason: CompositorService.nightLightSupported
+                ? "" : "No mechanism on this compositor"
+            status:      CompositorService.nightLightError
+            statusWarns: CompositorService.nightLightError !== ""
+
+            CfgSwitch {
+                checked: CompositorService.nightLightActive
+                onToggled: function(v) { CompositorService.setNightLight(v) }
+            }
+        }
+
+        CfgRow {
+            label:       "Temperature"
+            description: "Lower is warmer. 6500K is neutral — the screen is left alone."
+            disabledReason: CompositorService.nightLightSupported
+                ? "" : "No mechanism on this compositor"
+
+            CfgSlider {
+                from: 1000; to: 6500; step: 100; suffix: "K"
+                readoutWidth: 56
+                value: SettingsService.nightLightTemp
+                onMoved: function(v) { CompositorService.setNightLightTemperature(v) }
+            }
+        }
+    }
+
     // ── Shape (live reflow) ───────────────────────────────────────────────────
     CfgSection {
         title: "Shape"
