@@ -170,6 +170,38 @@ CfgScroll {
         }
     }
 
+    // ── Light or dark ─────────────────────────────────────────────────────────
+    CfgSection {
+        title: "Light or dark"
+
+        Item { width: parent.width; height: 4 }
+
+        Text {
+            width:          parent.width
+            leftPadding:    10
+            text:           "Which half of the wallpaper's palette the shell paints with. "
+                          + "Changing this re-derives the colours from the wallpaper you are on."
+            font.pixelSize: Theme.fs(10)
+            color:          Qt.rgba(1,1,1,0.4)
+            wrapMode:       Text.WordWrap
+        }
+        Item { width: parent.width; height: 8 }
+
+        Item {
+            width:  parent.width
+            height: modeSeg.implicitHeight
+
+            CfgSegmented {
+                id: modeSeg
+                x:     10
+                width: parent.width - 20
+                options: WallpaperService.modes
+                value:   WallpaperService.mode
+                onSelected: function(v) { WallpaperService.setMode(v) }
+            }
+        }
+    }
+
     // ── Colour scheme ─────────────────────────────────────────────────────────
     CfgSection {
         title: "Colour scheme"
