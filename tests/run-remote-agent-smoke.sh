@@ -48,13 +48,18 @@
 #  as "every delegate was instantiated against real records and nothing errored
 #  or warned", which is the same bar run-agent-center-smoke.sh sets.
 #
-#  ISOLATION. The daemon runs with its own XDG_RUNTIME_DIR, XDG_STATE_HOME and
-#  XDG_CONFIG_HOME, so the developer's own sessions and their real
-#  ~/.config/apex/hosts.toml are never read or written. The real runtime dir is
-#  mirrored in with symlinks, because every socket the shell needs to draw at
-#  all lives there.
+#  ISOLATION. The daemon runs with its own XDG_RUNTIME_DIR, XDG_STATE_HOME,
+#  XDG_CONFIG_HOME and HOME, so the developer's own sessions and their real
+#  ~/.config/apex/hosts.toml are never read or written.
 #
-#  Skips cleanly without a Wayland session or without the runtime built.
+#  The runtime dir used to be the session's own, mirrored in with symlinks so
+#  the shell could reach the compositor socket — which meant the shell under
+#  test drew on the developer's desktop, and a bug in the exclusion list would
+#  have pointed it at the live apex-agentd and the sessions somebody had open.
+#  It now takes a headless labwc from tests/lib/headless.sh instead, and nothing
+#  is mirrored in at all.
+#
+#  Skips cleanly without a compositor to host one, or without the runtime built.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
@@ -71,9 +76,9 @@ bad() { echo "  FAIL  $1"; fail=$((fail + 1)); }
 # insert a line between them. Same convention as check-compositor-backends.sh.
 want() { local desc="$1"; shift; if "$@"; then ok "$desc"; else bad "$desc"; fi; }
 
-command -v quickshell >/dev/null 2>&1 || { echo "SKIP: quickshell not installed"; exit 0; }
-[[ -n "${WAYLAND_DISPLAY:-}" ]] || { echo "SKIP: no WAYLAND_DISPLAY"; exit 0; }
-[[ -n "${XDG_RUNTIME_DIR:-}" ]] || { echo "SKIP: no XDG_RUNTIME_DIR"; exit 0; }
+. "$here/lib/headless.sh"
+
+headless_require quickshell
 [[ -n "$osroot" && -d "$osroot/apexd" ]] || { echo "SKIP: apex-os checkout not found (set APEX_OS_ROOT)"; exit 0; }
 
 BIN="$osroot/apexd/target/debug"
@@ -95,27 +100,19 @@ cleanup() {
     sleep 0.3
     [[ -n "$daemon_pid" ]] && kill -9 "$daemon_pid" 2>/dev/null
     rm -rf "$W"
+    headless_cleanup
     return 0
 }
 trap cleanup EXIT INT TERM
 
-# ── an isolated runtime that can still reach the compositor ──────────────────
-REAL_RUNTIME="$XDG_RUNTIME_DIR"
-export XDG_RUNTIME_DIR="$W/run"
-export XDG_STATE_HOME="$W/state"
-export XDG_CONFIG_HOME="$W/config"
-mkdir -p "$XDG_RUNTIME_DIR" "$XDG_STATE_HOME" "$XDG_CONFIG_HOME"
-chmod 0700 "$XDG_RUNTIME_DIR"
-
-shopt -s nullglob dotglob
-for entry in "$REAL_RUNTIME"/*; do
-    name="$(basename "$entry")"
-    [[ "$name" == "apex-agentd" ]] && continue
-    ln -sfn "$entry" "$XDG_RUNTIME_DIR/$name"
-done
-shopt -u nullglob dotglob
-[[ -e "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]] || {
-    echo "SKIP: the Wayland socket is not in XDG_RUNTIME_DIR"; exit 0; }
+# ── an isolated runtime, on a compositor of its own ──────────────────────────
+# The library owns XDG_RUNTIME_DIR, XDG_STATE_HOME, XDG_CONFIG_HOME and HOME,
+# so the daemon started below writes into the same sandbox the shell reads.
+headless_begin
+# The fixture project is a real git repository, because a session records the
+# branch it was started on.
+headless_unstub git
+headless_start || exit 0
 
 "$BIN/apex-agentd" > "$W/agentd.log" 2>&1 &
 daemon_pid=$!
@@ -355,9 +352,13 @@ qs_pid=""
 sleep 0.5
 
 echo "--- diagnostics ---"
-noise='qt.qpa.wayland.textinput|Could not register notification server|Registration will be attempted'
+# PipeWire is in here for the reason tests/run-popup-smoke.sh spells out: its
+# socket lives in the session's runtime dir, this run deliberately has its own,
+# and bridging the real one in would give the shell under test a route to the
+# audio of whoever is logged in. No remote-agent row is audio-gated.
+noise='qt.qpa.wayland.textinput|Could not register notification server|Registration will be attempted|Failed to connect pipewire context'
 grep -E "ERROR|WARN" "$log" | grep -vE "$noise" | sort -u | head -20
-errors="$(grep -c 'ERROR' "$log")"
+errors="$(grep -E 'ERROR' "$log" | grep -cvE "$noise")"
 echo "--- ERROR count: $errors ---"
 want "no runtime errors while the remote rows were built" test "$errors" -eq 0
 

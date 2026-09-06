@@ -73,6 +73,17 @@ for bin in hypridle quickshell systemd-inhibit dbus-run-session python3; do
 done
 command -v "$([ "$target" = labwc ] && echo labwc || echo Hyprland)" >/dev/null 2>&1 \
     || { echo "SKIP: $target is not installed"; exit 0; }
+# ── This one cannot be headless, so it refuses by default ────────────────────
+#
+# It nests a compositor inside the session named by WAYLAND_DISPLAY and measures
+# what an idle inhibitor does to it, which needs a real session to nest in.
+# Asked for explicitly rather than left to fall back onto whoever is at the
+# keyboard:
+#
+#     APEX_TEST_ALLOW_NESTED_ON_DESK=1 tests/measure-idle-inhibit.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/headless.sh"
+headless_require_nested_optin "measuring idle inhibition"
+
 [ -n "${WAYLAND_DISPLAY:-}" ] \
     || { echo "SKIP: no WAYLAND_DISPLAY; this needs a Wayland session to nest in"; exit 0; }
 

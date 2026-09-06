@@ -106,16 +106,26 @@ pass=$((pass + $(echo "$pcounts" | awk '{print $2}')))
 fail=$((fail + $(echo "$pcounts" | awk '{print $3}')))
 
 # ── the behavioural half: needs a compositor ────────────────────────────────
+# It runs on a headless labwc of its own, not on the session's compositor: this
+# half opens a quickshell window, and until tests/lib/headless.sh existed that
+# window landed on the desktop of whoever ran the suite. niri itself is only
+# ever executed as `niri validate` here — the file is generated under labwc and
+# handed to niri as an argument, which needs no niri session at all.
+. "$here/lib/headless.sh"
+
 if ! command -v quickshell >/dev/null 2>&1; then
     printf 'SKIP  quickshell not installed\n'
-elif [ -z "${WAYLAND_DISPLAY:-}" ]; then
-    printf 'SKIP  no WAYLAND_DISPLAY; quickshell needs a compositor\n'
 elif ! command -v niri >/dev/null 2>&1; then
     printf 'SKIP  niri not installed; cannot validate the generated file\n'
 else
     staged="$root/.niri-keybinds-test.qml"
-    cleanup() { rm -f "$staged" "${XDG_RUNTIME_DIR:-/tmp}/apex-niri-keybinds-test.kdl"; }
-    trap cleanup EXIT
+    cleanup() { rm -f "$staged"; headless_cleanup; }
+    trap cleanup EXIT INT TERM
+
+    headless_begin
+    # The generated file is put through the REAL niri, so that stub comes off.
+    headless_unstub niri
+    headless_start || { printf 'SKIP  no compositor to host the behavioural half\n'; exit 0; }
     cp "$here/niri-keybinds-test.qml" "$staged"
 
     out="$(QT_LOGGING_RULES="qml=true" timeout 120 quickshell -p "$staged" 2>&1 || true)"

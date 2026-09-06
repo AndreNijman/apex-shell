@@ -3,13 +3,28 @@
 #
 #     ./tests/run-hypr-configerrors-test.sh
 #
-# ── Run this on a machine you are not using ──────────────────────────────────
+# ── Headless, on nothing you can see ────────────────────────────────────────
 #
-# It nests a Hyprland inside the session named by WAYLAND_DISPLAY, which means a
-# compositor window appears on that desktop for as long as the suite runs. It
-# cannot reach the host's configuration — separate HOME, separate runtime dir,
-# every hyprctl carries -i — but it is still a window on your screen. Run it on
-# a build box or a spare session, not on the desk you are working at.
+# It used to nest Hyprland inside the session named by WAYLAND_DISPLAY, with a
+# header asking whoever ran it to please use a spare machine. It now nests
+# inside a HEADLESS labwc from tests/lib/headless.sh — Hyprland inside labwc
+# inside a private runtime directory — so there is nothing to ask.
+#
+# That this works at all contradicts what the tree said. nav-geometry's header
+# records "nested in a headless labwc: comes up" and then discards the recipe
+# because the Hyprland it produces publishes no output and never asks its Qt
+# client for another frame. True, and irrelevant here: `hyprctl configerrors`,
+# `hyprctl reload` and `hyprctl version` all answer perfectly well on an
+# instance with no output, because none of them draws anything. Measured on
+# 0.56.2: signature published, configerrors clean, reload ok, monitors [].
+#
+# The one thing that DOES need an output is the shell that generates the Lua,
+# so it runs on the host labwc — which has one — with
+# HYPRLAND_INSTANCE_SIGNATURE pointed at the nested Hyprland. The generator
+# writes a file and calls `hyprctl reload`; neither needs to be a client of the
+# compositor it is reloading. The "a real output" assertion the suite used to
+# make is therefore replaced by one that proves the same thing without needing
+# a monitor: the instance answers `hyprctl version` with its own version.
 #
 # ── What this proves, and what it does not ───────────────────────────────────
 #
@@ -41,54 +56,60 @@
 #      instance and nothing else.
 #   4. HOME is a sandbox, so every file written is inside it.
 #
-# ── Nesting, not headless ────────────────────────────────────────────────────
+# ── Two compositors, and why ────────────────────────────────────────────────
 #
-# Hyprland 0.56.2 will not start headless on a machine with a GPU and no DRM
-# master: AQ_BACKENDS=headless dies in CBackend::create(), and so does nesting
-# inside a headless labwc (measured, both, on katana). Nested inside a running
-# Wayland compositor it comes up normally, with a real output. So this needs a
-# Wayland session to nest INSIDE, and skips cleanly when there is none — which
-# is also why it is not in the container CI job.
+# Hyprland 0.56.2 will not start on its own headless backend on a machine with a
+# GPU and no DRM master: AQ_BACKENDS=headless dies in CBackend::create(). It
+# does come up nested in another Wayland compositor, and that compositor does
+# not have to be one anybody can see — a labwc on WLR_BACKENDS=headless is
+# enough. The host labwc must NOT be on the pixman renderer: aquamarine asks it
+# for a dmabuf, a software-rendered host has none to give, and the only symptom
+# is CBackend::create() failing with nothing else said.
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/.." && pwd)"
+. "$here/lib/headless.sh"
 
 pass=0
 fail=0
 ok()  { echo "  PASS  $1"; pass=$((pass + 1)); }
 bad() { echo "  FAIL  $1"; fail=$((fail + 1)); }
 
-for tool in Hyprland hyprctl quickshell; do
-    command -v "$tool" >/dev/null 2>&1 || { echo "SKIP: $tool not installed"; exit 0; }
-done
-[ -n "${WAYLAND_DISPLAY:-}" ] || { echo "SKIP: no Wayland session to nest inside"; exit 0; }
-[ -n "${XDG_RUNTIME_DIR:-}" ] || { echo "SKIP: no XDG_RUNTIME_DIR"; exit 0; }
-host_socket="$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY"
-[ -S "$host_socket" ] || { echo "SKIP: $WAYLAND_DISPLAY is not a socket"; exit 0; }
+headless_require Hyprland hyprctl quickshell
 
-echo "host: $WAYLAND_DISPLAY ($(Hyprland --version 2>&1 | head -1))"
-
-sandbox="$(mktemp -d)"
-home="$sandbox/home"
-rt="$sandbox/run"
-mkdir -p "$home/.config/hypr/apex" "$rt"
-chmod 0700 "$rt"
-ln -s "$host_socket" "$rt/$WAYLAND_DISPLAY"
-
-hypr_pid=""
 cleanup() {
-    if [ -n "$hypr_pid" ]; then
-        kill "$hypr_pid" 2>/dev/null
-        sleep 1
-        kill -9 "$hypr_pid" 2>/dev/null
-        wait "$hypr_pid" 2>/dev/null
-    fi
     rm -f "$root/.keybind-lua-gen.qml"
-    rm -rf "$sandbox"
+    headless_cleanup
     return 0
 }
 trap cleanup EXIT INT TERM
+
+headless_begin
+# Every hyprctl below is aimed at the nested instance by signature, so the real
+# binary has to be on PATH rather than the sandbox stub.
+headless_unstub hyprctl
+# The host labwc deliberately does NOT use WLR_RENDERER=pixman here, so the
+# nested Hyprland has a dmabuf to ask it for. headless_start would set pixman,
+# so the host is started by hand.
+mkdir -p "$HEADLESS_W/cfg/labwc"
+cp "$here/labwc-test-rc.xml" "$HEADLESS_W/cfg/labwc/rc.xml" 2>/dev/null || true
+_before="$(headless_sockets)"
+XDG_CONFIG_HOME="$HEADLESS_W/cfg" XDG_CURRENT_DESKTOP=labwc:wlroots \
+    labwc >"$HEADLESS_W/comp.log" 2>&1 &
+HEADLESS_COMP_PID=$!
+host_sock="$(headless_wait_socket "$_before")"
+[ -n "$host_sock" ] || {
+    echo "SKIP: the host labwc for the nested Hyprland did not come up"
+    tail -5 "$HEADLESS_W/comp.log" 2>/dev/null
+    exit 0; }
+export WAYLAND_DISPLAY="$host_sock"
+headless_assert_private || exit 1
+echo "host: headless labwc on $WAYLAND_DISPLAY ($(Hyprland --version 2>&1 | head -1))"
+
+home="$HOME"
+rt="$XDG_RUNTIME_DIR"
+mkdir -p "$home/.config/hypr/apex"
 
 # ── the config ───────────────────────────────────────────────────────────────
 # The same shape apex-os seeds: a loader that skips a generated module that has
@@ -142,11 +163,13 @@ LUA
 
 # ── start the nested instance ────────────────────────────────────────────────
 before="$(ls "$rt/hypr" 2>/dev/null | tr '\n' ' ')"
-env -u DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
+env -u DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE -u WLR_BACKENDS -u WLR_RENDERER \
+    AQ_BACKENDS=wayland AQ_NO_MODIFIERS=1 \
     XDG_RUNTIME_DIR="$rt" WAYLAND_DISPLAY="$WAYLAND_DISPLAY" \
     HOME="$home" XDG_CURRENT_DESKTOP=Hyprland \
-    Hyprland -c "$home/.config/hypr/hyprland.lua" >"$sandbox/hypr.log" 2>&1 &
+    Hyprland -c "$home/.config/hypr/hyprland.lua" >"$HEADLESS_W/hypr.log" 2>&1 &
 hypr_pid=$!
+HEADLESS_NESTED_PID=$hypr_pid
 
 sig=""
 for _ in $(seq 1 40); do
@@ -161,15 +184,12 @@ done
 
 if [ -z "$sig" ] || [ ! -S "$rt/hypr/$sig/.socket.sock" ]; then
     echo "SKIP: the nested Hyprland did not come up"
-    grep -iE "backend|abort|what\(\)|Fatal" "$sandbox/hypr.log" | tail -6 | sed 's/^/        /'
+    grep -iE "backend|abort|what\(\)|Fatal" "$HEADLESS_W/hypr.log" | tail -6 | sed 's/^/        /'
     exit 0
 fi
 
 # Defence 2. A nested instance that reports the host's signature is not nested.
-if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ "$sig" = "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
-    echo "FAIL: the nested signature is the ambient one; refusing to touch it"
-    exit 1
-fi
+headless_assert_not_ambient_signature "$sig" || exit 1
 echo "nested Hyprland: $sig"
 ok "a nested instance came up with a signature of its own"
 
@@ -187,10 +207,14 @@ clean() {
     esac
 }
 
-mons="$(hc monitors | head -1)"
-case "$mons" in
-    Monitor*) ok "the nested instance has a real output ($mons)" ;;
-    *)        bad "the nested instance published no monitor ($mons)" ;;
+# NOT "it has a monitor". A Hyprland nested in a headless labwc publishes no
+# output at all, and nothing this suite asks it to do needs one. What has to be
+# true is that the instance is alive and is the version under test, which is
+# what the About panel's own probe asks for.
+ver="$(hc version | head -1)"
+case "$ver" in
+    Hyprland\ [0-9]*) ok "the nested instance answers as itself ($ver)" ;;
+    *)                bad "the nested instance did not answer hyprctl version ($ver)" ;;
 esac
 clean "with the generated module absent"
 
@@ -198,7 +222,10 @@ clean "with the generated module absent"
 # Staged into the repo root: Quickshell will not import QML modules from outside
 # the directory holding the entry point.
 cp "$here/keybind-lua-gen.qml" "$root/.keybind-lua-gen.qml"
-gen_log="$sandbox/gen.log"
+gen_log="$HEADLESS_W/gen.log"
+# The generator runs on the HOST labwc, which has an output; the nested
+# Hyprland is only ever the target of its `hyprctl reload`, which is why the
+# signature is passed and the display is not.
 ( cd "$root" && env -u DISPLAY \
     XDG_RUNTIME_DIR="$rt" WAYLAND_DISPLAY="$WAYLAND_DISPLAY" \
     HYPRLAND_INSTANCE_SIGNATURE="$sig" \
@@ -259,12 +286,15 @@ hl.bind("SUPER + G", hl.dsp.exec_cmd("true"))
 LUA
 user="$home/.config/hypr/apex/shell-keybinds-user.lua"
 rm -f "$user"
+# The generator runs on the HOST labwc, which has an output; the nested
+# Hyprland is only ever the target of its `hyprctl reload`, which is why the
+# signature is passed and the display is not.
 ( cd "$root" && env -u DISPLAY \
     XDG_RUNTIME_DIR="$rt" WAYLAND_DISPLAY="$WAYLAND_DISPLAY" \
     HYPRLAND_INSTANCE_SIGNATURE="$sig" \
     HOME="$home" XDG_CURRENT_DESKTOP=Hyprland \
     QT_LOGGING_RULES="qml=true" \
-    timeout 180 quickshell -p "$root/.keybind-lua-gen.qml" ) >"$sandbox/gen2.log" 2>&1
+    timeout 180 quickshell -p "$root/.keybind-lua-gen.qml" ) >"$HEADLESS_W/gen2.log" 2>&1
 
 grep -q 'SUPER + G' "$user" 2>/dev/null \
     && ok "a migrated bind at the generated path survives the next shell start" \
