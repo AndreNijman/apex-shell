@@ -84,6 +84,20 @@ check("all three packages are missing on a fresh image",
 check("the install line is the CLI's hint, not a guess",
       G.installLine(g), "sudo apex install gamescope steam");
 
+// ── the setup checks: what the image ships, not what you install ─────────────
+check("every setup check is reported, in order",
+      G.setupChecks(g).map(c => c.key),
+      ["session_desktop", "session_launcher", "switch_helper",
+       "switch_sudoers", "rtprio_limits"]);
+check("each carries a label a person can read",
+      G.setupChecks(g).every(c => c.label !== "" && c.label !== c.key), true);
+check("the absent sudoers rule is reported absent",
+      G.setupChecks(g).filter(c => !c.passed).map(c => c.key), ["switch_sudoers"]);
+check("and says where the CLI looked",
+      G.setupChecks(g).filter(c => c.key === "switch_sudoers").map(c => c.source),
+      ["/etc/sudoers.d/040-apex-session-select"]);
+check("a failed read has no setup checks", G.setupChecks(G.readGaming("")), []);
+
 // ── nothing the CLI reports may vanish ───────────────────────────────────────
 // A probe added on the OS side and not named in TOOLS or SETUP still has to
 // appear, or the page silently under-reports what is wrong.
