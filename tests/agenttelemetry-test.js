@@ -270,6 +270,34 @@ function wiring() {
           /\.fleet\(/.test(stripText));
     check("no new translucent-white foreground",
           !/Qt\.rgba\(1,\s*1,\s*1,/.test(stripText));
+
+    // The clock is read inside the bindings, never held in a property.
+    //
+    // `readonly property real now: Date.now() / 1000` looks harmless and is
+    // not: a binding whose only input is Date.now() has no dependencies, so
+    // QML evaluates it once and every countdown on the page is then computed
+    // against the moment the dashboard opened. Ten minutes later "2h 11m left"
+    // has not moved and the observation has not aged. A single-shot render
+    // test cannot see it — nothing ticks in one frame — so it is caught here,
+    // where it is a property of the source.
+    // Held is not the same as frozen, and SessionRow is the case that proves
+    // it: §3.4's break-glass countdown keeps `nowMs` in a property precisely
+    // so a one-second Timer can write it, which is the opposite of the defect
+    // above. What makes a clock frozen is that nothing ever assigns it again —
+    // a `readonly property` initialised from Date.now() cannot be, by
+    // construction — so the rule asks about the assignment rather than about
+    // the declaration.
+    for (const [name, text] of [["TelemetryStrip", stripText],
+                                ["SessionRow", rowText]]) {
+        const held = [...text.matchAll(/property\s+\w+\s+(\w+)\s*:\s*Date\.now\(\)/g)]
+              .map(m => m[1]);
+        const frozen = held.filter(
+            n => !new RegExp("\\b" + n + "\\s*=\\s*Date\\.now\\(\\)").test(text));
+        check(name + " does not freeze the clock in a property",
+              frozen.length === 0,
+              "a Date.now() binding with no dependencies is evaluated once, and "
+              + "nothing ticks: " + frozen.join(", "));
+    }
 }
 
 // ── Mutants ─────────────────────────────────────────────────────────────────
