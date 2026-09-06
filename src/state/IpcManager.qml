@@ -125,6 +125,77 @@ QtObject {
         return ids.join(" ")
     }
 
+    // ── Display transactions ─────────────────────────────────
+    // The one settings domain that can take away the pointer you would use to
+    // fix it. The dialog is now built on every output so it survives the apply
+    // that raised it, but "every output" is still every output the compositor
+    // has left — and if that set is empty or unreadable, the only remaining way
+    // to answer is from a TTY:
+    //
+    //     apex shell display status
+    //     apex shell display revert
+    //
+    // Deliberately not a second implementation of the transaction: every verb
+    // is the same call the dialog's buttons make.
+    property var display: IpcHandler {
+        target: "display"
+
+        /// name field value — stage one change, exactly as the page does.
+        function set(name: string, field: string, value: string): string {
+            if (name === "" || field === "")
+                return "usage: display set <output> <field> <value>"
+            let v = value
+            if (value === "true")  v = true
+            else if (value === "false") v = false
+            else if (value !== "" && !isNaN(Number(value)) && field !== "transform")
+                v = Number(value)
+            DisplayService.stage(name, field, v)
+            return DisplayService.dirty ? "staged " + name + " " + field + "=" + value
+                                        : "no output called " + name
+        }
+
+        function apply(): string {
+            if (DisplayService.pending)
+                return "a display change is already waiting to be confirmed"
+            if (!DisplayService.dirty)
+                return "nothing staged"
+            DisplayService.apply()
+            return "applying"
+        }
+
+        function keep(): string {
+            if (!DisplayService.pending) return "nothing to keep"
+            DisplayService.confirm()
+            return "kept"
+        }
+
+        function revert(): string {
+            DisplayService.revertApplied()
+            return "reverted"
+        }
+
+        /// Everything a person on a TTY needs before deciding, in one line.
+        function status(): string {
+            const bits = []
+            bits.push(DisplayService.pending
+                ? "waiting " + DisplayService.confirmSeconds + "s"
+                : "idle")
+            bits.push(DisplayService.dirty ? "staged" : "clean")
+            if (DisplayService.confirmScreen !== "")
+                bits.push("dialog on " + DisplayService.confirmScreen)
+            if (DisplayService.lastError !== "")
+                bits.push("error: " + DisplayService.lastError)
+            if (DisplayService.lastNotice !== "")
+                bits.push("note: " + DisplayService.lastNotice)
+            return bits.join(" | ")
+        }
+
+        function refresh(): string {
+            DisplayService.refresh()
+            return "re-reading the outputs"
+        }
+    }
+
     // ── Audio Toggles ────────────────────────────────────────
 
     property var audioOut: IpcHandler {
