@@ -113,19 +113,30 @@ between_in_fn() {
 #
 # Every double-quoted literal in the comment-stripped source that carries a
 # space and four letters, which on these two files is the sentences and nothing
-# else. An earlier version keyed off `text:` and `description:` and silently
-# dropped both halves of every ternary, so the string a reader sees most of the
-# time was the one string this never looked at. The mutant that rewrites a
+# else. Two earlier versions of this got it wrong in opposite directions and
+# both are worth remembering, because the checks below are only as honest as
+# what they are handed.
+#
+# It keyed off `text:` and `description:` first, which silently dropped both
+# halves of every ternary — so the string a reader sees most of the time was
+# the one string the slop gate never looked at. The mutant that rewrites a
 # description to say "sandboxed and secure" is what found that.
+#
+# Then it took each literal on its own, which split a sentence written as three
+# concatenated lines into three "sentences" of nearly equal length and tripped
+# the rhythm rule on prose that reads as one line on screen. A run of literals
+# joined by `+` is ONE string to the reader, so it is joined here too.
 extract_copy() {
     python3 - "$@" <<'PYCOPY'
 import re, sys, pathlib
+LIT = r'"(?:[^"\\\n]|\\.)*"'
+RUN = re.compile("(?:" + LIT + r")(?:\s*\+\s*(?:" + LIT + "))*")
 out = []
 for f in sys.argv[1:]:
     src = pathlib.Path(f).read_text(errors="replace")
     src = re.sub(r"^[ \t]*//.*$", "", src, flags=re.M)
-    for m in re.finditer(r'"((?:[^"\\\n]|\\.)*)"', src):
-        s = m.group(1)
+    for m in RUN.finditer(src):
+        s = "".join(x[1:-1] for x in re.findall(LIT, m.group(0)))
         if " " in s and len(re.findall(r"[A-Za-z]", s)) >= 4:
             out.append(s)
 print("\n\n".join(out))
@@ -316,8 +327,13 @@ check_tree() {
     # every file the user can.
     want "the copy does not call the mode safe or secure" \
         bash -c '! grep -qiE "\\b(safe|secure|protected|sandboxed and)\\b" <<<"$1"' _ "$copy"
-    want "the copy keeps the sudo-timestamp caveat next to the switch" \
-        grep -qE 'sudo timestamp' <<<"$copy"
+    # The residual, stated next to the switch that creates it — and stated as
+    # what it is. `no_new_privs` closes sudo INSIDE a session; the way out is a
+    # file the session wrote that the user's own shell runs later.
+    want "the copy states the residual an unconfined session leaves" \
+        grep -qE 'shell startup files|git hook' <<<"$copy"
+    want "the copy does not claim sudo works inside a session" \
+        bash -c '! grep -qiE "sudo timestamp" <<<"$1"' _ "$copy"
 }
 
 echo "── checks ──"
