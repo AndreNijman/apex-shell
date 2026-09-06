@@ -25,16 +25,21 @@ import "./src"
 // to cover is arithmetic, and arithmetic can be checked.
 //
 // ── What labwc is actually doing in this run ─────────────────────────────────
-// Two of the four blocks below are compositor-independent arithmetic and would
-// hold on any host: the mask geometry and the dock's capacity. They are run
-// under labwc anyway because that is the session where getting them wrong is
-// visible — Hyprland clamps an out-of-bounds input region leniently enough that
-// enough of it still overlapped the buttons, which is why nobody noticed.
+// Some of what follows is compositor-independent arithmetic and would hold on
+// any host: the mask geometry, the dock's capacity, the per-output bookkeeping.
+// It runs under labwc anyway because that is the session where getting it wrong
+// is visible — Hyprland clamps an out-of-bounds input region leniently enough
+// that enough of it still overlapped the buttons, which is why nobody noticed.
 //
-// The other two need this host and would be vacuous anywhere else: the bar mask
-// and the dismiss surface both take a `Compositor.isLabwc` branch, and on any
-// other compositor the assertions would pass over the arm they do not test.
-// That is why identity is a hard precondition below and not a skip.
+// The bar mask and the dismiss surface are different: both take a
+// `Compositor.isLabwc` branch, so on any other compositor those assertions pass
+// over the arm they do not test. That is why the compositor's identity is a
+// hard precondition below and not a skip.
+//
+// The runner gives this host TWO headless outputs. Multi-monitor is a §21 row
+// in its own right, and a bar sized to the wrong output or a dismiss surface
+// armed on the screen the dashboard is NOT on are both invisible on the
+// single-output machine the shell is developed on.
 // ─────────────────────────────────────────────────────────────────────────────
 
 ShellRoot {
@@ -71,12 +76,25 @@ ShellRoot {
     AudioPopup  { id: audio;     anchorWindow: host }
     QuickControl{ id: quick;     anchorWindow: host }
 
-    PopupDismiss {
-        id: dismiss
-        screenName: Quickshell.screens.length > 0 ? Quickshell.screens[0].name : ""
+    // One bar and one dismiss surface per output, the way shell.qml builds them.
+    // The Floating session's multi-monitor row lives here: a bar sized to the
+    // wrong output and a dismiss surface that grabs input on the screen the
+    // dashboard is NOT on are both invisible failures on a single-output
+    // developer machine.
+    Variants {
+        id: perScreen
+        model: Quickshell.screens
+        Scope {
+            id: screenScope
+            required property var modelData
+            readonly property string screenName: modelData.name
+            readonly property var barItem: bar
+            readonly property var dismissItem: dismiss
+            TopBar       { id: bar;     screen: screenScope.modelData }
+            PopupDismiss { id: dismiss; screen: screenScope.modelData
+                           screenName: screenScope.modelData.name }
+        }
     }
-
-    TopBar { id: bar }
 
     // The dock is measured at several widths, so it is built by a Repeater over
     // the budgets rather than mutated in place: a `Row` recomputes maxItems
@@ -199,6 +217,53 @@ ShellRoot {
                           audio.implicitWidth, audio.implicitHeight)
         root.maskGeometry("QuickControl", quick.mask.item,
                           quick.implicitWidth, quick.implicitHeight)
+
+        console.log("")
+        console.log("── One bar and one dismiss surface per output ────────────")
+
+        // Quickshell.screens is the model, so the counts cannot drift; what can
+        // drift is which output each instance believes it is on. A bar that
+        // reports the wrong screenName masks the wrong width, and a dismiss
+        // surface that does is the multi-monitor half of the power-menu bug.
+        const shells = perScreen.instances
+        root.check("a bar and a dismiss surface exist for every output",
+                   shells.length === Quickshell.screens.length,
+                   "instances=" + shells.length
+                   + " screens=" + Quickshell.screens.length)
+        root.check("this run has more than one output to tell apart",
+                   Quickshell.screens.length > 1,
+                   "screens=" + Quickshell.screens.length)
+
+        const names = []
+        for (let i = 0; i < shells.length; i++) {
+            const sc = shells[i]
+            root.check("output " + sc.screenName + ": the bar is sized to its own output",
+                       sc.barItem.width === sc.modelData.width,
+                       "bar=" + sc.barItem.width + " output=" + sc.modelData.width)
+            root.check("output " + sc.screenName + ": the dismiss surface names the same output",
+                       sc.dismissItem.screenName === sc.modelData.name,
+                       "dismiss=" + sc.dismissItem.screenName)
+            names.push(sc.screenName)
+        }
+        root.check("no two instances claim the same output",
+                   names.length === new Set(names).size, names.join(","))
+        root.note("outputs: " + names.join(", "))
+
+        // The dashboard belongs to one output. A dismiss surface mapped on the
+        // other one grabs clicks on a screen with nothing open on it.
+        if (shells.length > 1) {
+            Popups.closeAll()
+            Popups.dashboardOpen = true
+            Popups.dashboardScreen = shells[0].screenName
+            root.check("the dashboard's own output arms its dismiss surface",
+                       shells[0].dismissItem.visible === true)
+            root.check("the other output does not grab clicks for it",
+                       shells[1].dismissItem.visible === false)
+            Popups.closeAll()
+        }
+
+        const dismiss = shells.length > 0 ? shells[0].dismissItem : null
+        const bar = shells.length > 0 ? shells[0].barItem : null
 
         console.log("")
         console.log("── The dismiss surface must not eat the power menu ───────")
