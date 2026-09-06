@@ -31,11 +31,20 @@ PanelWindow {
 
     required property string screenName
 
-    readonly property bool live: NexusState.open && NexusState.screenName === root.screenName
+    readonly property bool live: NexusState.open
+                                 && NexusState.effectiveScreen === root.screenName
 
     // The window stays mapped for the duration of the close animation, so
     // visibility is latched rather than bound straight to `live`.
     property bool windowVisible: false
+
+    // A Nexus can be BORN live. shell.qml builds one per entry in
+    // Quickshell.screens, so an output arriving or leaving — which is what a
+    // display apply does — destroys and rebuilds the whole set while the
+    // settings window is open. onLiveChanged never fires for those, because
+    // `live` was already true when they were constructed, and the window
+    // stayed unmapped for the rest of the session.
+    Component.onCompleted: if (root.live) root.windowVisible = true
 
     readonly property int animDuration: Theme.animDuration
 
