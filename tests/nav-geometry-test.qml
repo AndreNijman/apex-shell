@@ -39,6 +39,8 @@ import "./src/components"
 //                and the click target is the whole slot rather than the pill
 //   vertical   — no two rows overlap, rows stay inside the column or scroll,
 //                a row stays big enough to hit, no label leaves the pane
+//   vertical,   — and where the rows do fit, they reach both ends of the
+//   short        column with equal gaps rather than bunching in the middle
 //   width      — the dashboard fits the output it opens on, together with the
 //                two notches it opens between, at every scale
 //
@@ -111,6 +113,12 @@ ShellRoot {
     // The dashboard height slider's two ends and its default.
     readonly property var dashHeights: [360, 520, 900]
 
+    // Unscaled column heights for the three-tab switcher, in the range the
+    // audio popup lives in. Every one of them has room for three rows at every
+    // scale in the matrix, which is the point: this is the case where the
+    // component has slack and has to decide what to do with it.
+    readonly property var shortColumns: [200, 300, 420]
+
     // ── Which pairs are graded in full ───────────────────────────────────────
     // "Representative scaling", in the roadmap's words. A scale factor divides
     // an output into logical pixels, and past a point there are not enough of
@@ -168,7 +176,32 @@ ShellRoot {
                 model:        root.configTabs
             }
         }
+
+        // The other vertical switcher in the shell, and the one the nine-row
+        // column's fix nearly broke. Three icon-only tabs down the side of the
+        // audio popup, sized the way AudioControl.qml sizes them: height from
+        // the parent, width left to implicitWidth.
+        Item {
+            id: vShortHost
+            y: 520
+            width:  vShortSwitcher.implicitWidth
+            height: 381
+            TabSwitcher {
+                id: vShortSwitcher
+                height:       parent.height
+                orientation:  "vertical"
+                currentPage:  "output"
+                model:        root.audioTabs
+            }
+        }
     }
+
+    // src/services/AudioControl.qml's switcher model, icon-only and three long.
+    readonly property var audioTabs: [
+        { key: "output", icon: "󰕾" },
+        { key: "input",  icon: "󰍬" },
+        { key: "mixer",  icon: "󰾝" }
+    ]
 
     // The real settings page set, so the count this measures is the count the
     // Config tab draws rather than a number copied into a test and left behind.
@@ -433,6 +466,74 @@ ShellRoot {
                    worstLabelAt + " overhangs by " + worstLabelBleed.toFixed(1) + "px")
     }
 
+    // ── Vertical, short ──────────────────────────────────────────────────────
+    // The nine-row column and the three-row one pull in opposite directions and
+    // one component serves both. Giving every row a fixed gap stops nine rows
+    // overlapping in a column too short for them, and it also bunches three
+    // rows into the middle of a column that has room to spare — which is what
+    // the audio popup is, and what the first pass at the overlap did to it.
+    //
+    // So the spread is asserted, not just the absence of an overlap. Stated in
+    // what a reader can see rather than in the component's own arithmetic: if
+    // the rows together are shorter than the column, they reach both its ends
+    // and the gaps between them are equal. A test that recomputed vSpacing here
+    // would agree with the component about a bunched column as readily as about
+    // a spread one.
+    function measureVerticalSpread(label, columnHeight) {
+        const n = root.audioTabs.length
+        const s = root.slotsOf(vShortSwitcher, n, 4)
+        if (s.length !== n) {
+            root.check(label + ": the column laid out " + n + " rows", false,
+                       "found " + s.length)
+            return
+        }
+
+        var sumRows = 0
+        var top = 1e9, bottom = -1e9
+        var minGap = 1e9, maxGap = -1e9
+        var minRow = 1e9
+        var prevBottom = -1e9
+
+        for (var i = 0; i < n; i++) {
+            const rowItem = s[i]
+            const y = rowItem.mapToItem(vShortSwitcher, 0, 0).y
+            if (i > 0) {
+                const gap = y - prevBottom
+                minGap = Math.min(minGap, gap)
+                maxGap = Math.max(maxGap, gap)
+            }
+            prevBottom = y + rowItem.height
+            sumRows += rowItem.height
+            minRow   = Math.min(minRow, rowItem.height)
+            top      = Math.min(top, y)
+            bottom   = Math.max(bottom, y + rowItem.height)
+        }
+
+        root.check(label + ": no two rows overlap", minGap >= 0,
+                   "closest gap " + minGap.toFixed(1) + "px")
+        root.check(label + ": a row stays big enough to hit",
+                   minRow >= root.minTouch(),
+                   "shortest row " + minRow.toFixed(1)
+                   + "px, floor " + root.minTouch() + "px")
+        root.check(label + ": the rows stay inside the column",
+                   top >= -0.5 && bottom <= columnHeight + 0.5,
+                   "rows span " + top.toFixed(1) + ".." + bottom.toFixed(1)
+                   + " in a " + columnHeight + "px column")
+
+        // Only where there is slack to spread. Integer spacing loses at most
+        // one pixel per gap, which is the tolerance below and not a fudge.
+        if (sumRows < columnHeight - (n - 1)) {
+            root.check(label + ": a short list spreads over the column it was given",
+                       bottom - top >= columnHeight - (n - 1) - 0.5,
+                       n + " rows totalling " + sumRows.toFixed(1)
+                       + "px cover only " + (bottom - top).toFixed(1)
+                       + "px of a " + columnHeight + "px column")
+            root.check(label + ": the gaps it spreads into are equal",
+                       maxGap - minGap <= 1.5,
+                       "gaps run " + minGap.toFixed(1) + ".." + maxGap.toFixed(1) + "px")
+        }
+    }
+
     // ── Width policy ─────────────────────────────────────────────────────────
     // The dashboard is a centred notch between two edge-anchored ones. It fits
     // when it does not reach either, at the widest those two are allowed to be.
@@ -528,28 +629,37 @@ ShellRoot {
     property int stuck: 0
     readonly property int settleMax: 40
 
+    // Which of the two vertical rigs a step drives, or null for a horizontal one.
+    function vRigFor(stepData) {
+        if (stepData.kind === "vShort")
+            return { sw: vShortSwitcher, host: vShortHost, n: root.audioTabs.length }
+        if (stepData.kind === "v" || stepData.kind === "liveV")
+            return { sw: vSwitcher, host: vHost, n: root.configTabs.length }
+        return null
+    }
+
     // Does what Qt laid out match the width or height that was asked for?
     function agreesWithStage(stepData) {
-        const vertical = stepData.kind === "v" || stepData.kind === "liveV"
-        const sw = vertical ? vSwitcher : hSwitcher
-        const n  = vertical ? root.configTabs.length : DashboardLayout.tabs.length
+        const v  = root.vRigFor(stepData)
+        const sw = v ? v.sw : hSwitcher
+        const n  = v ? v.n  : DashboardLayout.tabs.length
         const s  = root.slotsOf(sw, n, 4)
         if (s.length !== n)
             return false
-        if (vertical)
-            return Math.abs(s[0].width - vHost.width) <= 1.5
+        if (v)
+            return Math.abs(s[0].width - v.host.width) <= 1.5
         const last = s[n - 1]
         return Math.abs(last.x + last.width - hHost.width) <= 1.5
     }
 
     function signatureOf(stepData) {
-        const vertical = stepData.kind === "v" || stepData.kind === "liveV"
-        const sw = vertical ? vSwitcher : hSwitcher
-        const n  = vertical ? root.configTabs.length : DashboardLayout.tabs.length
+        const v  = root.vRigFor(stepData)
+        const sw = v ? v.sw : hSwitcher
+        const n  = v ? v.n  : DashboardLayout.tabs.length
         const s  = root.slotsOf(sw, n, 4)
         if (s.length !== n)
             return "incomplete:" + s.length
-        var out = vertical ? "v" + vHost.height + ":" : "h" + hHost.width + ":"
+        var out = v ? "v" + v.host.height + ":" : "h" + hHost.width + ":"
         for (var i = 0; i < n; i++) {
             const it = s[i]
             const p  = it.mapToItem(sw, 0, 0)
@@ -598,6 +708,9 @@ ShellRoot {
             }
             for (var d = 0; d < root.dashHeights.length; d++)
                 out.push({ kind: "v", scale: sc, dashHeight: root.dashHeights[d] })
+            for (var e = 0; e < root.shortColumns.length; e++)
+                out.push({ kind: "vShort", scale: sc,
+                           columnBase: root.shortColumns[e] })
         }
         return out
     }
@@ -610,7 +723,11 @@ ShellRoot {
             SettingsService.set("scaleMode", "manual")
             SettingsService.set("scaleManual", stepData.scale)
         }
-        if (stepData.kind === "h" || stepData.kind === "stress"
+        if (stepData.kind === "vShort") {
+            // Scaled, because the popup this stands for is: its switcher takes
+            // the popup's height and the popup is drawn in Theme.px.
+            vShortHost.height = Theme.px(stepData.columnBase)
+        } else if (stepData.kind === "h" || stepData.kind === "stress"
                 || stepData.kind === "live") {
             hHost.width  = DashboardLayout.barWidthFor(stepData.page, stepData.screen.w)
             hHost.height = hSwitcher.implicitHeight
@@ -649,6 +766,10 @@ ShellRoot {
             const stag = "stress " + stepData.scale + "x " + stepData.screen.name
                        + " " + stepData.page
             root.measureDegraded(stag, stepData.page, stepData.screen.w)
+        } else if (stepData.kind === "vShort") {
+            root.measureVerticalSpread(
+                "vShort " + stepData.scale + "x col=" + vShortHost.height,
+                vShortHost.height)
         } else {
             const vtag = "v " + stepData.scale + "x dashHeight=" + stepData.dashHeight
             root.measureVertical(vtag + " col=" + vHost.height, vHost.height)
@@ -743,6 +864,7 @@ ShellRoot {
                         + " autoScale=" + Metrics.autoScale)
             console.log("[rig] " + DashboardLayout.tabs.length + " dashboard tabs, "
                         + root.configTabs.length + " settings pages, "
+                        + root.audioTabs.length + " audio tabs, "
                         + root.plan.length + " matrix points")
             step.restart()
         }
