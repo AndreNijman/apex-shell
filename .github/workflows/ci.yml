@@ -1001,6 +1001,27 @@ jobs:
           # of a pipe, which made it green for any input at all.
           ./tests/check-agent-settings.sh
 
+      - name: Agent sandbox default, driven for real
+        run: |
+          # The three things neither of the two above can answer, because only
+          # Qt can: that the page LOADS (every type this feature adds is
+          # reached through src/services/qmldir, and a missing entry there
+          # takes the whole shell down rather than one page); that the Process
+          # doing the write preserves the other five dimensions on a real file
+          # with a real `mv`; and that pkcheck is invoked on exactly one of the
+          # two transitions.
+          #
+          # It brings its own headless compositor in a private
+          # XDG_RUNTIME_DIR, its own XDG_CONFIG_HOME, a fake `apex` so the
+          # result does not depend on what happens to be running, and a FAKE
+          # pkcheck that records its argv and refuses. No polkit dialog is
+          # ever raised: there is nobody on a runner to answer one, and an
+          # unasked-for password prompt on a desktop is the thing this project
+          # has twice been told never to produce.
+          #
+          # Skips cleanly without quickshell or a compositor.
+          ./tests/run-agent-settings-test.sh
+
       - name: Remote agent status smoke test
         run: |
           # Needs a compositor AND the apex-os runtime built; the harness skips
