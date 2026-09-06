@@ -27,7 +27,12 @@
 #  user fonts through HOME and a run that cannot see them measures .notdef boxes
 #  — every width the suite reports would be fiction.
 #
-#  ── And a filler toplevel ───────────────────────────────────────────────────
+#  ── Two outputs, and a filler toplevel ──────────────────────────────────────
+#  The headless backend is asked for two outputs, so the per-output windows have
+#  something to be told apart by: a bar sized to the wrong output, or a dismiss
+#  surface armed on the screen the dashboard is not on, are both invisible on a
+#  single-output developer machine.
+#
 #  A nested compositor with nothing running inside it is not a session. The app
 #  dock lists windows, so with no window its model is empty, and every assertion
 #  over it is a loop that passes without testing anything. The QML declares the
@@ -122,7 +127,7 @@ unset NIRI_SOCKET
 export XDG_CURRENT_DESKTOP=labwc:wlroots
 export WLR_BACKENDS=headless
 export WLR_LIBINPUT_NO_DEVICES=1
-export WLR_HEADLESS_OUTPUTS=1
+export WLR_HEADLESS_OUTPUTS=2
 export XDG_SESSION_TYPE=wayland
 export QT_QPA_PLATFORM=wayland
 
