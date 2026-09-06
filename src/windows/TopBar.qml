@@ -207,6 +207,7 @@ PanelWindow {
 
         Item {
             id:           leftNotch
+            objectName:   "topbar-notch:left"
             width:        root.lWidth
             height:       Theme.notchHeight
             anchors.left: parent.left
@@ -214,6 +215,7 @@ PanelWindow {
 
             LeftContent {
                 id: leftContent
+                objectName: "topbar-content:left"
                 screenName: root.screenName
                 anchors.centerIn: parent
             }
@@ -221,12 +223,14 @@ PanelWindow {
 
         Item {
             id:               centerNotch
+            objectName:       "topbar-notch:center"
             width:            root.cWidth
             height:           Theme.notchHeight
             anchors.centerIn: parent
 
             CenterContent {
                 id: centerContent
+                objectName: "topbar-content:center"
                 screenName: root.screenName
                 anchors.centerIn: parent
             }
@@ -234,6 +238,7 @@ PanelWindow {
 
         Item {
             id:            rightNotch
+            objectName:    "topbar-notch:right"
             width:         root.rWidth
             height:        Theme.notchHeight
             anchors.right: parent.right
@@ -242,6 +247,7 @@ PanelWindow {
 
             RightContent {
                 id: rightContent
+                objectName: "topbar-content:right"
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: Theme.notchPadding

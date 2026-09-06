@@ -110,6 +110,7 @@ PanelWindow {
     // was the source of the vertical offset in the text-working variant.
     Item {
         id: sizer
+        objectName: "dashboard-sizer"
         anchors.top:              parent.top
         anchors.horizontalCenter: parent.horizontalCenter
         clip: true
@@ -141,6 +142,7 @@ PanelWindow {
         // ── Content ───────────────────────────────────────────────────────────
         Item {
             id: content
+            objectName: "dashboard-content"
             anchors {
                 fill:         parent
                 topMargin:    root.fh + 8
@@ -165,6 +167,7 @@ PanelWindow {
                 // ── Tab bar ───────────────────────────────────────────────────
                 TabSwitcher {
                     id: tabBar
+                    objectName:  "dashboard-tabbar"
                     orientation: "horizontal"
                     width:       parent.width
                     currentPage: root.page
@@ -182,6 +185,7 @@ PanelWindow {
                 // ── Page area ─────────────────────────────────────────────────
                 Item {
                     id: pageArea
+                    objectName: "dashboard-pagearea"
                     focus: true
                     
                     width:  parent.width

@@ -74,6 +74,7 @@ Item {
 
 			delegate: Item {
 				id: hTab
+				objectName: "tabswitcher-tab:" + modelData.key
 				readonly property bool isActive: root.currentPage === modelData.key
 
 				width:  hRow.width / root.model.length
@@ -82,6 +83,7 @@ Item {
 				// Pill background
 				Rectangle {
 					id: hBg
+					objectName: "tabswitcher-pill:" + modelData.key
 					anchors.centerIn: parent
 					width:  hIcon.implicitWidth + hLabel.implicitWidth + 24
 					height: parent.height - 8
@@ -165,6 +167,7 @@ Item {
 	
 	            delegate: Rectangle {
 	                id: vTab
+	                objectName: "tabswitcher-vtab:" + modelData.key
 	                readonly property bool isActive: root.currentPage === modelData.key
 	
 	                width:  vCol.width

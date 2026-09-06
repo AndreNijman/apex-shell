@@ -53,6 +53,7 @@ Item {
 
             TabSwitcher {
                 id: tabs
+                objectName: "config-pagelist"
                 orientation: "vertical"
                 anchors {
                     top:              parent.top
