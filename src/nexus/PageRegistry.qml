@@ -73,6 +73,19 @@ QtObject {
             "component": blueprintComp
         },
         {
+            "id": "gaming",
+            "title": "Gaming",
+            "subtitle": "Gaming Mode, what it needs, and the performance policy",
+            "icon": "󰊴",
+            // GamingService runs `apex gaming` and `apex mode status` when the
+            // page is opened and when the user presses Refresh, and nothing on
+            // a timer — `apex mode set --auto` is one-shot by design, so a
+            // poller here would be the shell inventing a daemon the OS declined
+            // to ship. Nothing to refcount, so nothing to tell about the screen.
+            "needsScreen": false,
+            "component": gamingComp
+        },
+        {
             "id": "recovery",
             "title": "Recovery",
             "subtitle": "Health, rollback, repair, ways back in",
@@ -149,6 +162,9 @@ QtObject {
     }
     readonly property Component blueprintComp: Component {
         BlueprintPage {}
+    }
+    readonly property Component gamingComp: Component {
+        GamingPage {}
     }
     readonly property Component recoveryComp: Component {
         RecoveryPage {}
