@@ -140,7 +140,6 @@ QtObject {
         // what was asked for.
         onRunningChanged: if (!running) root.refreshScreenShader()
     }
-    property Process _nightLightKillProc: Process { command: []; running: false }
 
     function _start(proc, argv) {
         proc.command = argv
@@ -322,14 +321,14 @@ QtObject {
         root._refreshTitle()
         root._refreshWindows()
 
-        // Two one-shot probes at startup — one `hyprctl getoption`, one
-        // `pgrep`. They used to run from QuickSettings.Component.onCompleted
-        // instead, so the same two forks happened on first dashboard open. Same
-        // count per session, moved earlier, and the properties are now honest
-        // from the start rather than reading false until somebody looks. These
-        // are one-shots, not the refcounted pollers: nothing repeats.
+        // One one-shot probe at startup, `hyprctl getoption`. It used to run
+        // from QuickSettings.Component.onCompleted instead, so the fork
+        // happened on first dashboard open. Same count per session, moved
+        // earlier, and the property is now honest from the start rather than
+        // reading false until somebody looks. This is a one-shot, not one of
+        // the refcounted pollers: nothing repeats. The night light's own adopt
+        // probe is the facade's, for every compositor at once.
         root.refreshScreenShader()
-        root._nightLightProbeProc.running = true
     }
 
     // ── Tiling layout ─────────────────────────────────────────────────────────
@@ -593,48 +592,23 @@ QtObject {
     }
 
     // ── Night light ───────────────────────────────────────────────────────────
-    // hyprsunset, and it belongs in the capability map even though it is a
-    // separate daemon rather than a compositor feature: it shifts the colour
-    // temperature through `hyprland-ctm-control-v1`, a Hyprland-only protocol,
-    // so it does nothing whatsoever on niri or labwc. The tile has to hide on
-    // *something*, and hiding it on a capability means the day somebody wires
-    // wlsunset up for the wlroots backends is one `true` in one file.
-    property bool nightLightActive: false
-
-    property Process _nightLightProc: Process {
-        command: ["hyprsunset", "-t", "5600"]
-        running: false
-    }
-
-    // Adopts a hyprsunset the user (or a previous shell) already started, so
-    // the tile does not offer to turn on something that is already on.
+    // hyprsunset. Hyprland 0.56.2 advertises `zwlr_gamma_control_manager_v1`
+    // as well — measured, nested — so gammastep would also work here and the
+    // shell could run one tool everywhere. It deliberately does not:
     //
-    // `-x`, and never `-f`. Without -x the pattern is a regex against the
-    // process NAME, so it also matches a `hyprsunset-something`; with -f it
-    // would match any command LINE containing the word, including the shell
-    // that ran the probe, which reports "running" unconditionally.
-    property Process _nightLightProbeProc: Process {
-        command: ["pgrep", "-x", "hyprsunset"]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (this.text.trim() !== "") root.nightLightActive = true
-            }
-        }
-    }
-
-    function setNightLight(on) {
-        if (on) {
-            root._nightLightProc.running = true
-        } else {
-            root._nightLightProc.running = false
-            // -x here too. This was a bare `pkill hyprsunset` when it moved out
-            // of QuickSettings, which is asymmetric with the probe above: the
-            // probe only ever reports a process named exactly "hyprsunset", so
-            // the kill could take down something the tile never claimed was on.
-            root._start(root._nightLightKillProc, ["pkill", "-x", "hyprsunset"])
-        }
-        root.nightLightActive = on
+    //   hyprsunset shifts the colour temperature through
+    //   `hyprland-ctm-control-v1`, a colour TRANSFORM MATRIX applied during
+    //   composition. gammastep rewrites the output's GAMMA LUT. A per-display
+    //   ICC calibration curve is loaded into that same LUT, so on the wlroots
+    //   compositors night light and a calibration curve are the same slot and
+    //   the second one to write wins. On Hyprland they are two slots and both
+    //   survive — which is the case a creator machine cares about.
+    //
+    // So the mechanism is per compositor and the reason is colour management,
+    // not the absence of an alternative.
+    readonly property string nightLightProcess: "hyprsunset"
+    function nightLightArgv(kelvin) {
+        return ["hyprsunset", "-t", String(kelvin)]
     }
 
     // Hyprland submaps: a named mode with no binds in it, so every key falls

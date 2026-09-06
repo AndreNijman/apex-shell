@@ -212,8 +212,10 @@ ShellRoot {
             // path and are unreachable on Hyprland for the same reason
             // setGaps(0, 0) is: on a capable backend the first would blank
             // every monitor for a moment (the shader apply cycles DPMS to
-            // force a redraw) and the second would start hyprsunset on the
-            // developer's desktop and leave it running.
+            // force a redraw) and the second would start the colour-temperature
+            // tool on the developer's desktop and leave it running. The capable
+            // half of night light is exercised against real compositors by
+            // tests/run-night-light-test.sh, which brings its own.
             const actions = [
                 ["specialWorkspace",     function () { return CompositorService.toggleSpecialWorkspace("x") }],
                 ["windowMove",           function () { return CompositorService.moveWindowToWorkspace("x", 1) }],
@@ -250,6 +252,29 @@ ShellRoot {
                   can.screenShader || CompositorService.screenShader === "")
             check("night light is not reported active without the capability",
                   can.nightLight || CompositorService.nightLightActive === false)
+
+            // ── Night light is one mechanism table, not four implementations ─
+            // The capability and the tool have to agree in both directions. A
+            // capability with no tool spawns nothing behind a live control; a
+            // tool with no capability is a mechanism nothing can reach.
+            check("a night-light capability names a mechanism, and only then",
+                  can.nightLight === CompositorService.nightLightSupported)
+            check("the mechanism is empty exactly when the capability is false",
+                  can.nightLight
+                      ? CompositorService.nightLightMechanism !== ""
+                      : CompositorService.nightLightMechanism === "")
+
+            // The temperature is a setting rather than a literal inside an
+            // invocation, which is what it was: `hyprsunset -t 5600`, with no
+            // way to change it. Bounds, because a value outside them is one
+            // the tools reject or one that adds blue light.
+            check("the night-light temperature is a usable Kelvin value",
+                  CompositorService.nightLightTemperature >= 1000
+                  && CompositorService.nightLightTemperature <= 6500)
+
+            // Nothing has been asked of it, so nothing may be claimed of it.
+            check("no night-light failure is reported before anything is tried",
+                  CompositorService.nightLightError === "")
 
             // displayName is how the About panel writes the compositor down.
             // "" means the null backend, and the caller falls back to
@@ -516,12 +541,15 @@ ShellRoot {
             // the whole class of error CI can catch without four compositors.
             //
             // Constructing a backend is safe, but no longer free: HyprlandBackend
-            // reads `hyprctl getoption decoration:screen_shader` and `pgrep -x
-            // hyprsunset` from Component.onCompleted so its screenShader and
-            // nightLightActive properties are honest from the start. Both are
-            // READS. Everything that costs more than that — window enumeration
-            // and the focused title — is still gated on windowsWanted /
-            // titleWanted, which nothing sets on these probes.
+            // reads `hyprctl getoption decoration:screen_shader` from
+            // Component.onCompleted so its screenShader property is honest from
+            // the start. That is a READ. Everything that costs more than that —
+            // window enumeration and the focused title — is still gated on
+            // windowsWanted / titleWanted, which nothing sets on these probes.
+            //
+            // The night light's adopt probe is no longer among them: it moved
+            // to the facade, which runs one `pgrep` for whichever mechanism the
+            // SELECTED backend named, rather than one per backend constructed.
             root.probeIndex = 0
             root.probeBackends()
             break
