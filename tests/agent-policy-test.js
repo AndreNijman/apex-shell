@@ -88,10 +88,17 @@ checkTrue("an allowlist network is refused",
       P.refusalFor({ network: "allowlist" }) !== null);
 checkTrue("a brokered network is refused",
       P.refusalFor({ network: "brokered" }) !== null);
-checkTrue("a session system-access grant is refused",
-      P.refusalFor({ system: "session" }) !== null);
-checkTrue("break-glass system access is refused",
-      P.refusalFor({ system: "unsafe" }) !== null);
+// Dimension 3 used to be refused here, because P0-004 shipped the vocabulary
+// with nothing behind it. P0-006 and P0-007 built the grant machinery, so
+// `validate` accepts both — and a stored default of either is corrected to
+// `none` by `normalise` before `validate` ever sees it, because §3.4 allows no
+// remembered elevation. A correction is not a refusal and must not block a
+// write that is about a different key; `storedElevationNote` is what says the
+// file was not obeyed. See the block near the end of this file.
+check("a stored session grant no longer refuses the file",
+      P.refusalFor({ system: "session" }), null);
+check("nor does a stored break-glass default",
+      P.refusalFor({ system: "unsafe" }), null);
 checkTrue("raw secret export is refused",
       P.refusalFor({ secrets: "export" }) !== null);
 checkTrue("remote elevation is refused",
@@ -292,6 +299,119 @@ check("only the unconfined mode gets a tone of its own",
       P.SANDBOX_MODES.map(P.modeToken), ["danger", "subtext", "subtext"]);
 check("an unknown mode is drawn subdued rather than as a warning",
       P.modeToken("yolo"), "subtext");
+
+// ─── dimension 1, as the agent reports it (P0-005 criterion 3) ──────────────
+//
+// The trap this is really guarding. `session.native` says what APEX DID, and
+// for the case that matters APEX did nothing: Andre runs Claude in
+// `bypassPermissions` as a profile default, §4.1 says APEX must not override
+// it, so `native` is `inherit`. A chip showing "inherit" beside a session
+// running with confirmations off satisfies the criterion's words and answers
+// none of its question.
+//
+// `native_observed` is what apex-agentd records from Claude's own hook
+// payloads. Fixtures transcribed from apex-os `apexd/apex-agent-core/src/`
+// `protocol.rs` (`SessionInfo.native_observed`) and `hook.rs` (`native_mode`).
+
+check("the agent's own report is what the chip shows",
+      P.sessionNativeLabel({ native: "inherit", native_observed: "bypassPermissions" }),
+      "bypassPermissions");
+check("and it beats APEX's own flag, because it is the current one",
+      P.sessionNativeLabel({ native: "bypass", native_observed: "plan" }), "plan");
+check("with nothing reported, a mode APEX selected is still worth saying",
+      P.sessionNativeLabel({ native: "bypass" }), "bypass");
+check("but inherit with nothing reported says nothing at all",
+      P.sessionNativeLabel({ native: "inherit" }), "");
+check("and so does a session record from before the field existed",
+      P.sessionNativeLabel({}), "");
+check("an empty report is not a mode",
+      P.sessionNativeLabel({ native: "inherit", native_observed: "" }), "");
+check("a page can tell a report from a flag",
+      [P.sessionNativeIsReported({ native: "bypass" }),
+       P.sessionNativeIsReported({ native_observed: "acceptEdits" })],
+      [false, true]);
+// Claude's four, passed through rather than mapped: three of them have no APEX
+// vocabulary, and folding them into "not ask" would answer "what mode is this
+// agent in" with a summary of what APEX did about it.
+check("claude's own words survive unmapped",
+      ["default", "acceptEdits", "plan", "bypassPermissions"]
+          .map(m => P.sessionNativeLabel({ native: "inherit", native_observed: m })),
+      ["default", "acceptEdits", "plan", "bypassPermissions"]);
+
+// ─── break-glass (P0-006 criterion 3) ───────────────────────────────────────
+//
+// §3.4 asks for a "prominent red indicator" and for "revocation control always
+// visible". Both need one question answered the same way everywhere: is THIS
+// session break-glass, and how long is left.
+
+const BREAK_GLASS = {
+    id: 3, sandbox: "unrestricted", system: "unsafe",
+    grant: 7, grant_expires_ms: 1000 + 900000,
+    exit_code: null, exit_signal: null
+};
+
+check("break-glass is the mode that clears no_new_privs, and it is one",
+      P.isBreakGlass(BREAK_GLASS), true);
+check("a session grant is NOT break-glass, so it does not go red",
+      P.isBreakGlass({ system: "session", grant: 8 }), false);
+check("nor is an ordinary session, however unconfined",
+      P.isBreakGlass({ sandbox: "unrestricted", system: "none" }), false);
+// Both halves required: the daemon refuses `unsafe` without a grant, so a
+// session claiming one without the other is a record to distrust rather than
+// the loudest thing in the interface.
+check("unsafe with no grant is not drawn as break-glass",
+      P.isBreakGlass({ system: "unsafe" }), false);
+check("a grant with no mode is not either",
+      P.isBreakGlass({ grant: 7 }), false);
+check("and neither is a session record from before grants existed",
+      P.isBreakGlass({ sandbox: "project" }), false);
+
+check("the revoke control knows which grant to end",
+      P.sessionGrant(BREAK_GLASS), 7);
+check("and there is nothing to end when there is no grant",
+      P.sessionGrant({ sandbox: "project" }), null);
+
+// The countdown. Mirrors `grant::format_ms` in apex-agent-core so the shell
+// and `apex agent grants` do not describe one window two ways.
+check("a window reads the way a person would say it",
+      [900000, 5400000, 3600000, 90000, 45000].map(P.formatRemaining),
+      ["15m", "1h 30m", "1h", "1m", "45s"]);
+check("a window that has run out is 0s and not blank",
+      P.formatRemaining(0), "0s");
+check("time left is clamped rather than shown negative",
+      P.grantRemainingMs({ grant_expires_ms: 1000 }, 9000), 0);
+check("a session with no grant has no countdown to show",
+      P.grantRemainingMs({ sandbox: "project" }, 9000), null);
+
+check("the indicator says what it is and how long is left",
+      P.breakGlassLabel(BREAK_GLASS, 1000), "BREAK-GLASS · 15m");
+check("and says it is ending rather than showing a window of nothing",
+      P.breakGlassLabel(BREAK_GLASS, 1000 + 900000), "BREAK-GLASS · ending");
+check("a session that is not break-glass gets no indicator",
+      P.breakGlassLabel({ system: "session", grant: 2 }, 0), "");
+
+// ─── the correction that is not a refusal ───────────────────────────────────
+//
+// §3.4 allows no remembered elevation, so `Config::normalise` resets a stored
+// dimension-3 default to `none` — ONE key, with the other five left alone. It
+// used to be a `validate` refusal that reset all six, which is why this file
+// asserted the toggle refused to write over such a file.
+
+check("a stored elevation no longer blocks the toggle",
+      P.refusalFor({ system: "unsafe", sandbox: "project" }), null);
+check("because apex corrects that one key rather than refusing the file",
+      P.storedElevationNote({ system: "unsafe" }) !== null, true);
+check("and the note says how to ask for it properly",
+      P.storedElevationNote({ system: "session" }).indexOf("--ttl") >= 0, true);
+check("a file with no stored elevation has nothing to say about it",
+      P.storedElevationNote({ sandbox: "project" }), null);
+// The toggle still carries dimension 1 across untouched, which is P0-016
+// criterion 3 and now has a second dimension in the file to survive alongside.
+check("turning the sandbox off leaves a stored bypass alone",
+      JSON.parse(P.nextConfig(
+          JSON.stringify({ native: "bypass", system: "unsafe", sandbox: "project" }),
+          true).text),
+      { native: "bypass", system: "unsafe", sandbox: "unrestricted" });
 
 // ─────────────────────────────────────────────────────────────────────────────
 

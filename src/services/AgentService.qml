@@ -243,6 +243,14 @@ QtObject {
     function pause(id)  { _act(["apex", "agent", "pause",  String(id)]) }
     function resume(id) { _act(["apex", "agent", "resume", String(id)]) }
     function kill(id)   { _act(["apex", "agent", "kill",   String(id)]) }
+    // §3.4: "revocation control always visible". Immediate and unauthenticated
+    // — giving up privilege is free, the same rule the Always Unrestricted
+    // toggle follows for turning itself off. The runtime ends the session
+    // afterwards if it was break-glass, because no_new_privs cannot be put
+    // back on a running process; nothing here has to know that.
+    function revokeGrant(id) {
+        _act(["apex", "agent", "revoke-grant", String(id)])
+    }
     function _act(cmd) {
         _actionProc.command = cmd
         _actionProc.running = true

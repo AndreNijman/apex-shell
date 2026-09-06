@@ -38,6 +38,30 @@ import "../agentpolicy.js" as Policy
 // Only the unconfined mode gets a colour. `project` is the default and `strict`
 // is tighter still, and a status list that shouts about its own normal state
 // teaches people to stop reading it.
+//
+// ── DIMENSION 1, AND WHY THE OBVIOUS FIELD IS THE WRONG ONE ─────────────────
+//
+// §4.1 criterion 3 asks that the agent-native permission mode be visible here.
+// The obvious field is `session.native`, and it is the wrong one: it says what
+// APEX did, and for the case that matters APEX did nothing. Andre runs Claude
+// in `bypassPermissions` as his profile default, §4.1 says APEX must not
+// override that, so `native` reads `inherit` — and a chip showing "inherit"
+// beside a session running with confirmations off satisfies the criterion's
+// words and answers none of its question.
+//
+// So the agent's own report wins. Claude puts `permission_mode` on every hook
+// payload, apex-agentd records it as `native_observed`, and
+// `Policy.sessionNativeLabel` prefers it. The chip then reads
+// `project · bypassPermissions`, which is Claude's own word for its own mode.
+//
+// ── THE BREAK-GLASS INDICATOR ───────────────────────────────────────────────
+//
+// §3.4 asks for a "prominent red Agent Center indicator" and for "revocation
+// control always visible". Those are one thing here: an indicator that says
+// what is happening and how long is left, and a control beside it that ends it.
+// It is drawn only for §4.5 break-glass — the mode that clears no_new_privs —
+// and NOT for §4.4's session grant, which keeps every kernel boundary and is
+// not what the sentence is about. Two red things would make neither red.
 
 Rectangle {
     id: row
@@ -52,6 +76,28 @@ Rectangle {
     readonly property string sandboxMode: Policy.sessionSandbox(session)
     readonly property bool unconfined: row.sandboxMode === Policy.UNRESTRICTED
 
+    // Dimension 1 as the agent reports it, or as APEX selected it, or "" when
+    // neither has anything to say. See the header.
+    readonly property string nativeLabel: Policy.sessionNativeLabel(session)
+
+    // §4.5 break-glass, and how much of its window is left.
+    //
+    // `now` ticks rather than being read once: an indicator that said "12m"
+    // for twelve minutes would be a countdown that never counted, and the
+    // number is the part a person acts on. Only while this row is one — a
+    // per-second timer on every session in the list would be a timer running
+    // for nothing on almost all of them.
+    readonly property bool breakGlass: Policy.isBreakGlass(session)
+    property double nowMs: Date.now()
+    readonly property string grantLabel: Policy.breakGlassLabel(row.session, row.nowMs)
+
+    Timer {
+        running: row.breakGlass && row.live
+        interval: 1000
+        repeat: true
+        onTriggered: row.nowMs = Date.now()
+    }
+
     height: Theme.px(52)
     radius: Theme.px(8)
     color: hover.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
@@ -59,8 +105,13 @@ Rectangle {
     // Bordered while the session is asking for something, in that state's own
     // tone rather than in one shared accent — "it went quiet" and "it asked for
     // root" arrive at the same place in the list and must not look alike.
-    border.width: row.needsYou ? Math.max(1, Theme.px(1)) : 0
-    border.color: badge.toneColor
+    // Break-glass outranks every other reason to draw a border. A session that
+    // can become root is the loudest thing in this list while it lasts, and a
+    // row that borrowed the "waiting for you" tone for it would put the two
+    // states at the same volume.
+    border.width: (row.breakGlass && row.live) || row.needsYou
+        ? Math.max(1, Theme.px(1)) : 0
+    border.color: (row.breakGlass && row.live) ? Theme.danger : badge.toneColor
 
     Behavior on color { ColorAnimation { duration: 90 } }
 
@@ -84,7 +135,7 @@ Rectangle {
         width: Theme.px(3)
         height: parent.height - Theme.px(16)
         radius: width / 2
-        color: badge.toneColor
+        color: (row.breakGlass && row.live) ? Theme.danger : badge.toneColor
         Behavior on color { ColorAnimation { duration: 120 } }
     }
 
@@ -158,17 +209,40 @@ Rectangle {
                     Text {
                         id: sandboxLabel
                         anchors.centerIn: parent
-                        // The mode, and dimension 1 beside it when the runtime
-                        // was told to move it. `inherit` is left out: it means
-                        // APEX passed no flag and the agent's own profile
-                        // decided, so naming a mode would claim knowledge of a
-                        // file the runtime never read.
+                        // The sandbox, and dimension 1 beside it whenever
+                        // anything is known about it — which for a managed
+                        // Claude is the mode Claude itself reports. Empty only
+                        // when APEX passed no flag AND the agent has said
+                        // nothing, where naming a mode would claim knowledge of
+                        // a settings file the runtime never read.
                         text: row.sandboxMode
-                            + (Policy.sessionNative(row.session) === "inherit"
-                               ? "" : " · " + Policy.sessionNative(row.session))
+                            + (row.nativeLabel === "" ? "" : " · " + row.nativeLabel)
                         color: row.unconfined ? Theme.danger : Theme.subtext
                         font.pixelSize: Theme.fs(9)
                         font.bold: row.unconfined
+                    }
+                }
+
+                // §3.4's prominent red indicator. Its own chip rather than a
+                // third field on the sandbox one: this is not a property of
+                // the session's confinement, it is a window that is closing.
+                Rectangle {
+                    id: breakGlassChip
+                    visible: row.breakGlass && row.live
+                    anchors.verticalCenter: parent.verticalCenter
+                    radius: Theme.px(3)
+                    color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.28)
+                    border.width: Math.max(1, Theme.px(1))
+                    border.color: Theme.danger
+                    width:  grantText.implicitWidth + Theme.fs(8)
+                    height: grantText.implicitHeight + Theme.fs(3)
+                    Text {
+                        id: grantText
+                        anchors.centerIn: parent
+                        text: row.grantLabel
+                        color: Theme.danger
+                        font.pixelSize: Theme.fs(9)
+                        font.bold: true
                     }
                 }
             }
@@ -240,6 +314,16 @@ Rectangle {
                 onActivated: row.session.paused
                     ? AgentService.resume(row.session.id)
                     : AgentService.pause(row.session.id)
+            }
+            // §3.4: "revocation control always visible". Beside the state it
+            // is about, present for exactly as long as there is something to
+            // revoke, and asking for nothing — giving up privilege is free.
+            SmallIconButton {
+                id: revokeButton
+                visible: row.breakGlass && row.live
+                icon: "󰌾"
+                tip: "End break-glass now (" + row.grantLabel + ")"
+                onActivated: AgentService.revokeGrant(Policy.sessionGrant(row.session))
             }
             SmallIconButton {
                 visible: row.live
