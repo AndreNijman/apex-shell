@@ -72,7 +72,7 @@ SRC="${APEX_WHEEL_SRC:-src}"
 # file | what the wheel does there | why that is not a value edit
 ALLOW_RAW="
 src/modules/Left/Workspaces.qml|cycles the occupied workspaces|moving focus between workspaces, the way a wheel over a taskbar has always worked; nothing is stored
-src/components/TabSwitcher.qml|flips to the next or previous page|page selection inside a popup that does not scroll; the same wheel a browser tab strip takes
+src/components/TabSwitcher.qml|flips to the next or previous page|page selection inside a popup, the same wheel a browser tab strip takes; disabled outright when the settings column has more rows than room, so there the wheel scrolls the column instead
 src/modules/Center/CenterContent.qml|advances the status carousel|the handler drives statusList.contentY, so this IS the scroll of the thing under the pointer
 src/modules/Right/SysTray.qml|forwards the delta to the tray item|the StatusNotifierItem protocol defines wheel-over-icon; the value, if any, belongs to the other application
 src/popups/WallpaperPopup.qml|turns a vertical wheel into horizontal scroll|the grid scrolls sideways and a mouse has no sideways wheel; this is scrolling, spelled differently

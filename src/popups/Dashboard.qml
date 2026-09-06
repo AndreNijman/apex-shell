@@ -37,14 +37,22 @@ PanelWindow {
     // visible === true.
     readonly property bool pageLive: root.windowVisible && !LockState.locked
 
-    // ── Per-page content widths ───────────────────────────────────────────────
+    // ── Per-page content width ────────────────────────────────────────────────
     // The rule lives in DashboardLayout, not here: this is a PanelWindow, and a
     // geometry test cannot build one without a compositor and a screen.
-    function _applyPageWidth(p) {
-        Popups.dashboardPageWidth = DashboardLayout.widthFor(p, root.width)
+    //
+    // A binding rather than the assignment this used to make on page change and
+    // on open. The width now depends on the scale factor and on how wide this
+    // output is, and neither of those is a page change: a monitor swapped out
+    // under an open dashboard, or a scale changed from the Config tab that is
+    // itself inside the dashboard, both used to leave the old width in place.
+    // `when` keeps the dashboards on the other screens out of it.
+    Binding {
+        target:   Popups
+        property: "dashboardPageWidth"
+        value:    DashboardLayout.widthFor(root.page, root.width)
+        when:     root.open
     }
-
-    onPageChanged: _applyPageWidth(page)
 
     color:   "transparent"
     visible: windowVisible
@@ -73,7 +81,6 @@ PanelWindow {
         if (root.open) {
             closeTimer.stop()
             root.windowVisible = true
-            root._applyPageWidth(root.page)
             focusGrabTimer.restart() // Delay the grab slightly
         } else {
             root.wantsFocus = false // Release instantly
@@ -81,7 +88,7 @@ PanelWindow {
             closeTimer.restart()
         }
     }
-    
+
     Timer {
         id: closeTimer
         interval: root.animDuration + 20
@@ -112,7 +119,7 @@ PanelWindow {
 
         Behavior on width  { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
         Behavior on height { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
-        
+
         MouseArea {
             anchors.fill: parent
             onClicked:    {}
@@ -169,7 +176,7 @@ PanelWindow {
                 Item {
                     id: pageArea
                     focus: true
-                    
+
                     width:  parent.width
                     height: parent.height - tabBar.height
 
@@ -244,7 +251,7 @@ PanelWindow {
                             }
                         }
                     }
-                    
+
                     Keys.onEscapePressed: Popups.dashboardOpen = false
                 }
             }
