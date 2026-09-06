@@ -1,5 +1,6 @@
 import QtQuick
 import "../../"
+import "settings-semantics.js" as Semantics
 
 // A settings row: label (+ optional description) on the left, a control on the
 // right. Put the control as a child — it is placed in the right-hand slot.
@@ -25,10 +26,24 @@ Item {
     // worded, because the row already has a label and a description and a third
     // sentence would bury it.
     property bool   statusWarns: false
+
+    // When this particular control reaches the machine, if it is not now. One
+    // of settings-semantics.js's EFFECTS: "relogin", "reboot", "apply",
+    // "reload". The default "now" renders nothing on purpose — a page that
+    // stamps "takes effect immediately" on every row has taught the reader to
+    // skip the one line that matters (roadmap P0-023, criterion 1).
+    //
+    // Distinct from `status`, which is what the machine reports back NOW.
+    // `effect` is about a value that has not reached it yet.
+    property string effect: ""
+
+    readonly property string _effectNote: Semantics.effectNote(root.effect)
+
     default property alias control: slot.data
 
     width:          parent ? parent.width : 0
-    implicitHeight: (description !== "" || root.unavailable) ? 56 : 44
+    implicitHeight: ((description !== "" || root.unavailable) ? 56 : 44)
+                    + (root._effectNote !== "" ? 14 : 0)
     height:         implicitHeight
 
     Rectangle {
@@ -60,6 +75,16 @@ Item {
             text:           root.unavailable ? root.disabledReason : root.description
             font.pixelSize: Theme.fs(10)
             color:          Qt.rgba(1,1,1,0.38)
+            wrapMode:       Text.WordWrap
+            maximumLineCount: 2
+            elide:          Text.ElideRight
+        }
+        Text {
+            width:          parent.width
+            visible:        root._effectNote !== ""
+            text:           root._effectNote
+            font.pixelSize: Theme.fs(10)
+            color:          Theme.info
             wrapMode:       Text.WordWrap
             maximumLineCount: 2
             elide:          Text.ElideRight
