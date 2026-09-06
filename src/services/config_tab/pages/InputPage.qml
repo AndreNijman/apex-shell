@@ -83,11 +83,18 @@ CfgScroll {
 
         CfgRow {
             label: "Compositor"
-            description: InputService.compositor === ""
-                ? "APEX could not tell which compositor is running, so nothing below is known to work"
-                : "What these settings are applied to, and what decides which of them can be"
+            description: {
+                if (InputService.capabilitiesFailed)
+                    return "This system's input engine is older than this page and cannot say what "
+                         + "each compositor supports, so nothing below is switched off — the "
+                         + "controls behave as they did before"
+                if (InputService.compositor === "")
+                    return "APEX could not tell which compositor is running, so nothing below is known to work"
+                return "What these settings are applied to, and what decides which of them can be"
+            }
             hoverable: false
-            status: InputService.compositor === "" ? "unknown" : InputService.compositor
+            status: InputService.capabilitiesFailed ? "not reported"
+                  : (InputService.compositor === "" ? "unknown" : InputService.compositor)
         }
 
         CfgRow {
