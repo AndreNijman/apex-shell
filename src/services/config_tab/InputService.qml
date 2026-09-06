@@ -76,7 +76,7 @@ QtObject {
     // ── Touchpad ──────────────────────────────────────────────────────────────
     property bool   tap:                true
     property bool   tapAndDrag:         true
-    property bool   dragLock:           true
+    property bool   dragLock:           false
     property bool   naturalScroll:      true
     property bool   disableWhileTyping: true
     property bool   middleEmulation:    false
@@ -84,7 +84,7 @@ QtObject {
     property bool   leftHandedPad:      false
     property real   padSpeed:           0.0     // -1.0 … 1.0
     property real   scrollFactor:       1.0     //  0.1 … 10.0
-    property string clickMethod:        "clickfinger"  // none|buttonAreas|clickfinger
+    property string clickMethod:        "buttonAreas"  // none|buttonAreas|clickfinger
     property string scrollMethod:       "twofinger"    // none|twofinger|edge
     property string tapButtonMap:       "lrm"          // lrm|lmr
     property string padAccelProfile:    "adaptive"     // adaptive|flat
@@ -111,7 +111,7 @@ QtObject {
     readonly property var schema: ({
         "tap":                    { s: "touchpad", k: "tap",                  d: true },
         "tapAndDrag":             { s: "touchpad", k: "tap_and_drag",         d: true },
-        "dragLock":               { s: "touchpad", k: "drag_lock",            d: true },
+        "dragLock":               { s: "touchpad", k: "drag_lock",            d: false },
         "naturalScroll":          { s: "touchpad", k: "natural_scroll",       d: true },
         "disableWhileTyping":     { s: "touchpad", k: "disable_while_typing", d: true },
         "middleEmulation":        { s: "touchpad", k: "middle_emulation",     d: false },
@@ -119,7 +119,7 @@ QtObject {
         "leftHandedPad":          { s: "touchpad", k: "left_handed",          d: false },
         "padSpeed":               { s: "touchpad", k: "speed",                d: 0.0 },
         "scrollFactor":           { s: "touchpad", k: "scroll_factor",        d: 1.0 },
-        "clickMethod":            { s: "touchpad", k: "click_method",         d: "clickfinger" },
+        "clickMethod":            { s: "touchpad", k: "click_method",         d: "buttonAreas" },
         "scrollMethod":           { s: "touchpad", k: "scroll_method",        d: "twofinger" },
         "tapButtonMap":           { s: "touchpad", k: "tap_button_map",       d: "lrm" },
         "padAccelProfile":        { s: "touchpad", k: "accel_profile",        d: "adaptive" },
@@ -149,6 +149,12 @@ QtObject {
     // returned is a worse lie than the one this replaces.
     property var capabilities: ({})
     readonly property string compositor: root.capabilities.running || ""
+    // The generator was asked and could not answer — it is older than these
+    // flags, or it is not installed. Different from "no compositor is running",
+    // and worth telling apart: on an image that predates this page every
+    // control still works exactly as it did, and saying "nothing below is known
+    // to work" would be alarming and wrong.
+    property bool capabilitiesFailed: false
 
     function _cap(prop) {
         const e = root.schema[prop]
@@ -409,11 +415,16 @@ QtObject {
     property var _capsProc: Process {
         command: [root.generator, "--capabilities"]
         running: true
+        onExited: function (code) {
+            if (code !== 0) root.capabilitiesFailed = true
+        }
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
                     root.capabilities = JSON.parse(text.trim() || "{}")
+                    root.capabilitiesFailed = root.capabilities.controls === undefined
                 } catch (e) {
+                    root.capabilitiesFailed = true
                     // Left empty on purpose. An unparseable answer means the
                     // page does not know what this compositor can do, and
                     // guessing "everything" is how the fake toggles got here.
