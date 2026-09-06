@@ -2,6 +2,7 @@ import QtQuick
 import "../"
 import "../../"
 import "../agentstate.js" as AgentState
+import "../agentgraph.js" as Graph
 import "../agentpolicy.js" as Policy
 
 // One agent session in the Agent Center.
@@ -62,6 +63,23 @@ import "../agentpolicy.js" as Policy
 // It is drawn only for §4.5 break-glass — the mode that clears no_new_privs —
 // and NOT for §4.4's session grant, which keeps every kernel boundary and is
 // not what the sentence is about. Two red things would make neither red.
+//
+// ── THE SECOND LAYER, AND THE ONE ANSWER IT REFUSES TO GIVE (P1-020) ────────
+//
+// A session is not one thing. It delegates to subagents and it forks MCP
+// servers, language servers and whatever a tool call runs, and until the
+// runtime grew `SessionInfo.children` this row could not tell an agent with
+// six subagents working from one sitting idle.
+//
+// The summary sits in the meta line and the detail is one click away, because
+// the page is a supervisor: "what is running" belongs on the surface and
+// "which of them" belongs behind an expander.
+//
+// The refusal is `Graph.supported()`. A daemon that predates the graph writes
+// no `children` key at all, and every daemon in the shipped image is one of
+// those — so the row draws NOTHING rather than "0 subagents", which would be a
+// confident answer on the only machine anybody is running. Absent is not
+// empty, and this row is where the difference is visible.
 
 Rectangle {
     id: row
@@ -71,6 +89,16 @@ Rectangle {
     readonly property bool live:
         session.exit_code === null && session.exit_signal === null
     readonly property bool needsYou: AgentState.needsYou(session.state)
+
+    // The graph, or the runtime's admission that it has none. Three-valued —
+    // see the header, and agentgraph.js for the failure it prevents.
+    readonly property string graphState: Graph.supported(row.session)
+    readonly property var graphKids: Graph.subagents(row.session)
+    readonly property var graphRoots: Graph.processRoots(row.session)
+    readonly property bool hasGraph:
+        row.graphState === "some"
+        && (row.graphKids.length > 0 || row.graphRoots.length > 0)
+    property bool expanded: false
 
     // This session's real sandbox, from this session's record.
     readonly property string sandboxMode: Policy.sessionSandbox(session)
@@ -98,7 +126,7 @@ Rectangle {
         onTriggered: row.nowMs = Date.now()
     }
 
-    height: Theme.px(52)
+    height: header.height + (row.expanded ? kidsBlock.height + Theme.px(8) : 0)
     radius: Theme.px(8)
     color: hover.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
                          : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
@@ -116,6 +144,17 @@ Rectangle {
     Behavior on color { ColorAnimation { duration: 90 } }
 
     HoverHandler { id: hover }
+
+    // The header is the row as it always was, and the clickable part. The
+    // child list below is NOT inside it: a tap meant for a subagent row must
+    // not also focus the terminal, and a TapHandler on the whole card would do
+    // exactly that.
+    Item {
+        id: header
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: Theme.px(52)
 
     // The whole row focuses the terminal. §3: "Focus the existing terminal when
     // the user clicks an agent in APEX Shell."
@@ -273,6 +312,12 @@ Rectangle {
                         bits.push("exit " + row.session.exit_code)
                     return bits.length ? "  ·  " + bits.join("  ·  ") : ""
                 }
+                // What this session started. Empty string for a runtime that
+                // has no graph and for a session that has started nothing —
+                // agentgraph.js decides which, and the row asks rather than
+                // testing the array itself.
+                readonly property string graph:
+                    Graph.summary(row.session, Date.now() / 1000)
 
                 Text {
                     text: meta.where === "" ? "" : meta.where + "  ·  "
@@ -280,7 +325,8 @@ Rectangle {
                     font.pixelSize: Theme.fs(10)
                     elide: Text.ElideRight
                     width: Math.max(0, Math.min(implicitWidth,
-                             meta.width - stateWord.implicitWidth - tailText.implicitWidth))
+                             meta.width - stateWord.implicitWidth
+                             - tailText.implicitWidth - graphText.implicitWidth))
                 }
                 Text {
                     id: stateWord
@@ -295,6 +341,15 @@ Rectangle {
                     color: Theme.subtext
                     font.pixelSize: Theme.fs(10)
                 }
+                // Last, and never elided, for the same reason the state word
+                // is not: it is the answer to "is anything running under
+                // this", and a truncated answer to that is no answer.
+                Text {
+                    id: graphText
+                    text: meta.graph === "" ? "" : "  ·  " + meta.graph
+                    color: Theme.subtext
+                    font.pixelSize: Theme.fs(10)
+                }
             }
         }
 
@@ -303,6 +358,19 @@ Rectangle {
             id: controls
             anchors.verticalCenter: parent.verticalCenter
             spacing: Theme.px(2)
+
+            // The graph, when there is one. Absent — not disabled — when the
+            // runtime cannot tell: a control that is permanently greyed out
+            // teaches the reader that the feature is broken rather than that
+            // their daemon predates it, and the row says nothing about the
+            // graph in that case either.
+            SmallIconButton {
+                visible: row.hasGraph
+                icon: row.expanded ? "󰅃" : "󰅀"
+                tip: row.expanded ? "Hide what it started"
+                                  : "Show what it started"
+                onActivated: row.expanded = !row.expanded
+            }
 
             // Pause and Resume are the same slot, not two buttons. Showing
             // both means one of them is always wrong, and the runtime reports
@@ -335,6 +403,50 @@ Rectangle {
                 icon: "󰆍"
                 tip: row.live ? "Open terminal" : "Show output"
                 onActivated: AgentService.focusTerminal(row.session.id)
+            }
+        }
+    }
+    }
+
+    // ── What it started ───────────────────────────────────────────────────────
+    //
+    // Subagents by name, then the processes the AGENT forked — not the ones
+    // the sandbox did. A confined session's pid is the `bwrap` wrapper, so the
+    // agent's own binary is a child in the process tree; drawing it literally
+    // would open the list with a row called "claude" underneath a row called
+    // "Claude". agentgraph.js lifts that one node out of the way and folds its
+    // subtree into the rows below it, so nothing is hidden and nothing is
+    // drawn beneath itself.
+    Column {
+        id: kidsBlock
+        anchors.top: header.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: Theme.px(30)
+        anchors.rightMargin: Theme.px(12)
+        visible: row.expanded
+        spacing: Theme.px(1)
+
+        Repeater {
+            model: row.expanded ? row.graphKids : []
+            delegate: SubagentRow {
+                required property var modelData
+                width: parent.width
+                child: modelData
+                session: row.session
+            }
+        }
+        Repeater {
+            model: row.expanded ? row.graphRoots : []
+            delegate: SubagentRow {
+                required property var modelData
+                width: parent.width
+                child: modelData
+                session: row.session
+                // The subtree this row stands for, asked once per root rather
+                // than recomputed inside the delegate on every repaint.
+                subtreeCount: Graph.processSummary(row.session, modelData).count
+                subtreeRssKb: Graph.processSummary(row.session, modelData).rssKb
             }
         }
     }
