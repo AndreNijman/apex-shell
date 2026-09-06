@@ -270,6 +270,22 @@ function wiring() {
           /\.fleet\(/.test(stripText));
     check("no new translucent-white foreground",
           !/Qt\.rgba\(1,\s*1,\s*1,/.test(stripText));
+
+    // The clock is read inside the bindings, never held in a property.
+    //
+    // `readonly property real now: Date.now() / 1000` looks harmless and is
+    // not: a binding whose only input is Date.now() has no dependencies, so
+    // QML evaluates it once and every countdown on the page is then computed
+    // against the moment the dashboard opened. Ten minutes later "2h 11m left"
+    // has not moved and the observation has not aged. A single-shot render
+    // test cannot see it — nothing ticks in one frame — so it is caught here,
+    // where it is a property of the source.
+    for (const [name, text] of [["TelemetryStrip", stripText],
+                                ["SessionRow", rowText]]) {
+        check(name + " does not freeze the clock in a property",
+              !/property\s+\w+\s+\w+\s*:\s*Date\.now\(\)/.test(text),
+              "a Date.now() binding with no dependencies is evaluated once");
+    }
 }
 
 // ── Mutants ─────────────────────────────────────────────────────────────────
