@@ -232,6 +232,51 @@ function summary(plan) {
     return parts.join(" ")
 }
 
+// ── which direction a change goes ───────────────────────────────────────────
+//
+// The CLI classifies a change by privilege domain, which is what `apply` needs
+// and not what a reader needs. Every row in the plan rendered identically, so
+// "install firefox" and "remove firefox" were the same line with the words in
+// a different order, and the one the user had to look at hardest was the one
+// nothing marked.
+//
+// Read off the two values the CLI already sends. An empty `current` means the
+// machine does not have it yet; an empty `desired` means the blueprint does not
+// want it. The addition case is the fixture `apex blueprint diff` produces for
+// a package the blueprint lists and the machine lacks:
+// { what: "[apps] install", current: "", desired: "firefox" }.
+//
+// Presentation only. Nothing here decides what apply does — that is the CLI's,
+// and a second opinion about it in the shell is how a diff starts disagreeing
+// with the apply it describes.
+function changeKind(entry) {
+    if (!_isObject(entry)) return "change"
+    var cur = String(entry.current === undefined || entry.current === null ? "" : entry.current).trim()
+    var des = String(entry.desired === undefined || entry.desired === null ? "" : entry.desired).trim()
+    if (cur === "" && des !== "") return "add"
+    if (des === "" && cur !== "") return "remove"
+    return "change"
+}
+
+// The subset of a bucket going one way. Kept beside changeKind so a page never
+// filters the list itself: three Repeaters each doing their own comparison is
+// three places for the removals to stop being removals.
+function ofKind(list, kind) {
+    var out = []
+    if (!Array.isArray(list)) return out
+    for (var i = 0; i < list.length; i++)
+        if (changeKind(list[i]) === kind) out.push(list[i])
+    return out
+}
+
+// Everything apply would take away, across both privilege domains. Removals are
+// the destructive half and they are what the page has to show separately, so
+// the union is built once here rather than concatenated in a binding.
+function removals(plan) {
+    if (!plan || !plan.ok) return []
+    return ofKind(plan.user, "remove").concat(ofKind(plan.root, "remove"))
+}
+
 // ── building the draft that goes back out through `set --json -` ────────────
 
 // The draft IS the object `show --json` returned, cloned — never rebuilt from a
@@ -431,6 +476,7 @@ if (typeof module !== "undefined" && module.exports)
         SANDBOXES: SANDBOXES, LANGUAGES: LANGUAGES, SECTIONS: SECTIONS,
         readShow: readShow, saveNotice: saveNotice,
         classify: classify, rootNotice: rootNotice, summary: summary,
+        changeKind: changeKind, ofKind: ofKind, removals: removals,
         draftFrom: draftFrom, setField: setField, setList: setList,
         addToList: addToList, removeFromList: removeFromList,
         fieldOf: fieldOf, listOf: listOf,
