@@ -71,6 +71,10 @@ Singleton {
     readonly property bool enforcing: root.unit === "active"
     readonly property string statusLine: Fw.statusLine(root.unit, root.status)
     readonly property string statusTone: Fw.statusTone(root.unit)
+    // What to say when the exception list is empty, which is three different
+    // facts wearing one shape. Decided in firewall.js so the node suite drives
+    // it; "" means draw nothing at all.
+    readonly property string emptyLine: Fw.emptyLine(root.checked, root.unit, root.status)
     readonly property var exceptions: root.status.exceptions || []
     readonly property var openable: Fw.unopened(root.catalogue, root.exceptions)
     readonly property string alwaysAllowed: root.status.alwaysAllowed
