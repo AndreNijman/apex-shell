@@ -444,7 +444,15 @@ CfgScroll {
             label: BlueprintService.removalCount === 1
                 ? "1 thing would be removed"
                 : BlueprintService.removalCount + " things would be removed"
-            description: "Listed on their own below."
+            // The count spans both privilege domains and the section below it
+            // holds only the ones Apply can perform, so a plan whose removals
+            // all need root would otherwise point at a section that is not
+            // there. Those rows exist — marked — inside "Needs root", because
+            // they are grouped by who has to run them.
+            description: BlueprintService.planRemovals.length > 0
+                ? "Listed under \"Would be removed\" below."
+                : "All of them need an administrator, so they are marked in " +
+                  "the \"Needs root\" list instead."
             status: "check this"
             statusWarns: true
             hoverable: false
