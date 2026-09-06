@@ -59,11 +59,23 @@ code()       { grep -vE '^[[:space:]]*//' "$1" 2>/dev/null; }
 qmldircode() { grep -vE '^[[:space:]]*#'  "$1" 2>/dev/null; }
 xmlcode()    { perl -0777 -pe 's/<!--.*?-->//gs' "$1" 2>/dev/null; }
 
-has()   {   code "$1" | grep -qE "$2"; }
-lacks() { ! code "$1" | grep -qE "$2"; }
-qmldir_has() { qmldircode "$1" | grep -qE "$2"; }
-xml_has()    { xmlcode "$1" | grep -qE "$2"; }
-xml_lacks()  { ! xmlcode "$1" | grep -qE "$2"; }
+# ── grep -q must not read through a pipe ─────────────────────────────────────
+#
+# `producer | grep -qE …` under `set -o pipefail` is not a reliable test. `-q`
+# exits at the first match, the producer is still writing, and it takes SIGPIPE
+# — so the PIPELINE's status is 141 and the assertion reports a failure that
+# has nothing to do with the file. It is invisible on a short file and gets
+# likelier as the file grows: measured at 16 spurious failures in 200 runs
+# against a 415-line SessionRow.qml, and none at all against the same check
+# written the way below.
+#
+# Process substitution instead. There is no pipeline, so there is no pipefail
+# and no SIGPIPE, and the helper's status is grep's own.
+has()   {   grep -qE "$2" < <(code "$1"); }
+lacks() { ! grep -qE "$2" < <(code "$1"); }
+qmldir_has() { grep -qE "$2" < <(qmldircode "$1"); }
+xml_has()    { grep -qE "$2" < <(xmlcode "$1"); }
+xml_lacks()  { ! grep -qE "$2" < <(xmlcode "$1"); }
 
 # fn_body <file> <ERE matching the opening line> — that declaration's body,
 # ending at the first closing brace indented the same as the opening line.
@@ -76,8 +88,8 @@ fn_body() {
         }
     ' "$1" 2>/dev/null | grep -vE '^[[:space:]]*//'
 }
-in_fn()    {   fn_body "$1" "$2" | grep -qE "$3"; }
-notin_fn() { ! fn_body "$1" "$2" | grep -qE "$3"; }
+in_fn()    {   grep -qE "$3" < <(fn_body "$1" "$2"); }
+notin_fn() { ! grep -qE "$3" < <(fn_body "$1" "$2"); }
 
 # between_in_fn <file> <fn ERE> <start ERE> <stop ERE> <needle ERE>
 #

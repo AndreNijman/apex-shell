@@ -54,8 +54,20 @@ want() { local desc="$1"; shift; if "$@"; then ok "$desc"; else bad "$desc"; fi;
 code()       { grep -vE '^[[:space:]]*//' "$1" 2>/dev/null; }
 qmldircode() { grep -vE '^[[:space:]]*#'  "$1" 2>/dev/null; }
 
-has()   {   code "$1" | grep -qE "$2"; }
-lacks() { ! code "$1" | grep -qE "$2"; }
+# ── grep -q must not read through a pipe ─────────────────────────────────────
+#
+# `producer | grep -qE …` under `set -o pipefail` is not a reliable test. `-q`
+# exits at the first match, the producer is still writing, and it takes SIGPIPE
+# — so the PIPELINE's status is 141 and the assertion reports a failure that
+# has nothing to do with the file. It is invisible on a short file and gets
+# likelier as the file grows: measured at 16 spurious failures in 200 runs
+# against a 415-line SessionRow.qml, and none at all against the same check
+# written the way below.
+#
+# Process substitution instead. There is no pipeline, so there is no pipefail
+# and no SIGPIPE, and the helper's status is grep's own.
+has()   {   grep -qE "$2" < <(code "$1"); }
+lacks() { ! grep -qE "$2" < <(code "$1"); }
 
 # The qmldir equivalent, and it is a FUNCTION for a reason that cost a real
 # assertion here. Written inline as
@@ -68,7 +80,7 @@ lacks() { ! code "$1" | grep -qE "$2"; }
 # unconditionally that way, and it was the mutant harness's broken-count — an
 # expected-red mutant coming out green with 0 broken — that found it, not
 # review. Every check in this file goes through a helper for that reason.
-qmldir_has() { qmldircode "$1" | grep -qE "$2"; }
+qmldir_has() { grep -qE "$2" < <(qmldircode "$1"); }
 
 # fn_body <file> <ERE matching the opening line> — that declaration's body,
 # ending at the first closing brace indented the same as the opening line.
@@ -92,7 +104,7 @@ fn_body() {
 }
 
 # in_fn <file> <opening-line ERE> <ERE> — true when the body contains it.
-in_fn() { fn_body "$1" "$2" | grep -qE "$3"; }
+in_fn() { grep -qE "$3" < <(fn_body "$1" "$2"); }
 
 # Keys of a JS/QML object literal, comments excluded, sorted.
 obj_keys() {
