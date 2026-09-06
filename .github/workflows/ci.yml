@@ -872,79 +872,18 @@ jobs:
           [ "$fail" -eq 0 ] || exit 1
           echo "✓ input and display pages registered; display applies only on request"
 
+      # The Agent Center navigates, does not decide, and stays lazy — five
+      # invariants that used to be seventy lines of shell inline here.
+      #
+      # Two of them were a bare grep for a word, which was sound until §43 gave
+      # the tab a help document. AgentHelpContent.qml explains the privilege
+      # model, so it prints `sudo apex request approve` and names
+      # $XDG_RUNTIME_DIR/apex-agentd/control.sock — and this step went red for
+      # seven mentions, none of them a call site. The check now separates
+      # naming a command from being able to run one, and it lives in a script
+      # so its own ability to fail can be proved.
       - name: Agent Center invariants
-        run: |
-          fail=0
-
-          # 1. The shell must NEVER approve a privilege request itself.
-          #
-          # Approving performs the operation with the user's own root, so it
-          # belongs in a terminal where the prompt and the sudo authentication
-          # are both visible. An [Allow] button in a status list would be one
-          # unconfirmed click from an OS change, judged from a two-line
-          # summary. The Agent Center therefore navigates to a terminal and
-          # decides nothing — this is the check that keeps it that way.
-          if grep -rnE "request (approve|allow|deny)|\bsudo\b" \
-               --include="*.qml" src/services/agents/ src/services/AgentService.qml \
-               | grep -vE "^[^:]+:[0-9]+:[[:space:]]*//"; then
-            echo "✗ the Agent Center decides privilege requests; it must only navigate"
-            fail=1
-          fi
-
-          # 2. It must go through the `apex` CLI, not the control socket.
-          #
-          # The CLI already handles an absent daemon and a protocol-version
-          # mismatch. A second implementation of the socket protocol in QML is
-          # a second thing to keep in step with every protocol change, and it
-          # would drift silently.
-          # The dot is escaped and comments are stripped: an unescaped
-          # `control.sock` also matches the prose "control socket" in
-          # AgentService's own header, which is a check that fails on its own
-          # documentation.
-          if grep -rnE "control\\.sock|apex-agentd/control" \
-               --include="*.qml" src/services/ \
-               | grep -vE "^[^:]+:[0-9]+:[[:space:]]*//"; then
-            echo "✗ QML talks to the agentd socket directly; use the apex CLI"
-            fail=1
-          fi
-
-          # 3. The Agent Center's parts must stay registered.
-          #
-          # AgentCenter is loaded THROUGH src/services/qmldir, so its own
-          # directory is not on the import path and implicit sibling resolution
-          # does not apply. Dropping an entry gives "RequestRow is not a type"
-          # at load, which takes the whole shell down — not just the page.
-          # RemoteHostRow and RemoteSessionRow are in this loop rather than
-          # only in check-remote-agents.sh because the failure is identical:
-          # the Agent Center is loaded THROUGH this qmldir, so a dropped entry
-          # is "is not a type" at load and takes the whole shell down.
-          for t in AgentCenter RequestRow SessionRow SectionHeading SmallIconButton \
-                   RemoteHostRow RemoteSessionRow; do
-            grep -qE "^${t} agents/${t}\.qml$" src/services/qmldir \
-              || { echo "✗ $t is not registered in src/services/qmldir"; fail=1; }
-          done
-          for svc in AgentService RemoteAgentService; do
-            grep -q "^singleton ${svc} " src/services/qmldir \
-              || { echo "✗ $svc is not registered as a singleton"; fail=1; }
-          done
-
-          # 4. The page must be lazy and refcounted like every other one.
-          grep -q "ServiceRef" src/services/agents/AgentCenter.qml \
-            || { echo "✗ the Agent Center does not hold a ServiceRef"; fail=1; }
-          grep -q "refCount" src/services/AgentService.qml \
-            || { echo "✗ AgentService has no refCount"; fail=1; }
-          grep -q 'shown: root.page === "agents"' src/popups/Dashboard.qml \
-            || { echo "✗ the Agents tab is not lazily built"; fail=1; }
-
-          # 5. AgentService's timer is deliberately always running — it slows to
-          # 15s with no refs rather than stopping, because a notification has to
-          # arrive when nothing is on screen. Assert the SLOW tier exists, so
-          # "always running" cannot quietly become "always running fast".
-          grep -qE "refCount > 0 \? [0-9]+ : [0-9]+" src/services/AgentService.qml \
-            || { echo "✗ AgentService has no two-tier poll interval"; fail=1; }
-
-          [ "$fail" -eq 0 ] || exit 1
-          echo "✓ the Agent Center navigates, does not decide, and stays lazy"
+        run: ./tests/check-agent-center-invariants.sh
 
       - name: Remote agent status logic
         run: |
