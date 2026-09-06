@@ -22,32 +22,52 @@ import "../../../components/config"
 CfgScroll {
     id: root
 
+    // Whether the first output card is genuinely the top of the page. Three
+    // sections can precede it and each one is conditional, so the flag has to
+    // be one expression rather than three copies that drift.
+    readonly property bool nothingAbove: DisplayService.confirmSeconds === 0
+                                         && DisplayService.lastNotice === ""
+                                         && DisplayService.lastError === ""
+
+    // Enumeration is on demand: DisplayService is constructed at startup now
+    // (it has to settle an abandoned transaction), so the `list` has to be
+    // asked for rather than run in every login.
+    Component.onCompleted: DisplayService.refresh()
+
     // ── Confirmation ──────────────────────────────────────────────────────────
-    // First, and unmissable: while this is up the user may be looking at a
-    // broken or blank screen, and everything else on the page is irrelevant.
+    // The buttons that answer the countdown are NOT here any more; they are a
+    // layer-shell overlay on every output (src/windows/DisplayConfirm.qml).
+    // This section is what is left over: an in-page echo, for the case where
+    // the dialog is up on a monitor other than the one the settings window is
+    // on. It answers "what is that countdown" without being the only way to
+    // answer it — which is what it used to be, and why nobody ever saw it.
     CfgSection {
-        title: "Keep this layout?"
+        title: "Waiting for you"
         first: true
         visible: DisplayService.confirmSeconds > 0
 
         CfgRow {
-            label: "Reverting in " + DisplayService.confirmSeconds + "s"
-            description: "If you cannot read this, do nothing and the previous " +
-                         "layout comes back on its own."
+            label: "Keep this layout?"
+            description: "Answer on screen. If you do nothing, the previous " +
+                         "layout comes back in " + DisplayService.confirmSeconds +
+                         (DisplayService.confirmSeconds === 1 ? " second." : " seconds.")
             hoverable: false
             CfgButton {
                 label: "Keep it"
                 onClicked: DisplayService.confirm()
             }
         }
+    }
+
+    // ── What happened without you ─────────────────────────────────────────────
+    CfgSection {
+        title: "Display"
+        visible: DisplayService.lastNotice !== ""
+
         CfgRow {
-            label: "Put it back now"
-            description: "Restores the layout that was on screen before Apply"
-            CfgButton {
-                label: "Revert"
-                variant: "danger"
-                onClicked: DisplayService.revertApplied()
-            }
+            label: "Since the last time"
+            description: DisplayService.lastNotice
+            hoverable: false
         }
     }
 
@@ -66,7 +86,7 @@ CfgScroll {
     // ── No outputs ────────────────────────────────────────────────────────────
     CfgSection {
         title: "Outputs"
-        first: DisplayService.confirmSeconds === 0 && DisplayService.lastError === ""
+        first: root.nothingAbove
         visible: DisplayService.loaded && DisplayService.draft.length === 0
 
         CfgRow {
@@ -92,9 +112,7 @@ CfgScroll {
 
             title: (card.out.name || "?") +
                    (card.out.model && card.out.model !== "" ? "  ·  " + card.out.model : "")
-            first: card.index === 0
-                   && DisplayService.confirmSeconds === 0
-                   && DisplayService.lastError === ""
+            first: card.index === 0 && root.nothingAbove
 
             CfgRow {
                 label:       "Enabled"
@@ -248,7 +266,9 @@ CfgScroll {
 
         CfgRow {
             label:       "Apply now"
-            description: "You will have 15 seconds to confirm"
+            description: "Puts the new layout on screen and asks. Do nothing and " +
+                         "the old one comes back after " +
+                         DisplayService.confirmTotal + " seconds."
             CfgButton {
                 label:   DisplayService.applying ? "Applying…" : "Apply"
                 enabled: DisplayService.dirty && !DisplayService.applying
