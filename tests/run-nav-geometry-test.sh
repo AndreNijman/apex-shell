@@ -158,6 +158,26 @@ case "$comp" in
         # The host labwc must NOT be on the pixman renderer for this. Aquamarine
         # asks it for a dmabuf, a software-rendered host has none to give, and
         # the only symptom is CBackend::create() failing with nothing else said.
+        #
+        # ── What has been tried, so nobody tries it twice ──────────────────
+        # Hyprland 0.56.2 on a box with a GPU but no seat and no DRM master:
+        #
+        #   AQ_BACKENDS=headless, standalone      CBackend::create() failed
+        #   ... with AQ_DRM_DEVICES=renderD128    CBackend::create() failed
+        #   ... with AQ_DRM_DEVICES=renderD129    CBackend::create() failed
+        #   nested in a headless sway (pixman)    CBackend::create() failed
+        #   nested in a headless labwc            comes up, see below
+        #   nested labwc + QSG_RENDER_LOOP=basic  comes up, still frozen
+        #
+        # The one that comes up hands the shell no output at all — Quickshell
+        # reports 0x0 and the suite says so — and never asks its Qt client for
+        # another frame, so nothing re-polishes. That is a harness limit and
+        # not a shell defect, and the distinction is worth being explicit
+        # about because the reported overlap is not compositor-dependent: the
+        # vertical column's spacing was (height - n * rowHeight) / (n - 1)
+        # with no floor under it, which goes negative on arithmetic a
+        # compositor has no input to. It reproduces on labwc and on sway, at
+        # scale 1.0, on both of the reporter's outputs.
         mkdir -p "$W/cfg/labwc" "$W/cfg/hypr"
         cp "$here/labwc-test-rc.xml" "$W/cfg/labwc/rc.xml" 2>/dev/null || true
         XDG_CONFIG_HOME="$W/cfg" labwc > "$W/comp.log" 2>&1 &
