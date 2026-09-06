@@ -1182,6 +1182,37 @@ jobs:
           # Skips cleanly without quickshell or a compositor.
           ./tests/run-agent-settings-test.sh
 
+      - name: The lock screen tells logind, driven for real
+        run: |
+          # P0-015 (ROADMAP.md §7). APEX Shell locks the session with
+          # ext-session-lock and told logind nothing about it, so
+          # `loginctl show-session -p LockedHint` answered "no" on a session
+          # that had been locked for an hour — the same thing it answers on
+          # one nobody has touched. apex-agentd polls that property to decide
+          # whether Remote Control keeps running and whether a short-lived
+          # root grant survives, so a stale value holds sessions and revokes
+          # grants while the owner is sitting in front of the machine.
+          #
+          # Five things only a live run can answer. That the four-step
+          # asynchronous chain runs at all. That the three calls happen in
+          # order with the right argv, including the object path being ASKED
+          # of logind rather than built by hand — session "3" is
+          # /org/freedesktop/login1/session/_33 and getting that escaping
+          # wrong is silent. That a lock/unlock/lock flicker makes one
+          # trailing call rather than three. That a failure at each of the
+          # three steps stops the chain and does not retry. And that the
+          # shell says anything AT ALL at startup, which is the half that was
+          # missing: onSecureStateChanged fires on a change.
+          #
+          # The last phase drives a REAL ext-session-lock, so the compositor
+          # is headless and private and the runtime dir is checked before the
+          # run — the one thing that must never happen is that lock landing
+          # on the developer's session. `loginctl` and `busctl` are stubs
+          # that record argv; nothing here reads or writes the real logind.
+          #
+          # Skips cleanly without quickshell or a compositor.
+          ./tests/run-locked-hint-test.sh
+
       - name: Every settings page, built and asked what it is
         run: |
           # Criterion 1 of the settings regression harness: every page, not a
