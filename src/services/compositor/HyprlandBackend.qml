@@ -423,10 +423,20 @@ QtObject {
     }
 
     function setGaps(inner, outer) {
-        // Both in one shell so the two writes cannot be seen half-applied.
-        root._start(root._gapsWriteProc, ["bash", "-c",
-                    `hyprctl keyword general:gaps_in ${inner} && ` +
-                    `hyprctl keyword general:gaps_out ${outer}`])
+        // Both in one shell so the two writes cannot be seen half-applied — and
+        // under Lua both in ONE hl.config, which is stronger: it is a single
+        // call rather than two that happen to be chained.
+        //
+        // `hyprctl keyword` does not work against a Lua config at all. It
+        // answers "keyword can't work with non-legacy parsers. Use eval." and
+        // changes nothing, so the gaps slider moved and the desktop ignored it.
+        // Every other keyword write in this file was already split; this one was
+        // missed because it bypasses _keyword() to get both values into one
+        // shell.
+        root._start(root._gapsWriteProc, ["bash", "-c", root._lua
+                    ? `hyprctl eval 'hl.config({ general = { gaps_in = ${inner}, gaps_out = ${outer} } })'`
+                    : `hyprctl keyword general:gaps_in ${inner} && ` +
+                      `hyprctl keyword general:gaps_out ${outer}`])
     }
 
     // Both gaps in one call. This used to be two chained Processes in
