@@ -1278,6 +1278,19 @@ jobs:
           # measuring anything.
           node tests/agentgraph-test.js
 
+      - name: Status-line telemetry
+        run: |
+          # P1-021. Replays a six-agent fleet through
+          # src/services/agenttelemetry.js — the file the shell loads — and
+          # checks the decision the whole feature turns on: a rate-limit window
+          # belongs to the ACCOUNT, so six sessions reporting the same 62% must
+          # produce ONE line, taken from the freshest observation rather than
+          # from whichever session came first in the list.
+          #
+          # Needs node and nothing else. Carries its own mutants, including an
+          # inverse one, and asserts the fixture is non-trivial first.
+          node tests/agenttelemetry-test.js
+
       - name: The graph rows, as Qt builds them
         run: |
           # The half the node suite cannot see: that SubagentRow resolves as a
@@ -1458,6 +1471,9 @@ jobs:
             "tests/agentgraph-test.js"
             "tests/agent-graph-render-test.qml"
             "tests/run-agent-graph-render-test.sh"
+            "src/services/agenttelemetry.js"
+            "src/services/agents/TelemetryStrip.qml"
+            "tests/agenttelemetry-test.js"
             "tests/notify-spawn-test.qml"
             "tests/run-notify-spawn-test.sh"
           )

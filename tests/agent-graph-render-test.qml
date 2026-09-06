@@ -4,6 +4,7 @@ import "./src/theme"
 import "./src/services"
 import "./src/services/agents"
 import "./src/services/agentgraph.js" as Graph
+import "./src/services/agenttelemetry.js" as Telemetry
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The session graph as Qt builds it. Run via tests/run-agent-graph-render-test.sh.
@@ -33,6 +34,11 @@ import "./src/services/agentgraph.js" as Graph
 //      predates P1-020 writes no `children` key, and every daemon in the
 //      shipped image is one of those. A control that is there and does nothing
 //      is worse than no control.
+//
+//   5. And the same two questions for P1-021's telemetry: does the row make
+//      room for its third line only when a status line has actually run, and
+//      does TelemetryStrip resolve as a type and stay away when nothing has
+//      reported a rate-limit window?
 //
 // It opens ONE window, and that is not carelessness. A Column lays its
 // children out in a polish pass, a polish pass is driven by a QQuickWindow,
@@ -114,6 +120,20 @@ ShellRoot {
         s.children = []
         return s
     }
+    // P1-021. A session whose status line has run: model, context and branch
+    // per row, and the account windows that TelemetryStrip says once.
+    function withTelemetry() {
+        var s = root.bare()
+        s.id = 4
+        s.children = []
+        s.telemetry = {
+            model: "Opus 4.5", context_pct: 88.2, branch: "task/p1-021",
+            five_hour_pct: 62.5, five_hour_reset: root.now + 7900,
+            seven_day_pct: 18.5, seven_day_reset: root.now + 299900,
+            observed_at: root.now - 20
+        }
+        return s
+    }
 
     FloatingWindow {
         id: stage
@@ -139,7 +159,14 @@ ShellRoot {
                 width: rows.width
                 session: root.emptyGraph()
             }
+            SessionRow {
+                id: telemetryRow
+                width: rows.width
+                session: root.withTelemetry()
+            }
         }
+
+        TelemetryStrip { id: strip; width: 600; y: 520 }
     }
 
     // The child list, found by a property only it has rather than by index, so
@@ -259,6 +286,33 @@ ShellRoot {
             root.check("collapsing returns the card to its original height",
                        Math.abs(graphRow.height - root.collapsedHeight) < 0.5,
                        graphRow.height + " vs " + root.collapsedHeight)
+
+            // ── P1-021 ──────────────────────────────────────────────────────
+            root.check("a row with telemetry says the model, the context and the branch",
+                       telemetryRow.telemetry !== null
+                       && telemetryRow.telemetry.text.indexOf("Opus 4.5") >= 0
+                       && telemetryRow.telemetry.text.indexOf("88% context") >= 0
+                       && telemetryRow.telemetry.text.indexOf("task/p1-021") >= 0,
+                       telemetryRow.telemetry
+                           ? telemetryRow.telemetry.text : "no telemetry")
+            root.check("and NO account-wide window",
+                       telemetryRow.telemetry.text.indexOf("5h") < 0
+                       && telemetryRow.telemetry.text.indexOf("7d") < 0,
+                       telemetryRow.telemetry.text)
+            root.check("a row that has never reported has no telemetry line",
+                       bareRow.telemetry === null)
+            root.check("the card makes room for the third line, and only then",
+                       telemetryRow.height > bareRow.height + 4,
+                       bareRow.height + " -> " + telemetryRow.height)
+
+            // TelemetryStrip resolving at all is half the assertion: it is
+            // reached through src/services/qmldir, and a component missing
+            // from there fails the whole shell rather than the page.
+            root.check("TelemetryStrip instantiated", strip !== null)
+            root.check("the strip takes the fleet's reading from the freshest session",
+                       Telemetry.fleet([root.withTelemetry()], root.now).fiveHour === 62.5)
+            root.check("and stays away entirely when nobody has reported a window",
+                       Telemetry.fleet([root.bare()], root.now) === null)
             console.log("agent-graph-render: passed=" + root.passed
                         + " failed=" + root.failed)
             Qt.exit(root.failed === 0 ? 0 : 1)

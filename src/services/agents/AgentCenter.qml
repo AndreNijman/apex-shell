@@ -111,6 +111,13 @@ Item {
         AgentHelpEntry { width: parent.width }
         AgentHelpCard   { width: parent.width }
 
+        // §P1-021's account-wide windows. Pinned, for the reason the banner
+        // below it is: it is a fact about the machine rather than about any
+        // row, and the reader who most needs it is the one looking at a list
+        // they are about to add a seventh agent to. Absent entirely when
+        // nothing has reported one — see TelemetryStrip.
+        TelemetryStrip { width: parent.width }
+
         // §42.1 criterion 9. Pinned for the same reason the help strip is: the
         // reader who most needs to know the sandbox default is off is the one
         // looking at an empty list or at "the runtime is not running", and
