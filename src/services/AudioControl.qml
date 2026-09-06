@@ -259,7 +259,9 @@ Item {
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
 
-                    // Drag to change volume
+                    // Drag to change volume. No wheel handler: these columns sit
+                    // inside a PopupPage that scrolls, so a wheel here belongs
+                    // to the page.
                     MouseArea {
                         anchors.fill: parent
                         cursorShape:  Qt.SizeVerCursor
@@ -270,16 +272,6 @@ Item {
                         }
                         onPressed:         col.volumeChanged(calc(mouseY))
                         onPositionChanged: if (pressed) col.volumeChanged(calc(mouseY))
-                    }
-
-                    // Scroll wheel to change volume
-                    WheelHandler {
-                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                        onWheel: function(event) {
-                            var step = 0.05
-                            var delta = event.angleDelta.y > 0 ? step : -step
-                            col.volumeChanged(Math.max(0.0, Math.min(1.0, col.value + delta)))
-                        }
                     }
                 }
             }

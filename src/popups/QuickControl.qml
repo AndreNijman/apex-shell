@@ -239,7 +239,8 @@ PopupWindow {
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
 
-                    // Drag to change value
+                    // Drag to change value. No wheel handler: a value bar in this
+                    // shell never reads the wheel, so scrolling stays scrolling.
                     MouseArea {
                         anchors.fill: parent
                         cursorShape:  Qt.SizeVerCursor
@@ -249,16 +250,6 @@ PopupWindow {
                         }
                         onPressed:         col.volumeChanged(calc(mouseY))
                         onPositionChanged: if (pressed) col.volumeChanged(calc(mouseY))
-                    }
-
-                    // Scroll wheel to change value
-                    WheelHandler {
-                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                        onWheel: function(event) {
-                            var step = 0.05
-                            var delta = event.angleDelta.y > 0 ? step : -step
-                            col.volumeChanged(Math.max(0.0, Math.min(1.0, col.value + delta)))
-                        }
                     }
                 }
             }

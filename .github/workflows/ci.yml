@@ -827,6 +827,33 @@ jobs:
       - name: Colour-token discipline (theme tokens, allowlisted exceptions)
         run: ./tests/check-color-tokens.sh
 
+      # UI-004: "Scrolling over sliders changes values." Every settings page is
+      # read by scrolling, the shared CfgSlider carried a WheelHandler, and so
+      # reading a page edited it. The same handler had been copied onto five
+      # controls — the settings slider, the audio and quick-control volume
+      # columns, the dashboard brightness bar and the HH:MM spinners — and two
+      # of them sat inside a Flickable, where the bug reproduced literally.
+      #
+      # An allowlist names the wheel sites that stay (workspaces, tab switcher,
+      # carousel, tray forwarding, wallpaper grid), each with what it does and
+      # why that is navigation rather than an edit. A separate denylist names
+      # the value bars, which no allowlist row can argue past, and the total is
+      # asserted EXACTLY so a second handler in an already-listed file fails.
+      # Sites are found with a comment- and string-aware scanner, self-tested in
+      # both directions.
+      - name: Wheel discipline (the wheel scrolls, it never sets a value)
+        run: ./tests/check-wheel-value.sh
+
+      - name: Slider wheel behaviour (real events, offscreen)
+        run: |
+          # The runtime half. qmltestrunner posts a real QWheelEvent at a real
+          # CfgSlider inside a real CfgScroll and asserts the value holds while
+          # the page moves, plus that click, drag and the arrow keys still work.
+          # Offscreen, so it needs no compositor — unlike every other QML suite
+          # here, this one can actually run on a CI box.
+          pacman -S --needed --noconfirm qt6-declarative qt6-base
+          ./tests/run-slider-wheel-test.sh
+
       - name: Remote agent status invariants
         run: |
           # Static half. Also SELF-TESTS its own checks: it mutates copies of
@@ -1027,6 +1054,10 @@ jobs:
             "tests/search-test.js"
             "tests/check-unified-search.sh"
             "tests/measure-search-spawns.sh"
+            "src/components/config/CfgSlider.qml"
+            "tests/check-wheel-value.sh"
+            "tests/slider-wheel-test.qml"
+            "tests/run-slider-wheel-test.sh"
           )
           FAILED=()
           for f in "${REQUIRED[@]}"; do
