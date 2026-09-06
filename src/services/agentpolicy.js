@@ -124,27 +124,71 @@ function effectiveNetwork(config) {
     return typeof n === "string" && n !== "" ? n : "open";
 }
 
-/// `AgentPolicy::validate`, as a reason or null.
+/// `Config::normalise` then `AgentPolicy::validate`, as a reason or null.
 ///
-/// Four arms, in policy.rs's order. Each message says what apex would do with
-/// the file rather than naming the Rust variant, because the reader is looking
-/// at a toggle and not at a stack trace.
+/// In that order, because that is the order apex applies them and the first
+/// changes what the second sees. Each message says what apex would do with the
+/// file rather than naming the Rust variant, because the reader is looking at a
+/// toggle and not at a stack trace.
+///
+/// ── why there is no longer a system-access arm ──────────────────────────────
+///
+/// There used to be one: dimension 3 had no grant machinery and `validate`
+/// refused both of its elevated values, so a file naming one made apex reset
+/// all six dimensions and this had to warn about it. P0-006 and P0-007 built
+/// the machinery, and `validate` now accepts both — but `Config::normalise`
+/// gained a rule that matters more here: §3.4 allows no remembered elevation,
+/// so dimension 3 cannot be a stored default AT ALL. A file saying
+/// `"system": "unsafe"` has that ONE key reset to `none` and its other five
+/// left alone.
+///
+/// That is a correction and not a refusal, so it must not block the toggle. It
+/// is applied here before the rest, which is also what makes the break-glass
+/// arm below unreachable from a stored file — correctly, because it is.
 function refusalFor(config) {
-    var network = effectiveNetwork(config);
-    var sandbox = storedSandbox(config);
+    var normalised = {};
+    for (var k in config)
+        if (Object.prototype.hasOwnProperty.call(config, k))
+            normalised[k] = config[k];
+    // §3.4: no remembered elevation. One key, silently, exactly as apex does.
+    normalised.system = "none";
+
+    var network = effectiveNetwork(normalised);
+    var sandbox = storedSandbox(normalised);
     if (network === "offline" && sandbox === "unrestricted")
         return "an offline session needs a network namespace, and an unrestricted "
              + "session has none";
     if (network !== "open" && network !== "offline")
         return "the network mode " + network + " has nothing enforcing it in this build";
-    var system = config && config.system ? config.system : "none";
-    if (system !== "none")
-        return "the system-access mode " + system + " has no grant machinery in this build";
+    // bwrap sets no_new_privs for everything it wraps and nothing can clear it,
+    // so break-glass inside a sandbox would report a boundary it had not moved.
+    // Unreachable from a stored file because of the correction above, and kept
+    // so this function still mirrors `validate` for any caller that has a
+    // policy rather than a config.
+    if (normalised.system === "unsafe" && sandbox !== "unrestricted")
+        return "break-glass takes no_new_privs off and a " + sandbox
+             + " sandbox puts it back";
     if (config && config.secrets === "export")
         return "raw secret export has no route in this build";
     if (config && config.origin === "remote_elevation_allowed")
         return "elevation from a remote origin has no route in this build";
     return null;
+}
+
+/// Whether apex will reset a stored dimension-3 default when it loads this
+/// file, and why.
+///
+/// Separate from [`refusalFor`] because it is not a refusal: the write goes
+/// through and five of the six dimensions survive. It exists so the page can
+/// say the file was not obeyed rather than leaving the user to notice that
+/// their sessions are not elevated.
+function storedElevationNote(config) {
+    var system = config && config.system ? config.system : "none";
+    if (system === "none")
+        return null;
+    return "apex will reset system-access to none: §3.4 allows no remembered "
+         + "elevation, so ask for it per session with `apex agent run "
+         + "--system-access session` or `--unsafe-everything --ttl 15m`";
 }
 
 /// The sandbox a new session actually gets, given the file's text.
@@ -299,12 +343,129 @@ function sessionSandbox(session) {
 
 /// The session's own permission mode (dimension 1), or "inherit".
 ///
-/// Shown only when it is not `inherit`, because `inherit` means APEX passed no
-/// flag and the agent's own profile decided — reporting that as a mode would
-/// claim knowledge of a file the runtime never read.
+/// What APEX *did*: `bypass` and `ask` mean it passed a flag, and `inherit`
+/// means it passed nothing and the agent's own profile decided.
 function sessionNative(session) {
     var v = session ? session.native : null;
     return v === "ask" || v === "bypass" ? v : "inherit";
+}
+
+/// The permission mode this session is ACTUALLY in, for the chip (§4.1
+/// criterion 3).
+///
+/// This is the field that makes criterion 3 mean something, and the reason it
+/// exists is a trap in the obvious reading. `sessionNative` returns `inherit`
+/// for the normal case — Andre runs `bypassPermissions` as his Claude default
+/// and `roadmap.yaml` records it — and `inherit` describes what APEX did, not
+/// what the agent is doing. A chip showing "inherit" beside a session running
+/// with confirmations off would satisfy the words of the criterion and answer
+/// nothing.
+///
+/// So the agent's own report wins. Claude puts `permission_mode` on every hook
+/// payload; `apex-agentd` records it as `native_observed`, unmapped, so the
+/// value here is the one Claude itself uses: `bypassPermissions`,
+/// `acceptEdits`, `plan`, `default`.
+///
+/// Three answers and each says something different:
+///
+///   * a reported mode          — the agent said this, and it is current;
+///   * an APEX-selected mode    — nothing reported yet, but APEX passed a flag
+///                                so the mode is known from the launch;
+///   * "" — nothing to say. Only when APEX passed no flag AND the agent has
+///     not reported: naming a mode there would claim knowledge of a settings
+///     file the runtime never read.
+function sessionNativeLabel(session) {
+    var observed = session ? session.native_observed : null;
+    if (typeof observed === "string" && observed !== "")
+        return observed;
+    var selected = sessionNative(session);
+    return selected === "inherit" ? "" : selected;
+}
+
+/// Whether that label is the agent's own report rather than APEX's flag.
+///
+/// The page draws the two the same, and this is here so a tooltip can be
+/// honest about which it is looking at: "claude reports bypassPermissions" and
+/// "apex started it with --permission-mode bypassPermissions" are different
+/// facts, and only the first is current if the mode changed mid-session.
+function sessionNativeIsReported(session) {
+    var observed = session ? session.native_observed : null;
+    return typeof observed === "string" && observed !== "";
+}
+
+// ── system-access grants (§3.4, §4.4) ────────────────────────────────────────
+
+/// The dimension-3 value a session is running under.
+function sessionSystem(session) {
+    var v = session ? session.system : null;
+    return v === "session" || v === "unsafe" ? v : "none";
+}
+
+/// The system-access grant id a session holds, or null.
+///
+/// Read from the session's own record for the same reason `sessionSandbox` is:
+/// the daemon will not start an elevated session without a grant, so a session
+/// carrying one is a session that had a human authorise it.
+function sessionGrant(session) {
+    var v = session ? session.grant : null;
+    return typeof v === "number" && v >= 0 ? v : null;
+}
+
+/// Whether this session is §4.5 break-glass — the one state §3.4 asks for a
+/// "prominent red indicator" about.
+///
+/// Both halves are required. `system === "unsafe"` without a grant cannot
+/// happen (the daemon refuses it), and treating either alone as break-glass
+/// would put the loudest thing in the interface on a session that is not it.
+function isBreakGlass(session) {
+    return sessionSystem(session) === "unsafe" && sessionGrant(session) !== null;
+}
+
+/// Milliseconds left on a session's grant, or null when it has none.
+///
+/// Negative is clamped to zero rather than hidden: a window that has run out
+/// while the daemon's next tick has not arrived is a real state, and showing
+/// "0s" is the truthful rendering of it.
+function grantRemainingMs(session, nowMs) {
+    var expires = session ? session.grant_expires_ms : null;
+    if (typeof expires !== "number")
+        return null;
+    return Math.max(0, expires - nowMs);
+}
+
+/// A countdown, in the shortest form that is not ambiguous.
+///
+/// Mirrors `grant::format_ms` in apex-agent-core so the shell and
+/// `apex agent grants` do not describe the same window two ways. Seconds are
+/// dropped above a minute: a break-glass indicator that ticks every second is
+/// one people cover up.
+function formatRemaining(ms) {
+    if (typeof ms !== "number" || ms < 0)
+        return "";
+    var secs = Math.floor(ms / 1000);
+    var h = Math.floor(secs / 3600);
+    var m = Math.floor((secs % 3600) / 60);
+    var s = secs % 60;
+    if (h > 0)
+        return m > 0 ? h + "h " + m + "m" : h + "h";
+    if (m > 0)
+        return m + "m";
+    return s + "s";
+}
+
+/// The one line the break-glass indicator says.
+///
+/// §3.4 asks for the indicator to be prominent AND for "revocation control
+/// always visible", which means the indicator has to say what it is and how to
+/// end it. Built here rather than in QML so the wording is tested.
+function breakGlassLabel(session, nowMs) {
+    if (!isBreakGlass(session))
+        return "";
+    var left = grantRemainingMs(session, nowMs);
+    if (left === null)
+        return "BREAK-GLASS";
+    return left === 0 ? "BREAK-GLASS · ending"
+                      : "BREAK-GLASS · " + formatRemaining(left);
 }
 
 function isLive(session) {
@@ -363,8 +524,17 @@ if (typeof module !== "undefined" && module.exports)
         enableRefused: enableRefused,
         authOutcome: authOutcome,
         authMessage: authMessage,
+        storedElevationNote: storedElevationNote,
         sessionSandbox: sessionSandbox,
         sessionNative: sessionNative,
+        sessionNativeLabel: sessionNativeLabel,
+        sessionNativeIsReported: sessionNativeIsReported,
+        sessionSystem: sessionSystem,
+        sessionGrant: sessionGrant,
+        isBreakGlass: isBreakGlass,
+        grantRemainingMs: grantRemainingMs,
+        formatRemaining: formatRemaining,
+        breakGlassLabel: breakGlassLabel,
         isLive: isLive,
         sessionsOnOtherModes: sessionsOnOtherModes,
         unrestrictedSessions: unrestrictedSessions,
