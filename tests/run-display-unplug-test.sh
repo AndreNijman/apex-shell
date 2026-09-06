@@ -304,8 +304,16 @@ done
 if [ "$changed" = "$before" ]; then
     bad "the staged layout never reached the compositor"
 else
-    ok "four fields across two outputs reached the compositor"
+    ok "the staged layout reached the compositor"
 fi
+# Named individually, because "the snapshot differs" is satisfied by one field
+# moving, and a model that silently drops one of the four would then make the
+# comparison below trivially true — restoring a field nothing ever changed.
+for probe in '"scale": 1.5' '"transform": "90"' '"x": 3000' '"scale": 2'; do
+    grep -qF "$probe" <<<"$changed" \
+        && ok "the compositor took ${probe}" \
+        || bad "${probe} never reached the compositor, so the revert below proves nothing"
+done
 
 sleep "$(( timeout_s + 8 ))"
 after="$(snapshot)"
