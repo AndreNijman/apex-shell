@@ -23,6 +23,13 @@ ShellRoot {
     // low-battery warning, and nothing on screen "uses" it.
     property var _batteryAlert: BatteryAlert
 
+    // Must exist at startup for the same kind of reason: a display transaction
+    // the previous shell left open has to be settled whether or not anybody
+    // opens the Display page. Enumeration stays on demand — this costs one
+    // `apex-display-guard.sh reconcile`, which exits immediately when there is
+    // no transaction directory.
+    property var _display: DisplayService
+
     Variants {
         model: Quickshell.screens
 
@@ -63,6 +70,16 @@ ShellRoot {
                 // purpose: it is a window you leave open, so it must not be
                 // subject to the popup fleet's click-outside dismissal.
                 Nexus { screen: modelData; screenName: modelData.name }
+
+                // Keep / Put it back, after a temporary display apply.
+                //
+                // Built for every output, like ConfirmDialog, because the apply
+                // it is asking about can destroy the output the settings window
+                // is on — which is why the question used to disappear instead of
+                // being asked (P0-018). Last in the delegate so it stacks above
+                // Nexus: both are Overlay surfaces, and a modal you cannot see
+                // is the bug, not the fix.
+                DisplayConfirm { screen: modelData; screenName: modelData.name }
             }
         }
     }
