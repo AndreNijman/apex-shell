@@ -322,8 +322,8 @@ function parseRepair(exitCode, text) {
 // ── apex recover reset --json (the dry run) ─────────────────────────────────
 
 // What the plan's disposition means where a person can read it. `truncate` is
-// NOT a deletion: hyprland.conf `source=`s those two files and a missing
-// source is fatal, so they are emptied and left in place. Printing "Deleted"
+// NOT a deletion: nothing under ~/.config/hypr is ever deleted, so the
+// generated modules are emptied and left in place. Printing "Deleted"
 // there would describe a reset that would break the compositor.
 var DISPOSITION_VERBS = {
     delete:   "Deleted",

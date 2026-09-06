@@ -236,10 +236,19 @@ QtObject {
         }
     }
     
-    // Which Hyprland config dialect the shell writes and dispatches.
+    // Which Hyprland config dialect the shell DISPATCHES in. It no longer
+    // decides what the shell writes: since P0-025 KeybindService writes the Lua
+    // module and nothing else, because Hyprland 0.56.2 loads hyprland.lua and
+    // never mentions a .conf beside it.
     //
-    // Defaults to "conf" — Hyprland's own default format. This used to default
-    // to "lua", which silently broke everyone who did not run install-arch.sh:
+    // "conf" is no longer Hyprland's own default format either — 0.56.2
+    // auto-generates a hyprland.LUA when it finds no config. It stays the
+    // pre-probe default because it is the safer guess for the seconds before
+    // the probe below answers, and because the regression it was chosen for is
+    // still live:
+    //
+    // this used to default to "lua", which silently broke everyone who did not
+    // run install-arch.sh:
     // config_Provider.json is written ONLY by that script, so a manual clone, a
     // non-Arch install, or a wiped ~/.config left the value at "lua" while the
     // user's config was stock text. KeybindService._ensureInclude() then took

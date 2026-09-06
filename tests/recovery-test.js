@@ -270,7 +270,7 @@ const PLAN_DESKTOP = JSON.stringify({
           what: "the generated niri input block" },
         { path: "/var/home/andre/.config/apex-shell/ApexShellKeybinds.conf", relative: ".config/apex-shell/ApexShellKeybinds.conf",
           disposition: "delete", kind: "file", exists: true, backedUp: true,
-          what: "the generated Hyprland keybinds" },
+          what: "the retired hyprlang keybind fragment" },
         { path: "/var/home/andre/.config/apex-shell/ApexShellKeybinds.kdl", relative: ".config/apex-shell/ApexShellKeybinds.kdl",
           disposition: "delete", kind: "file", exists: true, backedUp: true,
           what: "the generated niri keybinds" },
@@ -280,10 +280,10 @@ const PLAN_DESKTOP = JSON.stringify({
         { path: "/var/home/andre/.cache/apex-shell", relative: ".cache/apex-shell",
           disposition: "delete", kind: "dir", exists: true, backedUp: false,
           what: "the shell's cache: generated colour scheme, thumbnails" },
-        { path: "/var/home/andre/.config/hypr/apex-input.conf", relative: ".config/hypr/apex-input.conf",
+        { path: "/var/home/andre/.config/hypr/apex/input.lua", relative: ".config/hypr/apex/input.lua",
           disposition: "truncate", kind: "file", exists: false, backedUp: true,
           what: "the generated Hyprland input overrides (emptied, not removed)" },
-        { path: "/var/home/andre/.config/hypr/apex-display.conf", relative: ".config/hypr/apex-display.conf",
+        { path: "/var/home/andre/.config/hypr/apex/monitors.lua", relative: ".config/hypr/apex/monitors.lua",
           disposition: "truncate", kind: "file", exists: false, backedUp: true,
           what: "the generated Hyprland monitor layout (emptied, not removed)" }
     ]
@@ -307,9 +307,10 @@ check("the token's count equals the number of rows rendered",
       R.tokenCount(plan.confirmToken), plan.losses.length);
 check("the token's scope equals the plan's", R.tokenScope(plan.confirmToken), plan.scope);
 
-// `truncate` is NOT a deletion. hyprland.conf `source=`s those two files and a
-// missing source is FATAL, so they are emptied in place. Calling that
-// "Deleted" would describe a reset that breaks the compositor.
+// `truncate` is NOT a deletion. Nothing under ~/.config/hypr is ever deleted:
+// the generated modules are emptied in place, which is the "no overrides"
+// state the compositor understands. Calling that "Deleted" would tell a user
+// their compositor config had been removed when it has not.
 check("truncate is not described as a deletion",
       R.dispositionVerb("truncate"), "Emptied, not removed");
 check("delete is", R.dispositionVerb("delete"), "Deleted");
