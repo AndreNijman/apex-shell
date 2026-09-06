@@ -182,15 +182,37 @@ QtObject {
     }
 
     // ── Save ──────────────────────────────────────────────────────────────────
-    property var _saveProc: Process { command: []; running: false }
+    //
+    // Non-empty when the last write was refused. Six settings pages write
+    // through this service and every one of them wrote as you dragged, so a
+    // home directory the shell could not write to looked exactly like one it
+    // could: the slider moved, the shell reflowed, and the value was gone at
+    // the next login. The pages show this on their CfgLifecycle line
+    // (roadmap P0-023, criterion 4).
+    property string lastError: ""
+
+    property var _saveProc: Process {
+        command: []
+        running: false
+        onExited: function(code, status) {
+            root.lastError = code === 0
+                ? ""
+                : "Could not write " + root._cfgPath + " (exit " + code
+                  + "). Settings changed here will be gone at the next login."
+        }
+    }
 
     function _save() {
         var o = {}
         for (var i = 0; i < _keys.length; i++) o[_keys[i]] = root[_keys[i]]
         var json = JSON.stringify(o)
+        // JSON and path go in as positional arguments, never spliced into the
+        // script. `lockBackground` is a path the user types, and one with an
+        // apostrophe in it used to end the quoted string the write was built
+        // from — the same rule KeybindService and Compositor already follow.
         _saveProc.command = ["bash", "-c",
-            "mkdir -p \"$(dirname '" + _cfgPath + "')\" && " +
-            "printf '%s' '" + json.replace(/'/g, "'\\''") + "' > '" + _cfgPath + "'"]
+            "mkdir -p \"$(dirname \"$2\")\" && printf '%s' \"$1\" > \"$2\"",
+            "--", json, root._cfgPath]
         _saveProc.running = false
         _saveProc.running = true
     }

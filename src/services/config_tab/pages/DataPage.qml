@@ -15,6 +15,13 @@ import "../../../components/config"
 CfgScroll {
     id: root
 
+    // Criterion 1. Live, but NOT through SettingsService — the toggles here
+    // write to ScreenRecService and ShellState and the buttons act on the
+    // clipboard and notification stores. There is no shared error to report, so
+    // the page declares the state and nothing else rather than borrowing
+    // another service's failure.
+    lifecycle: "live"
+
     // Set by ShellConfig: "the Data & Storage page is genuinely on screen".
     // These two services used to be instantiated here with `active: true`
     // hardcoded, which meant a `df` every 15s and a `cat /proc/meminfo` every 2s

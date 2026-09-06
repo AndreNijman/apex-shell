@@ -11,6 +11,12 @@ import "../../../components/config"
 CfgScroll {
     id: root
 
+    // Criterion 1. Everything on this page writes as you touch it and is
+    // persisted; the one line at the top says so, in the same words the other
+    // five live pages use.
+    lifecycle: "live"
+    lifecycleError: SettingsService.lastError
+
     // ── Palette ───────────────────────────────────────────────────────────────
     CfgSection {
         title: "Palette"
@@ -55,12 +61,16 @@ CfgScroll {
             }
         }
 
+        // Reset, and it is really Reset: the shipped default for this key is
+        // the empty string, which means "follow the desktop wallpaper". The row
+        // said Reset and the button said Clear, which are two words for one act
+        // and neither of them was the one every other page uses.
         CfgRow {
-            label:       "Reset"
-            description: "Use the desktop wallpaper on the lock screen"
+            label:       "Lock background"
+            description: "Return to the shipped default: the desktop wallpaper"
             CfgButton {
-                label: "Clear"
-                icon:  "󰆴"
+                label: "Reset"
+                icon:  "↺"
                 onClicked: SettingsService.set("lockBackground", "")
             }
         }
@@ -234,13 +244,14 @@ CfgScroll {
             }
         }
 
-        Item { width: parent.width; height: 6 }
-        Item {
-            width:  parent.width
-            height: 30
+        // A CfgRow rather than a bare button in a spacer, so it says what it
+        // resets and reads like the Layout page's, which resets the same way.
+        CfgRow {
+            label:       "Shape"
+            description: "Return the corner radius, border, notch radius and " +
+                         "notch height to the shipped defaults"
             CfgButton {
-                x: 10
-                label:   "Reset shape to defaults"
+                label:   "Reset"
                 icon:    "↺"
                 onClicked: {
                     SettingsService.set("cornerRadius", 17)

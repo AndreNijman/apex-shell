@@ -22,12 +22,21 @@ import "../../../components/config"
 CfgScroll {
     id: root
 
-    // Whether the first output card is genuinely the top of the page. Three
+    // Criterion 1, in one line: this page holds changes until you ask for them.
+    // The words come from settings-semantics.js so they are the same ones the
+    // Blueprint and Keybinds pages use.
+    lifecycle: "staged"
+    // One place at a time: while there is a draft the failure belongs on the
+    // bar, beside the intent it did not destroy, because that is where the user
+    // pressed the button. With no draft there is no bar, and a read that could
+    // not enumerate the outputs is about the page.
+    lifecycleError: DisplayService.dirty ? "" : DisplayService.lastError
+
+    // Whether the first output card is genuinely the top of the page. Two
     // sections can precede it and each one is conditional, so the flag has to
-    // be one expression rather than three copies that drift.
+    // be one expression rather than two copies that drift.
     readonly property bool nothingAbove: DisplayService.confirmSeconds === 0
                                          && DisplayService.lastNotice === ""
-                                         && DisplayService.lastError === ""
 
     // Enumeration is on demand: DisplayService is constructed at startup now
     // (it has to settle an abandoned transaction), so the `list` has to be
@@ -71,17 +80,9 @@ CfgScroll {
         }
     }
 
-    // ── Errors ────────────────────────────────────────────────────────────────
-    CfgSection {
-        title: "Display"
-        visible: DisplayService.lastError !== ""
-
-        CfgRow {
-            label: "Could not read or set the layout"
-            description: DisplayService.lastError
-            hoverable: false
-        }
-    }
+    // The read/apply error used to be a section of its own here. It is the
+    // page's `lifecycleError` now — the same line every settings page reports a
+    // refused write on — so a reader who has seen one page has seen them all.
 
     // ── No outputs ────────────────────────────────────────────────────────────
     CfgSection {
@@ -250,52 +251,30 @@ CfgScroll {
         }
     }
 
-    // ── Apply ─────────────────────────────────────────────────────────────────
-    CfgSection {
-        title: "Changes"
-        visible: DisplayService.draft.length > 0
+    // ── The draft ─────────────────────────────────────────────────────────────
+    // Three CfgRows with three buttons became one bar. The words, the order and
+    // the sentence above them are CfgCommit's, shared with Blueprint and
+    // Keybinds; what stays here is the part only this page knows — that Save
+    // writes files a login or a hotplug reads, and how long the countdown runs.
+    CfgCommit {
+        count: DisplayService.stagedCount
+        noun:  "change"
 
-        CfgRow {
-            label: DisplayService.dirty ? "Not applied yet" : "Nothing staged"
-            description: DisplayService.dirty
-                ? "Apply reaches the running compositor and asks you to confirm. " +
-                  "Save writes the layout without touching the screen."
-                : "Change something above and Apply becomes available."
-            hoverable: false
-        }
+        canApply: true
+        canSave:  true
 
-        CfgRow {
-            label:       "Apply now"
-            description: "Puts the new layout on screen and asks. Do nothing and " +
-                         "the old one comes back after " +
-                         DisplayService.confirmTotal + " seconds."
-            CfgButton {
-                label:   DisplayService.applying ? "Applying…" : "Apply"
-                enabled: DisplayService.dirty && !DisplayService.applying
-                         && DisplayService.confirmSeconds === 0
-                onClicked: DisplayService.apply()
-            }
-        }
+        // Also inert while a countdown is running: the previous apply has not
+        // been answered yet, and the answer is on the confirmation window.
+        busy:  DisplayService.applying || DisplayService.confirmSeconds > 0
+        error: DisplayService.lastError
 
-        CfgRow {
-            label:       "Save without applying"
-            description: "Writes the Hyprland monitor conf and the kanshi profile. " +
-                         "Takes effect at the next login or hotplug."
-            CfgButton {
-                label:   "Save"
-                enabled: DisplayService.dirty && !DisplayService.applying
-                onClicked: DisplayService.save()
-            }
-        }
+        note: "Do nothing after an apply and the previous layout comes back in "
+              + DisplayService.confirmTotal + " seconds. Save writes the "
+              + "Hyprland monitor conf and the kanshi profile, which the next "
+              + "login or hotplug reads."
 
-        CfgRow {
-            label:       "Discard"
-            description: "Forget the staged changes and re-read the hardware"
-            CfgButton {
-                label:   "Revert"
-                enabled: DisplayService.dirty
-                onClicked: DisplayService.revert()
-            }
-        }
+        onApplyRequested:  DisplayService.apply()
+        onSaveRequested:   DisplayService.save()
+        onRevertRequested: DisplayService.revert()
     }
 }

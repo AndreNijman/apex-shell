@@ -14,6 +14,9 @@ import "../../../components/config"
 CfgScroll {
     id: root
 
+    lifecycle: "live"
+    lifecycleError: SettingsService.lastError
+
     // ── Display scaling ───────────────────────────────────────────────────────
     CfgSection {
         title: "Display scaling"
@@ -158,12 +161,12 @@ CfgScroll {
     CfgSection {
         title: "Reset"
 
-        Item {
-            width:  parent.width
-            height: 32
+        CfgRow {
+            label:       "Layout & behaviour"
+            description: "Return every slider and toggle on this page to the " +
+                         "shipped default. Scaling is not touched."
             CfgButton {
-                x:     10
-                label: "Reset layout to defaults"
+                label: "Reset"
                 icon:  "↺"
                 onClicked: {
                     SettingsService.set("barEnabled",         false)
