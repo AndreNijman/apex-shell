@@ -8,25 +8,57 @@
 #  exercises only its empty state — which is the one path that was always going
 #  to work.
 #
-#  So this stands up a THROWAWAY agent runtime with real content:
+#  So this stands up a THROWAWAY agent runtime with real content — one session
+#  in each of the five states the roadmap names, plus a pending privilege
+#  request — then opens the page against it and fails on any runtime error.
+#  Every row delegate, the request card, the sort comparator and the
+#  elapsed-time formatter are instantiated with real records rather than with
+#  fixtures that happen to have the right shape.
 #
-#      * one running session
-#      * one exited-non-zero session
-#      * one pending privilege request
+#  ── WHY ALL FIVE STATES, AND HOW THEY ARE INDUCED ───────────────────────────
 #
-#  then opens the page against it and fails on any runtime error. Every row
-#  delegate, the request card, the sort comparator and the elapsed-time
-#  formatter are instantiated with real records rather than with fixtures that
-#  happen to have the right shape.
+#  P0-021 was a state the page could not draw, not a page it could not build,
+#  and a fixture of "one running and one exited" never reaches four of the
+#  seven. Every state below is produced by making the runtime observe it, never
+#  by writing a record:
+#
+#      working             a child that prints, so the output detector sees it
+#      waiting_for_user    a child that prints nothing, past the runtime's own
+#                          IDLE_TO_WAITING_SECS of 10
+#      permission_request  `apex agent event`, which is the ONLY way — apexd
+#                          refuses to infer this one from output, on the
+#                          grounds that guessing it wrong is worse than not
+#                          guessing
+#      complete            exit 0
+#      failed              exit 3
+#
+#  The colours those states resolve to are measured in
+#  tests/run-agent-state-render-test.sh and tests/agent-state-test.js. What is
+#  proved HERE is the other half: that the runtime can actually reach all five,
+#  and that the page draws each of them against a live daemon without a runtime
+#  error. A colour test over states the daemon never emits would be a test of a
+#  fixture.
 #
 #  ISOLATION. The daemon runs with its own XDG_RUNTIME_DIR and XDG_STATE_HOME,
 #  so the developer's own sessions, requests, grants and audit log are never
-#  touched. The real runtime dir is mirrored in with symlinks — every socket the
-#  shell needs (Wayland, pipewire, Hyprland, the session bus) lives there, so
-#  overriding it wholesale would cut the shell off from the compositor it has to
-#  draw on.
+#  touched. It is never `pkill`ed either: this starts a daemon on a socket of
+#  its own and kills that pid, because a stray `pkill apex-agentd` in here once
+#  took down a developer's live runtime mid-session.
 #
-#  Skips cleanly without a Wayland session or without the runtime built.
+#  ── TWO WAYS TO GET A COMPOSITOR ────────────────────────────────────────────
+#
+#  Nested, when there is a session to nest in: the real runtime dir is mirrored
+#  in with symlinks, because every socket the shell needs — Wayland, pipewire,
+#  the compositor's own, the session bus — lives there, and overriding it
+#  wholesale would cut the shell off from the compositor it has to draw on.
+#
+#  Self-hosted otherwise: a headless wlroots compositor started inside the
+#  private runtime dir. That is what makes this runnable on a build box with no
+#  display, which is where it wants to run — a smoke test that only works on a
+#  developer's own desktop is a smoke test that gets run once.
+#
+#  Skips cleanly without quickshell, without any compositor at all, or without
+#  the runtime built.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
@@ -36,9 +68,19 @@ root="$(cd "$here/.." && pwd)"
 osroot="${APEX_OS_ROOT:-$(cd "$root/../apex-os" 2>/dev/null && pwd)}"
 
 command -v quickshell >/dev/null 2>&1 || { echo "SKIP: quickshell not installed"; exit 0; }
-[[ -n "${WAYLAND_DISPLAY:-}" ]] || { echo "SKIP: no WAYLAND_DISPLAY"; exit 0; }
-[[ -n "${XDG_RUNTIME_DIR:-}" ]] || { echo "SKIP: no XDG_RUNTIME_DIR"; exit 0; }
 [[ -n "$osroot" && -d "$osroot/apexd" ]] || { echo "SKIP: apex-os checkout not found (set APEX_OS_ROOT)"; exit 0; }
+
+nested=0
+host_comp=""
+if [[ -n "${WAYLAND_DISPLAY:-}" && -n "${XDG_RUNTIME_DIR:-}" ]]; then
+    nested=1
+else
+    for c in labwc sway; do
+        command -v "$c" >/dev/null 2>&1 && { host_comp="$c"; break; }
+    done
+    [[ -n "$host_comp" ]] || {
+        echo "SKIP: no Wayland session and no headless compositor to host one"; exit 0; }
+fi
 
 BIN="$osroot/apexd/target/debug"
 if [[ ! -x "$BIN/apex-agentd" || ! -x "$BIN/apex" ]]; then
@@ -52,42 +94,75 @@ W="$(mktemp -d)"
 log="$(mktemp)"
 qs_pid=""
 daemon_pid=""
+comp_pid=""
 cleanup() {
     [[ -n "$qs_pid" ]]     && kill "$qs_pid" 2>/dev/null
     [[ -n "$daemon_pid" ]] && kill "$daemon_pid" 2>/dev/null
+    [[ -n "$comp_pid" ]]   && kill "$comp_pid" 2>/dev/null
     sleep 0.3
     [[ -n "$daemon_pid" ]] && kill -9 "$daemon_pid" 2>/dev/null
+    [[ -n "$comp_pid" ]]   && kill -9 "$comp_pid" 2>/dev/null
     rm -rf "$W"
     rm -f "$log"
     return 0
 }
 trap cleanup EXIT INT TERM
 
-# ── an isolated runtime that can still reach the compositor ──────────────────
-REAL_RUNTIME="$XDG_RUNTIME_DIR"
+# ── an isolated runtime that can still reach a compositor ────────────────────
+REAL_RUNTIME="${XDG_RUNTIME_DIR:-}"
 export XDG_RUNTIME_DIR="$W/run"
 export XDG_STATE_HOME="$W/state"
 export XDG_CONFIG_HOME="$W/config"
 mkdir -p "$XDG_RUNTIME_DIR" "$XDG_STATE_HOME" "$XDG_CONFIG_HOME"
 chmod 0700 "$XDG_RUNTIME_DIR"
 
-# Everything in the real runtime dir is mirrored in, EXCEPT apex-agentd — which
-# is the one thing being replaced.
-#
-# Mirrored wholesale rather than picked from a list. The first version linked
-# only the Wayland socket, and the shell then failed on pipewire (errno 112) and
-# on Hyprland's socket, both of which also live here. Every such failure looks
-# like a QML fault in the log, so a list that has to be kept complete is a list
-# that will send someone debugging the wrong file.
-shopt -s nullglob dotglob
-for entry in "$REAL_RUNTIME"/*; do
-    name="$(basename "$entry")"
-    [[ "$name" == "apex-agentd" ]] && continue
-    ln -sfn "$entry" "$XDG_RUNTIME_DIR/$name"
-done
-shopt -u nullglob dotglob
-[[ -e "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]] || {
-    echo "SKIP: the Wayland socket is not in XDG_RUNTIME_DIR"; exit 0; }
+if [[ "$nested" -eq 1 ]]; then
+    # Everything in the real runtime dir is mirrored in, EXCEPT apex-agentd —
+    # which is the one thing being replaced.
+    #
+    # Mirrored wholesale rather than picked from a list. The first version
+    # linked only the Wayland socket, and the shell then failed on pipewire
+    # (errno 112) and on Hyprland's socket, both of which also live here. Every
+    # such failure looks like a QML fault in the log, so a list that has to be
+    # kept complete is a list that will send someone debugging the wrong file.
+    shopt -s nullglob dotglob
+    for entry in "$REAL_RUNTIME"/*; do
+        name="$(basename "$entry")"
+        [[ "$name" == "apex-agentd" ]] && continue
+        ln -sfn "$entry" "$XDG_RUNTIME_DIR/$name"
+    done
+    shopt -u nullglob dotglob
+    [[ -e "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]] || {
+        echo "SKIP: the Wayland socket is not in XDG_RUNTIME_DIR"; exit 0; }
+    echo "host: nested in the running session ($WAYLAND_DISPLAY)"
+else
+    unset WAYLAND_DISPLAY DISPLAY
+    export WLR_BACKENDS=headless
+    export WLR_LIBINPUT_NO_DEVICES=1
+    export WLR_RENDERER=pixman
+    export XDG_SESSION_TYPE=wayland
+    export QT_QPA_PLATFORM=wayland
+    case "$host_comp" in
+        labwc)
+            mkdir -p "$XDG_CONFIG_HOME/labwc"
+            cp "$here/labwc-test-rc.xml" "$XDG_CONFIG_HOME/labwc/rc.xml" 2>/dev/null || true
+            "$host_comp" > "$W/comp.log" 2>&1 & ;;
+        sway)
+            printf 'output HEADLESS-1 mode 1920x1080\n' > "$W/sway.cfg"
+            "$host_comp" -c "$W/sway.cfg" > "$W/comp.log" 2>&1 & ;;
+    esac
+    comp_pid=$!
+    for _ in $(seq 1 60); do
+        for f in "$XDG_RUNTIME_DIR"/wayland-*; do
+            [[ -S "$f" ]] && { export WAYLAND_DISPLAY="$(basename "$f")"; break; }
+        done
+        [[ -n "${WAYLAND_DISPLAY:-}" ]] && break
+        sleep 0.25
+    done
+    [[ -n "${WAYLAND_DISPLAY:-}" ]] || {
+        echo "SKIP: $host_comp did not come up headless"; tail -5 "$W/comp.log"; exit 0; }
+    echo "host: $host_comp headless on $WAYLAND_DISPLAY"
+fi
 # The shell talks to the runtime by running `apex`, so the dev build has to win.
 export PATH="$BIN:$PATH"
 
@@ -105,19 +180,52 @@ mkdir -p "$W/proj"
 git -C "$W/proj" init -q 2>/dev/null
 git -C "$W/proj" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init 2>/dev/null
 
-apex agent run --agent generic --sandbox unrestricted --cwd "$W/proj" -d \
-    -- /bin/sh -c 'sleep 600' >/dev/null 2>&1
-apex agent run --agent generic --sandbox unrestricted --cwd "$W/proj" -d \
-    -- /bin/sh -c 'exit 3' >/dev/null 2>&1
-sleep 1
+run_agent() { apex agent run --agent generic --sandbox unrestricted \
+                  --cwd "$W/proj" -d -- /bin/sh -c "$1" 2>/dev/null; }
+
+# Ids are printed by `apex agent run -d`; captured so the event below can be
+# aimed at one session rather than at whatever happens to be newest.
+id_working="$(run_agent 'while :; do echo working; sleep 1; done' | grep -o '[0-9]\+' | head -1)"
+id_waiting="$(run_agent 'sleep 600'                                | grep -o '[0-9]\+' | head -1)"
+id_blocked="$(run_agent 'sleep 600'                                | grep -o '[0-9]\+' | head -1)"
+run_agent 'exit 0' >/dev/null
+run_agent 'exit 3' >/dev/null
+
+# The only way to reach permission_request: apexd will not infer it. See
+# apex-agent-core/src/session.rs — "a wrong guess here is worse than no guess".
+[[ -n "$id_blocked" ]] && apex agent event permission_request \
+    --session "$id_blocked" --detail "install clang" >/dev/null 2>&1
+
 apex request ask install clang --reason "Required to compile the project" \
     --no-wait >/dev/null 2>&1
 
-sessions="$(apex agent list --all --json 2>/dev/null | grep -c '"id"')"
+# waiting_for_user is a TIMEOUT, not an event: the runtime promotes a silent
+# session after IDLE_TO_WAITING_SECS. Waiting it out is the only honest way to
+# get one, and a fixture that published the state instead would be testing the
+# publisher rather than the detector.
+echo "waiting out the runtime's idle-to-waiting timer..."
+sleep 13
+
+listing="$(apex agent list --all --json 2>/dev/null)"
+sessions="$(printf '%s' "$listing" | grep -c '"id"')"
 requests="$(apex request pending --json 2>/dev/null | grep -c '"id"')"
+
+missing=""
+for st in working waiting_for_user permission_request complete failed; do
+    printf '%s' "$listing" | grep -q "\"$st\"" || missing="$missing $st"
+done
 echo "fixture: ${sessions} session(s), ${requests} pending request(s)"
-[[ "$sessions" -ge 2 ]] || { echo "FAIL: the fixture sessions were not created"; exit 1; }
+printf 'fixture states:'
+for st in working waiting_for_user permission_request complete failed; do
+    printf '%s' "$listing" | grep -q "\"$st\"" && printf ' %s' "$st"
+done
+printf '\n'
+[[ "$sessions" -ge 5 ]] || { echo "FAIL: the fixture sessions were not created"; exit 1; }
 [[ "$requests" -ge 1 ]] || { echo "FAIL: the fixture request was not created"; exit 1; }
+[[ -z "$missing" ]] || {
+    echo "FAIL: the runtime never reported:$missing"
+    echo "      the page cannot be shown drawing a state the daemon does not emit"
+    exit 1; }
 
 # ── the shell ────────────────────────────────────────────────────────────────
 quickshell -p "$root/shell.qml" >"$log" 2>&1 &
@@ -140,10 +248,18 @@ quickshell -p "$root/shell.qml" ipc call dashboard-agents toggle >/dev/null 2>&1
 sleep 0.5
 
 echo "--- diagnostics ---"
-noise='qt.qpa.wayland.textinput|Could not register notification server|Registration will be attempted'
+# Absent hardware and absent session services, not shell faults. A build box has
+# no pipewire and no notification daemon, and the test exists to find QML
+# errors — counting the machine's own missing pieces as failures would make it
+# unrunnable exactly where it is most useful.
+noise='qt.qpa.wayland.textinput|Could not register notification server'
+noise="$noise"'|Registration will be attempted|pipewire'
 grep -E "ERROR|WARN" "$log" | grep -vE "$noise" | sort -u | head -20
 
-errors="$(grep -c 'ERROR' "$log")"
+# Counted over the SAME filtered set the diagnostics above print. They used to
+# disagree — the list was filtered and the count was not — so a run could report
+# no diagnostics and fail anyway.
+errors="$(grep -E 'ERROR' "$log" | grep -cvE "$noise")"
 echo "--- ERROR count: $errors ---"
 [[ "$errors" -eq 0 ]] || { echo "RESULT: runtime errors present"; exit 1; }
 
@@ -158,7 +274,9 @@ if [[ -z "$seen" ]]; then
 fi
 echo "observed: $seen(s)"
 count="$(printf '%s' "$seen" | grep -o '[0-9]\+')"
-[[ "$count" -ge 2 ]] || {
-    echo "FAIL: the page saw $count session(s), expected at least 2"; exit 1; }
+[[ "$count" -ge 5 ]] || {
+    echo "FAIL: the page saw $count session(s), expected at least 5 — one per state"
+    exit 1; }
 
-echo "RESULT: the Agent Center rendered ${sessions} session(s) and ${requests} request(s) cleanly"
+echo "RESULT: the Agent Center drew ${sessions} session(s) across all five states"
+echo "        and ${requests} request(s) against a live runtime, with no errors"

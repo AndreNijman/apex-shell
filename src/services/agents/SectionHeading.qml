@@ -13,6 +13,12 @@ Item {
     property string text: ""
     property bool accent: false
 
+    // Which accent, when accented. Defaults to the palette's own, and is
+    // overridden where the group under the heading has ONE state — a heading in
+    // the wallpaper's primary above a stack of cards in the `attention` tone
+    // reads as two unrelated things stacked on top of each other.
+    property color tone: Theme.active
+
     width: parent ? parent.width : 0
     height: visible ? label.implicitHeight + Theme.fs(14) : 0
 
@@ -23,7 +29,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Theme.px(4)
         text: heading.text.toUpperCase()
-        color: heading.accent ? Theme.active : Theme.subtext
+        color: heading.accent ? heading.tone : Theme.subtext
         font.pixelSize: Theme.fs(9)
         font.bold: true
         font.letterSpacing: Theme.fs(1)
