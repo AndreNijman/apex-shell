@@ -39,6 +39,19 @@
 #  error. A colour test over states the daemon never emits would be a test of a
 #  fixture.
 #
+#  ── AND §43's HELP SURFACES ─────────────────────────────────────────────────
+#
+#  The second half of this script covers the guide and the first-run card. They
+#  need a functional test rather than a grep for the same reason the rows do:
+#  both are built by a lazily constructed page, and the interesting property is
+#  a dismissal that OUTLIVES THE PROCESS. So the shell is started, the card is
+#  observed, the dismissal is made over IPC, the shell is killed, a second shell
+#  is started against the same XDG_STATE_HOME, and the card must not come back
+#  while the permanent entry must.
+#
+#  A grep over the QML could not tell you any of that. It would pass against a
+#  dismissal written to a variable.
+#
 #  ISOLATION. The daemon runs with its own XDG_RUNTIME_DIR and XDG_STATE_HOME,
 #  so the developer's own sessions, requests, grants and audit log are never
 #  touched. It is never `pkill`ed either: this starts a daemon on a socket of
@@ -92,9 +105,15 @@ fi
 
 W="$(mktemp -d)"
 log="$(mktemp)"
+log2="$(mktemp)"
 qs_pid=""
 daemon_pid=""
+<<<<<<< HEAD
 comp_pid=""
+=======
+# Killed BY PID, never by name. A pkill for quickshell on a developer's machine
+# takes down the shell they are working in.
+>>>>>>> 4a0ed98 (feat(agents): the Agent Center said what was running and never what any of it was)
 cleanup() {
     [[ -n "$qs_pid" ]]     && kill "$qs_pid" 2>/dev/null
     [[ -n "$daemon_pid" ]] && kill "$daemon_pid" 2>/dev/null
@@ -103,7 +122,7 @@ cleanup() {
     [[ -n "$daemon_pid" ]] && kill -9 "$daemon_pid" 2>/dev/null
     [[ -n "$comp_pid" ]]   && kill -9 "$comp_pid" 2>/dev/null
     rm -rf "$W"
-    rm -f "$log"
+    rm -f "$log" "$log2"
     return 0
 }
 trap cleanup EXIT INT TERM
@@ -278,5 +297,134 @@ count="$(printf '%s' "$seen" | grep -o '[0-9]\+')"
     echo "FAIL: the page saw $count session(s), expected at least 5 — one per state"
     exit 1; }
 
+<<<<<<< HEAD
 echo "RESULT: the Agent Center drew ${sessions} session(s) across all five states"
 echo "        and ${requests} request(s) against a live runtime, with no errors"
+=======
+# ─────────────────────────────────────────────────────────────────────────────
+#  §43: the help strip, and a dismissal that survives a restart
+# ─────────────────────────────────────────────────────────────────────────────
+echo
+echo "--- §43 Agents & Workspaces help ---"
+
+ipc() { quickshell -p "$root/shell.qml" ipc call "$@" 2>&1; }
+fail() { echo "FAIL: $1"; exit 1; }
+
+state_file="$XDG_STATE_HOME/apex-shell/agent-help.json"
+
+# The state directory is this run's own, so the shell under test has never been
+# opened by anybody. If a dismissal is already on disk the rest of this phase
+# is testing the wrong thing, so say so rather than passing quietly.
+[[ ! -e "$state_file" ]] || fail "the fixture state directory already holds $state_file"
+
+# 1. First run. Opening the tab must build BOTH surfaces.
+grep -q 'AgentHelp: entry row shown' "$log" \
+    || fail "the permanent help entry was never built on the Agents page"
+echo "first run: entry row built"
+grep -q 'AgentHelp: first-run card shown' "$log" \
+    || fail "the first-run card did not appear on a machine that has never seen it"
+echo "first run: first-run card shown"
+
+# 2. The guide opens, on the section asked for, and closes again.
+#    `toggle` takes no argument and `open` takes one; quickshell refuses a call
+#    that omits a declared parameter, so both arities are exercised here.
+out="$(ipc agent-help toggle)"
+[[ "$out" == *"agent help open at start"* ]] \
+    || fail "agent-help toggle did not open the guide (got: $out)"
+sleep 0.6
+grep -q 'AgentHelp: guide opened at start' "$log" || fail "the guide never logged an open"
+echo "guide opens:          $out"
+
+out="$(ipc agent-help open sandbox)"
+[[ "$out" == *"agent help open at sandbox"* ]] \
+    || fail "agent-help could not open a named section (got: $out)"
+echo "named section:        $out"
+
+out="$(ipc agent-help open nosuchsection)"
+[[ "$out" == *"unknown section"* ]] \
+    || fail "agent-help accepted a section that does not exist (got: $out)"
+
+# Every id the guide draws must be one the IPC accepts, or the two lists have
+# already drifted.
+for s in $(ipc agent-help sections); do
+    out="$(ipc agent-help open "$s")"
+    [[ "$out" == *"agent help open at $s"* ]] \
+        || fail "the guide lists a section the IPC rejects: $s (got: $out)"
+done
+echo "sections agree:       $(ipc agent-help sections)"
+
+ipc agent-help close >/dev/null 2>&1
+
+# 3. Dismissal reaches the disk, not just a property.
+out="$(ipc agent-help dismiss)"
+[[ "$out" == *"dismissed"* ]] || fail "agent-help dismiss failed (got: $out)"
+for _ in $(seq 1 40); do
+    [[ -f "$state_file" ]] && break
+    sleep 0.1
+done
+[[ -f "$state_file" ]] || fail "dismissing wrote no state file at $state_file"
+grep -q '"onboardingDismissed":true' "$state_file" \
+    || fail "the state file does not record the dismissal: $(cat "$state_file")"
+echo "dismissal persisted:  $state_file"
+
+# 4. Restart. THIS is the assertion the whole phase exists for.
+kill "$qs_pid" 2>/dev/null
+for _ in $(seq 1 40); do
+    kill -0 "$qs_pid" 2>/dev/null || break
+    sleep 0.1
+done
+kill -9 "$qs_pid" 2>/dev/null
+qs_pid=""
+sleep 0.5
+
+quickshell -p "$root/shell.qml" >"$log2" 2>&1 &
+qs_pid=$!
+for _ in $(seq 1 60); do
+    grep -q "Configuration Loaded" "$log2" && break
+    sleep 0.25
+done
+grep -q "Configuration Loaded" "$log2" || {
+    echo "FAIL: the shell did not come back up"; tail -20 "$log2"; exit 1; }
+
+quickshell -p "$root/shell.qml" ipc call dashboard-agents toggle >/dev/null 2>&1
+sleep 3
+quickshell -p "$root/shell.qml" ipc call dashboard-agents toggle >/dev/null 2>&1
+sleep 0.5
+
+grep -q 'AgentHelp: onboarding dismissed = true' "$log2" \
+    || fail "the restarted shell did not read the dismissal back"
+grep -q 'AgentHelp: entry row shown' "$log2" \
+    || fail "the permanent help entry vanished after the first-run card was dismissed"
+if grep -q 'AgentHelp: first-run card shown' "$log2"; then
+    fail "the first-run card came back after a restart"
+fi
+echo "after restart:        card gone, entry still there"
+
+# 5. And the guide is still reachable, which is the other half of §43's
+#    "dismissible first-run guidance, permanently available help".
+out="$(ipc agent-help open review)"
+[[ "$out" == *"agent help open at review"* ]] \
+    || fail "the guide stopped opening once the card was dismissed (got: $out)"
+out="$(ipc agent-help state)"
+[[ "$out" == *"first-run card dismissed"* ]] \
+    || fail "agent-help state disagrees with the file it just read (got: $out)"
+echo "still reachable:      $out"
+
+# 6. Reset brings the card back, so a dismissal is recoverable.
+ipc agent-help reset >/dev/null 2>&1
+out="$(ipc agent-help state)"
+[[ "$out" == *"first-run card shown"* ]] \
+    || fail "agent-help reset did not restore the first-run card (got: $out)"
+grep -q '"onboardingDismissed":false' "$state_file" \
+    || fail "reset did not reach the state file: $(cat "$state_file")"
+echo "reset restores it:    $out"
+
+errors2="$(grep -c 'ERROR' "$log2")"
+echo "--- restarted shell ERROR count: $errors2 ---"
+grep -E "ERROR" "$log2" | grep -vE "$noise" | sort -u | head -10
+[[ "$errors2" -eq 0 ]] || { echo "RESULT: runtime errors in the restarted shell"; exit 1; }
+
+echo
+echo "RESULT: the Agent Center rendered ${sessions} session(s) and ${requests} request(s) cleanly,"
+echo "        and §43's help entry, first-run card and guide behaved across a restart"
+>>>>>>> 4a0ed98 (feat(agents): the Agent Center said what was running and never what any of it was)
