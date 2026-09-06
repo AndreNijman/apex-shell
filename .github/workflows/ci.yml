@@ -691,6 +691,36 @@ jobs:
           [ "$fail" -eq 0 ] || exit 1
           echo "✓ the Hyprland keybind generator writes Lua and the live writes use eval"
 
+      - name: The generator does not eat a keybind it did not write
+        run: |
+          # apex/shell-keybinds.lua has two writers: this generator, which
+          # rewrites it whole on every shell start, and apex-hypr-migrate, which
+          # converts the user's old ApexShellKeybinds.conf INTO it because that
+          # is the only name `require` can reach the module by. So the migration
+          # carried a hand-edited bind across and the next login deleted it.
+          #
+          # Runs the rescue script for real against fixtures; no compositor
+          # needed. Six behavioural cases plus the greps that keep the generator
+          # pointed at it.
+          ./tests/check-keybind-lua.sh
+
+      - name: hyprctl configerrors against a nested Hyprland
+        run: |
+          # The acceptance criterion is "hyprctl reload and hyprctl configerrors
+          # are clean after any generated change", and configerrors needs a
+          # RUNNING Hyprland. This starts one — nested, with its own signature,
+          # runtime dir and HOME — generates the module with the shipped
+          # KeybindService, rebinds a key through the page's own path, reloads,
+          # and asks that instance by signature.
+          #
+          # It needs a Wayland session to nest inside: Hyprland 0.56.2 will not
+          # start headless on a machine with a GPU and no DRM master, and
+          # nesting it in a headless labwc dies the same way in
+          # CBackend::create(). Both measured. So it SKIPS in this container and
+          # is run on a real session; this step documents the entry point rather
+          # than it silently not existing.
+          ./tests/run-hypr-configerrors-test.sh
+
       - name: labwc session support is wired up
         run: |
           fail=0
