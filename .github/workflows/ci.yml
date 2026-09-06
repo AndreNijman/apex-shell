@@ -336,6 +336,25 @@ jobs:
           # mentions hyprctl.
           ./tests/check-compositor-backends.sh
 
+      - name: Screenshot dispatch, on every compositor
+        run: |
+          # P1-038. Screenshots were dead on labwc and niri for months and
+          # nothing said so: the script called grimblast unconditionally,
+          # grimblast refuses to start without HYPRLAND_INSTANCE_SIGNATURE, and
+          # the keybind swallows its stderr. A grep cannot tell the broken tree
+          # from the fixed one — both contain the word "grim" — so this runs the
+          # shipped script against stub binaries that record their own argv and
+          # grades which tool was actually invoked.
+          #
+          # It needs no compositor, no display and no GPU, so unlike the rest of
+          # the Floating matrix it is real coverage on any runner.
+          #
+          # Its own PATH holds the stubs and nothing else. That is load-bearing:
+          # on a developer's machine the real grim and slurp are installed, and
+          # with /usr/bin visible every "the tool is missing" case silently ran
+          # the real tool instead.
+          ./tests/check-screenshot-dispatch.sh
+
       - name: Display transaction invariants
         run: |
           # P0-018. The user pressed Apply, the fifteen-second confirmation
