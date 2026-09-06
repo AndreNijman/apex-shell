@@ -268,7 +268,7 @@ headless_start() {
         esac
         if [ -n "$rr" ]; then
             out="$("$rr" 2>/dev/null | awk 'NR==1{print $1}')"
-            [ -n "$out" ] && "$rr" --output "$out" --custom-mode "$mode" >/dev/null 2>&1
+            [ -n "$out" ] && "$rr" --output "$out" --custom-mode "$mode" >/dev/null 2>&1 || :
         fi
     fi
 
@@ -384,14 +384,25 @@ headless_require_nested_optin() {
 # ── teardown ─────────────────────────────────────────────────────────────────
 # Killed by pid, never by name: a pkill for a compositor on a developer's
 # machine takes down the session they are working in.
+#
+# Every line ends in `|| :`, and that is load-bearing rather than defensive
+# habit. This runs from an EXIT trap with the caller's `set -e` still in force,
+# and `set -e` exempts only the LEFT operand of an `&&` — so
+# `[ -n "$pid" ] && kill -9 "$pid"` aborts the function when the pid is a
+# process the first kill already reaped, which is the normal case. The teardown
+# then stops before `rm -rf "$HEADLESS_W"` and before `return 0`: the scratch
+# directory leaks and the script exits 1 no matter what it measured.
+# run-niri-keybinds-test.sh did exactly that — 5 passed, 0 failed, exit 1 — and
+# five abandoned sandboxes were sitting in /tmp when it was found.
 headless_cleanup() {
-    [ -n "$HEADLESS_FILLER_PID" ] && kill "$HEADLESS_FILLER_PID" 2>/dev/null
-    [ -n "$HEADLESS_NESTED_PID" ] && kill "$HEADLESS_NESTED_PID" 2>/dev/null
-    [ -n "$HEADLESS_COMP_PID" ]   && kill "$HEADLESS_COMP_PID" 2>/dev/null
-    sleep 0.3
-    [ -n "$HEADLESS_FILLER_PID" ] && kill -9 "$HEADLESS_FILLER_PID" 2>/dev/null
-    [ -n "$HEADLESS_NESTED_PID" ] && kill -9 "$HEADLESS_NESTED_PID" 2>/dev/null
-    [ -n "$HEADLESS_COMP_PID" ]   && kill -9 "$HEADLESS_COMP_PID" 2>/dev/null
-    [ -n "$HEADLESS_W" ] && rm -rf "$HEADLESS_W"
+    local pid
+    for pid in "$HEADLESS_FILLER_PID" "$HEADLESS_NESTED_PID" "$HEADLESS_COMP_PID"; do
+        [ -n "$pid" ] && kill "$pid" 2>/dev/null || :
+    done
+    sleep 0.3 || :
+    for pid in "$HEADLESS_FILLER_PID" "$HEADLESS_NESTED_PID" "$HEADLESS_COMP_PID"; do
+        [ -n "$pid" ] && kill -9 "$pid" 2>/dev/null || :
+    done
+    [ -n "$HEADLESS_W" ] && rm -rf "$HEADLESS_W" || :
     return 0
 }
