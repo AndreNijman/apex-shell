@@ -232,7 +232,23 @@ QtObject {
     // ── Actions. All of them end at the runtime or the real terminal. ─────────
     property var _actionProc: Process { command: []; running: false }
 
+    // The last session the user brought to the front THROUGH THE SHELL, "" if
+    // none this login. Roadmap P1-023 routes push-to-talk to "the active
+    // project or focused agent session" and needs a defensible answer to
+    // "focused"; asking the compositor which toplevel has focus and matching it
+    // back to a session id is guesswork across three compositors and several
+    // terminals. This is not guesswork: the shell performed the focus itself,
+    // so it knows. It is also the definition the indicator can state out loud
+    // before the microphone opens, which is what §8.2's "explicit routing
+    // target" actually asks for.
+    //
+    // Deliberately NOT cleared when the session exits. pushtotalk.js resolves
+    // against the live list and refuses a dead target by name, which is a
+    // better message than the refusal a blank id produces.
+    property string lastFocusedId: ""
+
     function focusTerminal(id) {
+        root.lastFocusedId = String(id)
         _actionProc.command = ["/usr/libexec/apex-agent-focus", String(id)]
         _actionProc.running = true
     }
