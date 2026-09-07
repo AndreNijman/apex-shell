@@ -161,6 +161,37 @@ want "the apply never names the persisted model" apply_leaves_model_alone
 want "only Keep promotes the tried layout to the persisted model" \
     bash -c 'sed -n "/function confirm()/,/^    }/p" "$1" | grep -q "target.json"' _ "$svc"
 
+# ── The engine is asked before it is told (P0-018) ───────────────────────────
+#
+# The temporary apply must not persist, or a session that dies during the
+# countdown comes back on the layout nobody confirmed. That is one flag in the
+# engine — but the shell and the OS image land independently, and this shell
+# also runs on images that predate it, where argparse answers an unknown flag
+# with exit 2. An unconditional flag would turn every temporary apply into a
+# failure on those machines, so it is probed for and only then passed.
+want "the shell asks the engine whether it takes --no-persist" \
+    bash -c 'sed -n "/property var _capabilityProc/,/^    }/p" "$1" | grep -q -- "--help"' _ "$svc"
+want "the probe looks for the flag by name" \
+    grep -q 'indexOf("--no-persist")' "$svc"
+want "the temporary apply passes --no-persist when the engine takes it" \
+    bash -c 'sed -n "/function _begin()/,/^    }/p" "$1" | grep -q -- "engineCanSkipPersist ? \"--no-persist\"" ' _ "$svc"
+# Unconditional is the failure mode, not the goal: it would break every apply on
+# an older image. The flag must never appear in _begin() except behind the probe.
+np_is_gated() {
+    local n
+    n="$(sed -n '/function _begin()/,/^    }/p' "$svc" | grep -c -- '--no-persist')"
+    [ "$n" -eq 1 ]
+}
+want "the flag appears in the apply exactly once, behind the probe" np_is_gated
+# P0-018 item 4, in as many words: a rollback SHOULD rewrite the kanshi profile,
+# whatever state the machine was left in. The guard restores with a plain apply.
+guard_still_persists() { ! code "$guard" | grep -q -- '--no-persist'; }
+want "the guard's restore does NOT skip persistence" guard_still_persists
+# And Keep is still the only thing that promotes, through `save`, which never
+# touches hardware.
+want "Keep still persists through the save verb" \
+    bash -c 'sed -n "/function confirm()/,/^    }/p" "$1" | grep -q "save --model"' _ "$svc"
+
 # ── The staged values survive a failure ──────────────────────────────────────
 want "the draft is reconciled against the hardware before applying" \
     grep -q "function problemsWith(" "$svc"
