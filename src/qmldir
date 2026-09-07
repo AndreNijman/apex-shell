@@ -29,3 +29,12 @@ singleton SearchService 1.0 services/SearchService.qml
 # IpcManager through `import "../"`.
 singleton AgentHelp 1.0 services/agents/AgentHelp.qml
 singleton AgentHelpContent 1.0 services/agents/AgentHelpContent.qml
+# P1-023's push-to-talk route. Registered HERE and deliberately NOT also in
+# services/qmldir, for the reason spelled out above AgentHelp — a singleton
+# declared in two modules is instantiated twice, one per module. Two of these
+# would each hold their own recorder and their own idea of whether the
+# microphone is currently open, and the indicator would be bound to whichever
+# copy the topbar happened to resolve. src/ is the module its two consumers
+# already import: IpcManager through `import "../"` and the topbar indicator
+# through `import "../.."`.
+singleton PushToTalkService 1.0 services/PushToTalkService.qml

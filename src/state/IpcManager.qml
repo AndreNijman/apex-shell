@@ -493,6 +493,36 @@ QtObject {
         }
     }
 
+    // ── Push-to-talk (roadmap P1-023, ROADMAP.md §8.2) ───────────────────────
+    //
+    // This handler IS the "compositor-neutral global route". The three
+    // compositors APEX ships have three different keybind formats and no
+    // common input path — NiriBackend.qml:69 records that niri has no runtime
+    // keybind capture at all, so a shell-side grab was never an option — but
+    // all three can run a command, and every shell-side action already reaches
+    // the running shell this way. So the neutrality is here, at the far end of
+    // one `qs ipc call`, rather than in three input adapters.
+    //
+    // A toggle rather than hold-to-talk, and that is a compositor fact:
+    // Hyprland has `bindr` and labwc has `onRelease="yes"`, niri 26.04 has no
+    // release bind of any kind. Hold would have worked on two of the three the
+    // acceptance criterion names. The cost of toggle is a microphone left open
+    // by accident, which is why pushtotalk.js has a hard cap and why the
+    // indicator names its target.
+    //
+    // `state()` exists for the same reason caffeine's does: so the route can be
+    // driven and inspected without opening a dashboard.
+    property var voicePtt: IpcHandler {
+        target: "voice-ptt"
+        function toggle(): string {
+            PushToTalkService.toggle()
+            return PushToTalkService.indicatorLabel
+        }
+        function state(): string {
+            return PushToTalkService.phase
+        }
+    }
+
     // Exposed independently so caffeine's actual inhibitor can be tested and
     // automated without opening the dashboard.
     property var caffeine: IpcHandler {

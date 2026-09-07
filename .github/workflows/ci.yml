@@ -915,6 +915,53 @@ jobs:
           # apply proves nothing while looking like proof.
           node tests/push-to-talk-test.js
 
+      - name: Push-to-talk wiring
+        run: |
+          # The other half of P1-023, and the half the node suite structurally
+          # cannot see: whether the reducer above is REACHABLE. A perfect state
+          # machine nothing calls is a file, not a feature, and every link in
+          # the chain fails silently.
+          #
+          # The link that pays for this step is the shape of the keybind. An
+          # entry in KeybindService `_defaults` with NO `type` field becomes
+          # `qs ipc call voice-ptt toggle` in the Hyprland and niri generators
+          # automatically, and apex-os's apex-labwc-keybinds translates the
+          # ACTION ID through its VERBS allowlist. Written the obvious way
+          # instead — type: "exec", command: "$qsIpc voice-ptt toggle" — it
+          # reaches Hyprland and niri and is silently DROPPED on labwc, because
+          # that generator's exec arm substitutes only $terminal/$browser/
+          # $fileManager. Two compositors out of the three the acceptance
+          # criterion names, reading like three. So the ABSENCE of a field is
+          # the invariant, which is why `_defaults` is evaluated as JavaScript
+          # here rather than grepped: a negative grep on a line is fooled by
+          # reformatting, and evaluating the table also compares every combo
+          # against every other one.
+          #
+          # It also pins the two things about a microphone that must not drift:
+          # the recorder's `running:` is bound to the reducer's micOpen and
+          # never to a constant, and nothing under src/services/agents/ may
+          # NAME an audio device — a mention fails, not just a use, because
+          # AgentHelpContent already promises a sandboxed session has "No
+          # camera and no microphone".
+          #
+          # Eight mutants, each applied to a verified-changed copy (checksummed
+          # before and after, so a sed that matched nothing is reported instead
+          # of counted as a catch), all eight caught, with the control
+          # re-confirmed green after every restore. The eighth is not obvious:
+          # moving voice-ptt onto SUPER+V is caught by the hardcoded combo
+          # assertion whether or not the duplicate scan works, so it cannot
+          # prove that scan — the eighth moves clipboard-toggle ONTO
+          # SUPER+ALT+V instead, leaving voice-ptt correct, and then the dupe
+          # scan is the only assertion that can fire.
+          #
+          # What this step cannot see, because it is static: whether any of it
+          # LOADS. That was checked separately against labwc headless with the
+          # real shell.qml — `ipc show` lists target voice-ptt with toggle()
+          # and state(), the singleton resolves, and a toggle with no STT hook
+          # answers "no speech-to-text command is configured" without opening
+          # a microphone. Not a CI step because it needs a compositor.
+          bash tests/check-push-to-talk.sh
+
       # Theme exposes two scalers and they are not interchangeable:
       # px(v) = round(v*scale), fs(v) = max(7, round(v*scale)). The floor in
       # fs() is a text legibility rule, and using it for geometry silently
