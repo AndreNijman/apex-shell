@@ -128,6 +128,7 @@ function initial() {
 //   { type: "transcript", text }   the STT hook returned
 //   { type: "delivered" }          the text reached the session
 //   { type: "fail", error }        anything went wrong
+//   { type: "dismiss" }            the error has been shown for long enough
 //
 // `env` carries the world: { sessions, pinned, focused, sttConfigured }.
 function reduce(state, event, env) {
@@ -193,6 +194,21 @@ function reduce(state, event, env) {
 
     case "delivered":
         if (st.phase !== "delivering") return st;
+        return reset(st);
+
+    case "dismiss":
+        // "error" is the only phase a person cannot leave by waiting, and the
+        // indicator lives in the top bar. On a machine where the STT hook is
+        // unset — the normal state of a fresh install — one press would
+        // otherwise pin "no speech-to-text command is configured" into the
+        // notch until the next press, which shows the same thing again.
+        //
+        // Only the error phase is dismissible, and that restriction is the
+        // point rather than a special case: a dismiss that could fire on
+        // "recording" would silently drop the microphone mid-sentence, and one
+        // that could fire on "transcribing" or "delivering" would throw away
+        // words already spoken. A timer must not be able to lose anything.
+        if (st.phase !== "error") return st;
         return reset(st);
 
     case "fail":
