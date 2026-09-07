@@ -44,12 +44,18 @@
 # writes ~/.config/kanshi/config and ~/.config/hypr/apex-display.conf with the
 # layout nobody confirmed, and kanshi reapplies its profile at the next login.
 #
-# Closing that is one flag in apex-display-apply, which lives in apex-os:
-# `apply --no-persist`, so a TEMPORARY apply touches only the running
-# compositor and Keep's existing `save` is the only thing that writes. Then a
-# session that dies mid-countdown comes back on the last confirmed layout and no
-# watchdog outside the session is needed at all. Spelled out, with the
-# measurement, in ROADMAP/design/P0-018-display-recovery.md.
+# That is now closed by one flag in apex-display-apply, which lives in apex-os:
+# `apply --no-persist`, so a TEMPORARY apply touches only the running compositor
+# and Keep's existing `save` is the only thing that writes. DisplayService probes
+# the installed engine for the flag before passing it, because this shell also
+# runs on images that predate it. A session that dies mid-countdown now comes
+# back on the last CONFIRMED layout, and no watchdog outside the session is
+# needed at all. Spelled out, with the measurement, in
+# ROADMAP/design/P0-018-display-recovery.md.
+#
+# This script deliberately does NOT pass the flag. `restore` is a rollback, and a
+# rollback should rewrite the persisted profile whatever state the machine was
+# left in — P0-018 item 4.
 #
 # usage:
 #   apex-display-guard.sh spawn     <dir>            detach a guard for <dir>
