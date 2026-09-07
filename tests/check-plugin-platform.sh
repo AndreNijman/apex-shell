@@ -55,7 +55,7 @@ want() { local desc="$1"; shift; if "$@"; then ok "$desc"; else bad "$desc"; fi;
 # manifest.js uses and for the same reason: stripping from any `//` to end of
 # line would let a `//` inside a string literal hide the rest of the line.
 code_has() {
-    grep -nF -- "$2" "$1" | grep -vqE '^[0-9]+:[[:space:]]*(//|#|\*)'
+    grep -vqE '^[0-9]+:[[:space:]]*(//|#|\*)' < <(grep -nF -- "$2" "$1")
 }
 
 # ── The pieces exist ─────────────────────────────────────────────────────────

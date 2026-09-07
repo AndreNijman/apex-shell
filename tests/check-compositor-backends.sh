@@ -212,7 +212,7 @@ done < <(scan_files)
 # The scan must actually reach the entry point. Asserted through the real
 # scan_files, not a copy of it: a widening that silently matches nothing is the
 # same class of nothing as an allowlist entry that outlived its file.
-scan_reaches_shell_qml() { scan_files | grep -qx "$root/shell.qml"; }
+scan_reaches_shell_qml() { grep -qx "$root/shell.qml" < <(scan_files); }
 want "the hyprctl scan reaches shell.qml" scan_reaches_shell_qml
 
 want "nothing outside the adapter spawns hyprctl" test -z "$leaks"
