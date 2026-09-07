@@ -894,6 +894,27 @@ jobs:
           # CI coverage at all.
           node tests/remote-agents-test.js
 
+      - name: Push-to-talk decision layer
+        run: |
+          # §8.2's push-to-talk, at the layer where its edge cases are: when
+          # the microphone opens, whose session the words go to, and what
+          # closes it again. Drives src/services/pushtotalk.js — the file the
+          # shell loads — rather than a copy of it.
+          #
+          # The assertion that pays for this step is that no reachable path
+          # leaves the phase at "recording" with no target. Push-to-talk is a
+          # toggle rather than hold-to-talk because niri 26.04 has no bind
+          # that fires on key release, and a toggle's characteristic failure
+          # is a microphone left open. So the ninety-second cap and the
+          # refusal to record without a named destination are the feature,
+          # not hardening around it.
+          #
+          # Self-tested the way check-agent-help.sh is: thirteen mutants that
+          # must each turn the battery red, and a hard failure for a mutant
+          # that did not change the source, because a mutant that failed to
+          # apply proves nothing while looking like proof.
+          node tests/push-to-talk-test.js
+
       # Theme exposes two scalers and they are not interchangeable:
       # px(v) = round(v*scale), fs(v) = max(7, round(v*scale)). The floor in
       # fs() is a text legibility rule, and using it for geometry silently
