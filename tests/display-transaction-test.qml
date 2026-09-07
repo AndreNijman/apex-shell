@@ -204,7 +204,8 @@ ShellRoot {
                 DisplayService.refresh()
                 root.waitFor("the outputs to be enumerated",
                              function () { return DisplayService.loaded
-                                                  && DisplayService.draft.length > 0 },
+                                                  && DisplayService.draft.length > 0
+                                                  && DisplayService.engineProbed },
                              root.next)
             },
             function () {
@@ -261,8 +262,32 @@ ShellRoot {
                         // back at the next login.
                         root.check("nothing is persisted while the countdown runs",
                                    d === root.modelDigestBefore)
-                        DisplayService.confirm()
-                        root.settled(root.next)
+                        // Criterion 6, the OTHER half of disk — P0-018's hole.
+                        // display.json is the shell's file and the shell was
+                        // already leaving it alone; the kanshi profile is
+                        // written by the engine underneath, and kanshi reapplies
+                        // it at the next login and on every hotplug. So an
+                        // unconfirmed layout used to survive the session that
+                        // was still asking about it.
+                        //
+                        // Both branches assert. The engine WITHOUT --no-persist
+                        // is the negative control: if it did not write the
+                        // unconfirmed scale, "the flag stopped it" would be a
+                        // claim about nothing.
+                        root.readText(root.kanshiPath, function (k) {
+                            const wrote = k.indexOf("scale 1.25") >= 0
+                            if (DisplayService.engineCanSkipPersist)
+                                root.check("the unconfirmed layout is NOT in the "
+                                           + "hotplug profile (engine takes --no-persist)",
+                                           !wrote)
+                            else
+                                root.check("this engine has no --no-persist and DOES "
+                                           + "write the unconfirmed layout (P0-018's hole, "
+                                           + "and the control for the fix)",
+                                           wrote)
+                            DisplayService.confirm()
+                            root.settled(root.next)
+                        })
                     })
                 })
             },

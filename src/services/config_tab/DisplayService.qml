@@ -77,6 +77,34 @@ QtObject {
     readonly property string guard:
         Quickshell.shellDir + "/src/scripts/apex-display-guard.sh"
 
+    // ── Does the engine below us understand --no-persist? ────────────────────
+    // APEX Shell and the OS image land independently, and this shell also runs
+    // on machines whose image predates the flag. An engine that does not know
+    // it exits 2 on the argument itself, which would turn EVERY temporary apply
+    // into a failure until the next image build — so it is asked first, and the
+    // flag is only passed when the answer is yes.
+    //
+    // Without the flag the transaction still works exactly as before; what is
+    // lost is P0-018's guarantee that a session dying mid-countdown comes back
+    // on the last CONFIRMED layout, because the engine persists on apply.
+    property bool engineCanSkipPersist: false
+    property bool engineProbed: false
+
+    property var _capabilityProc: Process {
+        command: [root.engine, "--help"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (text.indexOf("--no-persist") >= 0)
+                    root.engineCanSkipPersist = true
+            }
+        }
+        // An engine that cannot be run at all answers nothing, and `false` is
+        // the safe answer: the old command line is the one every shipped engine
+        // accepts.
+        onExited: function(code) { root.engineProbed = true }
+    }
+
     // Under XDG_RUNTIME_DIR, and at a FIXED name. Both matter: the runtime dir
     // is wiped when the session ends, which is exactly the lifetime a live
     // display transaction has, and a fixed name is what lets a restarted shell
@@ -181,6 +209,12 @@ QtObject {
 
     function refresh() {
         root._listProc.running = true
+        // Once, and from here rather than from the constructor: the singleton is
+        // built at every login so an abandoned transaction gets settled, and a
+        // probe in the constructor would put a second process in every login for
+        // an answer only the Display page needs.
+        if (!root.engineProbed && !root._capabilityProc.running)
+            root._capabilityProc.running = true
     }
 
     // ── Enumeration ──────────────────────────────────────────────────────────
@@ -463,6 +497,7 @@ QtObject {
             'printf %s "$4" > "$1/deadline"\n' +
             'rm -f "$1/verdict" "$1/state" "$1/guard.pid"\n' +
             'bash "$5" spawn "$1"\n' +
+            'if [ -n "$7" ]; then exec "$6" apply "$7" --model "$1/target.json"; fi\n' +
             'exec "$6" apply --model "$1/target.json"',
             "--",
             root.txnDir,
@@ -470,7 +505,12 @@ QtObject {
             JSON.stringify(rollback, null, 2),
             String(Math.round(root._deadline / 1000)),
             root.guard,
-            root.engine]
+            root.engine,
+            // P0-018: a layout nobody has confirmed must not be written to disk,
+            // or a session that dies during the countdown comes back on it with
+            // kanshi reapplying it on every hotplug. Empty when the installed
+            // engine predates the flag; see engineCanSkipPersist.
+            root.engineCanSkipPersist ? "--no-persist" : ""]
         root._applyProc.running = true
     }
 
