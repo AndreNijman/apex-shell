@@ -31,19 +31,19 @@ cp "$here/scaling-test.qml" "$staged"
 out="$(QT_LOGGING_RULES="qml=true" timeout 60 quickshell -p "$staged" 2>&1 || true)"
 echo "$out" | grep -E "PASS|FAIL|^\[|passed=" || true
 
-if echo "$out" | grep -q "Failed to load configuration"; then
+if grep -q "Failed to load configuration" <<<"$out"; then
     echo "$out" | tail -20
     echo "RESULT: the test config failed to load"
     exit 1
 fi
 
-if ! echo "$out" | grep -q "passed="; then
+if ! grep -q "passed=" <<<"$out"; then
     echo "$out" | tail -20
     echo "RESULT: test did not run to completion"
     exit 1
 fi
 
-if echo "$out" | grep -q "FAIL"; then
+if grep -q "FAIL" <<<"$out"; then
     echo "RESULT: failing assertions"
     exit 1
 fi

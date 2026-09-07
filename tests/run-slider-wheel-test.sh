@@ -82,7 +82,7 @@ status=$?
 
 printf '%s\n' "$out" | grep -E "^(PASS|FAIL!|SKIP|XFAIL|QWARN|Totals)" || true
 
-if printf '%s\n' "$out" | grep -qE "is not a type|module .* is not installed|Cannot assign"; then
+if grep -qE "is not a type|module .* is not installed|Cannot assign" <<<"$out"; then
     printf '%s\n' "$out" | tail -20
     echo "RESULT: the staged test tree failed to load"
     exit 1

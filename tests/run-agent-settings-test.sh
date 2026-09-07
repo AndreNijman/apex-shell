@@ -169,19 +169,19 @@ out="$(QT_LOGGING_RULES="qml=true" timeout 90 quickshell -p "$staged" 2>&1 \
 
 echo "$out" | grep -E "PASS|FAIL|passed=" || true
 
-if echo "$out" | grep -q "Failed to load configuration"; then
+if grep -q "Failed to load configuration" <<<"$out"; then
     echo "$out" | tail -30
     echo "RESULT: the test config failed to load"
     exit 1
 fi
-if ! echo "$out" | grep -q "agent-settings: passed="; then
+if ! grep -q "agent-settings: passed=" <<<"$out"; then
     echo "$out" | tail -30
     echo "RESULT: the test did not run to completion"
     exit 1
 fi
 
 rc=0
-if echo "$out" | grep -q "  FAIL"; then
+if grep -q "  FAIL" <<<"$out"; then
     echo "RESULT: failing assertions"
     rc=1
 fi

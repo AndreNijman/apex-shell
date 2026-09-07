@@ -61,7 +61,7 @@ want "shell.qml builds a DisplayConfirm per output" \
 # DisplayConfirm moved out to the top level would be a single window on the
 # first screen, and this check would still see the line above.
 delegate_has_confirm() {
-    awk '/Variants \{/,/^    \}$/' "$root/shell.qml" | grep -q "DisplayConfirm"
+    grep -q "DisplayConfirm" < <(awk '/Variants \{/,/^    \}$/' "$root/shell.qml")
 }
 want "the DisplayConfirm is inside the per-screen Variants delegate" delegate_has_confirm
 
@@ -84,9 +84,9 @@ want "the dialog is answerable from the keyboard" \
 want "the service picks the output the dialog is safe on" \
     grep -q "readonly property string confirmScreen" "$svc"
 want "the safe output is chosen from the live screen list" \
-    bash -c 'sed -n "/property string confirmScreen/,/^    }/p" "$1" | grep -q "Quickshell.screens"' _ "$svc"
+    bash -c 'grep -q "Quickshell.screens" < <(sed -n "/property string confirmScreen/,/^    }/p" "$1")' _ "$svc"
 want "the safe output skips one the pending model disables" \
-    bash -c 'sed -n "/property string confirmScreen/,/^    }/p" "$1" | grep -q "enabled === false"' _ "$svc"
+    bash -c 'grep -q "enabled === false" < <(sed -n "/property string confirmScreen/,/^    }/p" "$1")' _ "$svc"
 
 # The settings window has to come back too, or the user cannot reach the page
 # again after an apply rebuilt the screen list.
@@ -111,7 +111,7 @@ want "the guard detaches itself from the shell's process group" \
 want "neither caller relies on the guard being executable" \
     bash -c '! grep -qE "^\s*setsid -f \"" "$1"' _ "$guard"
 want "the guard reverts when the deadline passes with no verdict" \
-    bash -c 'sed -n "/^cmd_run()/,/^}/p" "$1" | grep -q "settle_revert \"\$dir\""' _ "$guard"
+    bash -c 'grep -q "settle_revert \"\$dir\"" < <(sed -n "/^cmd_run()/,/^}/p" "$1")' _ "$guard"
 # Recording `reverted` after a restore that did nothing is worse than recording
 # nothing: `reconcile` reads that word at the next shell start, concludes the
 # transaction is settled, and the machine keeps a layout nobody confirmed with a
@@ -120,32 +120,32 @@ want "the guard reverts when the deadline passes with no verdict" \
 want "no path records a revert without checking that it happened" \
     bash -c '! grep -nE "^\s+restore \"\\\$dir\"\s*$" "$1"' _ "$guard"
 want "a failed restore is recorded as such, not as a revert" \
-    bash -c 'sed -n "/^settle_revert()/,/^}/p" "$1" | grep -q "state revert-failed"' _ "$guard"
+    bash -c 'grep -q "state revert-failed" < <(sed -n "/^settle_revert()/,/^}/p" "$1")' _ "$guard"
 want "a failed restore is retried before it is given up on" \
-    bash -c 'sed -n "/^settle_revert()/,/^}/p" "$1" | grep -q "APEX_DISPLAY_GUARD_RESTORE_TRIES"' _ "$guard"
+    bash -c 'grep -q "APEX_DISPLAY_GUARD_RESTORE_TRIES" < <(sed -n "/^settle_revert()/,/^}/p" "$1")' _ "$guard"
 want "reconcile treats a failed revert as work still to do" \
-    bash -c 'sed -n "/^cmd_reconcile()/,/^}/p" "$1" | grep -q "revert-failed"' _ "$guard"
+    bash -c 'grep -q "revert-failed" < <(sed -n "/^cmd_reconcile()/,/^}/p" "$1")' _ "$guard"
 want "the shell tells the user when the previous layout could not be restored" \
     grep -q 'revert-failed' "$svc"
 want "the shell settles an abandoned transaction at startup" \
     grep -q '"reconcile", root.txnDir' "$svc"
 want "the countdown is derived from a deadline, not decremented" \
-    bash -c 'sed -n "/property var _countdown/,/^    }/p" "$1" | grep -q "_deadline"' _ "$svc"
+    bash -c 'grep -q "_deadline" < <(sed -n "/property var _countdown/,/^    }/p" "$1")' _ "$svc"
 
 # One implementation of "put it back", used by the button, the deadline and the
 # startup reconciliation. Two would agree until one of them was edited.
 want "the shell reverts through the guard rather than the engine" \
     grep -qE '\["bash", root.guard, "restore", root.txnDir\]' "$svc"
 want "the guard falls back when the recorded mode is gone" \
-    bash -c 'sed -n "/^restore()/,/^}/p" "$1" | grep -q "rollback-modeless.json"' _ "$guard"
+    bash -c 'grep -q "rollback-modeless.json" < <(sed -n "/^restore()/,/^}/p" "$1")' _ "$guard"
 # wlr-randr rejects the whole invocation over one unknown output, so a monitor
 # unplugged during the countdown makes the revert fail outright and the machine
 # keeps the layout nobody confirmed. Reproduced live in
 # tests/run-display-unplug-test.sh; this is the static half.
 want "the guard falls back when an output in the rollback is gone" \
-    bash -c 'sed -n "/^restore()/,/^}/p" "$1" | grep -q "rollback-present.json"' _ "$guard"
+    bash -c 'grep -q "rollback-present.json" < <(sed -n "/^restore()/,/^}/p" "$1")' _ "$guard"
 want "the pruned rollback is built from a fresh enumeration, not the stale one" \
-    bash -c 'sed -n "/^restore()/,/^}/p" "$1" | grep -q "\\\$engine\" list"' _ "$guard"
+    bash -c 'grep -q "\\\$engine\" list" < <(sed -n "/^restore()/,/^}/p" "$1")' _ "$guard"
 
 # ── A temporary apply is temporary ───────────────────────────────────────────
 #
@@ -155,11 +155,11 @@ want "the pruned rollback is built from a fresh enumeration, not the stale one" 
 want "the apply runs the engine against the transaction file" \
     grep -qE 'apply --model "\$1/target.json"' "$svc"
 apply_leaves_model_alone() {
-    ! sed -n '/function _begin()/,/^    }/p' "$svc" | grep -q "root.modelPath"
+    ! grep -q "root.modelPath" < <(sed -n '/function _begin()/,/^    }/p' "$svc")
 }
 want "the apply never names the persisted model" apply_leaves_model_alone
 want "only Keep promotes the tried layout to the persisted model" \
-    bash -c 'sed -n "/function confirm()/,/^    }/p" "$1" | grep -q "target.json"' _ "$svc"
+    bash -c 'grep -q "target.json" < <(sed -n "/function confirm()/,/^    }/p" "$1")' _ "$svc"
 
 # ── The staged values survive a failure ──────────────────────────────────────
 want "the draft is reconciled against the hardware before applying" \
@@ -184,7 +184,7 @@ fi
 # exists so the behavioural suite does not sit through it six times, and a
 # default that drifted would make every one of those runs a lie.
 want "the countdown defaults to 15 seconds" \
-    bash -c 'sed -n "/readonly property int confirmTotal/,/^    }/p" "$1" | grep -qE ": 15$"' _ "$svc"
+    bash -c 'grep -qE ": 15$" < <(sed -n "/readonly property int confirmTotal/,/^    }/p" "$1")' _ "$svc"
 
 # ── The guard is asked to work, not just to contain the right words ──────────
 #
