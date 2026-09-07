@@ -909,10 +909,17 @@ jobs:
           # refusal to record without a named destination are the feature,
           # not hardening around it.
           #
-          # Self-tested the way check-agent-help.sh is: thirteen mutants that
+          # Self-tested the way check-agent-help.sh is: fourteen mutants that
           # must each turn the battery red, and a hard failure for a mutant
           # that did not change the source, because a mutant that failed to
           # apply proves nothing while looking like proof.
+          #
+          # The fourteenth guards the one event a TIMER sends: an error is the
+          # only phase that does not end on its own, so the service dismisses
+          # it after six seconds, and the reducer accepts a dismiss from that
+          # phase and no other. Without the guard the timer's condition
+          # becomes load-bearing, and a wrong one drops a live microphone
+          # mid-sentence or throws away words already spoken.
           node tests/push-to-talk-test.js
 
       - name: Push-to-talk wiring
@@ -944,10 +951,20 @@ jobs:
           # AgentHelpContent already promises a sandboxed session has "No
           # camera and no microphone".
           #
-          # Eight mutants, each applied to a verified-changed copy (checksummed
-          # before and after, so a sed that matched nothing is reported instead
-          # of counted as a catch), all eight caught, with the control
-          # re-confirmed green after every restore. The eighth is not obvious:
+          # It also pins the INDICATOR, which is its own acceptance criterion:
+          # the notch carousel gains an item whenever the reducer is not idle,
+          # the delegate renders the reducer's label rather than rebuilding a
+          # phase string of its own — the label is where the target session is
+          # named, so re-deriving it is how "explicit target" quietly stops
+          # being true — and an open microphone force-scrolls the carousel to
+          # itself instead of sitting behind whatever the user last scrolled
+          # to. A toggle's characteristic failure is a hot mic nobody noticed.
+          #
+          # Fourteen mutants, each applied to a verified-changed copy
+          # (checksummed before and after, so a sed that matched nothing is
+          # reported instead of counted as a catch), all fourteen caught, with
+          # the control re-confirmed green after every restore. One is not
+          # obvious:
           # moving voice-ptt onto SUPER+V is caught by the hardcoded combo
           # assertion whether or not the duplicate scan works, so it cannot
           # prove that scan — the eighth moves clipboard-toggle ONTO

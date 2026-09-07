@@ -130,6 +130,23 @@ QtObject {
     }
     readonly property int remainingMs: Ptt.remainingMs(root.state, Date.now())
 
+    // ── Letting a refusal go ──────────────────────────────────────────────────
+    // "error" is the only phase that does not end on its own, and the indicator
+    // is in the top bar. Unset speech-to-text is the normal state of a fresh
+    // install, so without this one press would pin "no speech-to-text command
+    // is configured" into the notch until the next press showed it again.
+    //
+    // Six seconds is long enough to read a sentence and short enough that it
+    // does not become furniture. The reducer refuses a dismiss on every other
+    // phase, so this timer cannot drop a live microphone or lose words already
+    // spoken however wrong its `running:` condition ever gets.
+    property var _errorTimer: Timer {
+        interval: 6000
+        repeat: false
+        running: root.phase === "error"
+        onTriggered: root._dispatch({ type: "dismiss" })
+    }
+
     // ── The STT hook ──────────────────────────────────────────────────────────
     readonly property string _sttPath:
         Quickshell.env("HOME") + "/.config/apex-shell/push-to-talk-stt"
