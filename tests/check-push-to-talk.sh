@@ -319,6 +319,65 @@ want "nothing under src/services/agents/ names a recorder or an audio source" \
 want "the recorder is in PushToTalkService, outside src/services/agents/" \
     grep -qE 'parecord|arecord|wpctl' < <(service_code)
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  7. The indicator is on screen, and it names the target
+# ─────────────────────────────────────────────────────────────────────────────
+# "Microphone indicator visible" is an acceptance criterion and
+# PushToTalkService.indicatorLabel satisfies it only if something renders it.
+# A service property nothing reads is the same failure as a reducer nothing
+# calls, one layer up.
+#
+# The carousel in CenterContent.qml is where the screen recorder's indicator
+# lives, so it is where this one lives too. Three things are checked and each
+# one can break without the other two: the item is PUSHED into the list, the
+# delegate RENDERS the reducer's label, and an open microphone OVERRIDES
+# whatever the user last scrolled to.
+notch="$root/src/modules/Center/CenterContent.qml"
+notch_code() { grep -vE '^[[:space:]]*//' "$notch"; }
+
+want "src/modules/Center/CenterContent.qml exists and is non-empty" test -s "$notch"
+
+want "the notch carousel gains an item while push-to-talk is not idle" \
+    grep -qE 'PushToTalkService\.indicatorLabel !== ""\) list\.push\("voice"\)' \
+    < <(notch_code)
+
+want "the indicator renders the reducer's label, not its own phase table" \
+    grep -qE '^[[:space:]]*text:[[:space:]]+PushToTalkService\.indicatorLabel[[:space:]]*$' \
+    < <(notch_code)
+
+# The label already contains "Listening → <session>", so rendering it IS the
+# explicit-target half. What must not happen is a delegate that shows a phase
+# and drops the name.
+want "nothing in the notch rebuilds a phase string of its own" \
+    bash -c '! grep -qE "\"(Listening|Transcribing|Sending)" < <(grep -vE "^[[:space:]]*//" "$1")' \
+    -- "$notch"
+
+want "an open microphone force-scrolls the carousel to itself" \
+    bash -c 'grep -qE "PushToTalkService\.micOpen\) root\._forceScrollTo\(\"voice\"\)" < <(grep -vE "^[[:space:]]*//" "$1") \
+          && grep -qE "autoScrollType === \"voice\"" < <(grep -vE "^[[:space:]]*//" "$1")' \
+    -- "$notch"
+
+want "the tally light pulses on micOpen rather than on a constant" \
+    grep -qE '^[[:space:]]*running: PushToTalkService\.micOpen[[:space:]]*$' < <(notch_code)
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  8. A refusal is allowed to go away, and only a refusal
+# ─────────────────────────────────────────────────────────────────────────────
+# "error" is the only phase that does not end by itself, and an unset
+# speech-to-text hook is the normal state of a fresh install — so one press
+# would pin that message into the top bar permanently. The service dismisses it
+# on a timer. The DANGEROUS version of that timer is one that can fire on any
+# other phase: it would drop a live microphone or discard words already spoken.
+# The reducer refuses a dismiss anywhere but "error", which is what makes the
+# timer's condition non-load-bearing, and that guard is asserted here.
+want "the reducer only accepts a dismiss from the error phase" \
+    grep -qE 'if \(st\.phase !== "error"\) return st;' < <(grep -vE '^[[:space:]]*//' "$reducer")
+
+want "the service's dismiss timer runs only while the phase is error" \
+    bash -c 'awk "/property var _errorTimer: Timer \{/ {inb=1} inb {print; if (/^[[:space:]]*\}[[:space:]]*\$/) exit}" "$1" \
+             | grep -vE "^[[:space:]]*//" | grep -qE "^[[:space:]]*running: root\.phase === \"error\"[[:space:]]*\$"' \
+    -- "$service"
+
 echo
 echo "passed=$pass failed=$fail"
 [ "$fail" -eq 0 ]

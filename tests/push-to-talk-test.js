@@ -161,6 +161,24 @@ function battery(P) {
           P.reduce(failed, { type: "toggle", now: 20000 }, env({ focused: 1 })).phase,
           "recording");
 
+    // ── dismissing an error ──────────────────────────────────────────────────
+    // The indicator is in the top bar and "error" is the only phase that does
+    // not end on its own, so the service dismisses it on a timer. What matters
+    // is the restriction: a timer that could fire on any other phase would
+    // drop a live microphone or throw away words already spoken.
+    check("a dismiss clears the error", P.reduce(failed, { type: "dismiss" }, env()).phase,
+          "idle");
+    check("a dismissed error stops naming itself",
+          P.reduce(failed, { type: "dismiss" }, env()).error, "");
+    check("a dismiss cannot drop a live recording",
+          P.reduce(rec, { type: "dismiss" }, env()).phase, "recording");
+    check("a dismiss cannot throw away a transcript in flight",
+          P.reduce(delivering, { type: "dismiss" }, env()).phase, "delivering");
+    check("a dismiss cannot interrupt transcription",
+          P.reduce(stopped, { type: "dismiss" }, env()).phase, "transcribing");
+    check("a dismiss on an idle machine changes nothing",
+          P.reduce(idle, { type: "dismiss" }, env()).phase, "idle");
+
     // ── purity ───────────────────────────────────────────────────────────────
     const frozen = P.reduce(idle, { type: "toggle", now: 1000 }, env({ focused: 1 }));
     P.reduce(frozen, { type: "toggle", now: 2000 }, env({ focused: 1 }));
@@ -178,7 +196,7 @@ function battery(P) {
 
 const P = require(SRC);
 const failures = battery(P);
-const total = 51;
+const total = 57;
 for (const f of failures)
     console.error(`FAIL ${f.name}\n  got:  ${JSON.stringify(f.got)}\n  want: ${JSON.stringify(f.want)}`);
 console.log(`push-to-talk: passed=${total - failures.length} failed=${failures.length}`);
@@ -220,6 +238,9 @@ const MUTANTS = [
                     'return !!(st && st.phase !== "idle");')],
     ["an empty transcript is delivered",
      s => s.replace("if (!text.trim()) {", "if (false) {")],
+    ["a dismiss can drop a live recording",
+     s => s.replace('if (st.phase !== "error") return st;\n        return reset(st);\n\n    case "fail":',
+                    'return reset(st);\n\n    case "fail":')],
     ["reduce mutates its argument",
      s => s.replace("var st = state && state.phase ? copy(state) : initial();",
                     "var st = state && state.phase ? state : initial();")]
