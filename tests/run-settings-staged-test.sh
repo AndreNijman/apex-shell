@@ -157,7 +157,7 @@ out="$(QT_LOGGING_RULES="qml=true" timeout 120 quickshell -p "$staged" 2>&1 \
 
 echo "$out" | grep -E "^(  PASS|  FAIL|settings-staged: )" || true
 
-if echo "$out" | grep -q "Failed to load configuration"; then
+if grep -q "Failed to load configuration" <<<"$out"; then
     echo "$out" | tail -30
     echo "RESULT: the test config failed to load"
     exit 1

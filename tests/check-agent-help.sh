@@ -153,7 +153,7 @@ unbuilt_ok=1
 for pair in '--unsafe-everything|--unsafe-everything' '--system-access|--system-access'; do
     name="${pair%%|*}"; marker="${pair##*|}"
     grep -q -- "$name" "$CONTENT" || { bad "the guide never mentions $name"; unbuilt_ok=0; continue; }
-    printf '%s' "$todo_bodies" | grep -q -- "$marker" \
+    grep -q -- "$marker" <<<"$todo_bodies" \
         || { bad "$name is described but no \"todo\" block says it is absent"; unbuilt_ok=0; }
 done
 [ "$unbuilt_ok" -eq 1 ] && ok "every unbuilt permission mode carries a NOT-IN-THIS-BUILD block"
@@ -166,14 +166,14 @@ if grep -q "Config → Agents" "$CONTENT"; then
 else
     bad "Always Unrestricted is described but the guide never says which page carries it"
 fi
-if printf '%s' "$todo_bodies" | grep -qi "Config page"; then
+if grep -qi "Config page" <<<"$todo_bodies"; then
     bad "a todo block still says this build has no Config page for Always Unrestricted"
 else
     ok "no todo block claims the Always Unrestricted page is missing"
 fi
 
 # The Android client is roadmap P1-053..060 and ships nothing today.
-if printf '%s' "$todo_bodies" | grep -q "phone client"; then
+if grep -q "phone client" <<<"$todo_bodies"; then
     ok "the Android remote is marked as not shipped"
 else
     bad "the guide describes the Android remote without saying it does not exist"
@@ -223,7 +223,7 @@ fi
 slop="$HOME/.claude/skills/stop-slop/scripts/slopcheck.py"
 if [ -f "$slop" ]; then
     out="$(python3 "$slop" --allow-file .slopcheck-allow "$CONTENT" 2>&1)"
-    if printf '%s' "$out" | grep -q "TOTAL: 0"; then
+    if grep -q "TOTAL: 0" <<<"$out"; then
         ok "the guide reads clean against the stop-slop rules"
     else
         printf '%s\n' "$out" | head -20
@@ -292,7 +292,7 @@ mutate "a verb the CLI does not have" \
 
 # (b) an unbuilt flag documented as if it worked
 recheck_todo() {
-    grep -o '{ k: "todo"[^}]*}' "$TMP/content.qml" | grep -q -- "--unsafe-everything" && return 1
+    grep -q -- "--unsafe-everything" < <(grep -o '{ k: "todo"[^}]*}' "$TMP/content.qml") && return 1
     return 0
 }
 mutate "the break-glass flag losing its NOT-IN-THIS-BUILD block" \
@@ -307,7 +307,7 @@ mutate "the Always Unrestricted toggle losing the page it is on" \
     "Config → Agents carries one toggle" "There is a toggle" recheck_located
 
 # (b3) a stale disclaimer surviving the feature that answered it.
-recheck_stale() { grep -o '{ k: "todo"[^}]*}' "$TMP/content.qml" | grep -qi "Config page"; }
+recheck_stale() { grep -qi "Config page" < <(grep -o '{ k: "todo"[^}]*}' "$TMP/content.qml"); }
 mutate "a stale todo claiming there is no Config page for it" \
     '{ k: "kv", t: "What the toggle writes"' \
     '{ k: "todo", t: "This build has no Config page for it." }, { k: "kv", t: "What the toggle writes"' \
@@ -337,7 +337,7 @@ mutate "an invariant replaced by vague security wording" \
 # (e) slop reintroduced
 if [ -f "$slop" ]; then
     recheck_slop() {
-        ! python3 "$slop" --allow-file .slopcheck-allow "$TMP/content.qml" 2>&1 | grep -q "TOTAL: 0"
+        ! grep -q "TOTAL: 0" < <(python3 "$slop" --allow-file .slopcheck-allow "$TMP/content.qml" 2>&1)
     }
     mutate "an em dash and an adverb in the prose" \
         "There is nothing to create and nothing to register." \

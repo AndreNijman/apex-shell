@@ -308,7 +308,7 @@ recheck_deny() {
     f=$(mut_found)
     while IFS='|' read -r file _m _w; do
         [ -n "$file" ] || continue
-        printf '%s\n' "$f" | grep -qF "$file|" && hits="x"
+        grep -qF "$file|" <<<"$f" && hits="x"
     done <<< "$(printf '%s\n' "$DENY_RAW" | sed '/^[[:space:]]*$/d')"
     [ -n "$hits" ]
 }
@@ -365,7 +365,7 @@ mutate "a wheel handler on the brightness bar" \
 
 # (c) a bare onWheel on a MouseArea, which is the other spelling, on a settings
 #     control that draws no bar — caught by the directory rule, not the list
-recheck_cfg() { mut_found | grep -q "^src/components/config/"; }
+recheck_cfg() { grep -q "^src/components/config/" < <(mut_found); }
 mutate "a bare onWheel on a MouseArea in a settings control" \
     "src/components/config/CfgSwitch.qml" \
     "        onClicked:    root.toggled(!root.checked)" \

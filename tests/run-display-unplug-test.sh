@@ -160,7 +160,7 @@ run() { "${ENVV[@]}" "$@"; }
 # A real second output. This is the whole reason the file exists.
 run swaymsg create_output >/dev/null 2>&1
 for _ in $(seq 1 20); do
-    run wlr-randr --json 2>/dev/null | grep -q HEADLESS-2 && break
+    grep -q HEADLESS-2 < <(run wlr-randr --json 2>/dev/null) && break
     sleep 0.25
 done
 run wlr-randr \
