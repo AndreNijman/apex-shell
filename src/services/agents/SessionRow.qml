@@ -5,6 +5,7 @@ import "../agentstate.js" as AgentState
 import "../agentgraph.js" as Graph
 import "../agenttelemetry.js" as Telemetry
 import "../agentpolicy.js" as Policy
+import "../agentlifecycle.js" as Lifecycle
 
 // One agent session in the Agent Center.
 //
@@ -224,6 +225,35 @@ Rectangle {
                     font.pixelSize: Theme.fs(10)
                     anchors.verticalCenter: parent.verticalCenter
                 }
+                // §19: which KIND of agent this is, not what state it is in.
+                // Drawn from the runtime's own `request_origin`, which the
+                // daemon has reported since §7 and this page ignored, so a
+                // session a timer started and one a person started stopped
+                // looking identical.
+                //
+                // Nothing is drawn when the runtime did not record an origin.
+                // A pill reading "Terminal" over a session nobody classified
+                // would be the confident wrong answer, which is worse here
+                // than no answer: it is the pill a user would trust.
+                Rectangle {
+                    id: kindPill
+                    readonly property string kind:
+                        Lifecycle.kindOf(row.session, Lifecycle.FROM_DAEMON)
+                    visible: Lifecycle.known(kindPill.kind)
+                    anchors.verticalCenter: parent.verticalCenter
+                    radius: Theme.px(3)
+                    color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.14)
+                    width: visible ? kindLabel.implicitWidth + Theme.fs(8) : 0
+                    height: kindLabel.implicitHeight + Theme.fs(3)
+                    Text {
+                        id: kindLabel
+                        anchors.centerIn: parent
+                        text: Lifecycle.badge(row.session, Lifecycle.FROM_DAEMON)
+                        color: Theme.subtext
+                        font.pixelSize: Theme.fs(9)
+                    }
+                }
+
                 // §7: a worktree is the unit of parallel work, so say which one
                 // rather than making every branch's session look identical.
                 Rectangle {
