@@ -97,12 +97,28 @@ QtObject {
             onStreamFinished: {
                 if (text.indexOf("--no-persist") >= 0)
                     root.engineCanSkipPersist = true
+                // P1-041, and probed for the same reason as the flag above: an
+                // engine that predates the colour verbs has them in an argparse
+                // `choices` list, so it exits 2 with "invalid choice" and the
+                // colour section would fail on every image older than this
+                // shell. `color-assign` rather than `color`, because the two
+                // land together and it is the longer, unambiguous string.
+                if (text.indexOf("color-assign") >= 0)
+                    root.engineCanColour = true
             }
         }
         // An engine that cannot be run at all answers nothing, and `false` is
         // the safe answer: the old command line is the one every shipped engine
         // accepts.
-        onExited: function(code) { root.engineProbed = true }
+        onExited: function(code) {
+            root.engineProbed = true
+            // A page that asked for colour before the probe finished is served
+            // now rather than left blank until something else re-asks.
+            if (root._colourWanted) {
+                root._colourWanted = false
+                if (root.engineCanColour) root.refreshColour()
+            }
+        }
     }
 
     // Under XDG_RUNTIME_DIR, and at a FIXED name. Both matter: the runtime dir
@@ -806,4 +822,149 @@ QtObject {
         { value: "180",    label: "180°"  },
         { value: "270",    label: "270°"  }
     ]
+
+    // ── Colour management (P1-041) ───────────────────────────────────────────
+    // A different store from the layout, so a separate verb and separate state.
+    // The layout lives in display.json and is ours; colour lives in colord's own
+    // database, which outlives this shell, predates it, and is shared with any
+    // other colour-aware program on the machine. A calibration outlives a
+    // layout, so it is not a field the layout apply carries.
+    //
+    // The engine does the reasoning — which profiles are display profiles, which
+    // carry a gamma table, what the panel's EDID says about HDR, and whether the
+    // curve can be loaded at all. This service transports its JSON and nothing
+    // more; anything it recomputed here would be a second opinion to keep in
+    // step with the first.
+    property bool engineCanColour: false
+    property var  colour: ({})
+    property bool colourLoading: false
+    property string colourError: ""
+    property string colourNotice: ""
+    // Set when something asked for colour before the probe had answered, so the
+    // probe can serve it on the way out. See refreshColour().
+    property bool _colourWanted: false
+    property string _assignNotes: ""
+
+    readonly property bool colordAvailable:
+        !!(root.colour && root.colour.colord && root.colour.colord.available)
+
+    /// How many devices colord has registered, of any kind.
+    ///
+    /// Worth its own property because on APEX the answer is ZERO and that is the
+    /// whole finding behind this section: colord ships, runs, and answers, and
+    /// nothing on the system had ever registered a display with it, so no
+    /// profile could be assigned to one. Measured on the L16 — `colormgr
+    /// get-devices` on a fresh session prints nothing. A page that showed only
+    /// the profile list would look fully furnished (six or seven profiles ship
+    /// with the image) while having nothing to apply them to.
+    readonly property int colordRegistered:
+        (root.colour && root.colour.colord
+         && root.colour.colord.registered !== undefined)
+            ? root.colour.colord.registered : 0
+
+    /// Display profiles the engine will accept, [{id,title,filename,kind,vcgt}].
+    readonly property var colourProfiles:
+        (root.colour && root.colour.profiles) ? root.colour.profiles : []
+
+    /// Per output: {name, device, make, model, serial, hdr, profile}.
+    readonly property var colourOutputs:
+        (root.colour && root.colour.outputs) ? root.colour.outputs : []
+
+    /// The engine's own sentence about why a calibration curve is not loaded.
+    /// Shown verbatim. Paraphrasing it here would put the claim in two places
+    /// and let the page keep saying it after the engine stopped meaning it.
+    readonly property string curveReason:
+        (root.colour && root.colour.curve && root.colour.curve.reason)
+            ? root.colour.curve.reason : ""
+
+    /// Whether anything on this image can push a curve into the hardware. False
+    /// on every APEX build so far — no xcalib, no argyll, no wl-gammactl — which
+    /// is why the page states a limit rather than implying a capability.
+    readonly property bool curveLoadable:
+        !!(root.colour && root.colour.curve && root.colour.curve.loader)
+
+    function refreshColour() {
+        // The same probe answers both questions, so asking for colour does not
+        // add a process: --help is one read and it lists the verbs it accepts.
+        //
+        // The wait is recorded whenever the probe has not ANSWERED, not merely
+        // when it has not been started. refresh() starts the probe too, and the
+        // page calls both — so an ordering where the probe is already in flight
+        // is normal, and an earlier version that only recorded the wait on the
+        // start path fell through to the `engineCanColour` return below and
+        // left the section permanently empty. It happened to work only because
+        // Component.onCompleted runs children before parents; that is not a
+        // property to build on.
+        if (!root.engineProbed) {
+            root._colourWanted = true
+            if (!root._capabilityProc.running)
+                root._capabilityProc.running = true
+            return
+        }
+        if (!root.engineCanColour || root._colourProc.running) return
+        root.colourLoading = true
+        root.colourError = ""
+        root._colourProc.running = true
+    }
+
+    property var _colourProc: Process {
+        command: [root.engine, "color"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    root.colour = JSON.parse(text.trim() || "{}")
+                } catch (e) {
+                    root.colourError = "Cannot read the colour state: " + e
+                }
+            }
+        }
+        stderr: StdioCollector { }
+        onExited: function(code) {
+            root.colourLoading = false
+            // An engine that answers nothing leaves `colour` as it was rather
+            // than blanking a page that was correct a moment ago.
+            if (code !== 0 && root.colourError === "")
+                root.colourError = "apex-display-apply color exited " + code
+        }
+    }
+
+    /// Give an output an ICC profile. colord stores it; see curveReason for what
+    /// that does and does not do to the picture on screen.
+    function assignProfile(output, profileId) {
+        if (!output || !profileId || root._assignProc.running) return
+        if (!root.engineCanColour) {
+            root.colourError = "This system's display engine has no colour support yet."
+            return
+        }
+        root.colourError = ""
+        root.colourNotice = ""
+        root._assignProc.command = [root.engine, "color-assign", output, profileId]
+        root._assignProc.running = true
+    }
+
+    property var _assignProc: Process {
+        command: [root.engine, "color-assign"]
+        running: false
+        // The engine puts its notes on stderr, one per line, and they are the
+        // useful half: "carries no vcgt, so there is no curve to load even where
+        // one could be" is the answer to the question the user is really asking.
+        stderr: StdioCollector {
+            onStreamFinished: {
+                root._assignNotes = text.trim()
+            }
+        }
+        stdout: StdioCollector { }
+        onExited: function(code) {
+            const notes = root._assignNotes.replace(/^apex-display: /gm, "")
+            if (code === 0) root.colourNotice = notes
+            else root.colourError = notes !== ""
+                ? notes : "Could not assign the profile (exit " + code + ")."
+            root._assignNotes = ""
+            // Read back rather than assume. The engine is the only thing that
+            // knows what colord actually accepted, and an optimistic update is
+            // how a page ends up showing a profile that was never stored.
+            root.refreshColour()
+        }
+    }
 }
