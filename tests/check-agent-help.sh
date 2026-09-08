@@ -179,6 +179,38 @@ else
     bad "the guide describes the Android remote without saying it does not exist"
 fi
 
+# ── 2c. Push-to-talk stops at the transcript, and the guide says so ──────────
+# P1-023 routes speech to the focused session and transcribes it. The last step,
+# writing that text into the session's terminal, needs a request the runtime
+# does not have: apex-agent-core's Request enum has Attach, Resize, Signal and
+# Event and nothing that carries text, so the shell's delivery step fails by
+# design rather than silently dropping the words.
+#
+# The guide therefore describes a route that does not finish, which is the
+# premature-promise defect section 2 exists for. Checked as a pair, so neither
+# half can drift alone: the section is present AND a todo block says the last
+# step is missing.
+#
+# Deliberately one-way for now, unlike 2b. When the runtime verb reaches an
+# image, whoever removes this todo block also has to flip this check the way
+# 2b is written for Always Unrestricted, add the new verb to AGENT_VERBS above,
+# and put it in the guide's own vocabulary block. That is three edits in one
+# place instead of a stale sentence nobody notices.
+#
+# NOTE: the guide must not name the verb as a command anywhere, todo blocks
+# included. check_group scrapes `apex agent <verb>` out of the WHOLE file and
+# tests it against the CLI, so writing the command down before it exists turns
+# section 1 red. The marker below is prose for that reason.
+if grep -q "Speak to it" "$CONTENT"; then
+    if grep -q "needs a runtime verb this build does not have" <<<"$todo_bodies"; then
+        ok "push-to-talk is documented and its unbuilt last step is marked absent"
+    else
+        bad "the guide describes push-to-talk without a todo block saying the transcript is not delivered"
+    fi
+else
+    bad "the guide never tells the user push-to-talk exists"
+fi
+
 # ── 3. The security model is stated in full ─────────────────────────────────
 # Six layers, ROADMAP §3.1. Collapsing any two of them is the failure this
 # guide exists to prevent, so all six must be named.
@@ -312,6 +344,22 @@ mutate "a stale todo claiming there is no Config page for it" \
     '{ k: "kv", t: "What the toggle writes"' \
     '{ k: "todo", t: "This build has no Config page for it." }, { k: "kv", t: "What the toggle writes"' \
     recheck_stale
+
+# (b4) push-to-talk documented as if the words arrived. The route stops at the
+# transcript in this build, so a guide that describes the key and omits the
+# todo block promises delivery the runtime cannot do. This is the mutant that
+# proves 2c can fail: it leaves the whole section in place and removes only the
+# sentence that admits the gap, which is exactly how the promise would creep
+# back in during an edit.
+recheck_ptt() {
+    grep -q "Speak to it" "$TMP/content.qml" || return 1
+    grep -q "needs a runtime verb this build does not have" \
+        < <(grep -o '{ k: "todo"[^}]*}' "$TMP/content.qml") && return 1
+    return 0
+}
+mutate "push-to-talk losing the block that says the transcript is not delivered" \
+    '{ k: "todo", t: "This build reaches the transcript and stops.' \
+    '{ k: "p", t: "The words arrive in the session.' recheck_ptt
 
 # (c) two permission layers collapsed into one
 recheck_layers() {

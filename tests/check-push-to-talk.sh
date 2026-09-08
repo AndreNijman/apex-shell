@@ -373,10 +373,21 @@ want "the tally light pulses on micOpen rather than on a constant" \
 want "the reducer only accepts a dismiss from the error phase" \
     grep -qE 'if \(st\.phase !== "error"\) return st;' < <(grep -vE '^[[:space:]]*//' "$reducer")
 
+# The `< <(...)` here is not decoration. The header above says this file has no
+# `producer | grep -q` in it; the first draft of this assertion had one, hidden
+# inside a `bash -c` string. That form is measured SAFE from a pipefail parent
+# (a child bash does not inherit pipefail, because SHELLOPTS is not exported:
+# 0/200 on a 915 KB input, against 200/200 for the same pipeline in-shell), so
+# it was not a live failure. It was worse than one: a counter-example sitting in
+# the file that documents the rule, which is how the rule gets un-learned.
+timer_block() {
+    awk '/property var _errorTimer: Timer \{/ {inb=1}
+         inb {print; if (/^[[:space:]]*\}[[:space:]]*$/) exit}' "$service" \
+        | grep -vE '^[[:space:]]*//'
+}
 want "the service's dismiss timer runs only while the phase is error" \
-    bash -c 'awk "/property var _errorTimer: Timer \{/ {inb=1} inb {print; if (/^[[:space:]]*\}[[:space:]]*\$/) exit}" "$1" \
-             | grep -vE "^[[:space:]]*//" | grep -qE "^[[:space:]]*running: root\.phase === \"error\"[[:space:]]*\$"' \
-    -- "$service"
+    grep -qE '^[[:space:]]*running: root\.phase === "error"[[:space:]]*$' \
+    < <(timer_block)
 
 echo
 echo "passed=$pass failed=$fail"
