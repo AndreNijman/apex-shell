@@ -60,6 +60,14 @@ QtObject {
             { k: "p", t: "You type prompts in the terminal, as you did before APEX. The Agents tab has no prompt box on purpose, because a second and worse terminal inside a dashboard popup is not worth building." },
             { k: "p", t: "The one prompt APEX handles is the opening instruction you pass to a. After that the agent's own interface takes over." },
 
+            { k: "h", t: "Speak to it" },
+            { k: "p", t: "SUPER+ALT+V opens the microphone. Press it again to close it." },
+            { k: "p", t: "The bar at the top of the screen shows what the route is doing and, before it records a word, which session it has picked. Speech goes to the agent session whose terminal has focus. With none focused the route refuses and names the half that was missing instead of choosing a session for you." },
+            { k: "p", t: "Speech to text is a command you supply and not an engine APEX ships. Put one line in ~/.config/apex-shell/push-to-talk-stt: a command that reads audio on its standard input and writes text on its standard output. Until you do, the first press says so and stops there." },
+            { k: "p", t: "The microphone belongs to the shell, not to a session. The shell holds it open while the indicator is up, and what crosses to a session is text. That is what keeps the no-microphone line above true of a sandboxed session." },
+            { k: "todo", t: "This build reaches the transcript and stops. Writing text into a session's terminal needs a runtime verb this build does not have, so the last step of the route reports that instead of delivering the words." },
+            { k: "todo", t: "Speech goes to a session that is already running. Starting one for the project in front of you is on the roadmap. This build does not do it." },
+
             { k: "h", t: "Attach and detach" },
             { k: "p", t: "Press ctrl-] to step out of a session. The agent carries on. Come back whenever you like:" },
             { k: "cmd", t: "aa            # the one running session\naa 4          # session 4\napex agent attach 4\napex agent attach 4 --no-replay" },
@@ -236,6 +244,7 @@ apex host probe desk" },
             { k: "kv", t: "ctrl-]", d: "Step out of the attached session and leave it working. Rebind it in ~/.config/apex/agent.json under detach_key.", mt: true },
             { k: "kv", t: "Escape", d: "Close this guide. Press it again to close the dashboard.", mt: true },
             { k: "kv", t: "SUPER+D", d: "Open the dashboard, then click Agents. Config then Keybinds lists what the shell binds and lets you change it.", mt: true },
+            { k: "kv", t: "SUPER+ALT+V", d: "Open the microphone for push-to-talk, and press it again to close it. Config then Keybinds is where to change the combination.", mt: true },
             { k: "p", t: "APEX binds no key straight to the Agents tab. Add one in your compositor configuration pointing at the IPC line below." },
 
             { k: "h", t: "What each control on this page runs" },
