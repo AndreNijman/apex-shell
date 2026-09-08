@@ -377,8 +377,12 @@ phase() {
     fi
 }
 
-phase modern 28
-phase legacy 8
+# The floors are the exact green counts, not a comfortable margin below them.
+# A paraphrase mutant once left the modern phase with 32 of its 36 assertions —
+# four had vanished rather than failed — and a floor of 28 let it through. Any
+# assertion that stops running is now a failure, whatever the reason.
+phase modern 36
+phase legacy 10
 
 # ── The fake was never allowed near the real daemon ──────────────────────────
 # Belt and braces, and cheap: the whole reason for the fake is that a real
