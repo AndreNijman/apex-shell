@@ -535,24 +535,36 @@ ShellRoot {
                 const shown = root.textShowing(page, root.wantReason)
                 root.check("the page states the engine's reason, verbatim",
                            shown !== null)
-                if (shown !== null) {
-                    // THE assertion. In a CfgRow description this comes back
-                    // true, and the user is shown two lines and an ellipsis of
-                    // the reason their calibration is not on screen.
-                    root.check("the reason is not truncated where the user reads it",
-                               shown.truncated === false)
-                    // And the two properties that made it true, asked of the
-                    // live element rather than of the source. These hold at any
-                    // width: `truncated` alone is a fact about this window's
-                    // geometry, and a wide enough test window would let a
-                    // two-line limit through.
-                    root.check("the element showing the reason elides nothing",
-                               shown.elide === Text.ElideNone)
-                    root.check("the element showing the reason caps no line count",
-                               shown.maximumLineCount > 100)
-                    root.check("the reason is laid out at a real width",
-                               shown.width > 200 && shown.contentHeight > 0)
-                }
+                // The four below are NOT guarded on `shown`, and that is the
+                // point. They were, with `if (shown !== null) {`, and a mutant
+                // that replaced the engine's reason with a sentence hardcoded
+                // in the page made all four SILENTLY VANISH instead of failing
+                // — the element is located BY ITS TEXT, so rewording the text
+                // loses the element and takes its assertions with it. The
+                // phase reported 32 passed where a green run reports 36, which
+                // is above the runner's floor, so nothing noticed. The
+                // verbatim check above did catch that particular mutation, but
+                // a mutation that both reworded the reason AND clipped it
+                // would have walked past the truncation assertions unopposed.
+                // A conditional assertion is not an assertion; a missing
+                // element fails these instead of skipping them.
+                const gone = shown === null ? " (nothing on the page carries the reason)" : ""
+                // THE assertion. In a CfgRow description this comes back
+                // true, and the user is shown two lines and an ellipsis of
+                // the reason their calibration is not on screen.
+                root.check("the reason is not truncated where the user reads it" + gone,
+                           shown !== null && shown.truncated === false)
+                // And the two properties that made it true, asked of the
+                // live element rather than of the source. These hold at any
+                // width: `truncated` alone is a fact about this window's
+                // geometry, and a wide enough test window would let a
+                // two-line limit through.
+                root.check("the element showing the reason elides nothing" + gone,
+                           shown !== null && shown.elide === Text.ElideNone)
+                root.check("the element showing the reason caps no line count" + gone,
+                           shown !== null && shown.maximumLineCount > 100)
+                root.check("the reason is laid out at a real width" + gone,
+                           shown !== null && shown.width > 200 && shown.contentHeight > 0)
                 root.check("the page says how many devices colord has registered",
                            root.textShowing(page, "0 device(s) registered") !== null)
                 root.check("the page says how many profiles are installed",
