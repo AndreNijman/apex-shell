@@ -97,6 +97,8 @@ cp "$here/labwc-test-rc.xml" "$HEADLESS_W/cfg/labwc/rc.xml" 2>/dev/null || true
 _before="$(headless_sockets)"
 XDG_CONFIG_HOME="$HEADLESS_W/cfg" XDG_CURRENT_DESKTOP=labwc:wlroots \
     labwc >"$HEADLESS_W/comp.log" 2>&1 &
+# shellcheck disable=SC2034  # headless_cleanup reads it, across the source
+# boundary shellcheck cannot follow.
 HEADLESS_COMP_PID=$!
 host_sock="$(headless_wait_socket "$_before")"
 [ -n "$host_sock" ] || {
@@ -169,11 +171,14 @@ env -u DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE -u WLR_BACKENDS -u WLR_RENDERER \
     HOME="$home" XDG_CURRENT_DESKTOP=Hyprland \
     Hyprland -c "$home/.config/hypr/hyprland.lua" >"$HEADLESS_W/hypr.log" 2>&1 &
 hypr_pid=$!
+# shellcheck disable=SC2034  # same: headless_cleanup kills it on the way out.
 HEADLESS_NESTED_PID=$hypr_pid
 
 sig=""
 for _ in $(seq 1 40); do
-    for s in $(ls "$rt/hypr" 2>/dev/null); do
+    for s in "$rt"/hypr/*; do
+        [ -e "$s" ] || continue
+        s="${s##*/}"
         case " $before " in *" $s "*) continue ;; esac
         sig="$s"
     done
