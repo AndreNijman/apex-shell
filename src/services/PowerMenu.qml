@@ -133,13 +133,43 @@ Column {
         }
     }
 
-    // Probed once at startup, like the Windows check. Cheap: two file tests.
+    // Probed once at startup, like the Windows check. Cheap: two file tests and
+    // a `command -v`.
+    //
+    // THE THIRD TEST IS THE ONE THAT WAS MISSING. This used to check the helper
+    // and the session file only, never gamescope — but gamescope and Steam are
+    // on-demand packages, not image content, so apex-gaming.desktop ships on
+    // every machine while the binary it runs does not. The entry itself says so
+    // and carries `TryExec=/usr/bin/gamescope` for exactly that reason, and
+    // apex-greet's enumeration honours it.
+    //
+    // So the menu and the greeter disagreed. The menu offered "Gaming Mode" on
+    // any APEX install; taking it logged the user out into a greeter that HID
+    // the session, landing them back on the desktop with
+    // `last-session=apex-gaming` recorded — which then selected by sort order
+    // at the next login. The build gate in Containerfile.apex asserts the
+    // greeter hides it; nothing asserted that this menu agrees.
+    //
+    // It reads TryExec out of the same file rather than naming gamescope here,
+    // so the two surfaces cannot drift: change the entry and both follow.
+    // Failure closed — an unreadable file, a missing helper or a TryExec that
+    // resolves to nothing all leave the row absent.
+    //
+    // The paths come from APEX_SESSION_HELPER and APEX_SESSION_DIR when set,
+    // which is the same pair PowerControl.sh already honours, so the gate can
+    // be exercised against a fixture instead of against the machine running
+    // the test.
     Process {
         id: gamingProbe
         running: true
         command: ["sh", "-c",
-            "test -x /usr/libexec/apex-session-select " +
-            "&& test -f /usr/share/wayland-sessions/apex-gaming.desktop"]
+            "h=\"${APEX_SESSION_HELPER:-/usr/libexec/apex-session-select}\"; " +
+            "d=\"${APEX_SESSION_DIR:-/usr/share/wayland-sessions}\"; " +
+            "test -x \"$h\" || exit 1; " +
+            "f=\"$d/apex-gaming.desktop\"; " +
+            "test -f \"$f\" || exit 1; " +
+            "t=$(sed -n 's/^TryExec=//p' \"$f\" | head -n1); " +
+            "[ -z \"$t\" ] || command -v \"$t\" >/dev/null 2>&1"]
         onExited: function(code) {
             root.gamingModeAvailable = (code === 0)
         }

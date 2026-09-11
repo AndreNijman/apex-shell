@@ -90,6 +90,19 @@ ShellRoot {
         "keyboardInterception", "screenShader", "nightLight"
     ]
 
+    // The product names, duplicated on purpose for the same reason as the
+    // capability schema above: a test that read them out of
+    // Compositor.presentedName() would agree with any answer that function
+    // gave, including a wrong one. These are the words the login session
+    // picker uses for the same three desktops (apex-os ships them as "APEX
+    // Floating", "APEX Scrolling" and "APEX Tiling"), so changing one here is
+    // a deliberate cross-repo edit.
+    readonly property var expectedModeNames: ({
+        "hyprland": "Tiling",
+        "niri":     "Scrolling",
+        "labwc":    "Floating"
+    })
+
     // ── Refs, toggled by the phases below ────────────────────────────────────
     property bool wantWindows: false
     property bool wantTitle:   false
@@ -283,6 +296,56 @@ ShellRoot {
                   CompositorService.name === ""
                       ? CompositorService.displayName === ""
                       : CompositorService.displayName !== "")
+
+            // ── The three names for a compositor stay three ──────────────────
+            // tests/check-compositor-naming.sh reads these same rules out of
+            // the source. This asks the running ENGINE, which is a different
+            // question: an absent property is not an error in QML. Typo
+            // `Compositor.modeNam` and the binding resolves to undefined, the
+            // Settings row renders an empty label, and every grep in that
+            // checker still passes — because the source still says the word it
+            // was looking for. Only the engine can say the map is really there
+            // and really reachable from another file.
+            check("presentedName() calls the hyprland id Tiling",
+                  Compositor.presentedName("hyprland") === "Tiling")
+            check("presentedName() calls the niri id Scrolling",
+                  Compositor.presentedName("niri") === "Scrolling")
+            check("presentedName() calls the labwc id Floating",
+                  Compositor.presentedName("labwc") === "Floating")
+
+            // A compositor with no adapter gets no invented name. The shell
+            // starts under sway and river too, and a guess would be worse than
+            // an admission — the caller decides what to say instead.
+            check("a compositor with no adapter is given no product name",
+                  Compositor.presentedName("sway") === ""
+                  && Compositor.presentedName("") === "")
+
+            // modeName must be derived from the map, not be a second copy of
+            // it that can drift.
+            check("modeName is presentedName() of the resolved id",
+                  Compositor.modeName === Compositor.presentedName(Compositor.name))
+
+            // The criterion itself, over whatever this run actually detected:
+            // the resolved mode name is never a compositor's own name. Under
+            // the harness that is labwc, and expectedModeNames is this file's
+            // own copy, so an empty modeName fails here instead of passing
+            // through the derivation check above unnoticed.
+            check("the resolved mode name is the product's word, not the project's",
+                  Compositor.modeName
+                      === (root.expectedModeNames[Compositor.name] || ""))
+            check("the resolved mode name is not a compositor id",
+                  Compositor.modeName !== "hyprland"
+                  && Compositor.modeName !== "niri"
+                  && Compositor.modeName !== "labwc")
+
+            // displayName and modeName are different contracts. The About
+            // panel writes down which project is running; Settings says which
+            // mode the user is in. Collapsing them would make one of the two
+            // surfaces lie, and a source-level check cannot see it because
+            // both would still be strings in the right places.
+            check("the adapter's own name is not the product name",
+                  CompositorService.displayName === ""
+                      || CompositorService.displayName !== Compositor.modeName)
 
             root._mkStubs.running = true
             break

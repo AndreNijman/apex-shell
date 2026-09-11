@@ -362,6 +362,29 @@ jobs:
           # mentions hyprctl.
           ./tests/check-compositor-backends.sh
 
+      - name: What Settings is allowed to call the compositor
+        run: |
+          # BASE-013 criterion 3: compositor names stay implementation details
+          # for normal users. Settings is a normal-user surface and its
+          # compositor control labelled its options with the raw ids
+          # "hyprland" and "niri" — upstream project names in lower case —
+          # while omitting labwc entirely, so a Floating user could not pin
+          # their own compositor at all.
+          #
+          # There are now THREE names for a compositor in this shell and the
+          # fix is only correct while they stay apart: the id (stored,
+          # detected, branched on), displayName (the adapter's own name, which
+          # the About panel writes down) and presentedName() (the product's
+          # word). This checks the values were NOT translated, that
+          # displayName was left alone, and that the ids and the product names
+          # stay disjoint — a "fix" that renamed displayName or translated the
+          # option values would pass a naive label check and break the shell.
+          #
+          # It also re-reads the help text's feature claims off the capability
+          # maps, so the prose cannot rot silently when a backend gains or
+          # loses a capability.
+          ./tests/check-compositor-naming.sh
+
       - name: Screenshot dispatch, on every compositor
         run: |
           # P1-038. Screenshots were dead on labwc and niri for months and
@@ -429,6 +452,29 @@ jobs:
           # text with no button beside it, the same rule the Blueprint page
           # follows for `sudo apex apply`.
           ./tests/check-gaming-settings.sh
+
+      - name: Whether the power menu may offer Gaming Mode
+        run: |
+          # BASE-009. gamescope and Steam are ON-DEMAND packages in APEX, so
+          # apex-gaming.desktop ships on every machine while /usr/bin/gamescope
+          # does not — which is why the entry carries TryExec and why
+          # apex-greet's enumeration honours it.
+          #
+          # PowerMenu.qml's probe tested the session helper and the session FILE
+          # and nothing else, so the menu and the greeter disagreed: the menu
+          # offered "Gaming Mode" on any APEX install, taking it logged the user
+          # out, and the greeter then HID the session they had just chosen —
+          # leaving them back on the desktop with last-session=apex-gaming
+          # written. Containerfile.apex has a build gate asserting the greeter's
+          # half; nothing asserted that this menu agreed.
+          #
+          # The probe's own `sh -c` script is lifted out of the QML and RUN
+          # against fixtures, because a grep for "TryExec" would pass on a probe
+          # that read the key and ignored it — and on one whose quoting was
+          # broken so every branch exited 0, which is the failure that matters
+          # for a gate whose whole job is to fail closed.
+          ./tests/check-gaming-mode-gate.sh
+
       - name: niri keybind generation
         run: |
           # niri rejects a bad include WHOLESALE — one unknown action verb and
@@ -1624,6 +1670,7 @@ jobs:
             "src/services/config_tab/pages/GamingPage.qml"
             "tests/gaming-settings-test.js"
             "tests/check-gaming-settings.sh"
+            "tests/check-gaming-mode-gate.sh"
             "src/services/recovery.js"
             "src/services/RecoveryService.qml"
             "src/services/config_tab/pages/RecoveryPage.qml"
@@ -1661,6 +1708,7 @@ jobs:
             "tests/agenttelemetry-test.js"
             "tests/notify-spawn-test.qml"
             "tests/run-notify-spawn-test.sh"
+            "tests/check-compositor-naming.sh"
           )
           FAILED=()
           for f in "${REQUIRED[@]}"; do
