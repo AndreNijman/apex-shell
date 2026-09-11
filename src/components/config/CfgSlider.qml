@@ -29,6 +29,15 @@ Item {
 
     activeFocusOnTab: true
 
+    // The one control in this library that was already keyboard-operable, and
+    // still announced nothing: no role, so a reader called it a plain element,
+    // and no value, so the arrow keys moved something unreportable. The name
+    // comes from the CfgRow around it.
+    Accessible.role: Accessible.Slider
+    Accessible.description: root.value + (root.suffix !== "" ? " " + root.suffix : "")
+    Accessible.onIncreaseAction: root._nudge(1)
+    Accessible.onDecreaseAction: root._nudge(-1)
+
     readonly property real _frac: (to > from) ? Math.max(0, Math.min(1, (value - from) / (to - from))) : 0
 
     // The one place a new value leaves this component. Clamped to the range and
