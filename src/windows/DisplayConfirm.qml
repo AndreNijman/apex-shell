@@ -96,6 +96,13 @@ PanelWindow {
     Rectangle {
         id: card
 
+        // Named so the scaling suite can assert the size this output actually
+        // laid out at, rather than re-deriving it from the same factor the card
+        // used — a test that recomputes its subject asserts nothing. The suite
+        // also asserts that exactly one card is found per output, so removing
+        // this name fails the run instead of quietly emptying it.
+        objectName: "apex-display-confirm-card"
+
         anchors.centerIn: parent
         width:  theme.px(400)
         height: col.implicitHeight + theme.px(48)
