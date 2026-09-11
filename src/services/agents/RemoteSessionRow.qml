@@ -2,6 +2,7 @@ import QtQuick
 import "../"
 import "../../"
 import "../agentstate.js" as AgentState
+import "../agentlifecycle.js" as Lifecycle
 
 // One agent session on a REMOTE device.
 //
@@ -106,6 +107,16 @@ Item {
                 elide: Text.ElideRight
                 width: Math.max(0, Math.min(implicitWidth,
                          meta.width - stateWord.implicitWidth - tailText.implicitWidth))
+            }
+            // §19's "remote-host agent", and the reason the classifier takes
+            // a source at all: this record's own `request_origin` says
+            // `local-terminal`, because from that machine's point of view a
+            // person is in front of a terminal. Reading the field alone would
+            // label every one of these a local PTY on this machine.
+            Text {
+                text: "  ·  " + Lifecycle.badge(srow.session, Lifecycle.FROM_HOST)
+                color: Theme.subtext
+                font.pixelSize: Theme.fs(9)
             }
             Text {
                 id: stateWord
