@@ -316,6 +316,20 @@ ShellRoot {
             root.eq("manual mode takes the manual factor", Metrics.scale, 1.5);
             root.eq("manual mode scales geometry", Metrics.notchPadding, 24);
 
+            // A manual factor is an explicit instruction and it applies to the
+            // whole desk, per-output surfaces included. This is the half of the
+            // policy the auto-mode assertions above cannot see: HEADLESS-2's
+            // own factor is 1.0, so if OutputScale ever stopped honouring the
+            // override, the suite would stay green in auto and the user's 150%
+            // would silently not reach these two windows.
+            for (let m = 0; m < root.perOutput.length; m++) {
+                const e = root.perOutput[m];
+                root.eq(e.kind + " on " + e.screen.name + " follows the manual override, not its own density",
+                        e.win.theme.scale, 1.5);
+            }
+            root.check("the manual override reached every per-output surface there is",
+                       root.perOutput.length === screens.length * 2);
+
             SettingsService.set("scaleManual", 99);
             root.check("manual factor is clamped to a usable range", SettingsService.scaleManual <= 3.0);
             SettingsService.set("scaleManual", 0.01);
