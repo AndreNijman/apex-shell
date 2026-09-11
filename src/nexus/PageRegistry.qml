@@ -120,6 +120,25 @@ QtObject {
             "component": firewallComp
         },
         {
+            "id": "remote-pair",
+            "title": "Pair a device",
+            "subtitle": "Show a code for APEX Remote on your phone to scan",
+            "icon": "",
+            // Stronger than elsewhere: `apex remote pair` MINTS a one-time
+            // token, so this page must not be built for somebody who never
+            // opened it.
+            "needsScreen": true,
+            "component": remotePairComp
+        },
+        {
+            "id": "remote-devices",
+            "title": "Paired devices",
+            "subtitle": "Every phone that can reach this machine, and how to revoke one",
+            "icon": "",
+            "needsScreen": true,
+            "component": remoteDevicesComp
+        },
+        {
             "id": "keybinds",
             "title": "Keybinds",
             "subtitle": "Shortcuts for every popup",
@@ -184,6 +203,12 @@ QtObject {
     }
     readonly property Component firewallComp: Component {
         FirewallPage {}
+    }
+    readonly property Component remotePairComp: Component {
+        RemotePairPage {}
+    }
+    readonly property Component remoteDevicesComp: Component {
+        RemoteDevicesPage {}
     }
     readonly property Component keybindsComp: Component {
         KeybindsPage {}
