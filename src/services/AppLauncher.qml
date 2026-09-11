@@ -321,8 +321,16 @@ Item {
     }
 
     // Launch a plain Exec string. Only used for entries that arrived without a
-    // DesktopEntry behind them; DesktopEntries-backed rows go through
-    // entry.execute(), which respects Terminal=, Path= and Exec field codes.
+    // DesktopEntry behind them; DesktopEntry-backed rows go through
+    // DesktopExec.launch().
+    //
+    // This comment used to say those rows went through entry.execute(), "which
+    // respects Terminal=, Path= and Exec field codes". Two thirds of that was
+    // true. tests/run-terminal-entry-test.sh measured the third under a headless
+    // compositor: execute() parses Terminal=true into runInTerminal and then
+    // starts the program on pipes anyway, so nvim — Terminal=true, shipped in
+    // the image, unremovable by apex-pkg because the image already provides it —
+    // could be clicked and did nothing. DesktopExec is that missing third.
     function launch(exec) {
         launcher.command = ["bash", "-c", "setsid " + exec + " &>/dev/null &"]
         launcher.running = false
@@ -396,7 +404,7 @@ Item {
         }
         if (entry.entry) {
             LauncherState.recordLaunch(entry.payload)
-            entry.entry.execute()
+            DesktopExec.launch(entry.entry)
             Popups.dashboardOpen = false
             return
         }
