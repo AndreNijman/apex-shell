@@ -43,6 +43,30 @@ WlSessionLock {
     // to be the shell's job and not apexd's.
     onSecureStateChanged: LockedHintService.setLocked(sessionLock.secure)
 
+    // The initial sync, and the reason it cannot live in the service itself.
+    //
+    // `onSecureStateChanged` only fires on a CHANGE, so a shell that starts up
+    // while logind still believes the session locked — a crash, a restart, a
+    // `quickshell` reload mid-lock — would leave the hint reading `yes` until
+    // somebody locked and unlocked the screen by hand. apex-agentd polls that
+    // property, so the stale value is not cosmetic: it holds Remote Control
+    // sessions and revokes root grants while the owner is sitting in front of
+    // the machine.
+    //
+    // A fresh shell has no lock surface up, so `secure` is false here by
+    // construction — ext-session-lock only sets it once the compositor has
+    // acknowledged THIS client's lock. Pushing it anyway is what clears a
+    // stale `yes`, and `_confirmed` starts undefined so the first call always
+    // reaches logind rather than being suppressed as a no-op.
+    //
+    // This is also the only thing that brings the singleton into existence at
+    // startup: Quickshell creates a Singleton on first reference, not when the
+    // configuration loads — measured, not assumed, in
+    // tests/run-locked-hint-test.sh. A `Component.onCompleted` inside
+    // LockedHintService would therefore not run until something else had
+    // already used it, which on this path is the lock it exists to report.
+    Component.onCompleted: LockedHintService.setLocked(sessionLock.secure)
+
     // ── Per-output lock surface ──────────────────────────────────────
     WlSessionLockSurface {
         id: surface
