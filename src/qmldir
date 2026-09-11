@@ -1,4 +1,12 @@
 singleton Theme      theme/Theme.qml
+# The token table itself (P1-040). NOT a singleton — that is the whole point:
+# Metrics is the instance built at the reference output's factor, and a surface
+# that sizes itself from its OWN output builds another. Registered here as well
+# as in theme/qmldir because a per-output surface lives outside theme/ and
+# already imports this module; a plain component in two modules is two type
+# registrations of one file, not two instances of one object, so the hazard the
+# comments below describe for singletons does not apply.
+ThemeSet   theme/ThemeSet.qml
 singleton Popups     state/Popups.qml
 singleton DashboardLayout state/DashboardLayout.qml
 singleton IpcManager state/IpcManager.qml
