@@ -583,11 +583,14 @@ function rowsFrom(desc, raw, term) {
         };
 
         // The DesktopEntry object, and ONLY for the app provider. Copied
-        // because the launcher launches an app through DesktopEntry.execute(),
-        // which honours Terminal=, Path= and Exec field codes — pasting the
-        // Exec line into `bash -c` does not. Every other kind gets no `entry`
-        // and no `exec` even if the raw row had one, which is what stops a row
-        // from reaching AppLauncher's execution branches.
+        // because the launcher launches an app through DesktopExec.launch(),
+        // which honours Terminal=, Path= and the Exec field codes — pasting the
+        // Exec line into `bash -c` does not. (Terminal= is the one
+        // DesktopEntry.execute() does NOT honour on its own; that is what
+        // DesktopExec adds, and why this no longer names execute().) Every
+        // other kind gets no `entry` and no `exec` even if the raw row had one,
+        // which is what stops a row from reaching AppLauncher's execution
+        // branches.
         if (desc.kind === "app" && r.entry)
             row.entry = r.entry;
 
