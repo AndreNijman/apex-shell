@@ -334,11 +334,35 @@ tools_of() {
 #     dependent.
 #   PowerControl.sh shutdown/reboot/suspend/lock/windows — systemctl, sudo and
 #     the shell's own IPC. Same command on every compositor by design.
+#   PowerControl.sh gamingmode — covered below in IDENTICAL instead. It is
+#     compositor-independent BY DESIGN (there is one gaming session), so
+#     `covers` would reject it for being right; see that block.
 DISPATCH=(
     "src/scripts/DpmsControl.sh	off"
     "src/scripts/DpmsControl.sh	on"
     "src/scripts/PowerControl.sh	logout"
     "src/scripts/PowerControl.sh	desktopmode"
+)
+
+# script<TAB>verb<TAB>expected-argv triples, where the expected argv is the SAME
+# on every compositor and that is the correct answer.
+#
+# `covers` above demands a DISTINCT command per compositor, which is the right
+# question for a verb whose whole risk is hardcoding one compositor's tool —
+# desktopmode did exactly that and sent labwc and niri users into Hyprland.
+# gamingmode is the opposite case: APEX ships ONE gaming session, so the same
+# command is correct everywhere and `covers` would fail it for being right.
+#
+# The consequence was that gamingmode was the only verb in PowerControl.sh with
+# no assertion of any kind. That matters more than the others, not less,
+# because of what it invokes: `apex-session-select <id> --switch` is
+# `loginctl terminate-user`, which ends EVERY logind session for the uid and
+# tears down user-<uid>.slice. So the argv is pinned exactly, rather than merely
+# being required to exist.
+#
+# %HELPER% is substituted with the fixture's stub helper path.
+IDENTICAL=(
+    "src/scripts/PowerControl.sh	gamingmode	sudo -n %HELPER% apex-gaming --switch"
 )
 
 # ── The fixture ──────────────────────────────────────────────────────────────
@@ -417,6 +441,54 @@ for d in "${DISPATCH[@]}"; do
             echo "          $c -> $(resolve "$root" "$script" "$verb" "$c")"
         done
     fi
+done
+
+for d in "${IDENTICAL[@]}"; do
+    script="$(printf '%s' "$d" | cut -f1)"
+    verb="$(printf '%s' "$d" | cut -f2)"
+    expect="$(printf '%s' "$d" | cut -f3)"
+    expect="${expect//%HELPER%/$fix/apex-session-select}"
+
+    first=""
+    same=1
+    empty=0
+    for c in "${COMPOSITORS[@]}"; do
+        out="$(resolve "$root" "$script" "$verb" "$c")"
+        [ -n "$out" ] || empty=1
+        if [ -z "$first" ]; then first="$out"
+        elif [ "$out" != "$first" ]; then same=0; fi
+    done
+
+    if [ "$empty" -eq 1 ]; then
+        bad "$script $verb resolves a command on every compositor"
+    else
+        ok "$script $verb resolves a command on every compositor"
+    fi
+    if [ "$same" -eq 1 ]; then
+        ok "$script $verb resolves the SAME command on ${COMPOSITORS[*]}"
+    else
+        bad "$script $verb resolves the SAME command on ${COMPOSITORS[*]}"
+        for c in "${COMPOSITORS[@]}"; do
+            echo "          $c -> $(resolve "$root" "$script" "$verb" "$c")"
+        done
+    fi
+    if [ "$first" = "$expect" ]; then
+        ok "$script $verb runs exactly: $expect"
+    else
+        bad "$script $verb runs exactly: $expect"
+        echo "          got: $first"
+    fi
+
+    # The destructive call lives INSIDE apex-session-select, which is a stub
+    # here. If either name ever appears in what PowerControl.sh itself resolves,
+    # this file is one broken dry-run away from ending the developer's session.
+    for danger in terminate-user loginctl; do
+        if grep -qw -- "$danger" <<< "$first"; then
+            bad "$script $verb does not name $danger directly"
+        else
+            ok "$script $verb does not name $danger directly"
+        fi
+    done
 done
 
 # ── The dry run is only safe while apex_run is the only exec ─────────────────
