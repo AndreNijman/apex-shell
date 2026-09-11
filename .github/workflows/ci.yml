@@ -1044,6 +1044,42 @@ jobs:
           # CI coverage at all.
           node tests/remote-agents-test.js
 
+      - name: The QR encoder, against an independent implementation
+        run: |
+          # P1-051's pairing code. `apex remote pair` refuses to draw a QR in
+          # the terminal and says why in its own source: "a wrong QR is worse
+          # than none — a phone scans it, fails, and the person concludes
+          # their camera is broken." So "it renders" is not a test here, and
+          # this step is what makes the claim checkable: every module of 36
+          # symbols from segno 1.6.6, versions 1 through 40, all four error
+          # correction levels, all eight masks.
+          #
+          # The fixtures are evidence, not a dependency — nothing at run time
+          # or test time needs segno or a venv, and the whole suite is one
+          # `node` invocation with no build step. It already earned its place
+          # twice: it caught an alignment-pattern table that was wrong for
+          # every version from 7 up, and it is why the encoder does not
+          # reproduce segno's own deviation from ISO/IEC 18004 §7.4.10.
+          node tests/qr-test.js
+
+      - name: APEX Remote pairing logic
+        run: |
+          # P1-051's parsing and presentation decisions, against the file the
+          # shell loads. Runs headless and needs nothing installed, which is
+          # the point: the behavioural suite below needs quickshell AND a
+          # compositor, so without this the two pages would have no CI cover
+          # on a runner that has neither.
+          #
+          # The assertion that pays for this step is the one about an absence.
+          # `requires_user_verification` is the DEVICE's claim that its key is
+          # held behind a biometric lock, and this desktop cannot check it.
+          # remotepairing.js therefore exposes it only as a sentence naming the
+          # devices, never as anything a row could draw as a tick -- because a
+          # tick in a table reads as a fact this machine verified. The test
+          # asserts the exported surface has nothing else matching /verif/i, so
+          # adding a per-device renderer fails here rather than in review.
+          node tests/remote-pairing-test.js
+
       - name: Push-to-talk decision layer
         run: |
           # §8.2's push-to-talk, at the layer where its edge cases are: when
@@ -1453,6 +1489,32 @@ jobs:
           # Skips cleanly without quickshell or a compositor.
           ./tests/run-settings-pages-test.sh
 
+      - name: The two APEX Remote pages, built and driven
+        run: |
+          # P1-051's criteria 1, 3 and 5, at the only layer that can answer
+          # them: the pages built by the real engine out of PageRegistry.
+          #
+          # The `apex` on PATH is a stub, and that is not tidiness. `apex
+          # remote pair` MINTS A ONE-TIME PAIRING TOKEN and arms the daemon
+          # for the next device presenting it; `apex remote revoke` takes a
+          # real device's access away. A suite running the real commands would
+          # do both to whoever ran it. That is also why the service goes
+          # through the CLI rather than apex-remoted's control socket — a
+          # socket client would walk past the stub, and no PATH or HOME
+          # isolates a unix socket.
+          #
+          # The assertion that pays for this step is a NEGATIVE one, in the
+          # pair-fail phase. `apex remote pair` refuses to draw a QR in a
+          # terminal and says why: "a wrong QR is worse than none — a phone
+          # scans it, fails, and the person concludes their camera is broken."
+          # A page that drew a placeholder, a greyed square or a stale code
+          # when it had no offer reintroduces exactly that, and it looks
+          # perfectly fine in a screenshot. So the phase asserts that nothing
+          # in the built page holds a QR matrix at all.
+          #
+          # Skips cleanly without quickshell or a compositor.
+          ./tests/run-remote-pairing-page-test.sh
+
       - name: A staged settings edit, and what it survives
         run: |
           # Criteria 3, 4 and 6 of P0-023, none of which a grep can answer,
@@ -1718,6 +1780,18 @@ jobs:
             "tests/run-settings-pages-test.sh"
             "tests/settings-staged-test.qml"
             "tests/run-settings-staged-test.sh"
+            "src/services/qr.js"
+            "tests/qr-test.js"
+            "src/services/remotepairing.js"
+            "src/services/RemotePairingService.qml"
+            "src/components/QrCode.qml"
+            "src/services/config_tab/pages/RemotePairPage.qml"
+            "src/services/config_tab/pages/RemoteDevicesPage.qml"
+            "tests/remote-pairing-test.js"
+            "tests/remote-pairing-page-test.qml"
+            "tests/run-remote-pairing-page-test.sh"
+            "tests/fixtures/qr-vectors.json"
+            "tests/fixtures/gen-qr-vectors.py"
             "src/services/notifybus.js"
             "tests/notifybus-test.js"
             "src/services/agentgraph.js"
