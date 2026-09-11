@@ -164,7 +164,15 @@ PanelWindow {
 
     // ── Confirm dialog ────────────────────────────────────────────────────────
     Rectangle {
+        // Named for the scaling suite; see the note on the DisplayConfirm card.
+        objectName: "apex-confirm-dialog-card"
+
         anchors.centerIn: parent
+        // These two are raw literals and were before this change. They are the
+        // separate question check-scale-tokens.sh deliberately leaves alone —
+        // "radius: 8" — and scaling them is a visible change to a dialog, not a
+        // per-output one. What this file now gets from its own output is every
+        // size it DOES scale: the radius below and every font size in the card.
         width:  360
         height: col.implicitHeight + 48
         radius: theme.notchRadius
