@@ -1275,6 +1275,21 @@ jobs:
         run: |
           ./tests/run-a11y-controls-test.sh
 
+      # How far the Reduce Motion switch actually reaches. It is a real setting
+      # with real UI and it touches 39 of this tree's 450 animation durations —
+      # the other 402 are integer literals written in place, which no switch can
+      # reach. A user who turns it on because motion makes them ill still gets
+      # 89% of the animation, and nothing said so: there was no test of this
+      # setting at all.
+      #
+      # The counts are exact and ratcheted in both directions, the way
+      # check-color-tokens.sh's EXPECT_WHITE_FG is. More literals is the
+      # regression; fewer means somebody fixed some and the constant should be
+      # tightened to lock it in; a moving total means the scanner itself
+      # changed, which is how an exact count becomes a green light for nothing.
+      - name: How far Reduce Motion reaches
+        run: ./tests/check-reduce-motion.sh
+
       - name: Remote agent status invariants
         run: |
           # Static half. Also SELF-TESTS its own checks: it mutates copies of
@@ -1715,6 +1730,7 @@ jobs:
             "tests/run-settings-controls-test.sh"
             "tests/a11y-controls-test.qml"
             "tests/run-a11y-controls-test.sh"
+            "tests/check-reduce-motion.sh"
             "tests/settings-pages-test.qml"
             "tests/run-settings-pages-test.sh"
             "tests/settings-staged-test.qml"

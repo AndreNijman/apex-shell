@@ -249,6 +249,21 @@ Item {
             compare(theSwitch.Accessible.name, "Reduce motion and transparency",
                     "the control kept the old label after the row was renamed")
             switchRow.label = "Reduce motion"
+
+            // The text field is the one propagation path with TWO hops, and the
+            // second is a binding: CfgRow ASSIGNS the wrapper's name, and the
+            // inner TextInput BINDS to it. An imperative assignment onto a bound
+            // property breaks the binding in QML, so this asserts the hop that
+            // could plausibly be one-shot — the field a reader lands on must
+            // follow a rename, not keep the name it was born with.
+            var input = fixture.named("cfgTextFieldInput")
+            verify(input !== null, "no item named cfgTextFieldInput")
+            fieldRow.label = "Computer name"
+            compare(input.Accessible.name, "Computer name",
+                    "the TextInput kept its old name after the row was renamed; " +
+                    "the inward binding is one-shot")
+            fieldRow.label = "Hostname"
+            compare(input.Accessible.name, "Hostname", "and back again")
         }
 
         // CfgButton's words are its own. The row must not overwrite them, or
