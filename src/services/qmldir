@@ -49,6 +49,12 @@ singleton RecoveryService 1.0 RecoveryService.qml
 RecoveryPage ./config_tab/pages/RecoveryPage.qml
 singleton FirewallService 1.0 FirewallService.qml
 FirewallPage ./config_tab/pages/FirewallPage.qml
+# P1-051's two APEX Remote pages and the service behind them. Registered here
+# for the reason the whole file exists: a missing line is not a broken page,
+# it is "RemotePairPage is not a type" and the entire shell fails to start.
+singleton RemotePairingService 1.0 RemotePairingService.qml
+RemotePairPage ./config_tab/pages/RemotePairPage.qml
+RemoteDevicesPage ./config_tab/pages/RemoteDevicesPage.qml
 singleton AgentService 1.0 AgentService.qml
 # §42.1's sandbox default. A singleton because the Agents settings page, the
 # Agent Center's banner and the session rows all have to agree about what a new
