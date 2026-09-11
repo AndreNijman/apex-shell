@@ -187,7 +187,15 @@ CfgScroll {
             label:     "Active"
             hoverable: false
             Text {
-                text:        Compositor.name + (Compositor.overrideName === "" ? "  ·  auto" : "  ·  override")
+                // The PRODUCT name, not the id. A user who has never heard of
+                // labwc still knows whether their windows float or tile, and
+                // that is the whole of what this row is for. Where the shell is
+                // running under something it has no adapter for, say so plainly
+                // rather than printing an empty label — `modeName` is "" there
+                // by design.
+                text:        (Compositor.modeName !== "" ? Compositor.modeName
+                                                         : "Not a compositor APEX supports")
+                             + (Compositor.overrideName === "" ? "  ·  auto" : "  ·  override")
                 font.family: "JetBrains Mono"
                 font.pixelSize: Theme.fs(11)
                 color:       Theme.active
@@ -197,7 +205,19 @@ CfgScroll {
         Text {
             x:        10
             width:    parent.width - 20
-            text:     "Detected " + Compositor.detected + " from the environment. Choose which compositor APEX Shell targets — Auto follows detection. Hyprland-only features (layout indicator, night light, shader filter, special workspace) degrade automatically on niri."
+            // The old wording printed `Compositor.detected`, a raw id, and named
+            // only niri as the degrading target — which left a Floating user
+            // reading a sentence about two compositors that were not theirs and
+            // said nothing true about their own.
+            //
+            // EVERY CLAIM BELOW IS READ OFF THE CAPABILITY MAPS, and
+            // tests/check-compositor-naming.sh fails if a backend changes one
+            // of them without this sentence being revisited. As shipped:
+            // accentBorder, gaps, tilingLayout, keyboardInterception,
+            // screenShader and specialWorkspace are Hyprland's alone; overview
+            // is niri's alone; windowMove is false on labwc only; nightLight is
+            // true on all three, so it is deliberately NOT listed as degrading.
+            text:     "Auto follows what APEX detects at login; pick one to pin it instead. Tiling is the only one the shell can give window gaps, an accent border, a layout indicator, a shader filter and a special workspace. Scrolling has an overview the other two do not. On Floating the shell cannot move a window to another workspace."
             font.pixelSize: Theme.fs(10)
             color:    Qt.rgba(1,1,1,0.4)
             wrapMode: Text.WordWrap
@@ -212,10 +232,23 @@ CfgScroll {
                 id: compSeg
                 x:     10
                 width: parent.width - 20
+                // VALUES ARE IDS AND MUST NOT BE TRANSLATED — setOverride
+                // writes them straight into config_Provider.json's `compositor`
+                // key and Compositor.isValidName is what accepts them. Only the
+                // labels are the product's words.
+                //
+                // labwc was missing from this list entirely while
+                // isValidName() has always accepted it and CompositorService
+                // has always loaded LabwcBackend.qml. So a Floating user could
+                // not pin their own compositor here at all, and an override set
+                // by hand in config_Provider.json left this control with no
+                // option matching its own `value` — nothing highlighted, and no
+                // way back to Auto except another hand edit.
                 options: [
-                    { value: "auto",     label: "Auto"     },
-                    { value: "hyprland", label: "Hyprland" },
-                    { value: "niri",     label: "niri"     }
+                    { value: "auto",     label: "Auto"      },
+                    { value: "hyprland", label: "Tiling"    },
+                    { value: "niri",     label: "Scrolling" },
+                    { value: "labwc",    label: "Floating"  }
                 ]
                 value: Compositor.overrideName === "" ? "auto" : Compositor.overrideName
                 onSelected: function(v) { Compositor.setOverride(v) }

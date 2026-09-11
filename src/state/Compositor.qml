@@ -70,6 +70,46 @@ QtObject {
     readonly property string name:
         root.isValidName(overrideName) ? overrideName : detected
 
+    // ── How a compositor is NAMED, and to whom ────────────────────────────────
+    // Three names exist in this shell and collapsing any two of them is a bug:
+    //
+    //   `name` / `detected` / `overrideName`  — the ID. "hyprland" | "niri" |
+    //       "labwc". It is what config_Provider.json stores, what detection
+    //       produces and what every consumer branches on. It is not English and
+    //       is not for reading.
+    //   `CompositorService.displayName`       — the ADAPTER's own name,
+    //       forwarded verbatim from whichever backend is loaded, spelled the way
+    //       that project spells it. It is what the About panel writes down, and
+    //       check-compositor-backends.sh and compositor-facade-test.qml both pin
+    //       that contract. Do not repurpose it.
+    //   `presentedName(id)`                   — the PRODUCT name, below.
+    //
+    // BASE-013's third criterion is that compositor names stay implementation
+    // details for normal users, and Settings is a normal-user surface: its
+    // compositor control used to offer "hyprland" and "niri" as its own labels,
+    // which is a list of upstream project names in lower case.
+    //
+    // These words match what the login session picker calls the same three
+    // desktops. apex-os ships them as `APEX Floating`, `APEX Scrolling` and
+    // `APEX Tiling` in /usr/share/wayland-sessions; the prefix is carried there
+    // and not here because a session picker lists third-party entries beside
+    // APEX's own, and inside APEX's own Settings "APEX" on every option is
+    // noise. Keep the second word identical across the two repos.
+    //
+    // An unknown id returns "" rather than a guess. The caller decides what to
+    // say about a compositor this shell does not support; an invented name
+    // would be worse than none.
+    function presentedName(n) {
+        return n === "hyprland" ? "Tiling"
+             : n === "niri"     ? "Scrolling"
+             : n === "labwc"    ? "Floating"
+             :                    ""
+    }
+
+    // The resolved compositor's product name, or "" when it is one this shell
+    // does not support.
+    readonly property string modeName: root.presentedName(root.name)
+
     readonly property bool isHyprland: name === "hyprland"
     readonly property bool isNiri:     name === "niri"
     readonly property bool isLabwc:    name === "labwc"

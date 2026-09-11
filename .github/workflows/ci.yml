@@ -349,6 +349,29 @@ jobs:
           # mentions hyprctl.
           ./tests/check-compositor-backends.sh
 
+      - name: What Settings is allowed to call the compositor
+        run: |
+          # BASE-013 criterion 3: compositor names stay implementation details
+          # for normal users. Settings is a normal-user surface and its
+          # compositor control labelled its options with the raw ids
+          # "hyprland" and "niri" — upstream project names in lower case —
+          # while omitting labwc entirely, so a Floating user could not pin
+          # their own compositor at all.
+          #
+          # There are now THREE names for a compositor in this shell and the
+          # fix is only correct while they stay apart: the id (stored,
+          # detected, branched on), displayName (the adapter's own name, which
+          # the About panel writes down) and presentedName() (the product's
+          # word). This checks the values were NOT translated, that
+          # displayName was left alone, and that the ids and the product names
+          # stay disjoint — a "fix" that renamed displayName or translated the
+          # option values would pass a naive label check and break the shell.
+          #
+          # It also re-reads the help text's feature claims off the capability
+          # maps, so the prose cannot rot silently when a backend gains or
+          # loses a capability.
+          ./tests/check-compositor-naming.sh
+
       - name: Screenshot dispatch, on every compositor
         run: |
           # P1-038. Screenshots were dead on labwc and niri for months and
@@ -1648,6 +1671,7 @@ jobs:
             "tests/agenttelemetry-test.js"
             "tests/notify-spawn-test.qml"
             "tests/run-notify-spawn-test.sh"
+            "tests/check-compositor-naming.sh"
           )
           FAILED=()
           for f in "${REQUIRED[@]}"; do
