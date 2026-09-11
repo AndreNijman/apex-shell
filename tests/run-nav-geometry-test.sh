@@ -279,13 +279,13 @@ if [[ "${NAV_GEOMETRY_VERBOSE:-0}" == "1" ]]; then
 fi
 echo "$out" | grep -E "^(\[rig\]|failures by assertion:|  [0-9]+x  |        e\.g\. |nav-geometry: )" || true
 
-if echo "$out" | grep -q "Failed to load configuration"; then
+if grep -q "Failed to load configuration" <<<"$out"; then
     echo "$out" | tail -25
     echo "RESULT: the test config failed to load"
     exit 1
 fi
 
-if echo "$out" | grep -q "nav-geometry: unusable-host"; then
+if grep -q "nav-geometry: unusable-host" <<<"$out"; then
     echo "$out" | grep "nav-geometry: unusable-host"
     echo "SKIP: $comp cannot host this suite — Qt's layout never re-polished, so"
     echo "      every rectangle read back would be the previous matrix point."

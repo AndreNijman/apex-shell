@@ -166,7 +166,7 @@ out="$(QT_LOGGING_RULES="qml=true" timeout 120 quickshell -p "$staged" 2>&1 \
 
 echo "$out" | grep -E "^(  PASS|  FAIL|        |settings-pages: )" || true
 
-if echo "$out" | grep -q "Failed to load configuration"; then
+if grep -q "Failed to load configuration" <<<"$out"; then
     echo "$out" | tail -30
     echo "RESULT: the test config failed to load"
     exit 1
@@ -174,7 +174,7 @@ fi
 
 # A page that fails to build reports as a QML error, not as a missing PASS, and
 # the summary below would otherwise be green with a page missing.
-if echo "$out" | grep -qE "is not a type|Cannot assign|Unable to assign"; then
+if grep -qE "is not a type|Cannot assign|Unable to assign" <<<"$out"; then
     echo "$out" | grep -E "is not a type|Cannot assign|Unable to assign" | head -10
     echo "RESULT: a settings page failed to build"
     exit 1

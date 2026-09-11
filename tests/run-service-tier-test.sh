@@ -34,7 +34,7 @@ cp "$here/service-tier-test.qml" "$staged"
 out="$(QT_LOGGING_RULES="qml=true" timeout 120 quickshell -p "$staged" 2>&1 || true)"
 echo "$out" | grep -E "PASS|FAIL|^\[|passed=" || true
 
-if echo "$out" | grep -q "Failed to load configuration"; then
+if grep -q "Failed to load configuration" <<<"$out"; then
     echo "$out" | tail -20
     echo "RESULT: the test config failed to load"
     exit 1

@@ -14,6 +14,7 @@ import "../../services/home/."
 //   "music"     — MPRIS player present
 //   "timer"     — ClockState.timerRunning
 //   "stopwatch" — ClockState.swRunning
+//   "voice"     — push-to-talk is listening, transcribing or refusing (P1-023)
 //
 // CenterNotchMonitor (internal QtObject) watches ClockState and
 // handles urgent transitions:
@@ -80,6 +81,13 @@ Item {
 		if (ClockState.swStarted)                      list.push("stopwatch")
 		if (ShellState.screenRecord && !ScreenRecService.recording) list.push("record_setup")
 		if (ScreenRecService.recording)           list.push("record_active")
+		// P1-023's "microphone indicator visible", and the reason it is not
+		// gated on micOpen alone: a REFUSAL has to be visible too, or a person
+		// who has not configured the speech-to-text hook presses the key and
+		// nothing whatsoever happens. indicatorLabel is "" only at idle, so one
+		// string decides presence and supplies the text, and there is no second
+		// copy of the phase table in here to drift from the reducer's.
+		if (PushToTalkService.indicatorLabel !== "") list.push("voice")
 
 		root._items = list
 
@@ -93,7 +101,12 @@ Item {
 				// Other items only auto-scroll when coming from "title".
 				var isScreenRec = (autoScrollType === "record_setup" ||
 				autoScrollType === "record_active")
-				if (isScreenRec || currentType === "title")
+				// An open microphone gets the same override, and for a stronger reason
+				// than a screen recording: push-to-talk is a TOGGLE because niri has no
+				// release bind, so the failure it has to defend against is a hot mic the
+				// user forgot. An indicator parked behind whatever they last scrolled to
+				// would not defend against it.
+				if (isScreenRec || autoScrollType === "voice" || currentType === "title")
 				idx = nIdx
 			}
 		}
@@ -146,6 +159,15 @@ Item {
 			root._rebuildItems("record_setup")
 			else if (!ShellState.screenRecord)
 			root._rebuildItems(null)
+		}
+	}
+
+	Connections {
+		target: PushToTalkService
+		// One signal, because one string decides both presence and text.
+		function onIndicatorLabelChanged() {
+			root._rebuildItems(PushToTalkService.indicatorLabel !== "" ? "voice" : null)
+			if (PushToTalkService.micOpen) root._forceScrollTo("voice")
 		}
 	}
 
@@ -842,6 +864,84 @@ Item {
 									}
 									HoverHandler { id: recStopH }
 									MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: ScreenRecService.stopRecording() }
+								}
+							}
+						}
+
+						// ── Voice / push-to-talk (roadmap P1-023, ROADMAP.md §8.2) ──────────────
+						//
+						// "Microphone indicator visible" and "target session explicit" are two of
+						// P1-023's three acceptance criteria, and they are one widget: the text is
+						// PushToTalkService.indicatorLabel, which the reducer builds as
+						// "Listening → claude · apex-shell". The destination is named in the same
+						// breath as the fact that the microphone is open, because an indicator that
+						// says "recording" without saying where is the half that matters least.
+						//
+						// Nothing here re-derives a phase. The label comes from the reducer and the
+						// dot pulses on micOpen, so this cannot disagree with the machine that
+						// owns the microphone — which is the whole reason the state lives in a
+						// reducer `node tests/push-to-talk-test.js` can drive.
+						Item {
+							anchors {
+								fill: parent
+								leftMargin: root.fw/2
+								rightMargin: root.fw/2
+							}
+							visible:      modelData === "voice"
+
+							Row {
+								anchors.centerIn: parent
+								spacing: 8
+
+								// The tally light. It pulses only while the microphone is actually
+								// open; while transcribing or explaining a refusal it holds still, so
+								// "the mic is on" is never something the user has to infer from a
+								// colour alone.
+								//
+								// Theme.danger and NOT the #ff4444 the screen recorder's dot above
+								// uses. That literal is allowlisted in check-color-tokens.sh for a
+								// reason that does not transfer: it sits among Qt.rgba(0.9,0.2,0.2)
+								// recording fills and has to match them. This dot sits on its own, so
+								// it can have the token — which follows the palette and, unlike a
+								// fixed hex, is measured to clear 4.5:1 on every surface it is drawn
+								// on (Colors.qml:93-99). A forgotten hot microphone is also the one
+								// hazard this whole feature is designed around, which is what the
+								// danger token is for.
+								Rectangle {
+									anchors.verticalCenter: parent.verticalCenter
+									width:  8; height: 8; radius: 4
+									color:  PushToTalkService.micOpen ? Theme.danger : Theme.subtext
+									SequentialAnimation on opacity {
+										running: PushToTalkService.micOpen
+										loops:   Animation.Infinite
+										NumberAnimation { to: 0.25; duration: 600; easing.type: Easing.InOutSine }
+										NumberAnimation { to: 1.0;  duration: 600; easing.type: Easing.InOutSine }
+									}
+								}
+
+								// The reducer's own sentence, including which session the words are
+								// going to. Elided rather than allowed to widen the notch without
+								// limit: a project name can be arbitrarily long.
+								Text {
+									anchors.verticalCenter: parent.verticalCenter
+									text:           PushToTalkService.indicatorLabel
+									font.pixelSize: Theme.fs(12); font.weight: Font.Medium
+									color:          Theme.text
+									elide:          Text.ElideRight
+									maximumLineCount: 1
+									width:          Math.min(implicitWidth, 240)
+								}
+
+								// Seconds left before the cap closes it, and only while it is open.
+								// The cap is what makes a toggle defensible when niri cannot give us a
+								// release bind; showing it is what stops the cap being a surprise.
+								Text {
+									anchors.verticalCenter: parent.verticalCenter
+									visible:        PushToTalkService.micOpen
+									text:           Math.ceil(PushToTalkService.remainingMs / 1000) + "s"
+									font.pixelSize: Theme.fs(11)
+									font.family:    "JetBrains Mono"
+									color:          Theme.subtext
 								}
 							}
 						}

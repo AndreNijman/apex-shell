@@ -120,19 +120,19 @@ want "no --file argument is passed to blueprint set" \
 want "exactly one command assignment can write" \
     bash -c 'test "$(grep -c "_setProc.command =" "$1")" = 1' _ "$csvc"
 want "that one write command IS the verb" \
-    bash -c 'sed -n "/_setProc.command =/,+3p" "$1" | grep -q "blueprint set --json -"' _ "$csvc"
+    bash -c 'grep -q "blueprint set --json -" < <(sed -n "/_setProc.command =/,+3p" "$1")' _ "$csvc"
 # _write() is the only thing that starts the write process, and it is reachable
 # only from the recheck handler — so the stale-digest guard cannot be bypassed
 # by a caller that goes straight to the write.
 want "the write is entered from exactly one place" \
     bash -c 'test "$(grep -c "root\._write()" "$1")" = 1' _ "$csvc"
 want "the write is entered only after the digest re-read" \
-    bash -c 'sed -n "/_recheckProc: Process/,/^    }$/p" "$1" | grep -q "root\._write()"' _ "$csvc"
+    bash -c 'grep -q "root\._write()" < <(sed -n "/_recheckProc: Process/,/^    }$/p" "$1")' _ "$csvc"
 # Neither plan command may name a writing verb: `_planProc` takes whatever
 # `_planCommand` holds, so a `set` assigned there would write without any of
 # the guards above.
 want "no plan command names a writing verb" \
-    bash -c '! grep -E "_planCommand = " "$1" | grep -qE "\"set\"|blueprint set"' _ "$csvc"
+    bash -c '! grep -qE "\"set\"|blueprint set" < <(grep -E "_planCommand = " "$1")' _ "$csvc"
 want "every plan command is a read verb" \
     bash -c 'test "$(grep -c "_planCommand = " "$1")" = "$(grep -E "_planCommand = " "$1" | grep -cE "\"diff\", \"--json\"|\"--dry-run\", \"--json\"")"' _ "$csvc"
 # No shell redirection or in-place editor anywhere. The one bash invocation is
@@ -190,9 +190,9 @@ want "every save() call in the page is under an onClicked" \
 want "the service has a save() distinct from apply()" \
     bash -c 'grep -q "function save()" "$1" && grep -q "function apply()" "$1"' _ "$csvc"
 want "save does not call apply" \
-    bash -c '! sed -n "/function save()/,/^    }/p" "$1" | grep -q "apply("' _ "$csvc"
+    bash -c '! grep -q "apply(" < <(sed -n "/function save()/,/^    }/p" "$1")' _ "$csvc"
 want "the write path does not call apply" \
-    bash -c '! sed -n "/function _write()/,/^    }/p" "$1" | grep -q "apply("' _ "$csvc"
+    bash -c '! grep -q "apply(" < <(sed -n "/function _write()/,/^    }/p" "$1")' _ "$csvc"
 
 # ── APPLY NEVER ESCALATES ───────────────────────────────────────────────────
 # `apex apply` converges the privilege domain it is already running in and
@@ -207,7 +207,7 @@ want "the page never runs sudo as a command" \
 want "the root notice names the command for the user to run" \
     grep -q 'run `sudo apex apply`' "$clogic"
 want "the root notice section has no button" \
-    bash -c '! sed -n "/title: \"Needs root\"/,/^    }$/p" "$1" | grep -q "CfgButton"' _ "$cpage"
+    bash -c '! grep -q "CfgButton" < <(sed -n "/title: \"Needs root\"/,/^    }$/p" "$1")' _ "$cpage"
 want "the page explains that it does not escalate" \
     grep -q "does not escalate" "$page"
 
@@ -218,7 +218,7 @@ want "the service uses the isStale guard"     grep -q "isStale" "$csvc"
 want "the service shows the stale notice"     grep -q "staleNotice" "$csvc"
 want "the digest is re-read before writing"   grep -q "_recheckProc" "$csvc"
 want "the recheck runs blueprint show, not blueprint set" \
-    bash -c 'sed -n "/_recheckProc: Process/,/^    }$/p" "$1" | grep -q "\"show\", \"--json\""' _ "$csvc"
+    bash -c 'grep -q "\"show\", \"--json\"" < <(sed -n "/_recheckProc: Process/,/^    }$/p" "$1")' _ "$csvc"
 # `{}` clears the CLI's empty-stdin guard and atomically writes an empty file.
 want "the service guards against writing an empty blueprint" \
     bash -c 'grep -q "eraseWarning" "$1" && grep -q "_eraseConfirmed" "$1"' _ "$csvc"
@@ -240,15 +240,15 @@ want "the draft is serialised through toStdin" \
 # verbs. A process that never STARTS emits neither stdout nor stderr, so
 # without an onExited handler the page renders blank with nothing to explain it.
 want "the service handles a CLI that never starts" \
-    bash -c 'sed -n "/_showProc: Process/,/^    }$/p" "$1" | grep -q "onExited"' _ "$csvc"
+    bash -c 'grep -q "onExited" < <(sed -n "/_showProc: Process/,/^    }$/p" "$1")' _ "$csvc"
 want "the show handler sets loaded in onExited" \
-    bash -c 'sed -n "/_showProc: Process/,/^    }$/p" "$1" | sed -n "/onExited/,\$p" | grep -q "root.loaded = true"' _ "$csvc"
+    bash -c 'grep -q "root.loaded = true" < <(sed -n "/_showProc: Process/,/^    }$/p" "$1" | sed -n "/onExited/,\$p")' _ "$csvc"
 want "the service reports availability"        grep -q "available" "$csvc"
 want "the service carries an unavailable reason" grep -q "unavailableReason" "$csvc"
 want "the page shows a not-available explanation" \
     grep -q "Not available on this image" "$cpage"
 want "the explanation is the page's first section when the CLI is missing" \
-    bash -c 'grep -B8 "Not available on this image" "$1" | grep -q "first: true"' _ "$cpage"
+    bash -c 'grep -q "first: true" < <(grep -B8 "Not available on this image" "$1")' _ "$cpage"
 want "the CLI path is overridable for local testing" \
     grep -q "APEX_BLUEPRINT_CLI" "$csvc"
 
@@ -262,12 +262,12 @@ want "the CLI path is overridable for local testing" \
 want "exactly one place decides the CLI is unavailable" \
     bash -c 'test "$(grep -c "available = false" "$1")" = 1' _ "$csvc"
 want "the plan path does not latch availability off" \
-    bash -c '! sed -n "/_planProc: Process/,\$p" "$1" | grep -q "available = false"' _ "$csvc"
+    bash -c '! grep -q "available = false" < <(sed -n "/_planProc: Process/,\$p" "$1")' _ "$csvc"
 want "the show path is what clears availability again" \
-    bash -c 'sed -n "/_showProc: Process/,/^    }$/p" "$1" | grep -q "available = true"' _ "$csvc"
+    bash -c 'grep -q "available = true" < <(sed -n "/_showProc: Process/,/^    }$/p" "$1")' _ "$csvc"
 # And the not-available state must be escapable.
 want "the not-available section offers a retry" \
-    bash -c 'grep -A12 "Not available on this image" "$1" | grep -q "BlueprintService.refresh()"' _ "$cpage"
+    bash -c 'grep -q "BlueprintService.refresh()" < <(grep -A12 "Not available on this image" "$1")' _ "$cpage"
 # A failed read must not become an empty draft: saving that over a real
 # blueprint would erase it.
 want "a failed read yields a null draft, not an empty one" \
@@ -304,13 +304,13 @@ for t in "$root"/tests/*; do
     for hit in "$argv_hit" "$sh_hit"; do
         [ -z "$hit" ] && continue
         # A hit is a leak unless every occurrence carries --dry-run.
-        if printf '%s\n' "$body" | grep -E "apply" | grep -qv -- "--dry-run"; then
+        if grep -qv -- "--dry-run" < <(printf '%s\n' "$body" | grep -E "apply"); then
             case " $apply_leak " in *" $(basename "$t") "*) ;; *)
                 apply_leak="$apply_leak $(basename "$t")" ;; esac
         fi
     done
 
-    printf '%s\n' "$body" | grep -qE "blueprint[\"',[:space:]]+set" \
+    grep -qE "blueprint[\"',[:space:]]+set" <<<"$body" \
         && set_leak="$set_leak $(basename "$t")"
 done
 want "no test reaches a non-dry-run apex apply" test -z "$apply_leak"

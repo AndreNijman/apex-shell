@@ -169,7 +169,7 @@ want "the Caffeine tile exists in QuickSettings" \
 # The tile is one QML line: `on: ...; icon: ...; label: "Caffeine"`. A
 # `visible:` on that line is the only way to hide it in place.
 caffeine_tile_unconditional() {
-    ! grep -E 'label: "Caffeine"' "$quick" | grep -q 'visible:'
+    ! grep -q 'visible:' < <(grep -E 'label: "Caffeine"' "$quick")
 }
 want "the Caffeine tile is not hidden behind a condition" caffeine_tile_unconditional
 if ! caffeine_tile_unconditional; then
@@ -197,9 +197,9 @@ harness_arms() { grep -vE '^[[:space:]]*#' "$h" | grep -E '^[[:space:]]*arm '; }
 harness_present() {
     [ -x "$h" ] && [ -s "$h" ] \
         && [ -s "$root/tests/measure-idle-hyprland.conf" ] \
-        && harness_arms | grep -q 'LAYER SURFACE' \
-        && harness_arms | grep -q -- '--what=idle' \
-        && harness_arms | grep -q 'control:'
+        && grep -q 'LAYER SURFACE' < <(harness_arms) \
+        && grep -q -- '--what=idle' < <(harness_arms) \
+        && grep -q 'control:' < <(harness_arms)
 }
 want "the measurement harness still RUNS the arms its results cite" \
     harness_present

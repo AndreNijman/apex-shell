@@ -131,10 +131,10 @@ else
     out="$(QT_LOGGING_RULES="qml=true" timeout 120 quickshell -p "$staged" 2>&1 || true)"
     echo "$out" | grep -E "PASS|FAIL|niri said|passed=" || true
 
-    if echo "$out" | grep -q "Failed to load configuration"; then
+    if grep -q "Failed to load configuration" <<<"$out"; then
         echo "$out" | tail -20
         bad "the behavioural harness loaded"
-    elif ! echo "$out" | grep -q "passed="; then
+    elif ! grep -q "passed=" <<<"$out"; then
         echo "$out" | tail -20
         bad "the behavioural harness reached its summary"
     else

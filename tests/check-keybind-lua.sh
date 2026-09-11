@@ -41,7 +41,7 @@ want "the Hyprland artifact is apex/shell-keybinds.lua" \
     grep -q '/apex/shell-keybinds.lua' "$svc"
 # In code, not in the comments explaining why it is gone.
 want "the hyprlang generator is not back" \
-    bash -c 'sed "s|//.*||" "$1" | grep -q "ApexShellKeybinds.conf" && exit 1; exit 0' _ "$svc"
+    bash -c 'grep -q "ApexShellKeybinds.conf" < <(sed "s|//.*||" "$1") && exit 1; exit 0' _ "$svc"
 want "the generated module carries a marker the shell can recognise" \
     grep -q '_luaMarker: *"APEX-SHELL-GENERATED"' "$svc"
 want "the generated module requires the user's own binds" \
@@ -63,7 +63,7 @@ fi
 # a rebind that did not rebind. The hyprlang generator got this right by
 # accident, emitting an unbind for every default on every write.
 want "a default the user moved off is released, not just the combo they moved to" \
-    bash -c 'sed -n "/function _genLua/,/^    }/p" "$1" | grep -q "has moved off its default combo"' _ "$svc"
+    bash -c 'grep -q "has moved off its default combo" < <(sed -n "/function _genLua/,/^    }/p" "$1")' _ "$svc"
 
 echo
 echo "── the rescue, run for real ──"

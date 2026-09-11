@@ -79,6 +79,25 @@ QtObject {
         "brightness-down":    { mods: "CTRL + SUPER", key: "DOWN",   label: "Brightness Down",      group: "Media", type: "exec", repeat: true, command: "brightnessctl set 5%-" },
         "focus-toggle":       { mods: "SUPER",        key: "B",      label: "Focus Mode",           group: "Quick Settings" },
         "screenrec-on":       { mods: "ALT",          key: "F9",     label: "Screen Record",        group: "Quick Settings" },
+        // Roadmap P1-023, ROADMAP.md §8.2. Deliberately NO `type` field, and
+        // that is not a style choice — it is the only form that reaches all
+        // three compositors. An untyped entry becomes
+        // `qs -p <shell> ipc call voice-ptt toggle` in _genLua and _genKdl
+        // automatically, and apex-os's /usr/libexec/apex-labwc-keybinds
+        // translates the ACTION ID through its VERBS allowlist
+        // (`"voice-ptt": "voice"` -> `apex shell voice`). Written the obvious
+        // way instead — `type: "exec", command: "$qsIpc voice-ptt toggle"` —
+        // it would work on Hyprland and niri and be silently skipped on
+        // labwc, because that generator's exec arm substitutes only
+        // $terminal/$browser/$fileManager and drops any command still
+        // starting with `$`. Two compositors out of the three the acceptance
+        // criterion names, reading like three. tests/check-push-to-talk.sh
+        // asserts the absence of the field for that reason.
+        //
+        // SUPER+ALT+V because SUPER+V is the clipboard. Checked as data rather
+        // than by eye: the suite evaluates the whole _defaults table and fails
+        // on any two entries sharing a combo.
+        "voice-ptt":          { mods: "SUPER + ALT",  key: "V",      label: "Push to Talk",         group: "Quick Settings" },
         "screenshot-area":    { mods: "",             key: "PRINT",  label: "Screenshot Area",      group: "Window Management", type: "exec", command: "bash " + root._shellDir + "/src/scripts/screenshot.sh area" },
         "screenshot-screen":  { mods: "SUPER",        key: "PRINT",  label: "Screenshot Screen",    group: "Window Management", type: "exec", command: "bash " + root._shellDir + "/src/scripts/screenshot.sh screen" },
         "window-fullscreen":  { mods: "SUPER",        key: "F",      label: "Toggle Fullscreen",    group: "Window Management", type: "dispatch", dispatcher: "fullscreen", arg: "0" },
