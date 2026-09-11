@@ -1254,6 +1254,27 @@ jobs:
           pacman -S --needed --noconfirm qt6-declarative qt6-base
           ./tests/run-settings-controls-test.sh
 
+      # What a screen reader and a keyboard-only user get from the shared
+      # settings controls. Before this suite the shell had ZERO `Accessible.`
+      # usages across 209 QML files, no FocusScope, no KeyNavigation and exactly
+      # one real activeFocusOnTab (CfgSlider) against 166 MouseArea — eleven
+      # Settings pages and the nav pane were reachable only with a mouse.
+      #
+      # The repair is in the shared controls rather than the pages: 294 of this
+      # tree's 671 user-facing labels live in config_tab/pages, and naming each
+      # control at its call site would be 294 edits that rot the first time
+      # somebody changes a label without changing its twin. CfgRow already holds
+      # the words, so it hands them to whatever control was placed in it.
+      #
+      # Not a grep for Accessible.name: the names and roles are read back off
+      # the LIVE attached objects under qmltestrunner, and every "it is
+      # reachable / it is operable" assertion posts a real QKeyEvent and counts
+      # the signal the pages listen to. -platform offscreen, so it opens
+      # nothing.
+      - name: Accessibility of the shared settings controls
+        run: |
+          ./tests/run-a11y-controls-test.sh
+
       - name: Remote agent status invariants
         run: |
           # Static half. Also SELF-TESTS its own checks: it mutates copies of
@@ -1692,6 +1713,8 @@ jobs:
             "tests/settings-semantics-test.js"
             "tests/settings-controls-test.qml"
             "tests/run-settings-controls-test.sh"
+            "tests/a11y-controls-test.qml"
+            "tests/run-a11y-controls-test.sh"
             "tests/settings-pages-test.qml"
             "tests/run-settings-pages-test.sh"
             "tests/settings-staged-test.qml"

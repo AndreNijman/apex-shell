@@ -7,6 +7,19 @@ Item {
     id: root
     property alias  text: input.text
     property string placeholder: ""
+
+    // CfgRow writes the row's label onto the control it was given, which is
+    // this Item — but the object a reader lands on is the TextInput inside it,
+    // and an accessible name on a wrapper the focus never reaches helps nobody.
+    // So the inner field BINDS to the outer name (see input.Accessible.name
+    // below) and this wrapper deliberately declares no role of its own, so the
+    // reader is not offered two overlapping editable texts.
+    //
+    // The forwarding is a binding rather than an `onAccessibleNameChanged`
+    // handler: attached properties have no such handler, and QML accepts the
+    // line at lint time and then fails to build the component at runtime with
+    // "Cannot assign to non-existent property". tests/run-a11y-controls-test.sh
+    // caught exactly that.
     property int    fieldWidth: 210
     signal edited(string text)
     signal accepted(string text)
@@ -28,6 +41,7 @@ Item {
     }
     TextInput {
         id: input
+        objectName:          "cfgTextFieldInput"
         anchors.fill:        parent
         anchors.leftMargin:  10
         anchors.rightMargin: 10
@@ -38,6 +52,15 @@ Item {
         clip:                true
         selectByMouse:       true
         selectionColor:      Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4)
+
+        // TextInput does not take Tab focus by default, so this field was
+        // mouse-only: a keyboard user could not reach it to type in it at all.
+        // The placeholder is a sibling Text that disappears on the first
+        // keystroke, so it is not a label — the name comes from the CfgRow.
+        activeFocusOnTab:    true
+        Accessible.role:     Accessible.EditableText
+        Accessible.name:     root.Accessible.name
+        Accessible.description: root.placeholder
         onTextEdited: root.edited(text)
         onAccepted:   root.accepted(text)
 
