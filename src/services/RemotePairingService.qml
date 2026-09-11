@@ -26,12 +26,19 @@ import "remotepairing.js" as RP
 //  ── Pairing is not a read, so it is not on the sweep ────────────────────────
 //
 //  The sweep refreshes the device list and the status, both of which are
-//  questions. It never runs `pair`. A code is minted exactly three times: when
-//  the pairing page first comes on screen with no live offer, when the one on
-//  screen expires, and when the person asks for a new one. Putting `pair` on a
-//  30-second timer would burn a fresh one-time token every 30 seconds for as
-//  long as the page was open, and each new one invalidates the code the person
-//  is currently holding their phone up to.
+//  questions. It never runs `pair`. A code is minted on exactly two triggers:
+//  the pairing page coming on screen with no live offer, and the person asking
+//  for a new one. Putting `pair` on a 30-second timer would burn a fresh
+//  one-time token every 30 seconds for as long as the page was open, and each
+//  new one invalidates the code the person is currently holding their phone up
+//  to.
+//
+//  An offer EXPIRING is deliberately not a third trigger. When the three
+//  minutes run out the page says so and offers the button; it does not mint a
+//  replacement on its own. Auto-reminting would arm this machine every three
+//  minutes for as long as somebody left the page open and walked away, which
+//  is a pairing window nobody is watching. The person is right there when they
+//  want a code, so the button is the correct cost.
 //
 //  tests/run-remote-pairing-page-test.sh asserts this against the stub's own
 //  call log: zero `pair` calls before the page is shown, exactly one after.

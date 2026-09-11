@@ -23,11 +23,14 @@ import "../../../components/config"
 // interval, and each new one invalidates the code the person is at that moment
 // holding their phone up to.
 //
-// So `ensureCode()` on becoming visible, and nothing else. Coming back to the
-// page while a code is still good shows the same code rather than replacing
-// it. The service's header records the same rule from the other side, and
-// tests/run-remote-pairing-page-test.sh asserts it against the stub's call
-// log: zero `pair` calls before the page is shown, exactly one after.
+// So `ensureCode()` on becoming visible, and the button, and nothing else.
+// Coming back to the page while a code is still good shows the same code
+// rather than replacing it. An offer expiring is deliberately NOT a third
+// trigger — see the service's header on why arming this machine every three
+// minutes for a page somebody walked away from is the wrong trade.
+// tests/run-remote-pairing-page-test.sh asserts the whole rule against the
+// stub's call log: zero `pair` calls before the page is shown, exactly one
+// after, still one after leaving and returning, two after asking.
 //
 // ── No code is a first-class state, not an empty frame ──────────────────────
 //
