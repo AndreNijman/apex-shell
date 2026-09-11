@@ -189,6 +189,19 @@ jobs:
           # locally in a Wayland session to actually exercise the 32 assertions.
           ./tests/run-service-tier-test.sh
 
+      - name: A Terminal=true desktop entry lands in a terminal
+        run: |
+          # nvim ships in every image with Terminal=true, and DesktopEntry
+          # .execute() does not honour that field — it starts the program on
+          # pipes, so clicking Neovim did nothing and the user was told the
+          # editor was "provided by APEX-OS". This suite measures that upstream
+          # behaviour (the routing depends on it staying true), then measures
+          # that the shell's own path hands such an entry to xdg-terminal-exec
+          # and leaves Terminal=false entries alone. Needs a compositor and
+          # skips cleanly without one, like the suite above. No window opens:
+          # the terminal is a stub that gives the program a pty.
+          ./tests/run-terminal-entry-test.sh
+
       - name: Assert telemetry services stay lazy and refcounted
         run: |
           # These invariants are the whole reason the shell no longer forks at
