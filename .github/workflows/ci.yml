@@ -962,6 +962,20 @@ jobs:
       - name: Agent Center invariants
         run: ./tests/check-agent-center-invariants.sh
 
+      - name: Agent lifecycle types
+        run: |
+          # P1-029 / ROADMAP.md §19. Which KIND of agent a row is, as opposed
+          # to what state it is in, against the file the shell loads.
+          #
+          # The classifier reads apex-agentd's own `request_origin`, so
+          # section 1 of the suite reads the real `RequestOrigin::as_str` arms
+          # out of an apex-os checkout when one is present and falls back to a
+          # transcribed vocabulary when it is not, saying which it used. CI has
+          # no apex-os checkout, so it runs on the transcription — which is why
+          # the fallback list is asserted against the daemon on a developer
+          # machine rather than trusted here.
+          node tests/agent-lifecycle-test.js
+
       - name: Remote agent status logic
         run: |
           # §20's parsing and status decisions, against the file the shell
