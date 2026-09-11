@@ -1,4 +1,6 @@
 singleton Theme Theme.qml
 singleton Colors Colors.qml
 singleton Metrics Metrics.qml
+singleton OutputScale OutputScale.qml
 ColorLoader ColorLoader.qml
+ThemeSet ThemeSet.qml

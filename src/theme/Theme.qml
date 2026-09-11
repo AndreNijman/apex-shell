@@ -54,6 +54,26 @@ QtObject {
     function fs(v) { return Metrics.fs(v) }
     function px(v) { return Metrics.px(v) }
 
+    // ── Per-output sizing (P1-040) ────────────────────────────────────────────
+    // The scalers above are the REFERENCE output's, which is all the shell has
+    // for the 2758 call sites across 116 files that read this singleton. A
+    // surface that is built per output and sizes only itself does not have to
+    // accept that: it builds its own ThemeSet at the factor its own screen
+    // deserves.
+    //
+    //     readonly property ThemeSet theme: ThemeSet {
+    //         scale: Theme.factorForScreen(root.screen)
+    //     }
+    //
+    // and reads `theme.px(...)` for sizes while still reading `Theme.<colour>`
+    // for colours, because a palette belongs to the shell rather than to a
+    // monitor. The policy — the breakpoint table, and the manual override that
+    // outranks it — lives in theme/OutputScale.qml and is the same policy that
+    // produced `scale` above, so a per-output surface and the global set can
+    // never be answering two different questions.
+    function factorForScreen(screen) { return OutputScale.factorForScreen(screen) }
+    function factorForHeight(h)      { return OutputScale.factorForHeight(h) }
+
     // Metrics
     property bool barEnabled: Metrics.barEnabled
     
