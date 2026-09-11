@@ -1044,6 +1044,24 @@ jobs:
           # CI coverage at all.
           node tests/remote-agents-test.js
 
+      - name: The QR encoder, against an independent implementation
+        run: |
+          # P1-051's pairing code. `apex remote pair` refuses to draw a QR in
+          # the terminal and says why in its own source: "a wrong QR is worse
+          # than none — a phone scans it, fails, and the person concludes
+          # their camera is broken." So "it renders" is not a test here, and
+          # this step is what makes the claim checkable: every module of 36
+          # symbols from segno 1.6.6, versions 1 through 40, all four error
+          # correction levels, all eight masks.
+          #
+          # The fixtures are evidence, not a dependency — nothing at run time
+          # or test time needs segno or a venv, and the whole suite is one
+          # `node` invocation with no build step. It already earned its place
+          # twice: it caught an alignment-pattern table that was wrong for
+          # every version from 7 up, and it is why the encoder does not
+          # reproduce segno's own deviation from ISO/IEC 18004 §7.4.10.
+          node tests/qr-test.js
+
       - name: Push-to-talk decision layer
         run: |
           # §8.2's push-to-talk, at the layer where its edge cases are: when
@@ -1696,6 +1714,10 @@ jobs:
             "tests/run-settings-pages-test.sh"
             "tests/settings-staged-test.qml"
             "tests/run-settings-staged-test.sh"
+            "src/services/qr.js"
+            "tests/qr-test.js"
+            "tests/fixtures/qr-vectors.json"
+            "tests/fixtures/gen-qr-vectors.py"
             "src/services/notifybus.js"
             "tests/notifybus-test.js"
             "src/services/agentgraph.js"
