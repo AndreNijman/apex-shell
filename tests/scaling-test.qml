@@ -3,6 +3,7 @@ import QtQuick
 import "./src/theme"
 import "./src/services"
 import "./src"
+import "./src/windows"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Scaling, against a real session. Run via tests/run-scaling-test.sh, which
@@ -29,6 +30,63 @@ ShellRoot {
 
     property int passed: 0
     property int failed: 0
+
+    // ── The surfaces that size themselves from their own output ──────────────
+    //
+    // These are the PRODUCTION components, built here exactly as shell.qml
+    // builds them: one per entry in Quickshell.screens, each handed its own
+    // ShellScreen. Nothing about them is reimplemented for the test, because a
+    // test that builds its own copy of the thing it is checking is the defect
+    // this whole item was opened for — tests/scaling-test.qml used to carry its
+    // own `bucket()` and assert that.
+    //
+    // They are never visible: DisplayConfirm shows only while
+    // DisplayService.pending and ConfirmDialog only while Popups.confirmOpen,
+    // and both stay false. The sizes below are laid out anyway, which is the
+    // point — `screen` is exact at construction, so the card does not wait for
+    // a surface to be mapped to know how wide it is.
+    property var perOutput: []
+
+    Variants {
+        model: Quickshell.screens
+        delegate: Component {
+            Scope {
+                required property var modelData
+
+                DisplayConfirm {
+                    screen: modelData
+                    screenName: modelData.name
+                    Component.onCompleted: root.perOutput.push({
+                        kind: "DisplayConfirm", win: this, screen: modelData,
+                        card: "apex-display-confirm-card"
+                    })
+                }
+
+                ConfirmDialog {
+                    screen: modelData
+                    Component.onCompleted: root.perOutput.push({
+                        kind: "ConfirmDialog", win: this, screen: modelData,
+                        card: "apex-confirm-dialog-card"
+                    })
+                }
+            }
+        }
+    }
+
+    /// Every descendant with this objectName, as a list. A list rather than the
+    /// first hit on purpose: the assertions below check HOW MANY were found, so
+    /// a renamed or deleted objectName fails the run instead of quietly
+    /// reducing it to nothing.
+    function findByName(item, name, acc) {
+        if (!item)
+            return acc;
+        if (item.objectName === name)
+            acc.push(item);
+        const kids = item.children || [];
+        for (let i = 0; i < kids.length; i++)
+            root.findByName(kids[i], name, acc);
+        return acc;
+    }
 
     function check(name, cond) {
         if (cond) {
@@ -137,6 +195,115 @@ ShellRoot {
                 }
             }
 
+            // ── THE REMAINDER OF P1-040, ASSERTED ────────────────────────
+            //
+            //   "two outputs at compositor scale 1 with different densities
+            //    each get their own size."
+            //
+            // Everything above this line is about the ONE factor: which output
+            // the shell picked and what it resolved. This section is about two
+            // outputs getting two different answers at the same time, on the
+            // production surfaces that have been migrated to ask for their own.
+            //
+            // Only these two surfaces have been. The shell's other 114 files
+            // still read the global Theme, and the Display page still says so.
+            // See ROADMAP/state/agents/p1-040.md for what the rest costs.
+
+            // The harness asked the backend for a number of outputs. If it did
+            // not get them, every assertion below would pass on one screen by
+            // never comparing anything — the exact shape of a suite that
+            // vanishes instead of failing. So the count is itself an assertion.
+            const wantOutputs = parseInt(Quickshell.env("SCALING_EXPECT_OUTPUTS") || "0", 10);
+            if (wantOutputs > 0)
+                root.eq("the backend supplied the outputs the runner asked for",
+                        screens.length, wantOutputs);
+
+            // Two surfaces per output, and the same again: if the Variants
+            // delegate silently built none, the loops below would assert
+            // nothing at all.
+            root.eq("one per-output surface set was built for every screen",
+                    root.perOutput.length, screens.length * 2);
+
+            let sizes = {};   // kind -> [ {name, scale, cardW, cardR} ]
+            for (let i = 0; i < root.perOutput.length; i++) {
+                const e = root.perOutput[i];
+                const cards = root.findByName(e.win.contentItem, e.card, []);
+
+                // The lookup is by objectName, which is a lookup BY CONTENT: if
+                // the name is removed the search returns nothing and every
+                // assertion that depends on it evaporates. Asserting the count
+                // first is what turns that into a failure.
+                root.eq(e.kind + " on " + e.screen.name + ": exactly one card was found",
+                        cards.length, 1);
+                if (cards.length !== 1)
+                    continue;
+
+                const want = Metrics.scaleForScreen(e.screen);
+                root.eq(e.kind + " on " + e.screen.name + " resolved its OWN output's factor",
+                        e.win.theme.scale, want);
+
+                if (!sizes[e.kind]) sizes[e.kind] = [];
+                sizes[e.kind].push({
+                    name: e.screen.name, scale: e.win.theme.scale,
+                    cardW: cards[0].width, cardR: cards[0].radius,
+                    wantPx400: e.win.theme.px(400), wantRadius: e.win.theme.notchRadius
+                });
+                console.log("[per-output] " + e.kind + " " + e.screen.name
+                            + " scale=" + e.win.theme.scale
+                            + " card=" + cards[0].width + "x" + Math.round(cards[0].height)
+                            + " radius=" + cards[0].radius);
+            }
+
+            // The card is measured, not recomputed. `width: theme.px(400)` is
+            // what the file says; this reads the laid-out width off the real
+            // Rectangle and checks it against that output's scaler.
+            const dc = sizes["DisplayConfirm"] || [];
+            for (let i = 0; i < dc.length; i++)
+                root.eq("DisplayConfirm card on " + dc[i].name + " is laid out at its own output's px(400)",
+                        dc[i].cardW, dc[i].wantPx400);
+
+            const cd = sizes["ConfirmDialog"] || [];
+            for (let i = 0; i < cd.length; i++)
+                root.eq("ConfirmDialog card on " + cd[i].name + " is rounded at its own output's notchRadius",
+                        cd[i].cardR, cd[i].wantRadius);
+
+            // ── The assertion this unit exists for ───────────────────────────
+            // Guarded on the outputs genuinely disagreeing, and the guard is
+            // itself asserted above: with SCALING_SCALES="2 1" both outputs
+            // arrive as 1920x1080 logical and SHOULD agree, which is the other
+            // half of the Display page's story.
+            if (screens.length > 1) {
+                let distinctWanted = {};
+                for (let i = 0; i < screens.length; i++)
+                    distinctWanted[String(Metrics.scaleForScreen(screens[i]))] = true;
+
+                if (Object.keys(distinctWanted).length > 1) {
+                    root.check("two outputs of different densities resolved two different factors",
+                               dc.length === 2 && dc[0].scale !== dc[1].scale);
+                    root.check("...and each DisplayConfirm card is therefore a different WIDTH ("
+                               + dc.map(function (d) { return d.name + "=" + d.cardW }).join(", ") + ")",
+                               dc.length === 2 && dc[0].cardW !== dc[1].cardW);
+                    root.check("...and each ConfirmDialog card a different RADIUS ("
+                               + cd.map(function (d) { return d.name + "=" + d.cardR }).join(", ") + ")",
+                               cd.length === 2 && cd[0].cardR !== cd[1].cardR);
+
+                    // The global factor is one of the two. The surface that is
+                    // NOT on the reference output is the one that used to be
+                    // laid out wrong, so name it: this is the assertion failing
+                    // if per-output resolution regresses to the singleton.
+                    let offReference = 0;
+                    for (let i = 0; i < dc.length; i++)
+                        if (dc[i].scale !== Metrics.scale) offReference++;
+                    root.check("at least one output is now sized at a factor that is NOT the shell's global one",
+                               offReference >= 1);
+                } else {
+                    // Both outputs want the same factor — the state the Display
+                    // page's recommended compositor scales exist to produce.
+                    root.check("outputs that agree are sized the same, and that is not a per-output failure",
+                               dc.length === 2 && dc[0].cardW === dc[1].cardW);
+                }
+            }
+
             // ── Manual override ──────────────────────────────────────────
             // SettingsService persists, so the runner gives this suite a
             // private HOME. The originals are restored anyway: a test that
@@ -148,6 +315,20 @@ ShellRoot {
             SettingsService.set("scaleMode", "manual");
             root.eq("manual mode takes the manual factor", Metrics.scale, 1.5);
             root.eq("manual mode scales geometry", Metrics.notchPadding, 24);
+
+            // A manual factor is an explicit instruction and it applies to the
+            // whole desk, per-output surfaces included. This is the half of the
+            // policy the auto-mode assertions above cannot see: HEADLESS-2's
+            // own factor is 1.0, so if OutputScale ever stopped honouring the
+            // override, the suite would stay green in auto and the user's 150%
+            // would silently not reach these two windows.
+            for (let m = 0; m < root.perOutput.length; m++) {
+                const e = root.perOutput[m];
+                root.eq(e.kind + " on " + e.screen.name + " follows the manual override, not its own density",
+                        e.win.theme.scale, 1.5);
+            }
+            root.check("the manual override reached every per-output surface there is",
+                       root.perOutput.length === screens.length * 2);
 
             SettingsService.set("scaleManual", 99);
             root.check("manual factor is clamped to a usable range", SettingsService.scaleManual <= 3.0);

@@ -51,6 +51,12 @@ headless_begin
 # count is a variable.
 export WLR_HEADLESS_OUTPUTS="${SCALING_OUTPUTS:-2}"
 
+# And the suite asserts it got them. A backend that hands back one output when
+# two were asked for turns every per-output comparison into a loop over one
+# item, which passes by never comparing anything. The count the runner asked
+# for has to reach the assertions, so it is passed in rather than inferred.
+export SCALING_EXPECT_OUTPUTS="$WLR_HEADLESS_OUTPUTS"
+
 # The real wlr-randr, named as an exception rather than left as a hole: the
 # harness stubs it so a settings page cannot reconfigure the machine somebody
 # is using, and this runner is the one that has to set modes with it.

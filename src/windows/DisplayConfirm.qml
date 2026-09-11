@@ -44,6 +44,26 @@ PanelWindow {
 
     required property string screenName
 
+    // ── This output's sizes (P1-040) ─────────────────────────────────────────
+    // Not Theme's. Theme carries ONE factor for the whole shell — the reference
+    // output's — so on a desk whose monitors have different densities it is
+    // wrong for at least one of them. This modal is built per output (shell.qml
+    // creates one from Quickshell.screens), it is anchored to nothing but its
+    // own screen, and nothing outside it reads its size, so it can answer for
+    // itself instead.
+    //
+    // `root.screen` is exact from construction — measured on quickshell 0.3.1
+    // with two headless outputs of different densities, each PanelWindow's
+    // screen.height is that output's height at t=0, before the surface is
+    // mapped. No transient, so no first-frame resize.
+    //
+    // Colours stay on Theme deliberately: a palette belongs to the shell, not
+    // to an output. Sizes come from `theme`, colours from `Theme`, and the
+    // split is visible at every call site below.
+    readonly property ThemeSet theme: ThemeSet {
+        scale: Theme.factorForScreen(root.screen)
+    }
+
     // Whether this copy is the one that answers the keyboard. Every copy is
     // visible; only one may hold focus, or the two would fight over it and
     // Enter would reach neither.
@@ -76,10 +96,17 @@ PanelWindow {
     Rectangle {
         id: card
 
+        // Named so the scaling suite can assert the size this output actually
+        // laid out at, rather than re-deriving it from the same factor the card
+        // used — a test that recomputes its subject asserts nothing. The suite
+        // also asserts that exactly one card is found per output, so removing
+        // this name fails the run instead of quietly emptying it.
+        objectName: "apex-display-confirm-card"
+
         anchors.centerIn: parent
-        width:  Theme.px(400)
-        height: col.implicitHeight + Theme.px(48)
-        radius: Theme.notchRadius
+        width:  theme.px(400)
+        height: col.implicitHeight + theme.px(48)
+        radius: theme.notchRadius
         color:  Theme.background
         border.color: Qt.rgba(1, 1, 1, 0.08)
         border.width: 1
@@ -92,24 +119,24 @@ PanelWindow {
                 top:         parent.top
                 left:        parent.left
                 right:       parent.right
-                topMargin:   Theme.px(24)
-                leftMargin:  Theme.px(24)
-                rightMargin: Theme.px(24)
+                topMargin:   theme.px(24)
+                leftMargin:  theme.px(24)
+                rightMargin: theme.px(24)
             }
-            spacing: Theme.px(14)
+            spacing: theme.px(14)
 
             Text {
                 text: "󰍹"
                 anchors.horizontalCenter: parent.horizontalCenter
                 color: Theme.text
-                font.pixelSize: Theme.fs(28)
+                font.pixelSize: theme.fs(28)
             }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Keep this display layout?"
                 color: Theme.text
-                font.pixelSize: Theme.fs(15)
+                font.pixelSize: theme.fs(15)
                 font.bold: true
             }
 
@@ -122,7 +149,7 @@ PanelWindow {
                       + DisplayService.confirmSeconds
                       + (DisplayService.confirmSeconds === 1 ? " second." : " seconds.")
                 color: Theme.subtext
-                font.pixelSize: Theme.fs(12)
+                font.pixelSize: theme.fs(12)
                 wrapMode: Text.WordWrap
                 horizontalAlignment: Text.AlignHCenter
                 lineHeight: 1.35
@@ -134,7 +161,7 @@ PanelWindow {
             Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width:  parent.width
-                height: Theme.px(4)
+                height: theme.px(4)
                 radius: height / 2
                 color:  Qt.rgba(1, 1, 1, 0.08)
 
@@ -152,12 +179,12 @@ PanelWindow {
 
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Theme.px(10)
+                spacing: theme.px(10)
 
                 Rectangle {
-                    width:  Theme.px(160)
-                    height: Theme.px(38)
-                    radius: Theme.cornerRadius
+                    width:  theme.px(160)
+                    height: theme.px(38)
+                    radius: theme.cornerRadius
                     color:  revertHov.hovered ? Theme.dangerFillHover : Theme.dangerFill
 
                     Behavior on color { ColorAnimation { duration: 120 } }
@@ -166,7 +193,7 @@ PanelWindow {
                         anchors.centerIn: parent
                         text: "Put it back now"
                         color: Theme.fixedLight
-                        font.pixelSize: Theme.fs(13)
+                        font.pixelSize: theme.fs(13)
                     }
 
                     HoverHandler { id: revertHov; cursorShape: Qt.PointingHandCursor }
@@ -177,9 +204,9 @@ PanelWindow {
                 }
 
                 Rectangle {
-                    width:  Theme.px(160)
-                    height: Theme.px(38)
-                    radius: Theme.cornerRadius
+                    width:  theme.px(160)
+                    height: theme.px(38)
+                    radius: theme.cornerRadius
                     color:  keepHov.hovered ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.09)
 
                     Behavior on color { ColorAnimation { duration: 120 } }
@@ -188,7 +215,7 @@ PanelWindow {
                         anchors.centerIn: parent
                         text: "Keep it"
                         color: Theme.text
-                        font.pixelSize: Theme.fs(13)
+                        font.pixelSize: theme.fs(13)
                         font.bold: true
                     }
 
@@ -204,7 +231,7 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Enter keeps it. Escape puts it back."
                 color: Qt.rgba(1, 1, 1, 0.3)
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
             }
         }
     }

@@ -1148,6 +1148,28 @@ jobs:
       - name: Scale-token discipline (geometry px, text fs)
         run: ./tests/check-scale-tokens.sh
 
+      # The breakpoint arithmetic itself. tests/scaling-test.js exists BECAUSE
+      # the QML scaling suite needs a compositor and skips without one, which is
+      # every runner here — and it was never actually added to this file, so the
+      # table it guards has been unguarded in CI since it was written. It needs
+      # node and nothing else.
+      #
+      # What it cannot see is a running session: which output the shell picks,
+      # and whether two outputs of different densities each get their own size.
+      # That is tests/run-scaling-test.sh, which brings its own headless wlroots
+      # compositor and two outputs. It skips cleanly here when quickshell or a
+      # compositor is absent, so it is run for the machines that have them
+      # rather than left out for the ones that do not, and it is run TWICE: once
+      # on a desk whose outputs disagree, and once with the compositor scales
+      # that bring them into agreement, because those are different verdicts.
+      - name: Shell scaling arithmetic (P1-040)
+        run: node tests/scaling-test.js
+
+      - name: Shell scaling, live on two outputs (P1-040)
+        run: |
+          ./tests/run-scaling-test.sh
+          SCALING_SCALES="2 1" ./tests/run-scaling-test.sh
+
       # The colour half of the same problem. Outside src/theme/ the tree held 66
       # lines of hardcoded hex, including SEVEN different reds all meaning "this
       # is wrong" — and two surfaces showing the same notification disagreed
