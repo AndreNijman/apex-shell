@@ -949,79 +949,18 @@ jobs:
           [ "$fail" -eq 0 ] || exit 1
           echo "✓ input and display pages registered; display applies only on request"
 
+      # The Agent Center navigates, does not decide, and stays lazy — five
+      # invariants that used to be seventy lines of shell inline here.
+      #
+      # Two of them were a bare grep for a word, which was sound until §43 gave
+      # the tab a help document. AgentHelpContent.qml explains the privilege
+      # model, so it prints `sudo apex request approve` and names
+      # $XDG_RUNTIME_DIR/apex-agentd/control.sock — and this step went red for
+      # seven mentions, none of them a call site. The check now separates
+      # naming a command from being able to run one, and it lives in a script
+      # so its own ability to fail can be proved.
       - name: Agent Center invariants
-        run: |
-          fail=0
-
-          # 1. The shell must NEVER approve a privilege request itself.
-          #
-          # Approving performs the operation with the user's own root, so it
-          # belongs in a terminal where the prompt and the sudo authentication
-          # are both visible. An [Allow] button in a status list would be one
-          # unconfirmed click from an OS change, judged from a two-line
-          # summary. The Agent Center therefore navigates to a terminal and
-          # decides nothing — this is the check that keeps it that way.
-          if grep -rnE "request (approve|allow|deny)|\bsudo\b" \
-               --include="*.qml" src/services/agents/ src/services/AgentService.qml \
-               | grep -vE "^[^:]+:[0-9]+:[[:space:]]*//"; then
-            echo "✗ the Agent Center decides privilege requests; it must only navigate"
-            fail=1
-          fi
-
-          # 2. It must go through the `apex` CLI, not the control socket.
-          #
-          # The CLI already handles an absent daemon and a protocol-version
-          # mismatch. A second implementation of the socket protocol in QML is
-          # a second thing to keep in step with every protocol change, and it
-          # would drift silently.
-          # The dot is escaped and comments are stripped: an unescaped
-          # `control.sock` also matches the prose "control socket" in
-          # AgentService's own header, which is a check that fails on its own
-          # documentation.
-          if grep -rnE "control\\.sock|apex-agentd/control" \
-               --include="*.qml" src/services/ \
-               | grep -vE "^[^:]+:[0-9]+:[[:space:]]*//"; then
-            echo "✗ QML talks to the agentd socket directly; use the apex CLI"
-            fail=1
-          fi
-
-          # 3. The Agent Center's parts must stay registered.
-          #
-          # AgentCenter is loaded THROUGH src/services/qmldir, so its own
-          # directory is not on the import path and implicit sibling resolution
-          # does not apply. Dropping an entry gives "RequestRow is not a type"
-          # at load, which takes the whole shell down — not just the page.
-          # RemoteHostRow and RemoteSessionRow are in this loop rather than
-          # only in check-remote-agents.sh because the failure is identical:
-          # the Agent Center is loaded THROUGH this qmldir, so a dropped entry
-          # is "is not a type" at load and takes the whole shell down.
-          for t in AgentCenter RequestRow SessionRow SectionHeading SmallIconButton \
-                   RemoteHostRow RemoteSessionRow; do
-            grep -qE "^${t} agents/${t}\.qml$" src/services/qmldir \
-              || { echo "✗ $t is not registered in src/services/qmldir"; fail=1; }
-          done
-          for svc in AgentService RemoteAgentService; do
-            grep -q "^singleton ${svc} " src/services/qmldir \
-              || { echo "✗ $svc is not registered as a singleton"; fail=1; }
-          done
-
-          # 4. The page must be lazy and refcounted like every other one.
-          grep -q "ServiceRef" src/services/agents/AgentCenter.qml \
-            || { echo "✗ the Agent Center does not hold a ServiceRef"; fail=1; }
-          grep -q "refCount" src/services/AgentService.qml \
-            || { echo "✗ AgentService has no refCount"; fail=1; }
-          grep -q 'shown: root.page === "agents"' src/popups/Dashboard.qml \
-            || { echo "✗ the Agents tab is not lazily built"; fail=1; }
-
-          # 5. AgentService's timer is deliberately always running — it slows to
-          # 15s with no refs rather than stopping, because a notification has to
-          # arrive when nothing is on screen. Assert the SLOW tier exists, so
-          # "always running" cannot quietly become "always running fast".
-          grep -qE "refCount > 0 \? [0-9]+ : [0-9]+" src/services/AgentService.qml \
-            || { echo "✗ AgentService has no two-tier poll interval"; fail=1; }
-
-          [ "$fail" -eq 0 ] || exit 1
-          echo "✓ the Agent Center navigates, does not decide, and stays lazy"
+        run: ./tests/check-agent-center-invariants.sh
 
       - name: Remote agent status logic
         run: |
@@ -1031,6 +970,91 @@ jobs:
           # apex-os checkout, so without this the whole feature would have no
           # CI coverage at all.
           node tests/remote-agents-test.js
+
+      - name: Push-to-talk decision layer
+        run: |
+          # §8.2's push-to-talk, at the layer where its edge cases are: when
+          # the microphone opens, whose session the words go to, and what
+          # closes it again. Drives src/services/pushtotalk.js — the file the
+          # shell loads — rather than a copy of it.
+          #
+          # The assertion that pays for this step is that no reachable path
+          # leaves the phase at "recording" with no target. Push-to-talk is a
+          # toggle rather than hold-to-talk because niri 26.04 has no bind
+          # that fires on key release, and a toggle's characteristic failure
+          # is a microphone left open. So the ninety-second cap and the
+          # refusal to record without a named destination are the feature,
+          # not hardening around it.
+          #
+          # Self-tested the way check-agent-help.sh is: fourteen mutants that
+          # must each turn the battery red, and a hard failure for a mutant
+          # that did not change the source, because a mutant that failed to
+          # apply proves nothing while looking like proof.
+          #
+          # The fourteenth guards the one event a TIMER sends: an error is the
+          # only phase that does not end on its own, so the service dismisses
+          # it after six seconds, and the reducer accepts a dismiss from that
+          # phase and no other. Without the guard the timer's condition
+          # becomes load-bearing, and a wrong one drops a live microphone
+          # mid-sentence or throws away words already spoken.
+          node tests/push-to-talk-test.js
+
+      - name: Push-to-talk wiring
+        run: |
+          # The other half of P1-023, and the half the node suite structurally
+          # cannot see: whether the reducer above is REACHABLE. A perfect state
+          # machine nothing calls is a file, not a feature, and every link in
+          # the chain fails silently.
+          #
+          # The link that pays for this step is the shape of the keybind. An
+          # entry in KeybindService `_defaults` with NO `type` field becomes
+          # `qs ipc call voice-ptt toggle` in the Hyprland and niri generators
+          # automatically, and apex-os's apex-labwc-keybinds translates the
+          # ACTION ID through its VERBS allowlist. Written the obvious way
+          # instead — type: "exec", command: "$qsIpc voice-ptt toggle" — it
+          # reaches Hyprland and niri and is silently DROPPED on labwc, because
+          # that generator's exec arm substitutes only $terminal/$browser/
+          # $fileManager. Two compositors out of the three the acceptance
+          # criterion names, reading like three. So the ABSENCE of a field is
+          # the invariant, which is why `_defaults` is evaluated as JavaScript
+          # here rather than grepped: a negative grep on a line is fooled by
+          # reformatting, and evaluating the table also compares every combo
+          # against every other one.
+          #
+          # It also pins the two things about a microphone that must not drift:
+          # the recorder's `running:` is bound to the reducer's micOpen and
+          # never to a constant, and nothing under src/services/agents/ may
+          # NAME an audio device — a mention fails, not just a use, because
+          # AgentHelpContent already promises a sandboxed session has "No
+          # camera and no microphone".
+          #
+          # It also pins the INDICATOR, which is its own acceptance criterion:
+          # the notch carousel gains an item whenever the reducer is not idle,
+          # the delegate renders the reducer's label rather than rebuilding a
+          # phase string of its own — the label is where the target session is
+          # named, so re-deriving it is how "explicit target" quietly stops
+          # being true — and an open microphone force-scrolls the carousel to
+          # itself instead of sitting behind whatever the user last scrolled
+          # to. A toggle's characteristic failure is a hot mic nobody noticed.
+          #
+          # Fourteen mutants, each applied to a verified-changed copy
+          # (checksummed before and after, so a sed that matched nothing is
+          # reported instead of counted as a catch), all fourteen caught, with
+          # the control re-confirmed green after every restore. One is not
+          # obvious:
+          # moving voice-ptt onto SUPER+V is caught by the hardcoded combo
+          # assertion whether or not the duplicate scan works, so it cannot
+          # prove that scan — the eighth moves clipboard-toggle ONTO
+          # SUPER+ALT+V instead, leaving voice-ptt correct, and then the dupe
+          # scan is the only assertion that can fire.
+          #
+          # What this step cannot see, because it is static: whether any of it
+          # LOADS. That was checked separately against labwc headless with the
+          # real shell.qml — `ipc show` lists target voice-ptt with toggle()
+          # and state(), the singleton resolves, and a toggle with no STT hook
+          # answers "no speech-to-text command is configured" without opening
+          # a microphone. Not a CI step because it needs a compositor.
+          bash tests/check-push-to-talk.sh
 
       # Theme exposes two scalers and they are not interchangeable:
       # px(v) = round(v*scale), fs(v) = max(7, round(v*scale)). The floor in

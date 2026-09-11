@@ -195,13 +195,13 @@ out="$(APEX_PLUGIN_FIXTURES="$p" APEX_PLUGIN_REPO="$root/plugins" \
         timeout 90 quickshell -p "$staged" 2>&1 || true)"
 echo "$out" | grep -E "PASS|FAIL|^\[|passed=" || true
 
-if echo "$out" | grep -q "Failed to load configuration"; then
+if grep -q "Failed to load configuration" <<<"$out"; then
     echo "$out" | tail -30
     echo "RESULT: the test config failed to load"
     exit 1
 fi
 
-if ! echo "$out" | grep -q "passed="; then
+if ! grep -q "passed=" <<<"$out"; then
     echo "$out" | tail -30
     echo "RESULT: the test never reached its summary"
     exit 1

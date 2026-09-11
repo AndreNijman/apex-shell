@@ -427,7 +427,7 @@ if [ -f "$slop" ]; then
                  "$repo/src/services/agents/UnrestrictedBanner.qml" > "$tmpcopy"
     out="$(cd "$repo" && python3 "$slop" --allow-file .slopcheck-allow "$tmpcopy" 2>&1)"
     rm -f "$tmpcopy"
-    if printf '%s' "$out" | grep -q "TOTAL: 0"; then
+    if grep -q "TOTAL: 0" <<<"$out"; then
         echo "  PASS  the page's copy reads clean against the stop-slop rules"
     else
         printf '%s\n' "$out" | head -20

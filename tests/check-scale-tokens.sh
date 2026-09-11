@@ -79,7 +79,7 @@ fi
 # someone removes the floor from fs(), the check should stop claiming to
 # protect anything.
 if grep -qE 'function fs\(' "$SRC/theme/Metrics.qml" 2>/dev/null \
-   && grep -A3 -E 'function fs\(' "$SRC/theme/Metrics.qml" | grep -qE 'Math\.max\([0-9]+'; then
+   && grep -qE 'Math\.max\([0-9]+' < <(grep -A3 -E 'function fs\(' "$SRC/theme/Metrics.qml"); then
     ok "fs() still has a floor, so the distinction this check enforces is real"
 else
     bad "fs() no longer has a floor — either it changed, or Metrics.qml moved"
