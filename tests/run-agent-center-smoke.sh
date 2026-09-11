@@ -177,12 +177,12 @@ requests="$(apex request pending --json 2>/dev/null | grep -c '"id"')"
 
 missing=""
 for st in working waiting_for_user permission_request complete failed; do
-    printf '%s' "$listing" | grep -q "\"$st\"" || missing="$missing $st"
+    grep -q "\"$st\"" <<<"$listing" || missing="$missing $st"
 done
 echo "fixture: ${sessions} session(s), ${requests} pending request(s)"
 printf 'fixture states:'
 for st in working waiting_for_user permission_request complete failed; do
-    printf '%s' "$listing" | grep -q "\"$st\"" && printf ' %s' "$st"
+    grep -q "\"$st\"" <<<"$listing" && printf ' %s' "$st"
 done
 printf '\n'
 [[ "$sessions" -ge 5 ]] || { echo "FAIL: the fixture sessions were not created"; exit 1; }
@@ -212,19 +212,69 @@ sleep 3.5
 quickshell -p "$root/shell.qml" ipc call dashboard-agents toggle >/dev/null 2>&1
 sleep 0.5
 
-echo "--- diagnostics ---"
-# Absent hardware and absent session services, not shell faults. A build box has
-# no pipewire and no notification daemon, and the test exists to find QML
-# errors — counting the machine's own missing pieces as failures would make it
-# unrunnable exactly where it is most useful.
+# ── what counts as an error ──────────────────────────────────────────────────
+#
+# Absent hardware and absent session services are not shell faults. A build box
+# has no pipewire and no notification daemon, and this test exists to find QML
+# errors — counting the machine's own missing pieces would make it unrunnable
+# exactly where it is most useful.
+#
+# Matched on the logging CATEGORY, not on a word. Bare `pipewire` also hides
+#   ERROR quickshell.qml: .../AudioService.qml:33: TypeError … the pipewire sink
+# — one of the shell's own QML errors, filtered out because its message happens
+# to contain the word. That is the only class of failure this script is here to
+# find, so the filter names the category the absent socket logs under:
+#   ERROR quickshell.service.pipewire.loop: Failed to connect pipewire context. Errno: 112
+# which is the line, verbatim, that made this script red on the tip.
 noise='qt.qpa.wayland.textinput|Could not register notification server'
-noise="$noise"'|Registration will be attempted|pipewire'
-grep -E "ERROR|WARN" "$log" | grep -vE "$noise" | sort -u | head -20
+noise="$noise"'|Registration will be attempted|quickshell\.service\.pipewire'
 
-# Counted over the SAME filtered set the diagnostics above print. They used to
-# disagree — the list was filtered and the count was not — so a run could report
-# no diagnostics and fail anyway.
-errors="$(grep -E 'ERROR' "$log" | grep -cvE "$noise")"
+# ONE definition of the count, used for both shells.
+#
+# There were two, written out separately, and the second one had no filter:
+#
+#     errors2="$(grep -c 'ERROR' "$log2")"
+#
+# so the restarted shell failed on the very pipewire line the first shell was
+# allowed to log — while the diagnostics printed under it, being filtered,
+# listed nothing. A red gate everybody knows to ignore is worse than no gate.
+# The comment on the first count already warned about exactly this divergence;
+# the fix is for there to be nothing left to diverge.
+count_errors() { grep -E 'ERROR' "$1" | grep -cvE "$noise"; }
+show_errors()  { grep -E "$2" "$1" | grep -vE "$noise" | sort -u; }
+
+# ── and a proof that the filter is specific ──────────────────────────────────
+#
+# The filter decides whether this whole script can fail, so it is checked
+# against labelled lines before it is used on a real log. It costs nothing and
+# it runs even on a machine where the rest of this script SKIPs.
+selftest_noise() {
+    local t rc=0
+    t="$(mktemp)"
+    cat > "$t" <<'LOG'
+ ERROR quickshell.service.pipewire.loop: Failed to connect pipewire context. Errno: 112
+ ERROR quickshell.qml: Could not register notification server
+ WARN qt.qpa.wayland.textinput: no text input protocol
+LOG
+    [[ "$(count_errors "$t")" -eq 0 ]] || { echo "FAIL: the noise filter counts a build box's absent services"; rc=1; }
+    cat >> "$t" <<'LOG'
+ ERROR quickshell.qml: file:///x/AudioService.qml:33: TypeError: null is not an object, setting the pipewire sink
+LOG
+    [[ "$(count_errors "$t")" -eq 1 ]] || { echo "FAIL: a QML fault whose message says pipewire is filtered away"; rc=1; }
+    cat >> "$t" <<'LOG'
+ ERROR quickshell.qml: file:///x/SessionRow.qml:12: Unable to assign [undefined] to QColor
+LOG
+    [[ "$(count_errors "$t")" -eq 2 ]] || { echo "FAIL: an ordinary QML error is not counted"; rc=1; }
+    rm -f "$t"
+    return "$rc"
+}
+selftest_noise || { echo "RESULT: the error filter does not do what it claims"; exit 1; }
+echo "error filter:         self-checked (3 cases)"
+
+echo "--- diagnostics ---"
+show_errors "$log" "ERROR|WARN" | head -20
+
+errors="$(count_errors "$log")"
 echo "--- ERROR count: $errors ---"
 [[ "$errors" -eq 0 ]] || { echo "RESULT: runtime errors present"; exit 1; }
 
@@ -361,14 +411,9 @@ grep -q '"onboardingDismissed":false' "$state_file" \
     || fail "reset did not reach the state file: $(cat "$state_file")"
 echo "reset restores it:    $out"
 
-# Filtered, like the first shell's count. It was not: the list printed below
-# dropped the noise and the number above it did not, so the restarted shell
-# failed on the one PipeWire line every other count in this file ignores. The
-# comment two hundred lines up says the two must agree; this is the copy that
-# did not.
-errors2="$(grep -E 'ERROR' "$log2" | grep -cvE "$noise")"
+errors2="$(count_errors "$log2")"
 echo "--- restarted shell ERROR count: $errors2 ---"
-grep -E "ERROR" "$log2" | grep -vE "$noise" | sort -u | head -10
+show_errors "$log2" "ERROR" | head -10
 [[ "$errors2" -eq 0 ]] || { echo "RESULT: runtime errors in the restarted shell"; exit 1; }
 
 echo
