@@ -1,11 +1,12 @@
 pragma Singleton
 import QtQuick
 import Quickshell
+import "."
 import "../services"
 import "scaling.js" as Scaling
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Metrics — geometry & timing tokens, scaled to the display.
+// Metrics — the geometry tokens for the REFERENCE output.
 //
 // Every size in here used to be an absolute pixel literal calibrated against a
 // 1080p panel, which is why the shell looked correct on exactly one class of
@@ -15,41 +16,58 @@ import "scaling.js" as Scaling
 // small UI), so compensating for pixel density is the shell's job, not the
 // compositor's.
 //
+// ── What this file is now ───────────────────────────────────────────────────
+// The token table itself moved to theme/ThemeSet.qml, and this singleton is one
+// INSTANCE of it: the instance whose factor comes from the reference output.
+// Nothing about what a call site reads changed — `Metrics.notchPadding` and
+// `Theme.px(8)` answer exactly what they answered before — but the table is no
+// longer trapped inside a singleton, so a second output can have its own set
+// without a second copy of the arithmetic. That copy is the defect this item
+// was opened for: tests/scaling-test.qml once re-implemented the breakpoint
+// table and asserted its own copy, and every breakpoint assertion passed no
+// matter what this file said.
+//
 // ── The scale factor ────────────────────────────────────────────────────────
-// `scale` multiplies every geometry token and, through Theme.fs(), every font
-// size. It is deliberately SUBLINEAR in resolution: a 4K panel is usually also
+// `scale` multiplies every geometry token and, through fs(), every font size.
+// It is deliberately SUBLINEAR in resolution: a 4K panel is usually also
 // physically larger, so a literal 2x would be enormous. Fixed breakpoints are
 // used rather than a continuous height/1080 ratio because a continuous factor
 // produces awkward fractional pixel values and shifts the whole UI on any mode
-// change; breakpoints are predictable and reproducible.
+// change; breakpoints are predictable and reproducible. The table is in
+// theme/scaling.js and the manual-override policy is in theme/OutputScale.qml —
+// this file chooses the OUTPUT, not the arithmetic.
 //
 // `physicalDotsPerInch` would be the principled input, but EDID physical size is
 // missing or wrong on a great many panels, and a bad DPI reading would size the
 // shell absurdly with no obvious cause. Height is boring and always right.
 //
 // ── Multi-monitor ───────────────────────────────────────────────────────────
-// This is a GLOBAL factor. Theme and Metrics are QML singletons read directly by
-// 82 files at 831 call sites, so one process-wide value is what the architecture
-// can express; genuinely per-monitor tokens would need the scale resolved per
-// item (an attached property, as upstream does in C++) or threaded through every
-// component. What is supported is CHOOSING which monitor sets the scale, via
+// This is still the GLOBAL factor, because Theme and every unmigrated call site
+// in the tree reads it, and there are 2758 such reads across 116 files. What is
+// supported here is CHOOSING which monitor sets it, via
 // `SettingsService.scaleScreen` — on a mixed 4K + 1080p desk you pick the one
 // you actually work on. Default is the tallest connected output.
 //
-// The answer to a mixed-DPI desk is therefore NOT here. It is on the Display
-// page: give each output a compositor scale that brings its LOGICAL size into
-// the band this file was calibrated for, and one global factor is then correct
-// for all of them. Measured: a 3840x2160 and a 1920x1080 output both at
-// compositor scale 1 give a single factor of 1.5, which is 50% too large on the
-// 1080p panel; with the 4K at compositor scale 2 both arrive as 1920x1080 and
-// the factor is 1.0 for both. theme/scaling.js computes the recommendation and
-// DisplayService stages it through the same transaction every other display
-// change goes through.
+// A surface that has been migrated to per-output sizing does NOT read this. It
+// builds its own ThemeSet from its own screen:
 //
-// User settings are expressed in 1080p-baseline units and scaled from there, so
-// a settings.json stays correct when moved between machines.
+//     readonly property ThemeSet theme: ThemeSet {
+//         scale: OutputScale.factorForScreen(root.screen)
+//     }
+//
+// src/windows/DisplayConfirm.qml and src/windows/ConfirmDialog.qml are the two
+// that do, and tests/scaling-test.qml asserts they get different sizes on two
+// outputs of different densities. The rest of the tree is the remaining work;
+// the design and its costs are on ROADMAP/state/agents/p1-040.md.
+//
+// The other answer to a mixed-DPI desk is on the Display page: give each output
+// a compositor scale that brings its LOGICAL size into the band this file was
+// calibrated for, and one global factor is then correct for all of them.
+// Measured: a 3840x2160 and a 1920x1080 output both at compositor scale 1 give a
+// single factor of 1.5, which is 50% too large on the 1080p panel; with the 4K
+// at compositor scale 2 both arrive as 1920x1080 and the factor is 1.0 for both.
 // ─────────────────────────────────────────────────────────────────────────────
-QtObject {
+ThemeSet {
     id: root
 
     // ── Scale ────────────────────────────────────────────────────────────────
@@ -96,80 +114,14 @@ QtObject {
     function scaleForHeight(h) { return Scaling.scaleForHeight(h) }
 
     /// What this output would deserve on its own, ignoring every other screen.
-    /// Nothing in the shell lays out with it — the tokens below are one global
-    /// set — but the Display page needs it to say which outputs disagree.
+    /// The Display page needs it to say which outputs disagree; a surface that
+    /// wants to LAY OUT at it asks OutputScale, which also honours the manual
+    /// override this function deliberately ignores.
     function scaleForScreen(screen) {
         return screen ? Scaling.scaleForHeight(screen.height) : 1.0
     }
 
-    readonly property real scale: SettingsService.scaleMode === "manual"
-                                     ? SettingsService.scaleManual
-                                     : root.autoScale
-
-    // Round to whole pixels: fractional geometry on a layer-shell surface gives
-    // blurry borders and off-by-one masks.
-    function px(v) {
-        return Math.round(v * root.scale)
-    }
-
-    // Fonts get a floor — below about 7px text stops being legible at any DPI.
-    function fs(v) {
-        return Math.max(7, Math.round(v * root.scale))
-    }
-
-    // --Bar Toggle-- (Config → Layout & Behavior)
-    property bool barEnabled: SettingsService.barEnabled
-
-    // -- Bar Sizes -- (Config → Appearance; stored in 1080p-baseline units)
-    property int borderWidth:   px(SettingsService.borderWidth)
-    property int cornerRadius:  px(SettingsService.cornerRadius)
-    property int notchRadius:   px(SettingsService.notchRadius)
-    property int notchHeight:   px(SettingsService.notchHeight)
-    property int exclusionGap:  px(SettingsService.exclusionGap)
-    property int spacing:       px(SettingsService.spacing)
-
-    // -- Notch Content Padding --
-    // Space added around the content inside each notch
-    property int notchPadding:           px(16)   // horizontal padding each side
-    property int notchHorizontalPadding: px(20)
-    property int notchVerticalPadding:   px(10)
-    property int notchSideMargin:        px(10)
-
-    // -- Notch Width Constraints --
-    // Each notch sizes itself to its content, clamped between min and max.
-    property int lNotchMinWidth: px(180)
-    property int lNotchMaxWidth: px(360)
-
-    property int cNotchMinWidth: px(300)
-    property int cNotchMaxWidth: px(360)
-
-    property int rNotchMinWidth: px(180)
-    property int rNotchMaxWidth: px(360)
-
-    // -- Dashboard Dimensions -- (Config → Layout & Behavior)
-    // Target size the center notch expands to when the dashboard is open.
-    property int dashboardWidth:  px(SettingsService.dashboardWidth)
-    property int dashboardHeight: px(SettingsService.dashboardHeight)
-
-    // -- Notifications Popup Width -- (Config → Layout & Behavior)
-    property int notificationsWidth: px(SettingsService.notificationsWidth)
-    property int notificationToastWidth: notificationsWidth / 1.2
-    property int networkPopupWidth:  px(480)
-
-    // -- Popup Size Constraints --
-    property int popupMinWidth:   px(160)
-    property int popupMaxWidth:   px(420)
-    property int popupMinHeight:  px(80)
-    property int popupMaxHeight:  px(520)
-    property int popupPadding:    px(16)
-
-    // -- Workspace Dot Sizes --
-    property int wsDotSize:     px(10)
-    property int wsActiveWidth: px(24)
-    property int wsSpacing:     px(6)
-    property int wsPadding:     px(8)
-    property int wsRadius:      px(16)
-
-    // -- Animations -- (Config → Layout & Behavior; 0 when Reduce Motion is on)
-    property int animDuration: SettingsService.effectiveAnim
+    // The reference output's factor, through the same policy every per-output
+    // surface uses. Manual mode wins here exactly as it wins there.
+    scale: OutputScale.factorForHeight(root.referenceHeight)
 }

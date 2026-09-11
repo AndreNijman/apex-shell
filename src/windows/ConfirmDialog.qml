@@ -29,6 +29,26 @@ PanelWindow {
 
     color: "transparent"
 
+    // ── This output's sizes (P1-040) ─────────────────────────────────────────
+    // Not Theme's. Theme carries ONE factor for the whole shell — the reference
+    // output's — so on a desk whose monitors have different densities it is
+    // wrong for at least one of them. This modal is built per output (shell.qml
+    // creates one from Quickshell.screens), it is anchored to nothing but its
+    // own screen, and nothing outside it reads its size, so it can answer for
+    // itself instead.
+    //
+    // `root.screen` is exact from construction — measured on quickshell 0.3.1
+    // with two headless outputs of different densities, each PanelWindow's
+    // screen.height is that output's height at t=0, before the surface is
+    // mapped. No transient, so no first-frame resize.
+    //
+    // Colours stay on Theme deliberately: a palette belongs to the shell, not
+    // to an output. Sizes come from `theme`, colours from `Theme`, and the
+    // split is visible at every call site below.
+    readonly property ThemeSet theme: ThemeSet {
+        scale: Theme.factorForScreen(root.screen)
+    }
+
     anchors { top: true; left: true; right: true; bottom: true }
     exclusionMode: ExclusionMode.Ignore
 
@@ -147,7 +167,7 @@ PanelWindow {
         anchors.centerIn: parent
         width:  360
         height: col.implicitHeight + 48
-        radius: Theme.notchRadius
+        radius: theme.notchRadius
         color:  Theme.background
         visible: Popups.confirmOpen && !Popups.confirmRunning
 
@@ -177,14 +197,14 @@ PanelWindow {
                         default:                return "⚠️"
                     }
                 }
-                font.pixelSize: Theme.fs(32)
+                font.pixelSize: theme.fs(32)
             }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           Popups.confirmTitle
                 color:          Theme.text
-                font.pixelSize: Theme.fs(15)
+                font.pixelSize: theme.fs(15)
                 font.bold:      true
             }
 
@@ -192,7 +212,7 @@ PanelWindow {
                 width:          parent.width
                 text:           Popups.confirmMessage
                 color:          Qt.rgba(1, 1, 1, 0.65)
-                font.pixelSize: Theme.fs(12)
+                font.pixelSize: theme.fs(12)
                 wrapMode:       Text.WordWrap
                 textFormat:     Text.RichText
                 lineHeight:     1.4
@@ -205,7 +225,7 @@ PanelWindow {
                 Rectangle {
                     width:  130
                     height: 38
-                    radius: Theme.cornerRadius
+                    radius: theme.cornerRadius
                     color:  cancelHov.hovered ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.05)
                     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -213,7 +233,7 @@ PanelWindow {
                         anchors.centerIn: parent
                         text:           "Cancel"
                         color:          Theme.text
-                        font.pixelSize: Theme.fs(13)
+                        font.pixelSize: theme.fs(13)
                     }
 
                     HoverHandler { id: cancelHov; cursorShape: Qt.PointingHandCursor }
@@ -223,7 +243,7 @@ PanelWindow {
                 Rectangle {
                     width:  130
                     height: 38
-                    radius: Theme.cornerRadius
+                    radius: theme.cornerRadius
                     color:  confirmHov.hovered ? Theme.dangerFillHover : Theme.dangerFill
                     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -231,7 +251,7 @@ PanelWindow {
                         anchors.centerIn: parent
                         text:           Popups.confirmLabel
                         color:          Theme.fixedLight
-                        font.pixelSize: Theme.fs(13)
+                        font.pixelSize: theme.fs(13)
                         font.bold:      true
                     }
 
@@ -247,7 +267,7 @@ PanelWindow {
         anchors.centerIn: parent
         width:  300
         height: processingCol.implicitHeight + 56
-        radius: Theme.notchRadius
+        radius: theme.notchRadius
         color:  Theme.background
         visible: Popups.confirmRunning
 
@@ -306,7 +326,7 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           "Applying Changes"
                 color:          Theme.text
-                font.pixelSize: Theme.fs(15)
+                font.pixelSize: theme.fs(15)
                 font.bold:      true
             }
 
@@ -316,7 +336,7 @@ PanelWindow {
                 text:           "Switching to <b>" + Popups.confirmGfxMode + "</b> graphics mode.<br>"
                                 + "Your system will reboot when finished."
                 color:          Qt.rgba(1, 1, 1, 0.55)
-                font.pixelSize: Theme.fs(12)
+                font.pixelSize: theme.fs(12)
                 wrapMode:       Text.WordWrap
                 textFormat:     Text.RichText
                 lineHeight:     1.5
@@ -334,7 +354,7 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           "Do not turn off your computer."
                 color:          Qt.rgba(1, 1, 1, 0.3)
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 horizontalAlignment: Text.AlignHCenter
             }
         }
