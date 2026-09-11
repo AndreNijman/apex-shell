@@ -55,6 +55,12 @@ bad()  { printf '  FAIL  %s\n' "$1"; fail=$((fail+1)); }
 # ── the sentinels, the recorder, the fixtures, the terminal ──────────────────
 SENT="$HEADLESS_W/sentinels"
 mkdir -p "$SENT"
+# Somewhere for `Path=` to point at. Both terminal fixtures carry it, so the
+# suite measures whether execute() honours Path= (a claim this repo made in a
+# comment for as long as the Terminal= one it got wrong) AND whether the routed
+# path carries it through to the terminal.
+CWD="$HEADLESS_W/probe-cwd"
+mkdir -p "$CWD"
 
 # The recorder is what a "terminal application" is reduced to here: it answers
 # the one question that separates a terminal launch from a pipe, and it answers
@@ -84,6 +90,7 @@ fd1="$(readlink /proc/self/fd/9 2>/dev/null)"
     printf 'stdout_tty=%s\n' "$out_tty"
     printf 'fd1=%s\n' "$fd1"
     printf 'term_env=%s\n' "${TERM:-}"
+    printf 'pwd=%s\n' "$PWD"
     printf 'argc=%s\n' "$#"
     printf 'argv=%s\n' "$*"
 } > "$out.tmp" && mv "$out.tmp" "$out"
@@ -113,6 +120,7 @@ cat > "$apps/apex-probe-raw.desktop" <<FIXTURE
 Type=Application
 Name=APEX raw terminal probe
 Exec=apex-probe-record raw %F
+Path=$CWD
 Terminal=true
 NoDisplay=true
 FIXTURE
@@ -121,6 +129,7 @@ cat > "$apps/apex-probe-term.desktop" <<FIXTURE
 Type=Application
 Name=APEX terminal probe
 Exec=apex-probe-record termed %F
+Path=$CWD
 Terminal=true
 NoDisplay=true
 FIXTURE
@@ -181,6 +190,16 @@ if [ -f "$SENT/raw" ]; then
         echo "        The shell's routing would then nest a terminal in a terminal."
         echo "        Re-measure before changing anything: this is load-bearing."
     fi
+    # Path= IS honoured by execute(), unlike Terminal=. Asserted rather than
+    # believed, because believing a comment about execute() is what produced
+    # this whole defect, and because the routed path below has to carry Path=
+    # itself once it stops using execute().
+    if [ "$(field raw pwd)" = "$CWD" ]; then
+        ok "execute() DID honour Path= (so only Terminal= needs replacing)"
+    else
+        bad "execute() DID honour Path= (so only Terminal= needs replacing)"
+        echo "        wanted $CWD, got $(field raw pwd)"
+    fi
 else
     bad "execute() did start the program (so the entry itself is fine)"
 fi
@@ -197,6 +216,13 @@ else
             ok "and it got a terminal"
         else
             bad "and it got a terminal"
+        fi
+        # Routing away from execute() means Path= stops being handled for free.
+        if [ "$(field termed pwd)" = "$CWD" ]; then
+            ok "and Path= survived the detour through the terminal"
+        else
+            bad "and Path= survived the detour through the terminal"
+            echo "        wanted $CWD, got $(field termed pwd)"
         fi
     else
         bad "the shell's path started the Terminal=true program"

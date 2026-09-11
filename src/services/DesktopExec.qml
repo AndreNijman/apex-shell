@@ -25,10 +25,13 @@ import Quickshell
 // quickshell-0.3.1 under a headless compositor:
 //
 //     term.runInTerminal = 1        Terminal=true IS parsed
-//     term.command       = ["apex-probe-record","term"]   %F IS stripped
-//     execute() ran the program, and it had NO controlling terminal
+//     term.command       = ["apex-probe-record"]          %F IS stripped
+//     raw    → ran=1  stdout_tty=0  fd1=/dev/null   pwd=<Path=>
+//     termed → ran=1  stdout_tty=1  fd1=/dev/pts/1  pwd=<Path=>
 //
-// So two of the three were true and the one that mattered was not. An entry
+// So two of the three were true — the field codes are stripped and Path= is
+// honoured, both measured, not taken from the comment — and the one that
+// mattered was not: the program's stdio went to /dev/null. An entry
 // that needs a terminal gets none, and every terminal application APEX ships —
 // nvim, and anything else a package drops in with Terminal=true — is
 // unclickable.
@@ -67,9 +70,10 @@ Singleton {
 
     // Launch `entry`. Returns true if the launch was made.
     //
-    // A Terminal=false entry goes straight to Quickshell's own execute(), which
-    // was measured to handle Path= and the Exec field codes correctly — those
-    // two thirds of the old comment were true and are not worth reimplementing.
+    // A Terminal=false entry goes straight to Quickshell's own execute(). The
+    // suite measures that execute() puts the program in the entry's Path= and
+    // strips the Exec field codes, so those two thirds of the old comment are
+    // now evidence rather than assertion, and are not worth reimplementing.
     function launch(entry) {
         if (!entry)
             return false
@@ -94,9 +98,11 @@ Singleton {
         }
 
         const ctx = ({ "command": [root.terminalHelper].concat(argv) })
-        // Path= in the entry. The helper does not take a directory argument —
-        // the spec gives it none — so the terminal inherits this as its cwd and
-        // the shell inside it starts there, which is what Path= asks for.
+        // Path= in the entry. Routing away from execute() means Path= stops being
+        // handled for free, so it is carried here and asserted in the suite —
+        // an untested branch in a launch path is how the Terminal= bug lasted.
+        // The helper takes no directory argument (the spec gives it none), so
+        // the terminal inherits this as its cwd and the program starts there.
         const wd = entry.workingDirectory
         if (wd && wd !== "")
             ctx.workingDirectory = wd
