@@ -99,7 +99,12 @@ Row {
                 toplevel.activate()
             }
         } else if (app.entry) {
-            app.entry.execute()
+            // Through DesktopExec, not entry.execute() — the dock launches the
+            // same entries the launcher does, and a Terminal=true entry started
+            // by execute() gets no terminal and dies. Fixing only the launcher
+            // would leave clicking nvim here broken and make the defect look
+            // intermittent.
+            DesktopExec.launch(app.entry)
             LauncherState.recordLaunch(app.entry.id)
         }
     }
