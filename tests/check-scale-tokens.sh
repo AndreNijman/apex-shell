@@ -54,35 +54,63 @@ SRC=src
 # Geometric properties, as they are actually written in this codebase. Anchored
 # to a property assignment so a mention in a comment or a string cannot match —
 # the failure mode this repository has hit five times.
+# The scalers, as the tree actually spells them. `Theme.` is the global set and
+# `theme.` is a per-output one (P1-040) — src/windows/DisplayConfirm.qml and
+# src/windows/ConfirmDialog.qml build their own ThemeSet from their own screen
+# and read it under that name. A rule that knows only `Theme\.` stops checking a
+# file the moment it is migrated, which would have retired this guard one file
+# at a time. The self-test below mutates through BOTH names.
+SCALER='(Theme|Metrics|theme)'
+
 GEOM='(radius|spacing|padding|margins|leftMargin|rightMargin|topMargin|bottomMargin'
 GEOM+='|implicitHeight|implicitWidth|height|width|border\.width|columnSpacing|rowSpacing'
 GEOM+='|anchors\.leftMargin|anchors\.rightMargin|anchors\.topMargin|anchors\.bottomMargin'
 GEOM+='|anchors\.margins)'
 
-geom_fs=$(grep -rnE "^[^/]*\b${GEOM}:[[:space:]]*Theme\.fs\(" --include="*.qml" "$SRC" 2>/dev/null)
+geom_fs=$(grep -rnE "^[^/]*\b${GEOM}:[[:space:]]*${SCALER}\.fs\(" --include="*.qml" "$SRC" 2>/dev/null)
 if [ -z "$geom_fs" ]; then
-    ok "no geometric property uses Theme.fs() — the 7px legibility floor cannot clamp a layout"
+    ok "no geometric property uses fs() — the 7px legibility floor cannot clamp a layout"
 else
     printf '%s\n' "$geom_fs" | head -20
-    bad "no geometric property uses Theme.fs()"
+    bad "no geometric property uses fs()"
 fi
 
-font_px=$(grep -rnE "^[^/]*font\.pixelSize:[[:space:]]*Theme\.px\(" --include="*.qml" "$SRC" 2>/dev/null)
+font_px=$(grep -rnE "^[^/]*font\.pixelSize:[[:space:]]*${SCALER}\.px\(" --include="*.qml" "$SRC" 2>/dev/null)
 if [ -z "$font_px" ]; then
-    ok "no font size uses Theme.px() — text keeps its legibility floor"
+    ok "no font size uses px() — text keeps its legibility floor"
 else
     printf '%s\n' "$font_px" | head -20
-    bad "no font size uses Theme.px()"
+    bad "no font size uses px()"
 fi
 
 # The two scalers must remain different, or this whole check is theatre. If
 # someone removes the floor from fs(), the check should stop claiming to
 # protect anything.
-if grep -qE 'function fs\(' "$SRC/theme/Metrics.qml" 2>/dev/null \
-   && grep -qE 'Math\.max\([0-9]+' < <(grep -A3 -E 'function fs\(' "$SRC/theme/Metrics.qml"); then
+# fs() lives in theme/ThemeSet.qml since P1-040 made the token table a component
+# that Metrics is one instance of. The file is not hardcoded blindly: the check
+# FINDS every definition and requires exactly one, because a second definition
+# is how the per-output set and the global set would drift apart.
+# A DEFINITION is an fs() that does the arithmetic; Theme.qml's
+# `function fs(v) { return Metrics.fs(v) }` forwards to one and is not a second
+# copy. The distinction matters: forwarders are how the tree keeps reading
+# `Theme.fs()` unchanged, and a second real definition is how the global set and
+# a per-output set would come to floor text differently.
+fs_defs=""
+for f in $(grep -rlE '^[[:space:]]*function fs\(' --include="*.qml" "$SRC/theme" 2>/dev/null); do
+    grep -A3 -E '^[[:space:]]*function fs\(' "$f" | grep -qE 'Math\.max\([0-9]+' \
+        && fs_defs="$fs_defs $f"
+done
+fs_count=$(printf '%s' "$fs_defs" | wc -w)
+if [ "$fs_count" -eq 1 ]; then
+    ok "fs() is defined exactly once (${fs_defs# }) and every other fs() forwards to it"
+else
+    bad "fs() carries the floor in $fs_count places:$fs_defs — one table, or the sets drift"
+fi
+
+if [ "$fs_count" -eq 1 ]; then
     ok "fs() still has a floor, so the distinction this check enforces is real"
 else
-    bad "fs() no longer has a floor — either it changed, or Metrics.qml moved"
+    bad "fs() no longer has a floor — either it changed, or the token set moved"
 fi
 
 # ── the self-test: prove each check can actually fail ───────────────────────
@@ -112,7 +140,7 @@ PY
     fi
     # Re-run the geometry check against the mutated copy only.
     local hit
-    hit=$(grep -rnE "^[^/]*\b${GEOM}:[[:space:]]*Theme\.fs\(" --include="*.qml" "$TMP/src" 2>/dev/null)
+    hit=$(grep -rnE "^[^/]*\b${GEOM}:[[:space:]]*${SCALER}\.fs\(" --include="*.qml" "$TMP/src" 2>/dev/null)
     if [ -n "$hit" ]; then
         ok "self-test $label: caught"
     else
@@ -123,6 +151,11 @@ PY
 
 mutate_and_expect_fail "radius via fs()" \
     "src/services/agents/SessionRow.qml" "radius: Theme.px(" "radius: Theme.fs("
+
+# The same mutation in the per-output spelling. Without this the rule could be
+# narrowed back to `Theme\.` and the self-test would still say "caught".
+mutate_and_expect_fail "radius via a PER-OUTPUT fs()" \
+    "src/windows/DisplayConfirm.qml" "radius: theme.notchRadius" "radius: theme.fs(3)"
 
 # And the inverse mutant: a COMMENT naming the forbidden pattern must NOT trip
 # the check. Without this, the check could be passing on prose.
@@ -185,6 +218,69 @@ if [ -z "$copies" ]; then
 else
     bad "the breakpoint table is duplicated in:$copies"
 fi
+
+# ── A migrated surface stays migrated (P1-040) ──────────────────────────────
+#
+# These files size themselves from their OWN output. A single `Theme.px(...)`
+# reintroduced into one of them puts that one size back on the reference
+# output's factor, which on a mixed desk is the original bug in a single
+# property — and nothing would look wrong on a one-monitor machine, which is
+# every machine a developer tests on.
+#
+# The file list is written out rather than discovered. Discovering it (say, by
+# grepping for `ThemeSet {`) would mean that deleting the ThemeSet declaration
+# removes the file from the list and the rule stops applying to it — an
+# assertion that vanishes instead of failing. Each name is checked to exist and
+# to still declare a per-output set, so deleting either fails the run.
+PER_OUTPUT="src/windows/DisplayConfirm.qml src/windows/ConfirmDialog.qml"
+
+# The scaled token names come from ThemeSet.qml itself: every property it
+# defines through px(). Reading them from the source of truth means a token
+# added there is covered here without anyone remembering to add it.
+scaled_tokens=$(grep -oE '^[[:space:]]*property[[:space:]]+[a-z]+[[:space:]]+([a-zA-Z]+):[[:space:]]*px\(' \
+                    "$SRC/theme/ThemeSet.qml" 2>/dev/null \
+                | sed -E 's/.*[[:space:]]([a-zA-Z]+):.*/\1/' | sort -u | tr '\n' '|' | sed 's/|$//')
+if [ -n "$scaled_tokens" ]; then
+    ok "the scaled token names are read from ThemeSet.qml ($(printf '%s' "$scaled_tokens" | tr '|' ' ' | wc -w) of them)"
+else
+    bad "no scaled tokens found in $SRC/theme/ThemeSet.qml — this rule would check nothing"
+fi
+
+for f in $PER_OUTPUT; do
+    if [ ! -f "$f" ]; then
+        bad "per-output surface $f is missing"
+        continue
+    fi
+    if grep -qE '^[[:space:]]*readonly property ThemeSet theme: ThemeSet \{' "$f" \
+       && grep -qE 'scale:[[:space:]]*Theme\.factorForScreen\(' "$f"; then
+        ok "$(basename "$f") builds its own ThemeSet from its own screen"
+    else
+        bad "$(basename "$f") no longer declares a per-output ThemeSet — it is back on the global factor"
+    fi
+
+    leak=$(grep -nE "Theme\.(px|fs)\(|Theme\.(${scaled_tokens})\b" "$f" 2>/dev/null | grep -vE '^[0-9]+:[[:space:]]*//')
+    if [ -z "$leak" ]; then
+        ok "$(basename "$f") reads no size from the global Theme"
+    else
+        printf '%s\n' "$leak" | head -10
+        bad "$(basename "$f") reads a size from the global Theme, so that size ignores its output"
+    fi
+done
+
+# And prove THAT rule can fail, with the mutation it exists to catch.
+probe="$TMP/leakmutant.qml"
+cp "src/windows/DisplayConfirm.qml" "$probe"
+python3 - "$probe" <<'PY2'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1]); t = p.read_text()
+p.write_text(t.replace("width:  theme.px(400)", "width:  Theme.px(400)", 1))
+PY2
+if grep -qE "Theme\.(px|fs)\(|Theme\.(${scaled_tokens})\b" "$probe"; then
+    ok "self-test: one size put back on the global Theme is caught"
+else
+    bad "self-test: a global-Theme size SURVIVED — this rule does not detect it"
+fi
+rm -f "$probe"
 
 printf '\ncheck-scale-tokens: passed=%d failed=%d\n' "$pass" "$fail"
 [ "$fail" -eq 0 ] || exit 1
