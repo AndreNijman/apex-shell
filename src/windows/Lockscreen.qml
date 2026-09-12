@@ -71,6 +71,13 @@ WlSessionLock {
     WlSessionLockSurface {
         id: surface
 
+        // One surface per output, so the sizes are that output's (P1-040). The
+        // declaration is here rather than on the WlSessionLock above because
+        // the lock object is not a window and has no screen; the surface is and
+        // does. A lock screen is the one surface where a mixed-DPI desk is
+        // guaranteed to be showing all of them at once.
+        readonly property ThemeSet theme: Theme.setForScreen(surface.screen)
+
         // Opaque base so there is never a transparent flash before the
         // wallpaper/gradient paints.
         color: "black"
@@ -250,7 +257,7 @@ WlSessionLock {
                     text:           surface.timeText
                     color:          Theme.text
                     font.family:    "JetBrainsMono Nerd Font"
-                    font.pixelSize: Theme.fs(120)
+                    font.pixelSize: theme.fs(120)
                     font.bold:      true
                 }
                 Text {
@@ -258,7 +265,7 @@ WlSessionLock {
                     text:           surface.dateText
                     color:          Theme.subtext
                     font.family:    "JetBrainsMono Nerd Font"
-                    font.pixelSize: Theme.fs(22)
+                    font.pixelSize: theme.fs(22)
                 }
             }
 
@@ -276,7 +283,7 @@ WlSessionLock {
                     text:           surface.username !== "" ? surface.username : "Locked"
                     color:          Theme.text
                     font.family:    "JetBrainsMono Nerd Font"
-                    font.pixelSize: Theme.fs(20)
+                    font.pixelSize: theme.fs(20)
                     font.bold:      true
                 }
 
@@ -302,7 +309,7 @@ WlSessionLock {
                         text:  "󰌾"
                         color: Theme.subtext
                         font.family:    "JetBrainsMono Nerd Font"
-                        font.pixelSize: Theme.fs(18)
+                        font.pixelSize: theme.fs(18)
                     }
 
                     TextInput {
@@ -317,7 +324,7 @@ WlSessionLock {
                         color:                   Theme.text
                         selectionColor:          Theme.active
                         font.family:             "JetBrainsMono Nerd Font"
-                        font.pixelSize:          Theme.fs(18)
+                        font.pixelSize:          theme.fs(18)
                         echoMode:                TextInput.Password
                         passwordCharacter:       "●"
                         passwordMaskDelay:       0
@@ -410,7 +417,7 @@ WlSessionLock {
                         : (surface.capsOn ? "󰪛  Caps Lock is on" : "")
                     color: surface.hasError ? Theme.danger : Theme.subtext
                     font.family:    "JetBrainsMono Nerd Font"
-                    font.pixelSize: Theme.fs(14)
+                    font.pixelSize: theme.fs(14)
                 }
             }
 

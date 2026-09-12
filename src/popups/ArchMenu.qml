@@ -8,11 +8,13 @@ import "../"
 
 PopupWindow {
 	id: root
+    readonly property ThemeSet theme: Theme.setForScreen(root.screen)   // P1-040: this output's sizes
+
 
 	required property var anchorWindow
 
-	readonly property int fw: Theme.cornerRadius
-	readonly property int fh: Theme.cornerRadius
+	readonly property int fw: theme.cornerRadius
+	readonly property int fh: theme.cornerRadius
 
 	readonly property var pageHeights: ({
 		"power":       270,
@@ -99,7 +101,7 @@ PopupWindow {
 				anchors.fill: parent
 				attachedEdge: "left"
 				color:        Theme.background
-				radius:       Theme.cornerRadius
+				radius:       theme.cornerRadius
 				flareWidth:   root.fw
 				flareHeight:  root.fh
 			}

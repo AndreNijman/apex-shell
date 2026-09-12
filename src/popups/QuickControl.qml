@@ -9,12 +9,14 @@ import "../"
 
 PopupWindow {
     id: root
+    readonly property ThemeSet theme: Theme.setForScreen(root.screen)   // P1-040: this output's sizes
+
 
     required property var anchorWindow
 
     // ── Config ────────────────────────────────────────────────────────────────
-    readonly property int fw: Theme.cornerRadius
-    readonly property int fh: Theme.cornerRadius
+    readonly property int fw: theme.cornerRadius
+    readonly property int fh: theme.cornerRadius
     readonly property int popupHeight: 340
     readonly property int popupWidth:  180 // Thinner than the 300px AudioPopup
 
@@ -89,7 +91,7 @@ PopupWindow {
                 anchors.fill: parent
                 attachedEdge: "right"
                 color:        Theme.background
-                radius:       Theme.cornerRadius
+                radius:       theme.cornerRadius
                 flareWidth:   root.fw
                 flareHeight:  root.fh
             }
@@ -198,7 +200,7 @@ PopupWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           col.pctText
                 color:          col.muted ? Qt.rgba(1,1,1,0.25) : Theme.text
-                font.pixelSize: Theme.fs(13)
+                font.pixelSize: theme.fs(13)
                 font.bold:      true
                 Behavior on color { ColorAnimation { duration: 150 } }
             }
@@ -259,7 +261,7 @@ PopupWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width:  col.barW + 16
                 height: 28
-                radius: Theme.cornerRadius
+                radius: theme.cornerRadius
                 color:  col.muted
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.2)
                             : Qt.rgba(1,1,1,0.06)
@@ -268,7 +270,7 @@ PopupWindow {
                 Text {
                     anchors.centerIn: parent
                     text:           col.icon
-                    font.pixelSize: Theme.fs(14)
+                    font.pixelSize: theme.fs(14)
                     color:          col.muted ? Theme.active : Qt.rgba(1,1,1,0.55)
                     Behavior on color { ColorAnimation { duration: 150 } }
                 }
@@ -287,7 +289,7 @@ PopupWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:            col.label
                 color:           Qt.rgba(1,1,1,0.3)
-                font.pixelSize:  Theme.fs(10)
+                font.pixelSize:  theme.fs(10)
                 font.capitalization: Font.AllUppercase
                 font.letterSpacing: 1
                 elide:           Text.ElideRight

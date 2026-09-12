@@ -9,13 +9,15 @@ import "../"
 
 PopupWindow {
     id: root
+    readonly property ThemeSet theme: Theme.setForScreen(root.screen)   // P1-040: this output's sizes
+
 
     required property var anchorWindow
 
-    readonly property int popupWidth:   Theme.notificationsWidth
+    readonly property int popupWidth:   theme.notificationsWidth
     readonly property int maxHeight:    700
-    readonly property int fw:           Theme.notchRadius
-    readonly property int fh:           Theme.notchRadius
+    readonly property int fw:           theme.notchRadius
+    readonly property int fh:           theme.notchRadius
     readonly property int animDuration: Theme.animDuration
 
     // Fixed — never zero, never dynamic
@@ -31,7 +33,7 @@ PopupWindow {
     anchor.window: root.anchorWindow
     anchor.rect: Qt.rect(
         anchorWindow.width - root.implicitWidth / 2,
-        Theme.notchHeight,
+        theme.notchHeight,
         0,
         0
     )
@@ -84,12 +86,12 @@ PopupWindow {
 
         // Width: rNotchMinWidth → notificationsWidth  (matches the pill width)
         width: Popups.notificationsOpen
-               ? Theme.notificationsWidth + root.fw
-               : Theme.rNotchMinWidth + root.fw
+               ? theme.notificationsWidth + root.fw
+               : theme.rNotchMinWidth + root.fw
 
         // Height: collapsed → full content height (top is flush with the pill)
         height: Popups.notificationsOpen
-                ? notifList.height + Theme.popupPadding * 2
+                ? notifList.height + theme.popupPadding * 2
                 : 0
 
         Behavior on width  { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
@@ -101,7 +103,7 @@ PopupWindow {
             anchors.fill: parent
             attachedEdge: "pill-right"
             color:        Theme.background
-            radius:       Theme.cornerRadius
+            radius:       theme.cornerRadius
         }
 
         // ── Content ────────────────────────────────────────────
@@ -109,9 +111,9 @@ PopupWindow {
         Item {
             anchors {
                 fill:         parent
-                topMargin:    Theme.popupPadding
-                leftMargin:   Theme.popupPadding
-                rightMargin:  Theme.popupPadding
+                topMargin:    theme.popupPadding
+                leftMargin:   theme.popupPadding
+                rightMargin:  theme.popupPadding
                 bottomMargin: 4
             }
 

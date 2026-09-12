@@ -42,6 +42,8 @@ import "../../../components/config"
 // problems a person has to be able to tell apart.
 CfgScroll {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     lifecycle: "live"
 
@@ -88,17 +90,17 @@ CfgScroll {
         // is QrCode's, not this container's — see that file on why four
         // modules of light are part of the symbol rather than padding.
         Rectangle {
-            x: Theme.px(10)
-            width: parent.width - Theme.px(20)
-            height: Theme.px(260)
-            radius: Theme.px(10)
+            x: theme.px(10)
+            width: parent.width - theme.px(20)
+            height: theme.px(260)
+            radius: theme.px(10)
             color: Theme.fixedLight
             visible: RemotePairingService.offerLive
 
             QrCode {
                 id: code
                 anchors.centerIn: parent
-                width: Math.min(parent.width - Theme.px(24), Theme.px(236))
+                width: Math.min(parent.width - theme.px(24), theme.px(236))
                 height: width
                 payload: RemotePairingService.offerLive ? RemotePairingService.payload : ""
             }
@@ -112,7 +114,7 @@ CfgScroll {
 
             Text {
                 text: RemotePairingService.countdown
-                font.pixelSize: Theme.fs(13)
+                font.pixelSize: theme.fs(13)
                 font.family: "JetBrains Mono"
                 // The countdown is a fact, not a warning. It does not turn red
                 // near zero: an expiring code is replaced by asking for a new

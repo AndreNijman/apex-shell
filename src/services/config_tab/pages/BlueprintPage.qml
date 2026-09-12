@@ -56,6 +56,8 @@ import "../../../components/config"
 // by construction instead of by measurement.
 CfgScroll {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     // Criterion 1. Staged, like Display and Keybinds — but this is the one page
     // where Save and Apply are genuinely two acts, because the file it writes
@@ -707,7 +709,7 @@ CfgScroll {
             text: BlueprintService.toml
             color: Theme.subtext
             font.family: "monospace"
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             wrapMode: Text.NoWrap
         }
     }

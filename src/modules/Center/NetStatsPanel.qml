@@ -4,6 +4,8 @@ import "../../components"
 
 Item {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     required property var service
 
@@ -15,7 +17,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text:           "Network"
-            font.pixelSize: Theme.fs(11)
+            font.pixelSize: theme.fs(11)
             font.weight:    Font.Medium
             color:          Qt.rgba(1, 1, 1, 0.4)
         }

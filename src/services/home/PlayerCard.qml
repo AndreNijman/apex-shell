@@ -7,6 +7,8 @@ import "../../components"
 
 Item {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     // ── Source blocklist ──────────────────────────────────────────────────────
     readonly property var _blocked: [
@@ -189,7 +191,7 @@ Item {
     Rectangle {
         id: bgMask
         anchors.fill:  parent
-        radius:        Theme.cornerRadius
+        radius:        theme.cornerRadius
         visible:       false
         layer.enabled: true
     }
@@ -225,7 +227,7 @@ Item {
             Text {
                 id: titleText
                 text: root.title
-                font.pixelSize: Theme.fs(18); font.weight: Font.Bold
+                font.pixelSize: theme.fs(18); font.weight: Font.Bold
                 color: Theme.fixedLight
                 anchors.horizontalCenter: titleMetrics.width <= parent.width ? parent.horizontalCenter : undefined
                 NumberAnimation on x {
@@ -243,7 +245,7 @@ Item {
             width:   parent.width
             text:    root.artist
             visible: root.artist !== ""
-            font.pixelSize: Theme.fs(13)
+            font.pixelSize: theme.fs(13)
             color: Qt.rgba(1,1,1,0.55) 
             
             maximumLineCount: 1
@@ -346,14 +348,14 @@ Item {
                 Text {
                     anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                     text: root._fmt(root._pos)
-                    font.pixelSize: Theme.fs(9); font.family: "JetBrains Mono"
+                    font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"
                     color: Qt.rgba(1,1,1,0.4)
                 }
 
                 Text {
                     anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                     text: root._fmt(root.length)
-                    font.pixelSize: Theme.fs(9); font.family: "JetBrains Mono"
+                    font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"
                     color: Qt.rgba(1,1,1,0.4)
                 }
             }
@@ -419,13 +421,13 @@ Item {
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text:           root.player ? root._playerIcon(root.player) : "♪"
-                            font.pixelSize: Theme.fs(11)
+                            font.pixelSize: theme.fs(11)
                             color:          Theme.active
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text:           root.player ? root._playerLabel(root.player) : "Player"
-                            font.pixelSize: Theme.fs(11)
+                            font.pixelSize: theme.fs(11)
                             font.weight:    Font.Medium
                             color:          Qt.rgba(1,1,1,0.92)
                             // Cap width so crazy browser identities don't stretch the pill
@@ -464,14 +466,14 @@ Item {
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text:           root._playerIcon(modelData)
-                                font.pixelSize: Theme.fs(11)
+                                font.pixelSize: theme.fs(11)
                                 color:          rowH.hovered ? Qt.rgba(1,1,1,0.90) : Qt.rgba(1,1,1,0.55)
                                 Behavior on color { ColorAnimation { duration: 100 } }
                             }
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text:           root._playerLabel(modelData)
-                                font.pixelSize: Theme.fs(11)
+                                font.pixelSize: theme.fs(11)
                                 color:          rowH.hovered ? Qt.rgba(1,1,1,0.90) : Qt.rgba(1,1,1,0.55)
                                 width:          Math.min(implicitWidth, 120)
                                 elide:          Text.ElideRight
@@ -532,7 +534,7 @@ Item {
     // Border
     Rectangle {
         anchors.fill: parent
-        radius:       Theme.cornerRadius
+        radius:       theme.cornerRadius
         color:        "transparent"
         border.color: Qt.rgba(1,1,1,0.08)
         border.width: 1

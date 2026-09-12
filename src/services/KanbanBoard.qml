@@ -16,6 +16,8 @@ import "../components"
 
 Item {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
     focus: true
 
     // ── Persistent state ──────────────────────────────────────────────────────
@@ -324,7 +326,7 @@ Item {
                 height: parent.height
 
                 Rectangle {
-                    anchors.fill: parent; radius: Theme.cornerRadius
+                    anchors.fill: parent; radius: theme.cornerRadius
                     color:        Qt.rgba(1, 1, 1, 0.03)
                     border.color: Qt.rgba(1, 1, 1, 0.07); border.width: 1
                 }
@@ -343,7 +345,7 @@ Item {
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: colItem.cLabel; color: Theme.active
-                                font.pixelSize: Theme.fs(12); font.weight: Font.DemiBold
+                                font.pixelSize: theme.fs(12); font.weight: Font.DemiBold
                             }
                             Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
@@ -352,7 +354,7 @@ Item {
                                 Text {
                                     id: cntT; anchors.centerIn: parent
                                     text: colItem.cTasks.length
-                                    color: Theme.active; font.pixelSize: Theme.fs(9); font.weight: Font.Bold
+                                    color: Theme.active; font.pixelSize: theme.fs(9); font.weight: Font.Bold
                                 }
                             }
                         }
@@ -367,7 +369,7 @@ Item {
                             border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.20)
                             border.width: 1
                             Behavior on color { ColorAnimation { duration: 100 } }
-                            Text { anchors.centerIn: parent; text: "+"; color: Theme.active; font.pixelSize: Theme.fs(15) }
+                            Text { anchors.centerIn: parent; text: "+"; color: Theme.active; font.pixelSize: theme.fs(15) }
                             HoverHandler { id: addH; cursorShape: Qt.PointingHandCursor }
                             MouseArea {
                                 anchors.fill: parent
@@ -410,13 +412,13 @@ Item {
                                 Text {
                                     anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
                                     visible: draftInput.text === ""
-                                    text: "Task title…"; color: Qt.rgba(1,1,1,0.25); font.pixelSize: Theme.fs(12)
+                                    text: "Task title…"; color: Qt.rgba(1,1,1,0.25); font.pixelSize: theme.fs(12)
                                 }
 
                                 TextInput {
                                     id: draftInput
                                     anchors { left: parent.left; right: parent.right; leftMargin: 10; rightMargin: 10; verticalCenter: parent.verticalCenter }
-                                    color: Theme.text; font.pixelSize: Theme.fs(12)
+                                    color: Theme.text; font.pixelSize: theme.fs(12)
                                     wrapMode: TextInput.WordWrap
                                     selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
 
@@ -484,7 +486,7 @@ Item {
 
         width:  230
         height: pickerCol.implicitHeight + 24
-        radius: Theme.cornerRadius
+        radius: theme.cornerRadius
         color: Qt.rgba(
             Math.min(1, Theme.background.r + 0.06),
             Math.min(1, Theme.background.g + 0.06),
@@ -504,7 +506,7 @@ Item {
                 width: parent.width; height: 22
                 Text {
                     anchors { left: parent.left; verticalCenter: parent.verticalCenter }
-                    text: "‹"; font.pixelSize: Theme.fs(17)
+                    text: "‹"; font.pixelSize: theme.fs(17)
                     color: pmH.hovered ? Qt.rgba(1,1,1,0.85) : Qt.rgba(1,1,1,0.30)
                     Behavior on color { ColorAnimation { duration: 80 } }
                     HoverHandler { id: pmH; cursorShape: Qt.PointingHandCursor }
@@ -519,11 +521,11 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text:  root._monthNames[root.pickerMonth].substring(0,3) + "  " + root.pickerYear
-                    color: Theme.text; font.pixelSize: Theme.fs(11); font.weight: Font.DemiBold
+                    color: Theme.text; font.pixelSize: theme.fs(11); font.weight: Font.DemiBold
                 }
                 Text {
                     anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                    text: "›"; font.pixelSize: Theme.fs(17)
+                    text: "›"; font.pixelSize: theme.fs(17)
                     color: nmH.hovered ? Qt.rgba(1,1,1,0.85) : Qt.rgba(1,1,1,0.30)
                     Behavior on color { ColorAnimation { duration: 80 } }
                     HoverHandler { id: nmH; cursorShape: Qt.PointingHandCursor }
@@ -547,7 +549,7 @@ Item {
                         delegate: Text {
                             width: Math.floor(parent.parent.width / 7)
                             horizontalAlignment: Text.AlignHCenter
-                            text: modelData; font.pixelSize: Theme.fs(8); font.weight: Font.Bold
+                            text: modelData; font.pixelSize: theme.fs(8); font.weight: Font.Bold
                             color: Qt.rgba(1,1,1,0.18)
                         }
                     }
@@ -591,7 +593,7 @@ Item {
                             Text {
                                 anchors.centerIn: parent
                                 text: modelData.n
-                                font.pixelSize: Theme.fs(9); font.weight: isSel ? Font.Bold : Font.Normal
+                                font.pixelSize: theme.fs(9); font.weight: isSel ? Font.Bold : Font.Normal
                                 color: isSel ? Theme.background
                                     : modelData.cur ? Qt.rgba(1,1,1,0.78) : Qt.rgba(1,1,1,0.14)
                             }
@@ -615,7 +617,7 @@ Item {
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "⏰"; font.pixelSize: Theme.fs(13)
+                        text: "⏰"; font.pixelSize: theme.fs(13)
                     }
 
                     // Controls when time is set
@@ -631,7 +633,7 @@ Item {
                                 color: hUpH.hovered ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.05)
                                 border.color: Qt.rgba(1,1,1,0.10); border.width: 1
                                 Behavior on color { ColorAnimation { duration: 80 } }
-                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: Theme.fs(7); color: Qt.rgba(1,1,1,0.50) }
+                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: theme.fs(7); color: Qt.rgba(1,1,1,0.50) }
                                 HoverHandler { id: hUpH; cursorShape: Qt.PointingHandCursor }
                                 MouseArea { anchors.fill: parent; onClicked: root.pickerTimeH = (root.pickerTimeH + 1) % 24 }
                             }
@@ -641,7 +643,7 @@ Item {
                                 Text {
                                     anchors.centerIn: parent
                                     text: root._zp2(root.pickerTimeH)
-                                    font.pixelSize: Theme.fs(13); font.family: "JetBrains Mono"; font.weight: Font.Bold
+                                    font.pixelSize: theme.fs(13); font.family: "JetBrains Mono"; font.weight: Font.Bold
                                     color: Theme.active
                                 }
                             }
@@ -650,13 +652,13 @@ Item {
                                 color: hDnH.hovered ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.05)
                                 border.color: Qt.rgba(1,1,1,0.10); border.width: 1
                                 Behavior on color { ColorAnimation { duration: 80 } }
-                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: Theme.fs(7); color: Qt.rgba(1,1,1,0.50) }
+                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: theme.fs(7); color: Qt.rgba(1,1,1,0.50) }
                                 HoverHandler { id: hDnH; cursorShape: Qt.PointingHandCursor }
                                 MouseArea { anchors.fill: parent; onClicked: root.pickerTimeH = (root.pickerTimeH + 23) % 24 }
                             }
                         }
 
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: ":"; font.pixelSize: Theme.fs(15); font.weight: Font.Bold; color: Theme.text }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: ":"; font.pixelSize: theme.fs(15); font.weight: Font.Bold; color: Theme.text }
 
                         // ── Minute col ────────────────────────────────────────
                         Column {
@@ -666,7 +668,7 @@ Item {
                                 color: mUpH.hovered ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.05)
                                 border.color: Qt.rgba(1,1,1,0.10); border.width: 1
                                 Behavior on color { ColorAnimation { duration: 80 } }
-                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: Theme.fs(7); color: Qt.rgba(1,1,1,0.50) }
+                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: theme.fs(7); color: Qt.rgba(1,1,1,0.50) }
                                 HoverHandler { id: mUpH; cursorShape: Qt.PointingHandCursor }
                                 MouseArea { anchors.fill: parent; onClicked: root.pickerTimeM = (root.pickerTimeM + 5) % 60 }
                             }
@@ -676,7 +678,7 @@ Item {
                                 Text {
                                     anchors.centerIn: parent
                                     text: root._zp2(root.pickerTimeM)
-                                    font.pixelSize: Theme.fs(13); font.family: "JetBrains Mono"; font.weight: Font.Bold
+                                    font.pixelSize: theme.fs(13); font.family: "JetBrains Mono"; font.weight: Font.Bold
                                     color: Theme.active
                                 }
                             }
@@ -685,7 +687,7 @@ Item {
                                 color: mDnH.hovered ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.05)
                                 border.color: Qt.rgba(1,1,1,0.10); border.width: 1
                                 Behavior on color { ColorAnimation { duration: 80 } }
-                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: Theme.fs(7); color: Qt.rgba(1,1,1,0.50) }
+                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: theme.fs(7); color: Qt.rgba(1,1,1,0.50) }
                                 HoverHandler { id: mDnH; cursorShape: Qt.PointingHandCursor }
                                 MouseArea { anchors.fill: parent; onClicked: root.pickerTimeM = (root.pickerTimeM + 55) % 60 }
                             }
@@ -697,7 +699,7 @@ Item {
                             width: 18; height: 18; radius: 9
                             color: clrTH.hovered ? Qt.rgba(1,1,1,0.14) : Qt.rgba(1,1,1,0.05)
                             Behavior on color { ColorAnimation { duration: 80 } }
-                            Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: Theme.fs(8); color: Qt.rgba(1,1,1,0.40) }
+                            Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(8); color: Qt.rgba(1,1,1,0.40) }
                             HoverHandler { id: clrTH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root.pickerHasTime = false }
                         }
@@ -715,7 +717,7 @@ Item {
                         Behavior on color { ColorAnimation { duration: 80 } }
                         Text {
                             id: addTL; anchors.centerIn: parent
-                            text: "Add time"; font.pixelSize: Theme.fs(10)
+                            text: "Add time"; font.pixelSize: theme.fs(10)
                             color: addTH.hovered ? Theme.active : Qt.rgba(1,1,1,0.45)
                             Behavior on color { ColorAnimation { duration: 80 } }
                         }
@@ -740,7 +742,7 @@ Item {
                     color: clrH.hovered ? Qt.rgba(1,1,1,0.10) : Qt.rgba(1,1,1,0.05)
                     border.color: Qt.rgba(1,1,1,0.10); border.width: 1
                     Behavior on color { ColorAnimation { duration: 80 } }
-                    Text { anchors.centerIn: parent; text: "Clear"; font.pixelSize: Theme.fs(11); color: Qt.rgba(1,1,1,0.50) }
+                    Text { anchors.centerIn: parent; text: "Clear"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.50) }
                     HoverHandler { id: clrH; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
                         anchors.fill: parent
@@ -755,7 +757,7 @@ Item {
                     Behavior on color { ColorAnimation { duration: 80 } }
                     Text {
                         anchors.centerIn: parent; text: "Done"
-                        font.pixelSize: Theme.fs(11); font.weight: Font.Medium; color: Theme.active
+                        font.pixelSize: theme.fs(11); font.weight: Font.Medium; color: Theme.active
                     }
                     HoverHandler { id: doneH; cursorShape: Qt.PointingHandCursor }
                     MouseArea { anchors.fill: parent; onClicked: root._commitPicker() }
@@ -892,7 +894,7 @@ Item {
                 TextInput {
                     width: parent.width
                     text:           card.taskData.title
-                    color:          Theme.text; font.pixelSize: Theme.fs(12); font.weight: Font.Medium
+                    color:          Theme.text; font.pixelSize: theme.fs(12); font.weight: Font.Medium
                     wrapMode:       TextInput.WordWrap
                     selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
                     onEditingFinished: { var t = text.trim(); if (t !== "") root._patchTask(card.taskData.id, "title", t) }
@@ -907,13 +909,13 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         width: urgL.implicitWidth + 12; height: 16; radius: 8
                         color: root._urgColor(card.taskData.urgency); opacity: 0.85
-                        Text { id: urgL; anchors.centerIn: parent; text: root._urgLabel(card.taskData.urgency); font.pixelSize: Theme.fs(9); font.weight: Font.Bold; color: Theme.fixedDark }
+                        Text { id: urgL; anchors.centerIn: parent; text: root._urgLabel(card.taskData.urgency); font.pixelSize: theme.fs(9); font.weight: Font.Bold; color: Theme.fixedDark }
                     }
                     Row {
                         visible: (card.taskData.dueDate || "") !== ""
                         anchors.verticalCenter: parent.verticalCenter; spacing: 3
-                        Text { text: "📅"; font.pixelSize: Theme.fs(9) }
-                        Text { text: root._formatDue(card.taskData.dueDate || ""); font.pixelSize: Theme.fs(9); color: Qt.rgba(1,1,1,0.50) }
+                        Text { text: "📅"; font.pixelSize: theme.fs(9) }
+                        Text { text: root._formatDue(card.taskData.dueDate || ""); font.pixelSize: theme.fs(9); color: Qt.rgba(1,1,1,0.50) }
                     }
                 }
 
@@ -924,7 +926,7 @@ Item {
                     // Urgency picker
                     Row {
                         spacing: 5
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Urgency"; font.pixelSize: Theme.fs(9); color: Qt.rgba(1,1,1,0.35) }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Urgency"; font.pixelSize: theme.fs(9); color: Qt.rgba(1,1,1,0.35) }
                         Repeater {
                             model: ["", "low", "medium", "high"]
                             delegate: Rectangle {
@@ -936,7 +938,7 @@ Item {
                                 border.color: Qt.rgba(1,1,1, sel ? 0.20 : 0.08); border.width: 1
                                 Behavior on color { ColorAnimation { duration: 100 } }
                                 Text {
-                                    id: uT; anchors.centerIn: parent; font.pixelSize: Theme.fs(9)
+                                    id: uT; anchors.centerIn: parent; font.pixelSize: theme.fs(9)
                                     text: modelData === "" ? "None" : modelData.charAt(0).toUpperCase() + modelData.slice(1)
                                     color: (sel && modelData !== "") ? Theme.fixedDark : Qt.rgba(1,1,1,0.65)
                                 }
@@ -949,7 +951,7 @@ Item {
                     // Due date button row
                     Row {
                         spacing: 6
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Due"; font.pixelSize: Theme.fs(9); color: Qt.rgba(1,1,1,0.35) }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Due"; font.pixelSize: theme.fs(9); color: Qt.rgba(1,1,1,0.35) }
 
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
@@ -960,7 +962,7 @@ Item {
                             border.color: Qt.rgba(1,1,1,0.12); border.width: 1
                             Behavior on color { ColorAnimation { duration: 80 } }
                             Text {
-                                id: dueLbl; anchors.centerIn: parent; font.pixelSize: Theme.fs(9)
+                                id: dueLbl; anchors.centerIn: parent; font.pixelSize: theme.fs(9)
                                 text:  (card.taskData.dueDate || "") !== "" ? root._formatDue(card.taskData.dueDate) : "Set due date"
                                 color: (card.taskData.dueDate || "") !== "" ? Theme.active : Qt.rgba(1,1,1,0.40)
                                 Behavior on color { ColorAnimation { duration: 80 } }
@@ -976,7 +978,7 @@ Item {
                             width: 16; height: 16; radius: 8
                             color: clrDH.hovered ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.05)
                             Behavior on color { ColorAnimation { duration: 80 } }
-                            Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: Theme.fs(8); color: Qt.rgba(1,1,1,0.35) }
+                            Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(8); color: Qt.rgba(1,1,1,0.35) }
                             HoverHandler { id: clrDH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._patchTask(card.taskData.id, "dueDate", "") }
                         }
@@ -993,7 +995,7 @@ Item {
                         width: 20; height: 20; radius: 5
                         color: optH.hovered ? Qt.rgba(1,1,1,0.10) : Qt.rgba(1,1,1,0.04)
                         Behavior on color { ColorAnimation { duration: 80 } }
-                        Text { anchors.centerIn: parent; text: card.showExtra ? "▴" : "▾"; font.pixelSize: Theme.fs(9); color: Qt.rgba(1,1,1, optH.hovered ? 0.70 : 0.30) }
+                        Text { anchors.centerIn: parent; text: card.showExtra ? "▴" : "▾"; font.pixelSize: theme.fs(9); color: Qt.rgba(1,1,1, optH.hovered ? 0.70 : 0.30) }
                         HoverHandler { id: optH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: card.showExtra = !card.showExtra }
                     }
@@ -1008,7 +1010,7 @@ Item {
                             width: 20; height: 20; radius: 5
                             color: lH.hovered ? Qt.rgba(1,1,1,0.10) : Qt.rgba(1,1,1,0.04)
                             Behavior on color { ColorAnimation { duration: 80 } }
-                            Text { anchors.centerIn: parent; text: "←"; font.pixelSize: Theme.fs(10); color: Qt.rgba(1,1,1, lH.hovered ? 0.80 : 0.40) }
+                            Text { anchors.centerIn: parent; text: "←"; font.pixelSize: theme.fs(10); color: Qt.rgba(1,1,1, lH.hovered ? 0.80 : 0.40) }
                             HoverHandler { id: lH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._moveTask(card.taskData.id, -1) }
                         }
@@ -1019,7 +1021,7 @@ Item {
                             width: 20; height: 20; radius: 5
                             color: rH.hovered ? Qt.rgba(1,1,1,0.10) : Qt.rgba(1,1,1,0.04)
                             Behavior on color { ColorAnimation { duration: 80 } }
-                            Text { anchors.centerIn: parent; text: "→"; font.pixelSize: Theme.fs(10); color: Qt.rgba(1,1,1, rH.hovered ? 0.80 : 0.40) }
+                            Text { anchors.centerIn: parent; text: "→"; font.pixelSize: theme.fs(10); color: Qt.rgba(1,1,1, rH.hovered ? 0.80 : 0.40) }
                             HoverHandler { id: rH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._moveTask(card.taskData.id, 1) }
                         }
@@ -1030,7 +1032,7 @@ Item {
                             color: dH.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.20) : Qt.rgba(1,1,1,0.04)
                             Behavior on color { ColorAnimation { duration: 80 } }
                             Text {
-                                anchors.centerIn: parent; text: "✕"; font.pixelSize: Theme.fs(10)
+                                anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(10)
                                 color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, dH.hovered ? 1.0 : 0.60)
                                 Behavior on color { ColorAnimation { duration: 80 } }
                             }
@@ -1054,7 +1056,7 @@ Item {
                     anchors.centerIn: parent; spacing: 10
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "Delete task?"; color: Theme.text; font.pixelSize: Theme.fs(12); font.weight: Font.Medium
+                        text: "Delete task?"; color: Theme.text; font.pixelSize: theme.fs(12); font.weight: Font.Medium
                     }
                     Row {
                         anchors.horizontalCenter: parent.horizontalCenter; spacing: 8
@@ -1063,7 +1065,7 @@ Item {
                             color: cnH.hovered ? Qt.rgba(1,1,1,0.10) : Qt.rgba(1,1,1,0.05)
                             border.color: Qt.rgba(1,1,1,0.10); border.width: 1
                             Behavior on color { ColorAnimation { duration: 80 } }
-                            Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: Theme.fs(11); color: Qt.rgba(1,1,1,0.60) }
+                            Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.60) }
                             HoverHandler { id: cnH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root.delConfirmId = -1 }
                         }
@@ -1071,14 +1073,14 @@ Item {
                             width: 64; height: 24; radius: 6
                             color: cfH.hovered ? Theme.dangerFillHover : Theme.dangerFill
                             Behavior on color { ColorAnimation { duration: 80 } }
-                            Text { anchors.centerIn: parent; text: "Delete"; font.pixelSize: Theme.fs(11); font.weight: Font.Bold; color: Theme.fixedLight }
+                            Text { anchors.centerIn: parent; text: "Delete"; font.pixelSize: theme.fs(11); font.weight: Font.Bold; color: Theme.fixedLight }
                             HoverHandler { id: cfH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._removeTask(card.taskData.id) }
                         }
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "↵ confirm · ⎋ cancel"; font.pixelSize: Theme.fs(9)
+                        text: "↵ confirm · ⎋ cancel"; font.pixelSize: theme.fs(9)
                         color: Qt.rgba(1,1,1,0.20)
                     }
                 }

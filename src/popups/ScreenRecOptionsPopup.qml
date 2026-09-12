@@ -11,6 +11,8 @@ import "../"
 
 PopupWindow {
     id: root
+    readonly property ThemeSet theme: Theme.setForScreen(root.screen)   // P1-040: this output's sizes
+
 
     required property var anchorWindow
 
@@ -27,7 +29,7 @@ PopupWindow {
        ScreenRecService.popupTargetX + (ScreenRecService.popupTargetWidth / 2),
         25,
         root.implicitWidth,
-        Theme.notchHeight
+        theme.notchHeight
     )
 
     color:   "transparent"
@@ -42,7 +44,7 @@ PopupWindow {
 
     Rectangle {
         anchors.fill: parent
-        radius:       Theme.cornerRadius - 6
+        radius:       theme.cornerRadius - 6
         color:        Theme.background
         border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15)
         border.width: 1
@@ -129,7 +131,7 @@ PopupWindow {
 
             Text {
                 text:           row._icon
-                font.pixelSize: Theme.fs(13)
+                font.pixelSize: theme.fs(13)
                 color:          row._selected ? Theme.active : Qt.rgba(1, 1, 1, 0.45)
                 anchors.verticalCenter: parent.verticalCenter
                 Behavior on color { ColorAnimation { duration: 100 } }
@@ -137,7 +139,7 @@ PopupWindow {
             Text {
                 id:             _lbl
                 text:           row._label
-                font.pixelSize: Theme.fs(12)
+                font.pixelSize: theme.fs(12)
                 color:          row._selected ? Theme.active : Qt.rgba(1, 1, 1, 0.70)
                 anchors.verticalCenter: parent.verticalCenter
                 Behavior on color { ColorAnimation { duration: 100 } }

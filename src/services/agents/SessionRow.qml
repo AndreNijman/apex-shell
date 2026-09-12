@@ -85,6 +85,8 @@ import "../agentlifecycle.js" as Lifecycle
 
 Rectangle {
     id: row
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     required property var session
 
@@ -135,8 +137,8 @@ Rectangle {
         onTriggered: row.nowMs = Date.now()
     }
 
-    height: header.height + (row.expanded ? kidsBlock.height + Theme.px(8) : 0)
-    radius: Theme.px(8)
+    height: header.height + (row.expanded ? kidsBlock.height + theme.px(8) : 0)
+    radius: theme.px(8)
     color: hover.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
                          : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
     // Bordered while the session is asking for something, in that state's own
@@ -147,7 +149,7 @@ Rectangle {
     // row that borrowed the "waiting for you" tone for it would put the two
     // states at the same volume.
     border.width: (row.breakGlass && row.live) || row.needsYou
-        ? Math.max(1, Theme.px(1)) : 0
+        ? Math.max(1, theme.px(1)) : 0
     border.color: (row.breakGlass && row.live) ? Theme.danger : badge.toneColor
 
     Behavior on color { ColorAnimation { duration: 90 } }
@@ -167,7 +169,7 @@ Rectangle {
         // reserved the space unconditionally would leave a gap under every
         // agent that is not Claude, and under every Claude session before its
         // first status-line refresh.
-        height: Theme.px(52) + (row.telemetry ? Theme.px(13) : 0)
+        height: theme.px(52) + (row.telemetry ? theme.px(13) : 0)
 
     // The whole row focuses the terminal. §3: "Focus the existing terminal when
     // the user clicks an agent in APEX Shell."
@@ -182,10 +184,10 @@ Rectangle {
         id: stripe
         visible: badge.tone !== "idle"
         anchors.left: parent.left
-        anchors.leftMargin: Theme.px(3)
+        anchors.leftMargin: theme.px(3)
         anchors.verticalCenter: parent.verticalCenter
-        width: Theme.px(3)
-        height: parent.height - Theme.px(16)
+        width: theme.px(3)
+        height: parent.height - theme.px(16)
         radius: width / 2
         color: (row.breakGlass && row.live) ? Theme.danger : badge.toneColor
         Behavior on color { ColorAnimation { duration: 120 } }
@@ -193,36 +195,36 @@ Rectangle {
 
     Row {
         anchors.fill: parent
-        anchors.leftMargin: Theme.px(12)
-        anchors.rightMargin: Theme.px(8)
-        spacing: Theme.px(10)
+        anchors.leftMargin: theme.px(12)
+        anchors.rightMargin: theme.px(8)
+        spacing: theme.px(10)
 
         // ── State ─────────────────────────────────────────────────────────────
         StateBadge {
             id: badge
             anchors.verticalCenter: parent.verticalCenter
             sessionState: row.session.state
-            size: Theme.px(26)
+            size: theme.px(26)
         }
 
         // ── Identity ──────────────────────────────────────────────────────────
         Column {
             anchors.verticalCenter: parent.verticalCenter
-            width: parent.width - badge.width - controls.width - Theme.fs(40)
-            spacing: Theme.px(2)
+            width: parent.width - badge.width - controls.width - theme.fs(40)
+            spacing: theme.px(2)
 
             Row {
-                spacing: Theme.px(6)
+                spacing: theme.px(6)
                 Text {
                     text: AgentState.agentName(row.session.agent)
                     color: Theme.text
-                    font.pixelSize: Theme.fs(12)
+                    font.pixelSize: theme.fs(12)
                     font.bold: true
                 }
                 Text {
                     text: "#" + row.session.id
                     color: Theme.subtext
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 // §19: which KIND of agent this is, not what state it is in.
@@ -241,16 +243,16 @@ Rectangle {
                         Lifecycle.kindOf(row.session, Lifecycle.FROM_DAEMON)
                     visible: Lifecycle.known(kindPill.kind)
                     anchors.verticalCenter: parent.verticalCenter
-                    radius: Theme.px(3)
+                    radius: theme.px(3)
                     color: Qt.rgba(Theme.subtext.r, Theme.subtext.g, Theme.subtext.b, 0.14)
-                    width: visible ? kindLabel.implicitWidth + Theme.fs(8) : 0
-                    height: kindLabel.implicitHeight + Theme.fs(3)
+                    width: visible ? kindLabel.implicitWidth + theme.fs(8) : 0
+                    height: kindLabel.implicitHeight + theme.fs(3)
                     Text {
                         id: kindLabel
                         anchors.centerIn: parent
                         text: Lifecycle.badge(row.session, Lifecycle.FROM_DAEMON)
                         color: Theme.subtext
-                        font.pixelSize: Theme.fs(9)
+                        font.pixelSize: theme.fs(9)
                     }
                 }
 
@@ -259,16 +261,16 @@ Rectangle {
                 Rectangle {
                     visible: !!row.session.worktree
                     anchors.verticalCenter: parent.verticalCenter
-                    radius: Theme.px(3)
+                    radius: theme.px(3)
                     color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                    width: wtLabel.implicitWidth + Theme.fs(8)
-                    height: wtLabel.implicitHeight + Theme.fs(3)
+                    width: wtLabel.implicitWidth + theme.fs(8)
+                    height: wtLabel.implicitHeight + theme.fs(3)
                     Text {
                         id: wtLabel
                         anchors.centerIn: parent
                         text: "󰘬 " + row.session.worktree
                         color: Theme.active
-                        font.pixelSize: Theme.fs(9)
+                        font.pixelSize: theme.fs(9)
                     }
                 }
 
@@ -278,15 +280,15 @@ Rectangle {
                 // wrong cannot be distinguished from one that is broken.
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
-                    radius: Theme.px(3)
+                    radius: theme.px(3)
                     color: row.unconfined
                         ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.18)
                         : "transparent"
-                    border.width: row.unconfined ? 0 : Math.max(1, Theme.px(1))
+                    border.width: row.unconfined ? 0 : Math.max(1, theme.px(1))
                     border.color: Qt.rgba(Theme.subtext.r, Theme.subtext.g,
                                           Theme.subtext.b, 0.28)
-                    width:  sandboxLabel.implicitWidth + Theme.fs(8)
-                    height: sandboxLabel.implicitHeight + Theme.fs(3)
+                    width:  sandboxLabel.implicitWidth + theme.fs(8)
+                    height: sandboxLabel.implicitHeight + theme.fs(3)
                     Text {
                         id: sandboxLabel
                         anchors.centerIn: parent
@@ -299,7 +301,7 @@ Rectangle {
                         text: row.sandboxMode
                             + (row.nativeLabel === "" ? "" : " · " + row.nativeLabel)
                         color: row.unconfined ? Theme.danger : Theme.subtext
-                        font.pixelSize: Theme.fs(9)
+                        font.pixelSize: theme.fs(9)
                         font.bold: row.unconfined
                     }
                 }
@@ -311,18 +313,18 @@ Rectangle {
                     id: breakGlassChip
                     visible: row.breakGlass && row.live
                     anchors.verticalCenter: parent.verticalCenter
-                    radius: Theme.px(3)
+                    radius: theme.px(3)
                     color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.28)
-                    border.width: Math.max(1, Theme.px(1))
+                    border.width: Math.max(1, theme.px(1))
                     border.color: Theme.danger
-                    width:  grantText.implicitWidth + Theme.fs(8)
-                    height: grantText.implicitHeight + Theme.fs(3)
+                    width:  grantText.implicitWidth + theme.fs(8)
+                    height: grantText.implicitHeight + theme.fs(3)
                     Text {
                         id: grantText
                         anchors.centerIn: parent
                         text: row.grantLabel
                         color: Theme.danger
-                        font.pixelSize: Theme.fs(9)
+                        font.pixelSize: theme.fs(9)
                         font.bold: true
                     }
                 }
@@ -364,7 +366,7 @@ Rectangle {
                 Text {
                     text: meta.where === "" ? "" : meta.where + "  ·  "
                     color: Theme.subtext
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                     elide: Text.ElideRight
                     width: Math.max(0, Math.min(implicitWidth,
                              meta.width - stateWord.implicitWidth
@@ -374,14 +376,14 @@ Rectangle {
                     id: stateWord
                     text: AgentService.stateLabel(row.session.state)
                     color: badge.toneColor
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                     font.bold: true
                 }
                 Text {
                     id: tailText
                     text: meta.tail
                     color: Theme.subtext
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                 }
                 // Last, and never elided, for the same reason the state word
                 // is not: it is the answer to "is anything running under
@@ -390,7 +392,7 @@ Rectangle {
                     id: graphText
                     text: meta.graph === "" ? "" : "  ·  " + meta.graph
                     color: Theme.subtext
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                 }
             }
 
@@ -410,7 +412,7 @@ Rectangle {
                     text: row.telemetry ? row.telemetry.text : ""
                     color: Theme[Telemetry.tokenFor(
                         row.telemetry ? row.telemetry.contextPct : null)]
-                    font.pixelSize: Theme.fs(9)
+                    font.pixelSize: theme.fs(9)
                     elide: Text.ElideRight
                     width: Math.min(implicitWidth,
                                     Math.max(0, meta.width - staleText.implicitWidth))
@@ -424,7 +426,7 @@ Rectangle {
                     text: (row.telemetry && row.telemetry.freshness !== "fresh")
                         ? "  ·  " + Telemetry.agoLabel(row.telemetry.ageSecs) : ""
                     color: Theme.subtext
-                    font.pixelSize: Theme.fs(9)
+                    font.pixelSize: theme.fs(9)
                 }
             }
         }
@@ -433,7 +435,7 @@ Rectangle {
         Row {
             id: controls
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Theme.px(2)
+            spacing: theme.px(2)
 
             // The graph, when there is one. Absent — not disabled — when the
             // runtime cannot tell: a control that is permanently greyed out
@@ -498,10 +500,10 @@ Rectangle {
         anchors.top: header.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: Theme.px(30)
-        anchors.rightMargin: Theme.px(12)
+        anchors.leftMargin: theme.px(30)
+        anchors.rightMargin: theme.px(12)
         visible: row.expanded
-        spacing: Theme.px(1)
+        spacing: theme.px(1)
 
         Repeater {
             model: row.expanded ? row.graphKids : []

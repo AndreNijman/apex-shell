@@ -87,7 +87,8 @@ ShellRoot {
                     screenName: modelData.name
                     topBar: bar
                     Component.onCompleted: root.perBar.push({
-                        name: modelData.name, bar: bar, dismiss: this
+                        name: modelData.name, screen: modelData,
+                        bar: bar, dismiss: this
                     })
                 }
             }
@@ -481,6 +482,53 @@ ShellRoot {
             // comparison below is a loop over an empty list.
             root.eq("one bar and one dismiss overlay were built for every screen",
                     root.perBar.length, screens.length);
+
+            // ── The bar itself is per-output now ────────────────────────
+            // TopBar is the shell's layout datum: the border strips and the OSD
+            // anchor to its height and every notch widget is inside it, which
+            // is why round one could not migrate it alone. It reads its own
+            // output's token set, and so does everything under it.
+            for (let i = 0; i < root.perBar.length; i++) {
+                const e = root.perBar[i];
+                root.eq(e.name + ": the bar resolved its OWN output's factor",
+                        e.bar.theme.scale, Metrics.scaleForScreen(e.screen));
+                root.eq(e.name + ": the bar's height is that factor's notchHeight",
+                        e.bar.implicitHeight, e.bar.theme.notchHeight);
+                root.check(e.name + ": the bar reads the SHARED set for its screen, not one of its own",
+                           e.bar.theme === Theme.setForScreen(e.screen));
+            }
+
+            if (root.perBar.length > 1) {
+                const a = root.perBar[0], b = root.perBar[1];
+                const differ = Metrics.scaleForScreen(a.screen) !== Metrics.scaleForScreen(b.screen);
+                if (differ) {
+                    // THE RESULT. Two outputs at compositor scale 1 with
+                    // different densities, and the bar — the surface the whole
+                    // desk is laid out against — is a different size on each,
+                    // measured off the laid-out windows rather than recomputed.
+                    root.check("two densities give the bar two different HEIGHTS ("
+                               + a.name + "=" + a.bar.implicitHeight + ", "
+                               + b.name + "=" + b.bar.implicitHeight + ")",
+                               a.bar.implicitHeight !== b.bar.implicitHeight);
+                    root.check("...and two different LEFT notch widths ("
+                               + a.bar.lWidth + " vs " + b.bar.lWidth + ")",
+                               a.bar.lWidth !== b.bar.lWidth);
+                    root.check("...and two different RIGHT notch widths ("
+                               + a.bar.rWidth + " vs " + b.bar.rWidth + ")",
+                               a.bar.rWidth !== b.bar.rWidth);
+                    // One of them is NOT the global factor's size. That is the
+                    // assertion that fails if the bar regresses to the
+                    // singleton, on the output the singleton was never for.
+                    let off = 0;
+                    for (let i = 0; i < root.perBar.length; i++)
+                        if (root.perBar[i].bar.theme.scale !== Metrics.scale) off++;
+                    root.check("at least one bar is sized at a factor that is NOT the shell's global one",
+                               off >= 1);
+                } else {
+                    root.check("outputs that agree give the bar the same height, which is not a failure",
+                               a.bar.implicitHeight === b.bar.implicitHeight);
+                }
+            }
 
             for (let i = 0; i < root.perBar.length; i++) {
                 const e = root.perBar[i];

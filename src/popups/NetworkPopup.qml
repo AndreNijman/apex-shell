@@ -8,11 +8,13 @@ import "../"
 
 PanelWindow {
     id: root
+    readonly property ThemeSet theme: Theme.setForScreen(root.screen)   // P1-040: this output's sizes
 
-    readonly property int popupWidth:  Theme.networkPopupWidth   // 480
+
+    readonly property int popupWidth:  theme.networkPopupWidth   // 480
     readonly property int popupHeight: 648
-    readonly property int fw:          Theme.notchRadius
-    readonly property int fh:          Theme.notchRadius
+    readonly property int fw:          theme.notchRadius
+    readonly property int fh:          theme.notchRadius
 
     property string page: Popups.networkPage
 
@@ -21,7 +23,7 @@ PanelWindow {
 
     // Standardised pill-popup geometry (same as NotificationsPopup): the window
     // top sits at the pill's bottom edge; the card hangs flush under the pill.
-    margins.top: Theme.notchHeight
+    margins.top: theme.notchHeight
 
     // Window height = popup content only — sizer starts at y:0
     implicitWidth:  popupWidth + fw
@@ -83,7 +85,7 @@ PanelWindow {
 
         width: Popups.networkOpen
                ? root.popupWidth + root.fw
-               : Theme.rNotchMinWidth + root.fw
+               : theme.rNotchMinWidth + root.fw
 
         height: Popups.networkOpen ? root.popupHeight : 0
 
@@ -94,7 +96,7 @@ PanelWindow {
             anchors.fill: parent
             attachedEdge: "pill-right"
             color:        Theme.background
-            radius:       Theme.cornerRadius
+            radius:       theme.cornerRadius
         }
 
         Keys.onEscapePressed: Popups.networkOpen = false
@@ -103,10 +105,10 @@ PanelWindow {
             id: contentArea
             anchors {
                 fill:         parent
-                topMargin:    Theme.popupPadding
-                leftMargin:   Theme.popupPadding
-                rightMargin:  Theme.popupPadding
-                bottomMargin: Theme.popupPadding
+                topMargin:    theme.popupPadding
+                leftMargin:   theme.popupPadding
+                rightMargin:  theme.popupPadding
+                bottomMargin: theme.popupPadding
             }
 
             opacity: Popups.networkOpen ? 1 : 0

@@ -39,6 +39,8 @@ import "../agentgraph.js" as Graph
 
 Item {
     id: kid
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     // A ChildInfo from SessionInfo.children.
     required property var child
@@ -63,15 +65,15 @@ Item {
       : kid.line.certain ? Theme.subtext
       : Theme.subtext
 
-    implicitHeight: Theme.px(20)
+    implicitHeight: theme.px(20)
     height: implicitHeight
 
     Rectangle {
         id: dot
         anchors.left: parent.left
-        anchors.leftMargin: Theme.px(2)
+        anchors.leftMargin: theme.px(2)
         anchors.verticalCenter: parent.verticalCenter
-        width: Theme.px(5)
+        width: theme.px(5)
         height: width
         radius: width / 2
         color: kid.tone
@@ -80,7 +82,7 @@ Item {
 
     Row {
         anchors.left: dot.right
-        anchors.leftMargin: Theme.px(8)
+        anchors.leftMargin: theme.px(8)
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         spacing: 0
@@ -90,7 +92,7 @@ Item {
             text: kid.isProcess ? kid.child.label : kid.line.label
             color: Theme.text
             opacity: kid.line.live ? 1.0 : 0.7
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             elide: Text.ElideRight
             width: Math.min(implicitWidth,
                             Math.max(0, parent.width - restText.implicitWidth))
@@ -115,7 +117,7 @@ Item {
                 return bits.length ? "  ·  " + bits.join("  ·  ") : ""
             }
             color: Theme.subtext
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
         }
     }
 }

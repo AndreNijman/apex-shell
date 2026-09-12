@@ -45,6 +45,8 @@ import "../services/qr.js" as QR
 // ─────────────────────────────────────────────────────────────────────────────
 Item {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     // The `apex-remote:` payload. Empty draws nothing at all -- deliberately
     // not a placeholder pattern, because a QR-shaped thing that is not a QR
@@ -83,7 +85,7 @@ Item {
     readonly property int span: root.moduleCount > 0
         ? root.moduleCount + root.quietZone * 2 : 0
 
-    implicitWidth: Theme.px(220)
+    implicitWidth: theme.px(220)
     implicitHeight: root.implicitWidth
 
     onEncodedChanged: canvas.requestPaint()

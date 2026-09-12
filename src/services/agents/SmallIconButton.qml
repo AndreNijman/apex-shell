@@ -12,14 +12,16 @@ import "../../"
 
 Rectangle {
     id: btn
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     property string icon: ""
     property string tip: ""
     signal activated()
 
-    width: Theme.px(26)
-    height: Theme.px(26)
-    radius: Theme.px(5)
+    width: theme.px(26)
+    height: theme.px(26)
+    radius: theme.px(5)
     color: hover.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.14)
                          : "transparent"
 
@@ -28,7 +30,7 @@ Rectangle {
     Text {
         anchors.centerIn: parent
         text: btn.icon
-        font.pixelSize: Theme.fs(12)
+        font.pixelSize: theme.fs(12)
         color: hover.hovered ? Theme.text : Theme.subtext
     }
 

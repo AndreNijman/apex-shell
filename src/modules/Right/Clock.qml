@@ -11,6 +11,8 @@ import "../../components"
 // minute, on the minute, instead of once a second forever.
 Text {
     id: clock
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     // Only the hh:mm:ss mode needs second-precision ticks.
     ServiceRef {
@@ -32,7 +34,7 @@ Text {
     Behavior on color { ColorAnimation { duration: 120 } }
     font.bold: true
     anchors.verticalCenter: parent.verticalCenter
-    font.pixelSize: Theme.fs(16)
+    font.pixelSize: theme.fs(16)
 
     property int formatMode: 0
 

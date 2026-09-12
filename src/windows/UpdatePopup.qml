@@ -17,6 +17,8 @@ import "../"
 
 PanelWindow {
     id: root
+    readonly property ThemeSet theme: Theme.setForScreen(root.screen)   // P1-040: this output's sizes
+
 
     color: "transparent"
     anchors { top: true; left: true; right: true; bottom: true }
@@ -69,7 +71,7 @@ PanelWindow {
         id: card
         anchors.centerIn: parent
         width:  380
-        radius: Theme.notchRadius
+        radius: theme.notchRadius
         color:  Theme.background
         border.color: Qt.rgba(1, 1, 1, 0.08)
         border.width: 1
@@ -108,7 +110,7 @@ PanelWindow {
             }
             Text {
                 anchors.centerIn: parent
-                text: "✕"; font.pixelSize: Theme.fs(11)
+                text: "✕"; font.pixelSize: theme.fs(11)
                 color: Qt.rgba(1,1,1,0.35)
             }
             HoverHandler { id: xHov; cursorShape: Qt.PointingHandCursor }
@@ -132,7 +134,7 @@ PanelWindow {
                 Text {
                     id: headerIcon
                     anchors.verticalCenter: parent.verticalCenter
-                    font.pixelSize: Theme.fs(18)
+                    font.pixelSize: theme.fs(18)
                     text: UpdateService.updating || UpdateService.checking ? "󰑐"
                         : UpdateService.updateSuccess                      ? "󰄬"
                         : UpdateService.hasConflict                        ? "󰙨"
@@ -157,7 +159,7 @@ PanelWindow {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    font.pixelSize: Theme.fs(13)
+                    font.pixelSize: theme.fs(13)
                     font.weight:    Font.DemiBold
                     color:          Theme.text
                     text: UpdateService.updating      ? "Updating…"
@@ -181,7 +183,7 @@ PanelWindow {
                 text:           UpdateService.stashCount + " stashed change-set" +
                                 (UpdateService.stashCount === 1 ? "" : "s") +
                                 " — git stash pop to recover"
-                font.pixelSize: Theme.fs(10)
+                font.pixelSize: theme.fs(10)
                 color:          Theme.warning
                 wrapMode:       Text.WordWrap
             }
@@ -199,7 +201,7 @@ PanelWindow {
                 Text {
                     text: UpdateService.commitsBehind + " new commit" +
                           (UpdateService.commitsBehind === 1 ? "" : "s") + " on main"
-                    font.pixelSize: Theme.fs(12)
+                    font.pixelSize: theme.fs(12)
                     color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.55)
                 }
 
@@ -213,13 +215,13 @@ PanelWindow {
                             spacing: 8
                             Text {
                                 text:           "·"
-                                font.pixelSize: Theme.fs(11)
+                                font.pixelSize: theme.fs(11)
                                 color:          Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.60)
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
                                 width:          parent.parent.width - 18
-                                font.pixelSize: Theme.fs(11)
+                                font.pixelSize: theme.fs(11)
                                 color:          Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.55)
                                 elide:          Text.ElideRight
                                 // Strip the short hash prefix from the commit line
@@ -235,7 +237,7 @@ PanelWindow {
                     Text {
                         visible:        UpdateService.commitMessages.length > 3
                         text:           "+ " + (UpdateService.commitMessages.length - 3) + " more"
-                        font.pixelSize: Theme.fs(10)
+                        font.pixelSize: theme.fs(10)
                         color:          Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40)
                         leftPadding:    16
                     }
@@ -256,7 +258,7 @@ PanelWindow {
                         Text {
                             anchors.centerIn: parent
                             text:           "Update Now"
-                            font.pixelSize: Theme.fs(11); font.weight: Font.Medium
+                            font.pixelSize: theme.fs(11); font.weight: Font.Medium
                             color:          Theme.active
                         }
                         HoverHandler { id: uH; cursorShape: Qt.PointingHandCursor }
@@ -269,7 +271,7 @@ PanelWindow {
                         color:        skH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
                         border.color: Qt.rgba(1,1,1,0.09); border.width: 1
                         Behavior on color { ColorAnimation { duration: 120 } }
-                        Text { anchors.centerIn: parent; text: "Skip"; font.pixelSize: Theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
+                        Text { anchors.centerIn: parent; text: "Skip"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
                         HoverHandler { id: skH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
                     }
@@ -280,7 +282,7 @@ PanelWindow {
                         color:        disH.hovered ? Qt.rgba(1,1,1,0.06) : "transparent"
                         border.color: Qt.rgba(1,1,1,0.07); border.width: 1
                         Behavior on color { ColorAnimation { duration: 120 } }
-                        Text { anchors.centerIn: parent; text: "Disable"; font.pixelSize: Theme.fs(11); color: Qt.rgba(1,1,1,0.28) }
+                        Text { anchors.centerIn: parent; text: "Disable"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.28) }
                         HoverHandler { id: disH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: UpdateService.disableAutoUpdate() }
                     }
@@ -295,14 +297,14 @@ PanelWindow {
 
                 Text {
                     text:           "Pulling latest changes from origin/main…"
-                    font.pixelSize: Theme.fs(12)
+                    font.pixelSize: theme.fs(12)
                     color:          Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.55)
                     wrapMode:       Text.WordWrap
                     width:          parent.width
                 }
                 Text {
                     text:           "Do not close the shell."
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                     color:          Qt.rgba(1, 1, 1, 0.25)
                 }
             }
@@ -316,7 +318,7 @@ PanelWindow {
                 Text {
                     text: "Local uncommitted changes conflict with the update.\n" +
                           "Stash them aside to proceed, or cancel."
-                    font.pixelSize: Theme.fs(12)
+                    font.pixelSize: theme.fs(12)
                     color:          Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.55)
                     wrapMode:       Text.WordWrap
                     width:          parent.width
@@ -337,7 +339,7 @@ PanelWindow {
                         Text {
                             anchors.centerIn: parent
                             text:           "Stash & Update"
-                            font.pixelSize: Theme.fs(11); font.weight: Font.Medium
+                            font.pixelSize: theme.fs(11); font.weight: Font.Medium
                             color:          Theme.warning
                         }
                         HoverHandler { id: saH; cursorShape: Qt.PointingHandCursor }
@@ -350,7 +352,7 @@ PanelWindow {
                         color:        cxH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
                         border.color: Qt.rgba(1,1,1,0.09); border.width: 1
                         Behavior on color { ColorAnimation { duration: 120 } }
-                        Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: Theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
+                        Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
                         HoverHandler { id: cxH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
                     }
@@ -365,7 +367,7 @@ PanelWindow {
 
                 Text {
                     text: "Shell updated successfully.\nReload to apply the changes."
-                    font.pixelSize: Theme.fs(12)
+                    font.pixelSize: theme.fs(12)
                     color:          Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.55)
                     wrapMode:       Text.WordWrap
                     width:          parent.width
@@ -378,7 +380,7 @@ PanelWindow {
                     color:        dmH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
                     border.color: Qt.rgba(1,1,1,0.09); border.width: 1
                     Behavior on color { ColorAnimation { duration: 120 } }
-                    Text { anchors.centerIn: parent; text: "Dismiss"; font.pixelSize: Theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
+                    Text { anchors.centerIn: parent; text: "Dismiss"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
                     HoverHandler { id: dmH; cursorShape: Qt.PointingHandCursor }
                     MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
                 }
@@ -386,7 +388,7 @@ PanelWindow {
 
                 Text {
                     text:           "Auto-dismissing in a few seconds…"
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                     color:          Qt.rgba(1, 1, 1, 0.22)
                 }
             }
@@ -401,7 +403,7 @@ PanelWindow {
 
                 Text {
                     text:           UpdateService.lastError
-                    font.pixelSize: Theme.fs(12)
+                    font.pixelSize: theme.fs(12)
                     color:          Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.55)
                     wrapMode:       Text.WordWrap
                     width:          parent.width
@@ -419,7 +421,7 @@ PanelWindow {
                         border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30)
                         border.width: 1
                         Behavior on color { ColorAnimation { duration: 120 } }
-                        Text { anchors.centerIn: parent; text: "Retry"; font.pixelSize: Theme.fs(11); color: Theme.active }
+                        Text { anchors.centerIn: parent; text: "Retry"; font.pixelSize: theme.fs(11); color: Theme.active }
                         HoverHandler { id: rtH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: UpdateService.check() }
                     }
@@ -430,7 +432,7 @@ PanelWindow {
                         color:        clH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
                         border.color: Qt.rgba(1,1,1,0.09); border.width: 1
                         Behavior on color { ColorAnimation { duration: 120 } }
-                        Text { anchors.centerIn: parent; text: "Close"; font.pixelSize: Theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
+                        Text { anchors.centerIn: parent; text: "Close"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
                         HoverHandler { id: clH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
                     }

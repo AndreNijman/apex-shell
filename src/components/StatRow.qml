@@ -7,6 +7,8 @@ import "../"
 
 Item {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     property string label:      ""
     property string value:      ""
@@ -18,7 +20,7 @@ Item {
         anchors.left:           parent.left
         anchors.verticalCenter: parent.verticalCenter
         text:           root.label
-        font.pixelSize: Theme.fs(11)
+        font.pixelSize: theme.fs(11)
         color:          Qt.rgba(1, 1, 1, 0.4)
     }
 
@@ -26,7 +28,7 @@ Item {
         anchors.right:          parent.right
         anchors.verticalCenter: parent.verticalCenter
         text:           root.value
-        font.pixelSize: Theme.fs(11)
+        font.pixelSize: theme.fs(11)
         color:          root.valueColor
     }
 }
