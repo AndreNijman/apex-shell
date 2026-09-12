@@ -1432,6 +1432,35 @@ jobs:
           # stay GREEN.
           ./tests/check-recovery-ui.sh
 
+      - name: Privacy & Permissions logic
+        run: |
+          # P1-061. Drives src/services/permissions.js — the file the shell
+          # loads — against a payload CAPTURED from `apex permissions show
+          # … --json` on a real machine: a Flatpak that goes through the
+          # portal, a Flatpak whose manifest carries `devices=all`, and a
+          # native program.
+          #
+          # The assertion that matters is that the second and third read
+          # IDENTICALLY, because they have the same enforcer — the ACL on
+          # /dev/video0 — and the first differs, because it does not. A page
+          # that showed all three with the same tick would be a lie about the
+          # machine, and it is the lie the item exists to prevent.
+          node tests/permissions-test.js
+
+      - name: Privacy & Permissions surface invariants
+        run: |
+          # Static half, and the part node cannot see: that nothing on a timer
+          # can reach `apex permissions revoke`, that no row renders an answer
+          # without the enforcer beside it, that a control exists only where
+          # controlsFor produced one, and that the poller is gated on the page
+          # being looked at.
+          #
+          # Self-tested the way check-recovery-ui.sh is: six mutants that must
+          # each go red, a hard failure for any that did not change the file,
+          # and a prose-only copy quoting every one of those bugs that must
+          # stay GREEN.
+          ./tests/check-privacy-ui.sh
+
       - name: Agents & Workspaces help invariants
         run: |
           # §43's guide. A help page is the one surface where a plausible
@@ -1833,6 +1862,12 @@ jobs:
             "src/services/config_tab/pages/RecoveryPage.qml"
             "tests/recovery-test.js"
             "tests/check-recovery-ui.sh"
+            "src/services/permissions.js"
+            "src/services/PermissionsService.qml"
+            "src/services/config_tab/pages/PrivacyPage.qml"
+            "tests/fixtures/permissions-list.json"
+            "tests/permissions-test.js"
+            "tests/check-privacy-ui.sh"
             "src/services/search.js"
             "src/services/SearchService.qml"
             "src/scripts/SearchRun.sh"
