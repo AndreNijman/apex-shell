@@ -81,7 +81,15 @@ mksock "$W/desk/wayland-1"
 mksock "$W/priv/wayland-1"
 mksock "$W/priv2/wayland-0"
 
+# The linter cannot see across the `. tests/lib/headless.sh` above:
+# headless_assert_private reads these four as plain shell variables in THIS
+# shell, and this harness overrides them to drive the library's captured state.
+# They are NOT exported on purpose — a child process must not inherit a fake
+# ambient session. Hence the four SC2034 suppressions below, which are the only
+# honest answer: the variables are used, just not where a linter can look.
+# shellcheck disable=SC2034
 HEADLESS_AMBIENT_RUNTIME="$W/desk"
+# shellcheck disable=SC2034
 HEADLESS_AMBIENT_DISPLAY="wayland-1"
 
 # THE REGRESSION. A private socket whose NAME collides with the desk's is not
@@ -138,7 +146,9 @@ else
 fi
 
 # A WAYLAND_DISPLAY naming nothing is a could-not-run, not a pass.
+# shellcheck disable=SC2034
 XDG_RUNTIME_DIR="$W/priv2"
+# shellcheck disable=SC2034
 WAYLAND_DISPLAY="wayland-7"
 out="$(headless_assert_private 2>&1)"; rc=$?
 if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'does not name a socket'; then
