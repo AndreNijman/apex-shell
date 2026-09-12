@@ -42,7 +42,9 @@
 #      # WAYLAND_DISPLAY now names a socket under $HEADLESS_RUNTIME.
 #
 #  Exported for the caller: HEADLESS_W (scratch dir), HEADLESS_COMP (which
-#  compositor came up), HEADLESS_RUNTIME, HEADLESS_MODE, and the usual XDG_*.
+#  compositor came up), HEADLESS_RUNTIME, HEADLESS_MODE — the resolution the
+#  output ACTUALLY has, read back after start, or "unknown" when there was no
+#  wlr-randr to ask — and the usual XDG_*.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # What the ambient session is, captured before anything is changed. Every later
@@ -57,9 +59,25 @@ HEADLESS_AMBIENT_HOME="$(getent passwd "$(id -u)" 2>/dev/null | cut -d: -f6)"
 HEADLESS_W=""
 HEADLESS_COMP=""
 HEADLESS_RUNTIME=""
-HEADLESS_MODE="${HEADLESS_MODE:-1920x1080}"
 HEADLESS_COMP_PID=""
 HEADLESS_NESTED_PID=""
+
+# The mode, in two variables because they answer two different questions and
+# one of them used to answer both wrongly.
+#
+# HEADLESS_MODE_WANT is what somebody ASKED for, and is empty when nobody did.
+# HEADLESS_MODE is what the output ACTUALLY has, read back from the compositor
+# after it is up, and is "unknown" when there was no way to read it.
+#
+# It was one variable, seeded `${HEADLESS_MODE:-1920x1080}`, and that default
+# was not measured from anything. wlroots' headless backend hands out a
+# 1280x720 output; measured on this machine, 2026-09-12, labwc and the library
+# as it stood reported `host: labwc on wayland-0 at 1920x1080` over an output
+# that was 1280x720. Thirteen runners were told a resolution the run did not
+# have. Nothing below fabricates one: an unasked-for mode is whatever the
+# backend gives, and the run says which.
+HEADLESS_MODE_WANT="${HEADLESS_MODE:-}"
+HEADLESS_MODE=""
 
 # ── skipping ─────────────────────────────────────────────────────────────────
 # Status 0 with a SKIP line, so CI on a machine with no compositor and no
@@ -190,12 +208,14 @@ headless_wait_socket() {
 # without a wlroots compositor cannot run the suite and has not failed it.
 headless_start() {
     local want="${1:-${HEADLESS_COMP_WANT:-}}"
-    local mode="${2:-$HEADLESS_MODE}"
-    HEADLESS_MODE="$mode"
+    local mode="${2:-$HEADLESS_MODE_WANT}"
+    HEADLESS_MODE_WANT="$mode"
+    HEADLESS_MODE=""
 
     [ -n "$HEADLESS_W" ] || { echo "FAIL: headless_start before headless_begin"; return 2; }
 
     case "$mode" in
+        '')  : ;;
         *x*) : ;;
         *)   echo "FAIL: mode must be WxH, got '$mode'"; return 2 ;;
     esac
@@ -230,7 +250,9 @@ headless_start() {
             HEADLESS_COMP_PID=$!
             ;;
         sway)
-            printf 'output HEADLESS-1 mode %s\n' "$mode" > "$HEADLESS_W/sway.cfg"
+            : > "$HEADLESS_W/sway.cfg"
+            [ -n "$mode" ] &&
+                printf 'output HEADLESS-1 mode %s\n' "$mode" > "$HEADLESS_W/sway.cfg"
             WLR_RENDERER=pixman XDG_CURRENT_DESKTOP=sway:wlroots \
                 sway -c "$HEADLESS_W/sway.cfg" > "$HEADLESS_W/comp.log" 2>&1 &
             HEADLESS_COMP_PID=$!
@@ -256,23 +278,95 @@ headless_start() {
 
     headless_assert_private || return 2
 
-    # labwc has no output stanza in rc.xml, so the mode is set over
-    # wlr-output-management once it is up. sway takes it from its config.
-    # The stub wlr-randr is shadowing the real one here, which is fine: the
-    # default headless output is 1920x1080 and that is the default mode.
-    if [ "$HEADLESS_COMP" = "labwc" ] && [ "$mode" != "1920x1080" ]; then
-        local rr out
-        rr="$(command -v wlr-randr)"
-        case "$rr" in
-            "$HEADLESS_W/bin/"*) rr="" ;;
-        esac
-        if [ -n "$rr" ]; then
-            out="$("$rr" 2>/dev/null | awk 'NR==1{print $1}')"
-            [ -n "$out" ] && "$rr" --output "$out" --custom-mode "$mode" >/dev/null 2>&1 || :
+    headless_settle_mode || return $?
+
+    echo "host: $HEADLESS_COMP on $WAYLAND_DISPLAY at $HEADLESS_MODE (headless, private XDG_RUNTIME_DIR and HOME)"
+    return 0
+}
+
+# ── the mode ─────────────────────────────────────────────────────────────────
+# The real wlr-randr, never the stub headless_begin put first on PATH.
+#
+# headless_begin symlinks wlr-randr to `_stub`, which prints `{}` and exits 0,
+# so plain `command -v wlr-randr` inside this library resolves to a program that
+# reports nothing and changes nothing. That is correct for a settings page under
+# test and useless for the harness's own bookkeeping, which has to ask the
+# compositor a real question. Stripping the one directory headless_begin
+# prepended is exact; the `case` after it is the belt for a PATH somebody
+# rearranged.
+#
+# Deliberately NOT headless_unstub: that would take wlr-randr out of the sandbox
+# for the whole run and hand the pages under test a real tool pointed at a real
+# compositor. The stub stays; this reaches past it for one caller.
+headless_real_wlr_randr() {
+    local saved="$PATH" rr=""
+    PATH="${PATH#"$HEADLESS_W/bin:"}"
+    rr="$(command -v wlr-randr 2>/dev/null || true)"
+    PATH="$saved"
+    case "$rr" in
+        "$HEADLESS_W/bin/"*) rr="" ;;
+    esac
+    [ -n "$rr" ] || return 1
+    printf '%s' "$rr"
+}
+
+# What the output actually is, asked of the compositor. Prints WxH, or nothing
+# when there is no way to ask.
+headless_read_mode() {
+    local rr
+    rr="$(headless_real_wlr_randr)" || return 1
+    "$rr" 2>/dev/null | awk '/\(current\)/ { print $1; exit }'
+}
+
+# Apply the asked-for mode, then read back what the output really has and
+# publish THAT as HEADLESS_MODE.
+#
+# The read-back is the point. labwc has no output stanza in rc.xml, so its mode
+# is set over wlr-output-management after it is up, and sway takes it from the
+# config file written above — two mechanisms that fail differently and used to
+# fail silently in both directions. A run that asked for 800x600, got 1280x720
+# and announced 800x600 is measuring a geometry it does not have, which is worse
+# than not measuring one.
+#
+# Three answers, kept apart on purpose:
+#   * measured   — the mode is known and, if one was asked for, it is that one.
+#   * could not run (1, SKIP) — wlr-randr is not installed, so an asked-for mode
+#     can be neither set nor checked. A missing tool is this file's SKIP case.
+#   * wrong (2, FAIL) — wlr-randr is here, the mode was asked for, and the
+#     output still has a different one. That is a defect, not a bare machine.
+headless_settle_mode() {
+    local rr want="$HEADLESS_MODE_WANT" out got
+
+    if ! rr="$(headless_real_wlr_randr)"; then
+        HEADLESS_MODE="unknown"
+        [ -z "$want" ] && return 0
+        echo "SKIP: $want was asked for and wlr-randr is not installed, so the mode"
+        echo "      can be neither set nor read back. A suite that measures a"
+        echo "      geometry it did not get measures nothing."
+        return 1
+    fi
+
+    if [ -n "$want" ] && [ "$HEADLESS_COMP" = "labwc" ]; then
+        out="$("$rr" 2>/dev/null | awk 'NR==1 { print $1 }')"
+        if [ -n "$out" ]; then
+            "$rr" --output "$out" --custom-mode "$want" >/dev/null 2>&1 || :
         fi
     fi
 
-    echo "host: $HEADLESS_COMP on $WAYLAND_DISPLAY at $mode (headless, private XDG_RUNTIME_DIR and HOME)"
+    got="$(headless_read_mode)"
+    if [ -z "$got" ]; then
+        HEADLESS_MODE="unknown"
+        [ -z "$want" ] && return 0
+        echo "FAIL: wlr-randr could not name the current mode, so '$want' cannot be"
+        echo "      confirmed. Refusing to report a resolution nobody read."
+        return 2
+    fi
+    HEADLESS_MODE="$got"
+
+    if [ -n "$want" ] && [ "$got" != "$want" ]; then
+        echo "FAIL: $HEADLESS_COMP was asked for $want and the output is $got."
+        return 2
+    fi
     return 0
 }
 
@@ -326,10 +420,26 @@ FILLER
 # ── the refusals ─────────────────────────────────────────────────────────────
 # Three things have to be true at once, and each has failed somewhere before:
 # the runtime dir must not be the one the desktop uses, the socket must be
-# inside it, and the display name must not be the ambient one. The third is not
+# inside it, and the socket must not BE the ambient one. The third is not
 # redundant — a private dir holding a symlink to the host's socket satisfies the
 # first two, which is how tests/run-hypr-configerrors-test.sh reaches the
 # session it nests in.
+#
+# The third test is on identity, `-ef`, and it used to be on the display NAME.
+# A name is not an identity, and the difference is not theoretical: a compositor
+# in a fresh private runtime dir picks its socket number from that empty
+# directory, so it collides with the ambient session's number whenever the
+# ambient one is low. Measured on this machine, 2026-09-12, with the desk on
+# wayland-1: sway came up on a socket of its own at
+# $HEADLESS_W/run/wayland-1, and this function refused it as "the ambient one"
+# — a hard FAIL, return 2, for a run that had done everything right. labwc picks
+# wayland-0 in the same dir, so on the very common machine whose desk is
+# wayland-0 every runner in here would have failed that way.
+#
+# `-ef` compares device and inode and follows symlinks, so it still catches the
+# case the paragraph above describes — a private path that resolves to the
+# desk's socket is the same file — and it catches it by being the same file
+# rather than by being spelled the same way.
 headless_assert_private() {
     if [ -n "$HEADLESS_AMBIENT_RUNTIME" ] && [ "$XDG_RUNTIME_DIR" = "$HEADLESS_AMBIENT_RUNTIME" ]; then
         echo "FAIL: XDG_RUNTIME_DIR is still the session's own; refusing to open a window on it"
@@ -344,9 +454,12 @@ headless_assert_private() {
         echo "FAIL: the private socket is a symlink, so it points somewhere this run does not own"
         return 1
     fi
-    if [ -n "$HEADLESS_AMBIENT_DISPLAY" ] && [ "$WAYLAND_DISPLAY" = "$HEADLESS_AMBIENT_DISPLAY" ]; then
-        echo "FAIL: the display this run came up on is the ambient one"
-        return 1
+    if [ -n "$HEADLESS_AMBIENT_DISPLAY" ] && [ -n "$HEADLESS_AMBIENT_RUNTIME" ]; then
+        local ambient="$HEADLESS_AMBIENT_RUNTIME/$HEADLESS_AMBIENT_DISPLAY"
+        if [ -e "$ambient" ] && [ "$path" -ef "$ambient" ]; then
+            echo "FAIL: the socket this run came up on IS the ambient session's"
+            return 1
+        fi
     fi
     return 0
 }
