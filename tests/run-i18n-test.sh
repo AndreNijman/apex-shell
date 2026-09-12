@@ -273,19 +273,139 @@ FIXTURE
 fi
 
 # ═════════════════════════════════════════════════════════════════════════════
-section "4. what this does NOT prove"
+section "4. can a translated string reach the host the SHELL runs in?"
 # ═════════════════════════════════════════════════════════════════════════════
-# Stated as an assertion so it cannot quietly stop being true. Nothing in the
-# SHIPPED shell installs a QTranslator: quickshell hosts this QML and no code
-# here calls installTranslator or reads a .qm. So the pipeline works and no user
-# sees a translated word yet. The day somebody wires it up, this flips and the
-# row in the ledger can change with it.
+# Section 3 ended in German. It ended in German inside qmltestrunner, which
+# installs a QTranslator for you the moment you pass -translation. The shell
+# does not run inside qmltestrunner: it runs inside quickshell, and whether a
+# QTranslator is ever installed there is a property of THAT binary, not of this
+# repository.
+#
+# Earlier rounds recorded the gap as "no QTranslator anywhere in src/" — a grep
+# over QML. The observation was right and the spelling invited the wrong repair,
+# because it reads like an omission somebody could fix by writing a line of QML.
+# They cannot: QTranslator is a C++ class and is not a QML type, so no file
+# under src/ can install one however it is written. The gap is in the host, so
+# the host is what gets asked.
+#
+# Nothing here is trusted on an absence alone. Each claim has its positive
+# control in the SAME run, because "nm printed nothing" and "the binary contains
+# no such call" look identical from the outside — permission denied is not
+# absence, in binary form:
+#
+#   - the same probe is pointed at libQt6QuickTest, the host section 3 has just
+#     watched translate, and must FIND the translator calls there;
+#   - Qt's automatic route — an i18n/qml_<lang>.qm beside the root QML file — is
+#     shown to EXIST in libQt6Qml before quickshell is shown not to take it;
+#   - and the probe must find quickshell's OWN engine class before the absence
+#     of the other one is allowed to mean anything.
+#
+# Mangled names are matched directly: the Itanium ABI spells QTranslator into
+# the symbol as the literal substring, so this needs `nm` and not `c++filt`.
+
+# Undefined symbols only: what this binary CALLS, never what a library it
+# happens to link DEFINES. That distinction is the whole probe. libQt6Qml both
+# defines QTranslator's caller and is linked by every QML host on the machine,
+# so a scan of the link closure reports "found" for a host that never calls it.
+refs() {   # refs <file> <extended-regex> -> count of matching undefined symbols
+    nm -D --undefined-only "$1" 2>/dev/null | grep -cE "$2"
+}
+
+QS_BIN="$(command -v quickshell 2>/dev/null || true)"
+if ! command -v nm >/dev/null 2>&1; then
+    skp "the host the shell runs in can install a QTranslator" \
+        "no nm on this machine (binutils) — the symbol table cannot be read"
+elif [ -z "$QS_BIN" ]; then
+    skp "the host the shell runs in can install a QTranslator" \
+        "quickshell is not installed here, so its symbol table cannot be read"
+else
+    QS_REAL="$(readlink -f "$QS_BIN")"
+    CTRL=""
+    [ -n "$RUNNER" ] && CTRL="$(ldd "$(command -v "$RUNNER")" 2>/dev/null \
+        | awk '$1 ~ /^libQt6QuickTest\.so/ { print $3; exit }')"
+    # Exact match on the soname: /libQt6Qml/ also catches libQt6QmlMeta,
+    # libQt6QmlModels and libQt6QmlWorkerScript, and nm handed three paths at
+    # once answers 0 to everything while looking like a measurement.
+    QMLLIB="$(ldd "$QS_REAL" 2>/dev/null | awk '$1 == "libQt6Qml.so.6" { print $3; exit }')"
+
+    # ── control: the probe can see a translator call where one exists ────────
+    ctrl_ok=0
+    if [ -z "$CTRL" ] || [ ! -e "$CTRL" ]; then
+        skp "the probe finds a translator call in the host that DID translate" \
+            "no libQt6QuickTest to point it at"
+    else
+        n_ctrl="$(refs "$CTRL" 'QTranslator')"
+        if [ "$n_ctrl" -gt 0 ]; then
+            ok "the probe finds a translator call in the host that DID translate — $(basename "$CTRL") calls QTranslator ($n_ctrl symbols)"
+            ctrl_ok=1
+        else
+            bad "the probe finds a translator call in the host that DID translate" \
+                "$(basename "$CTRL") shows none, so the probe is broken and every absence below would be meaningless"
+        fi
+    fi
+
+    # ── the shipped host calls nothing of the sort ───────────────────────────
+    if [ "$ctrl_ok" = 1 ]; then
+        n_qs="$(refs "$QS_REAL" 'QTranslator|installTranslator')"
+        if [ "$n_qs" = 0 ]; then
+            ok "quickshell — the host the shell really runs in — calls no QTranslator and no installTranslator"
+        else
+            bad "quickshell calls no QTranslator and no installTranslator" \
+                "found $n_qs such symbols; if the host gained translator support, this row can change"
+        fi
+    else
+        skp "quickshell calls no QTranslator and no installTranslator" \
+            "the control failed, so an absence here would prove nothing"
+    fi
+
+    # ── and Qt's automatic route is not taken either ─────────────────────────
+    auto_ok=0
+    if [ -z "$QMLLIB" ] || [ ! -e "$QMLLIB" ]; then
+        skp "Qt's automatic i18n/ route exists" "libQt6Qml.so.6 not resolvable from $QS_REAL"
+    else
+        n_auto="$(nm -D --defined-only "$QMLLIB" 2>/dev/null | grep -c 'loadTranslations')"
+        n_appdef="$(nm -D --defined-only "$QMLLIB" 2>/dev/null | grep -c 'QQmlApplicationEngine')"
+        if [ "$n_auto" -gt 0 ] && [ "$n_appdef" -gt 0 ]; then
+            ok "Qt does have an automatic route — libQt6Qml defines QQmlApplicationEngine and its translation loader, which installs a .qm found beside the root QML file"
+            auto_ok=1
+        else
+            bad "Qt has an automatic route in libQt6Qml" \
+                "loadTranslations=$n_auto QQmlApplicationEngine=$n_appdef — if Qt dropped it, the paragraph below is out of date"
+        fi
+    fi
+
+    if [ "$auto_ok" = 1 ]; then
+        n_app="$(refs "$QS_REAL" 'QQmlApplicationEngine')"
+        n_eng="$(refs "$QS_REAL" 'QQmlEngineC[12]E')"
+        if [ "$n_app" = 0 ] && [ "$n_eng" -gt 0 ]; then
+            ok "quickshell constructs a bare QQmlEngine and never a QQmlApplicationEngine, so Qt's automatic route is not taken either"
+        else
+            bad "quickshell constructs a bare QQmlEngine and never a QQmlApplicationEngine" \
+                "QQmlApplicationEngine refs=$n_app, QQmlEngine constructor refs=$n_eng — the second being 0 means the probe saw no engine at all"
+        fi
+    else
+        skp "quickshell constructs a bare QQmlEngine and never a QQmlApplicationEngine" \
+            "without the route being shown to exist, not taking it says nothing"
+    fi
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
+section "5. what this still does NOT prove"
+# ═════════════════════════════════════════════════════════════════════════════
+# Kept as a flip rather than a comment: the day somebody wires a translator up,
+# this stops printing a note and starts counting.
 if grep -rqn 'installTranslator\|QTranslator' src 2>/dev/null; then
     ok "the shell installs a QTranslator, so translations reach real users"
 else
-    printf '  note %s\n' "no QTranslator anywhere in src/ — the pipeline is proven, but the"
-    printf '       %s\n' "running shell loads no .qm, so no user sees German yet. This is"
-    printf '       %s\n' "the named gap for P2-004's 'translated shell' row."
+    printf '  note %s\n' "no QTranslator reaches the running shell. The pipeline above is proven"
+    printf '       %s\n' "end to end, and no user sees German yet. This is the named gap for"
+    printf '       %s\n' "P2-004's 'translated shell' row."
+    printf '       %s\n' "Section 4 measured WHERE it is, so the next round does not look in"
+    printf '       %s\n' "src/: QTranslator is C++ and not a QML type, and the host that owns"
+    printf '       %s\n' "the engine calls neither it nor the QQmlApplicationEngine route that"
+    printf '       %s\n' "would load a .qm on its own. Closing this needs a translator installed"
+    printf '       %s\n' "INTO the engine — upstream in quickshell, or by a QML extension"
+    printf '       %s\n' "module on the import path whose initializeEngine() installs one."
 fi
 
 printf '\nrun-i18n-test: passed=%d failed=%d skipped=%d\n' "$pass" "$fail" "$skip"
