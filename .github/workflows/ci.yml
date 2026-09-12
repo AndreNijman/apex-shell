@@ -195,7 +195,18 @@ jobs:
         run: |
           # -S warning matches the threshold apex-os uses: style/info findings in
           # a test harness are not worth failing a build over.
-          shellcheck -S warning tests/*.sh
+          #
+          # -x is not decoration. Without it shellcheck cannot follow
+          # `. tests/lib/headless.sh`, so every variable a suite sets FOR the
+          # library to read looks unused and comes back as SC2034. That is what
+          # this step failed on the moment tests/test-headless-lib.sh landed:
+          # four assignments that are the whole point of the test, reported as
+          # dead code. The documented local gate is `shellcheck -S warning -x`,
+          # so CI was failing files that the gate developers run passes — and,
+          # because a job stops at its first red step, it took the
+          # accessibility and internationalisation measurements below down with
+          # it while reporting a lint error.
+          shellcheck -S warning -x tests/*.sh
           echo "✓ test harnesses passed ShellCheck"
 
       - name: Service-tier behavioural test
