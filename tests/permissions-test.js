@@ -199,6 +199,23 @@ check("a native subject is flagged from the payload, not from its name",
     const name = pair[0];
     const got = pair[1];
     check(name + " is a reason, not an empty list", [got.ok, got.reason !== ""], [false, true]);
+    // …and it is still a report the PAGE can render.
+    //
+    // This shipped broken. `parseList` returned `session: null` for every one
+    // of these four, PrivacyPage's header binds `session.desktop` and its
+    // session section binds `session.brokered.join(", ")`, and a binding
+    // inside a section whose `visible` is false is still evaluated. The page
+    // threw twice on every load — including before the first sweep returned,
+    // because `report` is seeded with `parseList("", 0)`.
+    //
+    // Nothing caught it. This suite drives the function and never renders a
+    // binding; qmllint parses the file; check-privacy-ui.sh checks wiring that
+    // was correct. It took instantiating the page under a compositor
+    // (tests/run-privacy-page-test.sh). The assertion lives here as well as
+    // there so that a machine with no compositor still refuses the regression.
+    ok(name + " still hands the page a session it can render",
+        got.session !== null && Array.isArray(got.session.brokered)
+        && got.session.summary !== "");
 });
 check("…and 127 says specifically that apex is missing",
     Perm.parseList("", 127).reason.indexOf("PATH") >= 0,

@@ -89,10 +89,32 @@ function stateTone(state) {
 // decision is made on the text, so a future non-zero exit that still printed a
 // complete report does not blank the page.
 function parseList(text, exitCode) {
+    // `session` is the SHAPE sessionView returns, never null, and that is not
+    // defensive habit — it is a bug this file shipped.
+    //
+    // It was `session: null`. PrivacyPage's session section binds
+    // `session.brokered.join(", ")` and its header binds `session.desktop`,
+    // and a binding inside a section whose `visible` is false is still
+    // evaluated by the engine. So the page threw twice on every load, before
+    // the first sweep returned, on the value this very function hands it as
+    // its initial state:
+    //
+    //     TypeError: Cannot read property 'desktop' of null    [line 122]
+    //     TypeError: Cannot read property 'brokered' of null   [line 176]
+    //
+    // Nothing static could see it. qmllint parses the file, the node suite
+    // drives this function and never renders a binding, and
+    // tests/check-privacy-ui.sh checks the wiring, which was correct. It took
+    // instantiating the page under a compositor —
+    // tests/run-privacy-page-test.sh, phase `unreadable` — and it is held by
+    // an assertion there and by one below in tests/permissions-test.js.
+    //
+    // The honest sentence survives the change: sessionView(null) reports "could
+    // not read what this session brokers", which is not "nothing is brokered".
     var empty = {
         ok: false,
         reason: "",
-        session: null,
+        session: sessionView(null),
         apps: []
     };
     if (typeof text !== "string" || text.trim() === "") {
