@@ -1516,6 +1516,49 @@ jobs:
           # from a machine that has both.
           ./tests/run-privacy-page-test.sh
 
+      - name: Closing the Lid logic
+        run: |
+          # P1-063, the item Andre asked for in his own words: "if i close my
+          # laptop lid without shutting down ... all agents and whatever theyre
+          # using/doing can stay running, also staying with the vpn".
+          #
+          # Drives src/services/lid.js — the file the shell loads — over
+          # fixtures that are serde's OWN output from a real `apex lid` binary
+          # (tests/fixtures/lid/gen-lid-fixtures.sh regenerates them). `apex lid
+          # status --json` is nine nested objects deep and six of them are
+          # internally tagged enums, so a fixture written from memory would go
+          # on agreeing with a parser that no longer matched the machine.
+          #
+          # The load-bearing assertion walks the ENTIRE returned shape on every
+          # failure path and fails on a null at any depth — the PrivacyPage
+          # TypeError stated as a test, on a page with strictly more nested
+          # objects than that one had.
+          node tests/lid-test.js
+
+      - name: Closing the Lid page, built and drawn
+        run: |
+          # The same argument as the privacy page above, one page later. Five
+          # phases through PageRegistry inside a FloatingWindow on its own
+          # headless labwc, with a stub `apex`: the real `apex lid pin` rewrites
+          # ~/.config/apex/lid.toml and the ROOT driver obeys that file, so a
+          # suite running it would repin the machine it is testing on.
+          #
+          #   docked      the real L16 capture — an external display, so logind
+          #               consults HandleLidSwitchDocked before any inhibitor
+          #               and the lid does nothing whatever the pin says
+          #   working     undocked and pinned on, with a real closed period
+          #   guard       a thermal guard on a docked machine, which must
+          #               outrank the docked frame because a guard suspend is
+          #               the driver calling `systemctl suspend` itself
+          #   unreadable  `apex` fails. The page must say so and must not throw
+          #   pixels      rasterise and inspect
+          #
+          # A TypeError in any phase log is a hard failure. Skips cleanly
+          # without quickshell or a wlroots compositor, which is what happens on
+          # this runner — so this documents the entry point rather than it
+          # silently not existing.
+          ./tests/run-lid-page-test.sh
+
       - name: Agents & Workspaces help invariants
         run: |
           # §43's guide. A help page is the one surface where a plausible
@@ -1973,6 +2016,15 @@ jobs:
             "tests/notify-spawn-test.qml"
             "tests/run-notify-spawn-test.sh"
             "tests/check-compositor-naming.sh"
+            "src/services/lid.js"
+            "src/services/LidService.qml"
+            "src/services/config_tab/pages/LidPage.qml"
+            "tests/lid-test.js"
+            "tests/lid-page-test.qml"
+            "tests/run-lid-page-test.sh"
+            "tests/fixtures/lid/gen-lid-fixtures.sh"
+            "tests/fixtures/lid/status-l16-docked.json"
+            "tests/fixtures/lid/report-period.json"
           )
           FAILED=()
           for f in "${REQUIRED[@]}"; do

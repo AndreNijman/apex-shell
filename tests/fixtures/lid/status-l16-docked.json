@@ -1,0 +1,47 @@
+{
+    "battery_floor_pct": 20,
+    "decision": {
+        "decision": "release",
+        "why": "no agent session is running, so the lid suspends as it does today"
+    },
+    "enabled": true,
+    "holds_inhibitor": false,
+    "inhibitor_error": null,
+    "inhibitor_holders": [],
+    "inputs": {
+        "charge": {
+            "charge": "ac"
+        },
+        "lid": {
+            "state": "open"
+        },
+        "thermal": {
+            "c": 55.125,
+            "critical_c": null,
+            "sensor": "k10temp/Tctl",
+            "thermal": "celsius"
+        },
+        "work": {
+            "live": 0,
+            "work": "sessions"
+        }
+    },
+    "logind": {
+        "acts_on_lid": false,
+        "block_inhibited": "idle",
+        "docked": true,
+        "external_displays": 1
+    },
+    "pin": "auto",
+    "policy_error": "/root/.config/apex/lid.toml: Permission denied (os error 13)",
+    "policy_source": "built-in defaults",
+    "thermal_ceiling_c": 95.0,
+    "thermal_headroom_c": 15.0,
+    "thermal_headroom_now_c": null,
+    "vpn": {
+        "name": null,
+        "state": {
+            "vpn": "none"
+        }
+    }
+}

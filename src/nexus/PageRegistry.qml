@@ -122,6 +122,18 @@ QtObject {
             "component": agentsComp
         },
         {
+            "id": "lid",
+            "title": "Closing the Lid",
+            "subtitle": "What a shut lid does while work is running, and what it cost last time",
+            "icon": "󰶐",
+            // LidService runs `apex lid status --json` and `apex lid report
+            // --json` one after the other on a sweep timer while this page is
+            // looked at, and nothing at all when it is not. Getting this wrong
+            // means two `apex` processes every 15 seconds until logout.
+            "needsScreen": true,
+            "component": lidComp
+        },
+        {
             "id": "firewall",
             "title": "Firewall",
             "subtitle": "What is reachable from the network, and what you opened",
@@ -215,6 +227,9 @@ QtObject {
     }
     readonly property Component agentsComp: Component {
         AgentsPage {}
+    }
+    readonly property Component lidComp: Component {
+        LidPage {}
     }
     readonly property Component firewallComp: Component {
         FirewallPage {}
