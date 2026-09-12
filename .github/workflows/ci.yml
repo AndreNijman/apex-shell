@@ -1399,6 +1399,12 @@ jobs:
           # line, not the update line, so it caught nothing.
           pacman -S --needed --noconfirm qt6-tools qt6-declarative qt6-base \
             || echo "note: Qt translation tools unavailable; the suite will SKIP those sections"
+          # The fonts section 5 measures, in a SEPARATE call on purpose: pacman
+          # installs a list as one transaction, so a font name that is not in
+          # the repos would take the Qt tools down with it and the suite would
+          # skip the translation pipeline too, reporting a note either way.
+          pacman -S --needed --noconfirm ttf-jetbrains-mono noto-fonts-cjk \
+            || echo "note: fonts unavailable; the non-Latin rendering section will SKIP"
           ./tests/run-i18n-test.sh
 
       - name: Remote agent status invariants

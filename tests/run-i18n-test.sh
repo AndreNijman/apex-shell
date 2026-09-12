@@ -510,8 +510,19 @@ else
                 self=0
                 fc-list -q ":family=$SHELL_FAM:charset=$cp" 2>/dev/null && self=1
                 if [ "$nf" -lt 1 ]; then
-                    bad "$label can be rendered at all" \
-                        "fontconfig reports no installed family covering U+$cp — this text WOULD tofu"
+                    # Which answer this is depends on WHOSE font set is being
+                    # measured. On an APEX deployment /usr IS the image, so a
+                    # script nothing covers is a product defect. On a bare CI
+                    # container it is a fact about the container, and failing
+                    # there would be the round-19 mistake of asserting about
+                    # the runner instead of the product.
+                    if [ -e /run/ostree-booted ]; then
+                        bad "$label can be rendered at all" \
+                            "fontconfig reports no installed family covering U+$cp — on this deployment that text WOULD tofu"
+                    else
+                        skp "$label can be rendered at all" \
+                            "no family here covers U+$cp, and this machine is not an APEX deployment — that is the container's font set, not the image's"
+                    fi
                 elif [ "$self" = 1 ]; then
                     # Still measured. Without this the arm passes on fontconfig's
                     # word alone, and a probe that wrongly said "yes" for every
