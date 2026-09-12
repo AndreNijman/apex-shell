@@ -368,9 +368,9 @@ mutate "a wheel handler on the brightness bar" \
 recheck_cfg() { grep -q "^src/components/config/" < <(mut_found); }
 mutate "a bare onWheel on a MouseArea in a settings control" \
     "src/components/config/CfgSwitch.qml" \
-    "        onClicked:    root.toggled(!root.checked)" \
-    "        onClicked:    root.toggled(!root.checked)
-        onWheel:      function(w) { root.toggled(!root.checked) }" \
+    "        onClicked:    { root.forceActiveFocus(); root.toggle() }" \
+    "        onClicked:    { root.forceActiveFocus(); root.toggle() }
+        onWheel:      function(w) { root.toggle() }" \
     recheck_cfg
 
 # (d) a second handler in a file that is already allowlisted — membership alone

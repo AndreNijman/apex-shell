@@ -5,6 +5,22 @@ on:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
+  # The roadmap v2.2 program works on task branches and integrates onto
+  # roadmap/v2.2, so nothing here has run for any of it: a task branch matches
+  # neither trigger above, and the program is forbidden from opening a pull
+  # request until the final integration. Every roadmap suite in this repository
+  # has therefore been verified on exactly one laptop — one kernel, one set of
+  # installed packages, one Qt build.
+  #
+  # workflow_dispatch lets a task branch be checked BEFORE it lands rather than
+  # after: `gh workflow run ci.yml --ref <branch>`. It changes nothing about
+  # what a push or a pull request does. (apex-os made the same change to
+  # pr-validation.yml for the same reason.)
+  #
+  # Note for whoever needs it next: GitHub only offers the dispatch once this
+  # file is on the DEFAULT branch, so it does nothing for the branch that adds
+  # it.
+  workflow_dispatch:
 
 jobs:
   # ─────────────────────────────────────────────
@@ -1312,6 +1328,63 @@ jobs:
           pacman -S --needed --noconfirm qt6-declarative qt6-base
           ./tests/run-settings-controls-test.sh
 
+      # What a screen reader and a keyboard-only user get from the shared
+      # settings controls. Before this suite the shell had ZERO `Accessible.`
+      # usages across 209 QML files, no FocusScope, no KeyNavigation and exactly
+      # one real activeFocusOnTab (CfgSlider) against 166 MouseArea — eleven
+      # Settings pages and the nav pane were reachable only with a mouse.
+      #
+      # The repair is in the shared controls rather than the pages: 294 of this
+      # tree's 671 user-facing labels live in config_tab/pages, and naming each
+      # control at its call site would be 294 edits that rot the first time
+      # somebody changes a label without changing its twin. CfgRow already holds
+      # the words, so it hands them to whatever control was placed in it.
+      #
+      # Not a grep for Accessible.name: the names and roles are read back off
+      # the LIVE attached objects under qmltestrunner, and every "it is
+      # reachable / it is operable" assertion posts a real QKeyEvent and counts
+      # the signal the pages listen to. -platform offscreen, so it opens
+      # nothing.
+      - name: Accessibility of the shared settings controls
+        run: |
+          ./tests/run-a11y-controls-test.sh
+
+      # How far the Reduce Motion switch actually reaches. It is a real setting
+      # with real UI and it touches 39 of this tree's 450 animation durations —
+      # the other 402 are integer literals written in place, which no switch can
+      # reach. A user who turns it on because motion makes them ill still gets
+      # 89% of the animation, and nothing said so: there was no test of this
+      # setting at all.
+      #
+      # The counts are exact and ratcheted in both directions, the way
+      # check-color-tokens.sh's EXPECT_WHITE_FG is. More literals is the
+      # regression; fewer means somebody fixed some and the constant should be
+      # tightened to lock it in; a moving total means the scanner itself
+      # changed, which is how an exact count becomes a green light for nothing.
+      - name: How far Reduce Motion reaches
+        run: ./tests/check-reduce-motion.sh
+
+      # Internationalisation, measured the only way that means anything: the
+      # strings are extracted from the SHIPPED file with the real lupdate,
+      # compiled with the real lrelease, and read back out of a running QML
+      # engine in German. "Qt supports translation" is not a measurement — every
+      # QML tree supports it, including this one on the day it had zero
+      # translatable strings.
+      #
+      # The load-bearing assertion is the sensitivity one: the SAME fixture runs
+      # with and without -translation and the two must DISAGREE. Without it a
+      # run that never loaded the translator would read English twice and every
+      # other check could still be written to pass.
+      #
+      # The suite skips rather than fails where lupdate/lrelease are absent, so
+      # install them — a skip on every run measures nothing.
+      - name: Internationalisation baseline
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qt6-l10n-tools qt6-declarative-dev-tools \
+            || echo "note: Qt translation tools unavailable; the suite will SKIP those sections"
+          ./tests/run-i18n-test.sh
+
       - name: Remote agent status invariants
         run: |
           # Static half. Also SELF-TESTS its own checks: it mutates copies of
@@ -1776,6 +1849,11 @@ jobs:
             "tests/settings-semantics-test.js"
             "tests/settings-controls-test.qml"
             "tests/run-settings-controls-test.sh"
+            "tests/a11y-controls-test.qml"
+            "tests/run-a11y-controls-test.sh"
+            "tests/check-reduce-motion.sh"
+            "tests/run-i18n-test.sh"
+            "translations/apex-shell_de.ts"
             "tests/settings-pages-test.qml"
             "tests/run-settings-pages-test.sh"
             "tests/settings-staged-test.qml"
