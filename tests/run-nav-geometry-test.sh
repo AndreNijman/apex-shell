@@ -136,8 +136,18 @@ chmod +x "$W/bin/git"
 # the page is parsed by its own shipped parser out of text the helper really
 # prints. STATUS_MIXED is the one used deliberately: it carries the rejected
 # exception, whose status string is the longest row text on the page, and it
-# leaves nine of the eleven catalogue entries unopened — fourteen rows to
-# measure instead of none.
+# leaves nine of the eleven catalogue entries unopened — fourteen rows instead
+# of one.
+#
+# ONE, not none, and the difference was measured rather than assumed. Silence
+# `apex firewall` again and the suite still passes 4366/0: what recovers the
+# sixteen is the Loader setting `onScreen` plus the systemctl stub below, which
+# puts the unit at `inactive` and so shows the "Turn it on" row — one row, which
+# is all "at least one row" asks for. The payload does not change how many
+# assertions run; it changes what they are looking at. That it is looking at
+# something real was measured too: pin the exception delegate's height to 44 and
+# five named `page …x firewall pane=…: no text is drawn outside its row`
+# assertions go red, naming the rows this payload put there.
 cat > "$W/bin/apex" <<'FAKE'
 #!/usr/bin/env bash
 case "$1 ${2:-}" in
