@@ -10,7 +10,7 @@ import "../../../components/config"
 //   • Shape sliders — corner radius / border / notch — reflow the shell live
 CfgScroll {
     id: root
-    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
     // Criterion 1. Everything on this page writes as you touch it and is

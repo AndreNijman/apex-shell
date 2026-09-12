@@ -11,7 +11,7 @@ import "../../components"
 // minute, on the minute, instead of once a second forever.
 Text {
     id: clock
-    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
     // Only the hh:mm:ss mode needs second-precision ticks.

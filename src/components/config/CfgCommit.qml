@@ -35,7 +35,7 @@ import "settings-semantics.js" as Semantics
 // told the user about work it already destroyed.
 Item {
     id: root
-    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
     // How many changes are held, and what this page calls one of them.

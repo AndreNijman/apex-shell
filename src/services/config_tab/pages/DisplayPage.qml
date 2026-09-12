@@ -21,7 +21,7 @@ import "../../../components/config"
 // is the safe way to set up a layout for a monitor that is not plugged in yet.
 CfgScroll {
     id: root
-    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
     // Criterion 1, in one line: this page holds changes until you ask for them.

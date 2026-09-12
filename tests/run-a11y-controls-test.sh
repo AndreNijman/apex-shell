@@ -99,8 +99,21 @@ QtObject {
 
     function fs(v) { return Math.max(7, Math.round(v)) }
     function px(v) { return Math.round(v) }
+
+    // The size half. Since P1-040 the staged components do not read a size
+    // from this singleton at all — each declares its own ThemeSet for the
+    // output it is on, and asks here only for the FACTOR. One output, one
+    // factor, in a tree with no compositor: 1.0.
+    function factorForHeight(h)      { return 1.0 }
+    function factorForScreen(screen) { return 1.0 }
 }
 THEME
+
+# ThemeSet itself, generated from src/theme/ThemeSet.qml rather than written
+# out here, and checked to cover every token the staged components read.
+. "$here/lib/theme-stub.sh"
+stage_theme_set "$stage" "$root" "$stage/components" || {
+    echo "RESULT: the staged token set could not be built"; exit 1; }
 
 # WAYLAND_DISPLAY is removed from the environment rather than merely unused.
 # The offscreen platform does not need it, but a plugin that ever decides to

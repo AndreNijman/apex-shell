@@ -51,25 +51,6 @@ function scaleForHeight(h) {
     return TOP_SCALE
 }
 
-/// Every factor the table can answer, ascending, each once.
-///
-/// DERIVED from the table rather than written out beside it. theme/OutputScale
-/// builds one shared ThemeSet per entry, so a second list here would mean a
-/// breakpoint could be added to BREAKPOINTS and get no token set at all — the
-/// exact shape of defect this file was created to end, one level up.
-///
-/// The values are the identical doubles the table returns, which is what lets
-/// the registry look a factor up by indexOf instead of comparing floats with a
-/// tolerance.
-function factors() {
-    var out = []
-    for (var i = 0; i < BREAKPOINTS.length; i++)
-        if (out.indexOf(BREAKPOINTS[i][1]) < 0) out.push(BREAKPOINTS[i][1])
-    if (out.indexOf(TOP_SCALE) < 0) out.push(TOP_SCALE)
-    out.sort(function (a, b) { return a - b })
-    return out
-}
-
 // ── The compositor's factor ─────────────────────────────────────────────────
 //
 // INTEGERS ONLY, and that is a measurement rather than a preference.
@@ -148,7 +129,6 @@ if (typeof module !== "undefined" && module.exports)
         BASELINE_MAX: BASELINE_MAX,
         CANDIDATES: CANDIDATES,
         scaleForHeight: scaleForHeight,
-        factors: factors,
         recommendedScale: recommendedScale,
         shellScaleFor: shellScaleFor,
         bucketsDisagree: bucketsDisagree

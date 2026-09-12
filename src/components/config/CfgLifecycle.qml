@@ -26,7 +26,7 @@ import "settings-semantics.js" as Semantics
 // page's writes are landing at all.
 Item {
     id: root
-    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
     // One of settings-semantics.js's STATES: "live", "staged", "applied",

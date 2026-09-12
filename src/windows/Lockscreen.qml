@@ -76,7 +76,7 @@ WlSessionLock {
         // the lock object is not a window and has no screen; the surface is and
         // does. A lock screen is the one surface where a mixed-DPI desk is
         // guaranteed to be showing all of them at once.
-        readonly property ThemeSet theme: Theme.setForScreen(surface.screen)
+        readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(surface.screen) }
 
         // Opaque base so there is never a transparent flash before the
         // wallpaper/gradient paints.

@@ -4,7 +4,7 @@ import "../../"
 // A single palette chip with an optional caption underneath.
 Column {
     id: root
-    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
     // Not a design colour — an unset-property sentinel. Every caller passes a
     // real colour; a visible black chip means someone forgot to. Do not "fix"

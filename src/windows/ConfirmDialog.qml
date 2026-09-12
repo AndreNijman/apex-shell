@@ -50,7 +50,7 @@ PanelWindow {
     // shell — because a token set is a pure function of its factor and a
     // hundred migrated files each constructing their own would build a hundred
     // copies of the same forty bindings onto SettingsService.
-    readonly property ThemeSet theme: Theme.setForScreen(root.screen)
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }
 
     anchors { top: true; left: true; right: true; bottom: true }
     exclusionMode: ExclusionMode.Ignore

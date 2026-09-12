@@ -50,62 +50,28 @@ QtObject {
         return policy.factorForHeight(screen ? screen.height : 1080)
     }
 
-    // ── The registry: one ThemeSet per factor, for the whole shell ────────────
+    // ── Why every surface builds its OWN set, and does not share one ─────────
     //
-    // A ThemeSet is a pure function of its `scale`, and there are exactly five
-    // factors the breakpoint table can answer, so a shell with a hundred
-    // migrated files needs FIVE token sets, not one per component instance.
-    // Without this, `readonly property ThemeSet theme: ThemeSet { ... }` in
-    // every file would build a fresh set — and its ~40 bindings onto
-    // SettingsService — for every workspace dot and every list delegate.
+    // A ThemeSet is a pure function of its `scale` and the breakpoint table
+    // answers five factors, so five shared objects would serve the whole shell
+    // and every migrated file would cost one binding instead of thirty-four.
+    // That registry was built, on this branch, and MEASURED — and it does not
+    // work:
     //
-    // The model is Scaling.factors(), derived from the same BREAKPOINTS array
-    // scaleForHeight() reads. A hand-written list here would be a second copy
-    // of the table, which is the defect this whole item was opened for.
-    readonly property Instantiator _sets: Instantiator {
-        model: Scaling.factors()
-        delegate: ThemeSet {
-            required property var modelData
-            scale: modelData
-        }
-    }
-
-    // Manual mode is not in the table — the user can type any factor in the
-    // clamped range — so it gets one set of its own rather than a set rebuilt
-    // on every tick of a slider drag.
-    readonly property ThemeSet _manualSet: ThemeSet {
-        scale: SettingsService.scaleManual
-    }
-
-    /// The shared token set for an output of this LOGICAL height.
-    ///
-    /// Identity matters and is asserted: two surfaces on the same output get
-    /// the SAME object, and two outputs in different buckets get different
-    /// ones. A lookup that quietly returned a fresh set each time would still
-    /// produce correct numbers, so nothing else would notice.
-    function setForHeight(h) {
-        if (SettingsService.scaleMode === "manual")
-            return policy._manualSet
-        const f = Scaling.scaleForHeight(h)
-        const all = Scaling.factors()
-        const i = all.indexOf(f)
-        // Not a float-tolerance comparison: factors() returns the very doubles
-        // scaleForHeight() returns, both out of BREAKPOINTS. A miss therefore
-        // means the table grew an entry factors() did not report, which is a
-        // bug rather than a rounding question — say so, and hand back the
-        // smallest set rather than null so the shell keeps drawing.
-        if (i < 0) {
-            console.warn("OutputScale: scaling.js factors() does not list "
-                         + f + "; the breakpoint table and factors() disagree")
-            return policy._sets.objectAt(0)
-        }
-        return policy._sets.objectAt(i)
-    }
-
-    /// The shared token set for a ShellScreen. A window knows its own `screen`
-    /// at construction; an Item that does not know its window uses the QtQuick
-    /// `Screen` attached property and passes `Screen.height` to setForHeight.
-    function setForScreen(screen) {
-        return policy.setForHeight(screen ? screen.height : 1080)
-    }
+    //   a ThemeSet handed out by this singleton and stored in another file's
+    //   `readonly property ThemeSet theme` evaluates to undefined at the call
+    //   site in some contexts. tests/settings-pages-test.qml builds its pages
+    //   in an Item with no window, and there it produced 1641
+    //   "Unable to assign [undefined] to int" warnings — no TypeError, no
+    //   ReferenceError, the object alive and its fs() returning a number when
+    //   called directly. Bisected: the ONLY thing that changed it was where the
+    //   object is constructed. Inline, zero warnings, matching an untouched
+    //   worktree exactly. Shared from here — whether built by an Instantiator
+    //   or by createObject — 1641, with or without the ThemeSet type
+    //   annotation.
+    //
+    // So the shared registry is not here, and this file hands out a FACTOR
+    // rather than an object. The cost is one ThemeSet per component instance,
+    // which is the price of a size that is actually defined everywhere it is
+    // read; a cheaper set that is undefined during construction is not cheaper.
 }
