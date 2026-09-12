@@ -211,6 +211,23 @@ ShellRoot {
             Loader {
                 id: pageLoader
                 anchors.fill: parent
+
+                // A page that holds a ServiceRef gated on `onScreen` draws
+                // NOTHING until something says it is on screen: the service
+                // never polls, so every row behind what the service found stays
+                // invisible. Nexus.qml binds this to the window's visibility;
+                // a Loader in a test that never sets it is a page measured in
+                // the one state no user ever sees.
+                //
+                // The Firewall page is entirely that shape — all four of its row
+                // groups are behind a FirewallService condition — so it laid out
+                // zero rows and this suite reported 16 failures for it, at every
+                // scale and both pane widths. Setting it here is what production
+                // does, and if the property is ever renamed the page goes back to
+                // zero rows and the "at least one row" assertion says so, which
+                // is why this needs no list of which pages have one.
+                onLoaded: if (item && item.onScreen !== undefined)
+                              item.onScreen = true
             }
         }
 

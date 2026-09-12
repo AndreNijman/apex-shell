@@ -107,7 +107,7 @@ esac
 exit 0
 FAKE
 chmod +x "$W/bin/_stub"
-for n in apex hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
+for n in hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
          brightnessctl pkcheck notify-send swww; do
     ln -sf "$W/bin/_stub" "$W/bin/$n"
 done
@@ -120,6 +120,99 @@ esac
 exit 0
 FAKE
 chmod +x "$W/bin/git"
+
+# ── The one stub that answers rather than shrugging ──────────────────────────
+#
+# A page whose rows are ALL behind a backend condition lays out no rows on the
+# empty machine every other stub here describes, and this suite measured that as
+# sixteen failures for months: the Firewall page draws one row per exception and
+# one per openable service, and `apex firewall` saying nothing means there are
+# none of either. It is not a scale defect — it failed identically at 0.85,
+# 1.00, 1.50 and 2.00, in both pane widths, because a row that does not exist is
+# the same size everywhere.
+#
+# So `apex firewall` answers. The two payloads are the ones tests/firewall-test.js
+# records as captured from the real helper, quoted rather than re-invented, so
+# the page is parsed by its own shipped parser out of text the helper really
+# prints. STATUS_MIXED is the one used deliberately: it carries the rejected
+# exception, whose status string is the longest row text on the page, and it
+# leaves nine of the eleven catalogue entries unopened — fourteen rows instead
+# of one.
+#
+# ONE, not none, and the difference was measured rather than assumed. Silence
+# `apex firewall` again and the suite still passes 4366/0: what recovers the
+# sixteen is the Loader setting `onScreen` plus the systemctl stub below, which
+# puts the unit at `inactive` and so shows the "Turn it on" row — one row, which
+# is all "at least one row" asks for. The payload does not change how many
+# assertions run; it changes what they are looking at. That it is looking at
+# something real was measured too: pin the exception delegate's height to 44 and
+# five named `page …x firewall pane=…: no text is drawn outside its row`
+# assertions go red, naming the rows this payload put there.
+cat > "$W/bin/apex" <<'FAKE'
+#!/usr/bin/env bash
+case "$1 ${2:-}" in
+"firewall status")
+cat <<'OUT'
+apex-firewall: policy: cannot read the ruleset; reading it needs root
+apex-firewall:   try: sudo apex firewall status
+
+always allowed, and not removable here:
+  established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh
+
+exceptions you have added:
+  broken        could not be applied — rejected: tcp notaport
+  mdns          udp 5353
+  syncthing     tcp 22000
+OUT
+exit 0 ;;
+"firewall list")
+cat <<'OUT'
+NAME          PROTO PORT   DESCRIPTION
+ssh           tcp   22     Remote shell, and how APEX remote agents and `apex host run` reach this machine
+http          tcp   80     A web server you are running
+https         tcp   443    A web server you are running, over TLS
+mdns          udp   5353   Local name discovery, for printers and `apex host`
+samba         tcp   445    Windows file sharing
+nfs           tcp   2049   NFS file sharing
+ipp           tcp   631    Sharing a printer attached to this machine
+steam-remote  udp   27036  Steam Remote Play from another machine on this network
+sunshine      tcp   47989  Sunshine game streaming host
+ollama        tcp   11434  A local model server, reachable from other machines
+syncthing     tcp   22000  Syncthing peer connections
+OUT
+exit 0 ;;
+esac
+case "$*" in
+    *--json*|*-j*|*json*) echo "{}" ;;
+    *)                    : ;;
+esac
+exit 0
+FAKE
+chmod +x "$W/bin/apex"
+
+# systemctl was NOT stubbed here, and the Firewall page asks it for the unit
+# state. Left alone, the moment this suite starts the service it would query the
+# developer's own system bus from inside a test that claims to touch nothing.
+# `inactive` and not `active`: it is the one unit state that shows every row the
+# page can draw, the "Turn it on" row included.
+cat > "$W/bin/systemctl" <<'FAKE'
+#!/usr/bin/env bash
+case "$*" in
+    *apex-firewall*) printf 'LoadState=loaded\nActiveState=inactive\n' ;;
+    *)               : ;;
+esac
+exit 0
+FAKE
+chmod +x "$W/bin/systemctl"
+
+# The real wlr-randr, resolved BEFORE the stubs go on PATH. Without this line
+# the block further down that sets the output mode found the stub, which prints
+# nothing, so `$out` was empty and --custom-mode was never invoked: labwc kept
+# its headless default of 1280x720 while this runner printed "at $mode". That is
+# a knob reporting success and doing nothing, and it is why NAV_GEOMETRY_MODE
+# has never selected an output size under labwc.
+real_wlr_randr="$(command -v wlr-randr 2>/dev/null || true)"
+
 export PATH="$W/bin:$PATH"
 
 real_home="$(getent passwd "$(id -u)" | cut -d: -f6)"
@@ -258,11 +351,29 @@ export WAYLAND_DISPLAY="$sock"
 
 # labwc has no output stanza in rc.xml, so the mode is set over wlr-output-
 # management once it is up. sway and Hyprland take it from their config.
-if [[ "$comp" == "labwc" ]] && command -v wlr-randr >/dev/null 2>&1; then
-    out="$(wlr-randr 2>/dev/null | awk 'NR==1{print $1}')"
-    [[ -n "$out" ]] && wlr-randr --output "$out" --custom-mode "$mode" >/dev/null 2>&1
+#
+# Through $real_wlr_randr and not through PATH, and then READ BACK rather than
+# assumed. This line used to print "$mode" whatever happened, and what happened
+# under labwc was nothing: the stub shadowed the real binary, so the output kept
+# the backend's default. Both numbers were in the log the whole time — this
+# runner saying 1920x1080 and the QML's own [rig] line saying 1280x720 — which
+# is how "verified at 1080p" stayed in the record for a suite that had only ever
+# been run at 720p.
+applied="$mode"
+if [[ "$comp" == "labwc" ]]; then
+    if [[ -n "$real_wlr_randr" ]]; then
+        rr_out="$("$real_wlr_randr" 2>/dev/null | awk 'NR==1{print $1}')"
+        [[ -n "$rr_out" ]] && "$real_wlr_randr" --output "$rr_out" \
+            --custom-mode "$mode" >/dev/null 2>&1
+        applied="$("$real_wlr_randr" 2>/dev/null \
+                   | awk '/px \(current\)/{print $1; exit}')"
+        [[ -n "$applied" ]] || applied="unknown"
+    else
+        applied="the backend default — wlr-randr is not installed"
+    fi
 fi
-echo "host: $comp on $WAYLAND_DISPLAY at $mode (headless, private XDG_RUNTIME_DIR and HOME)"
+echo "host: $comp on $WAYLAND_DISPLAY at $applied (headless, private XDG_RUNTIME_DIR and HOME)"
+[[ "$applied" == "$mode" ]] || echo "note: this run asked for $mode and got $applied"
 
 # quickshell stamps every console.log with a level and a category. Stripped, so
 # the assertion lines below are the shape the QML wrote them in.

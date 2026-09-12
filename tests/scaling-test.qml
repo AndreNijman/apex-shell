@@ -507,6 +507,26 @@ ShellRoot {
                             + (e.popup.screen ? e.popup.screen.name : "null"));
                 root.eq(e.name + ": the popup is sized at the factor of the output it is ANCHORED to",
                         e.popup.theme.scale, Metrics.scaleForScreen(e.screen));
+
+                // And POSITIONED by that output too, which is a SECOND bug with
+                // the same cause and was left standing when the first was fixed.
+                // QuickControl centres its panel on half the output height; it
+                // read `root.screen.height` to get it, which on this desk is the
+                // other monitor's height. The anchor rect is what the compositor
+                // places the window by, so this is the number that decides where
+                // a user sees it — and on one monitor it is the same number
+                // either way, which is why it survived.
+                //
+                // Within a pixel, not exactly: the expression is (h + fh + 5)/2,
+                // which lands on a half pixel whenever h + fh is even, and the
+                // anchor rect is integer-valued. The defect this catches misses
+                // by half the difference between the two outputs — 540px here —
+                // so a one-pixel tolerance costs it nothing.
+                const wantY = (e.screen.height + e.popup.fh + 5) / 2;
+                root.check(e.name + ": the popup is anchored at half the height of the"
+                           + " output it is ANCHORED to (got " + e.popup.anchor.rect.y
+                           + ", want " + wantY + ")",
+                           Math.abs(e.popup.anchor.rect.y - wantY) <= 1);
             }
 
             // ── DashboardLayout answers for the set it is handed ────────────
