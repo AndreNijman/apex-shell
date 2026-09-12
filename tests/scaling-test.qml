@@ -325,6 +325,59 @@ ShellRoot {
                 }
             }
 
+            // ── The registry: one shared set per factor ──────────────────
+            //
+            // A lookup that returned a FRESH ThemeSet on every call would give
+            // every assertion above the same numbers, so nothing else in this
+            // file can see the difference. Object identity is the only thing
+            // that can, and the cost it guards is real: every migrated file in
+            // the shell asks this question, most of them from inside a
+            // delegate.
+            root.check("two lookups for the same output return the SAME object",
+                       Theme.setForHeight(1080) === Theme.setForHeight(1080));
+            root.check("Theme and OutputScale hand back the same object, not two registries",
+                       Theme.setForHeight(2160) === OutputScale.setForHeight(2160));
+            root.check("outputs in different buckets get DIFFERENT objects",
+                       Theme.setForHeight(1080) !== Theme.setForHeight(2160));
+            root.check("outputs in the same bucket share one object (1080 and 1200)",
+                       Theme.setForHeight(1080) === Theme.setForHeight(1200));
+            root.eq("the shared set carries the factor it was built at",
+                    Theme.setForHeight(2160).scale, 1.5);
+            root.eq("and its tokens are that factor's, not the reference output's",
+                    Theme.setForHeight(2160).px(400), 600);
+            root.eq("the baseline set is untouched at 1.0",
+                    Theme.setForHeight(1080).px(400), 400);
+
+            // Every factor the table can answer must have a set. A registry
+            // built from a hand-written list beside the table could miss one,
+            // and a missing set is a whole density class of output with no
+            // tokens at all.
+            {
+                let gotAll = true, seen = {};
+                const heights = [768, 1080, 1440, 1800, 2160];
+                for (let i = 0; i < heights.length; i++) {
+                    const s = Theme.setForHeight(heights[i]);
+                    if (!s || s.scale !== Metrics.scaleForHeight(heights[i])) gotAll = false;
+                    seen[String(s)] = true;
+                }
+                root.check("every bucket in the table resolves to a set built at that bucket's factor",
+                           gotAll);
+                root.eq("and the five buckets are five distinct objects, not five copies",
+                        Object.keys(seen).length, 5);
+            }
+
+            // The two surfaces migrated in round one now read the registry
+            // rather than constructing a set each. Same output, same object.
+            if (root.perOutput.length >= 2) {
+                let sharedOk = true;
+                for (let i = 0; i < root.perOutput.length; i++) {
+                    const e = root.perOutput[i];
+                    if (e.win.theme !== Theme.setForScreen(e.screen)) sharedOk = false;
+                }
+                root.check("every per-output surface reads the shared set for its own screen",
+                           sharedOk);
+            }
+
             // ── Manual override ──────────────────────────────────────────
             // SettingsService persists, so the runner gives this suite a
             // private HOME. The originals are restored anyway: a test that
@@ -350,6 +403,14 @@ ShellRoot {
             }
             root.check("the manual override reached every per-output surface there is",
                        root.perOutput.length === screens.length * 2);
+
+            // The registry has to honour the override too, and it is a
+            // SEPARATE object from the five table sets — one set rebuilt on
+            // every tick of a slider drag would be the alternative.
+            root.eq("in manual mode every height resolves to the manual factor",
+                    Theme.setForHeight(2160).scale, 1.5);
+            root.check("...and 1080p and 2160p are now the very same object",
+                       Theme.setForHeight(1080) === Theme.setForHeight(2160));
 
             SettingsService.set("scaleManual", 99);
             root.check("manual factor is clamped to a usable range", SettingsService.scaleManual <= 3.0);

@@ -60,9 +60,12 @@ PanelWindow {
     // Colours stay on Theme deliberately: a palette belongs to the shell, not
     // to an output. Sizes come from `theme`, colours from `Theme`, and the
     // split is visible at every call site below.
-    readonly property ThemeSet theme: ThemeSet {
-        scale: Theme.factorForScreen(root.screen)
-    }
+    // The set is SHARED, not built here. theme/OutputScale keeps one ThemeSet
+    // per factor the breakpoint table can answer — five objects for the whole
+    // shell — because a token set is a pure function of its factor and a
+    // hundred migrated files each constructing their own would build a hundred
+    // copies of the same forty bindings onto SettingsService.
+    readonly property ThemeSet theme: Theme.setForScreen(root.screen)
 
     // Whether this copy is the one that answers the keyboard. Every copy is
     // visible; only one may hold focus, or the two would fight over it and

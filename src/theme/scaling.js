@@ -51,6 +51,25 @@ function scaleForHeight(h) {
     return TOP_SCALE
 }
 
+/// Every factor the table can answer, ascending, each once.
+///
+/// DERIVED from the table rather than written out beside it. theme/OutputScale
+/// builds one shared ThemeSet per entry, so a second list here would mean a
+/// breakpoint could be added to BREAKPOINTS and get no token set at all — the
+/// exact shape of defect this file was created to end, one level up.
+///
+/// The values are the identical doubles the table returns, which is what lets
+/// the registry look a factor up by indexOf instead of comparing floats with a
+/// tolerance.
+function factors() {
+    var out = []
+    for (var i = 0; i < BREAKPOINTS.length; i++)
+        if (out.indexOf(BREAKPOINTS[i][1]) < 0) out.push(BREAKPOINTS[i][1])
+    if (out.indexOf(TOP_SCALE) < 0) out.push(TOP_SCALE)
+    out.sort(function (a, b) { return a - b })
+    return out
+}
+
 // ── The compositor's factor ─────────────────────────────────────────────────
 //
 // INTEGERS ONLY, and that is a measurement rather than a preference.
@@ -96,11 +115,17 @@ function shellScaleFor(w, h, compositorScale) {
 
 /// True when a set of outputs cannot share one shell factor.
 ///
-/// The shell has ONE process-wide scale — Theme and Metrics are QML singletons
-/// read directly by 82 files at 831 call sites — so a desk whose outputs land in
-/// different buckets is a desk where the factor is wrong for at least one of
-/// them. This is what lets the Display page say so instead of leaving the user
-/// to notice that the bar is half the height of the other monitor's.
+/// Theme and Metrics are QML singletons, so the factor they carry is
+/// process-wide, and a desk whose outputs land in different buckets is a desk
+/// where THAT factor is wrong for at least one of them. This is what lets the
+/// Display page say so instead of leaving the user to notice that the bar is
+/// half the height of the other monitor's.
+///
+/// It is no longer the whole story: since P1-040 a surface resolves its own
+/// output's factor through theme/OutputScale and reads a ThemeSet built at it,
+/// so the singleton's factor is the fallback rather than the only answer. The
+/// disagreement is still worth reporting, because a mixed desk is still a desk
+/// where one global compositor scale would serve the user better.
 ///
 /// `outputs` is [{ width, height, scale }] — physical mode plus compositor scale.
 function bucketsDisagree(outputs) {
@@ -123,6 +148,7 @@ if (typeof module !== "undefined" && module.exports)
         BASELINE_MAX: BASELINE_MAX,
         CANDIDATES: CANDIDATES,
         scaleForHeight: scaleForHeight,
+        factors: factors,
         recommendedScale: recommendedScale,
         shellScaleFor: shellScaleFor,
         bucketsDisagree: bucketsDisagree

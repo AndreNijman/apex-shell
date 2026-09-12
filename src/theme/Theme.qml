@@ -74,6 +74,16 @@ QtObject {
     function factorForScreen(screen) { return OutputScale.factorForScreen(screen) }
     function factorForHeight(h)      { return OutputScale.factorForHeight(h) }
 
+    // The shared token sets, one per factor. Forwarded from here rather than
+    // reached directly because OutputScale is registered in theme/qmldir ONLY
+    // — it is a singleton, and a singleton declared in two modules is
+    // instantiated twice, which would give the shell two registries and two
+    // sets of token objects. Theme is registered in both modules, so it is
+    // reachable from every file in the tree; forwarding through it keeps the
+    // registry single no matter which module a caller imports.
+    function setForScreen(screen) { return OutputScale.setForScreen(screen) }
+    function setForHeight(h)      { return OutputScale.setForHeight(h) }
+
     // Metrics
     property bool barEnabled: Metrics.barEnabled
     
