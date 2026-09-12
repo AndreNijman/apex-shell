@@ -484,11 +484,19 @@ ShellRoot {
         // A Text whose paint size is zero is not on screen whatever its
         // `visible` says. Checked on the origin lines specifically, because
         // they are the criterion.
+        //
+        // The count is asserted in the same breath, and that is not belt and
+        // braces: `unpainted === 0` over an EMPTY list is a pass, so a mutant
+        // that renames the origin prefix turns this assertion vacuous instead
+        // of red. Measured — renaming "from: " to "origin: " in PrivacyPage
+        // left this green while the count assertion above went to 0 of 30.
         const origins = root.textsStarting("from: ")
         let unpainted = 0
         for (let i = 0; i < origins.length; i++)
             if (origins[i].paintedWidth <= 0 || origins[i].paintedHeight <= 0) unpainted++
-        root.eq("every origin line has actually been laid out", unpainted, 0)
+        root.check("all thirty origin lines have actually been laid out",
+                   origins.length === 30 && unpainted === 0,
+                   origins.length + " found, " + unpainted + " with no paint size")
         root.next()
     }
 
