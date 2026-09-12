@@ -450,8 +450,13 @@ ShellRoot {
         root.check("and there is nothing in it", !LidService.report.has)
         root.check("the page says so in those words",
                    root.showing("No lid-closed period has been recorded") !== null)
+        // The report rows are hidden by `visible: report.has`, and `showing`
+        // reads effective visibility, so a row inside a hidden CfgRow is
+        // invisible to it. The needle is a row label that exists ONLY in the
+        // report section: "agent session" would have matched the live-work
+        // input line above and passed while asserting the opposite.
         root.check("…and does not show a period that is not there",
-                   root.showing("agent session") !== null)
+                   root.showing("What was running") === null)
         root.check("…and claims no battery figure",
                    root.showing("% of battery used") === null)
         root.next()
