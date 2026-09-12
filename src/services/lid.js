@@ -221,7 +221,11 @@ function readJson(text, exitCode, what) {
     } catch (e) {
         return { doc: null, reason: "`apex lid " + what + "` produced output this could not read" };
     }
-    if (!doc || typeof doc !== "object") {
+    // `Array.isArray` as well as `typeof`, because a JSON array IS `typeof
+    // "object"` and would otherwise be accepted as a status document: every
+    // field would read as missing, every default would apply, and the page
+    // would render a calm, fully-populated machine out of `[1,2,3]`.
+    if (!doc || typeof doc !== "object" || Array.isArray(doc)) {
         return { doc: null, reason: "`apex lid " + what + "` produced no object" };
     }
     return { doc: doc, reason: "" };
@@ -612,6 +616,19 @@ function tileView(status) {
         out.sublabel = "unreadable";
         return out;
     }
+    // BEFORE the logind framing, and that order is a defect this file had.
+    //
+    // `guard-suspend` is not a lid decision that logind mediates: the driver
+    // releases the inhibitor and calls `systemctl suspend` ITSELF
+    // (apexd/apex/src/lid.rs, the guard arm of the watch loop). So it fires on
+    // a docked machine exactly as it fires on an undocked one, and on a
+    // machine whose lid handling could not be established at all. Saying
+    // "docked — logind ignores the lid" to an owner whose laptop APEX is about
+    // to suspend would be true about logind and a lie about the machine.
+    if (s.decision.id === "guard-suspend") {
+        out.sublabel = s.decision.guardLabel || "a guard is suspending";
+        return out;
+    }
     if (s.logind.actsKnown && !s.logind.actsOnLid) {
         // Said on the tile, not only on the page: this machine's lid does
         // nothing whatever this control says, and the tile is where somebody
@@ -625,10 +642,6 @@ function tileView(status) {
     }
     if (s.pin === "off") {
         out.sublabel = "pinned: always suspend";
-        return out;
-    }
-    if (s.decision.id === "guard-suspend") {
-        out.sublabel = s.decision.guardLabel || "a guard fired";
         return out;
     }
     if (s.pin === "on") {
@@ -650,15 +663,19 @@ function headline(status) {
     var s = status && typeof status === "object" ? status : emptyStatus();
     if (!s.ok) return "The lid policy could not be read";
     if (!s.enabled) return "Lid handling is switched off in the policy file";
+    // Same order, and for the same reason, as `tileView`: a guard suspend is
+    // APEX calling `systemctl suspend` on its own, not logind acting on a lid,
+    // so neither the docked frame nor the could-not-be-established frame may
+    // stand in front of it.
+    if (s.decision.id === "guard-suspend") {
+        return "A guard is about to suspend this machine"
+            + (s.decision.guardLabel ? " — " + s.decision.guardLabel : "");
+    }
     if (s.logind.actsKnown && !s.logind.actsOnLid) {
         return "This machine already ignores the lid, and APEX is not why";
     }
     if (!s.logind.actsKnown) return "Whether this machine acts on the lid could not be established";
     if (s.decision.id === "keep-working") return "Shutting the lid now keeps the work running";
-    if (s.decision.id === "guard-suspend") {
-        return "A guard is about to suspend this machine"
-            + (s.decision.guardLabel ? " — " + s.decision.guardLabel : "");
-    }
     if (s.decision.id === "release") return "Shutting the lid now suspends, as it always did";
     return "What the lid would do could not be established";
 }
