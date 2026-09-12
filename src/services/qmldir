@@ -55,6 +55,13 @@ singleton PermissionsService 1.0 PermissionsService.qml
 PrivacyPage ./config_tab/pages/PrivacyPage.qml
 singleton FirewallService 1.0 FirewallService.qml
 FirewallPage ./config_tab/pages/FirewallPage.qml
+# P1-063's lid surface. Same shape as the two rows above: the service polls only
+# while the page or the Quick Settings card is on screen, and both are reached
+# through this qmldir rather than by directory import. A missing line here is
+# not a broken page — it is `LidPage is not a type` and the whole shell refuses
+# to start.
+singleton LidService 1.0 LidService.qml
+LidPage ./config_tab/pages/LidPage.qml
 # P1-051's two APEX Remote pages and the service behind them. Registered here
 # for the reason the whole file exists: a missing line is not a broken page,
 # it is "RemotePairPage is not a type" and the entire shell fails to start.
