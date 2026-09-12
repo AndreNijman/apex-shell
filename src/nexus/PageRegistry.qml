@@ -98,6 +98,18 @@ QtObject {
             "component": recoveryComp
         },
         {
+            "id": "privacy",
+            "title": "Privacy & Permissions",
+            "subtitle": "Camera, microphone, capture, files, and who enforces each",
+            "icon": "󰒃",
+            // PermissionsService runs one `apex permissions list --json` per
+            // sweep, and that command runs a `flatpak info` per installed
+            // application. Getting this wrong means a burst of Flatpak
+            // processes every 30 seconds until logout.
+            "needsScreen": true,
+            "component": privacyComp
+        },
+        {
             "id": "agents",
             "title": "Agents",
             "subtitle": "The sandbox new agent sessions start in",
@@ -197,6 +209,9 @@ QtObject {
     }
     readonly property Component recoveryComp: Component {
         RecoveryPage {}
+    }
+    readonly property Component privacyComp: Component {
+        PrivacyPage {}
     }
     readonly property Component agentsComp: Component {
         AgentsPage {}
