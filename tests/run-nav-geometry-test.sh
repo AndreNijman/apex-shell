@@ -107,7 +107,7 @@ esac
 exit 0
 FAKE
 chmod +x "$W/bin/_stub"
-for n in apex hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
+for n in hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
          brightnessctl pkcheck notify-send swww; do
     ln -sf "$W/bin/_stub" "$W/bin/$n"
 done
@@ -120,6 +120,81 @@ esac
 exit 0
 FAKE
 chmod +x "$W/bin/git"
+
+# ── The one stub that answers rather than shrugging ──────────────────────────
+#
+# A page whose rows are ALL behind a backend condition lays out no rows on the
+# empty machine every other stub here describes, and this suite measured that as
+# sixteen failures for months: the Firewall page draws one row per exception and
+# one per openable service, and `apex firewall` saying nothing means there are
+# none of either. It is not a scale defect — it failed identically at 0.85,
+# 1.00, 1.50 and 2.00, in both pane widths, because a row that does not exist is
+# the same size everywhere.
+#
+# So `apex firewall` answers. The two payloads are the ones tests/firewall-test.js
+# records as captured from the real helper, quoted rather than re-invented, so
+# the page is parsed by its own shipped parser out of text the helper really
+# prints. STATUS_MIXED is the one used deliberately: it carries the rejected
+# exception, whose status string is the longest row text on the page, and it
+# leaves nine of the eleven catalogue entries unopened — fourteen rows to
+# measure instead of none.
+cat > "$W/bin/apex" <<'FAKE'
+#!/usr/bin/env bash
+case "$1 ${2:-}" in
+"firewall status")
+cat <<'OUT'
+apex-firewall: policy: cannot read the ruleset; reading it needs root
+apex-firewall:   try: sudo apex firewall status
+
+always allowed, and not removable here:
+  established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh
+
+exceptions you have added:
+  broken        could not be applied — rejected: tcp notaport
+  mdns          udp 5353
+  syncthing     tcp 22000
+OUT
+exit 0 ;;
+"firewall list")
+cat <<'OUT'
+NAME          PROTO PORT   DESCRIPTION
+ssh           tcp   22     Remote shell, and how APEX remote agents and `apex host run` reach this machine
+http          tcp   80     A web server you are running
+https         tcp   443    A web server you are running, over TLS
+mdns          udp   5353   Local name discovery, for printers and `apex host`
+samba         tcp   445    Windows file sharing
+nfs           tcp   2049   NFS file sharing
+ipp           tcp   631    Sharing a printer attached to this machine
+steam-remote  udp   27036  Steam Remote Play from another machine on this network
+sunshine      tcp   47989  Sunshine game streaming host
+ollama        tcp   11434  A local model server, reachable from other machines
+syncthing     tcp   22000  Syncthing peer connections
+OUT
+exit 0 ;;
+esac
+case "$*" in
+    *--json*|*-j*|*json*) echo "{}" ;;
+    *)                    : ;;
+esac
+exit 0
+FAKE
+chmod +x "$W/bin/apex"
+
+# systemctl was NOT stubbed here, and the Firewall page asks it for the unit
+# state. Left alone, the moment this suite starts the service it would query the
+# developer's own system bus from inside a test that claims to touch nothing.
+# `inactive` and not `active`: it is the one unit state that shows every row the
+# page can draw, the "Turn it on" row included.
+cat > "$W/bin/systemctl" <<'FAKE'
+#!/usr/bin/env bash
+case "$*" in
+    *apex-firewall*) printf 'LoadState=loaded\nActiveState=inactive\n' ;;
+    *)               : ;;
+esac
+exit 0
+FAKE
+chmod +x "$W/bin/systemctl"
+
 export PATH="$W/bin:$PATH"
 
 real_home="$(getent passwd "$(id -u)" | cut -d: -f6)"
