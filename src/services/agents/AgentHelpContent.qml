@@ -18,14 +18,26 @@ import QtQuick
 // secret.rs. A flag that is not implemented does not belong in a help page.
 
 QtObject {
-    readonly property string entryLabel: "How Agents & Workspaces work"
+    // ── Translatable ────────────────────────────────────────────────────────
+    // qsTr() wraps these five strings. It wraps nothing else in this file yet.
+    // That gap counts as a measurement rather than a half-finished job: roadmap
+    // P2-004 asks for a baseline, and a baseline means a number you can defend.
+    // tests/run-i18n-test.sh extracts these five with the real lupdate,
+    // compiles them with the real lrelease, then reads them back out of a
+    // running QML engine in German. That proves the whole pipeline on strings
+    // this repository ships, and it reports the ratio of translatable to total
+    // instead of guessing it.
+    //
+    // cardBody once held two adjacent literals joined with `+`. lupdate
+    // extracts LITERALS, so a concatenation hands the translator two fragments
+    // and no way to reorder them, which costs most of what translation does.
+    // One string now.
+    readonly property string entryLabel: qsTr("How Agents & Workspaces work")
 
-    readonly property string cardTitle: "New to agents?"
-    readonly property string cardBody:
-        "APEX runs Claude, OpenCode, Codex or Gemini in a terminal it owns, so closing the window leaves the agent working. " +
-        "The guide starts from zero and covers starting an agent, picking which one runs, attaching and detaching, worktrees, diffs, checkpoints and the three sandbox modes."
-    readonly property string cardRead: "Read the guide"
-    readonly property string cardDismiss: "Got it"
+    readonly property string cardTitle: qsTr("New to agents?")
+    readonly property string cardBody: qsTr("APEX runs Claude, OpenCode, Codex or Gemini in a terminal it owns, so closing the window leaves the agent working. The guide starts from zero and covers starting an agent, picking which one runs, attaching and detaching, worktrees, diffs, checkpoints and the three sandbox modes.")
+    readonly property string cardRead: qsTr("Read the guide")
+    readonly property string cardDismiss: qsTr("Got it")
 
     readonly property var sections: [
     {
