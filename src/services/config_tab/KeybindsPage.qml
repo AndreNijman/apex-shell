@@ -15,7 +15,7 @@ import "../../components/config/settings-semantics.js" as Semantics
 // that owned it lost it every time the settings window was rebuilt.
 Item {
     id: root
-    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
     // ── Capture state ─────────────────────────────────────────────────────────

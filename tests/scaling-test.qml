@@ -326,57 +326,37 @@ ShellRoot {
                 }
             }
 
-            // ── The registry: one shared set per factor ──────────────────
+            // ── Every surface builds its own set, at its own factor ──────
             //
-            // A lookup that returned a FRESH ThemeSet on every call would give
-            // every assertion above the same numbers, so nothing else in this
-            // file can see the difference. Object identity is the only thing
-            // that can, and the cost it guards is real: every migrated file in
-            // the shell asks this question, most of them from inside a
-            // delegate.
-            root.check("two lookups for the same output return the SAME object",
-                       Theme.setForHeight(1080) === Theme.setForHeight(1080));
-            root.check("Theme and OutputScale hand back the same object, not two registries",
-                       Theme.setForHeight(2160) === OutputScale.setForHeight(2160));
-            root.check("outputs in different buckets get DIFFERENT objects",
-                       Theme.setForHeight(1080) !== Theme.setForHeight(2160));
-            root.check("outputs in the same bucket share one object (1080 and 1200)",
-                       Theme.setForHeight(1080) === Theme.setForHeight(1200));
-            root.eq("the shared set carries the factor it was built at",
-                    Theme.setForHeight(2160).scale, 1.5);
-            root.eq("and its tokens are that factor's, not the reference output's",
-                    Theme.setForHeight(2160).px(400), 600);
-            root.eq("the baseline set is untouched at 1.0",
-                    Theme.setForHeight(1080).px(400), 400);
+            // A registry of five shared sets — one per factor the table can
+            // answer — was built here and then removed, because a ThemeSet
+            // handed out by a singleton evaluates to undefined at the call
+            // site in some contexts. theme/OutputScale.qml records the
+            // measurement. What is asserted instead is the thing that has to
+            // be true either way: the FACTOR each surface builds its set at
+            // is its own output's, and the policy is the single one.
+            root.eq("the policy answers the table at 2160", Theme.factorForHeight(2160), 1.5);
+            root.eq("the policy answers the table at 1080", Theme.factorForHeight(1080), 1.0);
+            root.check("Theme and OutputScale are the same policy, not two",
+                       Theme.factorForHeight(1440) === OutputScale.factorForHeight(1440));
+            root.eq("a set built at the 4K factor sizes a 400px card at 600",
+                    Theme.factorForHeight(2160) * 400, 600);
 
-            // Every factor the table can answer must have a set. A registry
-            // built from a hand-written list beside the table could miss one,
-            // and a missing set is a whole density class of output with no
-            // tokens at all.
-            {
-                let gotAll = true, seen = {};
-                const heights = [768, 1080, 1440, 1800, 2160];
-                for (let i = 0; i < heights.length; i++) {
-                    const s = Theme.setForHeight(heights[i]);
-                    if (!s || s.scale !== Metrics.scaleForHeight(heights[i])) gotAll = false;
-                    seen[String(s)] = true;
-                }
-                root.check("every bucket in the table resolves to a set built at that bucket's factor",
-                           gotAll);
-                root.eq("and the five buckets are five distinct objects, not five copies",
-                        Object.keys(seen).length, 5);
-            }
-
-            // The two surfaces migrated in round one now read the registry
-            // rather than constructing a set each. Same output, same object.
             if (root.perOutput.length >= 2) {
-                let sharedOk = true;
+                let ownFactor = true, ownObject = true;
+                let seen = [];
                 for (let i = 0; i < root.perOutput.length; i++) {
                     const e = root.perOutput[i];
-                    if (e.win.theme !== Theme.setForScreen(e.screen)) sharedOk = false;
+                    if (e.win.theme.scale !== Theme.factorForScreen(e.screen)) ownFactor = false;
+                    // Its OWN set, not a shared one: two surfaces on the same
+                    // output must still be two objects, which is what makes the
+                    // sizes defined at construction rather than a moment later.
+                    for (let k = 0; k < seen.length; k++)
+                        if (seen[k] === e.win.theme) ownObject = false;
+                    seen.push(e.win.theme);
                 }
-                root.check("every per-output surface reads the shared set for its own screen",
-                           sharedOk);
+                root.check("every per-output surface built a set at its own screen's factor", ownFactor);
+                root.check("and each built its own, so no surface depends on another's lifetime", ownObject);
             }
 
             // ── Manual override ──────────────────────────────────────────
@@ -405,13 +385,13 @@ ShellRoot {
             root.check("the manual override reached every per-output surface there is",
                        root.perOutput.length === screens.length * 2);
 
-            // The registry has to honour the override too, and it is a
-            // SEPARATE object from the five table sets — one set rebuilt on
-            // every tick of a slider drag would be the alternative.
+            // The policy has to honour the override at every height, or a
+            // per-output surface on a dense monitor would quietly keep its own
+            // density's factor while the user's 150% reached everything else.
             root.eq("in manual mode every height resolves to the manual factor",
-                    Theme.setForHeight(2160).scale, 1.5);
-            root.check("...and 1080p and 2160p are now the very same object",
-                       Theme.setForHeight(1080) === Theme.setForHeight(2160));
+                    Theme.factorForHeight(2160), 1.5);
+            root.eq("...including the one whose own density wants 1.0",
+                    Theme.factorForHeight(1080), 1.5);
 
             SettingsService.set("scaleManual", 99);
             root.check("manual factor is clamped to a usable range", SettingsService.scaleManual <= 3.0);
@@ -494,8 +474,6 @@ ShellRoot {
                         e.bar.theme.scale, Metrics.scaleForScreen(e.screen));
                 root.eq(e.name + ": the bar's height is that factor's notchHeight",
                         e.bar.implicitHeight, e.bar.theme.notchHeight);
-                root.check(e.name + ": the bar reads the SHARED set for its screen, not one of its own",
-                           e.bar.theme === Theme.setForScreen(e.screen));
             }
 
             if (root.perBar.length > 1) {
