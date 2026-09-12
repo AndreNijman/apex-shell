@@ -43,6 +43,8 @@ import "../../"
 // put a finger near it.
 CfgScroll {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     // Criterion 1. Live: every control here acts on the machine when pressed.
     // The one thing that does not take effect where you press it says so on its
@@ -85,22 +87,22 @@ CfgScroll {
 
         Item {
             width:  parent.width
-            height: Theme.px(62)
+            height: theme.px(62)
 
             Row {
-                x: Theme.px(10)
+                x: theme.px(10)
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: Theme.px(12)
+                spacing: theme.px(12)
 
                 Text {
                     text:           "󰑙"
-                    font.pixelSize: Theme.fs(28)
+                    font.pixelSize: theme.fs(28)
                     color: RecoveryService.needsAttention > 0 ? Theme.warning : Theme.active
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: Theme.px(3)
+                    spacing: theme.px(3)
 
                     Text {
                         text: {
@@ -112,7 +114,7 @@ CfgScroll {
                                 + " component" + (RecoveryService.needsAttention === 1 ? "" : "s")
                                 + " need attention"
                         }
-                        font.pixelSize: Theme.fs(15)
+                        font.pixelSize: theme.fs(15)
                         font.weight:    Font.Medium
                         color:          Theme.text
                     }
@@ -121,7 +123,7 @@ CfgScroll {
                             ? ("bootloader " + RecoveryService.status.bootloader
                                + "  ·  diagnostics: " + RecoveryService.doctorSummary)
                             : "`apex recover` is not on this machine, or predates this shell. Nothing below could be read."
-                        font.pixelSize: Theme.fs(10)
+                        font.pixelSize: theme.fs(10)
                         color:          Theme.subtext
                         font.family:    "JetBrains Mono"
                     }
@@ -130,7 +132,7 @@ CfgScroll {
 
             CfgButton {
                 anchors.right:          parent.right
-                anchors.rightMargin:    Theme.px(8)
+                anchors.rightMargin:    theme.px(8)
                 anchors.verticalCenter: parent.verticalCenter
                 label:   RecoveryService.busy ? "Checking…" : "Re-check"
                 icon:    "󰑐"
@@ -140,18 +142,18 @@ CfgScroll {
         }
 
         Text {
-            x:     Theme.px(10)
-            width: parent.width - Theme.px(20)
+            x:     theme.px(10)
+            width: parent.width - theme.px(20)
             text: "Everything on this page is read from the machine, not from a "
                 + "cache. Checking it changes nothing and needs no password: "
                 + "`apex recover status` and `apex doctor` read files. The two "
                 + "verbs that do change something — repair, and the factory "
                 + "reset — run only when you press them."
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:    Theme.subtext
             wrapMode: Text.WordWrap
         }
-        Item { width: parent.width; height: Theme.px(6) }
+        Item { width: parent.width; height: theme.px(6) }
     }
 
     // ── Components ────────────────────────────────────────────────────────────
@@ -177,11 +179,11 @@ CfgScroll {
                 readonly property var row: RecoveryService.status.rows[compRow.index]
 
                 width:  parent ? parent.width : 0
-                height: compCol.implicitHeight + Theme.px(16)
+                height: compCol.implicitHeight + theme.px(16)
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: Theme.px(8)
+                    radius: theme.px(8)
                     color:  compHov.hovered ? Qt.rgba(1, 1, 1, 0.03) : "transparent"
                     Behavior on color { ColorAnimation { duration: 120 } }
                 }
@@ -189,11 +191,11 @@ CfgScroll {
 
                 Text {
                     id: compIcon
-                    x: Theme.px(10)
+                    x: theme.px(10)
                     anchors.top:       parent.top
-                    anchors.topMargin: Theme.px(9)
+                    anchors.topMargin: theme.px(9)
                     text:           RecoveryService.stateIcon(compRow.row ? compRow.row.state : "")
-                    font.pixelSize: Theme.fs(13)
+                    font.pixelSize: theme.fs(13)
                     color:          root.toneColor(RecoveryService.stateTone(compRow.row ? compRow.row.state : ""))
                     Behavior on color { ColorAnimation { duration: 160 } }
                 }
@@ -201,23 +203,23 @@ CfgScroll {
                 Column {
                     id: compCol
                     anchors.left:        compIcon.right
-                    anchors.leftMargin:  Theme.px(10)
+                    anchors.leftMargin:  theme.px(10)
                     anchors.right:       parent.right
-                    anchors.rightMargin: Theme.px(10)
+                    anchors.rightMargin: theme.px(10)
                     anchors.top:         parent.top
-                    anchors.topMargin:   Theme.px(8)
-                    spacing: Theme.px(3)
+                    anchors.topMargin:   theme.px(8)
+                    spacing: theme.px(3)
 
                     Row {
-                        spacing: Theme.px(8)
+                        spacing: theme.px(8)
                         Text {
                             text:           compRow.row ? compRow.row.label : ""
-                            font.pixelSize: Theme.fs(12)
+                            font.pixelSize: theme.fs(12)
                             color:          Theme.text
                         }
                         Text {
                             text:           RecoveryService.stateLabel(compRow.row ? compRow.row.state : "")
-                            font.pixelSize: Theme.fs(10)
+                            font.pixelSize: theme.fs(10)
                             font.weight:    Font.Medium
                             color:          root.toneColor(RecoveryService.stateTone(compRow.row ? compRow.row.state : ""))
                             anchors.verticalCenter: parent.verticalCenter
@@ -227,7 +229,7 @@ CfgScroll {
                     Text {
                         width:          parent.width
                         text:           compRow.row ? compRow.row.detail : ""
-                        font.pixelSize: Theme.fs(10)
+                        font.pixelSize: theme.fs(10)
                         color:          Theme.subtext
                         wrapMode:       Text.WordWrap
                     }
@@ -237,7 +239,7 @@ CfgScroll {
                         visible:        compRow.row && compRow.row.action !== ""
                         width:          parent.width
                         text:           "→ " + (compRow.row ? compRow.row.action : "")
-                        font.pixelSize: Theme.fs(10)
+                        font.pixelSize: theme.fs(10)
                         font.family:    "JetBrains Mono"
                         color:          Theme.active
                         wrapMode:       Text.WordWrap
@@ -298,27 +300,27 @@ CfgScroll {
                 readonly property var step: RecoveryService.repairSteps[stepRow.index]
 
                 width:  parent ? parent.width : 0
-                height: stepCol.implicitHeight + Theme.px(12)
+                height: stepCol.implicitHeight + theme.px(12)
 
                 Column {
                     id: stepCol
-                    x: Theme.px(20)
-                    width: parent.width - Theme.px(30)
+                    x: theme.px(20)
+                    width: parent.width - theme.px(30)
                     anchors.top:       parent.top
-                    anchors.topMargin: Theme.px(6)
-                    spacing: Theme.px(2)
+                    anchors.topMargin: theme.px(6)
+                    spacing: theme.px(2)
 
                     Text {
                         width:          parent.width
                         text:           (stepRow.step ? stepRow.step.what : "")
-                        font.pixelSize: Theme.fs(11)
+                        font.pixelSize: theme.fs(11)
                         color:          Theme.text
                         wrapMode:       Text.WordWrap
                     }
                     Text {
                         width:          parent.width
                         text:           stepRow.step ? stepRow.step.whySafe : ""
-                        font.pixelSize: Theme.fs(9)
+                        font.pixelSize: theme.fs(9)
                         color:          Theme.subtext
                         wrapMode:       Text.WordWrap
                     }
@@ -329,7 +331,7 @@ CfgScroll {
                         visible:        stepRow.step && !stepRow.step.runnableHere
                         width:          parent.width
                         text:           "→ " + RecoveryService.repairSystemCommand
-                        font.pixelSize: Theme.fs(9)
+                        font.pixelSize: theme.fs(9)
                         font.family:    "JetBrains Mono"
                         color:          Theme.active
                         wrapMode:       Text.WordWrap
@@ -351,14 +353,14 @@ CfgScroll {
         visible: RecoveryService.available
 
         Text {
-            x:     Theme.px(10)
-            width: parent.width - Theme.px(20)
+            x:     theme.px(10)
+            width: parent.width - theme.px(20)
             text:  RecoveryService.rollbackHint
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:    Theme.subtext
             wrapMode: Text.WordWrap
         }
-        Item { width: parent.width; height: Theme.px(8) }
+        Item { width: parent.width; height: theme.px(8) }
 
         CfgRow {
             label:       "Boot the previous deployment"
@@ -366,7 +368,7 @@ CfgScroll {
             effect:      "reboot"
             Text {
                 text:           RecoveryService.rollbackCommand
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 font.family:    "JetBrains Mono"
                 color:          Theme.active
             }
@@ -377,7 +379,7 @@ CfgScroll {
             description: "bootc keeps only the booted and previous images, so two bad updates in a row can evict the last good one. Pinning stops that."
             Text {
                 text:           RecoveryService.pinCommand
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 font.family:    "JetBrains Mono"
                 color:          Theme.active
             }
@@ -404,15 +406,15 @@ CfgScroll {
                     RecoveryService.routeMark(routeRow.route ? routeRow.route.available : null)
 
                 width:  parent ? parent.width : 0
-                height: routeCol.implicitHeight + Theme.px(14)
+                height: routeCol.implicitHeight + theme.px(14)
 
                 Text {
                     id: routeIcon
-                    x: Theme.px(10)
+                    x: theme.px(10)
                     anchors.top:       parent.top
-                    anchors.topMargin: Theme.px(8)
+                    anchors.topMargin: theme.px(8)
                     text: routeRow.mark === "yes" ? "󰄬" : (routeRow.mark === "no" ? "󰅘" : "󰇙")
-                    font.pixelSize: Theme.fs(12)
+                    font.pixelSize: theme.fs(12)
                     // `unknown` is not `no`. A running system cannot tell
                     // whether you have install media, and painting that red
                     // would be a claim nobody made.
@@ -422,23 +424,23 @@ CfgScroll {
                 Column {
                     id: routeCol
                     anchors.left:        routeIcon.right
-                    anchors.leftMargin:  Theme.px(10)
+                    anchors.leftMargin:  theme.px(10)
                     anchors.right:       parent.right
-                    anchors.rightMargin: Theme.px(10)
+                    anchors.rightMargin: theme.px(10)
                     anchors.top:         parent.top
-                    anchors.topMargin:   Theme.px(7)
-                    spacing: Theme.px(2)
+                    anchors.topMargin:   theme.px(7)
+                    spacing: theme.px(2)
 
                     Text {
                         text:           routeRow.route ? routeRow.route.id : ""
-                        font.pixelSize: Theme.fs(11)
+                        font.pixelSize: theme.fs(11)
                         font.family:    "JetBrains Mono"
                         color:          routeRow.mark === "yes" ? Theme.text : Theme.subtext
                     }
                     Text {
                         width:          parent.width
                         text:           routeRow.route ? routeRow.route.how : ""
-                        font.pixelSize: Theme.fs(10)
+                        font.pixelSize: theme.fs(10)
                         color:          Theme.subtext
                         wrapMode:       Text.WordWrap
                     }
@@ -461,15 +463,15 @@ CfgScroll {
         visible: RecoveryService.doctor.ok
 
         Text {
-            x:     Theme.px(10)
-            width: parent.width - Theme.px(20)
+            x:     theme.px(10)
+            width: parent.width - theme.px(20)
             text:  RecoveryService.doctorSummary
                    + " — a warning here is information, not a fault: not every machine has every capability."
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:    Theme.subtext
             wrapMode: Text.WordWrap
         }
-        Item { width: parent.width; height: Theme.px(8) }
+        Item { width: parent.width; height: theme.px(8) }
 
         Repeater {
             model: RecoveryService.doctor.checks.length
@@ -480,7 +482,7 @@ CfgScroll {
                 readonly property var check: RecoveryService.doctor.checks[checkRow.index]
 
                 width:  parent ? parent.width : 0
-                height: checkText.implicitHeight + Theme.px(10)
+                height: checkText.implicitHeight + theme.px(10)
 
                 Text {
                     id: checkMark
@@ -489,23 +491,23 @@ CfgScroll {
                     // that turns the touchpad block into five unrelated
                     // sentences, so the depth is carried through and spent
                     // here.
-                    x: Theme.px(10) + Theme.px(14) * (checkRow.check ? checkRow.check.depth : 0)
+                    x: theme.px(10) + theme.px(14) * (checkRow.check ? checkRow.check.depth : 0)
                     anchors.top:       parent.top
-                    anchors.topMargin: Theme.px(5)
+                    anchors.topMargin: theme.px(5)
                     text:           (checkRow.check && checkRow.check.ok) ? "󰄬" : "󰀪"
-                    font.pixelSize: Theme.fs(11)
+                    font.pixelSize: theme.fs(11)
                     color:          (checkRow.check && checkRow.check.ok) ? Theme.success : Theme.warning
                 }
                 Text {
                     id: checkText
                     anchors.left:        checkMark.right
-                    anchors.leftMargin:  Theme.px(8)
+                    anchors.leftMargin:  theme.px(8)
                     anchors.right:       parent.right
-                    anchors.rightMargin: Theme.px(10)
+                    anchors.rightMargin: theme.px(10)
                     anchors.top:         parent.top
-                    anchors.topMargin:   Theme.px(5)
+                    anchors.topMargin:   theme.px(5)
                     text:           checkRow.check ? checkRow.check.check : ""
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                     color:          (checkRow.check && checkRow.check.ok) ? Theme.text : Theme.subtext
                     wrapMode:       Text.WordWrap
                 }
@@ -547,8 +549,8 @@ CfgScroll {
 
         Rectangle {
             width:  parent.width
-            height: resetCol.implicitHeight + Theme.px(24)
-            radius: Theme.px(10)
+            height: resetCol.implicitHeight + theme.px(24)
+            radius: theme.px(10)
             color:  Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.06)
             border.width: 1
             border.color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.30)
@@ -558,28 +560,28 @@ CfgScroll {
                 anchors.left:        parent.left
                 anchors.right:       parent.right
                 anchors.top:         parent.top
-                anchors.leftMargin:  Theme.px(12)
-                anchors.rightMargin: Theme.px(12)
-                anchors.topMargin:   Theme.px(12)
-                spacing: Theme.px(8)
+                anchors.leftMargin:  theme.px(12)
+                anchors.rightMargin: theme.px(12)
+                anchors.topMargin:   theme.px(12)
+                spacing: theme.px(8)
 
                 // ── the disclosure ───────────────────────────────────────────
                 Item {
                     width:  parent.width
-                    height: Theme.px(26)
+                    height: theme.px(26)
 
                     Row {
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: Theme.px(8)
+                        spacing: theme.px(8)
                         Text {
                             text:           "󰀦"
-                            font.pixelSize: Theme.fs(14)
+                            font.pixelSize: theme.fs(14)
                             color:          Theme.danger
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         Text {
                             text:           "Reset this account's APEX state"
-                            font.pixelSize: Theme.fs(12)
+                            font.pixelSize: theme.fs(12)
                             font.weight:    Font.Medium
                             color:          Theme.text
                             anchors.verticalCenter: parent.verticalCenter
@@ -608,7 +610,7 @@ CfgScroll {
                         + "compositor configuration, your packages or your deployments. "
                         + "A machine indistinguishable from a fresh install is a "
                         + "reinstall, and the installer is what does that."
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                     color:    Theme.subtext
                     wrapMode: Text.WordWrap
                 }
@@ -616,13 +618,13 @@ CfgScroll {
                 // ── everything below is inside the disclosure ────────────────
                 Column {
                     width:   parent.width
-                    spacing: Theme.px(8)
+                    spacing: theme.px(8)
                     visible: root.resetOpen
 
                     Text {
                         width:          parent.width
                         text:           "How much"
-                        font.pixelSize: Theme.fs(9)
+                        font.pixelSize: theme.fs(9)
                         font.weight:    Font.Bold
                         color:          Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
                     }
@@ -657,7 +659,7 @@ CfgScroll {
                                     return scopes[i].summary
                             return ""
                         }
-                        font.pixelSize: Theme.fs(10)
+                        font.pixelSize: theme.fs(10)
                         color:    Theme.subtext
                         wrapMode: Text.WordWrap
                     }
@@ -678,7 +680,7 @@ CfgScroll {
                     Column {
                         id: lossList
                         width:   parent.width
-                        spacing: Theme.px(4)
+                        spacing: theme.px(4)
                         visible: RecoveryService.resetPhase === "planned"
                                  && RecoveryService.plan !== null
 
@@ -709,7 +711,7 @@ CfgScroll {
                                     ? "Nothing to remove: none of the paths this scope covers exists on this machine."
                                     : (p.losses.length + " item(s) will be changed. Everything except caches is copied to ~/apex-reset-backup-<timestamp> first.")
                             }
-                            font.pixelSize: Theme.fs(10)
+                            font.pixelSize: theme.fs(10)
                             font.weight:    Font.Medium
                             color:          Theme.danger
                             wrapMode:       Text.WordWrap
@@ -728,20 +730,20 @@ CfgScroll {
                                     lossList.plan ? lossList.plan.losses[lossRow.index] : null
 
                                 width:  parent ? parent.width : 0
-                                height: lossCol.implicitHeight + Theme.px(8)
+                                height: lossCol.implicitHeight + theme.px(8)
 
                                 Column {
                                     id: lossCol
-                                    x:     Theme.px(6)
-                                    width: parent.width - Theme.px(12)
+                                    x:     theme.px(6)
+                                    width: parent.width - theme.px(12)
                                     anchors.top:       parent.top
-                                    anchors.topMargin: Theme.px(4)
-                                    spacing: Theme.px(1)
+                                    anchors.topMargin: theme.px(4)
+                                    spacing: theme.px(1)
 
                                     Text {
                                         width:          parent.width
                                         text:           lossRow.loss ? lossRow.loss.relative : ""
-                                        font.pixelSize: Theme.fs(10)
+                                        font.pixelSize: theme.fs(10)
                                         font.family:    "JetBrains Mono"
                                         color:          Theme.text
                                         elide:          Text.ElideMiddle
@@ -754,7 +756,7 @@ CfgScroll {
                                             return l.verb + " · " + l.what
                                                  + (l.backedUp ? "" : " · NOT backed up")
                                         }
-                                        font.pixelSize: Theme.fs(9)
+                                        font.pixelSize: theme.fs(9)
                                         color:          lossRow.loss && lossRow.loss.backedUp
                                                         ? Theme.subtext : Theme.warning
                                         wrapMode:       Text.WordWrap
@@ -769,7 +771,7 @@ CfgScroll {
                         Text {
                             width:          parent.width
                             text:           "Preserved"
-                            font.pixelSize: Theme.fs(9)
+                            font.pixelSize: theme.fs(9)
                             font.weight:    Font.Bold
                             color:          Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
                         }
@@ -782,16 +784,16 @@ CfgScroll {
                                 readonly property string line:
                                     lossList.plan ? lossList.plan.preserved[index] : ""
 
-                                width:          lossList.width - Theme.px(12)
-                                x:              Theme.px(6)
+                                width:          lossList.width - theme.px(12)
+                                x:              theme.px(6)
                                 text:           "· " + line
-                                font.pixelSize: Theme.fs(9)
+                                font.pixelSize: theme.fs(9)
                                 color:          Theme.subtext
                                 wrapMode:       Text.WordWrap
                             }
                         }
 
-                        Item { width: parent.width; height: Theme.px(4) }
+                        Item { width: parent.width; height: theme.px(4) }
 
                         // ── the commit ───────────────────────────────────────
                         // dangerFill / dangerFillHover: the fill pair that
@@ -800,9 +802,9 @@ CfgScroll {
                         // destructive-looking thing here is a tint or an
                         // accent; this is the one button that erases.
                         Rectangle {
-                            width:  Math.min(parent.width, Theme.px(260))
-                            height: Theme.px(36)
-                            radius: Theme.px(8)
+                            width:  Math.min(parent.width, theme.px(260))
+                            height: theme.px(36)
+                            radius: theme.px(8)
                             visible: RecoveryService.commitReady
                             color:  commitHov.hovered ? Theme.dangerFillHover : Theme.dangerFill
                             Behavior on color { ColorAnimation { duration: 120 } }
@@ -814,7 +816,7 @@ CfgScroll {
                                     return p ? ("Erase " + p.losses.length + " item(s) now")
                                              : "Erase"
                                 }
-                                font.pixelSize: Theme.fs(12)
+                                font.pixelSize: theme.fs(12)
                                 font.bold:      true
                                 color:          Theme.fixedLight
                             }
@@ -832,7 +834,7 @@ CfgScroll {
                             text:    "The confirmation is not ready. It is derived from this "
                                    + "scope and the exact paths above, so it cannot be built "
                                    + "without the list being on screen."
-                            font.pixelSize: Theme.fs(9)
+                            font.pixelSize: theme.fs(9)
                             color:    Theme.subtext
                             wrapMode: Text.WordWrap
                         }
@@ -849,7 +851,7 @@ CfgScroll {
                         text: RecoveryService.resetPhase === "committing"
                               ? "Resetting. Backing up first; leave this alone until it finishes."
                               : RecoveryService.resetMessage
-                        font.pixelSize: Theme.fs(10)
+                        font.pixelSize: theme.fs(10)
                         font.family:    "JetBrains Mono"
                         color: RecoveryService.resetPhase === "done" ? Theme.success : Theme.warning
                         wrapMode: Text.WordWrap
@@ -869,7 +871,7 @@ CfgScroll {
             hoverable:   false
             Text {
                 text:           "Config → Misc"
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 color:          Theme.subtext
             }
         }
@@ -880,11 +882,11 @@ CfgScroll {
             hoverable:   false
             Text {
                 text:           "Config → Blueprint"
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 color:          Theme.subtext
             }
         }
     }
 
-    Item { width: parent.width; height: Theme.px(10) }
+    Item { width: parent.width; height: theme.px(10) }
 }

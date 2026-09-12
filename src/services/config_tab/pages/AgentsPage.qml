@@ -43,6 +43,8 @@ import "../../agentstate.js" as AgentState
 
 CfgScroll {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     // Criterion 1. Live: the toggle writes agent.json when you flip it. The
     // failure is NOT hoisted to this line — it stays beside the toggle, which
@@ -85,7 +87,7 @@ CfgScroll {
             visible: root._on
             compact: true
         }
-        Item { width: parent.width; height: Theme.px(6); visible: root._on }
+        Item { width: parent.width; height: theme.px(6); visible: root._on }
 
         CfgRow {
             label: "Always unrestricted agents"
@@ -114,45 +116,45 @@ CfgScroll {
         // wants a password at the desktop's own prompt; switching off wants
         // nothing, which §42.1 asks for in as many words.
         Text {
-            width: parent.width - Theme.px(20)
-            x:     Theme.px(10)
+            width: parent.width - theme.px(20)
+            x:     theme.px(10)
             text: root._on
                 ? "Switching this off takes effect at once and asks for nothing."
                 : "Switching this on asks for your password at the desktop's "
                   + "authentication prompt, not in an agent's terminal."
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:    Theme.subtext
             wrapMode: Text.WordWrap
         }
-        Item { width: parent.width; height: Theme.px(6) }
+        Item { width: parent.width; height: theme.px(6) }
 
         // Why the toggle will not move, when it will not.
         Text {
             id: refusalText
-            width:   parent.width - Theme.px(20)
-            x:       Theme.px(10)
+            width:   parent.width - theme.px(20)
+            x:       theme.px(10)
             visible: !root._on && root._refusal !== ""
             text:    "Cannot switch on: " + root._refusal
                    + ". Fix " + AgentPolicyService.configPath + " first."
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:    Theme.warning
             wrapMode: Text.WordWrap
         }
-        Item { width: parent.width; height: Theme.px(6); visible: refusalText.visible }
+        Item { width: parent.width; height: theme.px(6); visible: refusalText.visible }
 
         // What went wrong with the last attempt, including a refused or
         // dismissed password.
         Text {
             id: errorText
-            width:   parent.width - Theme.px(20)
-            x:       Theme.px(10)
+            width:   parent.width - theme.px(20)
+            x:       theme.px(10)
             visible: AgentPolicyService.lastError !== ""
             text:    AgentPolicyService.lastError
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:    Theme.danger
             wrapMode: Text.WordWrap
         }
-        Item { width: parent.width; height: Theme.px(6); visible: errorText.visible }
+        Item { width: parent.width; height: theme.px(6); visible: errorText.visible }
 
         CfgRow {
             label: "Stored in"
@@ -164,7 +166,7 @@ CfgScroll {
             Text {
                 text: AgentPolicyService.busy ? "saving…"
                                               : AgentPolicyService.defaultSandbox
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 font.bold: true
                 color: AgentPolicyService.busy
                      ? Theme.subtext
@@ -196,27 +198,27 @@ CfgScroll {
                 id: claimLine
                 required property var modelData
                 width:  parent.width
-                height: line.implicitHeight + Theme.px(14)
+                height: line.implicitHeight + theme.px(14)
 
                 Column {
                     id: line
                     anchors.left:           parent.left
                     anchors.right:          parent.right
-                    anchors.leftMargin:     Theme.px(10)
-                    anchors.rightMargin:    Theme.px(10)
+                    anchors.leftMargin:     theme.px(10)
+                    anchors.rightMargin:    theme.px(10)
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: Theme.px(3)
+                    spacing: theme.px(3)
 
                     Text {
                         text:           claimLine.modelData.t
-                        font.pixelSize: Theme.fs(11)
+                        font.pixelSize: theme.fs(11)
                         font.bold:      true
                         color:          Theme.text
                     }
                     Text {
                         width:          parent.width
                         text:           claimLine.modelData.d
-                        font.pixelSize: Theme.fs(10)
+                        font.pixelSize: theme.fs(10)
                         color:          Theme.subtext
                         wrapMode:       Text.WordWrap
                     }
@@ -233,15 +235,15 @@ CfgScroll {
         // it, so a file the session wrote and your shell runs is the way out.
         // Stating that is the difference between a page that describes the
         // boundary and one that oversells it.
-        Item { width: parent.width; height: Theme.px(6) }
+        Item { width: parent.width; height: theme.px(6) }
         Text {
-            width: parent.width - Theme.px(20)
-            x:     Theme.px(10)
+            width: parent.width - theme.px(20)
+            x:     theme.px(10)
             text: "The caveat is not sudo inside the session, which fails. It is what "
                 + "an unconfined session can leave behind: your shell startup files, "
                 + "a git hook, a systemd user unit. Those run as you the next time "
                 + "you start a shell, with none of a session's limits on them."
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:    Theme.warning
             wrapMode: Text.WordWrap
         }
@@ -258,19 +260,19 @@ CfgScroll {
         title: "Sessions running now"
 
         Text {
-            width: parent.width - Theme.px(20)
-            x:     Theme.px(10)
+            width: parent.width - theme.px(20)
+            x:     theme.px(10)
             text: root._live.length === 0
                 ? (AgentService.daemonUp
                    ? "Nothing is running. The setting above applies to the next session you start."
                    : "The agent runtime is not running. Start it with  apex agent enable")
                 : "Each session keeps the mode it started with. Changing the setting above "
                 + "does not move any of them."
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:    Theme.subtext
             wrapMode: Text.WordWrap
         }
-        Item { width: parent.width; height: Theme.px(6) }
+        Item { width: parent.width; height: theme.px(6) }
 
         Repeater {
             model: root._live
@@ -279,26 +281,26 @@ CfgScroll {
                 id: sessionLine
                 required property var modelData
                 width:  parent.width
-                height: Theme.px(30)
+                height: theme.px(30)
 
                 readonly property string mode: Policy.sessionSandbox(modelData)
                 readonly property string nativeMode: Policy.sessionNative(modelData)
 
                 Row {
                     anchors.left:           parent.left
-                    anchors.leftMargin:     Theme.px(10)
+                    anchors.leftMargin:     theme.px(10)
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: Theme.px(8)
+                    spacing: theme.px(8)
 
                     Text {
                         text:           AgentState.agentName(sessionLine.modelData.agent)
-                        font.pixelSize: Theme.fs(11)
+                        font.pixelSize: theme.fs(11)
                         color:          Theme.text
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     Text {
                         text:           "#" + sessionLine.modelData.id
-                        font.pixelSize: Theme.fs(10)
+                        font.pixelSize: theme.fs(10)
                         color:          Theme.subtext
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -306,20 +308,20 @@ CfgScroll {
 
                 Row {
                     anchors.right:          parent.right
-                    anchors.rightMargin:    Theme.px(10)
+                    anchors.rightMargin:    theme.px(10)
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: Theme.px(8)
+                    spacing: theme.px(8)
 
                     Text {
                         visible:        sessionLine.nativeMode !== "inherit"
                         text:           "native " + sessionLine.nativeMode
-                        font.pixelSize: Theme.fs(10)
+                        font.pixelSize: theme.fs(10)
                         color:          Theme.subtext
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     Text {
                         text:           sessionLine.mode
-                        font.pixelSize: Theme.fs(11)
+                        font.pixelSize: theme.fs(11)
                         font.bold:      true
                         color:          root._modeColor(sessionLine.mode)
                         anchors.verticalCenter: parent.verticalCenter
@@ -328,16 +330,16 @@ CfgScroll {
             }
         }
 
-        Item { width: parent.width; height: Theme.px(6) }
+        Item { width: parent.width; height: theme.px(6) }
         Text {
-            width:   parent.width - Theme.px(20)
-            x:       Theme.px(10)
+            width:   parent.width - theme.px(20)
+            x:       theme.px(10)
             visible: root._elsewhere.length > 0
             text: root._elsewhere.length === 1
                 ? "1 running session is on a different mode from the setting above."
                 : root._elsewhere.length
                   + " running sessions are on a different mode from the setting above."
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:    Theme.warning
             wrapMode: Text.WordWrap
         }

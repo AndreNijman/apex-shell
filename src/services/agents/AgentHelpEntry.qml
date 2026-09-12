@@ -11,9 +11,11 @@ import "../../"
 
 Rectangle {
     id: entry
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
 
-    height: Theme.px(32)
-    radius: Theme.px(8)
+
+    height: theme.px(32)
+    radius: theme.px(8)
     color: hover.hovered
         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
         : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08)
@@ -30,30 +32,30 @@ Rectangle {
 
     Row {
         anchors.left: parent.left
-        anchors.leftMargin: Theme.px(10)
+        anchors.leftMargin: theme.px(10)
         anchors.verticalCenter: parent.verticalCenter
-        spacing: Theme.px(9)
+        spacing: theme.px(9)
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text: "󰋗"
-            font.pixelSize: Theme.fs(13)
+            font.pixelSize: theme.fs(13)
             color: Theme.active
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text: AgentHelpContent.entryLabel
-            font.pixelSize: Theme.fs(11)
+            font.pixelSize: theme.fs(11)
             color: Theme.text
         }
     }
 
     Text {
         anchors.right: parent.right
-        anchors.rightMargin: Theme.px(11)
+        anchors.rightMargin: theme.px(11)
         anchors.verticalCenter: parent.verticalCenter
         text: "󰅂"
-        font.pixelSize: Theme.fs(12)
+        font.pixelSize: theme.fs(12)
         color: hover.hovered ? Theme.text : Theme.subtext
     }
 

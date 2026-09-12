@@ -36,6 +36,8 @@ import "../agenttelemetry.js" as Telemetry
 
 Item {
     id: strip
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     // `Date.now()` is called INSIDE the bindings below, never held in a
     // property of its own.
@@ -52,11 +54,11 @@ Item {
         Telemetry.fleet(AgentService.sessions, Date.now() / 1000)
 
     visible: !!strip.reading
-    height: visible ? content.implicitHeight + Theme.px(12) : 0
+    height: visible ? content.implicitHeight + theme.px(12) : 0
 
     Rectangle {
         anchors.fill: parent
-        radius: Theme.px(8)
+        radius: theme.px(8)
         color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
     }
 
@@ -64,16 +66,16 @@ Item {
         id: content
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: Theme.px(12)
-        anchors.rightMargin: Theme.px(12)
+        anchors.leftMargin: theme.px(12)
+        anchors.rightMargin: theme.px(12)
         anchors.verticalCenter: parent.verticalCenter
-        spacing: Theme.px(14)
+        spacing: theme.px(14)
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text: "󰄉"
             color: Theme.subtext
-            font.pixelSize: Theme.fs(12)
+            font.pixelSize: theme.fs(12)
         }
 
         // One window each. `windowLine` returns an empty string for a window
@@ -86,7 +88,7 @@ Item {
                                        strip.reading ? strip.reading.fiveHourReset : null,
                                        Date.now() / 1000)
             color: Theme[Telemetry.tokenFor(strip.reading ? strip.reading.fiveHour : null)]
-            font.pixelSize: Theme.fs(11)
+            font.pixelSize: theme.fs(11)
             font.bold: true
         }
         Text {
@@ -96,7 +98,7 @@ Item {
                                        strip.reading ? strip.reading.sevenDayReset : null,
                                        Date.now() / 1000)
             color: Theme[Telemetry.tokenFor(strip.reading ? strip.reading.sevenDay : null)]
-            font.pixelSize: Theme.fs(11)
+            font.pixelSize: theme.fs(11)
             font.bold: true
         }
 
@@ -108,7 +110,7 @@ Item {
             visible: !!strip.reading && strip.reading.freshness !== "fresh"
             text: strip.reading ? Telemetry.agoLabel(strip.reading.ageSecs) : ""
             color: Theme.subtext
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
         }
     }
 }

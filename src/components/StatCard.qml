@@ -12,13 +12,15 @@ import "../"
 
 Item {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     default property alias content: inner.data
     property int padding: 12
 
     Rectangle {
         anchors.fill: parent
-        radius:       Theme.cornerRadius
+        radius:       theme.cornerRadius
         color:        Qt.rgba(1, 1, 1, 0.04)
         border.color: Qt.rgba(1, 1, 1, 0.07)
         border.width: 1

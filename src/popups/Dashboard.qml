@@ -17,6 +17,8 @@ import "../"
 
 PanelWindow {
     id: root
+    readonly property ThemeSet theme: Theme.setForScreen(root.screen)   // P1-040: this output's sizes
+
 
     // Kept so existing instantiation sites that pass anchorWindow: … still compile.
     required property var anchorWindow
@@ -24,8 +26,8 @@ PanelWindow {
     readonly property bool open: Popups.dashboardOpen && Popups.dashboardScreen === screenName
     screen: anchorWindow.screen
 
-    readonly property int fw: Theme.notchRadius
-    readonly property int fh: Theme.notchRadius
+    readonly property int fw: theme.notchRadius
+    readonly property int fh: theme.notchRadius
     readonly property int animDuration: Theme.animDuration
 
     property string page: Popups.dashboardPage
@@ -50,7 +52,7 @@ PanelWindow {
     Binding {
         target:   Popups
         property: "dashboardPageWidth"
-        value:    DashboardLayout.widthFor(root.page, root.width)
+        value:    DashboardLayout.widthFor(root.theme, root.page, root.width)
         when:     root.open
     }
 
@@ -114,8 +116,8 @@ PanelWindow {
         anchors.horizontalCenter: parent.horizontalCenter
         clip: true
 
-        width:  root.open ? Popups.dashboardPageWidth + 2 * root.fw : Theme.cNotchMinWidth + 2 * root.fw
-        height: root.open ? Theme.dashboardHeight : Theme.notchHeight / 2
+        width:  root.open ? Popups.dashboardPageWidth + 2 * root.fw : theme.cNotchMinWidth + 2 * root.fw
+        height: root.open ? theme.dashboardHeight : theme.notchHeight / 2
 
         Behavior on width  { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
         Behavior on height { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
@@ -130,12 +132,12 @@ PanelWindow {
             anchors.fill: parent
             attachedEdge: "top"
             color:        Theme.background
-            radius:       Theme.cornerRadius
+            radius:       theme.cornerRadius
             flareWidth:   root.fw
             flareHeight:  root.fh
             // Start the melt at the top strip's bottom edge (tangent blend —
             // no kink where the flare leaves the thin bar line).
-            edgeOffset:   Theme.borderWidth
+            edgeOffset:   theme.borderWidth
         }
 
         // ── Content ───────────────────────────────────────────────────────────
@@ -143,10 +145,10 @@ PanelWindow {
             id: content
             anchors {
                 fill:         parent
-                topMargin:    root.fh + DashboardLayout.contentInset
-                leftMargin:   root.fw + DashboardLayout.contentInset
-                rightMargin:  root.fw + DashboardLayout.contentInset
-                bottomMargin: DashboardLayout.contentInset
+                topMargin:    root.fh + DashboardLayout.contentInset(root.theme)
+                leftMargin:   root.fw + DashboardLayout.contentInset(root.theme)
+                rightMargin:  root.fw + DashboardLayout.contentInset(root.theme)
+                bottomMargin: DashboardLayout.contentInset(root.theme)
             }
 
             opacity: root.open ? 1 : 0

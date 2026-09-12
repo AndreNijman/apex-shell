@@ -13,12 +13,14 @@ import "../../"
 
 Rectangle {
     id: card
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     // A Column reserves space for an invisible child, so the collapse has to be
     // a height of zero. Same trap as the notes in AgentCenter.
     visible: AgentHelp.showOnboarding
-    height: visible ? column.implicitHeight + Theme.px(24) : 0
-    radius: Theme.px(8)
+    height: visible ? column.implicitHeight + theme.px(24) : 0
+    radius: theme.px(8)
     color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
     border.width: 1
     border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09)
@@ -38,13 +40,13 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.margins: Theme.px(12)
-        spacing: Theme.px(7)
+        anchors.margins: theme.px(12)
+        spacing: theme.px(7)
 
         Text {
             text: AgentHelpContent.cardTitle
             color: Theme.text
-            font.pixelSize: Theme.fs(12)
+            font.pixelSize: theme.fs(12)
             font.bold: true
         }
 
@@ -52,21 +54,21 @@ Rectangle {
             width: parent.width
             text: AgentHelpContent.cardBody
             color: Theme.subtext
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             lineHeight: 1.35
             wrapMode: Text.WordWrap
         }
 
-        Item { width: 1; height: Theme.px(2) }
+        Item { width: 1; height: theme.px(2) }
 
         Row {
-            spacing: Theme.px(8)
+            spacing: theme.px(8)
 
             Rectangle {
                 id: readBtn
-                width: readLabel.implicitWidth + Theme.px(20)
-                height: Theme.px(26)
-                radius: Theme.px(6)
+                width: readLabel.implicitWidth + theme.px(20)
+                height: theme.px(26)
+                radius: theme.px(6)
                 color: readHover.hovered
                     ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
                     : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.20)
@@ -78,7 +80,7 @@ Rectangle {
                     anchors.centerIn: parent
                     text: AgentHelpContent.cardRead
                     color: Theme.text
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                 }
 
                 HoverHandler { id: readHover; cursorShape: Qt.PointingHandCursor }
@@ -90,9 +92,9 @@ Rectangle {
             // "Keys and commands" section, so the worst case is recoverable.
             Rectangle {
                 id: gotItBtn
-                width: gotItLabel.implicitWidth + Theme.px(20)
-                height: Theme.px(26)
-                radius: Theme.px(6)
+                width: gotItLabel.implicitWidth + theme.px(20)
+                height: theme.px(26)
+                radius: theme.px(6)
                 color: gotItHover.hovered
                     ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.14)
                     : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
@@ -104,7 +106,7 @@ Rectangle {
                     anchors.centerIn: parent
                     text: AgentHelpContent.cardDismiss
                     color: Theme.subtext
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                 }
 
                 HoverHandler { id: gotItHover; cursorShape: Qt.PointingHandCursor }

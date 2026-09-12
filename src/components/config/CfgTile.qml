@@ -4,6 +4,8 @@ import "../../"
 // Compact toggle/action tile (mirrors the QuickSettings tiles). Use in a Grid.
 Rectangle {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
     property bool   on:       false
     property string icon:     ""
     property string label:    ""
@@ -50,17 +52,17 @@ Rectangle {
         anchors { left: parent.left; bottom: parent.bottom; margins: 9 }
         spacing: 2
         Text {
-            text: root.icon; font.pixelSize: Theme.fs(17)
+            text: root.icon; font.pixelSize: theme.fs(17)
             color: root.on ? Theme.active : Qt.rgba(1,1,1,0.40)
         }
         Text {
-            text: root.label; font.pixelSize: Theme.fs(9); font.weight: Font.Medium
+            text: root.label; font.pixelSize: theme.fs(9); font.weight: Font.Medium
             color: root.on ? Theme.text : Qt.rgba(1,1,1,0.45)
         }
         Text {
             visible: root.sublabel !== ""
             text:    root.sublabel
-            font.pixelSize: Theme.fs(8); font.family: "JetBrains Mono"
+            font.pixelSize: theme.fs(8); font.family: "JetBrains Mono"
             color:   Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.65)
             width:   root.width - 18; elide: Text.ElideRight
         }

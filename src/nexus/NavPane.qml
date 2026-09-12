@@ -9,6 +9,8 @@ import "../components"
 // silently change which page a keybind opens.
 Item {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     required property string currentPage
 
@@ -23,24 +25,24 @@ Item {
             left: parent.left
             right: parent.right
             top: parent.top
-            margins: Theme.px(10)
+            margins: theme.px(10)
         }
-        spacing: Theme.px(2)
+        spacing: theme.px(2)
 
         // Header
         Item {
             width: parent.width
-            height: Theme.px(46)
+            height: theme.px(46)
 
             Text {
                 anchors {
                     left: parent.left
-                    leftMargin: Theme.px(10)
+                    leftMargin: theme.px(10)
                     verticalCenter: parent.verticalCenter
                 }
                 text: "Settings"
                 color: Theme.text
-                font.pixelSize: Theme.fs(17)
+                font.pixelSize: theme.fs(17)
                 font.bold: true
             }
         }
@@ -56,8 +58,8 @@ Item {
                 readonly property bool active: root.currentPage === row.modelData.id
 
                 width: parent.width
-                height: Theme.px(44)
-                radius: Theme.cornerRadius
+                height: theme.px(44)
+                radius: theme.cornerRadius
                 color: row.active
                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
                            : hov.hovered ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
@@ -71,7 +73,7 @@ Item {
                         left: parent.left
                         verticalCenter: parent.verticalCenter
                     }
-                    width: Theme.px(3)
+                    width: theme.px(3)
                     height: row.active ? parent.height * 0.55 : 0
                     radius: width
                     color: Theme.active
@@ -82,26 +84,26 @@ Item {
                     id: icon
                     anchors {
                         left: parent.left
-                        leftMargin: Theme.px(14)
+                        leftMargin: theme.px(14)
                         verticalCenter: parent.verticalCenter
                     }
                     text: row.modelData.icon
                     color: row.active ? Theme.active : Theme.icon
-                    font.pixelSize: Theme.fs(15)
+                    font.pixelSize: theme.fs(15)
                     Behavior on color { ColorAnimation { duration: 120 } }
                 }
 
                 Text {
                     anchors {
                         left: icon.right
-                        leftMargin: Theme.px(11)
+                        leftMargin: theme.px(11)
                         right: parent.right
-                        rightMargin: Theme.px(8)
+                        rightMargin: theme.px(8)
                         verticalCenter: parent.verticalCenter
                     }
                     text: row.modelData.title
                     color: row.active ? Theme.text : Theme.subtext
-                    font.pixelSize: Theme.fs(12)
+                    font.pixelSize: theme.fs(12)
                     font.bold: row.active
                     elide: Text.ElideRight
                     Behavior on color { ColorAnimation { duration: 120 } }

@@ -6,6 +6,8 @@ import "../../"
 
 Item {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     // The TopBar State handles expanding the notch for notifications/network/toasts
     implicitWidth: contentRow.implicitWidth
@@ -45,7 +47,7 @@ Item {
         anchors.centerIn: parent
         text:           "▾"
         color:          Theme.active
-        font.pixelSize: Theme.fs(14)
+        font.pixelSize: theme.fs(14)
         opacity:        (Popups.notificationsOpen || Popups.networkOpen) ? 1 : 0
         visible:        opacity > 0
         Behavior on opacity { NumberAnimation { duration: 150 } }

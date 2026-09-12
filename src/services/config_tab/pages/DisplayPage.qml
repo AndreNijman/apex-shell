@@ -21,6 +21,8 @@ import "../../../components/config"
 // is the safe way to set up a layout for a monitor that is not plugged in yet.
 CfgScroll {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     // Criterion 1, in one line: this page holds changes until you ask for them.
     // The words come from settings-semantics.js so they are the same ones the
@@ -381,17 +383,17 @@ CfgScroll {
         // stops meaning it.
         Item {
             width: parent.width
-            height: reason.visible ? reason.implicitHeight + Theme.px(10) : 0
+            height: reason.visible ? reason.implicitHeight + theme.px(10) : 0
             visible: reason.visible
 
             Text {
                 id: reason
-                x:       Theme.px(10)
-                width:   parent.width - Theme.px(20)
+                x:       theme.px(10)
+                width:   parent.width - theme.px(20)
                 anchors.verticalCenter: parent.verticalCenter
                 visible: DisplayService.curveReason !== ""
                 text:    "Calibration curve: " + DisplayService.curveReason
-                font.pixelSize: Theme.fs(10)
+                font.pixelSize: theme.fs(10)
                 color:   DisplayService.curveLoadable ? Theme.subtext : Theme.warning
                 wrapMode: Text.WordWrap
             }
@@ -403,15 +405,15 @@ CfgScroll {
         // where one could be" is the answer to the question actually being
         // asked, and it is specific to the profile just chosen.
         Text {
-            x:       Theme.px(10)
-            width:   parent.width - Theme.px(20)
+            x:       theme.px(10)
+            width:   parent.width - theme.px(20)
             visible: text !== ""
             text:    DisplayService.colourError !== "" ? DisplayService.colourError
                                                        : DisplayService.colourNotice
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:   DisplayService.colourError !== "" ? Theme.warning : Theme.info
             wrapMode: Text.WordWrap
-            bottomPadding: Theme.px(6)
+            bottomPadding: theme.px(6)
         }
 
         Repeater {
@@ -462,8 +464,8 @@ CfgScroll {
                 }
 
                 CfgSegmented {
-                    x:       Theme.px(10)
-                    width:   parent.width - Theme.px(20)
+                    x:       theme.px(10)
+                    width:   parent.width - theme.px(20)
                     enabled: DisplayService.colordAvailable
                     opacity: DisplayService.colordAvailable ? 1.0 : 0.32
                     options: {
@@ -482,7 +484,7 @@ CfgScroll {
                     }
                 }
 
-                Item { width: 1; height: Theme.px(6) }
+                Item { width: 1; height: theme.px(6) }
             }
         }
     }

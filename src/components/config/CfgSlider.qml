@@ -14,6 +14,8 @@ import "../../"
 // ten, Home/End for the ends.
 Item {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
     property real   value:  0
     property real   from:   0
     property real   to:     100
@@ -79,7 +81,7 @@ Item {
         width:               root.readoutWidth
         horizontalAlignment: Text.AlignRight
         text:           Math.round(root.value) + root.suffix
-        font.pixelSize: Theme.fs(11)
+        font.pixelSize: theme.fs(11)
         font.family:    "JetBrains Mono"
         color:          Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.9)
     }

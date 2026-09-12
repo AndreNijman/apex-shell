@@ -17,6 +17,8 @@ import "../../"
 
 Item {
     id: panel
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     anchors.fill: parent
     z: 50
@@ -64,8 +66,8 @@ Item {
     Rectangle {
         id: card
         anchors.fill: parent
-        anchors.margins: Theme.px(4)
-        radius: Theme.cornerRadius
+        anchors.margins: theme.px(4)
+        radius: theme.cornerRadius
         color: Theme.background
         border.width: 1
         border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12)
@@ -79,16 +81,16 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.leftMargin: Theme.px(14)
-            anchors.rightMargin: Theme.px(8)
-            height: Theme.px(38)
+            anchors.leftMargin: theme.px(14)
+            anchors.rightMargin: theme.px(8)
+            height: theme.px(38)
 
             Text {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 text: AgentHelpContent.entryLabel
                 color: Theme.text
-                font.pixelSize: Theme.fs(13)
+                font.pixelSize: theme.fs(13)
                 font.bold: true
             }
 
@@ -116,9 +118,9 @@ Item {
             anchors.left: parent.left
             anchors.top: rule.bottom
             anchors.bottom: parent.bottom
-            anchors.margins: Theme.px(8)
-            width: Math.min(Theme.px(184), Math.floor(card.width * 0.32))
-            spacing: Theme.px(2)
+            anchors.margins: theme.px(8)
+            width: Math.min(theme.px(184), Math.floor(card.width * 0.32))
+            spacing: theme.px(2)
 
             Repeater {
                 model: AgentHelpContent.sections
@@ -130,8 +132,8 @@ Item {
                     readonly property bool current: modelData.id === AgentHelp.section
 
                     width: nav.width
-                    height: Theme.px(30)
-                    radius: Theme.px(7)
+                    height: theme.px(30)
+                    radius: theme.px(7)
                     color: navItem.current
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22)
                         : navHover.hovered
@@ -142,24 +144,24 @@ Item {
 
                     Row {
                         anchors.fill: parent
-                        anchors.leftMargin: Theme.px(9)
-                        anchors.rightMargin: Theme.px(6)
-                        spacing: Theme.px(8)
+                        anchors.leftMargin: theme.px(9)
+                        anchors.rightMargin: theme.px(6)
+                        spacing: theme.px(8)
 
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: Theme.px(16)
+                            width: theme.px(16)
                             horizontalAlignment: Text.AlignHCenter
                             text: navItem.modelData.icon
-                            font.pixelSize: Theme.fs(12)
+                            font.pixelSize: theme.fs(12)
                             color: navItem.current ? Theme.active : Theme.subtext
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - Theme.px(24) - parent.spacing
+                            width: parent.width - theme.px(24) - parent.spacing
                             text: navItem.modelData.title
                             elide: Text.ElideRight
-                            font.pixelSize: Theme.fs(11)
+                            font.pixelSize: theme.fs(11)
                             color: navItem.current ? Theme.text : Theme.subtext
                         }
                     }
@@ -177,10 +179,10 @@ Item {
             anchors.right: parent.right
             anchors.top: rule.bottom
             anchors.bottom: parent.bottom
-            anchors.leftMargin: Theme.px(6)
-            anchors.rightMargin: Theme.px(10)
-            anchors.topMargin: Theme.px(4)
-            anchors.bottomMargin: Theme.px(8)
+            anchors.leftMargin: theme.px(6)
+            anchors.rightMargin: theme.px(10)
+            anchors.topMargin: theme.px(4)
+            anchors.bottomMargin: theme.px(8)
             clip: true
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
@@ -195,10 +197,10 @@ Item {
             }
 
             Column {
-                width: body.availableWidth - Theme.px(6)
+                width: body.availableWidth - theme.px(6)
                 spacing: 0
 
-                Item { width: 1; height: Theme.px(2) }
+                Item { width: 1; height: theme.px(2) }
 
                 Repeater {
                     model: panel._section ? panel._section.blocks : []
@@ -210,7 +212,7 @@ Item {
                     }
                 }
 
-                Item { width: 1; height: Theme.px(14) }
+                Item { width: 1; height: theme.px(14) }
             }
         }
     }

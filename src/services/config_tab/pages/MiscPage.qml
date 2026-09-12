@@ -19,6 +19,8 @@ import "../../"
 //   • Reset — restore all appearance/layout settings (two-click confirm)
 CfgScroll {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     lifecycle: "live"
     lifecycleError: SettingsService.lastError
@@ -83,7 +85,7 @@ CfgScroll {
 
                 Text {
                     text:           "󰧑"
-                    font.pixelSize: Theme.fs(30)
+                    font.pixelSize: theme.fs(30)
                     color:          Theme.active
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -93,13 +95,13 @@ CfgScroll {
 
                     Text {
                         text:        "APEX Shell"
-                        font.pixelSize: Theme.fs(16)
+                        font.pixelSize: theme.fs(16)
                         font.weight: Font.Medium
                         color:       Theme.text
                     }
                     Text {
                         text:        root.version + "  ·  APEX-OS"
-                        font.pixelSize: Theme.fs(10)
+                        font.pixelSize: theme.fs(10)
                         color:       Qt.rgba(1,1,1,0.4)
                         font.family: "JetBrains Mono"
                     }
@@ -123,7 +125,7 @@ CfgScroll {
             Text {
                 text:        ShellState.configProvider
                 font.family: "JetBrains Mono"
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 color:       Theme.active
             }
         }
@@ -197,7 +199,7 @@ CfgScroll {
                                                          : "Not a compositor APEX supports")
                              + (Compositor.overrideName === "" ? "  ·  auto" : "  ·  override")
                 font.family: "JetBrains Mono"
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 color:       Theme.active
             }
         }
@@ -218,7 +220,7 @@ CfgScroll {
             // is niri's alone; windowMove is false on labwc only; nightLight is
             // true on all three, so it is deliberately NOT listed as degrading.
             text:     "Auto follows what APEX detects at login; pick one to pin it instead. Tiling is the only one the shell can give window gaps, an accent border, a layout indicator, a shader filter and a special workspace. Scrolling has an overview the other two do not. On Floating the shell cannot move a window to another workspace."
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:    Qt.rgba(1,1,1,0.4)
             wrapMode: Text.WordWrap
         }
