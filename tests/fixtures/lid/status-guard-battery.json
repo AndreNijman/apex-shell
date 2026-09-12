@@ -1,0 +1,50 @@
+{
+    "battery_floor_pct": 20,
+    "decision": {
+        "decision": "guard-suspend",
+        "guard": "battery",
+        "why": "the lid is closed and the battery is at 9%, at or below the 20% floor \u2014 live work is checkpointed and the machine suspends with enough charge left to resume it"
+    },
+    "enabled": true,
+    "holds_inhibitor": false,
+    "inhibitor_error": "logind was not queried (fixture root)",
+    "inhibitor_holders": null,
+    "inputs": {
+        "charge": {
+            "charge": "battery",
+            "percent": 9
+        },
+        "lid": {
+            "state": "closed"
+        },
+        "thermal": {
+            "c": 55.0,
+            "critical_c": 100.0,
+            "sensor": "x86_pkg_temp",
+            "thermal": "celsius"
+        },
+        "work": {
+            "live": 0,
+            "work": "sessions"
+        }
+    },
+    "logind": {
+        "acts_on_lid": null,
+        "block_inhibited": null,
+        "docked": null,
+        "external_displays": 0
+    },
+    "pin": "on",
+    "policy_error": null,
+    "policy_source": "/etc/apex/lid.toml",
+    "thermal_ceiling_c": 95.0,
+    "thermal_headroom_c": 15.0,
+    "thermal_headroom_now_c": 45.0,
+    "vpn": {
+        "name": null,
+        "state": {
+            "vpn": "unreadable",
+            "why": "NetworkManager was not queried (fixture root or dry run)"
+        }
+    }
+}
