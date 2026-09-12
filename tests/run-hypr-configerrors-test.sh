@@ -259,6 +259,18 @@ grep -q "hyprctl dispatch" "$lua" \
     && bad "the generator is still shelling out to hyprctl dispatch" \
     || ok "no bind spawns hyprctl to talk to the compositor it is running in"
 
+# P2-003. The image ships orca and autostarts nothing, so this binding is the
+# whole of "a blind user can switch the reader on". Asserted against the module
+# the SHIPPED generator wrote, on the same run whose output then goes through
+# `hyprctl configerrors` — so it is proved both to be emitted and to be a line
+# Hyprland accepts, which a grep over KeybindService.qml cannot say.
+grep -q 'apex-screen-reader' "$lua" \
+    && ok "the screen-reader bind reaches the Hyprland module" \
+    || bad "the screen-reader bind is missing from the generated Lua"
+grep -q 'hl.bind("SUPER + ALT + S"' "$lua" \
+    && ok "on the combination a screen-reader user already knows (SUPER+ALT+S)" \
+    || bad "the screen-reader bind is not on SUPER+ALT+S"
+
 hc reload >/dev/null
 sleep 1
 clean "after the first generated write"
