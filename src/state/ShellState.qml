@@ -22,11 +22,12 @@ import "../."
 QtObject {
     id: root
 
-    property int topBarLWidth: 0
-    property int topBarCWidth: 0
-    property int topBarRWidth: 0
-    
-    
+    // The three notch widths used to live here, one field each, written by
+    // every TopBar and read by PopupDismiss. They are gone (P1-040): a bar per
+    // output all binding into one field is last-writer-wins, and it only looked
+    // correct while every bar computed the same number. shell.qml hands each
+    // PopupDismiss the bar from its own per-screen Scope instead.
+
     property bool focusMode:    false
     property bool dnd:          false
     property bool screenRecord: false

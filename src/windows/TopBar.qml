@@ -59,10 +59,6 @@ PanelWindow {
         right: true
     }
 
-    Binding { target: ShellState; property: "topBarLWidth"; value: root.lWidth }
-    Binding { target: ShellState; property: "topBarCWidth"; value: root.cWidth }
-    Binding { target: ShellState; property: "topBarRWidth"; value: root.rWidth }
-
     // ── Caffeine — Wayland idle-inhibit while ShellState.caffeine is on ───────
     // One inhibitor per bar window, which is always mapped.
     //
