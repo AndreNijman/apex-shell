@@ -47,6 +47,10 @@ ShellRoot {
     // a surface to be mapped to know how wide it is.
     property var perOutput: []
 
+    /// One entry per screen: that screen's TopBar and the PopupDismiss overlay
+    /// that is supposed to be reading it.
+    property var perBar: []
+
     Variants {
         model: Quickshell.screens
         delegate: Component {
@@ -67,6 +71,23 @@ ShellRoot {
                     Component.onCompleted: root.perOutput.push({
                         kind: "ConfirmDialog", win: this, screen: modelData,
                         card: "apex-confirm-dialog-card"
+                    })
+                }
+
+                // ── The bar, and the overlay that carves holes around it ─────
+                // The notch widths used to reach PopupDismiss through three
+                // ShellState singleton fields that every bar wrote into. These
+                // two are built here, per output, exactly as shell.qml builds
+                // them, so the suite can ask the only question that matters:
+                // does the overlay on THIS output use THIS output's bar.
+                TopBar { id: bar; screen: modelData }
+
+                PopupDismiss {
+                    screen: modelData
+                    screenName: modelData.name
+                    topBar: bar
+                    Component.onCompleted: root.perBar.push({
+                        name: modelData.name, bar: bar, dismiss: this
                     })
                 }
             }
@@ -368,9 +389,105 @@ ShellRoot {
             root.eq("settings restored: mode", SettingsService.scaleMode, origMode);
             root.eq("settings restored: manual factor", SettingsService.scaleManual, origManual);
 
-            console.log("");
-            console.log("passed=" + root.passed + " failed=" + root.failed);
-            Qt.exit(root.failed === 0 ? 0 : 1);
+            // ── Phase two: the bar's widths, which are not a factor ──────────
+            // Everything above is about what each output RESOLVES. What follows
+            // is about a size crossing a window boundary, and it needs the two
+            // bars to be genuinely different widths, which takes a state change
+            // and a moment for it to settle. Reduce Motion is the shipped
+            // setting that makes "a moment" deterministic rather than a guess
+            // at an animation curve.
+            root._origReduceMotion = SettingsService.reduceMotion;
+            root._origDashOpen     = Popups.dashboardOpen;
+            root._origDashScreen   = Popups.dashboardScreen;
+            SettingsService.set("reduceMotion", true);
+            barPhase.start();
         }
+    }
+
+    // ── The bar widths reach the overlay through the bar, not a singleton ────
+    property bool _origReduceMotion: false
+    property bool _origDashOpen: false
+    property string _origDashScreen: ""
+
+    Timer {
+        id: barPhase
+        interval: 700
+        repeat: false
+        onTriggered: {
+            const screens = Quickshell.screens;
+
+            // Same trap as the cards: if the delegate built nothing, every
+            // comparison below is a loop over an empty list.
+            root.eq("one bar and one dismiss overlay were built for every screen",
+                    root.perBar.length, screens.length);
+
+            for (let i = 0; i < root.perBar.length; i++) {
+                const e = root.perBar[i];
+                console.log("[bar] " + e.name + " l=" + e.bar.lWidth
+                            + " c=" + e.bar.cWidth + " r=" + e.bar.rWidth
+                            + " -> overlay l=" + e.dismiss.barLWidth
+                            + " c=" + e.dismiss.barCWidth
+                            + " r=" + e.dismiss.barRWidth);
+                root.eq(e.name + ": the dismiss overlay carves at its own bar's LEFT width",
+                        e.dismiss.barLWidth, e.bar.lWidth);
+                root.eq(e.name + ": the dismiss overlay carves at its own bar's CENTRE width",
+                        e.dismiss.barCWidth, e.bar.cWidth);
+                root.eq(e.name + ": the dismiss overlay carves at its own bar's RIGHT width",
+                        e.dismiss.barRWidth, e.bar.rWidth);
+            }
+
+            if (root.perBar.length > 1) {
+                // Make the two bars genuinely disagree, with production state
+                // and nothing else: the dashboard is open on ONE output, so
+                // that bar's centre notch expands to the page width while every
+                // other bar keeps its minimum. Before this, both bars computed
+                // the same three numbers, and an overlay reading the WRONG
+                // bar's widths was indistinguishable from one reading its own.
+                Popups.dashboardScreen = root.perBar[0].name;
+                Popups.dashboardOpen   = true;
+                settle.start();
+            } else {
+                root.finish();
+            }
+        }
+    }
+
+    Timer {
+        id: settle
+        interval: 400
+        repeat: false
+        onTriggered: {
+            const a = root.perBar[0], b = root.perBar[1];
+            console.log("[bar] dashboard open on " + a.name
+                        + ": centre widths " + a.name + "=" + a.bar.cWidth
+                        + " " + b.name + "=" + b.bar.cWidth);
+
+            // The premise of the three assertions after it, asserted. If the
+            // two bars did NOT come apart, they would all pass by comparing a
+            // number with itself.
+            root.check("opening the dashboard on one output makes the two bars disagree ("
+                       + a.bar.cWidth + " vs " + b.bar.cWidth + ")",
+                       a.bar.cWidth !== b.bar.cWidth);
+
+            root.eq(a.name + ": its overlay follows the bar that expanded",
+                    a.dismiss.barCWidth, a.bar.cWidth);
+            root.eq(b.name + ": its overlay is NOT carved at the other output's expanded notch",
+                    b.dismiss.barCWidth, b.bar.cWidth);
+            root.check(b.name + ": and that width really is the un-expanded one",
+                       b.dismiss.barCWidth !== a.bar.cWidth);
+
+            Popups.dashboardOpen   = root._origDashOpen;
+            Popups.dashboardScreen = root._origDashScreen;
+            root.finish();
+        }
+    }
+
+    function finish() {
+        SettingsService.set("reduceMotion", root._origReduceMotion);
+        root.eq("settings restored: reduce motion",
+                SettingsService.reduceMotion, root._origReduceMotion);
+        console.log("");
+        console.log("passed=" + root.passed + " failed=" + root.failed);
+        Qt.exit(root.failed === 0 ? 0 : 1);
     }
 }
