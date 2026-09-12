@@ -322,6 +322,31 @@ else
 fi
 rm -f "$probe"
 
+# ── A PopupWindow must size itself from its ANCHOR, not from itself ─────────
+#
+# Measured on tests/run-scaling-test.sh: a PopupWindow's own `screen` is not the
+# output it is anchored to — on two headless outputs the popup anchored to the
+# bar on HEADLESS-1 reports HEADLESS-2. Reading `root.screen` in one of these
+# therefore puts it at the wrong output's factor on a mixed desk, and nothing
+# looks wrong on a single monitor. The file list is written out, and each entry
+# is checked to exist and to still be a PopupWindow, so deleting either fails.
+printf '\n── popup windows resolve from their anchor ──\n'
+POPUPS="src/popups/ArchMenu.qml src/popups/AudioPopup.qml \
+        src/popups/NotificationToast.qml src/popups/NotificationsPopup.qml \
+        src/popups/QuickControl.qml src/popups/ScreenRecOptionsPopup.qml"
+for f in $POPUPS; do
+    if [ ! -f "$f" ]; then bad "popup $f is missing"; continue; fi
+    if ! grep -qE '^PopupWindow \{' "$f"; then
+        bad "$(basename "$f") is no longer a PopupWindow; this rule is checking the wrong file"
+        continue
+    fi
+    if grep -qE 'readonly property ThemeSet theme: ThemeSet \{[[:space:]]*scale: Theme\.factorForScreen\(root\.anchorWindow' "$f"; then
+        ok "$(basename "$f") takes its factor from the window it is anchored to"
+    else
+        bad "$(basename "$f") resolves its own screen, which for a PopupWindow is not the output it is on"
+    fi
+done
+
 # ── CLOSURE: nothing outside the theme layer reads a size from a singleton ───
 #
 # This is the rule the file list above cannot be: a list only protects the files

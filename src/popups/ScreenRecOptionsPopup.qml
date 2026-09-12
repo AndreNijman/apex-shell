@@ -11,7 +11,19 @@ import "../"
 
 PopupWindow {
     id: root
-    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }   // P1-040: this output's sizes
+    // MEASURED: a PopupWindow's own `screen` is NOT the one it is
+
+    // anchored to. On two headless outputs the popup anchored to the
+
+    // bar on the 3840x2160 output reported the 1920x1080 one and
+
+    // would have been sized at 1.0 — silently, on the monitor the
+
+    // global factor was never for. The anchor window is given its
+
+    // screen by shell.qml, so it is the one that knows.
+
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.anchorWindow ? root.anchorWindow.screen : null) }
 
 
     required property var anchorWindow
