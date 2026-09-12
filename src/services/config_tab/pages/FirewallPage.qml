@@ -165,6 +165,7 @@ CfgScroll {
             model: FirewallService.exceptions
             delegate: CfgRow {
                 required property var modelData
+                height: 44
                 label: modelData.name
                 // A rejected exception is a port the user believes is open and
                 // is not. Saying so here is the whole reason this row can be
