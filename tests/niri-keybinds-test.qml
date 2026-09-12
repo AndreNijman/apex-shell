@@ -95,6 +95,19 @@ ShellRoot {
         check("no unresolved config variable is emitted",
               root.kdl.indexOf('"$') < 0)
 
+        // P2-003. The image ships orca and autostarts nothing, so this bind is
+        // the only way in for the user who needs a reader. niri spawns without
+        // a shell, so the command has to arrive as separate quoted argv tokens
+        // — a single `"…/apex-screen-reader toggle"` token would be looked up
+        // as a filename with a space in it and fail silently, which for a
+        // screen reader means a key that does nothing at all.
+        check("the screen-reader bind reaches niri",
+              root.kdl.indexOf("apex-screen-reader") >= 0)
+        check("and its argv is split rather than handed over as one filename",
+              root.kdl.indexOf('"/usr/libexec/apex-screen-reader" "toggle"') >= 0)
+        check("on the combination a screen-reader user already knows (Mod+Alt+S)",
+              /Mod\+Alt\+S\s+\{[^}]*apex-screen-reader/.test(root.kdl))
+
         // Native window actions, mapped onto niri's column model.
         check("close-window is emitted",   root.kdl.indexOf("close-window;") >= 0)
         check("column focus is emitted",   root.kdl.indexOf("focus-column-left;") >= 0)

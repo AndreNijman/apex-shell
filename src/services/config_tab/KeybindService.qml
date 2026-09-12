@@ -98,6 +98,31 @@ QtObject {
         // than by eye: the suite evaluates the whole _defaults table and fails
         // on any two entries sharing a combo.
         "voice-ptt":          { mods: "SUPER + ALT",  key: "V",      label: "Push to Talk",         group: "Quick Settings" },
+        // Roadmap P2-003, "screen reader … validated". The image has shipped
+        // orca since round 18b and deliberately autostarts nothing — a reader
+        // that starts unbidden talks over a sighted user's first boot — which
+        // left the feature with no way in at all. The only route to a reader
+        // was to open a terminal and type `orca`, and opening a terminal is
+        // exactly what somebody who cannot see the screen cannot do first.
+        //
+        // SUPER+ALT+S is GNOME's combination for the same action, so the one
+        // shortcut a screen-reader user is most likely to already know carries
+        // over. SUPER+S is the scratchpad and SUPER+SHIFT+S moves to it; the
+        // whole table is compared combo against combo by
+        // tests/check-push-to-talk.sh, so this is checked as data rather than
+        // by eye.
+        //
+        // `type: "exec"` with an ABSOLUTE command, deliberately, and it is the
+        // opposite choice to voice-ptt's above for a reason worth stating.
+        // An untyped entry becomes `qs ipc call screenreader-toggle …`, which
+        // routes the reader's on-switch through the shell's own IPC — so a
+        // shell that has crashed, or has not started, takes the switch down
+        // with it, and a user with no reader and no visible desktop has nothing
+        // left to press. apex-os's labwc generator drops a command only when it
+        // still begins with `$` after variable substitution, so an absolute
+        // path reaches all three sessions: _genLua (Hyprland), _genKdl (niri)
+        // and /usr/libexec/apex-labwc-keybinds (Floating).
+        "screenreader-toggle":{ mods: "SUPER + ALT",  key: "S",      label: "Screen Reader",        group: "Quick Settings", type: "exec", command: "/usr/libexec/apex-screen-reader toggle" },
         "screenshot-area":    { mods: "",             key: "PRINT",  label: "Screenshot Area",      group: "Window Management", type: "exec", command: "bash " + root._shellDir + "/src/scripts/screenshot.sh area" },
         "screenshot-screen":  { mods: "SUPER",        key: "PRINT",  label: "Screenshot Screen",    group: "Window Management", type: "exec", command: "bash " + root._shellDir + "/src/scripts/screenshot.sh screen" },
         "window-fullscreen":  { mods: "SUPER",        key: "F",      label: "Toggle Fullscreen",    group: "Window Management", type: "dispatch", dispatcher: "fullscreen", arg: "0" },
