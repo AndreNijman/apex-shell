@@ -152,6 +152,56 @@ StatCard {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    //  Lid stays awake  (roadmap P1-063)
+    //
+    //  NOT the same thing as Caffeine, and the two are next to each other on
+    //  purpose so the difference is visible. Caffeine takes an `idle` block
+    //  inhibitor: it stops the screen dimming, blanking and locking, and it
+    //  does NOTHING about the lid — logind acts on a lid switch whether or not
+    //  idle is inhibited. This tile is the pin behind a `handle-lid-switch`
+    //  inhibitor, which is the only thing that stops a close suspending the
+    //  machine.
+    //
+    //  ── What a tap does, and what it deliberately cannot do ────────────────
+    //
+    //  on <-> auto, and never `off`. `off` means "suspend on a close whatever
+    //  is running", which kills an agent mid-build; it is a deliberate choice
+    //  with a real consequence and it belongs next to the sentence that
+    //  explains it, on Config -> Closing the Lid, not under a fingertip on a
+    //  two-state tile. lid.js's `tileToggle` is what enforces that, and
+    //  tests/lid-test.js asserts no input to it can return `off`.
+    //
+    //  The tile is lit by the PIN, not by the decision. One lit because an
+    //  agent happens to be running would go dark when the agent finished, and
+    //  its owner would read that as their setting having been forgotten.
+    //
+    //  ── It says when it is not the thing deciding ──────────────────────────
+    //
+    //  logind consults `HandleLidSwitchDocked` (default `ignore`) BEFORE any
+    //  inhibitor, so a machine with an external display already ignores its lid
+    //  and APEX is not why. The sublabel says so, because the tile is where
+    //  somebody looks before they trust it. A guard that is about to suspend
+    //  the machine outranks even that — it is APEX calling `systemctl suspend`
+    //  itself, so it happens docked or not.
+    //
+    //  No privilege anywhere: `apex lid pin` writes the owner's own
+    //  ~/.config/apex/lid.toml and the inhibitor is `allow_active=yes` for an
+    //  ordinary session. A polkit prompt from this tile would be a defect.
+    // ─────────────────────────────────────────────────────────────────────────
+    readonly property var lidTile: LidService.tile
+
+    function _lidToggle() {
+        LidService.toggle()
+    }
+
+    // The service polls two short-lived `apex` processes per sweep, so it runs
+    // while this card is genuinely in front of somebody and not otherwise.
+    ServiceRef {
+        service: LidService
+        active:  root.onScreen
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     //  Do Not Disturb
     // ─────────────────────────────────────────────────────────────────────────
     function _dndToggle() {
@@ -882,6 +932,20 @@ StatCard {
                         label:    "Filter"
                         sublabel: root.currentFilter !== "" ? root.currentFilter : ""
                         onToggled: root._filterOpen()
+                    }
+
+                    // Next to Caffeine deliberately: see the note above for
+                    // why they are not the same inhibitor. Never `visible:`-d
+                    // away — a machine that reports no lid says so on the tile
+                    // rather than losing it, for the same reason Caffeine and
+                    // Night Light are unconditional.
+                    TglBtn {
+                        width: tileGrid.btnW; height: tileGrid.btnH
+                        on:       root.lidTile.on
+                        icon:     root.lidTile.icon
+                        label:    root.lidTile.label
+                        sublabel: root.lidTile.sublabel
+                        onToggled: root._lidToggle()
                     }
 
                     // ── Plugin tiles (roadmap §16) ────────────────────────

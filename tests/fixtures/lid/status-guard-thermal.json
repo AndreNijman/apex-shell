@@ -1,0 +1,50 @@
+{
+    "battery_floor_pct": 20,
+    "decision": {
+        "decision": "guard-suspend",
+        "guard": "thermal",
+        "why": "the lid is closed and x86_pkg_temp reads 99.0 \u00b0C, within 1.0 \u00b0C of the 100.0 \u00b0C its own firmware calls critical (the limit is 15.0 \u00b0C of headroom) \u2014 a shut lid has no airflow, so the machine suspends rather than cook (the owner pinned lid keep-working on checkpointed first)"
+    },
+    "enabled": true,
+    "holds_inhibitor": false,
+    "inhibitor_error": "logind was not queried (fixture root)",
+    "inhibitor_holders": null,
+    "inputs": {
+        "charge": {
+            "charge": "battery",
+            "percent": 80
+        },
+        "lid": {
+            "state": "closed"
+        },
+        "thermal": {
+            "c": 99.0,
+            "critical_c": 100.0,
+            "sensor": "x86_pkg_temp",
+            "thermal": "celsius"
+        },
+        "work": {
+            "live": 0,
+            "work": "sessions"
+        }
+    },
+    "logind": {
+        "acts_on_lid": null,
+        "block_inhibited": null,
+        "docked": null,
+        "external_displays": 0
+    },
+    "pin": "on",
+    "policy_error": null,
+    "policy_source": "/etc/apex/lid.toml",
+    "thermal_ceiling_c": 95.0,
+    "thermal_headroom_c": 15.0,
+    "thermal_headroom_now_c": 1.0,
+    "vpn": {
+        "name": null,
+        "state": {
+            "vpn": "unreadable",
+            "why": "NetworkManager was not queried (fixture root or dry run)"
+        }
+    }
+}
