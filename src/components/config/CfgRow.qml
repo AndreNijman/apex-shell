@@ -41,6 +41,71 @@ Item {
 
     default property alias control: slot.data
 
+    // ── What a screen reader is told about this row ──────────────────────────
+    //
+    // The problem this solves is structural, not a missing property. A row's
+    // words — the label, the description, the reason it is switched off, the
+    // effective value read back from the machine — are sibling Text items. The
+    // CONTROL is a separate object with none of them, so a reader that lands on
+    // the switch announces an unnamed checkbox and the user is toggling
+    // something anonymous. Naming the control at each call site would mean
+    // touching 294 rows across eleven pages and would rot the first time
+    // somebody changed a label and not its twin.
+    //
+    // So the row hands its own words to whatever control was put in it. An
+    // attached Accessible object is a real QObject property, so it can be
+    // written from here — verified, not assumed — and a control that already
+    // names itself (CfgButton carries its own label) is left alone.
+    //
+    // `status` is in the description on purpose: it is what the machine reports
+    // is ACTUALLY in effect, and a sighted user reads it beside the control. A
+    // reader that omitted it would be missing the one thing distinguishing a
+    // setting that worked from one whose backend stopped listening.
+    readonly property string a11yDescription: {
+        var parts = []
+        if (root.unavailable)             parts.push(root.disabledReason)
+        else if (root.description !== "") parts.push(root.description)
+        if (root.status !== "")           parts.push("Currently " + root.status)
+        if (root._effectNote !== "")      parts.push(root._effectNote)
+        return parts.join(". ")
+    }
+
+    // The controls this row supplies accessible text for: the ones that had no
+    // name of their own when they were placed. Decided once, so a row cannot
+    // start overwriting a control that names itself later.
+    property var _adopted: []
+
+    function _adoptControls() {
+        var kids = slot.data
+        var out  = []
+        for (var i = 0; i < kids.length; i++) {
+            var c = kids[i]
+            // A non-Item child (a Timer, a Connections) has no Accessible
+            // attachment worth writing to; `visible` is the cheap Item test
+            // that does not itself create an attachment on everything.
+            if (!c || c.visible === undefined) continue
+            if (c.Accessible.name === "") out.push(c)
+        }
+        root._adopted = out
+        root._pushA11y()
+    }
+
+    function _pushA11y() {
+        for (var i = 0; i < root._adopted.length; i++) {
+            var c = root._adopted[i]
+            if (root.label !== "") c.Accessible.name = root.label
+            c.Accessible.description = root.a11yDescription
+        }
+    }
+
+    Component.onCompleted:     root._adoptControls()
+    onLabelChanged:            root._pushA11y()
+    onA11yDescriptionChanged:  root._pushA11y()
+    Connections {
+        target: slot
+        function onChildrenChanged() { root._adoptControls() }
+    }
+
     width: parent ? parent.width : 0
 
     // As tall as what it holds, with a floor.

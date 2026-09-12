@@ -12,6 +12,11 @@ Column {
     property int   size:   34
     spacing: 5
 
+    // Not interactive, but the caption is the only thing that says which colour
+    // this is, and a reader given an unnamed rectangle learns nothing.
+    Accessible.role: Accessible.StaticText
+    Accessible.name: root.label
+
     Rectangle {
         width:  root.size
         height: root.size
