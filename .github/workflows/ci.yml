@@ -900,9 +900,9 @@ jobs:
           # to tests/check-idle-inhibit.sh — including the --pdeathsig pair.
           grep -q 'mask: Region' src/windows/TopBar.qml \
             || { echo "✗ full-width top bar can intercept titlebar controls"; fail=1; }
-          grep -q 'height: Compositor.isLabwc ? Theme.borderWidth : root.implicitHeight' src/windows/TopBar.qml \
+          grep -q 'height: Compositor.isLabwc ? theme.borderWidth : root.implicitHeight' src/windows/TopBar.qml \
             || { echo "✗ top-bar mask no longer preserves Hyprland input behavior"; fail=1; }
-          grep -q 'Math.max(Theme.notchHeight, Theme.exclusionGap)' src/windows/TopBar.qml \
+          grep -q 'Math.max(theme.notchHeight, theme.exclusionGap)' src/windows/TopBar.qml \
             || { echo "✗ labwc bar no longer honours its exclusion-gap floor"; fail=1; }
           grep -q 'availableWidth:' src/modules/Left/LeftContent.qml \
             || { echo "✗ labwc app dock no longer respects the notch budget"; fail=1; }
