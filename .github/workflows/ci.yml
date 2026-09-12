@@ -195,7 +195,18 @@ jobs:
         run: |
           # -S warning matches the threshold apex-os uses: style/info findings in
           # a test harness are not worth failing a build over.
-          shellcheck -S warning tests/*.sh
+          #
+          # -x is not decoration. Without it shellcheck cannot follow
+          # `. tests/lib/headless.sh`, so every variable a suite sets FOR the
+          # library to read looks unused and comes back as SC2034. That is what
+          # this step failed on the moment tests/test-headless-lib.sh landed:
+          # four assignments that are the whole point of the test, reported as
+          # dead code. The documented local gate is `shellcheck -S warning -x`,
+          # so CI was failing files that the gate developers run passes — and,
+          # because a job stops at its first red step, it took the
+          # accessibility and internationalisation measurements below down with
+          # it while reporting a lint error.
+          shellcheck -S warning -x tests/*.sh
           echo "✓ test harnesses passed ShellCheck"
 
       - name: Service-tier behavioural test
@@ -1379,6 +1390,14 @@ jobs:
       # The suite skips rather than fails where lupdate/lrelease are absent, so
       # install them — a skip on every run measures nothing.
       - name: Internationalisation baseline
+        # A job stops at its first failing step, so anything red above this one
+        # switches the measurement off and reports itself instead. That is not
+        # hypothetical here: the shellcheck step two above ran without -x, went
+        # red on tests/test-headless-lib.sh, and took this suite with it. NOT
+        # continue-on-error — a failure here still fails the job; this only
+        # stops somebody else's red step from hiding it. Same clause round 19
+        # put on four accessibility steps in apex-os for the same reason.
+        if: ${{ !cancelled() }}
         run: |
           # pacman, not apt-get: this job runs in an archlinux:latest
           # container. `sudo apt-get update` was the only apt call in this
@@ -1388,6 +1407,12 @@ jobs:
           # line, not the update line, so it caught nothing.
           pacman -S --needed --noconfirm qt6-tools qt6-declarative qt6-base \
             || echo "note: Qt translation tools unavailable; the suite will SKIP those sections"
+          # The fonts section 5 measures, in a SEPARATE call on purpose: pacman
+          # installs a list as one transaction, so a font name that is not in
+          # the repos would take the Qt tools down with it and the suite would
+          # skip the translation pipeline too, reporting a note either way.
+          pacman -S --needed --noconfirm ttf-jetbrains-mono noto-fonts-cjk \
+            || echo "note: fonts unavailable; the non-Latin rendering section will SKIP"
           ./tests/run-i18n-test.sh
 
       - name: Remote agent status invariants
