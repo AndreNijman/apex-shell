@@ -2,8 +2,10 @@ import Quickshell
 import QtQuick
 import "./src/theme"
 import "./src/services"
+import "./src/state"
 import "./src"
 import "./src/windows"
+import "./src/popups"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Scaling, against a real session. Run via tests/run-scaling-test.sh, which
@@ -83,12 +85,24 @@ ShellRoot {
                 TopBar { id: bar; screen: modelData }
 
                 PopupDismiss {
+                    id: dismiss
                     screen: modelData
                     screenName: modelData.name
                     topBar: bar
+                }
+
+                // A PopupWindow, which is the one window kind whose `screen`
+                // nobody has checked. It is not given one: quickshell derives
+                // it from the anchor, and six of this shell's popups now size
+                // themselves from it. If that derivation does not hold, those
+                // six are silently at the reference output's factor — the
+                // "permission denied is not absence" shape, in a window.
+                QuickControl {
+                    id: quick
+                    anchorWindow: bar
                     Component.onCompleted: root.perBar.push({
                         name: modelData.name, screen: modelData,
-                        bar: bar, dismiss: this
+                        bar: bar, dismiss: dismiss, popup: this
                     })
                 }
             }
@@ -474,6 +488,49 @@ ShellRoot {
                         e.bar.theme.scale, Metrics.scaleForScreen(e.screen));
                 root.eq(e.name + ": the bar's height is that factor's notchHeight",
                         e.bar.implicitHeight, e.bar.theme.notchHeight);
+            }
+
+            // ── A PopupWindow is sized by its ANCHOR's output ───────────
+            //
+            // Measured here, because it is not what it looks like: a
+            // PopupWindow's own `screen` is NOT the output it is anchored to.
+            // On this harness the popup anchored to the bar on HEADLESS-1
+            // reports HEADLESS-2. Six of this shell's popups size themselves
+            // from it, so reading `root.screen` there would put all six at the
+            // wrong factor on the denser monitor, silently. They read
+            // `anchorWindow.screen`, and this is the assertion that fails if
+            // anyone changes them back.
+            for (let i = 0; i < root.perBar.length; i++) {
+                const e = root.perBar[i];
+                console.log("[popup] anchored to " + e.name
+                            + " but PopupWindow.screen says "
+                            + (e.popup.screen ? e.popup.screen.name : "null"));
+                root.eq(e.name + ": the popup is sized at the factor of the output it is ANCHORED to",
+                        e.popup.theme.scale, Metrics.scaleForScreen(e.screen));
+            }
+
+            // ── DashboardLayout answers for the set it is handed ────────────
+            // It is a singleton doing arithmetic for a window, so the window
+            // passes its own token set in. Handing it two different sets must
+            // give two different widths, or the parameter is decoration.
+            if (root.perBar.length > 1) {
+                const wa = DashboardLayout.widthFor(root.perBar[0].bar.theme, "home",
+                                                    root.perBar[0].screen.width);
+                const wb = DashboardLayout.widthFor(root.perBar[1].bar.theme, "home",
+                                                    root.perBar[1].screen.width);
+                console.log("[dash] widthFor(home) " + root.perBar[0].name + "=" + wa
+                            + " " + root.perBar[1].name + "=" + wb);
+                if (Metrics.scaleForScreen(root.perBar[0].screen)
+                    !== Metrics.scaleForScreen(root.perBar[1].screen)) {
+                    root.check("the dashboard width follows the set it is given, not a singleton ("
+                               + wa + " vs " + wb + ")", wa !== wb);
+                    root.eq("and each is that set's own px() of the page's base width",
+                            wa, root.perBar[0].bar.theme.px(900));
+                }
+                root.eq("the tab bar width is the page width less two insets",
+                        DashboardLayout.barWidthFor(root.perBar[0].bar.theme, "home",
+                                                    root.perBar[0].screen.width),
+                        wa - 2 * DashboardLayout.contentInset(root.perBar[0].bar.theme));
             }
 
             if (root.perBar.length > 1) {

@@ -19,13 +19,15 @@ import "scaling.js" as Scaling
 // ── What this file is now ───────────────────────────────────────────────────
 // The token table itself moved to theme/ThemeSet.qml, and this singleton is one
 // INSTANCE of it: the instance whose factor comes from the reference output.
-// Nothing about what a call site reads changed — `Metrics.notchPadding` and
-// `Theme.px(8)` answer exactly what they answered before — but the table is no
-// longer trapped inside a singleton, so a second output can have its own set
-// without a second copy of the arithmetic. That copy is the defect this item
-// was opened for: tests/scaling-test.qml once re-implemented the breakpoint
-// table and asserted its own copy, and every breakpoint assertion passed no
-// matter what this file said.
+// The table is not trapped inside a singleton any more, so every output has its
+// own set without a second copy of the arithmetic. That copy is the defect this
+// item was opened for: tests/scaling-test.qml once re-implemented the
+// breakpoint table and asserted its own copy, and every breakpoint assertion
+// passed no matter what this file said.
+//
+// theme/OutputScale.qml answers what factor an output deserves; every surface
+// builds its own instance at that factor. This one is built at the REFERENCE
+// output's, which is a policy question rather than a density bucket.
 //
 // ── The scale factor ────────────────────────────────────────────────────────
 // `scale` multiplies every geometry token and, through fs(), every font size.
@@ -41,31 +43,34 @@ import "scaling.js" as Scaling
 // missing or wrong on a great many panels, and a bad DPI reading would size the
 // shell absurdly with no obvious cause. Height is boring and always right.
 //
-// ── Multi-monitor ───────────────────────────────────────────────────────────
-// This is still the GLOBAL factor, because Theme and every unmigrated call site
-// in the tree reads it, and there are 2758 such reads across 116 files. What is
-// supported here is CHOOSING which monitor sets it, via
-// `SettingsService.scaleScreen` — on a mixed 4K + 1080p desk you pick the one
-// you actually work on. Default is the tallest connected output.
+// ── Who still reads this, after the migration ───────────────────────────────
+// Almost nothing, and that is the point. Every surface in the shell resolves
+// its OWN output's set:
 //
-// A surface that has been migrated to per-output sizing does NOT read this. It
-// builds its own ThemeSet from its own screen:
+//     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }     // a window
+//     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // an Item
 //
-//     readonly property ThemeSet theme: ThemeSet {
-//         scale: OutputScale.factorForScreen(root.screen)
-//     }
+// and reads `theme.px(...)` where it used to read `Theme.px(...)`. 1042 reads
+// across 99 files moved; tests/check-scale-tokens.sh's closure rule is what
+// keeps them moved.
 //
-// src/windows/DisplayConfirm.qml and src/windows/ConfirmDialog.qml are the two
-// that do, and tests/scaling-test.qml asserts they get different sizes on two
-// outputs of different densities. The rest of the tree is the remaining work;
-// the design and its costs are on ROADMAP/state/agents/p1-040.md.
+// This singleton remains for three things, all of them deliberate:
 //
-// The other answer to a mixed-DPI desk is on the Display page: give each output
-// a compositor scale that brings its LOGICAL size into the band this file was
-// calibrated for, and one global factor is then correct for all of them.
-// Measured: a 3840x2160 and a 1920x1080 output both at compositor scale 1 give a
-// single factor of 1.5, which is 50% too large on the 1080p panel; with the 4K
-// at compositor scale 2 both arrive as 1920x1080 and the factor is 1.0 for both.
+//   • `Theme.<colour>` and `Theme.animDuration` still come through here,
+//     because neither is a function of an output. A palette belongs to the
+//     shell; two monitors with different accent colours would be a bug.
+//   • the REFERENCE output — which output's size the user considers the
+//     canonical one, via `SettingsService.scaleScreen`, defaulting to the
+//     tallest. Nothing lays out at it any more, but the Display page and the
+//     suites ask what it is.
+//   • `services/plugins/PluginService.qml`, the one file the closure rule
+//     exempts: its `theme` is a versioned snapshot handed to plugin code, one
+//     object for every plugin instance.
+//
+// The Display page's recommended scales are still worth applying, for the
+// reason that was always the other half of the story: the shell is the only
+// thing on the desk that magnifies itself, and every other application is drawn
+// at the compositor's scale for the output it is on.
 // ─────────────────────────────────────────────────────────────────────────────
 ThemeSet {
     id: root
