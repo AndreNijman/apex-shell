@@ -1290,6 +1290,27 @@ jobs:
       - name: How far Reduce Motion reaches
         run: ./tests/check-reduce-motion.sh
 
+      # Internationalisation, measured the only way that means anything: the
+      # strings are extracted from the SHIPPED file with the real lupdate,
+      # compiled with the real lrelease, and read back out of a running QML
+      # engine in German. "Qt supports translation" is not a measurement — every
+      # QML tree supports it, including this one on the day it had zero
+      # translatable strings.
+      #
+      # The load-bearing assertion is the sensitivity one: the SAME fixture runs
+      # with and without -translation and the two must DISAGREE. Without it a
+      # run that never loaded the translator would read English twice and every
+      # other check could still be written to pass.
+      #
+      # The suite skips rather than fails where lupdate/lrelease are absent, so
+      # install them — a skip on every run measures nothing.
+      - name: Internationalisation baseline
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qt6-l10n-tools qt6-declarative-dev-tools \
+            || echo "note: Qt translation tools unavailable; the suite will SKIP those sections"
+          ./tests/run-i18n-test.sh
+
       - name: Remote agent status invariants
         run: |
           # Static half. Also SELF-TESTS its own checks: it mutates copies of
@@ -1731,6 +1752,8 @@ jobs:
             "tests/a11y-controls-test.qml"
             "tests/run-a11y-controls-test.sh"
             "tests/check-reduce-motion.sh"
+            "tests/run-i18n-test.sh"
+            "translations/apex-shell_de.ts"
             "tests/settings-pages-test.qml"
             "tests/run-settings-pages-test.sh"
             "tests/settings-staged-test.qml"
