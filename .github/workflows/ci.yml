@@ -5,6 +5,22 @@ on:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
+  # The roadmap v2.2 program works on task branches and integrates onto
+  # roadmap/v2.2, so nothing here has run for any of it: a task branch matches
+  # neither trigger above, and the program is forbidden from opening a pull
+  # request until the final integration. Every roadmap suite in this repository
+  # has therefore been verified on exactly one laptop — one kernel, one set of
+  # installed packages, one Qt build.
+  #
+  # workflow_dispatch lets a task branch be checked BEFORE it lands rather than
+  # after: `gh workflow run ci.yml --ref <branch>`. It changes nothing about
+  # what a push or a pull request does. (apex-os made the same change to
+  # pr-validation.yml for the same reason.)
+  #
+  # Note for whoever needs it next: GitHub only offers the dispatch once this
+  # file is on the DEFAULT branch, so it does nothing for the branch that adds
+  # it.
+  workflow_dispatch:
 
 jobs:
   # ─────────────────────────────────────────────
