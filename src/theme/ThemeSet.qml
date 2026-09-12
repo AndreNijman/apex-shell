@@ -9,18 +9,22 @@ import "../services"
 // value that can only exist once cannot be computed for a second output, and a
 // second copy of it is the defect P1-040 was opened for.
 //
-// Metrics is now an INSTANCE of this component — the one whose factor comes
-// from the reference output, which is what every unmigrated call site in the
-// tree reads through Theme. A surface that wants its OWN output's sizes builds
-// its own instance:
+// Metrics is one INSTANCE of this component — the one built at the reference
+// output's factor, which is what Theme's colours and the handful of
+// non-per-output readers still go through.
 //
-//     readonly property ThemeSet theme: ThemeSet {
-//         scale: OutputScale.factorForScreen(root.screen)
-//     }
+// Every surface builds its own instance, at the factor theme/OutputScale gives
+// its output. A registry of five shared sets — one per factor the table can
+// answer — was tried and removed; OutputScale.qml carries the measurement.
 //
-// and then reads `theme.px(...)` where it used to read `Theme.px(...)`. There is
-// one table, and both the global set and every per-output set are instances of
-// it, so a token that is changed here changes for all of them.
+// A surface takes the set for the output it is drawn on:
+//
+//     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }     // a window
+//     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // an Item
+//
+// and reads `theme.px(...)` where it used to read `Theme.px(...)`. There is one
+// table and every set is an instance of it, so a token changed here changes for
+// all of them.
 //
 // COLOURS ARE NOT IN HERE, deliberately. A palette is a property of the shell,
 // not of an output: two monitors showing different accent colours would be a

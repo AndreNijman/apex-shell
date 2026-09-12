@@ -31,6 +31,8 @@ import "../components"
 
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     // ── State ─────────────────────────────────────────────────────────────────
     property var    _connections:  []     // [{name, active, busy}]
@@ -495,7 +497,7 @@ Item {
 
             Text {
                 anchors { left: parent.left; leftMargin: 2; verticalCenter: parent.verticalCenter }
-                text: "VPN"; font.pixelSize: Theme.fs(15); font.weight: Font.Bold; color: Theme.text
+                text: "VPN"; font.pixelSize: theme.fs(15); font.weight: Font.Bold; color: Theme.text
             }
 
             Row {
@@ -521,13 +523,13 @@ Item {
 
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "󰒃"; font.pixelSize: Theme.fs(13)
+                            text: "󰒃"; font.pixelSize: theme.fs(13)
                             color: root._killSwitch ? Theme.active : Qt.rgba(1,1,1,0.40)
                             Behavior on color { ColorAnimation { duration: 130 } }
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Kill Switch"; font.pixelSize: Theme.fs(11); font.weight: Font.Medium
+                            text: "Kill Switch"; font.pixelSize: theme.fs(11); font.weight: Font.Medium
                             color: root._killSwitch ? Theme.active : Qt.rgba(1,1,1,0.45)
                             Behavior on color { ColorAnimation { duration: 130 } }
                         }
@@ -546,7 +548,7 @@ Item {
                     Behavior on color { ColorAnimation { duration: 120 } }
 
                     Text {
-                        id: rfIcon; anchors.centerIn: parent; text: "󰑐"; font.pixelSize: Theme.fs(15)
+                        id: rfIcon; anchors.centerIn: parent; text: "󰑐"; font.pixelSize: theme.fs(15)
                         color: root._loading
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4)
                             : Theme.active
@@ -580,7 +582,7 @@ Item {
                     width: parent.width; height: tLbl.implicitHeight + 4
                     Text {
                         id: tLbl; text: "TUNNEL"
-                        font.pixelSize: Theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2
+                        font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2
                         color: root._sbActive
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
                             : Qt.rgba(1,1,1,0.25)
@@ -593,7 +595,7 @@ Item {
                     width: conCol.width - 2; x: 1; height: 54
 
                     Rectangle {
-                        id: sbCard; anchors.fill: parent; radius: Theme.cornerRadius
+                        id: sbCard; anchors.fill: parent; radius: theme.cornerRadius
                         color: root._sbActive
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08)
                             : sbHov.hovered ? Qt.rgba(1,1,1,0.04) : "transparent"
@@ -611,7 +613,7 @@ Item {
 
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "󰖂"; font.pixelSize: Theme.fs(20)
+                            text: "󰖂"; font.pixelSize: theme.fs(20)
                             color: root._sbActive
                                 ? Theme.active
                                 : root._sbBusy
@@ -626,7 +628,7 @@ Item {
                             Row {
                                 spacing: 8
                                 Text {
-                                    text: "sing-box"; font.pixelSize: Theme.fs(13)
+                                    text: "sing-box"; font.pixelSize: theme.fs(13)
                                     font.weight: root._sbActive ? Font.Medium : Font.Normal
                                     color: root._sbActive ? Theme.text : Qt.rgba(1,1,1,0.65)
                                 }
@@ -638,14 +640,14 @@ Item {
                                     border.width: 1
                                     Text {
                                         id: sbTag; anchors.centerIn: parent
-                                        text: "VLESS · Reality"; font.pixelSize: Theme.fs(8)
+                                        text: "VLESS · Reality"; font.pixelSize: theme.fs(8)
                                         font.family: "JetBrains Mono"
                                         color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7)
                                     }
                                 }
                             }
                             Text {
-                                font.pixelSize: Theme.fs(10)
+                                font.pixelSize: theme.fs(10)
                                 text: root._sbBusy
                                     ? (root._sbActive ? "Disconnecting…" : "Connecting…")
                                     : root._sbActive
@@ -666,7 +668,7 @@ Item {
 
                         Text {
                             anchors.centerIn: parent; visible: root._sbBusy
-                            text: "○"; font.pixelSize: Theme.fs(16); color: Theme.active
+                            text: "○"; font.pixelSize: theme.fs(16); color: Theme.active
                             SequentialAnimation on opacity {
                                 running: root._sbBusy; loops: Animation.Infinite
                                 NumberAnimation { to: 0.15; duration: 450 }
@@ -699,7 +701,7 @@ Item {
                     visible: root._connections.some(function(c) { return c.active })
                     Text {
                         id: aLbl; text: "ACTIVE"
-                        font.pixelSize: Theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2
+                        font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2
                         color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
                     }
                 }
@@ -724,7 +726,7 @@ Item {
                     visible: root._connections.some(function(c) { return !c.active })
                     Text {
                         id: iLbl; text: "AVAILABLE"
-                        font.pixelSize: Theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2
+                        font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2
                         color: Qt.rgba(1,1,1,0.25)
                     }
                 }
@@ -743,9 +745,9 @@ Item {
                     visible: !root._loading && root._connections.length === 0
                     Column {
                         anchors.centerIn: parent; spacing: 12
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰦝"; font.pixelSize: Theme.fs(36); color: Qt.rgba(1,1,1,0.08) }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "No WireGuard connections"; font.pixelSize: Theme.fs(13); color: Qt.rgba(1,1,1,0.2) }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Import a config to get started:"; font.pixelSize: Theme.fs(10); color: Qt.rgba(1,1,1,0.14); horizontalAlignment: Text.AlignHCenter }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰦝"; font.pixelSize: theme.fs(36); color: Qt.rgba(1,1,1,0.08) }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "No WireGuard connections"; font.pixelSize: theme.fs(13); color: Qt.rgba(1,1,1,0.2) }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Import a config to get started:"; font.pixelSize: theme.fs(10); color: Qt.rgba(1,1,1,0.14); horizontalAlignment: Text.AlignHCenter }
                         Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: codeText.implicitWidth + 24; height: 26; radius: 6
@@ -753,7 +755,7 @@ Item {
                             Text {
                                 id: codeText; anchors.centerIn: parent
                                 text: "nmcli con import type wireguard file <conf>"
-                                font.pixelSize: Theme.fs(9); font.family: "JetBrains Mono"
+                                font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"
                                 color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
                             }
                         }
@@ -768,7 +770,7 @@ Item {
                         anchors.centerIn: parent; spacing: 8
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: "○"; font.pixelSize: Theme.fs(20); color: Theme.active
+                            text: "○"; font.pixelSize: theme.fs(20); color: Theme.active
                             SequentialAnimation on opacity {
                                 running: root._loading && root._connections.length === 0
                                 loops:   Animation.Infinite
@@ -776,7 +778,7 @@ Item {
                                 NumberAnimation { to: 1.0;  duration: 550 }
                             }
                         }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Loading…"; font.pixelSize: Theme.fs(11); color: Qt.rgba(1,1,1,0.25) }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Loading…"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.25) }
                     }
                 }
 
@@ -799,7 +801,7 @@ Item {
 
         // Card background
         Rectangle {
-            id: card; anchors.fill: parent; radius: Theme.cornerRadius
+            id: card; anchors.fill: parent; radius: theme.cornerRadius
             color: vRow.con.active
                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08)
                 : vHov.hovered ? Qt.rgba(1,1,1,0.04) : "transparent"
@@ -824,7 +826,7 @@ Item {
             // Shield glyph
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                text: "󰦝"; font.pixelSize: Theme.fs(20)
+                text: "󰦝"; font.pixelSize: theme.fs(20)
                 color: vRow.con.active
                     ? Theme.active
                     : vRow.con.busy
@@ -837,13 +839,13 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter; spacing: 4
 
                 Text {
-                    text: vRow.con.name; font.pixelSize: Theme.fs(13)
+                    text: vRow.con.name; font.pixelSize: theme.fs(13)
                     font.weight: vRow.con.active ? Font.Medium : Font.Normal
                     color: vRow.con.active ? Theme.text : Qt.rgba(1,1,1,0.65)
                     width: 160; elide: Text.ElideRight
                 }
                 Text {
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                     text: vRow.con.busy
                         ? (vRow.con.active ? "Disconnecting…" : "Connecting…")
                         : vRow.con.active ? "Connected" : "Disconnected"
@@ -862,7 +864,7 @@ Item {
 
             Text {
                 anchors.centerIn: parent; visible: vRow.con.busy
-                text: "○"; font.pixelSize: Theme.fs(16); color: Theme.active
+                text: "○"; font.pixelSize: theme.fs(16); color: Theme.active
                 SequentialAnimation on opacity {
                     running: vRow.con.busy; loops: Animation.Infinite
                     NumberAnimation { to: 0.15; duration: 450 }

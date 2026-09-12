@@ -41,6 +41,8 @@ import "../../../components/config"
 // three-branch ternary made of theme tokens is still the bug.
 CfgScroll {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     lifecycle: "live"
 
@@ -87,28 +89,28 @@ CfgScroll {
                 readonly property color tone: Theme[RemotePairingService.stateToken(deviceRow.deviceState)]
                 readonly property string weight: RemotePairingService.stateWeight(deviceRow.deviceState)
 
-                x: Theme.px(10)
-                width: parent.width - Theme.px(20)
-                height: Theme.px(62)
-                radius: Theme.px(8)
+                x: theme.px(10)
+                width: parent.width - theme.px(20)
+                height: theme.px(62)
+                radius: theme.px(8)
                 color: deviceRow.weight === "tint"
                     ? Qt.rgba(deviceRow.tone.r, deviceRow.tone.g, deviceRow.tone.b, 0.08)
                     : "transparent"
                 border.color: deviceRow.weight === "outline" || deviceRow.weight === "solid"
                     ? deviceRow.tone : Theme.border
-                border.width: Math.max(1, Theme.px(1))
+                border.width: Math.max(1, theme.px(1))
 
                 Column {
                     anchors.left: parent.left
-                    anchors.leftMargin: Theme.px(12)
+                    anchors.leftMargin: theme.px(12)
                     anchors.right: revokeBtn.left
-                    anchors.rightMargin: Theme.px(10)
+                    anchors.rightMargin: theme.px(10)
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: Theme.px(3)
+                    spacing: theme.px(3)
 
                     Text {
                         text: modelData.name
-                        font.pixelSize: Theme.fs(13)
+                        font.pixelSize: theme.fs(13)
                         font.weight: Font.Medium
                         color: Theme.text
                         elide: Text.ElideRight
@@ -116,7 +118,7 @@ CfgScroll {
                     }
 
                     Row {
-                        spacing: Theme.px(8)
+                        spacing: theme.px(8)
 
                         // The state word, in the state's own tone. The word is
                         // the redundant channel that survives when the hue
@@ -124,13 +126,13 @@ CfgScroll {
                         // state also has a weight.
                         Text {
                             text: RemotePairingService.stateLabel(deviceRow.deviceState)
-                            font.pixelSize: Theme.fs(10)
+                            font.pixelSize: theme.fs(10)
                             color: deviceRow.tone
                         }
                         Text {
                             text: "·  last seen " + RemotePairingService.lastSeen(modelData)
                                 + (modelData.lastPath ? "  over " + modelData.lastPath : "")
-                            font.pixelSize: Theme.fs(10)
+                            font.pixelSize: theme.fs(10)
                             color: Theme.subtext
                             elide: Text.ElideRight
                         }
@@ -140,7 +142,7 @@ CfgScroll {
                 CfgButton {
                     id: revokeBtn
                     anchors.right: parent.right
-                    anchors.rightMargin: Theme.px(8)
+                    anchors.rightMargin: theme.px(8)
                     anchors.verticalCenter: parent.verticalCenter
                     label: RemotePairingService.revoking === modelData.id ? "Revoking…" : "Revoke"
                     icon: "󰅙"

@@ -149,13 +149,35 @@ PY
     printf '%s' "$before" > "$target"
 }
 
+# The mutant that matters, in the spelling the tree now uses. It USED to be
+# "radius: Theme.px(" in SessionRow.qml, and that stopped applying the moment
+# P1-040 migrated the file — the check said so ("the mutation did not apply")
+# instead of reporting a pass, which is the whole reason mutations are verified
+# to have applied before their verdict is believed.
 mutate_and_expect_fail "radius via fs()" \
-    "src/services/agents/SessionRow.qml" "radius: Theme.px(" "radius: Theme.fs("
+    "src/services/agents/SessionRow.qml" "radius: theme.px(" "radius: theme.fs("
 
-# The same mutation in the per-output spelling. Without this the rule could be
-# narrowed back to `Theme\.` and the self-test would still say "caught".
 mutate_and_expect_fail "radius via a PER-OUTPUT fs()" \
     "src/windows/DisplayConfirm.qml" "radius: theme.notchRadius" "radius: theme.fs(3)"
+
+# And the GLOBAL spelling, which no file in the tree uses any more — the closure
+# rule below is what ended it. Kept alive on a synthetic file so the
+# `Theme|Metrics` arm of the alternation cannot rot: a rule that only ever
+# matches one of its alternatives is a rule that could lose the others silently.
+cat > "$TMP/src/GlobalSpellingMutant.qml" <<'QML'
+import QtQuick
+Item {
+    radius: Theme.fs(8)
+    spacing: Metrics.fs(2)
+}
+QML
+gs=$(grep -rnE "^[^/]*\b${GEOM}:[[:space:]]*${SCALER}\.fs\(" --include="*.qml" "$TMP/src" 2>/dev/null)
+if [ -n "$gs" ]; then
+    ok "self-test global spelling: Theme.fs()/Metrics.fs() on geometry is still caught"
+else
+    bad "self-test global spelling: SURVIVED — the rule no longer matches the singleton spelling"
+fi
+rm -f "$TMP/src/GlobalSpellingMutant.qml"
 
 # And the inverse mutant: a COMMENT naming the forbidden pattern must NOT trip
 # the check. Without this, the check could be passing on prose.
@@ -232,7 +254,22 @@ fi
 # removes the file from the list and the rule stops applying to it — an
 # assertion that vanishes instead of failing. Each name is checked to exist and
 # to still declare a per-output set, so deleting either fails the run.
-PER_OUTPUT="src/windows/DisplayConfirm.qml src/windows/ConfirmDialog.qml"
+#
+# It is a SAMPLE of the ninety-odd migrated files, not the whole list, and the
+# sample is not arbitrary: the bar is the shell's layout datum, the border and
+# the OSD anchor to it, the dismiss overlay carves around it, the dashboard and
+# the settings window are the two big surfaces, the lock screen is the one place
+# a mixed desk is guaranteed to be showing every output at once, and the two
+# modals were the round-one pair. The rule that covers the other eighty is the
+# closure rule below, which needs no list at all.
+PER_OUTPUT="src/windows/DisplayConfirm.qml src/windows/ConfirmDialog.qml \
+            src/windows/TopBar.qml src/windows/Border.qml \
+            src/windows/PopupDismiss.qml src/windows/UpdatePopup.qml \
+            src/popups/Osd.qml src/popups/Dashboard.qml \
+            src/nexus/Nexus.qml src/windows/Lockscreen.qml \
+            src/services/agents/SessionRow.qml \
+            src/services/config_tab/pages/RecoveryPage.qml \
+            src/components/StatCard.qml src/shapes/SeamlessBarShape.qml"
 
 # The scaled token names come from ThemeSet.qml itself: every property it
 # defines through px(). Reading them from the source of truth means a token
@@ -251,11 +288,14 @@ for f in $PER_OUTPUT; do
         bad "per-output surface $f is missing"
         continue
     fi
-    if grep -qE '^[[:space:]]*readonly property ThemeSet theme: ThemeSet \{' "$f" \
-       && grep -qE 'scale:[[:space:]]*Theme\.factorForScreen\(' "$f"; then
-        ok "$(basename "$f") builds its own ThemeSet from its own screen"
+    # A window resolves from the screen it is on; an Item that does not know its
+    # window uses the QtQuick `Screen` attached property. Both spellings are
+    # accepted and NOTHING ELSE is: a set built from a literal, or from
+    # Metrics.referenceScreen, is the global factor wearing the new name.
+    if grep -qE '^[[:space:]]*readonly property ThemeSet theme: ThemeSet \{[[:space:]]*scale: Theme\.factorForScreen\(|^[[:space:]]*readonly property ThemeSet theme: ThemeSet \{[[:space:]]*scale: Theme\.factorForHeight\(Screen\.height\)' "$f"; then
+        ok "$(basename "$f") takes its token set from its own output"
     else
-        bad "$(basename "$f") no longer declares a per-output ThemeSet — it is back on the global factor"
+        bad "$(basename "$f") no longer resolves a per-output token set — it is back on the global factor"
     fi
 
     leak=$(grep -nE "Theme\.(px|fs)\(|Theme\.(${scaled_tokens})\b" "$f" 2>/dev/null | grep -vE '^[0-9]+:[[:space:]]*//')
@@ -281,6 +321,169 @@ else
     bad "self-test: a global-Theme size SURVIVED — this rule does not detect it"
 fi
 rm -f "$probe"
+
+# ── A PopupWindow must size itself from its ANCHOR, not from itself ─────────
+#
+# Measured on tests/run-scaling-test.sh: a PopupWindow's own `screen` is not the
+# output it is anchored to — on two headless outputs the popup anchored to the
+# bar on HEADLESS-1 reports HEADLESS-2. Reading `root.screen` in one of these
+# therefore puts it at the wrong output's factor on a mixed desk, and nothing
+# looks wrong on a single monitor. The file list is written out, and each entry
+# is checked to exist and to still be a PopupWindow, so deleting either fails.
+printf '\n── popup windows resolve from their anchor ──\n'
+POPUPS="src/popups/ArchMenu.qml src/popups/AudioPopup.qml \
+        src/popups/NotificationToast.qml src/popups/NotificationsPopup.qml \
+        src/popups/QuickControl.qml src/popups/ScreenRecOptionsPopup.qml"
+for f in $POPUPS; do
+    if [ ! -f "$f" ]; then bad "popup $f is missing"; continue; fi
+    if ! grep -qE '^PopupWindow \{' "$f"; then
+        bad "$(basename "$f") is no longer a PopupWindow; this rule is checking the wrong file"
+        continue
+    fi
+    if grep -qE 'readonly property ThemeSet theme: ThemeSet \{[[:space:]]*scale: Theme\.factorForScreen\(root\.anchorWindow' "$f"; then
+        ok "$(basename "$f") takes its factor from the window it is anchored to"
+    else
+        bad "$(basename "$f") resolves its own screen, which for a PopupWindow is not the output it is on"
+    fi
+done
+
+# ── CLOSURE: nothing outside the theme layer reads a size from a singleton ───
+#
+# This is the rule the file list above cannot be: a list only protects the files
+# on it, and a migration is only finished when a file that is NOT on any list
+# cannot quietly go back. Theme and Metrics are QML singletons, so a size read
+# through either of them is the REFERENCE output's size, wherever that file is
+# drawn. After P1-040 there are exactly two places that may still do it, and
+# both are named here with a reason rather than left as a silence.
+#
+# Comments and string literals are excluded by parsing rather than by a `grep
+# -v //`: this tree's own history has five checks that matched documentation
+# instead of code, and the files this rule reads explain themselves at length in
+# prose that names the very patterns it looks for.
+printf '\n── closure: the global factor is confined to the theme layer ──\n'
+
+closure_report=$(python3 - "$SRC" <<'PY3'
+import os, re, sys
+
+SRC = sys.argv[1]
+
+# The scaled tokens come from ThemeSet.qml itself, so one added there is covered
+# here without anybody remembering. animDuration and barEnabled are excluded:
+# neither is a function of the factor, so neither is per-output.
+tsrc = open(os.path.join(SRC, "theme", "ThemeSet.qml")).read()
+tokens = set(re.findall(r'^\s*(?:readonly\s+)?property\s+\w+\s+(\w+)\s*:', tsrc, re.M))
+SCALED = (tokens | {"px", "fs", "scale"}) - {"animDuration", "barEnabled"}
+
+# Metrics-only members are POLICY questions — "what would this screen want" —
+# and are not tokens. The Display page asks them on purpose.
+POLICY = {"referenceScreen", "referenceHeight", "autoScale", "baselineHeight",
+          "scaleForHeight", "scaleForScreen"}
+
+# The exceptions, each with the reason it is one.
+EXEMPT = {
+    # A versioned snapshot handed to plugin code across a trust boundary: the
+    # same object for every plugin instance, and making it per-output is an
+    # apiVersion question rather than a rename. See PluginService.theme.
+    "services/plugins/PluginService.qml",
+}
+
+def code(text):
+    """Ranges of `text` that are neither comment nor string literal."""
+    i, n, start = 0, len(text), 0
+    while i < n:
+        c = text[i]
+        if c == "/" and i + 1 < n and text[i+1] == "/":
+            yield (start, i)
+            j = text.find("\n", i); i = n if j < 0 else j; start = i
+        elif c == "/" and i + 1 < n and text[i+1] == "*":
+            yield (start, i)
+            j = text.find("*/", i + 2); i = n if j < 0 else j + 2; start = i
+        elif c in "'\"`":
+            q, j = c, i + 1
+            while j < n:
+                if text[j] == "\\": j += 2; continue
+                if text[j] == q: break
+                if q != "`" and text[j] == "\n": break
+                j += 1
+            i = min(j + 1, n)
+        else:
+            i += 1
+    yield (start, n)
+
+REF = re.compile(r'\b(Theme|Metrics)\.([A-Za-z_][A-Za-z0-9_]*)')
+bad = []
+for dp, dn, fn in os.walk(SRC):
+    rel = os.path.relpath(dp, SRC).replace("\\", "/")
+    if rel == "theme":
+        dn[:] = []
+        continue
+    for f in sorted(fn):
+        if not f.endswith((".qml", ".js")):
+            continue
+        p = os.path.join(dp, f)
+        r = os.path.relpath(p, SRC).replace("\\", "/")
+        if r in EXEMPT:
+            continue
+        t = open(p).read()
+        for a, b in code(t):
+            for m in REF.finditer(t, a, b):
+                if m.group(2) in SCALED and not (m.group(1) == "Metrics" and m.group(2) in POLICY):
+                    bad.append("%s:%d: %s.%s" % (r, t[:m.start()].count("\n") + 1,
+                                                 m.group(1), m.group(2)))
+for b in bad[:20]:
+    print(b)
+print("COUNT=%d" % len(bad))
+print("TOKENS=%d" % len(SCALED))
+PY3
+)
+closure_count=${closure_report##*COUNT=}
+closure_count=${closure_count%%$'\n'*}
+closure_tokens=${closure_report##*TOKENS=}
+
+if [ -z "$closure_count" ]; then
+    bad "the closure rule did not run — it checked nothing, which is not a pass"
+elif [ "$closure_count" -eq 0 ]; then
+    ok "no file outside src/theme reads any of the $closure_tokens scaled tokens from a singleton"
+else
+    printf '%s\n' "$closure_report" | grep -v '^COUNT=\|^TOKENS=' | head -20
+    bad "$closure_count size read(s) still go through the global Theme/Metrics — those sizes ignore the output they are drawn on"
+fi
+
+# The closure rule's own self-test. Put ONE global read back, in a file that is
+# not on any list, and it must be found. A rule that scans a hundred files and
+# reports zero is indistinguishable from a rule that scanned none.
+cmut="$TMP/src/services/agents/SubagentRow.qml"
+if [ -f "$cmut" ]; then
+    python3 - "$cmut" <<'PY4'
+import pathlib, sys, re
+p = pathlib.Path(sys.argv[1]); t = p.read_text()
+t2, n = re.subn(r'\btheme\.px\(', 'Theme.px(', t, count=1)
+p.write_text(t2)
+sys.exit(0 if n else 3)
+PY4
+    if [ $? -ne 0 ]; then
+        bad "closure self-test: the mutation did not apply, so its verdict would be meaningless"
+    else
+        m=$(python3 - "$TMP/src" <<'PY5'
+import os, re, sys
+SRC = sys.argv[1]
+tsrc = open(os.path.join(SRC, "theme", "ThemeSet.qml")).read()
+tokens = set(re.findall(r'^\s*(?:readonly\s+)?property\s+\w+\s+(\w+)\s*:', tsrc, re.M))
+SCALED = (tokens | {"px", "fs", "scale"}) - {"animDuration", "barEnabled"}
+t = open(os.path.join(SRC, "services", "agents", "SubagentRow.qml")).read()
+t = re.sub(r'//[^\n]*', '', t)
+print(len([m for m in re.finditer(r'\bTheme\.([A-Za-z_]\w*)', t) if m.group(1) in SCALED]))
+PY5
+)
+        if [ "${m:-0}" -ge 1 ]; then
+            ok "closure self-test: one size put back on the global Theme in an unlisted file is caught"
+        else
+            bad "closure self-test: SURVIVED — the closure rule does not detect a global read"
+        fi
+    fi
+else
+    bad "closure self-test: src/services/agents/SubagentRow.qml is gone; the self-test checks nothing"
+fi
 
 printf '\ncheck-scale-tokens: passed=%d failed=%d\n' "$pass" "$fail"
 [ "$fail" -eq 0 ] || exit 1

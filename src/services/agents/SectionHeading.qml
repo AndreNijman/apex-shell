@@ -9,6 +9,8 @@ import "../../"
 
 Item {
     id: heading
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     property string text: ""
     property bool accent: false
@@ -20,18 +22,18 @@ Item {
     property color tone: Theme.active
 
     width: parent ? parent.width : 0
-    height: visible ? label.implicitHeight + Theme.fs(14) : 0
+    height: visible ? label.implicitHeight + theme.fs(14) : 0
 
     Text {
         id: label
         anchors.left: parent.left
-        anchors.leftMargin: Theme.px(4)
+        anchors.leftMargin: theme.px(4)
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: Theme.px(4)
+        anchors.bottomMargin: theme.px(4)
         text: heading.text.toUpperCase()
         color: heading.accent ? heading.tone : Theme.subtext
-        font.pixelSize: Theme.fs(9)
+        font.pixelSize: theme.fs(9)
         font.bold: true
-        font.letterSpacing: Theme.fs(1)
+        font.letterSpacing: theme.fs(1)
     }
 }

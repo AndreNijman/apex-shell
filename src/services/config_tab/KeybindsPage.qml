@@ -15,6 +15,8 @@ import "../../components/config/settings-semantics.js" as Semantics
 // that owned it lost it every time the settings window was rebuilt.
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     // ── Capture state ─────────────────────────────────────────────────────────
     property string _capturing: ""
@@ -143,7 +145,7 @@ Item {
                             anchors.bottom:       parent.bottom
                             anchors.bottomMargin: 4
                             text:           modelData.name
-                            font.pixelSize: Theme.fs(9)
+                            font.pixelSize: theme.fs(9)
                             font.weight:    Font.Bold
                             color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
                         }
@@ -316,7 +318,7 @@ Item {
             Text {
                 anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                 text:           br._b ? br._b.label : br.action
-                font.pixelSize: Theme.fs(12)
+                font.pixelSize: theme.fs(12)
                 color:          br._savedDupe ? Theme.danger : (br._isUnbound ? Qt.rgba(1, 1, 1, 0.35) : Qt.rgba(1, 1, 1, 0.68))
                 Behavior on color { ColorAnimation { duration: 120 } }
             }
@@ -330,7 +332,7 @@ Item {
                     visible: br._savedDupe
                     anchors.verticalCenter: parent.verticalCenter
                     text:           "⚠ " + KeybindService.conflictsWith(br.action)
-                    font.pixelSize: Theme.fs(9)
+                    font.pixelSize: theme.fs(9)
                     color:          Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.75)
                 }
 
@@ -340,7 +342,7 @@ Item {
                     width: 22; height: 22; radius: 6
                     color: _clrH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
                     Behavior on color { ColorAnimation { duration: 100 } }
-                    Text { anchors.centerIn: parent; text: "󰩺"; font.pixelSize: Theme.fs(11)
+                    Text { anchors.centerIn: parent; text: "󰩺"; font.pixelSize: theme.fs(11)
                         color: _clrH.hovered ? Theme.danger : Qt.rgba(1,1,1,0.28) }
                     HoverHandler { id: _clrH; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
@@ -358,7 +360,7 @@ Item {
                     width: 22; height: 22; radius: 6
                     color: _rstH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
                     Behavior on color { ColorAnimation { duration: 100 } }
-                    Text { anchors.centerIn: parent; text: "↺"; font.pixelSize: Theme.fs(11)
+                    Text { anchors.centerIn: parent; text: "↺"; font.pixelSize: theme.fs(11)
                         color: _rstH.hovered ? Theme.active : Qt.rgba(1,1,1,0.28) }
                     HoverHandler { id: _rstH; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
@@ -415,7 +417,7 @@ Item {
                         id: _pillT
                         anchors.centerIn: parent
                         text:           br._pillText
-                        font.pixelSize: Theme.fs(10); font.family: "JetBrains Mono"
+                        font.pixelSize: theme.fs(10); font.family: "JetBrains Mono"
                         font.italic:    br._isUnbound 
                         
                         color: br._isUnbound
@@ -468,7 +470,7 @@ Item {
                 Text {
                     anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                     text:           br._b ? br._b.label : br.action
-                    font.pixelSize: Theme.fs(12)
+                    font.pixelSize: theme.fs(12)
                     color:          Qt.rgba(1, 1, 1, 0.68)
                 }
 
@@ -491,7 +493,7 @@ Item {
                         Text {
                             id: _capT
                             anchors.centerIn: parent
-                            font.pixelSize: Theme.fs(10); font.family: "JetBrains Mono"
+                            font.pixelSize: theme.fs(10); font.family: "JetBrains Mono"
                             color: br._hasConflict
                                 ? Theme.danger
                                 : br.capturedKey !== ""
@@ -512,7 +514,7 @@ Item {
                         width: 28; height: 24; radius: 6
                         color: _cnH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
                         Behavior on color { ColorAnimation { duration: 100 } }
-                        Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: Theme.fs(10)
+                        Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(10)
                             color: Qt.rgba(1,1,1,0.38) }
                         HoverHandler { id: _cnH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: br.releaseCapture() }
@@ -529,7 +531,7 @@ Item {
                 Text {
                     anchors { left: parent.left; leftMargin: 2; verticalCenter: parent.verticalCenter }
                     text:           "⚠  Conflicts with: " + br._conflictLabel
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                     color:          Theme.danger
                 }
             }

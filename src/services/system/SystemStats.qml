@@ -39,6 +39,8 @@ import "../../"
 
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     // ── ServiceRef contract ───────────────────────────────────────────────────
     // Held by whatever is displaying these rows. > 0 means a human can actually
@@ -180,7 +182,7 @@ Item {
                 // Subtle alternating background
                 Rectangle {
                     anchors.fill: parent
-                    radius:       Theme.cornerRadius
+                    radius:       theme.cornerRadius
                     color:        index % 2 === 0
                                       ? Qt.rgba(1, 1, 1, 0.04)
                                       : "transparent"
@@ -196,7 +198,7 @@ Item {
                     }
                     text:            modelData.key
                     color:           Theme.active
-                    font.pixelSize:  Theme.fs(12)
+                    font.pixelSize:  theme.fs(12)
                     font.bold:       true
                     width:           90
                     elide:           Text.ElideRight
@@ -211,7 +213,7 @@ Item {
                     }
                     text:  "·"
                     color: Qt.rgba(1, 1, 1, 0.25)
-                    font.pixelSize: Theme.fs(12)
+                    font.pixelSize: theme.fs(12)
                 }
 
                 // Value
@@ -225,7 +227,7 @@ Item {
                     }
                     text:            modelData.value
                     color:           Theme.text
-                    font.pixelSize:  Theme.fs(12)
+                    font.pixelSize:  theme.fs(12)
                     elide:           Text.ElideRight
                 }
             }

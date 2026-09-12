@@ -21,6 +21,8 @@ import "../../../components/config"
 // is the safe way to set up a layout for a monitor that is not plugged in yet.
 CfgScroll {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     // Criterion 1, in one line: this page holds changes until you ask for them.
     // The words come from settings-semantics.js so they are the same ones the
@@ -100,33 +102,43 @@ CfgScroll {
 
     // ── Shell scaling across a mixed desk (P1-040) ───────────────────────────
     //
-    // APEX Shell magnifies itself by ONE factor for the whole session, derived
-    // from one output's logical size. Two outputs of different densities at
-    // compositor scale 1 therefore get the same factor and it is wrong for one
-    // of them: measured, a 4K beside a 1080p gives 1.5 to both, which is half
-    // again too large on the 1080p panel.
+    // What this section says HAD to change when the shell learned to size
+    // itself per output, and it is worth saying why rather than just editing
+    // the string. It used to tell the user that "APEX Shell has one size to
+    // give, so its bar and panels will be wrong on at least one of them". That
+    // was true and it is now false: every surface resolves its own output's
+    // factor, and a 4K beside a 1080p at compositor scale 1 gets a 60px bar and
+    // a 40px bar. A page that keeps warning about a defect that has been fixed
+    // is worse than one that never mentioned it.
     //
-    // The fix is a display setting rather than a shell setting, which is why it
-    // is on this page: put each output on a compositor scale that brings its
-    // logical size into the band the shell was calibrated for, and the single
-    // factor is then correct everywhere. Staged like everything else here — the
-    // commit bar's Apply is what reaches the hardware, with the countdown and
-    // the rollback that go with it.
+    // What is still true is the part that was never about the shell: every
+    // OTHER application on the desk is drawn at the compositor's scale, so on
+    // an output at scale 1 with twice the pixel density, their text and
+    // controls really are half the size. That is what the recommended scales
+    // fix, and it is a display setting rather than a shell setting, which is
+    // why it is on this page. Staged like everything else here — the commit
+    // bar's Apply is what reaches the hardware, with the countdown and the
+    // rollback that go with it.
     CfgSection {
         title: "Shell scaling"
         visible: DisplayService.loaded && DisplayService.draft.length > 0
         first: root.nothingAbove && DisplayService.draft.length > 0
 
         CfgRow {
-            label: "One size for every display"
+            label: "Mixed display densities"
             description: DisplayService.scalesDisagree
-                ? "These displays want different sizes and APEX Shell has one "
-                  + "to give, so its bar and panels will be wrong on at least "
-                  + "one of them. Putting each display on its recommended scale "
-                  + "brings them into the same size class."
-                : "Every enabled display lands in the same size class, so one "
-                  + "shell size is right for all of them."
-            statusWarns: DisplayService.scalesDisagree
+                ? "These displays land in different size classes. APEX Shell "
+                  + "sizes its bar and panels for each display separately, so "
+                  + "it is the right size on all of them — but your other "
+                  + "applications are drawn at the display's own scale, so they "
+                  + "will look smaller on the denser one. Putting each display "
+                  + "on its recommended scale fixes that too."
+                : "Every enabled display lands in the same size class, so the "
+                  + "shell and your applications are the same size on all of "
+                  + "them."
+            // Not a warning any more. A mixed desk is a thing to know about,
+            // not a fault in the shell: the shell is correct on both outputs.
+            statusWarns: false
             status: DisplayService.scalesDisagree ? "Mixed" : ""
             hoverable: false
         }
@@ -381,17 +393,17 @@ CfgScroll {
         // stops meaning it.
         Item {
             width: parent.width
-            height: reason.visible ? reason.implicitHeight + Theme.px(10) : 0
+            height: reason.visible ? reason.implicitHeight + theme.px(10) : 0
             visible: reason.visible
 
             Text {
                 id: reason
-                x:       Theme.px(10)
-                width:   parent.width - Theme.px(20)
+                x:       theme.px(10)
+                width:   parent.width - theme.px(20)
                 anchors.verticalCenter: parent.verticalCenter
                 visible: DisplayService.curveReason !== ""
                 text:    "Calibration curve: " + DisplayService.curveReason
-                font.pixelSize: Theme.fs(10)
+                font.pixelSize: theme.fs(10)
                 color:   DisplayService.curveLoadable ? Theme.subtext : Theme.warning
                 wrapMode: Text.WordWrap
             }
@@ -403,15 +415,15 @@ CfgScroll {
         // where one could be" is the answer to the question actually being
         // asked, and it is specific to the profile just chosen.
         Text {
-            x:       Theme.px(10)
-            width:   parent.width - Theme.px(20)
+            x:       theme.px(10)
+            width:   parent.width - theme.px(20)
             visible: text !== ""
             text:    DisplayService.colourError !== "" ? DisplayService.colourError
                                                        : DisplayService.colourNotice
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:   DisplayService.colourError !== "" ? Theme.warning : Theme.info
             wrapMode: Text.WordWrap
-            bottomPadding: Theme.px(6)
+            bottomPadding: theme.px(6)
         }
 
         Repeater {
@@ -462,8 +474,8 @@ CfgScroll {
                 }
 
                 CfgSegmented {
-                    x:       Theme.px(10)
-                    width:   parent.width - Theme.px(20)
+                    x:       theme.px(10)
+                    width:   parent.width - theme.px(20)
                     enabled: DisplayService.colordAvailable
                     opacity: DisplayService.colordAvailable ? 1.0 : 0.32
                     options: {
@@ -482,7 +494,7 @@ CfgScroll {
                     }
                 }
 
-                Item { width: 1; height: Theme.px(6) }
+                Item { width: 1; height: theme.px(6) }
             }
         }
     }

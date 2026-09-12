@@ -3,6 +3,8 @@ import "../"
 
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     property string source:   ""
     property string mount:    ""
@@ -25,7 +27,7 @@ Item {
         anchors.left:           parent.left
         anchors.verticalCenter: barTrack.verticalCenter
         text:           root.mount
-        font.pixelSize: Theme.fs(10)
+        font.pixelSize: theme.fs(10)
         color:          Qt.rgba(1, 1, 1, 0.5)
         width:          32
         elide:          Text.ElideRight
@@ -69,7 +71,7 @@ Item {
         anchors.right:          parent.right
         anchors.verticalCenter: barTrack.verticalCenter
         text:           root.usedPct + "%"
-        font.pixelSize: Theme.fs(10)
+        font.pixelSize: theme.fs(10)
         font.weight:    Font.Medium
         color:          root.barColor
         width:          28
@@ -83,7 +85,7 @@ Item {
         anchors.top:     barTrack.bottom
         anchors.topMargin: 4
         text:           root.usedStr + " / " + root.totalStr + "  ·  " + root.source
-        font.pixelSize: Theme.fs(9)
+        font.pixelSize: theme.fs(9)
         color:          Qt.rgba(1, 1, 1, 0.45)
     }
 }

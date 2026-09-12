@@ -9,13 +9,27 @@ import "../"
 
 PopupWindow {
     id: root
+    // MEASURED: a PopupWindow's own `screen` is NOT the one it is
+
+    // anchored to. On two headless outputs the popup anchored to the
+
+    // bar on the 3840x2160 output reported the 1920x1080 one and
+
+    // would have been sized at 1.0 — silently, on the monitor the
+
+    // global factor was never for. The anchor window is given its
+
+    // screen by shell.qml, so it is the one that knows.
+
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.anchorWindow ? root.anchorWindow.screen : null) }
+
 
     required property var anchorWindow
 
-    readonly property int popupWidth:   Theme.notificationsWidth
+    readonly property int popupWidth:   theme.notificationsWidth
     readonly property int maxHeight:    700
-    readonly property int fw:           Theme.notchRadius
-    readonly property int fh:           Theme.notchRadius
+    readonly property int fw:           theme.notchRadius
+    readonly property int fh:           theme.notchRadius
     readonly property int animDuration: Theme.animDuration
 
     // Fixed — never zero, never dynamic
@@ -31,7 +45,7 @@ PopupWindow {
     anchor.window: root.anchorWindow
     anchor.rect: Qt.rect(
         anchorWindow.width - root.implicitWidth / 2,
-        Theme.notchHeight,
+        theme.notchHeight,
         0,
         0
     )
@@ -84,12 +98,12 @@ PopupWindow {
 
         // Width: rNotchMinWidth → notificationsWidth  (matches the pill width)
         width: Popups.notificationsOpen
-               ? Theme.notificationsWidth + root.fw
-               : Theme.rNotchMinWidth + root.fw
+               ? theme.notificationsWidth + root.fw
+               : theme.rNotchMinWidth + root.fw
 
         // Height: collapsed → full content height (top is flush with the pill)
         height: Popups.notificationsOpen
-                ? notifList.height + Theme.popupPadding * 2
+                ? notifList.height + theme.popupPadding * 2
                 : 0
 
         Behavior on width  { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
@@ -101,7 +115,7 @@ PopupWindow {
             anchors.fill: parent
             attachedEdge: "pill-right"
             color:        Theme.background
-            radius:       Theme.cornerRadius
+            radius:       theme.cornerRadius
         }
 
         // ── Content ────────────────────────────────────────────
@@ -109,9 +123,9 @@ PopupWindow {
         Item {
             anchors {
                 fill:         parent
-                topMargin:    Theme.popupPadding
-                leftMargin:   Theme.popupPadding
-                rightMargin:  Theme.popupPadding
+                topMargin:    theme.popupPadding
+                leftMargin:   theme.popupPadding
+                rightMargin:  theme.popupPadding
                 bottomMargin: 4
             }
 

@@ -26,16 +26,18 @@ import "../../services/home/."
 
 Item {
 	id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 	required property string screenName
 
-	width:  Theme.cNotchMinWidth
+	width:  theme.cNotchMinWidth
 	height: 30
 
 	// ── Required notch width for the current carousel item ────────────────────
 	// TopBar.cWidth reads this so the notch always matches what is visible,
 	// even if the user scrolls away from record_active while recording.
-	readonly property int fw: Theme.notchRadius
-	readonly property int requiredWidth: Theme.cNotchMinWidth
+	readonly property int fw: theme.notchRadius
+	readonly property int requiredWidth: theme.cNotchMinWidth
 	// ── MPRIS ─────────────────────────────────────────────────────────────────
 	readonly property var    player:    Mpris.players.values.length > 0
 	? Mpris.players.values[0] : null
@@ -239,7 +241,7 @@ Item {
 				required property string modelData
 				required property int    index
 
-				width:  Theme.cNotchMinWidth
+				width:  theme.cNotchMinWidth
 				height: 30
 
 				// ── Title ──────────────────────────────────────────────────────
@@ -248,7 +250,7 @@ Item {
 					visible:      modelData === "title"
 					text:         root.activeTitle
 					color:        Theme.text
-					font.pixelSize: Theme.fs(13)
+					font.pixelSize: theme.fs(13)
 					verticalAlignment:   Text.AlignVCenter
 					horizontalAlignment: Text.AlignHCenter
 					// leftPadding:  8u					rightPadding: 8
@@ -293,7 +295,7 @@ Item {
 							Text {
 								anchors.centerIn: parent
 								text:           "♪"
-								font.pixelSize: Theme.fs(9)
+								font.pixelSize: theme.fs(9)
 								color:          Theme.active
 							}
 						}
@@ -396,7 +398,7 @@ Item {
 									verticalCenter: parent.verticalCenter
 								}
 								text:           "󰔟"
-								font.pixelSize: Theme.fs(16)
+								font.pixelSize: theme.fs(16)
 								color:          root.timerUrgent ? Theme.danger : Theme.active
 								Behavior on color { ColorAnimation { duration: 200 } }
 							}
@@ -412,7 +414,7 @@ Item {
 									verticalCenter: parent.verticalCenter
 								}
 								text:           ClockState.timerDisplay
-								font.pixelSize: Theme.fs(15)
+								font.pixelSize: theme.fs(15)
 								font.weight:    Font.Bold
 								font.family:    "JetBrains Mono"
 								horizontalAlignment: Text.AlignHCenter
@@ -450,7 +452,7 @@ Item {
 										verticalCenter: parent.verticalCenter
 									}
 									text:           ClockState.timerRunning ? "󱫟" : "󱫡"
-									font.pixelSize: Theme.fs(16)
+									font.pixelSize: theme.fs(16)
 									color:          _timerPauseHov.hovered ? Theme.active : Theme.text
 									HoverHandler { id: _timerPauseHov;  }
 									MouseArea {
@@ -464,7 +466,7 @@ Item {
 										verticalCenter: parent.verticalCenter
 									}
 									text:			"󱫥"
-									font.pixelSize: Theme.fs(16)
+									font.pixelSize: theme.fs(16)
 									color:			_timerResetHov.hovered ? Theme.active : Theme.text
 									HoverHandler { id: _timerResetHov; cursorShape: Qt.PointingHandCursor }
 									MouseArea {
@@ -490,7 +492,7 @@ Item {
 									verticalCenter: parent.verticalCenter
 								}
 								text:           ""
-								font.pixelSize: Theme.fs(16)
+								font.pixelSize: theme.fs(16)
 								color:          Theme.active
 							}
 
@@ -504,7 +506,7 @@ Item {
 									verticalCenter: parent.verticalCenter
 								}
 								text:           ClockState.swDisplay
-								font.pixelSize: Theme.fs(15)
+								font.pixelSize: theme.fs(15)
 								font.weight:    Font.Bold
 								font.family:    "JetBrains Mono"
 								horizontalAlignment: Text.AlignHCenter
@@ -524,7 +526,7 @@ Item {
 										verticalCenter: parent.verticalCenter
 									}
 									text:           ClockState.swRunning ? "󱫟" : "󱫡"
-									font.pixelSize: Theme.fs(16)
+									font.pixelSize: theme.fs(16)
 									color:          _pauseHov.hovered ? Theme.active : Theme.text
 									HoverHandler { id: _pauseHov;  }
 									MouseArea {
@@ -540,7 +542,7 @@ Item {
 										verticalCenter: parent.verticalCenter
 									}
 									text:			"󱫥"
-									font.pixelSize: Theme.fs(16)
+									font.pixelSize: theme.fs(16)
 									color:			_notchResetHov.hovered ? Theme.active : Theme.text
 										
 									HoverHandler { id: _notchResetHov; cursorShape: Qt.PointingHandCursor }
@@ -594,7 +596,7 @@ Item {
 										spacing: 5
 										Text {
 											text: ScreenRecService.captureIcon
-											font.pixelSize: Theme.fs(13)
+											font.pixelSize: theme.fs(13)
 											color: ScreenRecService.openStrip === "capture"
 											? Theme.active : Qt.rgba(1,1,1,0.7)
 											anchors.verticalCenter: parent.verticalCenter
@@ -602,14 +604,14 @@ Item {
 										}
 										Text {
 											text: ScreenRecService.captureLabel
-											font.pixelSize: Theme.fs(11)
+											font.pixelSize: theme.fs(11)
 											color: ScreenRecService.openStrip === "capture"
 											? Theme.active : Qt.rgba(1,1,1,0.7)
 											anchors.verticalCenter: parent.verticalCenter
 											Behavior on color { ColorAnimation { duration: 100 } }
 										}
 										Text {
-											text: "▾"; font.pixelSize: Theme.fs(8)
+											text: "▾"; font.pixelSize: theme.fs(8)
 											color: Qt.rgba(1,1,1,0.35)
 											anchors.verticalCenter: parent.verticalCenter
 										}
@@ -655,19 +657,19 @@ Item {
 										anchors.centerIn: parent
 										spacing: 5
 										Text {
-											text: "🎙"; font.pixelSize: Theme.fs(12)
+											text: "🎙"; font.pixelSize: theme.fs(12)
 											anchors.verticalCenter: parent.verticalCenter
 										}
 										Text {
 											text: ScreenRecService.audioLabel
-											font.pixelSize: Theme.fs(11)
+											font.pixelSize: theme.fs(11)
 											color: ScreenRecService.openStrip === "audio"
 											? Theme.active : Qt.rgba(1,1,1,0.7)
 											anchors.verticalCenter: parent.verticalCenter
 											Behavior on color { ColorAnimation { duration: 100 } }
 										}
 										Text {
-											text: "▾"; font.pixelSize: Theme.fs(8)
+											text: "▾"; font.pixelSize: theme.fs(8)
 											color: Qt.rgba(1,1,1,0.35)
 											anchors.verticalCenter: parent.verticalCenter
 										}
@@ -721,7 +723,7 @@ Item {
 										Text {
 											id: recBtnLabel
 											text: "Record"
-											font.pixelSize: Theme.fs(11); font.weight: Font.Medium
+											font.pixelSize: theme.fs(11); font.weight: Font.Medium
 											color: Theme.fixedLight
 											anchors.verticalCenter: parent.verticalCenter
 										}
@@ -771,7 +773,7 @@ Item {
 								Text {
 									anchors.verticalCenter: parent.verticalCenter
 									text:           ScreenRecService.elapsedDisplay
-									font.pixelSize: Theme.fs(13); font.weight: Font.Bold
+									font.pixelSize: theme.fs(13); font.weight: Font.Bold
 									font.family:    "JetBrains Mono"
 									color:          Theme.text
 								}
@@ -836,7 +838,7 @@ Item {
 									Text {
 										anchors.centerIn: parent
 										text:           "󰩺"
-										font.pixelSize: Theme.fs(11)
+										font.pixelSize: theme.fs(11)
 										color:          recDiscardH.hovered
 										? Qt.rgba(1, 0.4, 0.4, 1.0)
 										: Qt.rgba(1, 1, 1, 0.4)
@@ -857,7 +859,7 @@ Item {
 									Text {
 										anchors.centerIn: parent
 										text:           "⏹"
-										font.pixelSize: Theme.fs(10)
+										font.pixelSize: theme.fs(10)
 										// KEPT — a LIGHT red reading on the dark red fill above. It is a
 										// fixed-contrast foreground, not the danger accent.
 										color:          "#ff9999"
@@ -925,7 +927,7 @@ Item {
 								Text {
 									anchors.verticalCenter: parent.verticalCenter
 									text:           PushToTalkService.indicatorLabel
-									font.pixelSize: Theme.fs(12); font.weight: Font.Medium
+									font.pixelSize: theme.fs(12); font.weight: Font.Medium
 									color:          Theme.text
 									elide:          Text.ElideRight
 									maximumLineCount: 1
@@ -939,7 +941,7 @@ Item {
 									anchors.verticalCenter: parent.verticalCenter
 									visible:        PushToTalkService.micOpen
 									text:           Math.ceil(PushToTalkService.remainingMs / 1000) + "s"
-									font.pixelSize: Theme.fs(11)
+									font.pixelSize: theme.fs(11)
 									font.family:    "JetBrains Mono"
 									color:          Theme.subtext
 								}

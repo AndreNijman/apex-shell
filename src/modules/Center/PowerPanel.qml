@@ -7,6 +7,8 @@ import "../../components"
 // removed: this machine has only the Radeon 780M iGPU, no NVIDIA dGPU.
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     required property var powerProfileService
 
@@ -17,7 +19,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text:           "Power Profile"
-            font.pixelSize: Theme.fs(11)
+            font.pixelSize: theme.fs(11)
             font.weight:    Font.Medium
             color:          Qt.rgba(1, 1, 1, 0.4)
         }

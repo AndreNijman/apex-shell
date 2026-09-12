@@ -3,6 +3,8 @@ import "../"
 
 Rectangle {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
     width: 24
     height: 24
     radius: 4
@@ -21,7 +23,7 @@ Rectangle {
         // 2. FIX: Changed 'root.hoverHandler.hovered' to 'hover.hovered'
         color: hover.hovered ? Theme.background : root.textColor
         
-        font.pixelSize: Theme.fs(14)
+        font.pixelSize: theme.fs(14)
     }
 
     HoverHandler {
