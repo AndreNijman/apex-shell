@@ -61,7 +61,7 @@ targets=(
 # only ever builds its FIRST page. Nexus addresses each by id, so every settings
 # page gets instantiated — which is the only way a broken binding inside one is
 # caught before a user finds it.
-nexus_pages=(appearance layout input display keybinds data misc)
+nexus_pages=(appearance layout input display keybinds data privacy misc)
 for p in "${nexus_pages[@]}"; do
     out="$(quickshell -p "$root/shell.qml" ipc call nexus open "$p" 2>&1)"
     rc=$?
