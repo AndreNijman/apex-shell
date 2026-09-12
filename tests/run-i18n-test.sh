@@ -390,7 +390,160 @@ else
 fi
 
 # ═════════════════════════════════════════════════════════════════════════════
-section "5. what this still does NOT prove"
+section "5. does the shell's hardcoded font render non-Latin text?"
+# ═════════════════════════════════════════════════════════════════════════════
+# The ledger has carried "CJK — fonts present, shell will tofu" since round 1,
+# reasoning that ~45 sites write font.family: "JetBrains Mono" and that family
+# has no CJK coverage. Both halves of that are true and the conclusion was never
+# run. Qt does not stop at the family it was handed: QFontEngineMulti asks
+# fontconfig for a font that owns the glyph. Whether that rescues this shell is
+# a measurement, and this is it.
+#
+# ── How a rendered glyph is told from a .notdef box ─────────────────────────
+#
+# Width alone cannot: both have one. So each script is measured twice — once
+# under the family the shell hardcodes, and once under every family fontconfig
+# says COVERS that codepoint — and the first must equal one of the second. An
+# advance matching a font that owns the glyph is that font having drawn it; a
+# box would measure the requested family's own width.
+#
+# The first draft of this used a private-use codepoint as a "tofu signature"
+# and it was wrong: `fc-list :charset=e000` reports 43 families on this
+# machine, so U+E000 is not the uncovered character it was assumed to be, and
+# the number it produced was a real glyph. Checked, then rewritten.
+#
+# Each script is also required NOT to be covered by the hardcoded family
+# itself, or "it matched another font" would be a coincidence rather than a
+# fallback.
+if [ -z "$RUNNER" ]; then
+    skp "the shell's hardcoded font renders non-Latin text" "no qmltestrunner"
+elif ! command -v fc-list >/dev/null 2>&1; then
+    skp "the shell's hardcoded font renders non-Latin text" "no fc-list (fontconfig) to ask what covers what"
+else
+    SHELL_FAM="JetBrains Mono"
+    if ! fc-list -q ":family=$SHELL_FAM" 2>/dev/null; then
+        skp "the shell's hardcoded font renders non-Latin text" \
+            "$SHELL_FAM is not installed here, so what the shell asks for cannot be measured"
+    else
+        # script:label:codepoint:the character itself
+        SCRIPTS="cjk:CJK:6f22:漢 ar:Arabic:0627:ا he:Hebrew:05d0:א th:Thai:0e01:ก hi:Devanagari:0905:अ"
+
+        covering() {   # covering <hex codepoint> -> up to 4 family names, one per line
+            fc-list ":charset=$1" family 2>/dev/null | tr ',' '\n' \
+                | sed 's/^ *//; s/ *$//' | grep '[^[:space:]]' | sort -u | head -4
+        }
+
+        # Build one fixture holding every measurement, so the engine starts once.
+        {
+            printf 'import QtQuick\nimport QtTest\n\nTestCase {\n    id: root\n    name: "Fonts"\n'
+            printf '    TextMetrics { id: mA; font.family: "%s"; font.pixelSize: 32; text: "A" }\n' "$SHELL_FAM"
+            printf '    TextMetrics { id: mW; font.family: "%s"; font.pixelSize: 32; text: "W" }\n' "$SHELL_FAM"
+            printf '    TextMetrics { id: mI; font.family: "%s"; font.pixelSize: 32; text: "i" }\n' "$SHELL_FAM"
+            for spec in $SCRIPTS; do
+                key="${spec%%:*}"; r1="${spec#*:}"; r2="${r1#*:}"; ch="${r2#*:}"; cp="${r2%%:*}"
+                printf '    TextMetrics { id: s_%s; font.family: "%s"; font.pixelSize: 32; text: "%s" }\n' \
+                    "$key" "$SHELL_FAM" "$ch"
+                n=0
+                while IFS= read -r fam; do
+                    printf '    TextMetrics { id: c_%s_%d; font.family: "%s"; font.pixelSize: 32; text: "%s" }\n' \
+                        "$key" "$n" "$fam" "$ch"
+                    n=$((n + 1))
+                done < <(covering "$cp")
+                # 'A' under the first covering family is the control that the
+                # family property is honoured at all.
+                [ "$n" -gt 0 ] && [ "$key" = cjk ] && printf \
+                    '    TextMetrics { id: ctrlA; font.family: "%s"; font.pixelSize: 32; text: "A" }\n' \
+                    "$(covering "$cp" | head -1)"
+            done
+            printf '    function test_000_report() {\n'
+            printf '        console.log("FONT shellA=" + mA.advanceWidth)\n'
+            printf '        console.log("FONT shellW=" + mW.advanceWidth)\n'
+            printf '        console.log("FONT shellI=" + mI.advanceWidth)\n'
+            printf '        if (typeof ctrlA !== "undefined") console.log("FONT ctrlA=" + ctrlA.advanceWidth)\n'
+            for spec in $SCRIPTS; do
+                key="${spec%%:*}"; r1="${spec#*:}"; r2="${r1#*:}"; cp="${r2%%:*}"
+                printf '        console.log("FONT s_%s=" + s_%s.advanceWidth)\n' "$key" "$key"
+                n=0
+                while IFS= read -r _fam; do
+                    printf '        console.log("FONT c_%s_%d=" + c_%s_%d.advanceWidth)\n' "$key" "$n" "$key" "$n"
+                    n=$((n + 1))
+                done < <(covering "$cp")
+            done
+            printf '        verify(true)\n    }\n}\n'
+        } > "$stage/fonts-test.qml"
+
+        fout="$(env -u WAYLAND_DISPLAY -u DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
+            QT_QPA_PLATFORM=offscreen \
+            QT_LOGGING_RULES="qml.debug=true;js.debug=true" \
+            timeout 120 "$RUNNER" -platform offscreen -input "$stage/fonts-test.qml" 2>&1)"
+        ffield() { printf '%s' "$fout" | sed -n "s/.*FONT $1=\\([0-9.]*\\).*/\\1/p" | head -1; }
+        # 26.6 metrics, not integers: compared with a tolerance rather than as
+        # strings.
+        feq() { awk -v a="$1" -v b="$2" 'BEGIN { exit !(a != "" && b != "" && (a-b < 0.01) && (b-a < 0.01)) }'; }
+
+        f_a="$(ffield shellA)"; f_w="$(ffield shellW)"; f_i="$(ffield shellI)"; f_c="$(ffield ctrlA)"
+
+        if [ -z "$f_a" ]; then
+            bad "the font fixture reported its advances" \
+                "see: $(printf '%s' "$fout" | tail -3 | tr '\n' ' ')"
+        else
+            if [ -z "$f_c" ]; then
+                skp "the family property is honoured at all" "no covering family to compare 'A' against"
+            elif feq "$f_a" "$f_c"; then
+                bad "the family property is honoured at all" \
+                    "'A' measures $f_a under two different families — every comparison below would be a tautology"
+            else
+                ok "the family property is honoured — 'A' is $f_a under $SHELL_FAM and $f_c under another family"
+            fi
+
+            if feq "$f_a" "$f_w" && feq "$f_a" "$f_i"; then
+                ok "$SHELL_FAM is monospaced here: A, W and i all advance $f_a"
+            else
+                bad "$SHELL_FAM is monospaced here" "A=$f_a W=$f_w i=$f_i"
+            fi
+
+            for spec in $SCRIPTS; do
+                key="${spec%%:*}"; r1="${spec#*:}"; label="${r1%%:*}"; r2="${r1#*:}"; cp="${r2%%:*}"
+                adv="$(ffield "s_$key")"
+                fams="$(covering "$cp")"
+                nf="$(printf '%s' "$fams" | grep -c '[^[:space:]]')"
+                self=0
+                fc-list -q ":family=$SHELL_FAM:charset=$cp" 2>/dev/null && self=1
+                if [ "$nf" -lt 1 ]; then
+                    bad "$label can be rendered at all" \
+                        "fontconfig reports no installed family covering U+$cp — this text WOULD tofu"
+                elif [ "$self" = 1 ]; then
+                    # Still measured. Without this the arm passes on fontconfig's
+                    # word alone, and a probe that wrongly said "yes" for every
+                    # script would turn this whole section green over nothing.
+                    if feq "$adv" "$f_a"; then
+                        ok "$label is covered by $SHELL_FAM itself — advance $adv is its own, no fallback needed"
+                    else
+                        bad "$label is covered by $SHELL_FAM itself" \
+                            "fontconfig says it covers U+$cp, but the advance $adv is not $SHELL_FAM's own $f_a"
+                    fi
+                elif [ -z "$adv" ]; then
+                    bad "$label is drawn by a font that covers it" "the fixture reported no advance"
+                else
+                    hit=""; n=0
+                    while IFS= read -r fam; do
+                        if feq "$adv" "$(ffield "c_${key}_${n}")"; then hit="$fam"; break; fi
+                        n=$((n + 1))
+                    done < <(printf '%s\n' "$fams")
+                    if [ -n "$hit" ]; then
+                        ok "$label falls back out of $SHELL_FAM to a font that covers U+$cp — advance $adv matches $hit, one of the $nf covering families, and is not $SHELL_FAM's own $f_a"
+                    else
+                        bad "$label is drawn by a font that covers it" \
+                            "advance $adv under $SHELL_FAM matches none of the $nf families covering U+$cp — that is what a .notdef box looks like"
+                    fi
+                fi
+            done
+        fi
+    fi
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
+section "6. what this still does NOT prove"
 # ═════════════════════════════════════════════════════════════════════════════
 # Kept as a flip rather than a comment: the day somebody wires a translator up,
 # this stops printing a note and starts counting.
