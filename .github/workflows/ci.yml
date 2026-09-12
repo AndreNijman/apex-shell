@@ -1390,6 +1390,14 @@ jobs:
       # The suite skips rather than fails where lupdate/lrelease are absent, so
       # install them — a skip on every run measures nothing.
       - name: Internationalisation baseline
+        # A job stops at its first failing step, so anything red above this one
+        # switches the measurement off and reports itself instead. That is not
+        # hypothetical here: the shellcheck step two above ran without -x, went
+        # red on tests/test-headless-lib.sh, and took this suite with it. NOT
+        # continue-on-error — a failure here still fails the job; this only
+        # stops somebody else's red step from hiding it. Same clause round 19
+        # put on four accessibility steps in apex-os for the same reason.
+        if: ${{ !cancelled() }}
         run: |
           # pacman, not apt-get: this job runs in an archlinux:latest
           # container. `sudo apt-get update` was the only apt call in this
