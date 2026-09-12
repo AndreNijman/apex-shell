@@ -103,6 +103,7 @@ cat > "$scanner" <<'PYEOF'
 Prints one violation per line as "<file>:<line>: <rule>: <detail>", and exits 1
 if there was any. Given no arguments it says nothing and exits 0.
 """
+import os
 import re
 import sys
 
@@ -371,12 +372,29 @@ def lineno(text, off):
     return text.count("\n", 0, off) + 1
 
 
-def scan(path, src, in_lib):
+# The suite that tests the library's own refusals, which cannot be written
+# without naming the things the refusals are about.
+#
+# tests/test-headless-lib.sh calls headless_assert_private directly against
+# filesystems it builds itself, so it ASSIGNS HEADLESS_AMBIENT_DISPLAY and
+# HEADLESS_AMBIENT_RUNTIME to fixture paths (rule C) and writes literal socket
+# names like wayland-1 (rule D) — the collision between a private socket's
+# number and the desk's is the defect it exists to catch, and it cannot be
+# reproduced without spelling the number out.
+#
+# The exemption is C and D ONLY, and that is the whole reason it is a separate
+# flag rather than reusing in_lib, which returns early and drops A and B with
+# it. A and B are the rules that actually keep a window off somebody's desktop,
+# and this file is held to both: the mutant below proves it.
+LIB_TESTS = {"test-headless-lib.sh"}
+
+
+def scan(path, src, in_lib, lib_test=False):
     code, expand, bare = strip(src)
     out = []
 
     # Rule C — the ambient values the library keeps in order to refuse.
-    if not in_lib:
+    if not in_lib and not lib_test:
         for m in re.finditer(r"HEADLESS_AMBIENT_(DISPLAY|RUNTIME|SIG)\b", expand):
             out.append((lineno(expand, m.start()), "C",
                         "reads HEADLESS_AMBIENT_%s, which the library records "
@@ -410,7 +428,7 @@ def scan(path, src, in_lib):
     # empty, so the fallback is the only value that survives, and it is a guess
     # at the socket name the desk is using. A literal `wayland-0` is the same
     # move with the guess written out.
-    if not gated:
+    if not gated and not lib_test:
         for m in re.finditer(r"\$\{WAYLAND_DISPLAY(?::[-=+?]|[-=+?])", expand):
             out.append((lineno(expand, m.start()), "D",
                         "supplies a fallback for WAYLAND_DISPLAY; after the "
@@ -495,7 +513,8 @@ def main(argv):
             bad += 1
             continue
         in_lib = "/lib/" in path
-        for line, rule, detail in sorted(scan(path, src, in_lib)):
+        lib_test = os.path.basename(path) in LIB_TESTS
+        for line, rule, detail in sorted(scan(path, src, in_lib, lib_test)):
             print("%s:%d: %s: %s" % (path, line, rule, detail))
             bad += 1
     return 1 if bad else 0
@@ -531,6 +550,33 @@ for f in run-nav-geometry-test.sh run-settings-pages-test.sh \
         want "$f is clean without sourcing the library" scan "$root/tests/$f"
     fi
 done
+
+# ── The library's own test suite, exempt from C and D and from nothing else ──
+# tests/test-headless-lib.sh drives headless_assert_private against filesystems
+# it builds itself, so it assigns the HEADLESS_AMBIENT_* variables and writes
+# literal socket names. Both are the subject of the test rather than a reach for
+# the desk. The exemption is narrow and it is checked in both directions: the
+# file as it stands must pass, and a copy of it that starts a client on the
+# inherited display must still fail on rule A.
+if [ -f "$root/tests/test-headless-lib.sh" ]; then
+    want "test-headless-lib.sh is clean under the rules it is still held to" \
+        scan "$root/tests/test-headless-lib.sh"
+
+    # The mutant keeps the name, because the exemption is keyed on the basename
+    # — a copy called anything else would be refused for the wrong reason and
+    # prove nothing about the exemption.
+    mkdir -p "$fix/libtest"
+    {
+        head -2 "$root/tests/test-headless-lib.sh"
+        echo 'quickshell -p /dev/null &'
+        tail -n +3 "$root/tests/test-headless-lib.sh"
+    } > "$fix/libtest/test-headless-lib.sh"
+    mutant_e() { ! scan "$fix/libtest/test-headless-lib.sh" > "$fix/e.out"; }
+    want "an exempt lib test that starts a client on the inherited display fails" \
+        mutant_e
+    want "  ...and it is rule A that says so, so C and D are the only exemption" \
+        grep -q ': A:' "$fix/e.out"
+fi
 
 # ── Prose and data cannot trip it ────────────────────────────────────────────
 # check-compositor-backends.sh holds `COMPOSITORS=(hyprland niri labwc)` and
