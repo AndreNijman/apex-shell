@@ -1466,6 +1466,31 @@ jobs:
           # stay GREEN.
           ./tests/check-privacy-ui.sh
 
+      - name: Privacy & Permissions page, built and drawn
+        run: |
+          # P1-061 criterion 3. The item landed with three kinds of
+          # verification and none of them was a running page: qmllint parsed
+          # the file, node drove permissions.js, and check-privacy-ui.sh
+          # checked the wiring. The first run that actually instantiated the
+          # page found, in the first second, a TypeError all three had missed —
+          # `parseList` returned `session: null` for a report it could not
+          # read, and the session section's binding is evaluated even while
+          # that section is invisible.
+          #
+          # So this builds the page through PageRegistry inside a FloatingWindow
+          # on its own headless labwc, with a stub `apex` answering from
+          # tests/fixtures/permissions-list.json — the real `apex permissions
+          # revoke` WRITES, and a page test is not worth taking somebody's
+          # camera grant away. Three phases: the captured report, an `apex`
+          # that fails, and a rasterise-and-inspect. A TypeError in any phase
+          # log is a hard failure.
+          #
+          # Skips cleanly without quickshell or a wlroots compositor, which is
+          # what happens on this runner — so this documents the entry point
+          # rather than it silently not existing. The render evidence comes
+          # from a machine that has both.
+          ./tests/run-privacy-page-test.sh
+
       - name: Agents & Workspaces help invariants
         run: |
           # §43's guide. A help page is the one surface where a plausible
