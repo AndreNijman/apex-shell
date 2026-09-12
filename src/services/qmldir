@@ -47,6 +47,12 @@ GamingPage ./config_tab/pages/GamingPage.qml
 # ServiceRef refcounts it, and two instances would each hold their own count.
 singleton RecoveryService 1.0 RecoveryService.qml
 RecoveryPage ./config_tab/pages/RecoveryPage.qml
+
+# P1-061's privacy surface. Same shape as the row above: the service is polled
+# only while the page is on screen, and the page is reached through this qmldir
+# rather than by directory import.
+singleton PermissionsService 1.0 PermissionsService.qml
+PrivacyPage ./config_tab/pages/PrivacyPage.qml
 singleton FirewallService 1.0 FirewallService.qml
 FirewallPage ./config_tab/pages/FirewallPage.qml
 # P1-051's two APEX Remote pages and the service behind them. Registered here
