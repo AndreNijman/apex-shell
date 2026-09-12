@@ -59,6 +59,11 @@ ShellRoot {
     readonly property var distinct: [
         "working", "waiting_for_user", "permission_request", "failed", "complete"
     ]
+    // P0-021 criterion 4, the session kinds that must render consistently.
+    // "generic" is the shell's name for a PTY it does not recognise.
+    readonly property var agents: [
+        "claude", "opencode", "codex", "gemini", "generic"
+    ]
 
     // ── colour maths, the same WCAG 2.1 formula Colors.qml uses ──────────────
     function lin(v) {
@@ -76,11 +81,11 @@ ShellRoot {
     // A synthetic SessionInfo. The shapes are apexd's: exit_code and
     // exit_signal are null while a session is alive, and the shell's `live`
     // test is exactly that pair being null.
-    function session(state) {
+    function session(state, agent) {
         var terminal = (state === "complete" || state === "failed" || state === "exited")
         return {
             id: 1,
-            agent: "claude",
+            agent: agent === undefined ? "claude" : agent,
             state: state,
             cwd: "/home/test/project",
             project_name: "project",
@@ -122,6 +127,23 @@ ShellRoot {
                 }
             }
         }
+
+        // The same state, five times, differing only in which agent is running.
+        // permission_request on purpose: it is a solid badge, so this exercises
+        // the fill geometry as well as the tone.
+        Column {
+            id: agentRows
+            width: 560
+            Repeater {
+                id: agentRowRepeater
+                model: root.agents
+                delegate: SessionRow {
+                    required property string modelData
+                    width: agentRows.width
+                    session: root.session("permission_request", modelData)
+                }
+            }
+        }
     }
 
     // Find a badge's chip and glyph without adding a test-only property to the
@@ -133,6 +155,37 @@ ShellRoot {
                 return item.children[i]
         return null
     }
+    // childOfType only looks one level down. A StateBadge inside a SessionRow is
+    // several levels down, so this walks.
+    function descendantWith(item, marker) {
+        if (!item)
+            return null
+        for (var i = 0; i < item.children.length; i++) {
+            var c = item.children[i]
+            if (c.hasOwnProperty(marker))
+                return c
+            var deep = root.descendantWith(c, marker)
+            if (deep)
+                return deep
+        }
+        return null
+    }
+
+    // Every string a subtree actually rendered. Used to prove the agent reached
+    // the row at all — without it, five identical rows would satisfy a
+    // "they all render the same" assertion by rendering nothing that differs.
+    function textsIn(item, out) {
+        if (!item)
+            return out
+        for (var i = 0; i < item.children.length; i++) {
+            var c = item.children[i]
+            if (c.hasOwnProperty("text") && c.hasOwnProperty("font"))
+                out.push(String(c.text))
+            root.textsIn(c, out)
+        }
+        return out
+    }
+
     function chipOf(badge)  { return root.childOfType(badge, "radius") }
     function glyphOf(badge) { return root.childOfType(badge, "font") }
 
@@ -267,6 +320,52 @@ ShellRoot {
                 if (sessionRows.itemAt(r)) built++
             root.check("a SessionRow builds for every runtime state",
                        built === root.states.length, built + " of " + root.states.length)
+
+            // ── P0-021 criterion 4: the five session kinds ───────────────────
+            // Agent identity reaches exactly one thing in this shell —
+            // AGENT_NAMES in agentstate.js, a display-name map. StateBadge
+            // takes no agent parameter and derives everything from
+            // sessionState, so the five render alike BY CONSTRUCTION. Nothing
+            // asserted it: all 17 render cases are a state x palette matrix and
+            // the fixture hardcoded agent "claude" for every one. The day
+            // someone adds a per-agent tint, this is what notices.
+            var kinds = 0, tone0 = null, geom0 = null
+            var toneOff = [], geomOff = [], labels = []
+            for (var a = 0; a < root.agents.length; a++) {
+                var rowItem = agentRowRepeater.itemAt(a)
+                if (!rowItem)
+                    continue
+                kinds++
+                var badge = root.descendantWith(rowItem, "sessionState")
+                if (!badge) { toneOff.push(root.agents[a] + ": no badge"); continue }
+                var chip = root.chipOf(badge)
+                var tone = root.hex(badge.toneColor)
+                var geom = [badge.weight, chip.width, chip.height, chip.radius].join("/")
+                if (tone0 === null) { tone0 = tone; geom0 = geom }
+                if (tone !== tone0) toneOff.push(root.agents[a] + "=" + tone)
+                if (geom !== geom0) geomOff.push(root.agents[a] + "=" + geom)
+                var want = AgentState.agentName(root.agents[a])
+                if (root.textsIn(rowItem, []).indexOf(want) >= 0)
+                    labels.push(want)
+                console.log("    " + root.agents[a] + "  label=" + want
+                            + "  tone=" + tone + "  badge=" + geom)
+            }
+            root.check("a SessionRow builds for all five session kinds",
+                       kinds === root.agents.length,
+                       kinds + " of " + root.agents.length)
+            // The anti-vacuity half, and it has to come first: if `agent` reached
+            // nothing, five identical rows would pass every comparison below
+            // while comparing nothing at all.
+            var distinctLabels = {}
+            for (var l = 0; l < labels.length; l++) distinctLabels[labels[l]] = true
+            root.check("each session kind rendered its own name, so the rows really differ",
+                       labels.length === root.agents.length
+                       && Object.keys(distinctLabels).length === root.agents.length,
+                       JSON.stringify(labels))
+            root.check("Claude, OpenCode, Codex, Gemini and a generic PTY resolve the same state colour",
+                       toneOff.length === 0, tone0 + " vs " + toneOff.join(", "))
+            root.check("and the same badge geometry",
+                       geomOff.length === 0, geom0 + " vs " + geomOff.join(", "))
 
             // ── the dark palette, as shipped ─────────────────────────────────
             root.darkTones = root.measure("dark")
