@@ -17,7 +17,7 @@ import "../"
 
 PanelWindow {
     id: root
-    readonly property ThemeSet theme: Theme.setForScreen(root.screen)   // P1-040: this output's sizes
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }   // P1-040: this output's sizes
 
 
     color: "transparent"

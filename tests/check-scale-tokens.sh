@@ -292,7 +292,7 @@ for f in $PER_OUTPUT; do
     # window uses the QtQuick `Screen` attached property. Both spellings are
     # accepted and NOTHING ELSE is: a set built from a literal, or from
     # Metrics.referenceScreen, is the global factor wearing the new name.
-    if grep -qE '^[[:space:]]*readonly property ThemeSet theme:[[:space:]]*Theme\.setForScreen\(|^[[:space:]]*readonly property ThemeSet theme:[[:space:]]*Theme\.setForHeight\(Screen\.height\)' "$f"; then
+    if grep -qE '^[[:space:]]*readonly property ThemeSet theme: ThemeSet \{[[:space:]]*scale: Theme\.factorForScreen\(|^[[:space:]]*readonly property ThemeSet theme: ThemeSet \{[[:space:]]*scale: Theme\.factorForHeight\(Screen\.height\)' "$f"; then
         ok "$(basename "$f") takes its token set from its own output"
     else
         bad "$(basename "$f") no longer resolves a per-output token set — it is back on the global factor"

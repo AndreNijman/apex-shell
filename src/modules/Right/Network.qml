@@ -17,7 +17,7 @@ import "../../"
 // seconds late.
 Item {
     id: root
-    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
     implicitWidth:  row.implicitWidth + 6

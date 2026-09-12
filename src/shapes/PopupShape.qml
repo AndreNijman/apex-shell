@@ -4,7 +4,7 @@ import "../"
 // Draws a popup background that "melts" into whichever edge(s) it's attached to.
 Canvas {
     id: root
-    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
     // Multisample so the "melt" curves render crisp, not stair-stepped.
