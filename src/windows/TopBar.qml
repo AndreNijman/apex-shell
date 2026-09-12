@@ -10,6 +10,8 @@ import "../shapes/"
 
 PanelWindow {
     id: root
+    readonly property ThemeSet theme: Theme.setForScreen(root.screen)   // P1-040: this output's sizes
+
 
     property string screenName: screen ? screen.name : ""
 
@@ -23,25 +25,25 @@ PanelWindow {
         Region {
             x: 0; y: 0
             width: root.width
-            height: Compositor.isLabwc ? Theme.borderWidth : root.implicitHeight
+            height: Compositor.isLabwc ? theme.borderWidth : root.implicitHeight
         }
         Region {
             x: 0; y: 0
             width: Compositor.isLabwc && !ShellState.focusMode
-                ? root.lWidth + Theme.notchRadius : 0
+                ? root.lWidth + theme.notchRadius : 0
             height: root.implicitHeight
         }
         Region {
-            x: Math.round((root.width - root.cWidth) / 2) - Theme.notchRadius
+            x: Math.round((root.width - root.cWidth) / 2) - theme.notchRadius
             y: 0
             width: Compositor.isLabwc && !ShellState.focusMode
-                ? root.cWidth + Theme.notchRadius * 2 : 0
+                ? root.cWidth + theme.notchRadius * 2 : 0
             height: root.implicitHeight
         }
         Region {
-            x: root.width - root.rWidth - Theme.notchRadius; y: 0
+            x: root.width - root.rWidth - theme.notchRadius; y: 0
             width: Compositor.isLabwc && !ShellState.focusMode
-                ? root.rWidth + Theme.notchRadius : 0
+                ? root.rWidth + theme.notchRadius : 0
             height: root.implicitHeight
         }
     }
@@ -93,7 +95,7 @@ PanelWindow {
     // ── Height shrinks to a border strip in focus mode ───────────────────────
     // Safe to animate on PanelWindow (anchored, no position jank).
     // PopupWindow is the one that must never have animated implicitHeight.
-    implicitHeight: ShellState.focusMode ? Theme.borderWidth : Theme.notchHeight
+    implicitHeight: ShellState.focusMode ? theme.borderWidth : theme.notchHeight
     Behavior on implicitHeight {
         NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
     }
@@ -103,8 +105,8 @@ PanelWindow {
     // of sharing its last few rows. Hyprland keeps its existing spacing.
     exclusiveZone: ShellState.focusMode ? 0
         : (Compositor.isLabwc
-            ? Math.max(Theme.notchHeight, Theme.exclusionGap)
-            : Theme.exclusionGap)
+            ? Math.max(theme.notchHeight, theme.exclusionGap)
+            : theme.exclusionGap)
     Behavior on exclusiveZone {
         NumberAnimation {
             duration: Compositor.isLabwc ? 0 : Theme.animDuration
@@ -113,9 +115,9 @@ PanelWindow {
     }
 
     readonly property int lWidth: Math.max(
-        Theme.lNotchMinWidth,
-        Math.min(Theme.lNotchMaxWidth,
-                 leftContent.implicitWidth + Theme.notchPadding * 2)
+        theme.lNotchMinWidth,
+        Math.min(theme.lNotchMaxWidth,
+                 leftContent.implicitWidth + theme.notchPadding * 2)
     )
 
     // cWidth uses Popups.dashboardPageWidth when the dashboard is open,
@@ -123,9 +125,9 @@ PanelWindow {
     property int cWidth: Popups.dashboardOpen && Popups.dashboardScreen === root.screenName
         ? Popups.dashboardPageWidth
         : Math.max(
-            Theme.cNotchMinWidth,
-            Math.min(Theme.cNotchMaxWidth,
-                     centerContent.implicitWidth + Theme.notchPadding * 2)
+            theme.cNotchMinWidth,
+            Math.min(theme.cNotchMaxWidth,
+                     centerContent.implicitWidth + theme.notchPadding * 2)
           )
     Behavior on cWidth {
         NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
@@ -133,8 +135,8 @@ PanelWindow {
 
     // Width matches sizer open width: popupWidth + notchRadius (fw) in both popups
     property int rWidth: Math.max(
-        Theme.rNotchMinWidth,
-        Math.min(Theme.rNotchMaxWidth, rightContent.implicitWidth + Theme.notchPadding * 2)
+        theme.rNotchMinWidth,
+        Math.min(theme.rNotchMaxWidth, rightContent.implicitWidth + theme.notchPadding * 2)
     )
 
     // ── Border strip (focus mode) ────────────────────────────────────────────
@@ -162,18 +164,18 @@ PanelWindow {
         State {
             name: "notifications"
             when: Popups.notificationsOpen
-            PropertyChanges { target: root; rWidth: Theme.notificationsWidth + Theme.notchRadius }
+            PropertyChanges { target: root; rWidth: theme.notificationsWidth + theme.notchRadius }
         },
         State {
             name: "network"
             when: Popups.networkOpen && !Popups.notificationsOpen
-            PropertyChanges { target: root; rWidth: Theme.networkPopupWidth + Theme.notchRadius }
+            PropertyChanges { target: root; rWidth: theme.networkPopupWidth + theme.notchRadius }
         },
         State {
             name: "toast"
             when: Popups.notificationToastOpen && !Popups.notificationsOpen && !Popups.networkOpen
             // Matches the toast card width exactly (standardised pill-popup)
-            PropertyChanges { target: root; rWidth: Theme.notificationToastWidth + Theme.notchRadius }
+            PropertyChanges { target: root; rWidth: theme.notificationToastWidth + theme.notchRadius }
         }
     ]
 
@@ -195,7 +197,7 @@ PanelWindow {
             // hangs under it, so pill + popup merge into one straight edge.
             rightBottomRadius: (Popups.notificationsOpen || Popups.networkOpen
                                 || Popups.notificationToastOpen)
-                ? 0 : Theme.notchRadius
+                ? 0 : theme.notchRadius
             Behavior on rightBottomRadius {
                 NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
             }
@@ -204,7 +206,7 @@ PanelWindow {
         Item {
             id:           leftNotch
             width:        root.lWidth
-            height:       Theme.notchHeight
+            height:       theme.notchHeight
             anchors.left: parent.left
             clip:         true
 
@@ -218,7 +220,7 @@ PanelWindow {
         Item {
             id:               centerNotch
             width:            root.cWidth
-            height:           Theme.notchHeight
+            height:           theme.notchHeight
             anchors.centerIn: parent
 
             CenterContent {
@@ -231,7 +233,7 @@ PanelWindow {
         Item {
             id:            rightNotch
             width:         root.rWidth
-            height:        Theme.notchHeight
+            height:        theme.notchHeight
             anchors.right: parent.right
             
             clip: true
@@ -240,7 +242,7 @@ PanelWindow {
                 id: rightContent
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.rightMargin: Theme.notchPadding
+                anchors.rightMargin: theme.notchPadding
             }
         }
     }

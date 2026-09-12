@@ -8,11 +8,13 @@ import "../"
 
 PanelWindow {
     id: root
+    readonly property ThemeSet theme: Theme.setForScreen(root.screen)   // P1-040: this output's sizes
+
 
     readonly property int popupWidth:  420
     readonly property int popupHeight: 560
-    readonly property int fw: Theme.cornerRadius
-    readonly property int fh: Theme.cornerRadius
+    readonly property int fw: theme.cornerRadius
+    readonly property int fh: theme.cornerRadius
 
     anchors.right:  true
     anchors.bottom: true
@@ -70,8 +72,8 @@ PanelWindow {
         id: sizer
         anchors.right:  parent.right
         anchors.bottom: parent.bottom
-        anchors.rightMargin: Theme.borderWidth
-        anchors.bottomMargin: Theme.borderWidth
+        anchors.rightMargin: theme.borderWidth
+        anchors.bottomMargin: theme.borderWidth
         clip: true
 
         width:  Popups.clipboardOpen ? root.popupWidth  + root.fw : 0
@@ -84,7 +86,7 @@ PanelWindow {
             anchors.fill: parent
             attachedEdge: "bottom-right"
             color:        Theme.background
-            radius:       Theme.cornerRadius
+            radius:       theme.cornerRadius
             flareWidth:   root.fw
             flareHeight:  root.fh
         }

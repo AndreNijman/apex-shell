@@ -21,6 +21,8 @@ import "../../components"
 
 Item {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     // Which output this indicator is on, so the ref below can be released when
     // this bar is unmapped.
@@ -119,7 +121,7 @@ Item {
             anchors.centerIn: parent
             text: root.currentLayout !== "" ? layoutSymbol(root.currentLayout) : "…"
             font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: Theme.fs(14)
+            font.pixelSize: theme.fs(14)
             color: Theme.text
 
             // Brief scale-pop on symbol change

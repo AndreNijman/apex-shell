@@ -8,11 +8,13 @@ import "../"
 
 PopupWindow {
 	id: root
+    readonly property ThemeSet theme: Theme.setForScreen(root.screen)   // P1-040: this output's sizes
+
 
 	required property var anchorWindow
 
-	readonly property int fw: Theme.cornerRadius
-	readonly property int fh: Theme.cornerRadius
+	readonly property int fw: theme.cornerRadius
+	readonly property int fh: theme.cornerRadius
 
 	readonly property var pageWidths: ({
 		"output": 200,
@@ -30,7 +32,7 @@ PopupWindow {
 
 	anchor.window:  anchorWindow
 	anchor.rect: Qt.rect(
-		Theme.cornerRadius,
+		theme.cornerRadius,
 		anchorWindow.height / 2,
 		0,
 		popupHeight
@@ -91,7 +93,7 @@ PopupWindow {
 				anchors.fill: parent
 				attachedEdge: "right"
 				color:        Theme.background
-				radius:       Theme.cornerRadius
+				radius:       theme.cornerRadius
 				flareWidth:   root.fw
 				flareHeight:  root.fh
 			}

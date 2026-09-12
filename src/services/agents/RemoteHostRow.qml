@@ -27,6 +27,8 @@ import "../../"
 
 Item {
     id: hrow
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     required property var host
 
@@ -49,28 +51,28 @@ Item {
     readonly property int sessionCount: hrow._slice.shown.length
 
     width: parent ? parent.width : 0
-    height: header.height + sessionColumn.height + Theme.fs(4)
+    height: header.height + sessionColumn.height + theme.fs(4)
 
     // ── The host itself ───────────────────────────────────────────────────────
     Rectangle {
         id: header
         width: parent.width
-        height: Theme.px(44)
-        radius: Theme.px(8)
+        height: theme.px(44)
+        radius: theme.px(8)
         color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
 
         Row {
             anchors.fill: parent
-            anchors.leftMargin: Theme.px(10)
-            anchors.rightMargin: Theme.px(10)
-            spacing: Theme.px(10)
+            anchors.leftMargin: theme.px(10)
+            anchors.rightMargin: theme.px(10)
+            spacing: theme.px(10)
 
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                width: Theme.px(22)
+                width: theme.px(22)
                 horizontalAlignment: Text.AlignHCenter
                 text: RemoteAgentService.statusIcon(hrow.status)
-                font.pixelSize: Theme.fs(15)
+                font.pixelSize: theme.fs(15)
                 color: hrow.status === "ok"
                            ? (RemoteAgentService.resultFor(hrow.host.name).sessions.length > 0
                                   ? Theme.text : Theme.subtext)
@@ -89,16 +91,16 @@ Item {
 
             Column {
                 anchors.verticalCenter: parent.verticalCenter
-                width: parent.width - Theme.fs(60)
-                spacing: Theme.px(2)
+                width: parent.width - theme.fs(60)
+                spacing: theme.px(2)
 
                 Row {
-                    spacing: Theme.px(6)
+                    spacing: theme.px(6)
 
                     Text {
                         text: hrow.host.name
                         color: Theme.text
-                        font.pixelSize: Theme.fs(12)
+                        font.pixelSize: theme.fs(12)
                         font.bold: true
                     }
 
@@ -111,7 +113,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         text: hrow.host.ssh
                         color: Theme.subtext
-                        font.pixelSize: Theme.fs(9)
+                        font.pixelSize: theme.fs(9)
                     }
 
                     // Variant badge, only for a host that reported one. A box
@@ -120,17 +122,17 @@ Item {
                     Rectangle {
                         visible: hrow.host.caps.variant !== null
                         anchors.verticalCenter: parent.verticalCenter
-                        radius: Theme.px(3)
+                        radius: theme.px(3)
                         color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                        width: variantLabel.implicitWidth + Theme.fs(8)
-                        height: variantLabel.implicitHeight + Theme.fs(3)
+                        width: variantLabel.implicitWidth + theme.fs(8)
+                        height: variantLabel.implicitHeight + theme.fs(3)
                         Text {
                             id: variantLabel
                             anchors.centerIn: parent
                             text: hrow.host.caps.variant === null
                                       ? "" : String(hrow.host.caps.variant)
                             color: Theme.active
-                            font.pixelSize: Theme.fs(9)
+                            font.pixelSize: theme.fs(9)
                         }
                     }
                 }
@@ -140,7 +142,7 @@ Item {
                     elide: Text.ElideRight
                     text: RemoteAgentService.summaryFor(hrow.host)
                     color: Theme.subtext
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                 }
             }
         }
@@ -151,7 +153,7 @@ Item {
         id: sessionColumn
         anchors.top: header.bottom
         anchors.topMargin: hrow.sessionCount > 0 || hrow._slice.hidden > 0
-                               ? Theme.fs(2) : 0
+                               ? theme.fs(2) : 0
         width: parent.width
         spacing: 0
 
@@ -169,11 +171,11 @@ Item {
         // this page to become forty rows tall.
         Text {
             visible: hrow._slice.hidden > 0
-            height: visible ? Theme.fs(20) : 0
-            leftPadding: Theme.fs(46)
+            height: visible ? theme.fs(20) : 0
+            leftPadding: theme.fs(46)
             text: "and " + hrow._slice.hidden + " more"
             color: Theme.subtext
-            font.pixelSize: Theme.fs(9)
+            font.pixelSize: theme.fs(9)
         }
     }
 }

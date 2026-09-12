@@ -12,6 +12,8 @@ import "../"
 
 PanelWindow {
     id: root
+    readonly property ThemeSet theme: Theme.setForScreen(root.screen)   // P1-040: this output's sizes
+
 
     // The output this overlay belongs to, passed in by shell.qml.
     //
@@ -42,22 +44,22 @@ PanelWindow {
 
     mask: Region {
         Region {
-            x:      Theme.borderWidth
-            y:      Theme.notchHeight - Theme.borderWidth
-            width:  root.width - (Theme.borderWidth * 2)
-            height: root.height - Theme.notchHeight - Theme.borderWidth
+            x:      theme.borderWidth
+            y:      theme.notchHeight - theme.borderWidth
+            width:  root.width - (theme.borderWidth * 2)
+            height: root.height - theme.notchHeight - theme.borderWidth
         }
         Region {
-            x:      root.barLWidth - Theme.borderWidth
+            x:      root.barLWidth - theme.borderWidth
             y:      0
-            width:  (root.width / 2) - (root.barCWidth / 2) - root.barLWidth + Theme.borderWidth
-            height: Theme.notchHeight
+            width:  (root.width / 2) - (root.barCWidth / 2) - root.barLWidth + theme.borderWidth
+            height: theme.notchHeight
         }
         Region{
             x:     (root.width / 2) + (root.barCWidth / 2)
             y:     0
-            width: (root.width / 2) - (root.barCWidth / 2) - root.barRWidth + Theme.borderWidth
-            height: Theme.notchHeight
+            width: (root.width / 2) - (root.barCWidth / 2) - root.barRWidth + theme.borderWidth
+            height: theme.notchHeight
         }
     }
 
@@ -77,10 +79,10 @@ PanelWindow {
         bottom: true
     }
     
-    margins.top: Theme.borderWidth // Start below the notch so it doesn't interfere with TopBar popups
-    margins.left: Theme.borderWidth
-    margins.right: Theme.borderWidth
-    margins.bottom: Theme.borderWidth
+    margins.top: theme.borderWidth // Start below the notch so it doesn't interfere with TopBar popups
+    margins.left: theme.borderWidth
+    margins.right: theme.borderWidth
+    margins.bottom: theme.borderWidth
     // Don't push windows away
     exclusionMode: ExclusionMode.Ignore
 

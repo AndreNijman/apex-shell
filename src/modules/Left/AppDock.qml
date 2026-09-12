@@ -10,6 +10,8 @@ import "../../"
 // way to recover, raise, minimize and close overlapping windows.
 Row {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     required property string screenName
     required property int availableWidth
@@ -161,7 +163,7 @@ Row {
                     visible: appIcon.status !== Image.Ready
                     text: "󰣆"
                     color: appButton.active ? Theme.active : Theme.icon
-                    font.pixelSize: Theme.fs(15)
+                    font.pixelSize: theme.fs(15)
                 }
 
                 Rectangle {

@@ -60,7 +60,15 @@ bad() { echo "  FAIL $1"; fail=$((fail + 1)); }
 section() { printf '\n── %s ──\n' "$1"; }
 
 SS="src/services/SettingsService.qml"
-MET="src/theme/Metrics.qml"
+# The token table moved out of Metrics.qml into theme/ThemeSet.qml when P1-040
+# made it a component that Metrics is one instance of — and this rule, which
+# names the file, went red at the moment that landed and stayed red. Point it at
+# the file that actually defines the token. It is found rather than hardcoded
+# twice: whichever of the two defines animDuration is the one to check, so
+# another move cannot retire this rule the same way.
+MET="src/theme/ThemeSet.qml"
+grep -qE 'property[[:space:]]+int[[:space:]]+animDuration:' "$MET" 2>/dev/null \
+    || MET="src/theme/Metrics.qml"
 TH="src/theme/Theme.qml"
 for f in "$SS" "$MET" "$TH"; do
     [ -f "$f" ] || { echo "FATAL: cannot find $f" >&2; exit 2; }

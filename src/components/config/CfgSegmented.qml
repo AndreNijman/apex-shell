@@ -5,6 +5,8 @@ import "../../"
 // or an array of { value, label }. Bind `value`; handle `selected(value)`.
 Flow {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
     property var options: []
     property var value:   ""
     signal selected(var value)
@@ -57,7 +59,7 @@ Flow {
                 id: t
                 anchors.centerIn: parent
                 text:           pill._lbl
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 font.weight:    pill.active ? Font.Medium : Font.Normal
                 color:          pill.active ? Theme.active : Qt.rgba(1,1,1,0.62)
             }

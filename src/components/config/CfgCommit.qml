@@ -35,6 +35,8 @@ import "settings-semantics.js" as Semantics
 // told the user about work it already destroyed.
 Item {
     id: root
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     // How many changes are held, and what this page calls one of them.
     property int    count: 0
@@ -74,7 +76,7 @@ Item {
     width: parent ? parent.width : 0
     visible: root.held
     implicitHeight: root.held
-                    ? Math.max(Theme.px(46), lines.implicitHeight + Theme.px(16))
+                    ? Math.max(theme.px(46), lines.implicitHeight + theme.px(16))
                     : 0
     height: implicitHeight
     clip: true
@@ -107,7 +109,7 @@ Item {
             Text {
                 width: parent.width
                 text: Semantics.stagedLine(root.count, root.noun)
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 font.weight: Font.Medium
                 color: root._tone
                 elide: Text.ElideRight
@@ -117,7 +119,7 @@ Item {
                 text: root.error !== ""
                       ? root.error
                       : Semantics.stagedHint(root.canApply, root.canSave)
-                font.pixelSize: Theme.fs(10)
+                font.pixelSize: theme.fs(10)
                 color: root.error !== "" ? Theme.danger : Theme.subtext
                 wrapMode: Text.WordWrap
                 maximumLineCount: 2
@@ -127,7 +129,7 @@ Item {
                 width: parent.width
                 visible: root.note !== "" && root.error === ""
                 text: root.note
-                font.pixelSize: Theme.fs(10)
+                font.pixelSize: theme.fs(10)
                 color: Theme.subtext
                 wrapMode: Text.WordWrap
                 maximumLineCount: 2

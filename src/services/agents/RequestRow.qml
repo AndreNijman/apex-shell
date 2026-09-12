@@ -25,6 +25,8 @@ import "../agentstate.js" as AgentState
 
 Rectangle {
     id: row
+    readonly property ThemeSet theme: Theme.setForHeight(Screen.height)   // P1-040: this output's sizes
+
 
     required property var request
 
@@ -35,17 +37,17 @@ Rectangle {
         return "apex " + String(v).replace("pkg-", "pkg ")
     }
 
-    height: body.implicitHeight + Theme.fs(20)
-    radius: Theme.px(8)
+    height: body.implicitHeight + theme.fs(20)
+    radius: theme.px(8)
     color: Qt.rgba(Theme.attention.r, Theme.attention.g, Theme.attention.b, 0.10)
-    border.width: Math.max(1, Theme.px(1))
+    border.width: Math.max(1, theme.px(1))
     border.color: Theme.attention
 
     Row {
         id: body
         anchors.fill: parent
-        anchors.margins: Theme.px(10)
-        spacing: Theme.px(10)
+        anchors.margins: theme.px(10)
+        spacing: theme.px(10)
 
         // The badge a blocked session wears, drawn at the same weight — filled,
         // because this is the one card on the page that will not clear itself.
@@ -53,7 +55,7 @@ Rectangle {
             id: badge
             anchors.top: parent.top
             sessionState: "permission_request"
-            size: Theme.px(26)
+            size: theme.px(26)
         }
 
         Column {
@@ -61,15 +63,15 @@ Rectangle {
             // this replaces subtracted Theme.fs(22) from a 22px-wide glyph —
             // right at scale 1.0 and wrong at every other scale, because fs()
             // and px() are different scalers.
-            width: parent.width - badge.width - reviewBtn.width - Theme.fs(30)
-            spacing: Theme.px(3)
+            width: parent.width - badge.width - reviewBtn.width - theme.fs(30)
+            spacing: theme.px(3)
 
             Text {
                 text: (row.request.agent
                        ? AgentState.agentName(row.request.agent)
                        : "An agent") + " requests privilege"
                 color: Theme.text
-                font.pixelSize: Theme.fs(12)
+                font.pixelSize: theme.fs(12)
                 font.bold: true
             }
 
@@ -81,7 +83,7 @@ Rectangle {
                 text: row.operation
                 color: Theme.attention
                 font.family: "monospace"
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
             }
 
             Text {
@@ -91,7 +93,7 @@ Rectangle {
                 elide: Text.ElideRight
                 text: row.request.reason || ""
                 color: Theme.subtext
-                font.pixelSize: Theme.fs(10)
+                font.pixelSize: theme.fs(10)
             }
 
             Text {
@@ -100,7 +102,7 @@ Rectangle {
                 elide: Text.ElideMiddle
                 text: row.request.project || ""
                 color: Theme.subtext
-                font.pixelSize: Theme.fs(9)
+                font.pixelSize: theme.fs(9)
                 opacity: 0.75
             }
         }
@@ -108,9 +110,9 @@ Rectangle {
         Rectangle {
             id: reviewBtn
             anchors.verticalCenter: parent.verticalCenter
-            width: reviewLabel.implicitWidth + Theme.fs(18)
-            height: reviewLabel.implicitHeight + Theme.fs(10)
-            radius: Theme.px(6)
+            width: reviewLabel.implicitWidth + theme.fs(18)
+            height: reviewLabel.implicitHeight + theme.fs(10)
+            radius: theme.px(6)
             color: reviewHover.hovered
                 ? Qt.rgba(Theme.attention.r, Theme.attention.g, Theme.attention.b, 0.35)
                 : Qt.rgba(Theme.attention.r, Theme.attention.g, Theme.attention.b, 0.20)
@@ -122,7 +124,7 @@ Rectangle {
                 anchors.centerIn: parent
                 text: "Review"
                 color: Theme.text
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
             }
 
             HoverHandler { id: reviewHover }
