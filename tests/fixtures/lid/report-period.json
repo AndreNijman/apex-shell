@@ -1,0 +1,68 @@
+{
+    "period": {
+        "charge_at_close": 80,
+        "charge_last": 80,
+        "closed_at": 1789242392,
+        "ended_by": null,
+        "last_seen": 1789242392,
+        "opened_at": null,
+        "peak_c": 55.0,
+        "powered_down": [
+            "display off",
+            "keyboard backlight /sys/class/leds/platform::kbd_backlight/brightness 2 -> 0",
+            "bluetooth blocked"
+        ],
+        "sessions_at_close": 0,
+        "skipped": [
+            {
+                "what": "wifi power save",
+                "why": "no wireless interface under /sys/class/net"
+            },
+            {
+                "what": "--user claude-desktop-update.timer",
+                "why": "systemctl could not be asked whether it is active"
+            },
+            {
+                "what": "apex-storage-notice.timer",
+                "why": "systemctl could not be asked whether it is active"
+            },
+            {
+                "what": "fwupd-refresh.timer",
+                "why": "systemctl could not be asked whether it is active"
+            },
+            {
+                "what": "dnf-makecache.timer",
+                "why": "systemctl could not be asked whether it is active"
+            },
+            {
+                "what": "flatpak-system-update.timer",
+                "why": "systemctl could not be asked whether it is active"
+            },
+            {
+                "what": "podman-auto-update.timer",
+                "why": "systemctl could not be asked whether it is active"
+            },
+            {
+                "what": "raid-check.timer",
+                "why": "systemctl could not be asked whether it is active"
+            },
+            {
+                "what": "mlocate-updatedb.timer",
+                "why": "systemctl could not be asked whether it is active"
+            }
+        ],
+        "vpn": [
+            {
+                "at": 1789242392,
+                "name": null,
+                "state": {
+                    "vpn": "unreadable",
+                    "why": "NetworkManager was not queried (fixture root or dry run)"
+                }
+            }
+        ],
+        "why": "the owner pinned lid keep-working on; the lid is closed and every guard is clear (battery 80%)"
+    },
+    "summary": "lid closed for 0s with 0 agent sessions still running; no VPN state to report; no battery used",
+    "vpn_held": null
+}
