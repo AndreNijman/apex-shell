@@ -195,6 +195,14 @@ exit 0
 FAKE
 chmod +x "$W/bin/systemctl"
 
+# The real wlr-randr, resolved BEFORE the stubs go on PATH. Without this line
+# the block further down that sets the output mode found the stub, which prints
+# nothing, so `$out` was empty and --custom-mode was never invoked: labwc kept
+# its headless default of 1280x720 while this runner printed "at $mode". That is
+# a knob reporting success and doing nothing, and it is why NAV_GEOMETRY_MODE
+# has never selected an output size under labwc.
+real_wlr_randr="$(command -v wlr-randr 2>/dev/null || true)"
+
 export PATH="$W/bin:$PATH"
 
 real_home="$(getent passwd "$(id -u)" | cut -d: -f6)"
@@ -333,11 +341,29 @@ export WAYLAND_DISPLAY="$sock"
 
 # labwc has no output stanza in rc.xml, so the mode is set over wlr-output-
 # management once it is up. sway and Hyprland take it from their config.
-if [[ "$comp" == "labwc" ]] && command -v wlr-randr >/dev/null 2>&1; then
-    out="$(wlr-randr 2>/dev/null | awk 'NR==1{print $1}')"
-    [[ -n "$out" ]] && wlr-randr --output "$out" --custom-mode "$mode" >/dev/null 2>&1
+#
+# Through $real_wlr_randr and not through PATH, and then READ BACK rather than
+# assumed. This line used to print "$mode" whatever happened, and what happened
+# under labwc was nothing: the stub shadowed the real binary, so the output kept
+# the backend's default. Both numbers were in the log the whole time — this
+# runner saying 1920x1080 and the QML's own [rig] line saying 1280x720 — which
+# is how "verified at 1080p" stayed in the record for a suite that had only ever
+# been run at 720p.
+applied="$mode"
+if [[ "$comp" == "labwc" ]]; then
+    if [[ -n "$real_wlr_randr" ]]; then
+        rr_out="$("$real_wlr_randr" 2>/dev/null | awk 'NR==1{print $1}')"
+        [[ -n "$rr_out" ]] && "$real_wlr_randr" --output "$rr_out" \
+            --custom-mode "$mode" >/dev/null 2>&1
+        applied="$("$real_wlr_randr" 2>/dev/null \
+                   | awk '/px \(current\)/{print $1; exit}')"
+        [[ -n "$applied" ]] || applied="unknown"
+    else
+        applied="the backend default — wlr-randr is not installed"
+    fi
 fi
-echo "host: $comp on $WAYLAND_DISPLAY at $mode (headless, private XDG_RUNTIME_DIR and HOME)"
+echo "host: $comp on $WAYLAND_DISPLAY at $applied (headless, private XDG_RUNTIME_DIR and HOME)"
+[[ "$applied" == "$mode" ]] || echo "note: this run asked for $mode and got $applied"
 
 # quickshell stamps every console.log with a level and a category. Stripped, so
 # the assertion lines below are the shape the QML wrote them in.
