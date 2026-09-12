@@ -7,6 +7,8 @@ import "../"
 
 FloatingWindow {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }   // P1-040: this output's sizes
+
 
     property int warnLevel: 30
     property int timeout:   8000
@@ -39,7 +41,7 @@ FloatingWindow {
     // ── Visuals ───────────────────────────────────────────────────────────────
     Rectangle {
         anchors.fill: parent
-        radius:       Theme.cornerRadius + 4
+        radius:       theme.cornerRadius + 4
         color:        Theme.background
 
         // Left accent bar
@@ -66,14 +68,14 @@ FloatingWindow {
             Text {
                 text:           "⚠  " + root.title
                 color:          root.accentColor
-                font.pixelSize: Theme.fs(13)
+                font.pixelSize: theme.fs(13)
                 font.bold:      true
             }
 
             Text {
                 text:           root.message
                 color:          Theme.text
-                font.pixelSize: Theme.fs(12)
+                font.pixelSize: theme.fs(12)
                 width:          parent.width
                 wrapMode:       Text.WordWrap
             }

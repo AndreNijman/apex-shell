@@ -45,6 +45,8 @@ import "../"
 
 Item {
 	id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
 	property var    model:       []
 	property string currentPage: ""
@@ -61,21 +63,21 @@ Item {
 		pageChanged(defaultPage)
 	}
 
-	implicitWidth:  orientation === "vertical"   ? Theme.px(40) : 0
-	implicitHeight: orientation === "horizontal" ? Theme.px(40) : 0
+	implicitWidth:  orientation === "vertical"   ? theme.px(40) : 0
+	implicitHeight: orientation === "horizontal" ? theme.px(40) : 0
 
 	// ── Shared tokens ─────────────────────────────────────────────────────────
 	// A pointer target below about 24 logical pixels is a miss waiting to
 	// happen. Scaled, because a pixel at scale 2 is half the size of one at 1.
-	readonly property int minTouch: Theme.px(24)
+	readonly property int minTouch: theme.px(24)
 
 	// ── Horizontal metrics ────────────────────────────────────────────────────
-	readonly property int  hIconSize:  Theme.fs(14)
-	readonly property int  hLabelSize: Theme.fs(12)
-	readonly property int  hIconGap:   Theme.px(6)   // between icon and label
-	readonly property int  hGutter:    Theme.px(4)   // between neighbouring pills
-	readonly property int  hPadMax:    Theme.px(9)   // pill padding, each side
-	readonly property int  hPadMin:    Theme.px(4)   // below this, drop the labels
+	readonly property int  hIconSize:  theme.fs(14)
+	readonly property int  hLabelSize: theme.fs(12)
+	readonly property int  hIconGap:   theme.px(6)   // between icon and label
+	readonly property int  hGutter:    theme.px(4)   // between neighbouring pills
+	readonly property int  hPadMax:    theme.px(9)   // pill padding, each side
+	readonly property int  hPadMin:    theme.px(4)   // below this, drop the labels
 
 	readonly property real hSlotWidth:
 		root.model.length > 0 ? root.width / root.model.length : root.width
@@ -216,7 +218,7 @@ Item {
 					id: hBg
 					anchors.centerIn: parent
 					width:  Math.min(root.hSlotRoom, hTab.contentWidth + 2 * hTab.pad)
-					height: Math.max(0, parent.height - Theme.px(8))
+					height: Math.max(0, parent.height - theme.px(8))
 					radius: height / 2
 					clip:   true
 
@@ -280,11 +282,11 @@ Item {
 	}
 
 	// ── VERTICAL metrics ──────────────────────────────────────────────────────
-	readonly property int vRowPreferred: Theme.px(60)
-	readonly property int vRowMin:       Math.max(root.minTouch, Theme.px(30))
-	readonly property int vGap:          Theme.px(4)
-	readonly property int vLeftPad:      Theme.px(16)
-	readonly property int vIconGap:      Theme.px(12)
+	readonly property int vRowPreferred: theme.px(60)
+	readonly property int vRowMin:       Math.max(root.minTouch, theme.px(30))
+	readonly property int vGap:          theme.px(4)
+	readonly property int vLeftPad:      theme.px(16)
+	readonly property int vIconGap:      theme.px(12)
 
 	// A row is as tall as its share of the column, between a floor you can still
 	// hit and the 60px it has always been. Only the floor is new: the old code
@@ -357,7 +359,7 @@ Item {
 
 					width:  vCol.width
 					height: root.vRowHeight
-					radius: Theme.cornerRadius * 2
+					radius: theme.cornerRadius * 2
 					clip:   true
 
 					color: vTab.isActive
@@ -371,7 +373,7 @@ Item {
 						visible:          !vCol.hasLabels
 						anchors.centerIn: parent
 						text:             modelData.icon
-						font.pixelSize:   Theme.fs(16)
+						font.pixelSize:   theme.fs(16)
 						color: vTab.isActive ? Theme.background : Theme.text
 						Behavior on color { ColorAnimation { duration: 120 } }
 					}
@@ -391,7 +393,7 @@ Item {
 						Text {
 							id: vIcon
 							text:           modelData.icon
-							font.pixelSize: Theme.fs(15)
+							font.pixelSize: theme.fs(15)
 							anchors.verticalCenter: parent.verticalCenter
 							color: vTab.isActive
 								? Theme.background
@@ -407,7 +409,7 @@ Item {
 							                   - vIcon.implicitWidth - root.vIconGap)
 							elide: Text.ElideRight
 							text:           modelData.label ?? ""
-							font.pixelSize: Theme.fs(12)
+							font.pixelSize: theme.fs(12)
 							font.weight:    vTab.isActive ? Font.Medium : Font.Normal
 							anchors.verticalCenter: parent.verticalCenter
 							color: vTab.isActive

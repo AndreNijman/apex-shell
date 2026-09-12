@@ -746,12 +746,19 @@ QtObject {
     // scale 1, that factor is 1.5 and the 1080p panel gets a shell half again
     // too big — measured against two headless outputs, not inferred.
     //
-    // Per-item scaling is not something the shell can express: Theme and
-    // Metrics are singletons read at 831 call sites. What IS expressible is
-    // giving each output a compositor scale that brings it into the band the
-    // token set was calibrated for, after which one factor is right for all of
-    // them. That is a display setting, so it belongs here, staged, and applied
-    // through the same transaction and the same watchdog as every other one.
+    // That was the whole story until P1-040's migration: Theme and Metrics are
+    // singletons, so the factor they carry is process-wide, and every surface
+    // read it. Every surface now resolves its OWN output's factor instead, so
+    // the shell is the right size on both — which is why the row on the page
+    // above no longer warns.
+    //
+    // The recommendation still earns its place, for the reason it always
+    // half-had: the shell is the only thing on the desk that magnifies itself.
+    // Every other application is drawn at the compositor's scale for the output
+    // it is on, so a dense panel left at scale 1 gives small text everywhere
+    // except in the shell. That is a display setting, so it belongs here,
+    // staged, and applied through the same transaction and the same watchdog as
+    // every other one.
 
     /// The compositor scale this output should have. Its own current scale is
     /// not an input: the recommendation is a property of the panel.
@@ -761,9 +768,9 @@ QtObject {
         return Scaling.recommendedScale(m.width, m.height)
     }
 
-    /// True when the staged layout leaves the shell no single correct factor.
-    /// Read off the DRAFT rather than the hardware, so the warning clears as
-    /// soon as the user stages the fix rather than after they apply it.
+    /// True when the staged layout puts the outputs in different size classes.
+    /// Read off the DRAFT rather than the hardware, so it clears as soon as the
+    /// user stages the fix rather than after they apply it.
     readonly property bool scalesDisagree: {
         const list = []
         for (const o of root.draft) {

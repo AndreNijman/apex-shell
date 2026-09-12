@@ -18,6 +18,8 @@ import "../../components"
 // exists and this points at it.
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     // Handed down from the owning window; forwarded to whichever sub-page needs
     // live telemetry so its services stop when the dashboard is not on screen.
@@ -46,7 +48,7 @@ Item {
         Rectangle {
             width:  Math.floor((parent.width - parent.spacing) * 0.30)
             height: parent.height
-            radius: Theme.cornerRadius
+            radius: theme.cornerRadius
             color:  Qt.rgba(1, 1, 1, 0.04)
             border.color: Qt.rgba(1, 1, 1, 0.07)
             border.width: 1
@@ -81,8 +83,8 @@ Item {
                     rightMargin:  6
                     bottomMargin: 8
                 }
-                height: Theme.px(30)
-                radius: Theme.cornerRadius
+                height: theme.px(30)
+                radius: theme.cornerRadius
                 color:  popHov.hovered ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.03)
                 Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -90,7 +92,7 @@ Item {
                     anchors.centerIn: parent
                     text:  "󰏋  Open in window"
                     color: popHov.hovered ? Theme.active : Theme.subtext
-                    font.pixelSize: Theme.fs(11)
+                    font.pixelSize: theme.fs(11)
                     Behavior on color { ColorAnimation { duration: 120 } }
                 }
 

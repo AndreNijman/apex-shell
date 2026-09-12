@@ -8,6 +8,8 @@ import "../../"
 // ─────────────────────────────────────────────────────────────
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     width:  360
 
@@ -25,7 +27,7 @@ Item {
             anchors { horizontalCenter: parent.horizontalCenter; leftMargin: 16; verticalCenter: parent.verticalCenter }
             text:           "Notifications"
             color:          Theme.text
-            font.pixelSize: Theme.fs(14)
+            font.pixelSize: theme.fs(14)
             font.bold:      true
         }
 
@@ -47,7 +49,7 @@ Item {
                 anchors.centerIn: parent
                 text:             "Clear all"
                 color:            Theme.subtext
-                font.pixelSize:   Theme.fs(12)
+                font.pixelSize:   theme.fs(12)
             }
             HoverHandler { id: clearHover }
             TapHandler   { onTapped: NotificationService.dismissAll() }
@@ -116,13 +118,13 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           "󰂚"
                 color:          Qt.rgba(1, 1, 1, 0.15)
-                font.pixelSize: Theme.fs(28)
+                font.pixelSize: theme.fs(28)
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           "No notifications"
                 color:          Theme.subtext
-                font.pixelSize: Theme.fs(12)
+                font.pixelSize: theme.fs(12)
             }
         }
     }
@@ -205,7 +207,7 @@ Item {
                         anchors.centerIn: parent
                         text:           (card.notification?.appName ?? "?").charAt(0).toUpperCase()
                         color:          Theme.text
-                        font.pixelSize: Theme.fs(14)
+                        font.pixelSize: theme.fs(14)
                         font.bold:      true
                     }
                 }
@@ -223,7 +225,7 @@ Item {
                     width:          parent.width
                     text:           card.notification?.appName ?? ""
                     color:          Theme.subtext
-                    font.pixelSize: Theme.fs(11)
+                    font.pixelSize: theme.fs(11)
                     elide:          Text.ElideRight
                     visible:        text !== ""
                 }
@@ -233,7 +235,7 @@ Item {
                     width:            parent.width
                     text:             card.notification?.summary ?? ""
                     color:            Theme.text
-                    font.pixelSize:   Theme.fs(13)
+                    font.pixelSize:   theme.fs(13)
                     font.bold:        true
                     wrapMode:         Text.WordWrap
                     maximumLineCount: 2
@@ -246,7 +248,7 @@ Item {
                     width:            parent.width
                     text:             card.notification?.body ?? ""
                     color:            Theme.subtext
-                    font.pixelSize:   Theme.fs(12)
+                    font.pixelSize:   theme.fs(12)
                     wrapMode:         Text.WordWrap
                     maximumLineCount: 3
                     elide:            Text.ElideRight
@@ -279,7 +281,7 @@ Item {
                                 anchors.centerIn: parent
                                 text:             modelData?.text ?? ""
                                 color:            Theme.text
-                                font.pixelSize:   Theme.fs(11)
+                                font.pixelSize:   theme.fs(11)
                             }
                             HoverHandler { id: actHover }
                             TapHandler   { onTapped: modelData?.invoke() }
@@ -304,7 +306,7 @@ Item {
                     anchors.centerIn: parent
                     text:             "✕"
                     color:            Theme.subtext
-                    font.pixelSize:   Theme.fs(10)
+                    font.pixelSize:   theme.fs(10)
                 }
                 HoverHandler { id: xHover }
                 TapHandler   { onTapped: card.notification?.dismiss() }

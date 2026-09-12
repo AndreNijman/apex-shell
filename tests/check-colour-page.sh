@@ -167,9 +167,12 @@ want "the element that shows the reason wraps it and never clips it" \
 # The profile pills are a Flow and can only wrap against a width they are
 # given. In CfgRow's right-hand slot they get childrenRect, lay six profile
 # names out in one line and push the readout off the left of the row.
+# Both spellings of the scaler: `Theme.` is the shell-wide set and `theme.` is
+# this output's (P1-040). A rule that knew only one would stop checking the file
+# the moment it was migrated — silently, which is how a guard retires itself.
 want "the profile control is given a width to wrap against" \
     bash -c 'sed -n "/CfgSegmented {/,/^                }/p" "$1" \
-             | grep -q "width:   parent.width - Theme.px(20)"' _ "$page"
+             | grep -qE "width:[[:space:]]+parent\.width - (Theme|theme)\.px\(20\)"' _ "$page"
 
 # ── The suite may never touch the real colour daemon ─────────────────────────
 #

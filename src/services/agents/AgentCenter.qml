@@ -61,6 +61,8 @@ import "../agentstate.js" as AgentState
 
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     // Set by the dashboard: true only when this page is genuinely in front of
     // the user. Drives the poll rate through the refcount.
@@ -103,10 +105,10 @@ Item {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.topMargin: Theme.px(8)
-        anchors.leftMargin: Theme.px(10)
-        anchors.rightMargin: Theme.px(10)
-        spacing: Theme.px(7)
+        anchors.topMargin: theme.px(8)
+        anchors.leftMargin: theme.px(10)
+        anchors.rightMargin: theme.px(10)
+        spacing: theme.px(7)
 
         AgentHelpEntry { width: parent.width }
         AgentHelpCard   { width: parent.width }
@@ -138,7 +140,7 @@ Item {
     Item {
         id: pageBody
         anchors.top: helpStrip.bottom
-        anchors.topMargin: Theme.px(6)
+        anchors.topMargin: theme.px(6)
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -155,21 +157,21 @@ Item {
         Column {
             anchors.centerIn: parent
             width: parent.width * 0.8
-            spacing: Theme.px(10)
+            spacing: theme.px(10)
             visible: AgentService.everChecked && !AgentService.daemonUp
                      && !root._hasRemote
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "󰒲"
-                font.pixelSize: Theme.fs(42)
+                font.pixelSize: theme.fs(42)
                 color: Theme.subtext
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "The agent runtime is not running"
                 color: Theme.text
-                font.pixelSize: Theme.fs(14)
+                font.pixelSize: theme.fs(14)
             }
             Text {
                 width: parent.width
@@ -179,7 +181,7 @@ Item {
                       "It is opt-in. Running claude, opencode or codex directly " +
                       "works exactly as it always did."
                 color: Theme.subtext
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
             }
         }
 
@@ -187,20 +189,20 @@ Item {
         Column {
             anchors.centerIn: parent
             width: parent.width * 0.8
-            spacing: Theme.px(8)
+            spacing: theme.px(8)
             visible: AgentService.daemonUp && root._empty && !root._hasRemote
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "󰚩"
-                font.pixelSize: Theme.fs(42)
+                font.pixelSize: theme.fs(42)
                 color: Theme.subtext
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "No agent sessions"
                 color: Theme.text
-                font.pixelSize: Theme.fs(14)
+                font.pixelSize: theme.fs(14)
             }
             Text {
                 width: parent.width
@@ -208,21 +210,21 @@ Item {
                 wrapMode: Text.WordWrap
                 text: "Start one with  a  or  apex agent run"
                 color: Theme.subtext
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
             }
         }
 
         // ── The list ─────────────────────────────────────────────────────────────
         ScrollView {
             anchors.fill: parent
-            anchors.margins: Theme.px(6)
+            anchors.margins: theme.px(6)
             clip: true
             visible: (AgentService.daemonUp && !root._empty) || root._hasRemote
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
             Column {
-                width: root.width - Theme.fs(20)
-                spacing: Theme.px(6)
+                width: root.width - theme.fs(20)
+                spacing: theme.px(6)
 
                 // ── 1. Privilege requests ────────────────────────────────────────
                 SectionHeading {
@@ -296,17 +298,17 @@ Item {
                     width: parent.width
                     visible: root._hasRemote && AgentService.everChecked
                              && !AgentService.daemonUp
-                    height: visible ? localOffLabel.implicitHeight + Theme.fs(12) : 0
+                    height: visible ? localOffLabel.implicitHeight + theme.fs(12) : 0
 
                     Text {
                         id: localOffLabel
                         anchors.left: parent.left
-                        anchors.leftMargin: Theme.px(4)
+                        anchors.leftMargin: theme.px(4)
                         anchors.bottom: parent.bottom
                         text: "This machine's agent runtime is not running  ·  "
                               + "apex agent enable"
                         color: Theme.subtext
-                        font.pixelSize: Theme.fs(10)
+                        font.pixelSize: theme.fs(10)
                     }
                 }
 
@@ -317,7 +319,7 @@ Item {
                     id: remoteHeading
                     visible: root._hasRemote
                     width: parent.width
-                    height: visible ? Theme.fs(28) : 0
+                    height: visible ? theme.fs(28) : 0
 
                     SectionHeading {
                         anchors.fill: parent
@@ -331,7 +333,7 @@ Item {
                     // because a person clicking Refresh is not churn.
                     SmallIconButton {
                         anchors.right: parent.right
-                        anchors.rightMargin: Theme.px(6)
+                        anchors.rightMargin: theme.px(6)
                         anchors.verticalCenter: parent.verticalCenter
                         icon: "󰑐"
                         tip: RemoteAgentService.busy ? "Checking devices…"
@@ -372,18 +374,18 @@ Item {
                 Item {
                     width: parent.width
                     visible: root._hasRemote
-                    height: visible ? attachHint.implicitHeight + Theme.fs(14) : 0
+                    height: visible ? attachHint.implicitHeight + theme.fs(14) : 0
 
                     Text {
                         id: attachHint
                         anchors.left: parent.left
-                        anchors.leftMargin: Theme.px(4)
+                        anchors.leftMargin: theme.px(4)
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
                         wrapMode: Text.WordWrap
                         text: "Attach with  apex host run -t <device> -- apex agent attach <id>"
                         color: Theme.subtext
-                        font.pixelSize: Theme.fs(9)
+                        font.pixelSize: theme.fs(9)
                     }
                 }
             }

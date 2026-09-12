@@ -66,6 +66,8 @@ import "search.js" as Search
 
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     // "A user can genuinely see this right now" — window visibility AND page
     // selection AND not locked, handed down by Dashboard. Item `visible` is not
@@ -459,14 +461,14 @@ Item {
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text:           root.query !== "" ? "󰩄" : "󱗃"
-                    font.pixelSize: Theme.fs(28)
+                    font.pixelSize: theme.fs(28)
                     color:          Qt.rgba(1,1,1,0.18)
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text:           root.query !== "" ? "No results" : "No apps found"
                     color:          Qt.rgba(1,1,1,0.25)
-                    font.pixelSize: Theme.fs(13)
+                    font.pixelSize: theme.fs(13)
                 }
             }
 
@@ -593,7 +595,7 @@ Item {
                                         if (g !== "") return g
                                         return String(rowItem.modelData.name).charAt(0).toUpperCase()
                                     }
-                                    font.pixelSize: Theme.fs(13); font.bold: true
+                                    font.pixelSize: theme.fs(13); font.bold: true
                                     color: rowItem.isDestructive ? Theme.danger
                                          : rowItem.isChanging    ? Theme.warning
                                          : Theme.active
@@ -612,7 +614,7 @@ Item {
                                 id: label
                                 width:          parent.width
                                 text:           rowItem.modelData ? rowItem.modelData.name : ""
-                                font.pixelSize: Theme.fs(13)
+                                font.pixelSize: theme.fs(13)
                                 color:          rowItem.isSel ? Theme.active : Theme.text
                                 wrapMode:       rowItem.isText ? Text.Wrap : Text.NoWrap
                                 elide:          rowItem.isText ? Text.ElideNone : Text.ElideRight
@@ -631,7 +633,7 @@ Item {
                                 visible:        rowItem.modelData
                                                 && (rowItem.modelData.detail ?? "") !== ""
                                 text:           rowItem.modelData ? (rowItem.modelData.detail ?? "") : ""
-                                font.pixelSize: Theme.fs(10)
+                                font.pixelSize: theme.fs(10)
                                 color:          Qt.rgba(1, 1, 1, 0.32)
                                 elide:          Text.ElideRight
                                 maximumLineCount: 1
@@ -655,7 +657,7 @@ Item {
                                 id: badgeText
                                 anchors.centerIn: parent
                                 text: rowItem.isDestructive ? "cannot be undone" : "changes system"
-                                font.pixelSize: Theme.fs(9)
+                                font.pixelSize: theme.fs(9)
                                 color: rowItem.isDestructive ? Theme.danger : Theme.warning
                             }
                         }
@@ -673,7 +675,7 @@ Item {
                                          || rowH.hovered || rowItem.isSel)
                             text: rowItem.modelData && LauncherState.isPinned(rowItem.modelData.payload)
                                       ? "󰐃" : "󰤱"
-                            font.pixelSize: Theme.fs(13)
+                            font.pixelSize: theme.fs(13)
                             color: rowItem.modelData && LauncherState.isPinned(rowItem.modelData.payload)
                                         ? Theme.active
                                         : Qt.rgba(1, 1, 1, pinArea.containsMouse ? 0.75 : 0.30)
@@ -749,7 +751,7 @@ Item {
                              ? "󰀦  " + root.previewInfo.title
                              : "󰑓  " + root.previewInfo.title)
                           : ""
-                    font.pixelSize: Theme.fs(13)
+                    font.pixelSize: theme.fs(13)
                     font.bold: true
                     color: root.previewInfo && root.previewInfo.klass === "destructive"
                                ? Theme.danger : Theme.warning
@@ -759,7 +761,7 @@ Item {
                 Text {
                     width: parent.width
                     text: root.previewInfo ? root.previewInfo.what : ""
-                    font.pixelSize: Theme.fs(11)
+                    font.pixelSize: theme.fs(11)
                     color: Qt.rgba(1, 1, 1, 0.72)
                     wrapMode: Text.WordWrap
                 }
@@ -769,7 +771,7 @@ Item {
                 Text {
                     width: parent.width
                     text: root.previewInfo ? "Runs as: " + root.previewInfo.permission : ""
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                     color: Qt.rgba(1, 1, 1, 0.45)
                     wrapMode: Text.WordWrap
                 }
@@ -781,7 +783,7 @@ Item {
                              ? "This cannot be undone."
                              : "To undo: " + root.previewInfo.undoes)
                           : ""
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                     color: root.previewInfo && root.previewInfo.undoes === ""
                                ? Theme.danger : Qt.rgba(1, 1, 1, 0.45)
                     wrapMode: Text.WordWrap
@@ -801,7 +803,7 @@ Item {
                         anchors { fill: parent; margins: 6 }
                         text: root.previewInfo ? root.previewInfo.commandLine : ""
                         font.family: "monospace"
-                        font.pixelSize: Theme.fs(10)
+                        font.pixelSize: theme.fs(10)
                         color: Qt.rgba(1, 1, 1, 0.7)
                         wrapMode: Text.WrapAnywhere
                     }
@@ -818,7 +820,7 @@ Item {
                                  ? "apex resolve had nothing to say about that name."
                                  : SearchService.resolveText)
                     font.family: "monospace"
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                     color: Qt.rgba(1, 1, 1, 0.55)
                     wrapMode: Text.WrapAnywhere
                     maximumLineCount: 8
@@ -840,7 +842,7 @@ Item {
                             id: runText
                             anchors.centerIn: parent
                             text: "Run  ·  Ctrl+Enter"
-                            font.pixelSize: Theme.fs(11)
+                            font.pixelSize: theme.fs(11)
                             font.bold: true
                             color: Theme.fixedLight
                         }
@@ -864,7 +866,7 @@ Item {
                             id: cancelText
                             anchors.centerIn: parent
                             text: "Cancel  ·  Esc"
-                            font.pixelSize: Theme.fs(11)
+                            font.pixelSize: theme.fs(11)
                             color: Theme.text
                         }
                         HoverHandler { id: cancelHov; cursorShape: Qt.PointingHandCursor }
@@ -895,7 +897,7 @@ Item {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "󰍉"; font.pixelSize: Theme.fs(16)
+                    text: "󰍉"; font.pixelSize: theme.fs(16)
                     color: searchInput.activeFocus
                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7)
                            : Qt.rgba(1,1,1,0.35)
@@ -911,7 +913,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         text:    "Search  ·  install …  ·  ssh …  ·  ~/  ·  > commands  ·  ? asks"
                         color:   Qt.rgba(1,1,1,0.22)
-                        font.pixelSize: Theme.fs(13)
+                        font.pixelSize: theme.fs(13)
                         visible: searchInput.text === ""
                     }
 
@@ -920,7 +922,7 @@ Item {
                         anchors { fill: parent; topMargin: 2; bottomMargin: 2 }
                         verticalAlignment: TextInput.AlignVCenter
                         color:          Theme.text
-                        font.pixelSize: Theme.fs(13)
+                        font.pixelSize: theme.fs(13)
                         selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
                         clip: true
 

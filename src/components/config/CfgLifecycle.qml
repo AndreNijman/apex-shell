@@ -26,6 +26,8 @@ import "settings-semantics.js" as Semantics
 // page's writes are landing at all.
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     // One of settings-semantics.js's STATES: "live", "staged", "applied",
     // "saved". An unrecognised value renders nothing rather than guessing,
@@ -42,7 +44,7 @@ Item {
 
     width: parent ? parent.width : 0
     visible: root._shown
-    implicitHeight: root._shown ? Math.max(Theme.px(30), text.implicitHeight + Theme.px(14)) : 0
+    implicitHeight: root._shown ? Math.max(theme.px(30), text.implicitHeight + theme.px(14)) : 0
     height: implicitHeight
 
     readonly property color _tone: root.error !== "" ? Theme.danger : Theme.active
@@ -72,8 +74,8 @@ Item {
             // it to the next page.
             Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
-                width: chip.implicitWidth + Theme.px(12)
-                height: Theme.px(17)
+                width: chip.implicitWidth + theme.px(12)
+                height: theme.px(17)
                 radius: 5
                 visible: root.error === "" && root.lifecycle !== ""
                 color: Qt.rgba(root._tone.r, root._tone.g, root._tone.b, 0.14)
@@ -81,7 +83,7 @@ Item {
                     id: chip
                     anchors.centerIn: parent
                     text: Semantics.stateLabel(root.lifecycle)
-                    font.pixelSize: Theme.fs(9)
+                    font.pixelSize: theme.fs(9)
                     font.weight: Font.Bold
                     color: root._tone
                 }
@@ -91,9 +93,9 @@ Item {
                 id: text
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width - (root.error === "" && root.lifecycle !== ""
-                                       ? chip.implicitWidth + Theme.px(20) : 0)
+                                       ? chip.implicitWidth + theme.px(20) : 0)
                 text: root.error !== "" ? root.error : root._blurb
-                font.pixelSize: Theme.fs(10)
+                font.pixelSize: theme.fs(10)
                 color: root.error !== "" ? Theme.danger : Theme.subtext
                 wrapMode: Text.WordWrap
             }

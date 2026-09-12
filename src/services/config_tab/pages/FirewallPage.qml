@@ -28,6 +28,8 @@ import "../../../components/config"
 // someone with root can flush the ruleset behind it.
 CfgScroll {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     lifecycle: "live"
 
@@ -56,9 +58,9 @@ CfgScroll {
         first: true
 
         Rectangle {
-            x:      Theme.px(10)
-            width:  parent.width - Theme.px(20)
-            height: Theme.px(66)
+            x:      theme.px(10)
+            width:  parent.width - theme.px(20)
+            height: theme.px(66)
             radius: 8
             color:        Qt.rgba(root._tone.r, root._tone.g, root._tone.b, 0.06)
             border.color: Qt.rgba(root._tone.r, root._tone.g, root._tone.b, 0.18)
@@ -66,25 +68,25 @@ CfgScroll {
 
             Row {
                 anchors.left:           parent.left
-                anchors.leftMargin:     Theme.px(12)
+                anchors.leftMargin:     theme.px(12)
                 anchors.verticalCenter: parent.verticalCenter
-                spacing:                Theme.px(10)
+                spacing:                theme.px(10)
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text:  FirewallService.enforcing ? "󰕥" : "󰦝"
                     color: root._tone
-                    font.pixelSize: Theme.fs(20)
+                    font.pixelSize: theme.fs(20)
                 }
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: Theme.px(3)
+                    spacing: theme.px(3)
 
                     Text {
                         text: FirewallService.checked
                             ? FirewallService.statusLine
                             : "Reading this machine…"
-                        font.pixelSize: Theme.fs(13)
+                        font.pixelSize: theme.fs(13)
                         font.weight:    Font.Medium
                         color:          Theme.text
                     }
@@ -96,7 +98,7 @@ CfgScroll {
                         // must not pretend it is.
                         text: "apex-firewall.service: " + FirewallService.unit
                             + "  ·  to read the live ruleset: " + FirewallService.readCommand
-                        font.pixelSize: Theme.fs(10)
+                        font.pixelSize: theme.fs(10)
                         font.family:    "JetBrains Mono"
                         color:          Theme.subtext
                     }
@@ -105,7 +107,7 @@ CfgScroll {
 
             CfgButton {
                 anchors.right:          parent.right
-                anchors.rightMargin:    Theme.px(8)
+                anchors.rightMargin:    theme.px(8)
                 anchors.verticalCenter: parent.verticalCenter
                 label:   FirewallService.busy ? "Checking…" : "Re-check"
                 icon:    "󰑐"
@@ -125,7 +127,7 @@ CfgScroll {
                          && FirewallService.unit !== "absent"
             Text {
                 text:           FirewallService.startCommand
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 font.family:    "JetBrains Mono"
                 color:          Theme.active
             }
@@ -149,13 +151,13 @@ CfgScroll {
         title: "Ports you have opened"
 
         Text {
-            x:              Theme.px(10)
-            width:          parent.width - Theme.px(20)
+            x:              theme.px(10)
+            width:          parent.width - theme.px(20)
             visible:        FirewallService.exceptions.length === 0
                                 && FirewallService.emptyLine !== ""
             text:           FirewallService.emptyLine
             wrapMode:       Text.WordWrap
-            font.pixelSize: Theme.fs(11)
+            font.pixelSize: theme.fs(11)
             color:          Theme.subtext
         }
 
@@ -184,11 +186,11 @@ CfgScroll {
         visible: FirewallService.openable.length > 0
 
         Text {
-            x:              Theme.px(10)
-            width:          parent.width - Theme.px(20)
+            x:              theme.px(10)
+            width:          parent.width - theme.px(20)
             text:           "By name rather than by port number, because \"5353/udp\" is something you paste from a forum and \"mdns\" is something you can decide about — and read back in six months and still understand. Each opens on every interface."
             wrapMode:       Text.WordWrap
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:          Theme.subtext
         }
 
@@ -200,7 +202,7 @@ CfgScroll {
                 description: modelData.description
                 Text {
                     text:           FirewallService.allowCommand(modelData.name)
-                    font.pixelSize: Theme.fs(10)
+                    font.pixelSize: theme.fs(10)
                     font.family:    "JetBrains Mono"
                     color:          Theme.active
                 }

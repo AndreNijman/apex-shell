@@ -14,6 +14,8 @@ import "../../../components/config"
 //   • Quick "open folder" shortcuts (xdg-open)
 CfgScroll {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     // Criterion 1. Live, but NOT through SettingsService — the toggles here
     // write to ScreenRecService and ShellState and the buttons act on the
@@ -55,7 +57,7 @@ CfgScroll {
             visible:        DiskService.disks.length === 0
             text:           "Reading disks…"
             color:          Qt.rgba(1,1,1,0.3)
-            font.pixelSize: Theme.fs(11)
+            font.pixelSize: theme.fs(11)
         }
 
         Column {
@@ -89,7 +91,7 @@ CfgScroll {
             Text {
                 text:           MemService.usedStr + " / " + MemService.totalStr
                 font.family:    "JetBrains Mono"
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 color:          Theme.active
             }
         }

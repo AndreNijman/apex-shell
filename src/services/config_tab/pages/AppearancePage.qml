@@ -10,6 +10,8 @@ import "../../../components/config"
 //   • Shape sliders — corner radius / border / notch — reflow the shell live
 CfgScroll {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     // Criterion 1. Everything on this page writes as you touch it and is
     // persisted; the one line at the top says so, in the same words the other
@@ -103,7 +105,7 @@ CfgScroll {
                 anchors.centerIn: parent
                 visible: WallpaperService.wallpapers.length === 0
                 text:    WallpaperService.applying ? "Applying…" : "No wallpapers in " + WallpaperService.wallpaperDir
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 color:   Qt.rgba(1,1,1,0.3)
             }
 
@@ -187,7 +189,7 @@ CfgScroll {
             width:          parent.width
             leftPadding:    10
             text:           "How matugen derives the palette from your wallpaper."
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:          Qt.rgba(1,1,1,0.4)
             wrapMode:       Text.WordWrap
         }

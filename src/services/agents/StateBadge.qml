@@ -35,6 +35,8 @@ import "../agentstate.js" as AgentState
 
 Item {
     id: badge
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     // A runtime state string: starting, working, waiting_for_user,
     // permission_request, complete, failed, exited. Anything else is drawn as
@@ -42,7 +44,7 @@ Item {
     property string sessionState: ""
 
     // Callers size this; the glyph follows.
-    property real size: Theme.px(24)
+    property real size: theme.px(24)
 
     readonly property string tone:   AgentState.tone(badge.sessionState)
     readonly property string weight: AgentState.weight(badge.sessionState)
@@ -71,7 +73,7 @@ Item {
                          badge.toneColor.b, 0.18)
                : "transparent"
 
-        border.width: badge.weight === "outline" ? Math.max(1, Theme.px(1)) : 0
+        border.width: badge.weight === "outline" ? Math.max(1, theme.px(1)) : 0
         border.color: badge.toneColor
 
         Behavior on color { ColorAnimation { duration: 120 } }

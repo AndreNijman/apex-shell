@@ -7,6 +7,8 @@ import "../Right"
 
 Row {
 	id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 	property string screenName: ""
 	spacing: 5
 	// Note: Do NOT add anchors.centerIn: parent here. TopBar handles that.
@@ -29,7 +31,7 @@ Row {
 		// Reserve the maximum possible inter-item spacing. The dock turns the
 		// remaining width into a whole-number icon capacity.
 		availableWidth: Math.max(0,
-			Theme.lNotchMaxWidth - Theme.notchPadding * 2
+			theme.lNotchMaxWidth - theme.notchPadding * 2
 			- controlPanel.width - workspaces.width
 			- (layoutDisplayer.visible ? layoutDisplayer.width : 0)
 			- (sysTray.visible ? sysTray.width : 0)

@@ -7,6 +7,8 @@ import "../"
 
 Column {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
     spacing: 4
     width: parent.width
 
@@ -204,7 +206,7 @@ Column {
         delegate: Rectangle {
             width:  root.width
             height: 44
-            radius: Theme.cornerRadius
+            radius: theme.cornerRadius
             // KEPT deliberately. This is a full-width row tint, not a button fill,
             // so it is far dimmer than Theme.dangerFill — using that token here
             // would light the whole menu row up like a confirm button.
@@ -220,14 +222,14 @@ Column {
 
                 Text {
                     text:           modelData.icon
-                    font.pixelSize: Theme.fs(16)
+                    font.pixelSize: theme.fs(16)
                     color:          modelData.danger && hov.hovered ? Theme.danger : hov.hovered?Theme.fixedDark:Theme.text
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
                 Text {
                     text:           modelData.label
-                    font.pixelSize: Theme.fs(13)
+                    font.pixelSize: theme.fs(13)
                     color:          modelData.danger && hov.hovered ? Theme.danger : hov.hovered?Theme.fixedDark:Theme.text
                     anchors.verticalCenter: parent.verticalCenter
                 }

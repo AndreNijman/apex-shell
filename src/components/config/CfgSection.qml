@@ -5,6 +5,8 @@ import "../../"
 // no card, so every Config tab reads as one consistent surface.
 Column {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
     property string title: ""
     property bool   first: false
     default property alias content: inner.data
@@ -19,7 +21,7 @@ Column {
             anchors.bottom:       parent.bottom
             anchors.bottomMargin: 4
             text:           root.title
-            font.pixelSize: Theme.fs(9)
+            font.pixelSize: theme.fs(9)
             font.weight:    Font.Bold
             color:          Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
         }

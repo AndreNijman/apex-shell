@@ -6,6 +6,8 @@ import "settings-semantics.js" as Semantics
 // right. Put the control as a child — it is placed in the right-hand slot.
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
     property string label:       ""
     property string description: ""
     property bool   hoverable:   true
@@ -145,7 +147,7 @@ Item {
         Text {
             width:          parent.width
             text:           root.label
-            font.pixelSize: Theme.fs(12)
+            font.pixelSize: theme.fs(12)
             color:          root.unavailable ? Qt.rgba(1,1,1,0.42) : Qt.rgba(1,1,1,0.75)
             elide:          Text.ElideRight
         }
@@ -153,7 +155,7 @@ Item {
             width:          parent.width
             visible:        text !== ""
             text:           root.unavailable ? root.disabledReason : root.description
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:          Qt.rgba(1,1,1,0.38)
             wrapMode:       Text.WordWrap
             maximumLineCount: 2
@@ -163,7 +165,7 @@ Item {
             width:          parent.width
             visible:        root._effectNote !== ""
             text:           root._effectNote
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:          Theme.info
             wrapMode:       Text.WordWrap
             maximumLineCount: 2
@@ -198,7 +200,7 @@ Item {
         anchors.right:          slot.children.length > 0 ? slot.left : parent.right
         anchors.rightMargin:    slot.children.length > 0 ? 10 : 8
         anchors.verticalCenter: parent.verticalCenter
-        font.pixelSize:         Theme.fs(10)
+        font.pixelSize:         theme.fs(10)
         font.family:            "JetBrains Mono"
         color:                  root.statusWarns ? Theme.attention : Qt.rgba(1,1,1,0.38)
     }

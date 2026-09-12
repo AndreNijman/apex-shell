@@ -5,11 +5,13 @@ import "../services/"
 
 PanelWindow {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }   // P1-040: this output's sizes
+
 
     property string edge: "bottom"
     property bool isBarEnabled: Theme.barEnabled
-    property int thickness: Theme.borderWidth      
-    property int radius: Theme.cornerRadius        
+    property int thickness: theme.borderWidth      
+    property int radius: theme.cornerRadius        
     property color fillColor: Theme.background 
     
     implicitWidth: (edge === "left" || edge === "right") ? radius : 0
@@ -32,7 +34,7 @@ PanelWindow {
     }
 
     margins {
-        top: (edge !== "bottom") ? ShellState.focusMode ? Theme.borderWidth : Theme.notchHeight: 0
+        top: (edge !== "bottom") ? ShellState.focusMode ? theme.borderWidth : theme.notchHeight: 0
         Behavior on top { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }}
         
         bottom: (edge !== "bottom") ? radius : 0

@@ -5,6 +5,8 @@ import "../../"
 // `accepted` (Enter).
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
     property alias  text: input.text
     property string placeholder: ""
 
@@ -46,7 +48,7 @@ Item {
         anchors.leftMargin:  10
         anchors.rightMargin: 10
         verticalAlignment:   TextInput.AlignVCenter
-        font.pixelSize:      Theme.fs(11)
+        font.pixelSize:      theme.fs(11)
         font.family:         "JetBrains Mono"
         color:               Theme.text
         clip:                true

@@ -13,6 +13,8 @@ import "../../"
 
 Item {
     id: blk
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     required property var block
 
@@ -46,7 +48,7 @@ Item {
     Component {
         id: headingPart
         Item {
-            implicitHeight: headingLabel.implicitHeight + Theme.px(22)
+            implicitHeight: headingLabel.implicitHeight + theme.px(22)
             Text {
                 id: headingLabel
                 anchors.left: parent.left
@@ -54,7 +56,7 @@ Item {
                 anchors.bottom: parent.bottom
                 text: blk._text
                 color: Theme.text
-                font.pixelSize: Theme.fs(12)
+                font.pixelSize: theme.fs(12)
                 font.bold: true
                 wrapMode: Text.WordWrap
             }
@@ -65,7 +67,7 @@ Item {
     Component {
         id: paragraphPart
         Item {
-            implicitHeight: bodyLabel.implicitHeight + Theme.px(7)
+            implicitHeight: bodyLabel.implicitHeight + theme.px(7)
             Text {
                 id: bodyLabel
                 anchors.left: parent.left
@@ -73,7 +75,7 @@ Item {
                 anchors.top: parent.top
                 text: blk._text
                 color: Theme.subtext
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 lineHeight: 1.35
                 wrapMode: Text.WordWrap
             }
@@ -84,8 +86,8 @@ Item {
     Component {
         id: commandPart
         Rectangle {
-            implicitHeight: commandLabel.implicitHeight + Theme.px(20)
-            radius: Theme.px(6)
+            implicitHeight: commandLabel.implicitHeight + theme.px(20)
+            radius: theme.px(6)
             color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
 
             Text {
@@ -93,11 +95,11 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
-                anchors.margins: Theme.px(10)
+                anchors.margins: theme.px(10)
                 text: blk._text
                 color: Theme.text
                 font.family: "JetBrains Mono"
-                font.pixelSize: Theme.fs(10)
+                font.pixelSize: theme.fs(10)
                 lineHeight: 1.4
                 // Wrapped rather than clipped. A command that runs past the
                 // pane is unreadable either way, and a wrapped one can at
@@ -111,21 +113,21 @@ Item {
     Component {
         id: termPart
         Item {
-            implicitHeight: termColumn.implicitHeight + Theme.px(11)
+            implicitHeight: termColumn.implicitHeight + theme.px(11)
 
             Column {
                 id: termColumn
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
-                spacing: Theme.px(3)
+                spacing: theme.px(3)
 
                 Text {
                     width: parent.width
                     text: blk._text
                     color: Theme.text
                     font.family: blk._monoTerm ? "JetBrains Mono" : Qt.application.font.family
-                    font.pixelSize: Theme.fs(11)
+                    font.pixelSize: theme.fs(11)
                     font.bold: !blk._monoTerm
                     wrapMode: Text.WordWrap
                 }
@@ -135,7 +137,7 @@ Item {
                     text: blk._desc
                     color: Theme.subtext
                     font.family: blk._monoDesc ? "JetBrains Mono" : Qt.application.font.family
-                    font.pixelSize: Theme.fs(blk._monoDesc ? 10 : 11)
+                    font.pixelSize: theme.fs(blk._monoDesc ? 10 : 11)
                     lineHeight: 1.35
                     wrapMode: Text.WordWrap
                 }
@@ -147,26 +149,26 @@ Item {
     Component {
         id: notePart
         Item {
-            implicitHeight: noteLabel.implicitHeight + Theme.px(18)
+            implicitHeight: noteLabel.implicitHeight + theme.px(18)
 
             Rectangle {
                 id: noteBar
                 anchors.left: parent.left
                 anchors.top: parent.top
-                width: Theme.px(2)
+                width: theme.px(2)
                 height: noteLabel.implicitHeight
-                radius: Theme.px(1)
+                radius: theme.px(1)
                 color: Theme.active
             }
             Text {
                 id: noteLabel
                 anchors.left: noteBar.right
-                anchors.leftMargin: Theme.px(10)
+                anchors.leftMargin: theme.px(10)
                 anchors.right: parent.right
                 anchors.top: parent.top
                 text: blk._text
                 color: Theme.text
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 lineHeight: 1.35
                 wrapMode: Text.WordWrap
             }
@@ -179,37 +181,37 @@ Item {
     Component {
         id: todoPart
         Item {
-            implicitHeight: todoColumn.implicitHeight + Theme.px(18)
+            implicitHeight: todoColumn.implicitHeight + theme.px(18)
 
             Rectangle {
                 id: todoBar
                 anchors.left: parent.left
                 anchors.top: parent.top
-                width: Theme.px(2)
+                width: theme.px(2)
                 height: todoColumn.implicitHeight
-                radius: Theme.px(1)
+                radius: theme.px(1)
                 color: Theme.warning
             }
             Column {
                 id: todoColumn
                 anchors.left: todoBar.right
-                anchors.leftMargin: Theme.px(10)
+                anchors.leftMargin: theme.px(10)
                 anchors.right: parent.right
                 anchors.top: parent.top
-                spacing: Theme.px(3)
+                spacing: theme.px(3)
 
                 Text {
                     text: "NOT IN THIS BUILD"
                     color: Theme.warning
-                    font.pixelSize: Theme.fs(8)
+                    font.pixelSize: theme.fs(8)
                     font.bold: true
-                    font.letterSpacing: Theme.fs(1)
+                    font.letterSpacing: theme.fs(1)
                 }
                 Text {
                     width: parent.width
                     text: blk._text
                     color: Theme.subtext
-                    font.pixelSize: Theme.fs(11)
+                    font.pixelSize: theme.fs(11)
                     lineHeight: 1.35
                     wrapMode: Text.WordWrap
                 }

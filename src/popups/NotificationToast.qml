@@ -8,12 +8,26 @@ import "../"
 
 PopupWindow {
 	id: root
+    // MEASURED: a PopupWindow's own `screen` is NOT the one it is
+
+    // anchored to. On two headless outputs the popup anchored to the
+
+    // bar on the 3840x2160 output reported the 1920x1080 one and
+
+    // would have been sized at 1.0 — silently, on the monitor the
+
+    // global factor was never for. The anchor window is given its
+
+    // screen by shell.qml, so it is the one that knows.
+
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.anchorWindow ? root.anchorWindow.screen : null) }
+
 
 	required property var anchorWindow
 
-	readonly property int toastWidth: Theme.notificationToastWidth
-	readonly property int fw: Theme.notchRadius
-	readonly property int fh: Theme.notchRadius
+	readonly property int toastWidth: theme.notificationToastWidth
+	readonly property int fw: theme.notchRadius
+	readonly property int fh: theme.notchRadius
 
 	implicitWidth:  toastWidth + fw
 	implicitHeight: 180
@@ -25,7 +39,7 @@ PopupWindow {
 	anchor.window: root.anchorWindow
 	anchor.rect: Qt.rect(
 		root.anchorWindow.width - root.implicitWidth / 2,
-		Theme.notchHeight,
+		theme.notchHeight,
 		0,
 		0
 	)
@@ -140,7 +154,7 @@ PopupWindow {
 			anchors.fill: parent
 			attachedEdge: "pill-right"
 			color:        Theme.background
-			radius:       Theme.cornerRadius
+			radius:       theme.cornerRadius
 		}
 
 		Rectangle {
@@ -261,7 +275,7 @@ PopupWindow {
 								anchors.centerIn: parent
 								text:           (root.current?.appName ?? "?").charAt(0).toUpperCase()
 								color:          Theme.text
-								font.pixelSize: Theme.fs(9)
+								font.pixelSize: theme.fs(9)
 								font.bold:      true
 							}
 						}
@@ -272,7 +286,7 @@ PopupWindow {
 						anchors.verticalCenter: parent.verticalCenter
 						text:                   root.current?.appName ?? ""
 						color:                  Theme.subtext
-						font.pixelSize:         Theme.fs(11)
+						font.pixelSize:         theme.fs(11)
 						elide:                  Text.ElideRight
 					}
 
@@ -290,7 +304,7 @@ PopupWindow {
 							anchors.centerIn: parent
 							text:             "✕"
 							color:            Theme.subtext
-							font.pixelSize:   Theme.fs(9)
+							font.pixelSize:   theme.fs(9)
 						}
 						HoverHandler { id: xHover }
 						TapHandler   { onTapped: root.startDismiss() }
@@ -301,7 +315,7 @@ PopupWindow {
 					width:            parent.width
 					text:             root.current?.summary ?? ""
 					color:            Theme.text
-					font.pixelSize:   Theme.fs(13)
+					font.pixelSize:   theme.fs(13)
 					font.bold:        true
 					wrapMode:         Text.WordWrap
 					maximumLineCount: 2
@@ -313,7 +327,7 @@ PopupWindow {
 					width:            parent.width
 					text:             root.current?.body ?? ""
 					color:            Theme.subtext
-					font.pixelSize:   Theme.fs(12)
+					font.pixelSize:   theme.fs(12)
 					wrapMode:         Text.WordWrap
 					maximumLineCount: 2
 					elide:            Text.ElideRight
@@ -345,7 +359,7 @@ PopupWindow {
 								anchors.centerIn: parent
 								text:             modelData?.text ?? ""
 								color:            Theme.text
-								font.pixelSize:   Theme.fs(11)
+								font.pixelSize:   theme.fs(11)
 							}
 							HoverHandler { id: actHover }
 							TapHandler {

@@ -17,6 +17,8 @@ import "../../"
 // seconds late.
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     implicitWidth:  row.implicitWidth + 6
     implicitHeight: row.implicitHeight
@@ -105,7 +107,7 @@ Item {
         Text {
             visible:        ShellState.vpnActive
             text:           "󰦝"
-            font.pixelSize: Theme.fs(16)
+            font.pixelSize: theme.fs(16)
             anchors.verticalCenter: parent.verticalCenter
             color:          hov.hovered ? Theme.active : Theme.text
             Behavior on color { ColorAnimation { duration: 200 } }
@@ -125,7 +127,7 @@ Item {
             id: netIcon
             text:           root._netIcon
             color:          root._netColor
-            font.pixelSize: Theme.fs(16)
+            font.pixelSize: theme.fs(16)
             anchors.verticalCenter: parent.verticalCenter
             Behavior on color { ColorAnimation { duration: 200 } }
             MouseArea {
@@ -143,7 +145,7 @@ Item {
         Text {
             visible:        root._bluetoothConnected
             text:           "󰂱"
-            font.pixelSize: Theme.fs(16)
+            font.pixelSize: theme.fs(16)
             anchors.verticalCenter: parent.verticalCenter
             color:          hov.hovered ? Theme.active : Theme.text
             Behavior on color { ColorAnimation { duration: 200 } }
@@ -162,7 +164,7 @@ Item {
         Text {
             visible:        ShellState.hotspot
             text:           "󰀂"
-            font.pixelSize: Theme.fs(14)
+            font.pixelSize: theme.fs(14)
             anchors.verticalCenter: parent.verticalCenter
             color:          Theme.active
             Behavior on color { ColorAnimation { duration: 200 } }

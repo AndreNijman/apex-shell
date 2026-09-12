@@ -4,6 +4,8 @@ import "../../"
 
 Rectangle {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     // ── One model, one delegate ───────────────────────────────────────────────
     // This used to be three Repeaters with near-identical delegates — a fixed
@@ -51,11 +53,11 @@ Rectangle {
 
     // --- 1. Capsule Container ---
     color: Theme.wsBackground
-    radius: Theme.wsRadius
+    radius: theme.wsRadius
 
     // Auto-size
-    width: workspaceRow.width + (Theme.wsPadding * 2)
-    height: Theme.wsDotSize + (Theme.wsPadding * 2)
+    width: workspaceRow.width + (theme.wsPadding * 2)
+    height: theme.wsDotSize + (theme.wsPadding * 2)
 
     property bool scrollBusy: false
 
@@ -95,7 +97,7 @@ Rectangle {
     Row {
         id: workspaceRow
         anchors.centerIn: parent
-        spacing: Theme.wsSpacing
+        spacing: theme.wsSpacing
 
         // Logic: Fade out dots when Scratchpad is active
         opacity: root.isScratchpad ? 0 : 1
@@ -145,9 +147,9 @@ Rectangle {
                 readonly property bool isUrgent:   dot.modelData ? dot.modelData.isUrgent : false
                 readonly property bool isOccupied: dot.modelData ? dot.modelData.occupied : false
 
-                height: Theme.wsDotSize
+                height: theme.wsDotSize
                 radius: height / 2
-                width:  isFocused ? Theme.wsActiveWidth : Theme.wsDotSize
+                width:  isFocused ? theme.wsActiveWidth : theme.wsDotSize
 
                 color: {
                     if (dot.isFocused)  return Theme.wsActive
@@ -212,7 +214,7 @@ Rectangle {
             anchors.centerIn: parent
             text: ""
             color: Theme.fixedLight
-            font.pixelSize: Theme.fs(14)
+            font.pixelSize: theme.fs(14)
         }
 
         MouseArea {

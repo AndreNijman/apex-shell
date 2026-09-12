@@ -643,13 +643,13 @@ StatCard {
             Text {
                 id: brightLbl
                 anchors { left: parent.left; top: parent.top }
-                text: "BRIGHTNESS"; font.pixelSize: Theme.fs(9); font.weight: Font.Bold
+                text: "BRIGHTNESS"; font.pixelSize: theme.fs(9); font.weight: Font.Bold
                 color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
             }
             Text {
                 anchors { right: parent.right; top: parent.top }
                 text: Math.round(root._brightVal * 100) + "%"
-                font.pixelSize: Theme.fs(9); font.family: "JetBrains Mono"; font.weight: Font.Bold
+                font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"; font.weight: Font.Bold
                 color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7)
             }
 
@@ -659,7 +659,7 @@ StatCard {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "󰃞"; font.pixelSize: Theme.fs(13)
+                    text: "󰃞"; font.pixelSize: theme.fs(13)
                     color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.35)
                 }
 
@@ -704,7 +704,7 @@ StatCard {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "󰃠"; font.pixelSize: Theme.fs(13)
+                    text: "󰃠"; font.pixelSize: theme.fs(13)
                     color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.75)
                 }
             }
@@ -718,7 +718,7 @@ StatCard {
 
         Text {
             id: qsLbl; width: parent.width
-            text: "QUICK SETTINGS"; font.pixelSize: Theme.fs(9); font.weight: Font.Bold
+            text: "QUICK SETTINGS"; font.pixelSize: theme.fs(9); font.weight: Font.Bold
             color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
         }
         Item { width: parent.width; height: 8 }
@@ -768,19 +768,19 @@ StatCard {
                         anchors { left: parent.left; bottom: parent.bottom; margins: 9 }
                         spacing: 2
                         Text {
-                            text: btn.icon; font.pixelSize: Theme.fs(17)
+                            text: btn.icon; font.pixelSize: theme.fs(17)
                             color: btn.on ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.40)
                             Behavior on color { ColorAnimation { duration: 130 } }
                         }
                         Text {
-                            text: btn.label; font.pixelSize: Theme.fs(9); font.weight: Font.Medium
+                            text: btn.label; font.pixelSize: theme.fs(9); font.weight: Font.Medium
                             color: btn.on ? Theme.text : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.45)
                             Behavior on color { ColorAnimation { duration: 130 } }
                         }
                         Text {
                             visible: btn.sublabel !== ""
                             text:    btn.sublabel
-                            font.pixelSize: Theme.fs(8); font.family: "JetBrains Mono"
+                            font.pixelSize: theme.fs(8); font.family: "JetBrains Mono"
                             color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.65)
                             width: btn.width - 18; elide: Text.ElideRight
                         }
@@ -946,7 +946,7 @@ StatCard {
         width:  180
         // Height fits "Off" row + all shader rows, capped at 280
         height: Math.min(280, pickerCol.implicitHeight + 16)
-        radius: Theme.cornerRadius
+        radius: theme.cornerRadius
 
         color: Qt.rgba(
             Math.min(1, Theme.background.r + 0.05),
@@ -986,7 +986,7 @@ StatCard {
                 Text {
                     width: parent.width
                     text: "SHADER"
-                    font.pixelSize: Theme.fs(9); font.weight: Font.Bold
+                    font.pixelSize: theme.fs(9); font.weight: Font.Bold
                     color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
                     leftPadding: 4
                     bottomPadding: 4
@@ -1008,14 +1008,14 @@ StatCard {
                         spacing: 8
                         Text {
                             text:           parent.parent.isActive ? "●" : "○"
-                            font.pixelSize: Theme.fs(9)
+                            font.pixelSize: theme.fs(9)
                             color: parent.parent.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.30)
                             anchors.verticalCenter: parent.verticalCenter
                             Behavior on color { ColorAnimation { duration: 100 } }
                         }
                         Text {
                             text:           "Off"
-                            font.pixelSize: Theme.fs(12)
+                            font.pixelSize: theme.fs(12)
                             color: parent.parent.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.65)
                             anchors.verticalCenter: parent.verticalCenter
                             Behavior on color { ColorAnimation { duration: 100 } }
@@ -1051,14 +1051,14 @@ StatCard {
                             spacing: 8
                             Text {
                                 text:           parent.parent.isActive ? "●" : "○"
-                                font.pixelSize: Theme.fs(9)
+                                font.pixelSize: theme.fs(9)
                                 color: parent.parent.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.30)
                                 anchors.verticalCenter: parent.verticalCenter
                                 Behavior on color { ColorAnimation { duration: 100 } }
                             }
                             Text {
                                 text:           modelData
-                                font.pixelSize: Theme.fs(12)
+                                font.pixelSize: theme.fs(12)
                                 color: parent.parent.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.65)
                                 anchors.verticalCenter: parent.verticalCenter
                                 elide: Text.ElideRight
@@ -1076,7 +1076,7 @@ StatCard {
                     width:   parent.width
                     visible: root.filterList.length === 0
                     text:    "Loading…"
-                    font.pixelSize: Theme.fs(11)
+                    font.pixelSize: theme.fs(11)
                     color:   Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.25)
                     horizontalAlignment: Text.AlignHCenter
                     topPadding: 4
