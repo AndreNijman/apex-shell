@@ -37,10 +37,24 @@ PopupWindow {
     mask:    Region { item: maskProxy }
 
     // ── Position: Right Center ────────────────────────────────────────────────
+    //
+    // The height this centres on is the ANCHOR's output, for the same measured
+    // reason the token set above resolves from the anchor: a PopupWindow's own
+    // `screen` is not the output it is anchored to. This used to read
+    // `root.screen.height`, so on a mixed desk the panel anchored to the bar on
+    // the 2160px monitor was centred on the 1080px one's height — off by half
+    // the difference, 540px up. It survived because on a single monitor the two
+    // heights are the same number, and because P1-040 round two fixed the SIZE
+    // the six popups are drawn at and left this, the POSITION, as a named
+    // remainder on ROADMAP/state/agents/p1-040.md.
+    readonly property int anchorHeight: (root.anchorWindow && root.anchorWindow.screen)
+                                        ? root.anchorWindow.screen.height
+                                        : (root.screen ? root.screen.height : 1080)
+
     anchor.window:  anchorWindow
     anchor.rect: Qt.rect(
         anchorWindow.width - root.fw,
-        (root.screen.height + root.fh + 5)/2,
+        (root.anchorHeight + root.fh + 5)/2,
         0,
         0
     )
