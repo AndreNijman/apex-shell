@@ -115,7 +115,7 @@ StatCard {
             Text {
                 anchors.centerIn: parent
                 text:           "󰀄"
-                font.pixelSize: Theme.fs(28)
+                font.pixelSize: theme.fs(28)
                 color:          Theme.active
                 visible:        root.avatarPath === ""
             }
@@ -128,18 +128,18 @@ StatCard {
 
             Text {
                 text:           root._user
-                font.pixelSize: Theme.fs(17); font.weight: Font.DemiBold
+                font.pixelSize: theme.fs(17); font.weight: Font.DemiBold
                 color:          Theme.active
             }
 
             Row {
                 spacing: 8
                 Text {
-                    text: "󰣇"; font.pixelSize: Theme.fs(12); color: Theme.active
+                    text: "󰣇"; font.pixelSize: theme.fs(12); color: Theme.active
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 Text {
-                    text: root._wm; font.pixelSize: Theme.fs(12)
+                    text: root._wm; font.pixelSize: theme.fs(12)
                     color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b,0.55)
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -148,11 +148,11 @@ StatCard {
             Row {
                 spacing: 8
                 Text {
-                    text: "󰔚"; font.pixelSize: Theme.fs(12); color: Theme.active
+                    text: "󰔚"; font.pixelSize: theme.fs(12); color: Theme.active
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 Text {
-                    text: root._uptime; font.pixelSize: Theme.fs(12)
+                    text: root._uptime; font.pixelSize: theme.fs(12)
                     font.family: "JetBrains Mono"
                     color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b,0.55)
                     anchors.verticalCenter: parent.verticalCenter

@@ -12,6 +12,8 @@ import "../"
 
 PanelWindow {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }   // P1-040: this output's sizes
+
 
     anchors.top:    true
     anchors.left:   true
@@ -36,8 +38,8 @@ PanelWindow {
     
     readonly property int panelWidth:  980
     readonly property int panelHeight: 420
-    readonly property int fw:          Theme.notchRadius
-    readonly property int fh:          Theme.notchRadius
+    readonly property int fw:          theme.notchRadius
+    readonly property int fh:          theme.notchRadius
 
     property bool windowVisible: false
     visible: windowVisible
@@ -156,10 +158,10 @@ PanelWindow {
         id: sizer
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom:           parent.bottom
-        anchors.bottomMargin:     Theme.borderWidth
+        anchors.bottomMargin:     theme.borderWidth
         clip: true
 
-        width:  Popups.wallpaperOpen ? root.panelWidth + 2 * root.fw : Theme.cNotchMinWidth + 2 * root.fw
+        width:  Popups.wallpaperOpen ? root.panelWidth + 2 * root.fw : theme.cNotchMinWidth + 2 * root.fw
         height: Popups.wallpaperOpen ? root.panelHeight : 0
 
         Behavior on width  { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
@@ -178,7 +180,7 @@ PanelWindow {
             anchors.fill: parent
             attachedEdge: "bottom"
             color:        Theme.background
-            radius:       Theme.cornerRadius
+            radius:       theme.cornerRadius
             flareWidth:   root.fw
             flareHeight:  root.fh
         }
@@ -253,7 +255,7 @@ PanelWindow {
                     visible:          wallGrid.count === 0
                     text:             "No wallpapers found in " + WallpaperService.wallpaperDir
                     color:            Qt.rgba(1,1,1,0.25)
-                    font.pixelSize:   Theme.fs(13)
+                    font.pixelSize:   theme.fs(13)
                 }
 
                 delegate: Item {
@@ -298,7 +300,7 @@ PanelWindow {
                                 width:               parent.width - 10
                                 text:                modelData.split("/").pop().replace(/\.[^/.]+$/, "")
                                 color:               isPreview ? Theme.active : Qt.rgba(1,1,1,0.65)
-                                font.pixelSize:      Theme.fs(10)
+                                font.pixelSize:      theme.fs(10)
                                 font.weight:         isPreview ? Font.Medium : Font.Normal
                                 elide:               Text.ElideRight
                                 horizontalAlignment: Text.AlignHCenter
@@ -404,7 +406,7 @@ PanelWindow {
                         Behavior on color        { ColorAnimation { duration: 100 } }
                         Behavior on border.color { ColorAnimation { duration: 100 } }
                         Text {
-                            anchors.centerIn: parent; text: "󰉋"; font.pixelSize: Theme.fs(15)
+                            anchors.centerIn: parent; text: "󰉋"; font.pixelSize: theme.fs(15)
                             color: (content.folderMode || folderBtnMA.containsMouse) ? Theme.active : Qt.rgba(1,1,1,0.5)
                             Behavior on color { ColorAnimation { duration: 100 } }
                         }
@@ -457,7 +459,7 @@ PanelWindow {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "Search wallpapers…"
                                 color: (searchInput.activeFocus || filterBoxMA.containsMouse) ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7) : Qt.rgba(1,1,1,0.28)
-                                font.pixelSize: Theme.fs(12); visible: searchInput.text === ""
+                                font.pixelSize: theme.fs(12); visible: searchInput.text === ""
                             }
 
                             TextInput {
@@ -465,7 +467,7 @@ PanelWindow {
                                 anchors.fill:      parent
                                 verticalAlignment: TextInput.AlignVCenter
                                 color:             Theme.text
-                                font.pixelSize:    Theme.fs(12)
+                                font.pixelSize:    theme.fs(12)
                                 selectionColor:    Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
                                 clip:              true
                                 onTextChanged:     content.searchQuery = text
@@ -526,7 +528,7 @@ PanelWindow {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text:                   "Path: "
                                 color:                  (dirInput.activeFocus || filterBoxMA.containsMouse) ? Theme.active : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7)
-                                font.pixelSize:         Theme.fs(11)
+                                font.pixelSize:         theme.fs(11)
                             }
 
                             TextInput {
@@ -537,7 +539,7 @@ PanelWindow {
                                 anchors.bottom:    parent.bottom
                                 verticalAlignment: TextInput.AlignVCenter
                                 color:             Theme.text
-                                font.pixelSize:    Theme.fs(12)
+                                font.pixelSize:    theme.fs(12)
                                 font.family:       "JetBrains Mono"
                                 selectionColor:    Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
                                 clip:              true
@@ -574,21 +576,21 @@ PanelWindow {
                             id:                 schemeBtnRow; anchors.centerIn: parent; spacing: 7
                             Text {
                                 text:                   "󰏘"
-                                font.pixelSize:         Theme.fs(14)
+                                font.pixelSize:         theme.fs(14)
                                 color:                  (content.schemePopupOpen || schemeBtnMA.containsMouse) ? Theme.active : Qt.rgba(1,1,1,0.55)
                                 anchors.verticalCenter: parent.verticalCenter
                                 Behavior on color       { ColorAnimation { duration: 100 } }
                             }
                             Text {
                                 text:                   WallpaperService.scheme
-                                font.pixelSize:         Theme.fs(12)
+                                font.pixelSize:         theme.fs(12)
                                 color:                  (content.schemePopupOpen || schemeBtnMA.containsMouse) ? Theme.active : Qt.rgba(1,1,1,0.7)
                                 anchors.verticalCenter: parent.verticalCenter
                                 Behavior on color       { ColorAnimation { duration: 100 } }
                             }
                             Text {
                                 text:                   content.schemePopupOpen ? "▴" : "▾"
-                                font.pixelSize:         Theme.fs(8)
+                                font.pixelSize:         theme.fs(8)
                                 color:                  (content.schemePopupOpen || schemeBtnMA.containsMouse) ? Theme.active : Qt.rgba(1,1,1,0.35)
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -628,7 +630,7 @@ PanelWindow {
                     Text {
                         anchors.centerIn: parent
                         text:             WallpaperService.applying ? "…" : "Apply"
-                        font.pixelSize:   Theme.fs(12)
+                        font.pixelSize:   theme.fs(12)
                         font.weight:      Font.Medium 
                         color:            Theme.active
                         opacity:          applyBtn.active ? 1 : 0
@@ -665,7 +667,7 @@ PanelWindow {
 
             width:  schemeDropdownCol.implicitWidth + 32
             height: schemeDropdownCol.implicitHeight + 16
-            radius: Theme.cornerRadius
+            radius: theme.cornerRadius
 
             color:        Theme.background
             border.color: Theme.active
@@ -725,14 +727,14 @@ PanelWindow {
                             
                             Text {
                                 text:                   sel ? "●" : "○"
-                                font.pixelSize:         Theme.fs(10)
+                                font.pixelSize:         theme.fs(10)
                                 color:                  (sel || schemeItemMA.containsMouse) ? Theme.active : Qt.rgba(1,1,1,0.3)
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
                                 id:                     schemeItemText
                                 text:                   modelData
-                                font.pixelSize:         Theme.fs(13)
+                                font.pixelSize:         theme.fs(13)
                                 color:                  (sel || schemeItemMA.containsMouse) ? Theme.text : Qt.rgba(1,1,1,0.65)
                                 anchors.verticalCenter: parent.verticalCenter
                             }

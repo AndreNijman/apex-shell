@@ -32,6 +32,8 @@ import "../"
 
 PanelWindow {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }   // P1-040: this output's sizes
+
 
     anchors { top: true; bottom: true; left: true; right: true }
 
@@ -130,9 +132,9 @@ PanelWindow {
 
         Rectangle {
             anchors.fill: parent
-            radius: Theme.cornerRadius
+            radius: theme.cornerRadius
             color: Theme.background
-            border.width: Theme.borderWidth
+            border.width: theme.borderWidth
             border.color: Theme.border
         }
 
@@ -206,7 +208,7 @@ PanelWindow {
             Rectangle {
                 anchors.centerIn: parent
                 width: parent.width - 20
-                height: Math.max(1, Theme.borderWidth)
+                height: Math.max(1, theme.borderWidth)
                 color: Theme.border
                 opacity: 0.7
             }
@@ -221,7 +223,7 @@ PanelWindow {
 
             height: 32
             color: hover.hovered ? Theme.active : "transparent"
-            radius: Theme.cornerRadius > 6 ? 6 : Theme.cornerRadius
+            radius: theme.cornerRadius > 6 ? 6 : theme.cornerRadius
 
             // Inset so the hover highlight does not touch the card's border.
             anchors.leftMargin: 6
@@ -239,7 +241,7 @@ PanelWindow {
                 // popup. Theme.fs() scales a size calibrated at 1080p, which is
                 // the house convention — a literal pixelSize would be wrong on
                 // a scaled output.
-                font.pixelSize: Theme.fs(13)
+                font.pixelSize: theme.fs(13)
                 elide: Text.ElideRight
             }
 

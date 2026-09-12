@@ -7,6 +7,8 @@ import "../"
 
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     property bool showPercentage: false
 
@@ -84,7 +86,7 @@ Item {
             id: iconText
             text:                   root.icon
             color:                  root.iconColor
-            font.pixelSize:         Theme.fs(16)
+            font.pixelSize:         theme.fs(16)
             anchors.verticalCenter: parent.verticalCenter
 
             // Pulse when critically low and discharging
@@ -118,7 +120,7 @@ Item {
                 id: pctText
                 text:           root.pct + "%"
                 color:          hov.hovered ? Theme.active : Theme.text
-                font.pixelSize: Theme.fs(12)
+                font.pixelSize: theme.fs(12)
                 anchors.verticalCenter: parent.verticalCenter
                 Behavior on color { ColorAnimation { duration: 120 } }
             }

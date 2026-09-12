@@ -28,6 +28,8 @@ import "../components"
 
 PanelWindow {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }   // P1-040: this output's sizes
+
 
     required property string screenName
 
@@ -102,10 +104,10 @@ PanelWindow {
 
             anchors.centerIn: parent
 
-            width: Math.min(parent.width - Theme.px(80), Theme.px(920))
-            height: Math.min(parent.height - Theme.px(80), Theme.px(620))
+            width: Math.min(parent.width - theme.px(80), theme.px(920))
+            height: Math.min(parent.height - theme.px(80), theme.px(620))
 
-            radius: Theme.cornerRadius + Theme.px(4)
+            radius: theme.cornerRadius + theme.px(4)
             color: Theme.background
             border.color: Qt.rgba(1, 1, 1, 0.08)
             border.width: 1
@@ -137,8 +139,8 @@ PanelWindow {
                     left: nav.right
                     top: parent.top
                     bottom: parent.bottom
-                    topMargin: Theme.px(10)
-                    bottomMargin: Theme.px(10)
+                    topMargin: theme.px(10)
+                    bottomMargin: theme.px(10)
                 }
                 width: 1
                 color: Qt.rgba(1, 1, 1, 0.07)
@@ -153,7 +155,7 @@ PanelWindow {
                     right: parent.right
                     top: parent.top
                     bottom: parent.bottom
-                    leftMargin: Theme.px(1)
+                    leftMargin: theme.px(1)
                 }
 
                 readonly property var current: PageRegistry.pageFor(NexusState.page)
@@ -165,34 +167,34 @@ PanelWindow {
                         right: parent.right
                         top: parent.top
                     }
-                    height: Theme.px(58)
+                    height: theme.px(58)
 
                     Text {
                         id: title
                         anchors {
                             left: parent.left
-                            leftMargin: Theme.px(18)
+                            leftMargin: theme.px(18)
                             top: parent.top
-                            topMargin: Theme.px(12)
+                            topMargin: theme.px(12)
                         }
                         text: pane.current ? pane.current.title : ""
                         color: Theme.text
-                        font.pixelSize: Theme.fs(15)
+                        font.pixelSize: theme.fs(15)
                         font.bold: true
                     }
 
                     Text {
                         anchors {
                             left: parent.left
-                            leftMargin: Theme.px(18)
+                            leftMargin: theme.px(18)
                             top: title.bottom
-                            topMargin: Theme.px(2)
+                            topMargin: theme.px(2)
                             right: closeBtn.left
-                            rightMargin: Theme.px(8)
+                            rightMargin: theme.px(8)
                         }
                         text: pane.current ? pane.current.subtitle : ""
                         color: Theme.subtext
-                        font.pixelSize: Theme.fs(11)
+                        font.pixelSize: theme.fs(11)
                         elide: Text.ElideRight
                     }
 
@@ -200,12 +202,12 @@ PanelWindow {
                         id: closeBtn
                         anchors {
                             right: parent.right
-                            rightMargin: Theme.px(12)
+                            rightMargin: theme.px(12)
                             top: parent.top
-                            topMargin: Theme.px(12)
+                            topMargin: theme.px(12)
                         }
-                        width: Theme.px(28)
-                        height: Theme.px(28)
+                        width: theme.px(28)
+                        height: theme.px(28)
                         radius: width / 2
                         color: closeHov.hovered ? Qt.rgba(1, 1, 1, 0.10) : "transparent"
                         Behavior on color { ColorAnimation { duration: 120 } }
@@ -214,7 +216,7 @@ PanelWindow {
                             anchors.centerIn: parent
                             text: "󰅖"
                             color: closeHov.hovered ? Theme.text : Theme.subtext
-                            font.pixelSize: Theme.fs(13)
+                            font.pixelSize: theme.fs(13)
                         }
 
                         HoverHandler { id: closeHov; cursorShape: Qt.PointingHandCursor }
@@ -240,9 +242,9 @@ PanelWindow {
                             right: parent.right
                             top: header.bottom
                             bottom: parent.bottom
-                            leftMargin: Theme.px(8)
-                            rightMargin: Theme.px(8)
-                            bottomMargin: Theme.px(8)
+                            leftMargin: theme.px(8)
+                            rightMargin: theme.px(8)
+                            bottomMargin: theme.px(8)
                         }
 
                         shown: NexusState.page === modelData.id

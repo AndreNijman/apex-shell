@@ -12,6 +12,8 @@ import "../"
 
 PanelWindow {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }   // P1-040: this output's sizes
+
 
     // The output this overlay belongs to, passed in by shell.qml.
     //
@@ -21,28 +23,53 @@ PanelWindow {
     // what decides whether it maps. That loop was firing on every popup open.
     required property string screenName
 
+    // THIS output's bar, handed over by shell.qml from the same per-screen
+    // Scope that built both of them (P1-040).
+    //
+    // The three notch widths used to arrive through ShellState.topBar{L,C,R}Width
+    // — one singleton field per width, one bar per output, and every bar bound
+    // into it. Last writer won. That was harmless only for as long as every bar
+    // computed the SAME number, which is exactly what stops being true the
+    // moment a bar sizes itself from its own output's density: two bars would
+    // write two different widths into one field and this mask would carve its
+    // click-through gaps out of the other monitor's geometry, non-
+    // deterministically, depending on which bar re-evaluated last.
+    //
+    // There is no per-screen map here either. The bar object itself is the
+    // per-screen state, shell.qml already holds it, and PopupLayer already takes
+    // it the same way.
+    required property var topBar
+
     color: "transparent"
 
     mask: Region {
         Region {
-            x:      Theme.borderWidth
-            y:      Theme.notchHeight - Theme.borderWidth
-            width:  root.width - (Theme.borderWidth * 2)
-            height: root.height - Theme.notchHeight - Theme.borderWidth
+            x:      theme.borderWidth
+            y:      theme.notchHeight - theme.borderWidth
+            width:  root.width - (theme.borderWidth * 2)
+            height: root.height - theme.notchHeight - theme.borderWidth
         }
         Region {
-            x:      ShellState.topBarLWidth - Theme.borderWidth
+            x:      root.barLWidth - theme.borderWidth
             y:      0
-            width:  (root.width / 2) - (ShellState.topBarCWidth / 2) - ShellState.topBarLWidth+ Theme.borderWidth
-            height: Theme.notchHeight
+            width:  (root.width / 2) - (root.barCWidth / 2) - root.barLWidth + theme.borderWidth
+            height: theme.notchHeight
         }
         Region{
-            x:     (root.width / 2) + (ShellState.topBarCWidth / 2)
+            x:     (root.width / 2) + (root.barCWidth / 2)
             y:     0
-            width: (root.width / 2) - (ShellState.topBarCWidth / 2) - ShellState.topBarRWidth + Theme.borderWidth
-            height: Theme.notchHeight
+            width: (root.width / 2) - (root.barCWidth / 2) - root.barRWidth + theme.borderWidth
+            height: theme.notchHeight
         }
     }
+
+    // Named so the mask above reads as geometry rather than as null-guards, and
+    // so a suite can assert what this overlay carved without reaching into a
+    // Region's children. A bar is always present in the shell; the fallbacks are
+    // for a window built before its bar has finished constructing.
+    readonly property int barLWidth: root.topBar ? root.topBar.lWidth : 0
+    readonly property int barCWidth: root.topBar ? root.topBar.cWidth : 0
+    readonly property int barRWidth: root.topBar ? root.topBar.rWidth : 0
 
     // Span entire screen
     anchors {
@@ -52,10 +79,10 @@ PanelWindow {
         bottom: true
     }
     
-    margins.top: Theme.borderWidth // Start below the notch so it doesn't interfere with TopBar popups
-    margins.left: Theme.borderWidth
-    margins.right: Theme.borderWidth
-    margins.bottom: Theme.borderWidth
+    margins.top: theme.borderWidth // Start below the notch so it doesn't interfere with TopBar popups
+    margins.left: theme.borderWidth
+    margins.right: theme.borderWidth
+    margins.bottom: theme.borderWidth
     // Don't push windows away
     exclusionMode: ExclusionMode.Ignore
 

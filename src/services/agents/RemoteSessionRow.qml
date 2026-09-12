@@ -33,6 +33,8 @@ import "../agentlifecycle.js" as Lifecycle
 
 Item {
     id: srow
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     required property var session
 
@@ -40,13 +42,13 @@ Item {
         srow.session.exit_code === null && srow.session.exit_signal === null
     readonly property bool needsYou: AgentState.needsYou(srow.session.state)
 
-    height: Theme.px(30)
+    height: theme.px(30)
 
     Row {
         anchors.fill: parent
-        anchors.leftMargin: Theme.px(30)
-        anchors.rightMargin: Theme.px(8)
-        spacing: Theme.px(8)
+        anchors.leftMargin: theme.px(30)
+        anchors.rightMargin: theme.px(8)
+        spacing: theme.px(8)
 
         // The tree line, so a session reads as belonging to the host above it
         // rather than as a sibling of it.
@@ -54,7 +56,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: "└"
             color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.25)
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
         }
 
         // The same badge the local row draws, smaller. Deliberately identical,
@@ -65,14 +67,14 @@ Item {
             id: badge
             anchors.verticalCenter: parent.verticalCenter
             sessionState: srow.session.state
-            size: Theme.px(18)
+            size: theme.px(18)
         }
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text: AgentState.agentName(srow.session.agent)
             color: Theme.text
-            font.pixelSize: Theme.fs(11)
+            font.pixelSize: theme.fs(11)
             font.bold: true
         }
 
@@ -80,7 +82,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: "#" + srow.session.id
             color: Theme.subtext
-            font.pixelSize: Theme.fs(9)
+            font.pixelSize: theme.fs(9)
         }
 
         // Same split as the local row: the state word carries the tone, the
@@ -88,7 +90,7 @@ Item {
         Row {
             id: meta
             anchors.verticalCenter: parent.verticalCenter
-            width: srow.width - Theme.fs(190)
+            width: srow.width - theme.fs(190)
             spacing: 0
 
             readonly property string where:
@@ -103,7 +105,7 @@ Item {
             Text {
                 text: meta.where === "" ? "" : meta.where + "  ·  "
                 color: Theme.subtext
-                font.pixelSize: Theme.fs(9)
+                font.pixelSize: theme.fs(9)
                 elide: Text.ElideRight
                 width: Math.max(0, Math.min(implicitWidth,
                          meta.width - stateWord.implicitWidth - tailText.implicitWidth))
@@ -116,20 +118,20 @@ Item {
             Text {
                 text: "  ·  " + Lifecycle.badge(srow.session, Lifecycle.FROM_HOST)
                 color: Theme.subtext
-                font.pixelSize: Theme.fs(9)
+                font.pixelSize: theme.fs(9)
             }
             Text {
                 id: stateWord
                 text: AgentService.stateLabel(srow.session.state)
                 color: badge.toneColor
-                font.pixelSize: Theme.fs(9)
+                font.pixelSize: theme.fs(9)
                 font.bold: true
             }
             Text {
                 id: tailText
                 text: meta.tail
                 color: Theme.subtext
-                font.pixelSize: Theme.fs(9)
+                font.pixelSize: theme.fs(9)
             }
         }
     }

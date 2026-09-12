@@ -4,6 +4,8 @@ import "../../"
 // Action button. variant: "default" | "accent" | "danger".
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
     property string label:   ""
     property string icon:    ""
     property string variant: "default"
@@ -60,13 +62,13 @@ Item {
         Text {
             visible: root.icon !== ""
             text:    root.icon
-            font.pixelSize: Theme.fs(12)
+            font.pixelSize: theme.fs(12)
             anchors.verticalCenter: parent.verticalCenter
             color: root.variant === "default" ? Qt.rgba(1,1,1,0.7) : root._accent
         }
         Text {
             text: root.label
-            font.pixelSize: Theme.fs(11)
+            font.pixelSize: theme.fs(11)
             font.weight:    Font.Medium
             anchors.verticalCenter: parent.verticalCenter
             color: root.variant === "default" ? Qt.rgba(1,1,1,0.7) : root._accent

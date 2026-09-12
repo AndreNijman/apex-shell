@@ -25,42 +25,44 @@ import "../../"
 
 Rectangle {
     id: banner
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     // Drops the second line, for a surface that has already said the rest.
     property bool compact: false
 
-    radius:       Theme.px(8)
+    radius:       theme.px(8)
     color:        Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.08)
-    border.width: Math.max(1, Theme.px(1))
+    border.width: Math.max(1, theme.px(1))
     border.color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.35)
 
-    implicitHeight: content.implicitHeight + Theme.px(16)
+    implicitHeight: content.implicitHeight + theme.px(16)
     height: implicitHeight
 
     Row {
         id: content
         anchors.left:           parent.left
         anchors.right:          parent.right
-        anchors.leftMargin:     Theme.px(10)
-        anchors.rightMargin:    Theme.px(10)
+        anchors.leftMargin:     theme.px(10)
+        anchors.rightMargin:    theme.px(10)
         anchors.verticalCenter: parent.verticalCenter
-        spacing: Theme.px(9)
+        spacing: theme.px(9)
 
         Text {
             id: mark
             text:           "󰀦"
-            font.pixelSize: Theme.fs(15)
+            font.pixelSize: theme.fs(15)
             color:          Theme.danger
         }
 
         Column {
             width: parent.width - mark.width - content.spacing
-            spacing: Theme.px(2)
+            spacing: theme.px(2)
 
             Text {
                 width:          parent.width
                 text:           "Always Unrestricted is on"
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 font.bold:      true
                 color:          Theme.danger
                 wrapMode:       Text.WordWrap
@@ -74,7 +76,7 @@ Rectangle {
                 // invariants assert and the most this may claim.
                 text: "Agents started from now on run with no APEX sandbox. They are "
                     + "still not root, and secrets stay behind the broker."
-                font.pixelSize: Theme.fs(10)
+                font.pixelSize: theme.fs(10)
                 color:          Theme.subtext
                 wrapMode:       Text.WordWrap
             }

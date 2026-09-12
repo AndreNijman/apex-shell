@@ -739,7 +739,7 @@ ShellRoot {
     }
 
     function measureWidth(label, page, screenW) {
-        const w   = DashboardLayout.widthFor(page, screenW)
+        const w   = DashboardLayout.widthFor(Metrics, page, screenW)
         const box = w + 2 * Theme.notchRadius     // popups/Dashboard.qml sizer
         const room = screenW - 2 * root.sideRoom()
 
@@ -750,7 +750,7 @@ ShellRoot {
 
         // The bar inside it has to be able to hold six tabs. Asserted through
         // the same helper the window uses, so the two cannot drift.
-        const bar = DashboardLayout.barWidthFor(page, screenW)
+        const bar = DashboardLayout.barWidthFor(Metrics, page, screenW)
         root.check(label + ": the tab bar gets a usable width",
                    bar >= DashboardLayout.tabs.length * root.minTouch(),
                    "bar " + bar + "px for " + DashboardLayout.tabs.length
@@ -759,8 +759,8 @@ ShellRoot {
 
     // What has to hold even where the geometry is hopeless.
     function measureDegraded(label, page, screenW) {
-        const w   = DashboardLayout.widthFor(page, screenW)
-        const bar = DashboardLayout.barWidthFor(page, screenW)
+        const w   = DashboardLayout.widthFor(Metrics, page, screenW)
+        const bar = DashboardLayout.barWidthFor(Metrics, page, screenW)
         root.check(label + ": the dashboard keeps a positive width", w > 0,
                    "width " + w)
         root.check(label + ": the dashboard still fits the output", w <= screenW,
@@ -796,8 +796,8 @@ ShellRoot {
     // "Open in window" button with its 8px margin.
     function configNavHeight(dashHeight) {
         const content  = Theme.px(dashHeight)
-                       - (Theme.notchRadius + DashboardLayout.contentInset)
-                       - DashboardLayout.contentInset
+                       - (Theme.notchRadius + DashboardLayout.contentInset(Metrics))
+                       - DashboardLayout.contentInset(Metrics)
         const pageArea = content - hSwitcher.implicitHeight
         return pageArea - 16 - 8 - 6 - Theme.px(30) - 8
     }
@@ -965,12 +965,12 @@ ShellRoot {
             vShortHost.height = Theme.px(stepData.columnBase)
         } else if (stepData.kind === "h" || stepData.kind === "stress"
                 || stepData.kind === "live") {
-            hHost.width  = DashboardLayout.barWidthFor(stepData.page, stepData.screen.w)
+            hHost.width  = DashboardLayout.barWidthFor(Metrics, stepData.page, stepData.screen.w)
             hHost.height = hSwitcher.implicitHeight
         } else {
             vHost.height = root.configNavHeight(stepData.dashHeight)
             vHost.width  = Math.round(
-                (DashboardLayout.barWidthFor("config",
+                (DashboardLayout.barWidthFor(Metrics, "config",
                     live ? root.liveScreen.w : 1920) - 12) * 0.30)
         }
     }

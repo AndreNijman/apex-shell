@@ -96,11 +96,17 @@ function shellScaleFor(w, h, compositorScale) {
 
 /// True when a set of outputs cannot share one shell factor.
 ///
-/// The shell has ONE process-wide scale — Theme and Metrics are QML singletons
-/// read directly by 82 files at 831 call sites — so a desk whose outputs land in
-/// different buckets is a desk where the factor is wrong for at least one of
-/// them. This is what lets the Display page say so instead of leaving the user
-/// to notice that the bar is half the height of the other monitor's.
+/// Theme and Metrics are QML singletons, so the factor they carry is
+/// process-wide, and a desk whose outputs land in different buckets is a desk
+/// where THAT factor is wrong for at least one of them. This is what lets the
+/// Display page say so instead of leaving the user to notice that the bar is
+/// half the height of the other monitor's.
+///
+/// It is no longer the whole story: since P1-040 a surface resolves its own
+/// output's factor through theme/OutputScale and reads a ThemeSet built at it,
+/// so the singleton's factor is the fallback rather than the only answer. The
+/// disagreement is still worth reporting, because a mixed desk is still a desk
+/// where one global compositor scale would serve the user better.
 ///
 /// `outputs` is [{ width, height, scale }] — physical mode plus compositor scale.
 function bucketsDisagree(outputs) {

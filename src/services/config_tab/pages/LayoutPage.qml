@@ -13,6 +13,8 @@ import "../../../components/config"
 // reflowed live via Metrics.
 CfgScroll {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     lifecycle: "live"
     lifecycleError: SettingsService.lastError
@@ -25,7 +27,7 @@ CfgScroll {
         CfgRow {
             label:       "Mode"
             description: SettingsService.scaleMode === "auto"
-                             ? "From the screen size — currently ×" + Metrics.scale.toFixed(2)
+                             ? "From the screen size — currently ×" + theme.scale.toFixed(2)
                              : "Fixed factor"
             CfgSegmented {
                 options: [

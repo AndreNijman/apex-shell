@@ -49,8 +49,10 @@ import "../../"
 
 Row {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
-    spacing: Theme.spacing
+
+    spacing: theme.spacing
 
     // No plugins is the overwhelmingly common case, and an empty Row still
     // participates in the bar's width arithmetic. Collapsing it entirely keeps
@@ -63,7 +65,7 @@ Row {
     // screen. A clamp is not an insult to plugin authors — it is the thing
     // that lets an author's mistake be visibly their widget's problem rather
     // than an unexplained bar that stopped showing the time.
-    readonly property int maxWidgetWidth: Math.round(120 * Theme.scale)
+    readonly property int maxWidgetWidth: Math.round(120 * theme.scale)
 
     Repeater {
         id: repeater
