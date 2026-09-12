@@ -161,6 +161,52 @@ function eq(name, got, want) {
           S.bucketsDisagree([fourK2, hd, { width: 0, height: 0, scale: 1 }]) === false);
 }
 
+// ── factors(): the registry's model ──────────────────────────────────────────
+//
+// theme/OutputScale builds one shared ThemeSet per entry in this list. If it
+// ever stops agreeing with the table, a whole density class of output silently
+// gets the wrong token set — or none — so the agreement is asserted here rather
+// than left to the QML suite, which needs a compositor CI does not have.
+{
+    const f = S.factors();
+
+    eq("factors() reports one factor per distinct entry in the table",
+       f.length, 5);
+    check("factors() is ascending",
+          f.every((v, i) => i === 0 || f[i - 1] < v), f.join(","));
+    check("factors() has no duplicates",
+          new Set(f).size === f.length, f.join(","));
+    check("factors() ends at the top-of-table factor",
+          f[f.length - 1] === S.TOP_SCALE, f.join(","));
+    check("the calibrated baseline 1.0 is one of them", f.indexOf(1.0) >= 0);
+
+    // The property the registry's indexOf lookup depends on, and the reason it
+    // is a lookup rather than a float comparison with a tolerance: every answer
+    // scaleForHeight() can give must be findable in this list by identity.
+    const heights = [1, 200, 720, 768, 899, 900, 1080, 1200, 1249, 1250, 1440,
+                     1599, 1600, 1800, 1999, 2000, 2160, 4320, 10000];
+    let missing = [];
+    for (const h of heights)
+        if (f.indexOf(S.scaleForHeight(h)) < 0) missing.push(h + "->" + S.scaleForHeight(h));
+    check("every factor scaleForHeight() can return is findable in factors() by identity",
+          missing.length === 0, missing.join(" "));
+
+    // And the other direction: a factor in the list that no height produces
+    // would be a token set nothing ever reads.
+    let unreachable = f.filter(v => !heights.some(h => S.scaleForHeight(h) === v));
+    check("every factor in the list is one some output can actually ask for",
+          unreachable.length === 0, unreachable.join(","));
+
+    // Derived, not copied. A breakpoint added to the table must appear here
+    // without anyone editing a second list — the defect this module exists to
+    // end, one level up.
+    const fromTable = S.BREAKPOINTS.map(b => b[1]).concat([S.TOP_SCALE]);
+    check("factors() is exactly the table's own factors, deduplicated",
+          f.length === new Set(fromTable).size
+          && f.every(v => fromTable.indexOf(v) >= 0),
+          f.join(",") + " vs " + fromTable.join(","));
+}
+
 console.log("");
 console.log("passed=" + passed + " failed=" + failed);
 process.exit(failed === 0 ? 0 : 1);
