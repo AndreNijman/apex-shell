@@ -1380,8 +1380,13 @@ jobs:
       # install them — a skip on every run measures nothing.
       - name: Internationalisation baseline
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq qt6-l10n-tools qt6-declarative-dev-tools \
+          # pacman, not apt-get: this job runs in an archlinux:latest
+          # container. `sudo apt-get update` was the only apt call in this
+          # workflow -- every other install here uses pacman -- and it failed
+          # the step before run-i18n-test.sh ever started, so an entire suite
+          # had never run on a second machine. The `|| echo` was on the install
+          # line, not the update line, so it caught nothing.
+          pacman -S --needed --noconfirm qt6-tools qt6-declarative qt6-base \
             || echo "note: Qt translation tools unavailable; the suite will SKIP those sections"
           ./tests/run-i18n-test.sh
 
