@@ -278,11 +278,11 @@ run_fixture() {   # run_fixture <locale or empty> <theme or empty>
         timeout 120 "$runner" -platform offscreen -input "$stage/rtl-test.qml" 2>&1
 }
 
-# initTestCase + six test functions + cleanupTestCase. An exact count, not a
+# initTestCase + seven test functions + cleanupTestCase. An exact count, not a
 # floor: a dropped test function would otherwise hide behind an added one, which
 # is how a suite quietly stops measuring the thing it was written for — the same
 # reason check-color-tokens.sh pins EXPECT_WHITE_FG.
-EXPECT_TESTS=8
+EXPECT_TESTS=9
 
 # Each QtTest function reported on its own line, rather than one verdict for the
 # whole fixture. The mutants in tests/mutate-rtl.sh break different arms of this,
@@ -337,6 +337,8 @@ evaluate_pass() {   # evaluate_pass <label>
             "and with NOTHING set by hand the row matches the application's direction"
     qt_case "$label" test_050_the_banner_inset_follows_the_reading_direction \
             "CfgScroll's lifecycle banner keeps its 2px inset on the side the reader starts from"
+    qt_case "$label" test_060_the_scroll_container_mirrors_without_being_told_to \
+            "and an untouched CfgScroll mirrors on its shipped declaration alone"
 
     # A runner that exits non-zero while reporting no failed function has
     # crashed or lost a test rather than failed an assertion, and the two must

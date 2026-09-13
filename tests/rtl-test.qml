@@ -29,6 +29,29 @@ Item {
         Rectangle { id: ctl; objectName: "ctl"; width: 30; height: 10 }
     }
 
+    // PRISTINE INSTANCES. Nothing in the fixture ever writes to these two, and
+    // that is the whole reason they exist. `test_030` and `test_050` force
+    // mirroring on and off and then restore the binding by hand — and a
+    // restored binding is the CORRECT binding, so it MASKS a component whose
+    // shipped declaration is wrong. Mutant R1 (`enabled: false` hardcoded on
+    // CfgRow) survived on exactly that: test_030 ran first, restored a good
+    // binding imperatively, and test_040 then measured a row the test had
+    // repaired. These are read and never touched.
+    Cfg.CfgRow {
+        id: row2
+        objectName: "row2"
+        width: 400; height: 40
+        label: "Untouched"
+        Rectangle { id: ctl2; objectName: "ctl2"; width: 30; height: 10 }
+    }
+
+    Cfg.CfgScroll {
+        id: scroll2
+        objectName: "scroll2"
+        width: 400; height: 300
+        lifecycle: "live"
+    }
+
     // The shipped scroll container, because the fix this round made to it is a
     // geometric one and has to be measured as such: its lifecycle banner used to
     // sit at `x: 2` — a number LayoutMirroring cannot touch — inside the very
@@ -102,7 +125,7 @@ Item {
             var slot = ctl.parent
             verify(slot !== null && slot !== row,
                    "the row adopted the control into a slot of its own")
-            var box = labelBox()
+            var box = labelBox(row)
             verify(box !== null, "the row has a label box to measure")
 
             row.LayoutMirroring.enabled = false
@@ -133,18 +156,20 @@ Item {
         // is load-bearing in the second pass and a control in the first.
         function test_040_the_row_mirrors_without_being_told_to() {
             var rtl = Qt.application.layoutDirection === Qt.RightToLeft
-            var slot = ctl.parent, box = labelBox()
+            var slot = ctl2.parent, box = labelBox(row2)
             verify(box !== null, "the row has a label box to measure")
             var where = "(direction=" + Qt.application.layoutDirection
                       + ", label x=" + box.x + ", control x=" + slot.x + ")"
             if (rtl)
                 verify(box.x > slot.x,
-                       "the application is RightToLeft and nothing was set by "
-                       + "hand, so the shipped row must already be mirrored " + where)
+                       "the application is RightToLeft and nothing was ever set "
+                       + "on this row, so the shipped declaration must already "
+                       + "have mirrored it " + where)
             else
                 verify(box.x < slot.x,
-                       "the application is LeftToRight and nothing was set by "
-                       + "hand, so the shipped row must NOT be mirrored " + where)
+                       "the application is LeftToRight and nothing was ever set "
+                       + "on this row, so the shipped declaration must NOT have "
+                       + "mirrored it " + where)
         }
 
         // ── 5. the scroll container's banner follows the reading direction ──
@@ -182,6 +207,22 @@ Item {
             return null
         }
 
+        // ── 6. and the scroll container mirrors without being told to ───────
+        // CfgScroll's own declaration, measured rather than grepped. Section 3
+        // counts the files that contain the word `LayoutMirroring`; a count
+        // cannot tell a live binding from one that is present and overridden.
+        // Nothing is set on scroll2 anywhere in this fixture.
+        function test_060_the_scroll_container_mirrors_without_being_told_to() {
+            var rtl = Qt.application.layoutDirection === Qt.RightToLeft
+            var b = bannerOf(scroll2)
+            verify(b !== null, "the scroll container has a lifecycle banner")
+            var want = rtl ? scroll2.width - 2 - b.width : 2
+            compare(b.x, want,
+                    "nothing was ever set on this container, so its shipped "
+                    + "declaration decides the side (direction="
+                    + Qt.application.layoutDirection + ")")
+        }
+
         function restoreBinding() {
             row.LayoutMirroring.enabled = Qt.binding(function () {
                 return Qt.application.layoutDirection === Qt.RightToLeft
@@ -192,10 +233,10 @@ Item {
         // itself sits at x=0 inside its own column, so measuring it would read
         // zero whatever the row does — which is exactly the false green this
         // function exists to avoid.
-        function labelBox() {
-            for (var i = 0; i < row.children.length; i++)
-                if (containsText(row.children[i], row.label))
-                    return row.children[i]
+        function labelBox(r) {
+            for (var i = 0; i < r.children.length; i++)
+                if (containsText(r.children[i], r.label))
+                    return r.children[i]
             return null
         }
 
