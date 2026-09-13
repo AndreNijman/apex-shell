@@ -203,23 +203,46 @@ n_pass="$(sed -E 's/.*Totals: ([0-9]+) passed.*/\1/' <<<"$totals")"
 n_fail="$(sed -E 's/.*, ([0-9]+) failed.*/\1/' <<<"$totals")"
 
 # An exact count, not a floor. A dropped test function would otherwise hide
-# behind an added one, which is how a suite quietly stops measuring the thing
-# it was written for. initTestCase + four test functions + cleanupTestCase.
+# behind an added one, which is how a suite quietly stops measuring the thing it
+# was written for -- the same reason check-color-tokens.sh pins EXPECT_WHITE_FG.
+# initTestCase + four test functions + cleanupTestCase.
 EXPECT_TESTS=6
 n_ran=$(( n_pass + n_fail ))
 if [ "$n_ran" -ne "$EXPECT_TESTS" ]; then
     printf '%s\n' "$out" | grep -E '^(PASS|FAIL!)' | sed 's/^/      /'
     bad "the fixture ran all $EXPECT_TESTS of its test functions" "$n_ran ran"
-elif [ "$n_fail" -ne 0 ] || [ "$status" -ne 0 ]; then
-    printf '%s\n' "$out" | grep -A3 '^FAIL!' | head -40 | sed 's/^/      /'
-    bad "the shipped CfgRow mirrors, and so does the control it holds" \
-        "$n_fail of $n_ran assertions failed"
 else
-    ok "the engine mirrors a plain left anchor, and puts it back"
-    ok "CfgRow mirrors exactly when the application does — read off the live attached object"
-    ok "CfgRow passes mirroring down to the control it holds"
-    ok "unmirrored the label is left of the control, mirrored it is right of it"
+    ok "the fixture ran all $EXPECT_TESTS of its test functions"
 fi
+
+# Each QtTest function reported on its own line, rather than one verdict for the
+# whole fixture. Four mutants in tests/mutate-rtl.sh break four different arms of
+# this, and a single collapsed "2 of 6 assertions failed" would name the same
+# assertion for all four -- which is a mutation set that cannot tell its own
+# mutants apart.
+qt_case() {   # qt_case <function name> <sentence>
+    if printf '%s\n' "$out" | grep -q "^PASS   : qmltestrunner::rtl::$1"; then
+        ok "$2"
+    elif printf '%s\n' "$out" | grep -q "qmltestrunner::rtl::$1"; then
+        bad "$2" "$(printf '%s\n' "$out" | grep -m1 -A1 "FAIL!.*::$1" | tail -1 | sed 's/^ *//')"
+    else
+        bad "$2" "the fixture never ran $1"
+    fi
+}
+qt_case test_000_the_engine_mirrors_a_plain_anchor \
+        "the engine mirrors a plain left anchor, and puts it back"
+qt_case test_010_the_row_binds_mirroring_to_the_application_direction \
+        "CfgRow mirrors exactly when the application does — read off the live attached object"
+qt_case test_020_the_row_passes_mirroring_down \
+        "CfgRow passes mirroring down to the control it holds"
+qt_case test_030_a_real_row_swaps_its_label_and_its_control \
+        "unmirrored the label is left of the control, mirrored it is right of it"
+
+# A runner that exits non-zero while reporting no failed function has crashed or
+# lost a test rather than failed an assertion, and the two must not read alike.
+[ "$status" -eq 0 ] \
+    && ok "qmltestrunner exited cleanly, so the counts above are its own verdict" \
+    || bad "qmltestrunner exited cleanly" "it exited $status"
 
 # ── 3. how far this reaches, pinned exactly ─────────────────────────────────
 section "3. what mirroring does NOT reach, pinned in both directions"
