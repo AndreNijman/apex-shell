@@ -104,10 +104,20 @@ echo "── the mutants ──"
 # R1 — the row stops mirroring at all. The regression this work exists to
 #      prevent, and the one a later refactor is most likely to cause by moving
 #      the declaration to a parent that does not exist.
+#
+#      IT SURVIVED THE FIRST RUN OF THIS HARNESS, and the mutant was right. Every
+#      geometric assertion in the fixture FORCED mirroring on by hand, and a row
+#      hardcoded `enabled: false` still mirrors when you set it yourself; the one
+#      assertion that read the shipped binding compared it against
+#      `Qt.application.layoutDirection`, which is LeftToRight on an English
+#      desktop, so `false === false` passed. The suite now runs the fixture TWICE
+#      -- scrubbed and under the RTL locale with the image's platform theme --
+#      and test_040 reads the row with nothing set at all. This mutant dies in
+#      the RTL pass.
 mutate R1 "$ROW" \
     '    LayoutMirroring.enabled: Qt.application.layoutDirection === Qt.RightToLeft' \
     '    LayoutMirroring.enabled: false' \
-    "unmirrored the label is left of the control, mirrored it is right of it"
+    "and with NOTHING set by hand the row matches"
 
 # R2 — the row mirrors ALWAYS, not when the application does. Every geometric
 #      assertion in section 2 still passes: the row does mirror when told to.
@@ -142,9 +152,9 @@ mutate R4 "$WIN" \
 #      measurement. The disagreement assertion is the only thing standing
 #      between that and four green lines.
 mutate R5 "$SUITE_F" \
-    'rtl="$(dir_under "ar_EG.UTF-8")"' \
-    'rtl="$(dir_under "")"' \
-    "the layout direction is not a constant"
+    '    with_theme_ltr="$(app_dir ""         "$THEME")"' \
+    '    with_theme_ltr="$(app_dir "$L_RTL"   "$THEME")"' \
+    "the direction follows the locale"
 
 # R6 — the fixture's own vacuity floor. Delete a test function and QtTest
 #      happily reports the rest as passing; the exact count is what turns a
@@ -162,6 +172,52 @@ mutate R7 "$FIX" \
     '            plain.LayoutMirroring.enabled = true' \
     '            plain.LayoutMirroring.enabled = false' \
     "the engine mirrors a plain left anchor"
+
+# R8 — the PLATFORM THEME is dropped from the positive probe. This is the
+#      regression that would follow from someone removing
+#      QT_QPA_PLATFORMTHEME=qt6ct from the image, and round 23 measured that it
+#      is the whole mechanism: Qt decides the application direction by
+#      translating QT_LAYOUT_DIRECTION, quickshell installs no QTranslator, and
+#      the qt6ct platform theme -- configured for a dark palette -- is what
+#      brings one. Without it, ar_EG comes back LeftToRight and every mirrored
+#      surface in the shell silently stops mirroring.
+#
+#      It lands on the same named assertion as R5 and that is deliberate: they
+#      are two different arms of the one claim that the direction is not a
+#      constant. B13/B14 in the installer set are the same shape.
+mutate R8 "$SUITE_F" \
+    '    with_theme_rtl="$(app_dir "$L_RTL"   "$THEME")"' \
+    '    with_theme_rtl="$(app_dir "$L_RTL"   "")"' \
+    "the direction follows the locale"
+
+# R9 — the ceiling row stops being a ceiling. `ur_PK` is asked because Qt ships
+#      no qt_ur.qm; handing that probe a locale Qt DOES have a catalogue for
+#      turns the pin into a statement that is simply false, and the row must say
+#      so rather than reporting a limit it did not measure.
+mutate R9 "$SUITE_F" \
+    'L_RTL="ar_EG.UTF-8"; L_RTL2="he_IL.UTF-8"; L_NOCAT="ur_PK.UTF-8"' \
+    'L_RTL="ar_EG.UTF-8"; L_RTL2="he_IL.UTF-8"; L_NOCAT="ar_EG.UTF-8"' \
+    "an RTL language Qt has no catalogue for does NOT flip"
+
+# R10 — the bare `x:` comes back. Round 23 converted three sites that mirroring
+#       cannot reach into anchors; this puts the worst of them back, the
+#       lifecycle banner inside the component that declares the mirroring. The
+#       allowlist in section 3 is a SET rather than a count for exactly this: a
+#       count would have read the same if one site were fixed and another added.
+mutate R10 "$SCROLL" \
+    '        anchors.left:       root.left
+        anchors.leftMargin: 2' \
+    '        x:     2' \
+    "explicit numeric x: sites left in src/ are exactly the bucketed ones"
+
+# R11 — the anchor stays but the inset changes. Nothing about the SET of x:
+#       sites moves, so only the geometry read off the live banner can see it.
+#       This is the mutant that proves the banner assertion is a measurement and
+#       not a grep for the word `anchors`.
+mutate R11 "$SCROLL" \
+    '        anchors.leftMargin: 2' \
+    '        anchors.leftMargin: 4' \
+    "lifecycle banner keeps its 2px inset"
 
 echo
 printf 'mutants applied=%d, failed-to-apply=%d, caught=%d, SURVIVED=%d\n' \
