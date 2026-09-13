@@ -54,8 +54,26 @@ want() { local desc="$1"; shift; if "$@"; then ok "$desc"; else bad "$desc"; fi;
 code()       { grep -vE '^[[:space:]]*//' "$1" 2>/dev/null; }
 qmldircode() { grep -vE '^[[:space:]]*#'  "$1" 2>/dev/null; }
 
-has()   {   code "$1" | grep -qE "$2"; }
-lacks() { ! code "$1" | grep -qE "$2"; }
+
+# ── Why these do not pipe ───────────────────────────────────────────────────
+# They used to be `code "$1" | grep -qE "$2"` under `set -o pipefail`, and that
+# is unsound. `grep -q` exits the instant it matches; the producer upstream is
+# then writing into a closed pipe, takes SIGPIPE, and dies 141 — and pipefail
+# makes 141 the verdict of the whole pipeline.
+#
+# So the SAME pattern in the SAME file gave opposite answers depending on where
+# it appeared. Measured on a 2.2 MB file: a match near the top returned 141
+# (read as "absent"), the identical match at the end returned 0. It is also
+# size-dependent — a file small enough to fit the 64 KiB pipe buffer never
+# trips it, which is why it survived review.
+#
+# `lacks()` is the dangerous direction: it negates, so a forbidden pattern near
+# the top of a long file becomes 141, then `!` turns that into 0, and the check
+# reports the file clean while the thing it forbids is right there.
+#
+# Capturing into a variable removes the pipe, and with it the failure mode.
+has()   { local _c; _c=$(code "$1");       grep -qE "$2" <<<"$_c"; }
+lacks() { local _c; _c=$(code "$1");     ! grep -qE "$2" <<<"$_c"; }
 
 # The qmldir equivalent, and it is a FUNCTION for a reason that cost a real
 # assertion here. Written inline as
@@ -68,7 +86,7 @@ lacks() { ! code "$1" | grep -qE "$2"; }
 # unconditionally that way, and it was the mutant harness's broken-count — an
 # expected-red mutant coming out green with 0 broken — that found it, not
 # review. Every check in this file goes through a helper for that reason.
-qmldir_has() { qmldircode "$1" | grep -qE "$2"; }
+qmldir_has() { local _c; _c=$(qmldircode "$1"); grep -qE "$2" <<<"$_c"; }
 
 # fn_body <file> <ERE matching the opening line> — that declaration's body,
 # ending at the first closing brace indented the same as the opening line.
