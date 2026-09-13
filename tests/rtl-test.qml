@@ -29,6 +29,17 @@ Item {
         Rectangle { id: ctl; objectName: "ctl"; width: 30; height: 10 }
     }
 
+    // The shipped scroll container, because the fix this round made to it is a
+    // geometric one and has to be measured as such: its lifecycle banner used to
+    // sit at `x: 2` — a number LayoutMirroring cannot touch — inside the very
+    // component that declares the mirroring.
+    Cfg.CfgScroll {
+        id: scroll
+        objectName: "scroll"
+        width: 400; height: 300
+        lifecycle: "live"
+    }
+
     // A bare Item with the same child, as the control for everything below: if
     // this one does not move when mirrored, the runner's Qt does not implement
     // LayoutMirroring and every verdict here is about the toolkit, not the row.
@@ -77,9 +88,13 @@ Item {
                     "CfgRow passes mirroring to the control it holds")
         }
 
-        // ── 3. the load-bearing one: the row really swaps sides ──────────────
-        // Measured on ONE instance, before and after, so the pair isolates
-        // mirroring from every other reason two rows could lay out differently.
+        // ── 3. the row really swaps sides when it is mirrored ───────────────
+        // Both states are FORCED here, so this function answers "does the row
+        // mirror when told to" the same way whatever direction the application
+        // happens to be in. The separate question — does it mirror when nobody
+        // tells it to — is test_040, and it is the one that needs the suite to
+        // run this fixture under an RTL locale.
+        //
         // The label box and the control slot are found through the live tree —
         // the row's internal order is not this suite's business and must stay
         // free to change.
@@ -90,20 +105,87 @@ Item {
             var box = labelBox()
             verify(box !== null, "the row has a label box to measure")
 
-            var wasBox = box.x, wasSlot = slot.x
-            verify(wasBox < wasSlot,
-                   "unmirrored, the label is to the LEFT of the control "
-                   + "(label x=" + wasBox + ", control x=" + wasSlot + ")")
-
+            row.LayoutMirroring.enabled = false
+            var ltrBox = box.x, ltrSlot = slot.x
             row.LayoutMirroring.enabled = true
-            var nowBox = box.x, nowSlot = slot.x
-            row.LayoutMirroring.enabled = Qt.binding(function () {
+            var rtlBox = box.x, rtlSlot = slot.x
+            restoreBinding()
+
+            verify(ltrBox < ltrSlot,
+                   "unmirrored, the label is to the LEFT of the control "
+                   + "(label x=" + ltrBox + ", control x=" + ltrSlot + ")")
+            verify(rtlBox > rtlSlot,
+                   "mirrored, the label is to the RIGHT of the control "
+                   + "(label x=" + rtlBox + ", control x=" + rtlSlot + ")")
+        }
+
+        // ── 4. and it mirrors WITHOUT BEING TOLD TO ──────────────────────────
+        // The one function in this fixture that exercises the binding the
+        // product actually ships. Everything above forces LayoutMirroring on by
+        // hand, so all of it passes over a row hardcoded to `enabled: false` —
+        // which is exactly the mutant R1, and it survived the first harness run
+        // for precisely this reason.
+        //
+        // Nothing is set here. The row is read as the engine left it, and the
+        // side the label sits on must match the application's direction. The
+        // suite runs this fixture TWICE, once with the locale scrubbed and once
+        // under an RTL locale with the image's platform theme, so this function
+        // is load-bearing in the second pass and a control in the first.
+        function test_040_the_row_mirrors_without_being_told_to() {
+            var rtl = Qt.application.layoutDirection === Qt.RightToLeft
+            var slot = ctl.parent, box = labelBox()
+            verify(box !== null, "the row has a label box to measure")
+            var where = "(direction=" + Qt.application.layoutDirection
+                      + ", label x=" + box.x + ", control x=" + slot.x + ")"
+            if (rtl)
+                verify(box.x > slot.x,
+                       "the application is RightToLeft and nothing was set by "
+                       + "hand, so the shipped row must already be mirrored " + where)
+            else
+                verify(box.x < slot.x,
+                       "the application is LeftToRight and nothing was set by "
+                       + "hand, so the shipped row must NOT be mirrored " + where)
+        }
+
+        // ── 5. the scroll container's banner follows the reading direction ──
+        // The one site in the mirrored surface that was a BARE LEFT INSET: 2px
+        // from the left against 12px from the right, so under mirroring it kept
+        // its 2px on the wrong side while everything around it moved. It is an
+        // anchor now, and this is the assertion that says so in numbers rather
+        // than in a grep for the word `anchors`.
+        function test_050_the_banner_inset_follows_the_reading_direction() {
+            var b = bannerOf(scroll)
+            verify(b !== null, "the scroll container has a lifecycle banner")
+            verify(b.width > 0 && b.width < scroll.width,
+                   "the banner is narrower than the container, so its two insets "
+                   + "are not the same number (width=" + b.width + ")")
+
+            scroll.LayoutMirroring.enabled = false
+            var ltrX = b.x
+            scroll.LayoutMirroring.enabled = true
+            var rtlX = b.x
+            scroll.LayoutMirroring.enabled = Qt.binding(function () {
                 return Qt.application.layoutDirection === Qt.RightToLeft
             })
 
-            verify(nowBox > nowSlot,
-                   "mirrored, the label is to the RIGHT of the control "
-                   + "(label x=" + nowBox + ", control x=" + nowSlot + ")")
+            compare(ltrX, 2, "unmirrored the banner keeps its 2px inset on the left")
+            compare(rtlX, scroll.width - 2 - b.width,
+                    "mirrored, the 2px inset is on the RIGHT — x moves to "
+                    + (scroll.width - 2 - b.width) + ", not " + ltrX)
+        }
+
+        // The direct child of the scroll container that carries a lifecycle.
+        function bannerOf(node) {
+            for (var i = 0; i < node.children.length; i++)
+                if (node.children[i].lifecycle !== undefined)
+                    return node.children[i]
+            return null
+        }
+
+        function restoreBinding() {
+            row.LayoutMirroring.enabled = Qt.binding(function () {
+                return Qt.application.layoutDirection === Qt.RightToLeft
+            })
         }
 
         // The direct child of the row that CONTAINS the label text. The Text

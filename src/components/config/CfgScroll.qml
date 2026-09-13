@@ -48,12 +48,20 @@ Item {
     // of the lifecycle blurb — see CfgLifecycle.
     property alias lifecycleError: banner.error
 
-    // Sized rather than anchored: CfgLifecycle binds its own width to its
-    // parent's the way every other Cfg component does, and left+right anchors
-    // on top of that is two rules for one number.
+    // ONE horizontal anchor plus an explicit width, not `x:` and not left+right.
+    //
+    // `x: 2` was the original, and it was the one thing in this file mirroring
+    // could not reach: an explicit x is a number and stays a number, so the
+    // banner kept a 2px inset on the LEFT and a 12px inset on the right in a
+    // right-to-left layout — inside the very component that declares the
+    // mirroring. `anchors.left` IS resolved by LayoutMirroring (it becomes the
+    // right edge), so the inset follows the reading direction; the width stays
+    // a single rule, which is what the old comment here was protecting.
+    // tests/run-rtl-test.sh measures the banner's x in both directions.
     CfgLifecycle {
         id: banner
-        x:     2
+        anchors.left:       root.left
+        anchors.leftMargin: 2
         y:     banner.visible ? 8 : 0
         width: root.width - 14
     }
