@@ -1415,6 +1415,27 @@ jobs:
             || echo "note: fonts unavailable; the non-Latin rendering section will SKIP"
           ./tests/run-i18n-test.sh
 
+      # Right-to-left layout (P2-004). The ledger carried "RTL: the image
+      # cannot render it" for nineteen rounds on an argument nobody ran; round
+      # 20 measured it and it is false -- Arabic, Hebrew, Thai and Devanagari
+      # all fall out of the hardcoded JetBrains Mono into image-owned fonts that
+      # cover them. What was actually missing is LAYOUT, and this measures that:
+      # a shipped CfgRow instantiated, mirrored, and its label and its control
+      # read back off the live objects as having swapped sides.
+      #
+      # Section 1 is the part that needed a second machine most. Qt's layout
+      # direction is taken from the locale, and the image installs
+      # glibc-langpack-en ONLY -- so "does ar_EG give RightToLeft here" is a
+      # question about the machine, not about Qt, and the suite answers it by
+      # running the same fixture twice and requiring the two to DISAGREE.
+      #
+      # Section 3 pins what mirroring does NOT reach -- 14 window roots, none of
+      # them mirrored yet -- in both directions, so the remaining half of the
+      # row is a number that moves rather than a sentence somebody forgets.
+      - name: Right-to-left layout baseline
+        if: ${{ !cancelled() }}
+        run: ./tests/run-rtl-test.sh
+
       - name: Remote agent status invariants
         run: |
           # Static half. Also SELF-TESTS its own checks: it mutates copies of
@@ -1986,6 +2007,8 @@ jobs:
             "tests/run-a11y-controls-test.sh"
             "tests/check-reduce-motion.sh"
             "tests/run-i18n-test.sh"
+            "tests/run-rtl-test.sh"
+            "tests/rtl-test.qml"
             "translations/apex-shell_de.ts"
             "tests/settings-pages-test.qml"
             "tests/run-settings-pages-test.sh"
