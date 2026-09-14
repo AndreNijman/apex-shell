@@ -119,14 +119,14 @@ if [ -e /run/ostree-booted ] && [ -r /etc/environment ]; then
     from_env="$(sed -n 's/^QT_QPA_PLATFORMTHEME=//p' /etc/environment | tail -1)"
     if [ -n "$from_env" ]; then
         THEME="$from_env"; theme_src="/etc/environment on this booted image"
-        ok "the image sets QT_QPA_PLATFORMTHEME=$THEME — the thing the direction turns out to depend on"
+        ok "the image sets QT_QPA_PLATFORMTHEME=$THEME — the thing the direction turns out to depend on (source: $theme_src)"
     else
         bad "the image sets QT_QPA_PLATFORMTHEME" \
             "/etc/environment on this booted host names no platform theme, so nothing here will mirror"
     fi
 else
     skp "the image sets QT_QPA_PLATFORMTHEME" \
-        "not a booted APEX host — probing with the documented default, $THEME"
+        "not a booted APEX host — probing with $THEME, $theme_src"
 fi
 
 L_RTL="ar_EG.UTF-8"; L_RTL2="he_IL.UTF-8"; L_NOCAT="ur_PK.UTF-8"
@@ -168,7 +168,7 @@ else
     fi
 
     [ "$with_theme_heb" = "1" ] \
-        && ok "and under $L_RTL2 too — a second RTL locale, so this is not one lucky name" \
+        && ok "and under $L_RTL2 it is RightToLeft too — a second RTL locale, so this is not one lucky name" \
         || bad "under $L_RTL2 it is RightToLeft" "got $with_theme_heb"
 
     # THE MECHANISM, and the reason this section was rewritten. Qt decides the
@@ -180,7 +180,7 @@ else
     # holding up right-to-left layout. Drop it and every mirrored surface
     # silently stops mirroring with nothing red anywhere.
     if [ "$no_theme_rtl" = "0" ] && [ "$with_theme_rtl" = "1" ]; then
-        ok "and it is the THEME that supplies it: the same $L_RTL run with no platform theme gives LeftToRight"
+        ok "it is the platform theme that supplies the right-to-left direction — the same $L_RTL run with no platform theme gives LeftToRight"
     elif [ "$no_theme_rtl" = "1" ]; then
         ok "the direction no longer needs a platform theme — $L_RTL is RightToLeft without one (the dependency this suite pins has been removed; say so in the ledger)"
     else
@@ -278,11 +278,11 @@ run_fixture() {   # run_fixture <locale or empty> <theme or empty>
         timeout 120 "$runner" -platform offscreen -input "$stage/rtl-test.qml" 2>&1
 }
 
-# initTestCase + six test functions + cleanupTestCase. An exact count, not a
+# initTestCase + seven test functions + cleanupTestCase. An exact count, not a
 # floor: a dropped test function would otherwise hide behind an added one, which
 # is how a suite quietly stops measuring the thing it was written for — the same
 # reason check-color-tokens.sh pins EXPECT_WHITE_FG.
-EXPECT_TESTS=8
+EXPECT_TESTS=9
 
 # Each QtTest function reported on its own line, rather than one verdict for the
 # whole fixture. The mutants in tests/mutate-rtl.sh break different arms of this,
@@ -337,6 +337,8 @@ evaluate_pass() {   # evaluate_pass <label>
             "and with NOTHING set by hand the row matches the application's direction"
     qt_case "$label" test_050_the_banner_inset_follows_the_reading_direction \
             "CfgScroll's lifecycle banner keeps its 2px inset on the side the reader starts from"
+    qt_case "$label" test_060_the_scroll_container_mirrors_without_being_told_to \
+            "and an untouched CfgScroll mirrors on its shipped declaration alone"
 
     # A runner that exits non-zero while reporting no failed function has
     # crashed or lost a test rather than failed an assertion, and the two must
@@ -373,10 +375,10 @@ win_mirrored="$(grep -rlE '^\s*PanelWindow\b|^\s*FloatingWindow\b' "$root/src" 2
 WIN_TOTAL_EXPECT=14
 WIN_MIRRORED_EXPECT=0
 [ "$win_total" -eq "$WIN_TOTAL_EXPECT" ] \
-    && ok "the shell paints from $win_total window roots" \
+    && ok "the shell paints from $WIN_TOTAL_EXPECT window roots — counted $win_total" \
     || bad "the shell paints from $WIN_TOTAL_EXPECT window roots" "counted $win_total — update the pin deliberately"
 [ "$win_mirrored" -eq "$WIN_MIRRORED_EXPECT" ] \
-    && ok "and $win_mirrored of them mirror — the named remaining half of this row, not a claim that RTL is done" \
+    && ok "$WIN_MIRRORED_EXPECT window roots mirror — the named remaining half of this row, not a claim that RTL is done" \
     || bad "$WIN_MIRRORED_EXPECT window roots mirror" \
            "counted $win_mirrored — if that is deliberate, move the pin and say so in the ledger"
 
@@ -433,7 +435,7 @@ x_sites="$(cd "$root" && grep -rhcE '^[[:space:]]*x:[[:space:]]*[0-9]' -r src 2>
 [ -n "$x_sites" ] || x_sites="$(cd "$root" && grep -rE '^[[:space:]]*x:[[:space:]]*[0-9]' src 2>/dev/null | wc -l)"
 
 if [ "$x_now" = "$x_expect" ]; then
-    ok "the $x_sites explicit numeric x: sites left in src/ are exactly the bucketed ones — none of them is a bare left inset"
+    ok "the explicit numeric x: sites in src/ are exactly the bucketed ones ($x_sites sites, none of them a bare left inset)"
 else
     bad "the explicit numeric x: sites in src/ are exactly the bucketed ones" \
         "the set moved; a new x: is a site mirroring cannot reach and needs a bucket or an anchor"
