@@ -78,8 +78,13 @@ CfgScroll {
             width:  parent.width
             height: 60
 
+            // Anchored rather than `x: 10` (roadmap P2-004): this Row has an
+            // intrinsic width, so an explicit x pins it to the LEFT of the pane
+            // in a right-to-left layout while the rows above and below it move.
+            // LayoutMirroring resolves anchors and cannot touch an x.
             Row {
-                x: 10
+                anchors.left:           parent.left
+                anchors.leftMargin:     10
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 12
 
@@ -291,8 +296,10 @@ CfgScroll {
             height:  UpdateService.updateAvailable ? 38 : 0
             clip:    true
             visible: UpdateService.updateAvailable
+            // Anchored, not `x: 10` — same reason as the About row above.
             CfgButton {
-                x: 10
+                anchors.left:           parent.left
+                anchors.leftMargin:     10
                 anchors.verticalCenter: parent.verticalCenter
                 variant: "accent"
                 label:   "Update now"
