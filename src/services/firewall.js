@@ -256,13 +256,22 @@ function parseStatusJson(exitCode, stdout) {
     if (!_isStr(d.policy) || POLICIES.indexOf(d.policy) < 0) return bad
     if (!_isStr(d.always_allowed)) return bad
 
+    // PRESENT, and only then null-or-array. Absent is refused for the same
+    // reason a renamed always_allowed is: rename this key to `shared_links`
+    // upstream and a reader that treats "missing" as "null" accepts the
+    // document, reports null forever, never draws the row, and nothing
+    // anywhere goes red. "Missing" and "null" look identical in JavaScript and
+    // mean opposite things here — one is a key that moved, the other is the
+    // helper saying nobody could look.
+    if (!("hotspot_links" in d)) return bad
+
     // null and [] are different answers and the contract says so: [] means
     // "this machine is sharing its connection on nothing", and a caller who
     // could not read the ruleset has not learned that. Collapsing them here
     // would throw away the distinction the helper went to the trouble of
     // keeping.
     var links = null
-    if (d.hotspot_links !== null && d.hotspot_links !== undefined) {
+    if (d.hotspot_links !== null) {
         if (!Array.isArray(d.hotspot_links)) return bad
         links = []
         for (var k = 0; k < d.hotspot_links.length; k++) {
