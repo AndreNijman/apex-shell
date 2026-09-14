@@ -58,6 +58,50 @@ suite_failures() {
         | head -1 | grep -E '^[0-9]+$' || echo 0
 }
 
+# classify <suite output> <expected FAIL substring> -> CAUGHT | MISSCORED | SURVIVED
+#
+# Factored out of mutate() so it can be exercised on canned output below. A
+# three-way verdict that has never been shown to produce all three answers is a
+# gate that inspects nothing -- the dominant defect family in this repository,
+# and one this harness exists to catch in other people's suites.
+classify() {
+    local out="$1" want="$2"
+    if printf '%s' "$out" | grep -q "^FAIL  .*$want"; then
+        echo CAUGHT
+    elif [ "$(suite_failures "$out")" -gt 0 ]; then
+        echo MISSCORED
+    else
+        echo SURVIVED
+    fi
+}
+
+# ── self-test: the scoring above, in all three states and both directions ────
+selftest() {
+    local red green fails=0
+    red="FAIL  the explicit numeric x: sites in src/ are exactly the bucketed ones — the set moved
+run-rtl-test: 24 passed, 6 failed, 0 skipped"
+    green="run-rtl-test: 30 passed, 0 failed, 0 skipped"
+
+    chk() {  # chk <label> <want> <got>
+        if [ "$2" = "$3" ]; then printf '  ok   %s\n' "$1"
+        else printf '  FAIL %s — want %s got %s\n' "$1" "$2" "$3"; fails=$((fails + 1)); fi
+    }
+    chk "a red suite naming the expectation is CAUGHT" \
+        CAUGHT    "$(classify "$red"   "sites in src/ are exactly the bucketed ones")"
+    chk "a red suite NOT naming it is MISSCORED, not a survival" \
+        MISSCORED "$(classify "$red"   "a sentence this suite never prints")"
+    chk "a green suite is the only thing that is a SURVIVAL" \
+        SURVIVED  "$(classify "$green" "a sentence this suite never prints")"
+    chk "counting failures off a red totals line"   6 "$(suite_failures "$red")"
+    chk "counting failures off a green totals line" 0 "$(suite_failures "$green")"
+    chk "output with no totals line at all counts 0 and cannot read as green" \
+        0 "$(suite_failures "crashed before printing anything")"
+    [ "$fails" -eq 0 ] || { echo "ABORT: the harness cannot score itself" >&2; exit 3; }
+}
+
+echo "── self-test: this harness can tell its three verdicts apart ──"
+selftest
+
 # mutate <id> <file> <from> <to> <assertion substring that must go red>
 mutate() {
     local id="$1" file="$2" from="$3" to="$4" want="$5"
@@ -80,15 +124,17 @@ EDIT
     fi
     applied=$((applied + 1))
 
-    local out; out="$(run_suite)"
-    # The expectation is the PASS text minus its parenthetical. Three rounds of
-    # this unit have recorded a mutant as SURVIVED because the harness grepped
-    # for a sentence the failure does not contain (I2, B2, F3-F5) — every one of
-    # those was the expectation being wrong, not the mutant.
-    if printf '%s' "$out" | grep -q "^FAIL  .*$want"; then
+    # The expectation must be a substring of the suite's FAIL label, and the
+    # FAIL label is NOT reliably the PASS label minus its parenthetical — this
+    # harness said it was, and for five assertions in run-rtl-test.sh it was
+    # false, which is how R10 came back SURVIVED while the suite was red on six
+    # lines. Those five labels have been aligned; `classify` catches the next
+    # one rather than reporting it as a product defect.
+    local out verdict; out="$(run_suite)"; verdict="$(classify "$out" "$want")"
+    if [ "$verdict" = CAUGHT ]; then
         printf '%-5s CAUGHT    %s\n' "$id" "$want"
         caught=$((caught + 1))
-    elif [ "$(suite_failures "$out")" -gt 0 ] 2>/dev/null; then
+    elif [ "$verdict" = MISSCORED ]; then
         # NOT a survival. The suite went red -- just not on the assertion this
         # mutant NAMES. The two states look identical if you only grep for one
         # sentence, and this unit has now recorded the wrong one FIVE times
