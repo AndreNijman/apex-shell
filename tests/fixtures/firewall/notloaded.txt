@@ -1,0 +1,8 @@
+apex-firewall: policy: NOT LOADED — incoming traffic is not being filtered
+apex-firewall:   load it with: sudo systemctl start apex-firewall
+
+always allowed, and not removable here:
+  established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh
+
+exceptions you have added:
+  mdns          udp 5353
