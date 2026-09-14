@@ -119,14 +119,14 @@ if [ -e /run/ostree-booted ] && [ -r /etc/environment ]; then
     from_env="$(sed -n 's/^QT_QPA_PLATFORMTHEME=//p' /etc/environment | tail -1)"
     if [ -n "$from_env" ]; then
         THEME="$from_env"; theme_src="/etc/environment on this booted image"
-        ok "the image sets QT_QPA_PLATFORMTHEME=$THEME — the thing the direction turns out to depend on"
+        ok "the image sets QT_QPA_PLATFORMTHEME=$THEME — the thing the direction turns out to depend on (source: $theme_src)"
     else
         bad "the image sets QT_QPA_PLATFORMTHEME" \
             "/etc/environment on this booted host names no platform theme, so nothing here will mirror"
     fi
 else
     skp "the image sets QT_QPA_PLATFORMTHEME" \
-        "not a booted APEX host — probing with the documented default, $THEME"
+        "not a booted APEX host — probing with $THEME, $theme_src"
 fi
 
 L_RTL="ar_EG.UTF-8"; L_RTL2="he_IL.UTF-8"; L_NOCAT="ur_PK.UTF-8"
