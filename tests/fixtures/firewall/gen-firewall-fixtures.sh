@@ -74,8 +74,12 @@ for a in "$@"; do
 done
 [ -n "$osdir" ] || osdir="${APEX_OS:-}"
 if [ -z "$osdir" ]; then
+    # Siblings and the canonical checkout only. A scratch worktree path was
+    # listed here once and taken straight back out: a stale tree sitting at a
+    # remembered path is a SOURCE that has drifted, and capturing from it
+    # without being asked is precisely the failure this script exists to stop.
     for c in "$here/../../../../apex-os" "$here/../../../../../apex/apex-os" \
-             "$HOME/Projects/apex/apex-os" /var/tmp/apex-work/wt-p2-005; do
+             "$HOME/Projects/apex/apex-os"; do
         [ -r "$c/files/system/libexec/apex-firewall" ] && osdir="$c" && break
     done
 fi
