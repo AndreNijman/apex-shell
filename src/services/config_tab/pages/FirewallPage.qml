@@ -144,6 +144,18 @@ CfgScroll {
             hoverable:   false
             description: "These are in the policy itself and cannot be closed from here. ssh is the load-bearing one: APEX remote agents and `apex host run` are ssh, so closing it would strand you on the machine you were driving from."
         }
+
+        // Sharing a connection opens DHCP and DNS on the shared link, and the
+        // user did not open it on this page — so this is the one row here they
+        // would not otherwise be able to find. Only ever shown from a read that
+        // could see the ruleset: `hotspotLine` is "" when nobody could look, so
+        // this never says "sharing nothing" to a page that has not been told.
+        CfgRow {
+            label:       FirewallService.hotspotLine
+            hoverable:   false
+            visible:     FirewallService.hotspotLine !== ""
+            description: "This machine is sharing its connection. The policy opens DHCP and DNS on those links so clients can get an address and resolve names, and on no others. `apex firewall hotspot list` says the same thing in a terminal."
+        }
     }
 
     // ── What this user opened ────────────────────────────────────────────────

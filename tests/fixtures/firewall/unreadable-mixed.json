@@ -1,0 +1,10 @@
+{
+  "policy": "unreadable",
+  "always_allowed": "established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh",
+  "hotspot_links": null,
+  "exceptions": [
+    {"name": "broken", "proto": "", "port": "", "rejected": true, "detail": "tcp notaport"},
+    {"name": "mdns", "proto": "udp", "port": "5353", "rejected": false, "detail": ""},
+    {"name": "syncthing", "proto": "tcp", "port": "22000", "rejected": false, "detail": ""}
+  ]
+}

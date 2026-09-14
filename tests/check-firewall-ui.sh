@@ -114,10 +114,35 @@ check_tree() {
     want "the polled process takes its argv from the table, not from a literal" \
         in_fn "$svc" 'function _next\(\)' '_proc\.command = root\._stepArgv\[step\]'
     want "_next() exists to be checked" fn_exists "$svc" 'function _next\(\)'
-    want "the argv table has exactly three entries" \
-        test "$(fn_body "$svc" 'readonly property var _stepArgv' | grep -cE '^\s+(unit|status|catalogue):')" = 3
+    # FOUR since the status read became `--json` with a prose fallback. The
+    # number and the name list have to move TOGETHER: a step added under a name
+    # this pattern does not list leaves the count unchanged, the check green,
+    # and the check asserting something false — which is exactly the failure
+    # this whole file exists to make impossible. The self-test below has a
+    # mutant for it now; it did not before.
+    want "the argv table has exactly four entries" \
+        test "$(fn_body "$svc" 'readonly property var _stepArgv' | grep -cE '^[[:space:]]+(unit|statusJson|status|catalogue):')" = 4
     want "no polled verb can allow, deny or reload" \
         not_in_fn "$svc" 'readonly property var _stepArgv' '"(allow|deny|reload|start|stop|enable)"'
+
+    # ── 3b. the status read has a shape ──────────────────────────────────────
+    # The page used to parse the helper's prose, and apex-os moving one
+    # paragraph made it report "DHCP and DNS are open on those links only" as
+    # the traffic the firewall never drops — silently, with both suites green.
+    # `--json` is the fix; these assert the shell actually asks for it, and
+    # that the machines which cannot answer still get an answer.
+    want "the sweep reads the machine-readable status, not the prose" \
+        in_fn "$svc" 'readonly property var _stepArgv' \
+            '^[[:space:]]+statusJson:[[:space:]]+\["apex", "firewall", "status", "--json"\]'
+    want "and that is the step the sweep queues" \
+        in_fn "$svc" 'function _beginSweep' '_queue = \["unit", "statusJson", "catalogue"\]'
+    want "a document that is not the contract is not rendered anyway" \
+        in_fn "$svc" 'function _resolve' 'if \(parsed\.ok\)'
+    # An `apex` that predates the flag rejects it in clap, writes usage to
+    # stderr and leaves stdout EMPTY — so the fallback cannot be "parse the same
+    # text as prose", it has to be a second process.
+    want "an apex too old for --json still gets read, through a prose fallback" \
+        in_fn "$svc" 'function _resolve' '_queue = \["status"\]\.concat\(root\._queue\)'
 
     # ── 4. no argv here is privileged ────────────────────────────────────────
     # `sudo apex firewall allow` appears in this tree as a string SHOWN to the
@@ -166,6 +191,22 @@ check_tree() {
         has "$page" 'FirewallService\.emptyLine'
     want "the service asks firewall.js which of the three it is" \
         has "$svc" 'Fw\.emptyLine\(root\.checked, root\.unit, root\.status\)'
+
+    # ── 8. the shared links are a row, not an accident ───────────────────────
+    # Sharing a connection opens DHCP and DNS on the shared link. Before the
+    # --json switch the page showed that line by MISTAKE — in the always-allowed
+    # row, having read the helper's paragraph as that list. It is a row of its
+    # own now, and the sentence is built in firewall.js so the node suite drives
+    # it rather than the page writing its own.
+    # The LABEL specifically, not merely the name appearing somewhere in the
+    # file: the row is also `visible:` on it, and a check satisfied by the
+    # visibility binding passes while the label is a hardcoded sentence. That
+    # is the first way this file's own header says a grep lies, and the
+    # self-test caught it here on the first run.
+    want "the shared-links sentence is taken from the service" \
+        has "$page" 'label:[[:space:]]+FirewallService\.hotspotLine'
+    want "and the service takes it from firewall.js" \
+        has "$svc" 'Fw\.hotspotLine\(root\.status\)'
 }
 
 # ── the self-test ────────────────────────────────────────────────────────────
@@ -182,7 +223,7 @@ if [ "${1:-}" = "--self-test" ]; then
     mutants=(
       "svc|s/refCount <= 0 \&\& !force/false/|the sweep may run with nobody watching"
       "svc|s/root\._proc\.running = false/:/|_standDown leaves the sweep running"
-      "svc|s/unit:      \[\"systemctl\", \"show\"/unit:      [\"systemctl\", \"start\"/|the unit step starts the service instead of reading it"
+      "svc|s/unit: \+\[\"systemctl\", \"show\"/unit:       [\"systemctl\", \"start\"/|the unit step starts the service instead of reading it"
       "svc|s|_proc.command = root._stepArgv\[step\]|_proc.command = [\"apex\", \"firewall\", \"reload\"]|;|a timer can reach a verb that changes the machine"
       "page|s/lifecycle: \"live\"/lifecycle: \"\"/|the page does not say what its controls do"
       "page|s/label:       \"Turn it on\"/label:       \"Commit\"/|a control uses a banned word"
@@ -192,6 +233,16 @@ if [ "${1:-}" = "--self-test" ]; then
       "reg|/\"id\": \"firewall\"/d|the page is not in the registry"
       "page|s|text:           FirewallService.emptyLine|text:           \"Nothing. Every port a program on this machine has open is reachable only from this machine itself.\"|;|the reassuring sentence is written back into the page"
       "svc|s/Fw\.emptyLine(root\.checked, root\.unit, root\.status)/\"\"/|the service decides the sentence itself"
+      # The count check had no mutant until 2026-09-14, which is how a check
+      # that asserts a number gets to be wrong: rename a step to something the
+      # pattern does not list and the count silently stays right.
+      "svc|s/statusJson: /statusProse: /|a sweep step is renamed out from under the argv-table count"
+      "svc|s/, \"--json\"//|the status read asks for prose again"
+      "svc|s/_queue = \[\"unit\", \"statusJson\", \"catalogue\"\]/_queue = [\"unit\", \"status\", \"catalogue\"]/|the sweep goes back to reading the prose first"
+      "svc|s/root\._queue = \[\"status\"\]\.concat(root\._queue)/root._queue = root._queue/|an apex too old for --json gets no fallback and the page goes blank"
+      "svc|s/if (parsed\.ok) {/if (true) {/|a document that is not the contract is rendered anyway"
+      "page|s/label:       FirewallService\.hotspotLine/label:       \"Sharing this connection\"/|the shared-links sentence is written into the page"
+      "svc|s/Fw\.hotspotLine(root\.status)/\"\"/|the service decides the shared-links sentence itself"
     )
     caught=0; missed=0
     for m in "${mutants[@]}"; do
