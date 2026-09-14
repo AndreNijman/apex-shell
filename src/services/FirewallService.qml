@@ -60,7 +60,8 @@ Singleton {
 
     // ── What the machine says ────────────────────────────────────────────────
     property string unit: "unknown"
-    property var status: ({ ok: false, exceptions: [], alwaysAllowed: "", policy: "unknown" })
+    property var status: ({ ok: false, exceptions: [], alwaysAllowed: "",
+                            policy: "unknown", hotspotLinks: null })
     property var catalogue: []
 
     // True once a sweep has returned at least once, whatever it said. Lets the
@@ -78,6 +79,15 @@ Singleton {
     readonly property var exceptions: root.status.exceptions || []
     readonly property var openable: Fw.unopened(root.catalogue, root.exceptions)
     readonly property string alwaysAllowed: root.status.alwaysAllowed
+    // The links this machine is sharing its connection on, which the policy
+    // opens DHCP and DNS on without the user having opened anything. It is the
+    // one opening they did not choose on this page and would not otherwise
+    // find, and until this commit the page was showing it BY ACCIDENT, in the
+    // always-allowed row, having mistaken the sentence for that list. "" when
+    // there is nothing to say, including when nobody could read the ruleset —
+    // which is not the same as nothing being shared, and `hotspotLinks` keeps
+    // null and [] apart so it does not have to guess.
+    readonly property string hotspotLine: Fw.hotspotLine(root.status)
     readonly property int rejectedCount: {
         var n = 0
         for (var i = 0; i < root.exceptions.length; i++)
@@ -112,22 +122,46 @@ Singleton {
         if (!force && (Date.now() - root._lastSweepStart) < root.minSweepGap) return
 
         root._lastSweepStart = Date.now()
-        root._queue = ["unit", "status", "catalogue"]
+        root._queue = ["unit", "statusJson", "catalogue"]
         root._next()
     }
 
     // Every one of these is a read. `systemctl show` reports without touching
     // anything; `apex firewall status` and `list` are the helper's two
-    // unprivileged verbs. There is deliberately no fourth entry.
+    // unprivileged verbs. There is deliberately no fifth entry.
     //
     // `show` and not `is-active`: is-active says "inactive" for a unit that
     // does not exist, which is the same word it says for one that is merely
     // stopped. See the note in firewall.js.
+    //
+    // ── WHY `status` APPEARS TWICE ───────────────────────────────────────────
+    //
+    // `statusJson` is the one the sweep runs. `status` is a FALLBACK that is
+    // only ever enqueued by _resolve, when the JSON read did not come back as
+    // the shape the helper's contract promises.
+    //
+    // It cannot be "parse the same output as prose instead". Measured on an
+    // APEX laptop, 2026-09-14:
+    //
+    //     $ apex firewall status --json
+    //     error: unrecognized subcommand 'firewall'      (stderr)
+    //     rc=2                                           (stdout EMPTY)
+    //
+    // `apex` is clap. An older binary rejects `--json` — or, on an image that
+    // predates the firewall entirely, the whole `firewall` verb — before any
+    // helper runs, and writes its usage to stderr. There is no prose left in
+    // hand to fall back ON, so the fallback has to be a second process.
+    //
+    // On a machine with no `firewall` verb at all the fallback fires and fails
+    // too. That is deliberate and not worth "fixing": it costs one extra
+    // process per sweep on a page nobody has open, and both reads reach the
+    // same `ok: false`, which is the honest answer there.
     readonly property var _stepArgv: ({
-        unit:      ["systemctl", "show", "apex-firewall.service",
-                    "-p", "LoadState", "-p", "ActiveState"],
-        status:    ["apex", "firewall", "status"],
-        catalogue: ["apex", "firewall", "list"]
+        unit:       ["systemctl", "show", "apex-firewall.service",
+                     "-p", "LoadState", "-p", "ActiveState"],
+        statusJson: ["apex", "firewall", "status", "--json"],
+        status:     ["apex", "firewall", "status"],
+        catalogue:  ["apex", "firewall", "list"]
     })
 
     function _next() {
@@ -173,9 +207,29 @@ Singleton {
         root._settle.stop()
         root._settleFor = ""
 
-        if (step === "unit")           root.unit = Fw.parseUnit(code, text)
-        else if (step === "status")    root.status = Fw.parseStatus(code, text)
-        else if (step === "catalogue") root.catalogue = Fw.parseCatalogue(code, text)
+        if (step === "unit") {
+            root.unit = Fw.parseUnit(code, text)
+        } else if (step === "statusJson") {
+            const parsed = Fw.parseStatusJson(code, text)
+            if (parsed.ok) {
+                root.status = parsed
+            } else {
+                // The miss is HELD, not assigned. Writing `ok: false` here and
+                // overwriting it with the prose read a moment later would make
+                // the page flash "Could not be read … unknown rather than
+                // nothing" on every sweep, for thirty seconds at a time, on
+                // exactly the machines where the fallback is the working path.
+                // `root.status` keeps whatever the last complete read said
+                // until the prose step has its own answer.
+                root._queue = ["status"].concat(root._queue)
+            }
+        } else if (step === "status") {
+            // The last word. If this one failed too, `ok: false` is the truth
+            // about this machine and the page says so.
+            root.status = Fw.parseStatus(code, text)
+        } else if (step === "catalogue") {
+            root.catalogue = Fw.parseCatalogue(code, text)
+        }
 
         root._advance.restart()
     }
