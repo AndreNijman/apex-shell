@@ -105,15 +105,32 @@ echo "── the mutants ──"
 #      prevent, and the one a later refactor is most likely to cause by moving
 #      the declaration to a parent that does not exist.
 #
-#      IT SURVIVED THE FIRST RUN OF THIS HARNESS, and the mutant was right. Every
-#      geometric assertion in the fixture FORCED mirroring on by hand, and a row
-#      hardcoded `enabled: false` still mirrors when you set it yourself; the one
-#      assertion that read the shipped binding compared it against
-#      `Qt.application.layoutDirection`, which is LeftToRight on an English
-#      desktop, so `false === false` passed. The suite now runs the fixture TWICE
-#      -- scrubbed and under the RTL locale with the image's platform theme --
-#      and test_040 reads the row with nothing set at all. This mutant dies in
-#      the RTL pass.
+#      IT SURVIVED TWICE, for two DIFFERENT reasons, and both times the mutant
+#      was right and the fixture was wrong.
+#
+#      FIRST SURVIVAL (round 23). Every geometric assertion in the fixture
+#      FORCED mirroring on by hand, and a row hardcoded `enabled: false` still
+#      mirrors when you set it yourself; the one assertion that read the shipped
+#      binding compared it against `Qt.application.layoutDirection`, which is
+#      LeftToRight on an English desktop, so `false === false` passed. The fix
+#      was to run the fixture TWICE -- scrubbed, and under the RTL locale with
+#      the image's platform theme -- so test_040 is asked the question with the
+#      application actually in RightToLeft.
+#
+#      SECOND SURVIVAL (round 25), and it is the subtler one. The two-pass run
+#      landed and this mutant STILL lived, because test_040 was reading `row` --
+#      the same instance test_030 had just finished driving. test_030 forces
+#      mirroring both ways and then calls `restoreBinding()`, which installs the
+#      CORRECT binding imperatively; QtTest runs functions in name order, so by
+#      the time test_040 looked, the suite had REPAIRED the exact declaration
+#      the mutant broke. "Nothing was set by hand" was simply false -- something
+#      had been set by hand, and it happened to be the right thing.
+#
+#      The fix is `row2` and `scroll2` in the fixture: instances nothing
+#      anywhere writes to, which is the whole reason they exist. test_040 and
+#      test_060 read those. A restored binding masking a broken declaration is
+#      the same false-green family as N8 and K4 -- an assertion that cannot fail
+#      because the thing it measures was repaired before it looked.
 mutate R1 "$ROW" \
     '    LayoutMirroring.enabled: Qt.application.layoutDirection === Qt.RightToLeft' \
     '    LayoutMirroring.enabled: false' \
@@ -218,6 +235,30 @@ mutate R11 "$SCROLL" \
     '        anchors.leftMargin: 2' \
     '        anchors.leftMargin: 4' \
     "lifecycle banner keeps its 2px inset"
+
+# R12 — the same hardcode on the OTHER component that declares mirroring. R1
+#       covers CfgRow; nothing covered CfgScroll's own declaration until
+#       test_060 existed, and section 3 only COUNTS the files containing the
+#       word `LayoutMirroring` -- a count cannot tell a live binding from one
+#       that is present and overridden. Like R1, this can only die in the RTL
+#       pass, and only against an instance the fixture never touches: test_050
+#       drives `scroll` and restores its binding by hand, so a mutant measured
+#       there would be masked exactly as R1 was.
+mutate R12 "$SCROLL" \
+    '    LayoutMirroring.enabled: Qt.application.layoutDirection === Qt.RightToLeft' \
+    '    LayoutMirroring.enabled: false' \
+    "an untouched CfgScroll mirrors on its shipped declaration alone"
+
+# R13 — and the other direction, because an assertion that can only fail one way
+#       is half an assertion. R12 is caught in the RTL pass; this one is caught
+#       in the LTR pass, where a container that mirrors ALWAYS puts its banner
+#       on the right of an English settings page. R2 is the same pair for
+#       CfgRow. test_050 cannot see either of these -- it sets the switch
+#       itself before measuring.
+mutate R13 "$SCROLL" \
+    '    LayoutMirroring.enabled: Qt.application.layoutDirection === Qt.RightToLeft' \
+    '    LayoutMirroring.enabled: true' \
+    "an untouched CfgScroll mirrors on its shipped declaration alone"
 
 echo
 printf 'mutants applied=%d, failed-to-apply=%d, caught=%d, SURVIVED=%d\n' \
