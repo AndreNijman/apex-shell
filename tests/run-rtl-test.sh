@@ -168,7 +168,7 @@ else
     fi
 
     [ "$with_theme_heb" = "1" ] \
-        && ok "and under $L_RTL2 too — a second RTL locale, so this is not one lucky name" \
+        && ok "and under $L_RTL2 it is RightToLeft too — a second RTL locale, so this is not one lucky name" \
         || bad "under $L_RTL2 it is RightToLeft" "got $with_theme_heb"
 
     # THE MECHANISM, and the reason this section was rewritten. Qt decides the
@@ -180,7 +180,7 @@ else
     # holding up right-to-left layout. Drop it and every mirrored surface
     # silently stops mirroring with nothing red anywhere.
     if [ "$no_theme_rtl" = "0" ] && [ "$with_theme_rtl" = "1" ]; then
-        ok "and it is the THEME that supplies it: the same $L_RTL run with no platform theme gives LeftToRight"
+        ok "it is the platform theme that supplies the right-to-left direction — the same $L_RTL run with no platform theme gives LeftToRight"
     elif [ "$no_theme_rtl" = "1" ]; then
         ok "the direction no longer needs a platform theme — $L_RTL is RightToLeft without one (the dependency this suite pins has been removed; say so in the ledger)"
     else
@@ -375,10 +375,10 @@ win_mirrored="$(grep -rlE '^\s*PanelWindow\b|^\s*FloatingWindow\b' "$root/src" 2
 WIN_TOTAL_EXPECT=14
 WIN_MIRRORED_EXPECT=0
 [ "$win_total" -eq "$WIN_TOTAL_EXPECT" ] \
-    && ok "the shell paints from $win_total window roots" \
+    && ok "the shell paints from $WIN_TOTAL_EXPECT window roots — counted $win_total" \
     || bad "the shell paints from $WIN_TOTAL_EXPECT window roots" "counted $win_total — update the pin deliberately"
 [ "$win_mirrored" -eq "$WIN_MIRRORED_EXPECT" ] \
-    && ok "and $win_mirrored of them mirror — the named remaining half of this row, not a claim that RTL is done" \
+    && ok "$WIN_MIRRORED_EXPECT window roots mirror — the named remaining half of this row, not a claim that RTL is done" \
     || bad "$WIN_MIRRORED_EXPECT window roots mirror" \
            "counted $win_mirrored — if that is deliberate, move the pin and say so in the ledger"
 
@@ -435,7 +435,7 @@ x_sites="$(cd "$root" && grep -rhcE '^[[:space:]]*x:[[:space:]]*[0-9]' -r src 2>
 [ -n "$x_sites" ] || x_sites="$(cd "$root" && grep -rE '^[[:space:]]*x:[[:space:]]*[0-9]' src 2>/dev/null | wc -l)"
 
 if [ "$x_now" = "$x_expect" ]; then
-    ok "the $x_sites explicit numeric x: sites left in src/ are exactly the bucketed ones — none of them is a bare left inset"
+    ok "the explicit numeric x: sites in src/ are exactly the bucketed ones ($x_sites sites, none of them a bare left inset)"
 else
     bad "the explicit numeric x: sites in src/ are exactly the bucketed ones" \
         "the set moved; a new x: is a site mirroring cannot reach and needs a bucket or an anchor"

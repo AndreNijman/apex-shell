@@ -32,7 +32,7 @@ WIN="src/windows/TopBar.qml"
 FILES="$ROW $SCROLL $FIX $SUITE_F $WIN"
 SUITE="./tests/run-rtl-test.sh"
 
-applied=0; noapply=0; caught=0; survived=0
+applied=0; noapply=0; caught=0; survived=0; misscored=0
 
 tree_clean() { [ -z "$(git diff --name-only -- $FILES 2>/dev/null)" ]; }
 
@@ -48,6 +48,14 @@ restore() {
 run_suite() {
     env -i HOME="$HOME" PATH="$PATH" USER="${USER:-$(id -un)}" \
         TMPDIR="${TMPDIR:-/tmp}" "$SUITE" 2>&1
+}
+
+# How many assertions the suite reported FAILED, or 0 if it printed no totals
+# line at all (a crash, which must never read as a clean green run).
+suite_failures() {
+    printf '%s\n' "$1" \
+        | sed -n 's/^run-rtl-test: [0-9]* passed, \([0-9]*\) failed.*/\1/p' \
+        | head -1 | grep -E '^[0-9]+$' || echo 0
 }
 
 # mutate <id> <file> <from> <to> <assertion substring that must go red>
@@ -80,9 +88,22 @@ EDIT
     if printf '%s' "$out" | grep -q "^FAIL  .*$want"; then
         printf '%-5s CAUGHT    %s\n' "$id" "$want"
         caught=$((caught + 1))
+    elif [ "$(suite_failures "$out")" -gt 0 ] 2>/dev/null; then
+        # NOT a survival. The suite went red -- just not on the assertion this
+        # mutant NAMES. The two states look identical if you only grep for one
+        # sentence, and this unit has now recorded the wrong one FIVE times
+        # (I2, B2, F3-F5, R10); every time it was chased as a product defect
+        # before somebody read the output. They are mechanically
+        # distinguishable, so the harness distinguishes them.
+        printf '%-5s MISSCORED the suite went red (%s failed) but not on the named assertion\n' \
+               "$id" "$(suite_failures "$out")"
+        printf '      expected a FAIL line containing: %s\n' "$want"
+        printf '      ── FIX THE EXPECTATION, NOT THE CODE. What actually went red: ──\n'
+        printf '%s\n' "$out" | grep -E '^FAIL' | sed 's/^/      /'
+        misscored=$((misscored + 1))
     else
         printf '%-5s SURVIVED  %s\n' "$id" "$want"
-        printf '      ── what the suite said instead ──\n'
+        printf '      ── the suite stayed GREEN with this mutant applied ──\n'
         printf '%s\n' "$out" | grep -E '^(FAIL|SKIP|run-rtl-test)' | sed 's/^/      /'
         survived=$((survived + 1))
     fi
@@ -225,7 +246,7 @@ mutate R10 "$SCROLL" \
     '        anchors.left:       root.left
         anchors.leftMargin: 2' \
     '        x:     2' \
-    "explicit numeric x: sites left in src/ are exactly the bucketed ones"
+    "explicit numeric x: sites in src/ are exactly the bucketed ones"
 
 # R11 — the anchor stays but the inset changes. Nothing about the SET of x:
 #       sites moves, so only the geometry read off the live banner can see it.
@@ -261,8 +282,9 @@ mutate R13 "$SCROLL" \
     "an untouched CfgScroll mirrors on its shipped declaration alone"
 
 echo
-printf 'mutants applied=%d, failed-to-apply=%d, caught=%d, SURVIVED=%d\n' \
-    "$applied" "$noapply" "$caught" "$survived"
+printf 'mutants applied=%d, failed-to-apply=%d, caught=%d, SURVIVED=%d, MISSCORED=%d\n' \
+    "$applied" "$noapply" "$caught" "$survived" "$misscored"
+[ "$misscored" -eq 0 ] || echo "MISSCORED means this harness is wrong, not the shell." >&2
 tree_clean || { echo "ABORT: tree dirty at end of run" >&2; exit 3; }
 echo "the tree matches HEAD"
-[ "$survived" -eq 0 ] && [ "$noapply" -eq 0 ]
+[ "$survived" -eq 0 ] && [ "$noapply" -eq 0 ] && [ "$misscored" -eq 0 ]
