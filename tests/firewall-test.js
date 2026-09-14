@@ -195,6 +195,15 @@ check("exceptions missing altogether is refused",
       F.parseStatusJson(0, mutated(d => { delete d.exceptions; })).ok, false);
 check("hotspot_links as a string is refused",
       F.parseStatusJson(0, mutated(d => { d.hotspot_links = "apexhost"; })).ok, false);
+// "missing" and "null" are identical in JavaScript and opposite here: one is a
+// key that got renamed, the other is the helper saying nobody could look. A
+// reader that defaults a missing key to null reports "not sharing" forever and
+// never goes red, which is the drift this file exists to make loud.
+check("hotspot_links missing altogether is refused, not read as null",
+      F.parseStatusJson(0, mutated(d => { d.shared_links = d.hotspot_links; delete d.hotspot_links; })).ok,
+      false);
+check("hotspot_links explicitly null is still a good document",
+      F.parseStatusJson(0, mutated(d => { d.hotspot_links = null; })).hotspotLinks, null);
 check("one exception row missing its name makes the whole document unreadable",
       F.parseStatusJson(0, mutated(d => { delete d.exceptions[1].name; })).ok, false);
 check("rejected as the string \"false\" is not a boolean and is refused",
