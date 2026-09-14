@@ -1,0 +1,6 @@
+{
+  "policy": "unreadable",
+  "always_allowed": "established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh",
+  "hotspot_links": null,
+  "exceptions": []
+}

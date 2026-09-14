@@ -1,0 +1,11 @@
+apex-firewall: policy: incoming dropped by default, outgoing allowed
+
+always allowed, and not removable here:
+  established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh
+
+  sharing this machine's connection on: apexhost, wlan0
+    DHCP and DNS are open on those links only
+
+exceptions you have added:
+  broken        could not be applied — rejected: tcp notaport
+  mdns          udp 5353

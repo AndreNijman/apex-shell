@@ -209,6 +209,68 @@ jobs:
           shellcheck -S warning -x tests/*.sh
           echo "✓ test harnesses passed ShellCheck"
 
+      - name: No merge conflict markers anywhere in the tree
+        run: |
+          # This check was written because `roadmap/v2.2` SHIPPED with
+          # unresolved markers in src/state/IpcManager.qml and
+          # tests/run-agent-center-smoke.sh — the shell does not load at all in
+          # that state — and then it was never wired to anything. A gate that
+          # runs nowhere is the same as no gate, and this one is three lines of
+          # grep standing between the repository and a tree that cannot start.
+          #
+          # Early in the job on purpose: a tree with markers in it will fail
+          # everything below in ways that read like real defects.
+          ./tests/check-no-conflict-markers.sh
+
+      - name: Firewall surface logic
+        run: |
+          # P1-044. Drives src/services/firewall.js — the file the shell loads
+          # — over payloads in tests/fixtures/firewall/, every one of them
+          # captured from the shipped files/system/libexec/apex-firewall under
+          # an nft shim by tests/fixtures/firewall/gen-firewall-fixtures.sh.
+          #
+          # This suite existed and ran NOWHERE, which is how its fixtures were
+          # able to drift away from the tool while staying green: apex-os
+          # c7a28f2c added a paragraph to the status screen, the parser read it
+          # as the list of traffic the firewall never drops, and the page told
+          # root sessions that what their firewall always allows is "DHCP and
+          # DNS are open on those links only".
+          #
+          # The load-bearing half is the shape checking on `apex firewall
+          # status --json`: a renamed key must be a failed read, not an empty
+          # string, because an empty string renders as nothing and nothing is
+          # silent. Fourteen of the checks are documents that are NOT the
+          # contract.
+          node tests/firewall-test.js
+
+      - name: Firewall surface invariants
+        run: |
+          # Static half, and the part node cannot see: that the sweep asks for
+          # `--json` rather than prose, that a document failing validation
+          # still gets an answer through the prose fallback, that nothing on a
+          # timer can reach `apex firewall allow`, and that the argv table's
+          # entry count is asserted against the names it actually lists.
+          #
+          # Self-tests with twenty mutants that must each go red, a hard
+          # failure for any that did not change the file, and a prose-only copy
+          # quoting every banned command that must stay GREEN.
+          ./tests/check-firewall-ui.sh --self-test
+
+      - name: Agent state colours, measured
+        run: |
+          # P0-021. Computes WCAG 2.1 contrast and CIE76 ΔE over Viénot-1999
+          # dichromat simulations against the palettes the shell ships, rather
+          # than asserting that they are fine. It was another suite wired to
+          # nothing.
+          node tests/agent-state-test.js
+
+      - name: Display colour section invariants
+        run: |
+          # P1-041. The behavioural half needs quickshell and a compositor and
+          # skips on every runner, which is exactly why the static half exists
+          # — and it was not running either.
+          ./tests/check-colour-page.sh
+
       - name: Service-tier behavioural test
         run: |
           # Needs a compositor; the harness skips cleanly without one so this

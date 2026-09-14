@@ -1,0 +1,10 @@
+apex-firewall: policy: cannot read the ruleset; reading it needs root
+apex-firewall:   try: sudo apex firewall status
+
+always allowed, and not removable here:
+  established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh
+
+exceptions you have added:
+  broken        could not be applied — rejected: tcp notaport
+  mdns          udp 5353
+  syncthing     tcp 22000

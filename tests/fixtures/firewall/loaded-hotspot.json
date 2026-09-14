@@ -1,0 +1,9 @@
+{
+  "policy": "loaded",
+  "always_allowed": "established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh",
+  "hotspot_links": ["apexhost", "wlan0"],
+  "exceptions": [
+    {"name": "broken", "proto": "", "port": "", "rejected": true, "detail": "tcp notaport"},
+    {"name": "mdns", "proto": "udp", "port": "5353", "rejected": false, "detail": ""}
+  ]
+}
