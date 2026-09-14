@@ -80,13 +80,53 @@ function parseUnit(exitCode, stdout) {
     }
 }
 
-// ── The exceptions ──────────────────────────────────────────────────────────
+// ── The exceptions, from the helper's PROSE ─────────────────────────────────
+//
+// THIS IS THE FALLBACK PATH, not the one the page normally takes. See
+// parseStatusJson below: `apex firewall status --json` is the shape this page
+// reads, and prose is what is left on a machine whose `apex` predates the flag.
+// The two are kept side by side rather than one being deleted, because the
+// machine this shell is being written on today — an L16 whose image predates
+// the firewall entirely — answers `unrecognized subcommand 'firewall'`, and a
+// page that only knows how to read the new surface would have nothing to say
+// on the machines where it most needs to say something.
+//
 // The helper prints its own lines prefixed `apex-firewall: `; the two lists are
 // unprefixed and follow their heading. Parsing the heading rather than the
 // indentation means a future line added above cannot silently become an
 // exception.
+//
+// ── A BLANK LINE ENDS A SECTION ─────────────────────────────────────────────
+//
+// It did not, and that was the bug this whole change exists to close. apex-os
+// `c7a28f2c` added a shared-links block to the status screen, set off by blank
+// lines on both sides and sitting between the "always allowed" heading and the
+// "exceptions you have added" heading:
+//
+//     always allowed, and not removable here:
+//       established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh
+//
+//       sharing this machine's connection on: apexhost, wlan0
+//         DHCP and DNS are open on those links only
+//
+//     exceptions you have added:
+//
+// A heading is not the only thing that ends a list. With `continue` on a blank
+// line, both of those lines were still "under" the always-allowed heading and
+// the last one won, so the page told the user that what its firewall never
+// drops is "DHCP and DNS are open on those links only". The helper never
+// changed a heading; it added a paragraph, and a paragraph was enough.
+//
+// The fixture that should have caught it had been captured before the line
+// existed. tests/fixtures/firewall/ is re-capturable now, and the generator's
+// header says why.
 function parseStatus(exitCode, stdout) {
-    var out = { ok: false, exceptions: [], alwaysAllowed: "", policy: "unknown" }
+    var out = { ok: false, exceptions: [], alwaysAllowed: "", policy: "unknown",
+                // Deliberately not read from the prose. The shared-links line
+                // is exactly the coupling that broke; re-deriving it from a
+                // sentence here would be re-introducing it one function down.
+                // A caller that needs this asks for --json, which has a shape.
+                hotspotLinks: null }
     var text = stdout || ""
     if (text.trim() === "") return out
     out.ok = true
@@ -110,7 +150,10 @@ function parseStatus(exitCode, stdout) {
         }
         if (trimmed === "always allowed, and not removable here:") { section = "always"; continue }
         if (trimmed === "exceptions you have added:")              { section = "exceptions"; continue }
-        if (trimmed === "") continue
+        // A blank line ends the list. See the note above — this one line is
+        // the difference between reading the always-allowed sentence and
+        // reading whatever paragraph the helper printed after it.
+        if (trimmed === "") { section = ""; continue }
         // Anything else the helper says about itself belongs to no list.
         if (trimmed.indexOf("apex-firewall:") === 0) continue
 
@@ -140,6 +183,114 @@ function parseExceptionLine(line) {
     // user wrote, and hiding it is how it stays broken.
     var n = line.match(/^(\S+)/)
     return { name: n ? n[1] : line, proto: "", port: "", rejected: true, detail: "unrecognised" }
+}
+
+// ── The exceptions, from `apex firewall status --json` ──────────────────────
+//
+//  WHY THERE IS A SECOND READER AT ALL.
+//
+//  The page used to read the helper's prose and nothing else, and that broke
+//  the way prose coupling always breaks: silently, with both suites green. A
+//  sentence has no shape to fail against — a line that moves is still a line,
+//  so the parser assigns it to a field and the page renders it. The user is
+//  told something false about their firewall and nothing anywhere goes red.
+//
+//  apex-os `3ab3b6ce` gave the helper a surface with a shape. The contract is
+//  written where the helper is (`cmd_status_json` in
+//  files/system/libexec/apex-firewall); this is the half that reads it.
+//
+//  ── WHY THIS VALIDATES INSTEAD OF JUST READING KEYS ────────────────────────
+//
+//  `JSON.parse(...).always_allowed` is the same defect in a new costume. Rename
+//  that key on the apex-os side and this gets `undefined`, which becomes "",
+//  which makes the page hide the row — silently, with both suites green again.
+//  The coupling would have moved from sentences to key names and drifted just
+//  as quietly.
+//
+//  So a document is only accepted when it has the shape the contract promises,
+//  and anything else is `ok: false` — which the page already knows how to say
+//  ("Could not be read … so what is open here is unknown rather than
+//  nothing"). Drift is LOUD: it costs the page its content, and nobody ships
+//  a blank settings page without noticing.
+//
+//  Required, not exhaustive: the four keys must be present with the right
+//  types, and extra keys are ignored. Rejecting a document for carrying a
+//  field this shell has not heard of would make any additive change on the
+//  apex-os side blank the page on every machine that had not updated in
+//  lockstep, and an addition is not the failure mode — a rename or a removal
+//  is, and those are caught by requiring presence.
+var POLICIES = ["absent", "notloaded", "unreadable", "loaded"]
+
+function _isStr(v)  { return typeof v === "string" }
+function _isObj(v)  { return v !== null && typeof v === "object" && !Array.isArray(v) }
+
+// One {name, proto, port, rejected, detail}, or null if it is not one.
+function _exceptionOf(e) {
+    if (!_isObj(e)) return null
+    if (!_isStr(e.name) || !_isStr(e.proto) || !_isStr(e.port) || !_isStr(e.detail)) return null
+    if (typeof e.rejected !== "boolean") return null
+    // A rejected exception is a port the user believes is open and that the
+    // reload refused. Showing a port next to that is the single worst answer
+    // this surface can give, so proto/port are dropped here rather than
+    // trusted: the helper's contract says a rejected entry carries neither,
+    // apex-os's own suite mutation-proves it, and this page does not need to
+    // be the second place that is true.
+    if (e.rejected) return { name: e.name, proto: "", port: "", rejected: true, detail: e.detail }
+    return { name: e.name, proto: e.proto, port: e.port, rejected: false, detail: e.detail }
+}
+
+// The exit code is not consulted. The helper answers 0 in every policy state
+// on purpose — "the ruleset could not be read" is an answer, not a failure —
+// and the case that matters, an `apex` with no `--json` and no `firewall` verb
+// at all, writes its usage to stderr and leaves stdout EMPTY. So the document
+// is the test, and there is nothing in the code to read.
+function parseStatusJson(exitCode, stdout) {
+    var bad = { ok: false, exceptions: [], alwaysAllowed: "", policy: "unknown", hotspotLinks: null }
+    var text = stdout || ""
+    if (text.trim() === "") return bad
+
+    var d
+    try { d = JSON.parse(text) } catch (e) { return bad }
+    if (!_isObj(d)) return bad
+
+    if (!_isStr(d.policy) || POLICIES.indexOf(d.policy) < 0) return bad
+    if (!_isStr(d.always_allowed)) return bad
+
+    // null and [] are different answers and the contract says so: [] means
+    // "this machine is sharing its connection on nothing", and a caller who
+    // could not read the ruleset has not learned that. Collapsing them here
+    // would throw away the distinction the helper went to the trouble of
+    // keeping.
+    var links = null
+    if (d.hotspot_links !== null && d.hotspot_links !== undefined) {
+        if (!Array.isArray(d.hotspot_links)) return bad
+        links = []
+        for (var k = 0; k < d.hotspot_links.length; k++) {
+            if (!_isStr(d.hotspot_links[k])) return bad
+            links.push(d.hotspot_links[k])
+        }
+    }
+
+    if (!Array.isArray(d.exceptions)) return bad
+    var out = []
+    for (var i = 0; i < d.exceptions.length; i++) {
+        var row = _exceptionOf(d.exceptions[i])
+        if (row === null) return bad     // one malformed row is a malformed document
+        out.push(row)
+    }
+
+    return { ok: true, exceptions: out, alwaysAllowed: d.always_allowed,
+             policy: d.policy, hotspotLinks: links }
+}
+
+// What the page says about a shared connection, or "" for nothing to say.
+// Only ever from the JSON path: `hotspotLinks` is null on every prose read.
+function hotspotLine(status) {
+    if (!status || !status.ok) return ""
+    var l = status.hotspotLinks
+    if (!l || l.length === 0) return ""
+    return "Sharing this machine's connection on " + l.join(", ")
+         + ". DHCP and DNS are open on those links only."
 }
 
 // ── The catalogue ───────────────────────────────────────────────────────────
@@ -243,6 +394,8 @@ if (typeof module !== "undefined" && module.exports)
     module.exports = {
         parseUnit: parseUnit,
         parseStatus: parseStatus,
+        parseStatusJson: parseStatusJson,
+        hotspotLine: hotspotLine,
         parseExceptionLine: parseExceptionLine,
         parseCatalogue: parseCatalogue,
         statusLine: statusLine,
