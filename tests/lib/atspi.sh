@@ -1,18 +1,23 @@
 # shellcheck shell=bash
 #
 # ─────────────────────────────────────────────────────────────────────────────
-#  PROVENANCE — this file is a byte-for-byte copy of apex-os
-#  tests/lib/atspi.sh at apex-os 23a862b5, sha256
-#  32eca1422699df1bd0d86295f6d4d3172fd959e79db1df9a24a80fdcd6a57e71, with only
-#  this block added.
+#  PROVENANCE — this file is a copy of apex-os tests/lib/atspi.sh. It is
+#  IDENTICAL to that file except for this block, which is the only thing added.
+#  Check it rather than believe it:
+#
+#      diff <(sed '2,25d' tests/lib/atspi.sh) ../apex-os/tests/lib/atspi.sh
+#
+#  The apex-os copy is 84f1dfe669cf00f2851609be42363d07e5c8fd0c022e5df164708419a1d20f6c
+#  at apex-os 4aae9249.
 #
 #  It is duplicated rather than shared because apex-shell's CI checks out
-#  apex-shell alone: tests/run-lockscreen-atspi.sh needs a private
-#  accessibility bus and there is no apex-os tree on the Arch runner to source
-#  one from. The cost is that a fix made in one repo does not reach the other,
-#  so: FIX BOTH. The two known histories are apex-os 15283c02 (the file's
-#  origin), af8cbdd4 (the second machine's correction to the status-flag
-#  paragraph) and 23a862b5 (shellcheck).
+#  apex-shell alone: tests/run-lockscreen-atspi.sh needs a private accessibility
+#  bus and there is no apex-os tree on the Arch runner to source one from. The
+#  cost is that a fix made in one repo does not reach the other, so: FIX BOTH.
+#  The known history is apex-os 15283c02 (the file's origin), af8cbdd4 (a second
+#  machine correcting the status-flag paragraph), 23a862b5 (shellcheck) and
+#  4aae9249 (GSETTINGS_BACKEND=memory, which is what made apex-shell's lock
+#  screen read-back measurable at all — it is in both copies).
 #
 #  The paragraphs below talk about "the greeter" and about suites that live in
 #  apex-os. That is deliberate — the text is the original's, and rewording it
@@ -217,15 +222,16 @@ EOF
     # success, so the properties read back false and Qt's bridge publishes
     # nothing at all.
     #
-    # Measured on this machine, 2026-09-18, with a private HOME (the one
-    # tests/lib/headless.sh creates, which has no dconf database):
+    # Measured on a booted APEX desktop, 2026-09-18, with a private HOME (the
+    # one apex-shell's tests/lib/headless.sh creates, which has no dconf
+    # database):
     #
     #     dconf backend : Set IsEnabled <true> -> () ... GetAll -> false, false
     #     memory backend: Set IsEnabled <true> -> () ... GetAll -> true, true
     #
     # The failure mode is the dangerous one. An empty accessibility tree looks
     # exactly like a surface with no markup, so a suite built on the first line
-    # reports "the lock screen publishes nothing" and is believed.
+    # reports "this surface publishes nothing" and is believed.
     #
     # Scoped to the launcher on purpose: it is the only process whose GSettings
     # backend these properties depend on, and the application under test keeps
@@ -234,10 +240,12 @@ EOF
     # hermetic than reading — or writing — the dconf database of whoever is
     # logged in.
     #
-    # It is a no-op where gsettings-desktop-schemas is absent, as in a bare
-    # container: with no schema the launcher keeps the value internally and the
-    # write always worked. That is why this was invisible until a suite ran the
-    # stack against a private HOME on a desktop machine.
+    # It is a no-op where gsettings-desktop-schemas is absent, as in the bare
+    # fedora:43 container CI runs: with no schema the launcher keeps the value
+    # internally and the write always worked. That is why this was invisible
+    # until a suite ran the stack against a private HOME on a desktop machine.
+    #
+    # The copy of this file in apex-shell carries the same fix. FIX BOTH.
     GSETTINGS_BACKEND=memory \
         "$ATSPI_BUS_LAUNCHER" >"$ATSPI_W/launcher.out" 2>"$ATSPI_W/launcher.err" &
     ATSPI_LAUNCHER_PID=$!

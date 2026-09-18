@@ -4,8 +4,10 @@
 #  PROVENANCE — this file is a byte-for-byte copy of apex-os
 #  tests/atspi-walk.py at apex-os 23a862b5, sha256
 #  8593c3f89f0885536426af1d5d7d5670611308c79706c6efff838097f43637cc, with only
-#  this block added. See the same block in tests/lib/atspi.sh for why it is
-#  duplicated and what that obliges. FIX BOTH.
+#  this block added -- check it rather than believe it:
+#      diff <(sed '2,11d' tests/atspi-walk.py) ../apex-os/tests/atspi-walk.py
+#  See the same block in tests/lib/atspi.sh for why it is duplicated and what
+#  that obliges. FIX BOTH.
 # ─────────────────────────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────────────────
 #  tests/atspi-walk.py — read an application's accessibility tree the way a
