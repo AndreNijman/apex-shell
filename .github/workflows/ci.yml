@@ -1599,6 +1599,44 @@ jobs:
         if: ${{ !cancelled() }}
         run: ./tests/mutate-quickshell-a11y-cause.sh
 
+      # The read-back the roadmap has been asking for since P2-003 was written,
+      # finally answerable. run-lockscreen-atspi.sh records it as SKIPs because
+      # an empty tree satisfies every one of those assertions vacuously; the
+      # step above names why the tree is empty; this one puts Qt's
+      # accessibility factory back inside the running shell with a TEST-ONLY
+      # LD_PRELOAD and reads the shipped markup off the bus for real.
+      #
+      # Its control is inside the run: it walks the tree BEFORE installing
+      # anything and requires exactly one node, so the tree it then measures is
+      # attributable to the factory install and to nothing else — not a bus
+      # that came up late, not a lock that engaged this time.
+      #
+      # It will SKIP here and say so: the runner has no quickshell. That is the
+      # same could-not-run every shell-half step in this job reports, and the
+      # step exists anyway because the day quickshell is available it starts
+      # measuring without anyone remembering to add it. Read the totals line.
+      - name: Lock screen accessibility — read-back with the factory restored
+        if: ${{ !cancelled() }}
+        run: |
+          pacman -S --needed --noconfirm at-spi2-core dbus python-gobject \
+            qt6-declarative qt6-base labwc pkgconf \
+            || echo "note: part of the a11y stack is unavailable; the suite will SKIP and say so"
+          ./tests/run-lockscreen-atspi-shim.sh
+
+      # …and that the suite above can go red. Four mutants break the SHIPPED
+      # QML and require the BUS to notice — removing Accessible.passwordEdit
+      # must make the field's name arrive, which is the only way that
+      # suppression is observable at all — and two break the INSTRUMENT, because
+      # a suite that cannot tell "the markup is missing" from "the shim hooked
+      # nothing" would report the shell's markup as absent on the strength of a
+      # broken tool.
+      #
+      # It refuses to score anything when the baseline made too few assertions
+      # to be a baseline, and exits 0 saying which pieces were missing.
+      - name: Lock screen accessibility — read-back mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-lockscreen-atspi-shim.sh
+
       # …and that the suite above can go red. Seven red mutants and three green
       # ones, every one of them a full bring-up: a compositor, two buses, a
       # registry, the shell and a session lock, about forty seconds each.
@@ -2292,6 +2330,9 @@ jobs:
             "tests/check-quickshell-a11y-cause.sh"
             "tests/mutate-quickshell-a11y-cause.sh"
             "tests/quickshell-a11y-cause.cpp"
+            "tests/run-lockscreen-atspi-shim.sh"
+            "tests/mutate-lockscreen-atspi-shim.sh"
+            "tests/quickshell-a11y-shim.cpp"
             "tests/lockscreen-atspi-control.qml"
             "tests/atspi-walk.py"
             "tests/lib/atspi.sh"
