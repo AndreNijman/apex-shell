@@ -69,7 +69,23 @@ applied=0; noapply=0; caught=0; survived=0; misscored=0; held=0; falsered=0
 unscorable=0
 
 SNAP="$(mktemp -d "${TMPDIR:-/tmp}/mutate-qs-a11y-cause.XXXXXX")" || exit 2
-trap 'rm -rf "$SNAP"' EXIT INT TERM
+# A kill between an edit and its restore — a CI step timeout, a usage limit, a
+# closed lid — would otherwise leave a MUTATED file in the tree for every later
+# step in the same job, and these files are in the workflow's REQUIRED list, so
+# the structure check would still pass and nothing downstream would notice. So
+# the restore runs from the trap as well as from each mutant. Guarded on the
+# snapshot existing, because the trap is armed before it is taken, and
+# deliberately not the `restore` function: that one aborts the run on a sha
+# mismatch, which is right mid-run and wrong in an exit handler.
+put_back() {
+    local f
+    if [ -f "$SNAP/baseline.sha256" ]; then
+        # shellcheck disable=SC2086
+        for f in $FILES; do cp -- "$SNAP/$(snap_of "$f")" "$f" 2>/dev/null; done
+    fi
+    rm -rf "$SNAP"
+}
+trap put_back EXIT INT TERM
 
 snap_of() { printf '%s' "$1" | tr '/' '_'; }
 
