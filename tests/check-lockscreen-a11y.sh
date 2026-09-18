@@ -121,8 +121,21 @@ PUA = re.compile('[-\U000f0000-\U000ffffd\U00100000-\U0010fffd]')
 src = open(sys.argv[1], encoding='utf-8').read()
 
 
-def mask(s):
-    """A same-length copy with comment and string CONTENT replaced by spaces."""
+def mask(s, blank_strings=True):
+    """A same-length copy with comments — and optionally string CONTENT — blanked.
+
+    Two copies are made from this. `M` blanks both and is what STRUCTURE is read
+    off: a brace inside prose or inside a string cannot move an object boundary,
+    and a check about CODE (does say() call announce?) asks M, so a comment
+    quoting the code it describes cannot satisfy it.
+
+    `C` blanks comments only, and is what VALUES are read off. That distinction
+    is not decoration. `bindings()` accumulates a value across the lines that
+    follow it, so a comment written under a `text:` binding would otherwise be
+    swallowed INTO that value — and a comment mentioning an icon would make this
+    suite report an unaudited icon that does not exist. A checker that prose can
+    turn red punishes people for explaining themselves, which is the mirror of
+    the prose-turns-it-green defect this repository has shipped four times."""
     out = list(s)
     i, n = 0, len(s)
     while i < n:
@@ -148,13 +161,15 @@ def mask(s):
             i += 1
             while i < n and s[i] != q:
                 if s[i] == '\\':
-                    out[i] = ' '
+                    if blank_strings:
+                        out[i] = ' '
                     i += 1
                     if i < n:
-                        out[i] = ' '
+                        if blank_strings:
+                            out[i] = ' '
                         i += 1
                     continue
-                if s[i] != '\n':
+                if blank_strings and s[i] != '\n':
                     out[i] = ' '
                 i += 1
             i += 1
@@ -164,6 +179,7 @@ def mask(s):
 
 
 M = mask(src)
+C = mask(src, blank_strings=False)
 
 
 def enclosing(pos):
@@ -203,7 +219,7 @@ def direct(start, end):
         if c == '}':
             depth -= 1
             continue
-        out.append(src[k] if depth == 0 else ('\n' if src[k] == '\n' else ' '))
+        out.append(C[k] if depth == 0 else ('\n' if src[k] == '\n' else ' '))
     return ''.join(out)
 
 
@@ -317,7 +333,7 @@ emit('PW_SECRET_LEAKS', leaks)
 
 # ── private-use glyphs ───────────────────────────────────────────────────────
 # Every Accessible.* binding in the WHOLE file, not just the field's.
-acc_all = re.findall(r'Accessible\.\w+\s*:\s*([^\n]*)', src)
+acc_all = re.findall(r'Accessible\.\w+\s*:\s*([^\n]*)', C)
 emit('PUA_IN_ACCESSIBLE', sum(1 for v in acc_all if PUA.search(v)))
 emit('ACCESSIBLE_BINDINGS_TOTAL', len(acc_all))
 
