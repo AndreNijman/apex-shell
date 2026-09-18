@@ -1437,6 +1437,72 @@ jobs:
       - name: How far Reduce Motion reaches
         run: ./tests/check-reduce-motion.sh
 
+      # The LOCK screen, for a user who cannot see it (P2-003).
+      #
+      # The LOGIN screen is covered three ways in apex-os. The lock screen — the
+      # same act by a user already logged in, and the surface somebody meets
+      # when they cannot get into their own machine — had nothing, and
+      # src/windows/Lockscreen.qml carried zero `Accessible.` anything across
+      # 440 lines. No name or role on the password field, no `passwordEdit` (so
+      # nothing told an assistive technology to stop echoing what was typed into
+      # it), a wrong password reported by a red border and a shake, Caps Lock
+      # reported by a nerd-font glyph a reader spells out as "private use
+      # character F0A9B", and no role on the line that says which of those
+      # happened.
+      #
+      # Not a grep for Accessible.name: that is satisfied by a comment about
+      # accessibility and — the one that actually matters — by markup on the
+      # placeholder Text NESTED INSIDE the field, which is a different object
+      # announcing a different thing. Object bodies are extracted by brace depth
+      # and a binding counts only as a direct child. Six self-tests prove the
+      # extractor can tell those apart; two of them exist because the first
+      # draft HAD the defect they now foreclose.
+      #
+      # It reads source. The one thing it RUNS is a Qt-version probe, because
+      # the fix calls Accessible.announce() — Qt 6.8+, and a call to a method
+      # this Qt does not have is a runtime error ON THE LOCK SCREEN dressed up
+      # as a green check. A missing qml runner makes that a SKIP, and the suite
+      # counts skips separately on its totals line, so read the totals and not
+      # the ticks.
+      - name: Lock screen accessibility
+        if: ${{ !cancelled() }}
+        run: |
+          # python3 for the extractor, and a qml runner for the announce probe.
+          # Installed here rather than relied on from an earlier step: a job
+          # stops at its first failing step, and this suite must not silently
+          # degrade to a SKIP because somebody else's install line moved.
+          pacman -S --needed --noconfirm python qt6-declarative qt6-base \
+            || echo "note: Qt/python unavailable; the announce probe will SKIP or the suite will FATAL"
+          ./tests/check-lockscreen-a11y.sh
+
+      # …and that the suite above can go red, and does not go red at prose.
+      #
+      # A source-reading suite is the easiest kind to write vacuously, so twenty
+      # mutants each break one arm of the markup and a NAMED assertion has to
+      # fail; four more add comments and string literals quoting every one of
+      # those defects and the suite has to stay GREEN. A suite prose can turn
+      # red punishes people for explaining themselves, which matters here
+      # because accessibility markup is not self-explanatory.
+      #
+      # The verdict is four-way — CAUGHT / MISSCORED / CRASHED / SURVIVED — and
+      # the harness self-tests that it can produce all four, because a mutant
+      # that made the suite exit FATAL reads as "no failures reported" to any
+      # harness that only counts.
+      #
+      # It also proves its own RESTORE on the real file before using it, and it
+      # restores from a sha256-verified snapshot rather than with
+      # `git checkout --` like the two sister harnesses in this repo. That is
+      # not a style choice, it is this job: the Checkout step above runs BEFORE
+      # git is installed, so actions/checkout falls back to the tarball API and
+      # THIS WORKSPACE HAS NO .git AT ALL. Measured here on 2026-09-18, where
+      # the first version aborted with "not a git work tree". A harness that had
+      # read `git diff`'s empty output as "clean" would instead have applied two
+      # dozen mutants on top of each other and printed two dozen confident
+      # verdicts about a tree nobody put back.
+      - name: Lock screen accessibility — mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-lockscreen-a11y.sh
+
       # Internationalisation, measured the only way that means anything: the
       # strings are extracted from the SHIPPED file with the real lupdate,
       # compiled with the real lrelease, and read back out of a running QML
@@ -1496,7 +1562,41 @@ jobs:
       # row is a number that moves rather than a sentence somebody forgets.
       - name: Right-to-left layout baseline
         if: ${{ !cancelled() }}
-        run: ./tests/run-rtl-test.sh
+        run: |
+          # RED ON THIS RUNNER SINCE IT LANDED, and nobody saw it: ci.yml was
+          # last dispatched on this repository on 2026-09-12 and the RTL suite
+          # landed after that. Measured 2026-09-18 on runs 35351413253 and
+          # 35351740747 — the second on roadmap/v2.2 with none of the lock
+          # screen work on it, identical totals, so this is the runner and not
+          # anybody's branch: 17 passed, 3 failed, 2 skipped.
+          #
+          # The three reds are all section 1, and section 1 is the one that
+          # makes the rest mean anything: it requires a scrubbed run and an
+          # ar_EG run to DISAGREE about the application's layout direction.
+          # Round 23 measured what supplies that disagreement, and it is not the
+          # locale — Qt TRANSLATES the string QT_LAYOUT_DIRECTION and compares
+          # it to RTL, so the switch is a translation CATALOGUE reached through
+          # a platform theme.
+          #
+          # These two packages are NECESSARY AND NOT SUFFICIENT, and this line
+          # says so rather than reading like a fix somebody has already tried.
+          # Measured on run 35352450127: qt6ct was genuinely absent and is
+          # installed here; qt6-translations (which owns qt_ar.qm, the same
+          # package apex-os round 27 found reaching the image only as a weak
+          # dependency) was ALREADY present at 6.11.2 — and section 1 still
+          # answers LeftToRight under both ar_EG and he_IL, so the remaining
+          # cause is something else. The two candidates nobody has yet ruled
+          # out: the runner is Qt 6.11.2 where the laptop is 6.10.3, and qt6ct
+          # here has no /etc/xdg/qt6ct/qt6ct.conf, which APEX ships and which
+          # the plugin may need before it does anything.
+          #
+          # DO NOT "fix" this by making section 1 SKIP. Its whole job is to
+          # require a scrubbed run and an ar_EG run to DISAGREE; a suite that
+          # skipped its own discriminator would report four green lines about a
+          # constant. p2-b's card carries this at the top of its queue.
+          pacman -S --needed --noconfirm qt6ct qt6-translations qt6-declarative qt6-base \
+            || echo "note: qt6ct/qt6-translations unavailable; section 1 certainly cannot produce an RTL direction here"
+          ./tests/run-rtl-test.sh
 
       - name: Remote agent status invariants
         run: |
@@ -2068,6 +2168,9 @@ jobs:
             "tests/a11y-controls-test.qml"
             "tests/run-a11y-controls-test.sh"
             "tests/check-reduce-motion.sh"
+            "src/windows/Lockscreen.qml"
+            "tests/check-lockscreen-a11y.sh"
+            "tests/mutate-lockscreen-a11y.sh"
             "tests/run-i18n-test.sh"
             "tests/run-rtl-test.sh"
             "tests/rtl-test.qml"
