@@ -62,9 +62,23 @@
 #    * QAccessible::isActive() is 1 in BOTH processes, so the bridge is not
 #      merely loaded in quickshell, it is active. The gate is not activation.
 #
-#  That is as far as this repository can take it: the remaining question is why
-#  QAccessible::queryAccessibleInterface returns null for a QQuickWindow inside
-#  quickshell, which is upstream work in quickshell or Qt, not here.
+#  ANSWERED ON 2026-09-19, and the paragraph that used to sit here said this was
+#  as far as the repository could take it. It was not. queryAccessibleInterface
+#  returns null because Qt's accessibility FACTORY LIST IS EMPTY in this
+#  process: QAccessible::installFactory registers a qAddPostRoutine that does
+#  qAccessibleFactories()->clear(), post routines run from ~QCoreApplication,
+#  qtdeclarative installs qQuickAccessibleFactory from a Q_CONSTRUCTOR_FUNCTION
+#  that can only run once per library load, and quickshell destroys a
+#  QCoreApplication immediately before constructing its QGuiApplication
+#  (src/launch/main.cpp:127 and src/launch/launch.cpp:282). Reproduced in five
+#  modes with no compositor and no bus by tests/check-quickshell-a11y-cause.sh,
+#  which PINS it; confirmed inside the running shell, and the whole markup read
+#  back off the bus once the factory is restored, by
+#  tests/run-lockscreen-atspi-shim.sh.
+#
+#  None of that changes what THIS suite measures, and it deliberately does not
+#  use the shim: the empty tree below is what a real screen reader gets on a
+#  real machine today, and it stays pinned here until upstream is fixed.
 #
 #  ── So what does this suite assert? ─────────────────────────────────────────
 #
@@ -494,11 +508,17 @@ sed 's/^/        /' "$HEADLESS_W/locked-tree.txt"
 # same reason.
 if [ "$nodes" = "1" ]; then
     ok "PINNED: the shell publishes ONE node, itself — no window ever reaches the tree"
-    echo "        This is the defect, recorded as the current truth. quickshell's"
-    echo "        windows are top-level and are not Popups, and Qt's"
-    echo "        QQuickWindow::accessibleRoot() returns null for them, so"
-    echo "        QAccessibleApplication::childCount() is 0. Every Accessible.*"
-    echo "        binding in this repository is unreachable at runtime."
+    echo "        This is the defect, recorded as the current truth, and since"
+    echo "        2026-09-19 it has a named cause rather than a shrug: Qt's"
+    echo "        accessibility factory list is EMPTY in this process, because"
+    echo "        ~QCoreApplication runs a post routine that clears it and"
+    echo "        quickshell destroys a QCoreApplication just before building"
+    echo "        its QGuiApplication. accessibleRoot() is null for every window"
+    echo "        and QAccessibleApplication::childCount() is therefore 0."
+    echo "        tests/check-quickshell-a11y-cause.sh reproduces and pins that"
+    echo "        in five modes; tests/run-lockscreen-atspi-shim.sh restores the"
+    echo "        factory in-process and reads this shell's markup back intact."
+    echo "        So the markup is PROVEN correct and the defect is upstream."
 elif [ "$nodes" -gt 1 ]; then
     bad "PINNED: the shell publishes ONE node, itself — no window ever reaches the tree" \
         "$nodes nodes now. THIS IS AN IMPROVEMENT, not a regression: quickshell or Qt has been fixed. Replace this pin and §5's skips with the real read-back assertions."
@@ -514,6 +534,14 @@ section "§5 the read-back the roadmap asks for — NOT measured, and why"
 # Each of these is trivially satisfiable by an empty tree, which is the exact
 # shape of vacuous pass this unit has been caught by before. They are SKIPs with
 # a reason attached, and the reason is printed once here rather than four times.
+#
+# They are NOT unmeasured any more, and this is the only place that says so:
+# tests/run-lockscreen-atspi-shim.sh makes every one of them for real, by
+# putting Qt's factory back inside the running shell with a test-only
+# LD_PRELOAD. They stay SKIPs HERE on purpose. This suite measures what a screen
+# reader gets on a real machine with nothing loaded into it, and turning these
+# into passes on the strength of an instrument that does not ship would be the
+# same lie in the other direction.
 
 if [ "$nodes" = "1" ]; then
     why="the tree has no nodes below the application, so this assertion would pass vacuously"
