@@ -588,6 +588,24 @@ jobs:
           # rebooting; both runs are 48/48.
           ./tests/run-compositor-facade-test.sh
 
+      - name: Every suite is reachable from CI, and the Nexus surface opens
+        run: |
+          # Two things, both about a suite nobody runs.
+          #
+          # apex-os has had a suite-coverage gate since 2026-09-12 — it found 13
+          # of 70 suites named in no workflow — but it globs `tests/test-*.sh`
+          # IN APEX-OS ONLY and can neither see nor protect anything here. This
+          # is apex-shell's half, and it asks REACHABILITY rather than "named in
+          # a workflow", because this repo invokes suites through other suites:
+          # check-headless-runners.sh drives six, and asking the narrower
+          # question would condemn six innocent files.
+          ./tests/check-suites-run-in-ci.sh
+          # The one orphan it found. run-nexus-smoke.sh opens, toggles and closes
+          # the Nexus settings surface over IPC on a headless labwc with a
+          # private HOME, and reports the shell's own ERROR count — the same
+          # shape as run-popup-smoke.sh above it, which CI has always run.
+          ./tests/run-nexus-smoke.sh
+
       - name: Floating/labwc behavioural matrix
         run: |
           # P1-038, roadmap §21. Every labwc defect this shell has shipped had
