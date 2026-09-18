@@ -124,8 +124,12 @@ Singleton {
         // Deferred with callLater rather than called inline because _failed()
         // runs inside a Process's own onExited, and _pump() restarts
         // showUserProc — which on a step-1 failure is that very Process being
-        // re-armed from inside its own signal emission. callLater also
-        // collapses repeats of the same call into one.
+        // re-armed from inside its own signal emission. Whether Quickshell's
+        // Process tolerates that was NOT measured: the deferred form does not
+        // need it to. What is measured is that the follow-up chain launches
+        // and delivers on a step-1 failure — tests/locked-hint-test.qml,
+        // scenario startup-drop. callLater also collapses repeats of the same
+        // call into one.
         Qt.callLater(root._pump)
     }
 
