@@ -1576,12 +1576,26 @@ jobs:
           # Round 23 measured what supplies that disagreement, and it is not the
           # locale — Qt TRANSLATES the string QT_LAYOUT_DIRECTION and compares
           # it to RTL, so the switch is a translation CATALOGUE reached through
-          # a platform theme. Neither half was installed here. qt6ct is the
-          # documented APEX default the suite probes with, and qt6-translations
-          # owns qt_ar.qm, which IS the mechanism — the same package apex-os
-          # round 27 found reaching the image only as a weak dependency.
+          # a platform theme.
+          #
+          # These two packages are NECESSARY AND NOT SUFFICIENT, and this line
+          # says so rather than reading like a fix somebody has already tried.
+          # Measured on run 35352450127: qt6ct was genuinely absent and is
+          # installed here; qt6-translations (which owns qt_ar.qm, the same
+          # package apex-os round 27 found reaching the image only as a weak
+          # dependency) was ALREADY present at 6.11.2 — and section 1 still
+          # answers LeftToRight under both ar_EG and he_IL, so the remaining
+          # cause is something else. The two candidates nobody has yet ruled
+          # out: the runner is Qt 6.11.2 where the laptop is 6.10.3, and qt6ct
+          # here has no /etc/xdg/qt6ct/qt6ct.conf, which APEX ships and which
+          # the plugin may need before it does anything.
+          #
+          # DO NOT "fix" this by making section 1 SKIP. Its whole job is to
+          # require a scrubbed run and an ar_EG run to DISAGREE; a suite that
+          # skipped its own discriminator would report four green lines about a
+          # constant. p2-b's card carries this at the top of its queue.
           pacman -S --needed --noconfirm qt6ct qt6-translations qt6-declarative qt6-base \
-            || echo "note: qt6ct/qt6-translations unavailable; section 1 cannot produce an RTL direction here"
+            || echo "note: qt6ct/qt6-translations unavailable; section 1 certainly cannot produce an RTL direction here"
           ./tests/run-rtl-test.sh
 
       - name: Remote agent status invariants
