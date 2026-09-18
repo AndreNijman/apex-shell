@@ -102,7 +102,18 @@ put_back() {
     fi
     rm -rf "$SNAP"
 }
-trap put_back EXIT INT TERM
+# Signals get their OWN handlers, and they EXIT. A `trap … INT TERM` whose
+# handler merely returns lets the script CARRY ON after the signal: bash defers
+# the signal until the running command substitution finishes, runs the handler,
+# and then resumes at the next line — which scores a verdict for a mutant that
+# was killed, and then dies inside restore() on the snapshot the handler has
+# just deleted. Measured exactly that way here before this line existed: the
+# tree did come back clean, but the run ended with `cp: cannot stat` and no
+# totals line, so it stopped by accident rather than by design. 130 and 143 are
+# the conventional 128+SIGINT and 128+SIGTERM.
+trap 'put_back; exit 130' INT
+trap 'put_back; exit 143' TERM
+trap put_back EXIT
 
 snap_of() { printf '%s' "$1" | tr '/' '_'; }
 
