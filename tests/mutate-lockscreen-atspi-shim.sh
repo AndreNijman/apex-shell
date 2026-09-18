@@ -359,7 +359,24 @@ mutate S3 "$LOCK" '                    Accessible.role: Accessible.StaticText' \
 # bus at all; a mutant pointed at a string the bus never delivers proves
 # nothing about the assertion it was aimed at. The description is the one
 # accessible string on the locked surface a reader actually receives here.
-PUA_CHAR="$(printf '\U000f033e')"
+#
+# THIRD WAY, found 2026-09-19 (round 31) and fixed here: the character was
+# built with `printf '\U000f033e'`, and under a C/POSIX locale — which is what
+# `env -i` gives, and what the CI container gives — bash's printf emits the TEN
+# ASCII BYTES `\U000F033E` instead of the character. Measured with `od`: 4
+# bytes on a UTF-8 desk, 10 under `env -i`. So S4 would have inserted plain
+# letters that the suite's private-use class cannot match, and reported its
+# verdict about a mutant that was never applied in the sense it claimed — on
+# exactly the machines the gate runs on, and correctly on the one it was
+# written on. Built by python3 from the number now, and the run ABORTS rather
+# than scoring anything if what came back is not the four bytes U+F033E is in
+# UTF-8.
+PUA_CHAR="$(python3 -c 'import sys; sys.stdout.write("\U000f033e")')"
+if [ "$(printf '%s' "$PUA_CHAR" | wc -c)" != "4" ]; then
+    echo "ABORT: the private-use character is $(printf '%s' "$PUA_CHAR" | wc -c) bytes, not the 4 of U+F033E in UTF-8." >&2
+    echo "       S4 would be mutating plain ASCII and proving nothing." >&2
+    exit 3
+fi
 mutate S4 "$LOCK" '                                               : "Type your password and press Enter to unlock."' \
                   "                                               : \"${PUA_CHAR} Type your password and press Enter to unlock.\"" \
     'neither private-use icon reaches the bus as a named node'
