@@ -88,10 +88,23 @@ Item {
     // is ACTUALLY in effect, and a sighted user reads it beside the control. A
     // reader that omitted it would be missing the one thing distinguishing a
     // setting that worked from one whose backend stopped listening.
+    // A row whose CONTENT is the information — a command to copy, a path, a
+    // version — loses that information to the adoption above: the content Text
+    // has no name of its own, so it is adopted and given the ROW's label, and
+    // what it actually says is replaced rather than added to. Measured on the
+    // recovery page, where a reader was told "Boot the previous deployment.
+    // Run this in a terminal" and never heard `sudo apex rollback`, which is
+    // the entire point of that row.
+    //
+    // Appended to the description rather than overwriting anything, and it
+    // renders nothing: this is text for a reader, not a fourth visible line.
+    property string a11yExtra: ""
+
     readonly property string a11yDescription: {
         var parts = []
         if (root.unavailable)             parts.push(root.disabledReason)
         else if (root.description !== "") parts.push(root.description)
+        if (root.a11yExtra !== "")        parts.push(root.a11yExtra)
         if (root.status !== "")           parts.push("Currently " + root.status)
         if (root._effectNote !== "")      parts.push(root._effectNote)
         return parts.join(". ")
