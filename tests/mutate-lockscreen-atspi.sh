@@ -87,6 +87,7 @@ command -v python3 >/dev/null 2>&1 || { echo "FATAL: python3 is required" >&2; e
 command -v sha256sum >/dev/null 2>&1 || { echo "FATAL: sha256sum is required" >&2; exit 2; }
 
 applied=0; noapply=0; caught=0; survived=0; misscored=0; held=0; falsered=0
+unscorable=0
 
 SNAP="$(mktemp -d "${TMPDIR:-/tmp}/mutate-lockscreen-atspi.XXXXXX")" || exit 2
 trap 'rm -rf "$SNAP"' EXIT INT TERM
@@ -237,10 +238,31 @@ EDIT
     return 0
 }
 
+# Did the BASELINE run print an `ok` line containing this string? Every mutant
+# asks this about its own `want` before it is applied. The WANTS array further
+# up stops the whole run early when a machine cannot host the suite; THIS is
+# what makes the property true for a mutant somebody adds later and forgets to
+# list there — a want nobody asserted is UNSCORABLE, never a survival.
+baseline_asserts() {
+    local want="$1" line
+    while IFS= read -r line; do
+        case "$line" in
+            "  ok   "*) [[ "$line" == *"$want"* ]] && return 0 ;;
+        esac
+    done <<<"$base"
+    return 1
+}
+
 # mutate <id> <file> <from> <to> <assertion substring that must go red>
 mutate() {
     local id="$1" file="$2" from="$3" to="$4" want="$5"
     tree_clean || { echo "ABORT: tree dirty BEFORE $id" >&2; exit 3; }
+    if ! baseline_asserts "$want"; then
+        printf '%-5s UNSCORABLE the baseline never asserted: %s\n' "$id" "$want"
+        printf '      A mutant aimed at a check that did not run is not a survival\n'
+        printf '      and not a catch. It is nothing, and it is counted as nothing.\n'
+        unscorable=$((unscorable + 1)); return
+    fi
     if ! apply_edit "$file" "$from" "$to"; then
         printf '%-5s NO-APPLY  anchor absent in %s — this mutant proves nothing\n' "$id" "$file"
         noapply=$((noapply + 1)); restore; return
@@ -325,10 +347,16 @@ fi
 #
 # The check below is therefore not "is the baseline green" but "did the baseline
 # ACTUALLY ASSERT the thing each mutant is aimed at". Every `want` string must
-# appear on an `ok` line of the baseline run. It cannot rot: a mutant whose
-# target assertion is renamed or deleted stops the run instead of silently
-# becoming a survival, and a new mutant gets the same protection for free
-# because the list below IS the list of wants used further down.
+# appear on an `ok` line of the baseline run.
+#
+# Two places enforce it, and the second is the guarantee. The WANTS array below
+# stops the whole run early, with a list, when a machine cannot host the suite —
+# which is the case that wasted a CI run. But an array is a list somebody has to
+# remember to add to, so `mutate()` ALSO asks the same question about its own
+# `want` before applying anything, and scores UNSCORABLE when the answer is no.
+# A mutant added later and left out of the array is therefore still protected,
+# and a target assertion that is renamed or deleted stops being silently
+# reported as a survival.
 WANTS=(
     "an Accessible.name written in QML arrives on the bus verbatim"
     "the control's window is MAPPED, not merely constructed"
@@ -512,9 +540,11 @@ hold G3 "$LOCK" \
     "a comment naming the secure binding is not the secure binding"
 
 echo
-printf 'mutants applied=%d, failed-to-apply=%d | red: caught=%d SURVIVED=%d MISSCORED=%d | green: held=%d FALSE-RED=%d\n' \
-    "$applied" "$noapply" "$caught" "$survived" "$misscored" "$held" "$falsered"
+printf 'mutants applied=%d, failed-to-apply=%d, UNSCORABLE=%d | red: caught=%d SURVIVED=%d MISSCORED=%d | green: held=%d FALSE-RED=%d\n' \
+    "$applied" "$noapply" "$unscorable" "$caught" "$survived" "$misscored" "$held" "$falsered"
+[ "$unscorable" -eq 0 ] || echo "UNSCORABLE means a mutant was aimed at a check that never ran." >&2
 [ "$misscored" -eq 0 ] || echo "MISSCORED means this harness is wrong, not the shell." >&2
 tree_clean || { echo "ABORT: tree dirty at end of run" >&2; exit 3; }
 echo "every file matches the sha256 it started with"
-[ "$survived" -eq 0 ] && [ "$misscored" -eq 0 ] && [ "$falsered" -eq 0 ] && [ "$noapply" -eq 0 ]
+[ "$survived" -eq 0 ] && [ "$misscored" -eq 0 ] && [ "$falsered" -eq 0 ] \
+    && [ "$noapply" -eq 0 ] && [ "$unscorable" -eq 0 ]
