@@ -273,6 +273,7 @@ for body in sorted(objects):
         "text_has_pua": bool(PUA.search(textval)),
         "keys_onpressed": 'Keys.onPressed' in b,
         "activeFocusOnTab": b.get('activeFocusOnTab', ('', 0))[0].strip(),
+        "enabled": b.get('enabled', ('', 0))[0].strip(),
     }
     facts["objects"].append(entry)
 
@@ -559,6 +560,13 @@ else
             "no Keys.onPressed. Every safe control on this page is a CfgButton with Space and Return; this one is the only thing standing between a keyboard user and finishing the reset they started."
     fi
 
+    en="$(commit_get "['enabled']")"
+    case "$en" in
+        *commitReady*) ok "…and the BUS is told it is unavailable before the loss list exists (enabled is bound to commitReady)" ;;
+        *)  bad "…and the BUS is told it is unavailable before the loss list exists" \
+                "enabled is '${en:-<unbound, therefore true>}'. Measured: with only \`visible\` gating it, this node arrives on the bus before the plan exists carrying states=enabled,sensitive and a Press action — FOUND 16, an invisible Qt Quick item still publishes — so a reader meets a live-looking destructive button, presses it, and is refused in silence. With the binding the states come back EMPTY, which is how a reader knows." ;;
+    esac
+
     aft="$(commit_get "['activeFocusOnTab']")"
     case "$aft" in
         *commitReady*) ok "its tab stop exists only while the button does (activeFocusOnTab is bound to commitReady)" ;;
@@ -673,6 +681,84 @@ if [ "$sect_n" -ge 8 ]; then
 else
     bad "the page is built from at least 8 CfgSections" \
         "found $sect_n; either the page was restructured — in which case the rows above stopped being about it — or the count moved and nobody said so"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+section "§7 the acknowledgement that gates the commit, and the ORDER it needs"
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Found 2026-09-19 by pressing the Erase button over AT-SPI and watching a
+# recording `apex` stub record nothing: the factory reset COULD NOT BE
+# COMMITTED BY ANYBODY. `_onPlan()` assigned `plan` before `resetPhase`; QML
+# property notifications are synchronous, so the loss list acknowledged itself
+# while the phase was still "planning"; acknowledgeLossList() refuses in that
+# state; and nothing ever acknowledged again, because _ack() was wired to
+# onPlanChanged, onShownChanged and Component.onCompleted and none of them
+# fires after the phase moves. commitReady was false for ever and the Erase
+# button was never visible.
+#
+# recovery-test.js could not see it — commitArgv is correct, and it is correct
+# in isolation. check-recovery-ui.sh could not see it — the wiring exists, and
+# it asserts that the wiring exists. The bug is entirely in the ORDER two
+# assignments happen in, and only a running engine or these two rows can see
+# that.
+
+if [ ! -f "$SVC" ]; then
+    nope "the phase is set before the plan, so the loss list's acknowledgement is not refused" \
+         "cannot find $SVC"
+else
+    onplan="$(python3 - "$SVC" <<'PY2'
+import re, sys
+s = open(sys.argv[1], encoding='utf-8').read()
+m = re.search(r'function\s+_onPlan\s*\(', s)
+if not m:
+    print("NOFN"); raise SystemExit
+i = s.index('{', m.end() - 1)
+d = 0
+for j in range(i, len(s)):
+    if s[j] == '{': d += 1
+    elif s[j] == '}':
+        d -= 1
+        if d == 0:
+            body = s[i:j + 1]; break
+else:
+    print("NOFN"); raise SystemExit
+# The SUCCESS assignments, in order. Comments are stripped so the block
+# explaining this defect cannot satisfy the check that guards it.
+code = "\n".join(l for l in body.split("\n") if not l.strip().startswith("//"))
+ph = code.rfind('resetPhase = "planned"')
+pl = code.rfind('plan = p')
+print("NOPHASE" if ph < 0 else ("NOPLAN" if pl < 0 else ("PHASE-FIRST" if ph < pl else "PLAN-FIRST")))
+PY2
+)"
+    case "$onplan" in
+        PHASE-FIRST)
+            ok "_onPlan() sets resetPhase BEFORE plan, so the loss list's acknowledgement is not refused" ;;
+        PLAN-FIRST)
+            bad "_onPlan() sets resetPhase BEFORE plan" \
+                "it assigns plan first. QML notifications are synchronous, so the list acknowledges while the phase is still \"planning\", acknowledgeLossList() refuses, and commitReady is false for ever — the factory reset cannot be completed by anyone." ;;
+        *)  bad "_onPlan() sets resetPhase BEFORE plan" \
+                "could not read the two assignments out of $SVC ($onplan)" ;;
+    esac
+fi
+
+# …and the belt to that brace. The order above is right, but a suite that only
+# checked the order would go green the day somebody moved the acknowledgement
+# instead. The list must also re-acknowledge when the phase changes, so that
+# the order stops being load-bearing at all.
+reack="$(python3 - "$PAGE" <<'PY2'
+import re, sys
+s = open(sys.argv[1], encoding='utf-8').read()
+code = "\n".join(l for l in s.split("\n") if not l.strip().startswith("//"))
+m = re.search(r'Connections\s*\{[^}]*?target:\s*RecoveryService[^}]*?onResetPhaseChanged[^}]*?_ack\(\)', code, re.S)
+print("YES" if m else "NO")
+PY2
+)"
+if [ "$reack" = "YES" ]; then
+    ok "…and the loss list re-acknowledges on a phase change, so that order is no longer load-bearing"
+else
+    bad "…and the loss list re-acknowledges on a phase change" \
+        "there is no Connections on RecoveryService re-running _ack() from onResetPhaseChanged. With only the assignment order holding it up, one reordering in the service makes the factory reset uncompletable again and nothing else in this repository would say so."
 fi
 
 echo

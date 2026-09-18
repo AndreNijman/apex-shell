@@ -803,6 +803,22 @@ CfgScroll {
                         Component.onCompleted:   lossList._ack()
                         Component.onDestruction: RecoveryService.revokeLossList()
 
+                        // …and when the PHASE moves, which is the trigger
+                        // that was missing. acknowledgeLossList() refuses
+                        // while the phase is not yet "planned", and until
+                        // 2026-09-19 RecoveryService assigned `plan` before
+                        // `resetPhase` — so the only acknowledgement this
+                        // list ever sent was the one that gets refused, and
+                        // commitReady was false for ever. The service's order
+                        // is fixed too; this is here so that the order stops
+                        // being load-bearing. The guard is in
+                        // acknowledgeLossList(), so a phase change to
+                        // anything else re-acks harmlessly and is refused.
+                        Connections {
+                            target: RecoveryService
+                            function onResetPhaseChanged() { lossList._ack() }
+                        }
+
                         Text {
                             id: lossHeadline
                             width: parent.width
@@ -994,6 +1010,20 @@ CfgScroll {
                             // worse than none: Tab would stop somewhere the
                             // user cannot see and Space would fire it.
                             activeFocusOnTab: RecoveryService.commitReady
+                            // …and the bus has to SAY it is unavailable, not
+                            // merely behave that way. Measured: with only
+                            // `visible` gating it, the node arrives before the
+                            // loss list exists carrying `enabled,sensitive`
+                            // and a Press action, named "Erase" — FOUND 16,
+                            // an invisible Qt Quick item still publishes. A
+                            // reader met a live-looking destructive button,
+                            // pressed it, and was told nothing, because
+                            // press() refuses in silence. `enabled` is what
+                            // Qt maps to the enabled/sensitive states, so
+                            // binding it to the same condition is the
+                            // difference between a control that is inert and
+                            // one that says so.
+                            enabled: RecoveryService.commitReady
                             Accessible.role: Accessible.Button
                             Accessible.name: commitBtn.a11yLabel
                             Accessible.description:
