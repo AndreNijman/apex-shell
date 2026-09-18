@@ -24,10 +24,15 @@
 #      root | role=application | name=quickshell | ChildCount=0
 #
 #  No window. No lock surface. No password field, no status line, no icons.
-#  Every `Accessible.*` binding in this repository — round 28's lock screen
-#  markup, the Cfg* controls, all of it — is unreachable by an assistive
-#  technology at runtime, because the windows those items live in never reach
-#  the accessibility tree at all.
+#
+#  No quickshell window of ANY kind reached the tree in any configuration tried:
+#  the whole shipped shell.qml, and a minimal config holding a FloatingWindow, a
+#  PanelWindow and a plain Qt Quick Window. An `Accessible.*` binding in this
+#  repository lives inside one of those, so on this evidence none of them is
+#  reachable by an assistive technology at runtime — the markup is not wrong,
+#  it has nowhere to go. Note what that does NOT say: run-a11y-controls-test.sh
+#  and check-lockscreen-a11y.sh measure the QML side, and they are still true
+#  about the QML side. What is new is that the QML side is where it stops.
 #
 #  Measured here on 2026-09-18, and narrowed rather than guessed at:
 #
@@ -50,6 +55,12 @@
 #      which keeps only windows whose accessibleRoot() is non-null
 #      (qtbase/src/gui/accessible/qaccessibleobject.cpp). A null accessibleRoot
 #      on every window is therefore exactly a ChildCount of 0.
+#    * The same gdb expressions, run against the CONTROL process in the same
+#      way, answer SIZE 1 / TYPE 1 / accessibleRoot 0x5587847b8570. So the
+#      instrument reports non-null when there is something to report, and the
+#      null above is a fact about quickshell rather than about the probe.
+#    * QAccessible::isActive() is 1 in BOTH processes, so the bridge is not
+#      merely loaded in quickshell, it is active. The gate is not activation.
 #
 #  That is as far as this repository can take it: the remaining question is why
 #  QAccessible::queryAccessibleInterface returns null for a QQuickWindow inside
@@ -249,7 +260,6 @@ section "§1 the control — this harness can read a tree, proven in this run"
 # from an instrument nobody checked is worthless, so the instrument is checked
 # here, against a plain Qt Quick Window on the same compositor and the same bus.
 
-control_ok=0
 if [ -z "$QMLRUN" ]; then
     nope "the control publishes an accessibility tree" \
          "no qml runtime (qt6-declarative); the negatives below are UNCONTROLLED"
@@ -290,9 +300,28 @@ else
             "no frame node; this harness cannot see windows at all, so §4 proves nothing"
     fi
 
+    # A frame on the bus does NOT mean a window on the screen, and this
+    # assertion exists because a mutant proved the difference. Setting the
+    # control's `visible: false` left the whole tree in place — Qt's
+    # QAccessibleApplication::topLevelObjects() filters on window TYPE and on
+    # having an accessible root, and on nothing else, so a window that was
+    # constructed and never mapped publishes its frame and its children exactly
+    # like a mapped one. Measured here on 2026-09-18: the frame came back with
+    # states=enabled,sensitive and neither `showing` nor `visible`.
+    #
+    # So the states are the only thing that tells the two apart, and this is
+    # what makes §1 a control for a LOCK SURFACE: a surface that is genuinely
+    # on screen.
+    frame_line="$(grep -m1 '| role=frame |' "$HEADLESS_W/control-tree.txt" 2>/dev/null)"
+    if [[ "$frame_line" == *"showing"* ]] && [[ "$frame_line" == *"visible"* ]]; then
+        ok "the control's window is MAPPED, not merely constructed"
+    else
+        bad "the control's window is MAPPED, not merely constructed" \
+            "the frame lacks the showing/visible states: ${frame_line:-<no frame>}"
+    fi
+
     if grep -qF '| name=apex-atspi-control-label |' "$HEADLESS_W/control-tree.txt"; then
         ok "an Accessible.name written in QML arrives on the bus verbatim"
-        control_ok=1
     else
         bad "an Accessible.name written in QML arrives on the bus verbatim" \
             "no node named apex-atspi-control-label"
