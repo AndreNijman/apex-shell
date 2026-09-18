@@ -1521,6 +1521,54 @@ jobs:
         if: ${{ !cancelled() }}
         run: ./tests/mutate-lockscreen-a11y.sh
 
+      # The other half of the lock screen's accessibility: what a screen reader
+      # actually RECEIVES, read back over real AT-SPI on D-Bus rather than off
+      # the source.
+      #
+      # It found that the shell publishes one accessibility node — itself — and
+      # nothing beneath it, so every Accessible.* binding in this repository is
+      # unreachable at runtime. The suite pins that as an equality and goes RED
+      # the day it stops being true, which is the day somebody should write the
+      # real read-back assertions it currently records as SKIPs.
+      #
+      # ── It will SKIP here, and that is the honest answer ────────────────────
+      #
+      # quickshell is an AUR package and this job cannot build one, so the shell
+      # half cannot run on the runner. The packages below are still installed
+      # because §1 — the CONTROL, a plain Qt Quick Window read back over the
+      # same private bus — CAN run here, and a second machine has corrected this
+      # unit's findings twice. If the control passes on Arch and on the laptop,
+      # the harness is not a laptop artefact.
+      #
+      # Read the totals line, never the tick: this suite exits 0 on a skip.
+      - name: Lock screen accessibility — AT-SPI read-back
+        if: ${{ !cancelled() }}
+        run: |
+          pacman -S --needed --noconfirm at-spi2-core dbus python-gobject \
+            qt6-declarative qt6-base labwc \
+            || echo "note: part of the a11y stack is unavailable; the suite will SKIP and say so"
+          ./tests/run-lockscreen-atspi.sh
+
+      # …and that the suite above can go red. Seven red mutants and three green
+      # ones, every one of them a full bring-up: a compositor, two buses, a
+      # registry, the shell and a session lock, about forty seconds each.
+      #
+      # Three of the eight break the suite's own CONTROL rather than the shell,
+      # because the suite's headline result is a NEGATIVE and a negative from an
+      # unchecked instrument is worth nothing. R3 removes the
+      # GSETTINGS_BACKEND=memory line from tests/lib/atspi.sh, which is the
+      # false negative this whole suite exists to be immune to: without it the
+      # a11y status flags silently fail to take and EVERY application publishes
+      # an empty tree.
+      #
+      # It stops and says NOTHING WAS MEASURED when quickshell or the qml
+      # runtime is missing, rather than scoring eleven mutants against checks that
+      # never ran. That is a could-not-run with status 0, like every other suite
+      # here — read the output, not the tick.
+      - name: Lock screen accessibility — AT-SPI mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-lockscreen-atspi.sh
+
       # Internationalisation, measured the only way that means anything: the
       # strings are extracted from the SHIPPED file with the real lupdate,
       # compiled with the real lrelease, and read back out of a running QML
@@ -2189,6 +2237,11 @@ jobs:
             "src/windows/Lockscreen.qml"
             "tests/check-lockscreen-a11y.sh"
             "tests/mutate-lockscreen-a11y.sh"
+            "tests/run-lockscreen-atspi.sh"
+            "tests/mutate-lockscreen-atspi.sh"
+            "tests/lockscreen-atspi-control.qml"
+            "tests/atspi-walk.py"
+            "tests/lib/atspi.sh"
             "tests/run-i18n-test.sh"
             "tests/run-rtl-test.sh"
             "tests/rtl-test.qml"
