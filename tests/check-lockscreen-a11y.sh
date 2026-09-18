@@ -22,7 +22,13 @@
 #    * a wrong password was reported by a red border, a shake animation and a
 #      line of text with no accessible role. All three are things you have to be
 #      looking at. A blind user typed a password, heard silence, and had no way
-#      to tell a rejected password from a key that did not register;
+#      to tell a rejected password from a key that did not register. An
+#      `Accessible.description` does not fix that on its own: a reader does not
+#      generally speak a description change on the object that already holds
+#      focus, so the refusal has to be ANNOUNCED. That is what the surface's
+#      say() helper and Qt 6.8's Accessible.announce() are for, and this suite
+#      both asserts the calls and RUNS a probe proving the method exists on the
+#      Qt that will execute them;
 #    * Caps Lock being on was reported the same way, which is the single most
 #      common reason a correct password is rejected;
 #    * the two nerd-font icons in the file (the padlock at the left of the
@@ -38,9 +44,11 @@
 #  ── What it claims, and what it does not ────────────────────────────────────
 #
 #  It reads the source. It asserts that the markup is there, that it is on the
-#  right object, and that it cannot leak the password. It does NOT run the lock
-#  screen and read the tree back over AT-SPI, and the suite says so rather than
-#  implying otherwise.
+#  right object, and that it cannot leak the password. The one thing it RUNS is
+#  the Qt-version probe described above, because a call to a method this Qt does
+#  not have is a runtime error on the lock screen dressed up as a green check.
+#  It does NOT run the lock screen itself and read the tree back over AT-SPI,
+#  and the suite says so rather than implying otherwise.
 #
 #  That runtime half is real work and it is named rather than faked: the surface
 #  is a `WlSessionLock`, so it needs a compositor implementing ext-session-lock,
@@ -64,10 +72,14 @@
 #  field, which is a different object and announces a different thing. So the
 #  object bodies are extracted by brace depth from a copy of the source with
 #  comments and string contents blanked out, and a binding only counts when it
-#  is a DIRECT child of the object being asserted about. The three self-tests at
+#  is a DIRECT child of the object being asserted about. The six self-tests at
 #  the bottom prove the extractor can tell those apart, because an extractor
 #  that quietly matched the whole file would make every assertion here green for
-#  nothing.
+#  nothing. Two of those six exist because the first draft of this file HAD the
+#  defect they now foreclose, found by RUNNING the suite rather than by reading
+#  it: the icon scan read one line at a time and so saw one of this file's two
+#  icons, and the keyboard-route check counted focus grabs without asking
+#  whether a pointer caused them.
 #
 #  Run from the repository root.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -75,9 +87,13 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 2
 
-pass=0; fail=0
+pass=0; fail=0; skip=0
 ok()  { echo "  ok   $1"; pass=$((pass + 1)); }
 bad() { echo "  FAIL $1${2:+  — $2}"; fail=$((fail + 1)); }
+# A SKIP is a could-not-run, never a pass. It is counted separately and printed
+# on the totals line, because every suite in this tree exits 0 on a skip and the
+# only honest way to read one is the totals, not the tick.
+nope() { echo "  SKIP $1${2:+  — $2}"; skip=$((skip + 1)); }
 section() { printf '\n── %s ──\n' "$1"; }
 
 LOCK="src/windows/Lockscreen.qml"
@@ -191,6 +207,21 @@ def direct(start, end):
     return ''.join(out)
 
 
+def type_of(start):
+    """The type name written immediately before the `{` at `start`.
+
+    `MouseArea {` -> 'MouseArea'. Used to tell a focus grab a pointer causes
+    from one a keyboard user can reach; an object with no type name before its
+    brace (a JS block, a signal handler's body) returns ''."""
+    i = start - 1
+    while i >= 0 and M[i] in ' \t\n':
+        i -= 1
+    j = i
+    while j >= 0 and (M[j].isalnum() or M[j] in '_.'):
+        j -= 1
+    return M[j + 1:i + 1]
+
+
 BIND = re.compile(r'^\s*((?:readonly\s+property\s+\w+\s+)?[A-Za-z_][\w.]*)\s*:\s*(.*)$')
 
 
@@ -273,8 +304,6 @@ for token, key in (('hasError', 'PW_DESC_HAS_ERROR'),
 # test-apex-greet-atspi.sh asserts exactly this about the greeter. The same
 # property has to hold here, and it is easier to break here: `Accessible.name:
 # text` inside a TextInput is a one-word mistake.
-SECRET = ('passwordInput.text', 'passwordInput.displayText', 'surface.password',
-          'Accessible.name: text', 'Accessible.description: text')
 leaks = 0
 for name, val in bindings(direct(*b)).items():
     if not name.startswith('Accessible.'):
@@ -295,16 +324,24 @@ emit('ACCESSIBLE_BINDINGS_TOTAL', len(acc_all))
 # Items whose `text:` value contains a private-use glyph, and whether each is
 # hidden from the tree. Done over object bodies rather than lines so that
 # `Accessible.ignored` on the SAME object is what counts.
-glyph_items, glyph_unignored = 0, 0
+#
+# The value read is the OBJECT's accumulated `text` binding, not the remainder
+# of the line the `text:` token sits on. That distinction is the whole check on
+# this file: the padlock is written `text:  "<glyph>"` and a line-at-a-time
+# scan finds it, but the Caps Lock icon lives in the SECOND line of a two-line
+# ternary, so that scan reported one icon where there are two -- and would have
+# called the file's icons audited on the strength of the one that happened to
+# be written on a single line. Self-test 4 holds that shut.
+glyph_items, glyph_unignored, seen = 0, 0, set()
 for m in re.finditer(r'\btext\s*:', M):
-    val = src[m.end():src.find('\n', m.end())]
-    if not PUA.search(val):
-        continue
     env = enclosing(m.start())
-    if env is None:
+    if env is None or env in seen:
+        continue
+    seen.add(env)
+    d = bindings(direct(*env))
+    if not PUA.search(d.get('text', '')):
         continue
     glyph_items += 1
-    d = bindings(direct(*env))
     ig = d.get('Accessible.ignored', '')
     nm = d.get('Accessible.name', '')
     # Ignored outright, or given a spoken name that has no glyph in it.
@@ -315,6 +352,25 @@ for m in re.finditer(r'\btext\s*:', M):
     glyph_unignored += 1
 emit('GLYPH_TEXT_ITEMS', glyph_items)
 emit('GLYPH_TEXT_UNIGNORED', glyph_unignored)
+
+# ── what else the field itself announces ─────────────────────────────────────
+# The placeholder Text is a DIRECT CHILD of the password field and says "Enter
+# password". Qt Quick gives a bare Text the StaticText role and its own text as
+# its name, so left alone it reaches a reader as a second label contradicting
+# the field's own -- and it is the exact string somebody would otherwise reach
+# for AS the field's name, which is what self-test 2 exists to catch.
+child_texts, child_unignored = 0, 0
+for m in re.finditer(r'\btext\s*:', M):
+    if not (b[0] < m.start() < b[1]):
+        continue
+    env = enclosing(m.start())
+    if env is None or env == b:
+        continue
+    child_texts += 1
+    if bindings(direct(*env)).get('Accessible.ignored', '').strip() != 'true':
+        child_unignored += 1
+emit('PW_CHILD_TEXTS', child_texts)
+emit('PW_CHILD_TEXTS_UNIGNORED', child_unignored)
 
 # ── the status line ──────────────────────────────────────────────────────────
 # The Text whose value mentions both the error and the Caps Lock state. Found by
@@ -344,7 +400,48 @@ else:
 # A lock screen that needs a click to put focus in the field is a lockout for
 # anyone who cannot aim a pointer. These two are what make the click optional.
 emit('KEYS_FORWARD', 1 if re.search(r'Keys\.forwardTo\s*:\s*\[\s*passwordInput\s*\]', M) else 0)
-emit('FORCE_FOCUS', len(re.findall(r'passwordInput\.forceActiveFocus\s*\(', M)))
+
+# Counted by whether a POINTER is needed to take the route, not by how many
+# routes there are. Three sites exist and one of them is inside the
+# click-anywhere MouseArea, so a bare total tolerates deleting either keyboard
+# route and still reads >= 2 -- the assertion would have survived the exact
+# regression it is written to catch. Self-test 5 holds that shut too.
+ff_total, ff_nonpointer = 0, 0
+for m in re.finditer(r'passwordInput\.forceActiveFocus\s*\(', M):
+    ff_total += 1
+    env = enclosing(m.start())
+    t = type_of(env[0]) if env else ''
+    if t not in ('MouseArea', 'TapHandler', 'HoverHandler', 'PointHandler'):
+        ff_nonpointer += 1
+emit('FORCE_FOCUS', ff_total)
+emit('FORCE_FOCUS_NONPOINTER', ff_nonpointer)
+
+# ── saying it, not merely publishing it ──────────────────────────────────────
+# A description that follows `hasError` puts the state in the accessibility
+# tree. It does not make a reader SAY it: a screen reader does not generally
+# speak a description-changed event on the object that already holds focus, so
+# a blind user who typed a wrong password can still hear nothing at all. Qt 6.8
+# added Accessible.announce() for exactly this, and the image ships 6.10.3 --
+# measured by the runtime probe at the bottom of this suite, not assumed.
+def fn_body(name):
+    """The brace-matched body of `function <name>(...)`, or ''."""
+    m = re.search(r'function\s+%s\s*\(' % re.escape(name), M)
+    if not m:
+        return ''
+    o = M.find('{', m.end())
+    if o < 0:
+        return ''
+    env = enclosing(o + 1)
+    return M[env[0]:env[1]] if env else ''
+
+
+say_body = fn_body('say')
+fail_body = fn_body('fail')
+emit('SAY_FN', 1 if say_body else 0)
+emit('SAY_USES_ANNOUNCE', 1 if re.search(r'Accessible\.announce\s*\(', say_body) else 0)
+emit('FAIL_SAYS', 1 if re.search(r'\bsay\s*\(', fail_body) else 0)
+caps = re.search(r'onCapsOnChanged\s*:([^\n]*)', M)
+emit('CAPS_SAYS', 1 if (caps and re.search(r'\bsay\s*\(', caps.group(1))) else 0)
 PYEOF
 
 facts() {   # facts <qml file> — materialised to a file, never piped into grep
@@ -441,6 +538,22 @@ else
         "$(f PW_SECRET_LEAKS) binding(s) read the field's text — the greeter suite asserts the same property"
 fi
 
+section "and what is drawn inside it"
+
+ct="$(f PW_CHILD_TEXTS)"; cu="$(f PW_CHILD_TEXTS_UNIGNORED)"
+if [ "${ct:-0}" -ge 1 ]; then
+    ok "the scan found the Text drawn inside the field to judge ($ct found)"
+else
+    bad "the scan found the Text drawn inside the field to judge" \
+        "none; the placeholder should be seen — the scanner has stopped finding things"
+fi
+if [ "${cu:-1}" -eq 0 ]; then
+    ok "nothing drawn inside the field announces a second, competing label"
+else
+    bad "nothing drawn inside the field announces a second, competing label" \
+        "$cu of $ct still reach a reader — the placeholder says 'Enter password' right after the field says 'Password'"
+fi
+
 # ── icons ────────────────────────────────────────────────────────────────────
 section "the icons are drawings, and must not be spelled out"
 
@@ -509,11 +622,82 @@ else
     bad "stray keystrokes are forwarded to the field (Keys.forwardTo)" \
         "typing before clicking would go nowhere"
 fi
-if [ "$(f FORCE_FOCUS)" -ge 2 ] 2>/dev/null; then
-    ok "the field takes focus when the surface appears and whenever it becomes visible ($(f FORCE_FOCUS) sites)"
+# Counted by route, not by total. Three sites exist and one of them is the
+# click-anywhere MouseArea, so "at least two sites" was satisfied by deleting
+# either keyboard route — the assertion would have survived the regression it
+# was written to catch. Self-test 5 proves the distinction is real.
+if [ "$(f FORCE_FOCUS_NONPOINTER)" -ge 2 ] 2>/dev/null; then
+    ok "the field takes focus without a pointer, on both routes ($(f FORCE_FOCUS_NONPOINTER) of $(f FORCE_FOCUS) sites need no click)"
 else
-    bad "the field takes focus when the surface appears and whenever it becomes visible" \
-        "only $(f FORCE_FOCUS) forceActiveFocus site(s); the click-to-refocus MouseArea must never be the only way in"
+    bad "the field takes focus without a pointer, on both routes" \
+        "only $(f FORCE_FOCUS_NONPOINTER) of $(f FORCE_FOCUS) forceActiveFocus site(s) are outside a pointer handler; the click-to-refocus MouseArea must never be the only way in"
+fi
+
+# ── saying it ────────────────────────────────────────────────────────────────
+section "and whether a reader will actually SAY the refusal"
+
+if [ "$(f SAY_FN)" = "1" ]; then
+    ok "the surface has a say() helper"
+else
+    bad "the surface has a say() helper" \
+        "nothing on this screen announces; the description alone reaches a tree nobody re-reads"
+fi
+if [ "$(f SAY_USES_ANNOUNCE)" = "1" ]; then
+    ok "…and it goes through Accessible.announce(), not a description it hopes gets re-read"
+else
+    bad "…and it goes through Accessible.announce(), not a description it hopes gets re-read" \
+        "say() does not call Accessible.announce"
+fi
+if [ "$(f FAIL_SAYS)" = "1" ]; then
+    ok "a refused password is announced (fail() says it)"
+else
+    bad "a refused password is announced (fail() says it)" \
+        "fail() sets the error text and shakes the card — a blind user hears nothing"
+fi
+if [ "$(f CAPS_SAYS)" = "1" ]; then
+    ok "Caps Lock coming on is announced, once, on the transition"
+else
+    bad "Caps Lock coming on is announced, once, on the transition" \
+        "no onCapsOnChanged handler announces; the most common cause of a refused password is reported by a glyph"
+fi
+
+# The method those four assertions are about is Qt 6.8+. Asserting the QML calls
+# it proves nothing if the Qt under it has no such method — that is a green
+# check against a runtime error on the lock screen. So it is RUN, on a fixture
+# that is deliberately not this file, and the negative control is in
+# tests/mutate-lockscreen-a11y.sh.
+qmlbin=""
+for c in qml-qt6 qml; do command -v "$c" >/dev/null 2>&1 && { qmlbin="$c"; break; }; done
+if [ -z "$qmlbin" ]; then
+    nope "Accessible.announce() exists on the Qt that will run this" \
+         "no qml runner on PATH (qt6-declarative); COULD NOT RUN — this is not a pass"
+else
+    cat >"$W/announce.qml" <<'QML'
+import QtQuick
+Item {
+    TextInput {
+        id: probe
+        Accessible.role: Accessible.EditableText
+        Accessible.name: "probe"
+    }
+    Component.onCompleted: {
+        if (typeof probe.Accessible.announce !== "function") { Qt.exit(3); return }
+        try { probe.Accessible.announce("probe") } catch (e) { Qt.exit(4); return }
+        Qt.exit(0)
+    }
+}
+QML
+    QT_QPA_PLATFORM=offscreen timeout 60 "$qmlbin" -platform offscreen "$W/announce.qml" \
+        >"$W/announce.log" 2>&1
+    case "$?" in
+        0) ok "Accessible.announce() exists and is callable on this Qt ($qmlbin)" ;;
+        3) bad "Accessible.announce() exists and is callable on this Qt" \
+               "the attached object has no announce method — Qt is older than 6.8 and say() would be a no-op" ;;
+        4) bad "Accessible.announce() exists and is callable on this Qt" \
+               "calling it threw" ;;
+        *) nope "Accessible.announce() exists and is callable on this Qt" \
+                "the probe did not complete (see $W/announce.log); COULD NOT RUN — this is not a pass" ;;
+    esac
 fi
 
 # ── self-tests ───────────────────────────────────────────────────────────────
@@ -588,5 +772,52 @@ else
             "the extractor read '$(f PW_NAME)' — prose is being parsed as markup"
 fi
 
-printf '\ncheck-lockscreen-a11y: passed=%d failed=%d\n' "$pass" "$fail"
+# 4 + 5. One fixture, two lies it forecloses — and both of them were LIVE in
+#    this file's first draft, caught by running it rather than by reading it:
+#
+#      * the icon scan read the remainder of the line the `text:` token sits on.
+#        The padlock is written on one line and the Caps Lock icon is on the
+#        SECOND line of a ternary, so the scan found one icon of two and the
+#        floor check ("at least 2 found") was the only thing that noticed.
+#      * the focus check counted forceActiveFocus SITES. Three exist and one is
+#        inside the click-anywhere MouseArea, so "at least 2" stayed green with
+#        either keyboard route deleted — the exact regression it guards.
+#
+#    The fixture carries a glyph on a continuation line and a single focus grab
+#    that a pointer causes. A scanner with either defect scores it 0 and 1.
+python3 - "$W/contline.qml" <<'PY'
+import sys
+# Written from the codepoint rather than pasted, so the fixture cannot be
+# silently repaired by an editor that does not like private-use characters.
+open(sys.argv[1], 'w', encoding='utf-8').write('''import QtQuick
+Item {
+    TextInput {
+        id: passwordInput
+        echoMode: TextInput.Password
+    }
+    Text {
+        text: root.hasError ? root.errorText
+            : (root.capsOn ? "%s  Caps Lock is on" : "")
+    }
+    MouseArea {
+        onClicked: passwordInput.forceActiveFocus()
+    }
+}
+''' % chr(0xF0A9B))
+PY
+facts "$W/contline.qml"
+if [ "$(f GLYPH_TEXT_ITEMS)" = "1" ]; then
+    st_pass "an icon on the SECOND line of a ternary is still found"
+else
+    st_fail "an icon on the SECOND line of a ternary is still found" \
+            "scored $(f GLYPH_TEXT_ITEMS); the scan is reading lines, not bindings, and this file's Caps Lock icon is invisible to it"
+fi
+if [ "$(f FORCE_FOCUS)" = "1" ] && [ "$(f FORCE_FOCUS_NONPOINTER)" = "0" ]; then
+    st_pass "a focus grab that only a CLICK causes is not counted as a keyboard route"
+else
+    st_fail "a focus grab that only a CLICK causes is not counted as a keyboard route" \
+            "total=$(f FORCE_FOCUS) nonpointer=$(f FORCE_FOCUS_NONPOINTER); a mouse-only lock screen would read as reachable"
+fi
+
+printf '\ncheck-lockscreen-a11y: passed=%d failed=%d skipped=%d\n' "$pass" "$fail" "$skip"
 [ "$fail" -eq 0 ]
