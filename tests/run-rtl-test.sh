@@ -179,6 +179,11 @@ else
     # a dark palette (files/system/qt6ct/qt6ct.conf) and has no idea it is
     # holding up right-to-left layout. Drop it and every mirrored surface
     # silently stops mirroring with nothing red anywhere.
+    #
+    # Round 31 narrowed that: qt6ct is the CARRIER, not the mechanism. Fedora's
+    # build links libKF6I18n, and it is KF6I18n's startup that installs the Qt
+    # catalogue — see the block after the ur_PK control, which measures it with
+    # the theme removed entirely.
     if [ "$no_theme_rtl" = "0" ] && [ "$with_theme_rtl" = "1" ]; then
         ok "it is the platform theme that supplies the right-to-left direction — the same $L_RTL run with no platform theme gives LeftToRight"
     elif [ "$no_theme_rtl" = "1" ]; then
@@ -206,6 +211,131 @@ else
     else
         bad "an RTL language Qt has no catalogue for does NOT flip" \
             "$L_NOCAT gave application direction $nocat_app — if a qt_ur.qm has appeared, move this pin deliberately"
+    fi
+
+    # ── WHAT loads the catalogue. Measured round 31; it is not the theme. ────
+    #
+    # This suite has said since round 23 that "the platform theme supplies the
+    # right-to-left direction", and the pair above does isolate the theme —
+    # but only as a CARRIER. The theme's plugin does not load a catalogue at
+    # all. Four runs, one process each, `strace -e openat` naming every
+    # `qt_*.qm` opened, on Qt 6.10.3 with LANG=LC_ALL=ar_EG.UTF-8:
+    #
+    #   QT_QPA_PLATFORMTHEME=qt6ct  -> RTL, opened qt_ar.qm and qt_en.qm
+    #   a bogus theme name          -> LTR, opened none
+    #   no platform theme           -> LTR, opened none
+    #   no theme + LD_PRELOAD of
+    #     libKF6I18n.so.6           -> RTL, opened qt_ar.qm and qt_en.qm
+    #
+    # The last one settles it: with NO platform theme, merely loading KF6's
+    # i18n library into the process installs the Qt catalogue and flips the
+    # direction. `nm -DC` and `strings` on Fedora's libqt6ct.so find no
+    # QTranslator code in the plugin itself; `ldd` finds eight KF6 libraries
+    # behind it, because Fedora ships a post-release git snapshot
+    # (qt6ct-0.11-13.20250907git23a985f) built with the KDE integration.
+    #
+    # That is also why this section is RED on the GitHub Arch runner and has
+    # been since it landed. Arch ships upstream release qt6ct 0.11-8, read out
+    # of run 35384106245's own log; the runner has 64 qt_*.qm including
+    # qt_ar.qm and `QLocale calls ar_EG right-to-left` PASSES there. Nothing is
+    # missing except a process that loads the catalogue.
+    #
+    # So the row below is an IF AND ONLY IF, and it is the assertion that tells
+    # the two machines apart instead of leaving one of them unexplained. It can
+    # fail in both directions, and the self-test under it proves the predicate
+    # is capable of answering NO.
+    qtool=""; themedir=""
+    for q in qmake6 qmake-qt6 qmake; do
+        command -v "$q" >/dev/null 2>&1 || continue
+        d="$("$q" -query QT_INSTALL_PLUGINS 2>/dev/null)"
+        [ -n "$d" ] && [ -d "$d/platformthemes" ] && { themedir="$d/platformthemes"; qtool="$q -query"; break; }
+    done
+    if [ -z "$themedir" ]; then
+        # FOUND 19's shape: the directory differs by distribution and a
+        # hardcoded one reports "absent" on a machine that has it. Both known
+        # spellings are tried and the one used is printed.
+        for d in /usr/lib64/qt6/plugins/platformthemes /usr/lib/qt6/plugins/platformthemes; do
+            [ -d "$d" ] && { themedir="$d"; qtool="a hardcoded fallback"; break; }
+        done
+    fi
+    plugin=""
+    for cand in "$themedir/libq$THEME.so" "$themedir/lib$THEME.so"; do
+        [ -n "$themedir" ] && [ -e "$cand" ] && { plugin="$cand"; break; }
+    done
+    echo "      note: platform theme plugins at ${themedir:-<not found>} (via ${qtool:-nothing}); $THEME plugin: ${plugin:-<absent>}"
+
+    # Captured into a variable and matched with a case, NEVER `ldd | grep -q`:
+    # under `set -o pipefail` a grep -q that MATCHES closes the pipe, ldd dies
+    # with SIGPIPE and the pipeline's status is 141, so the check would answer
+    # "no" precisely when the answer is yes.
+    i18n_of() {   # <elf> -> prints 1 if it pulls in a Qt translation loader
+        local out; out="$(ldd "$1" 2>/dev/null)"
+        case "$out" in *libKF6I18n*) printf '1' ;; *) printf '0' ;; esac
+    }
+    if [ -z "$plugin" ]; then
+        skp "the direction flips if and only if the theme's plugin drags in a Qt translation loader" \
+            "no plugin file for $THEME under ${themedir:-<no plugin dir>} — COULD-NOT-RUN, so nothing was concluded about why"
+    else
+        i18n_linked="$(i18n_of "$plugin")"
+        if [ "$with_theme_rtl" = "1" ] && [ "$i18n_linked" = "1" ]; then
+            ok "the direction flips if and only if the theme's plugin drags in a Qt translation loader — it flipped, and $plugin links libKF6I18n"
+        elif [ "$with_theme_rtl" = "0" ] && [ "$i18n_linked" = "0" ]; then
+            ok "the direction flips if and only if the theme's plugin drags in a Qt translation loader — it did NOT flip, and $plugin links no libKF6I18n, so this machine's red above is that build of $THEME and not APEX"
+        elif [ "$with_theme_rtl" = "1" ]; then
+            bad "the direction flips if and only if the theme's plugin drags in a Qt translation loader" \
+                "it flipped while $plugin links no libKF6I18n — something ELSE in this process loads qt_*.qm and round 31's mechanism is incomplete"
+        else
+            bad "the direction flips if and only if the theme's plugin drags in a Qt translation loader" \
+                "$plugin links libKF6I18n and the direction still did not flip — the carrier is present and the catalogue is not being loaded; look at qt_*.qm ($qt_cats installed) and at the Qt version"
+        fi
+
+        # The predicate must be able to answer NO, or the row above is a
+        # constant dressed as a measurement. Qt's own core library is the
+        # control: nothing in qtbase links KF6, so an affirmative here would
+        # mean `i18n_of` says yes to everything.
+        ctl_lib=""
+        for l in $(ldd "$plugin" 2>/dev/null | awk '/libQt6Core\.so/ {print $3}'); do
+            [ -e "$l" ] && { ctl_lib="$l"; break; }
+        done
+        if [ -z "$ctl_lib" ]; then
+            skp "…and the predicate can answer NO" \
+                "could not resolve libQt6Core.so.6 from $plugin to use as the control — COULD-NOT-RUN"
+        elif [ "$(i18n_of "$ctl_lib")" = "0" ]; then
+            ok "…and the predicate can answer NO — the same question about $ctl_lib, which links no KF6, comes back negative"
+        else
+            bad "…and the predicate can answer NO" \
+                "$ctl_lib reported as linking libKF6I18n; the predicate says yes to everything and the row above proves nothing"
+        fi
+    fi
+
+    # The mechanism, pinned directly rather than through its carrier: no
+    # platform theme at all, one extra library in the process, and the
+    # direction flips. The day KF6I18n stops installing the Qt catalogue on
+    # startup this goes RED and says that the thing APEX's mirroring actually
+    # rests on has moved.
+    kf6lib=""
+    for l in $(ldconfig -p 2>/dev/null | awk '/libKF6I18n\.so/ {print $NF}'); do
+        [ -e "$l" ] && { kf6lib="$l"; break; }
+    done
+    if [ -z "$kf6lib" ]; then
+        skp "a Qt translation loader ALONE flips the direction, with no platform theme" \
+            "no libKF6I18n.so on this machine — COULD-NOT-RUN, and on a machine without it nothing can load qt_ar.qm by itself"
+    else
+        preload_dir="$(env -u WAYLAND_DISPLAY -u DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
+            -u LANG -u LC_ALL -u LANGUAGE -u QT_QPA_PLATFORMTHEME \
+            LANG="$L_RTL" LC_ALL="$L_RTL" LD_PRELOAD="$kf6lib" \
+            QT_LOGGING_RULES='*.debug=true;qt.*=false' QT_QPA_PLATFORM=offscreen \
+            timeout 60 "$runner" -platform offscreen -input "$probe/tst_dir.qml" 2>&1 \
+            | sed -n 's/.*APEXDIR=\([0-9]*\) .*/\1/p' | head -1)"
+        if [ "$preload_dir" = "1" ] && [ "$no_theme_rtl" = "0" ]; then
+            ok "a Qt translation loader ALONE flips the direction, with no platform theme — $kf6lib preloaded gives RightToLeft where the same run without it gives LeftToRight"
+        elif [ -z "$preload_dir" ]; then
+            skp "a Qt translation loader ALONE flips the direction, with no platform theme" \
+                "the preloaded probe printed no APEXDIR line — COULD-NOT-RUN, not a pass"
+        else
+            bad "a Qt translation loader ALONE flips the direction, with no platform theme" \
+                "preloaded=$preload_dir, plain=$no_theme_rtl — if both are 1 the theme was never needed; if the preloaded run is 0 then KF6I18n no longer installs the Qt catalogue and APEX's mirroring rests on something else again"
+        fi
     fi
 fi
 
