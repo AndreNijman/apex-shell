@@ -29,7 +29,9 @@ import "./src/windows"
 //   3. that a lock/unlock/lock flicker produces ONE trailing call rather than
 //      three overlapping ones.
 //   4. that a failure at any of the three steps stops the chain, leaves
-//      nothing running, and does not retry.
+//      nothing running, and does not retry — WHEN NOTHING NEWER WAS ASKED
+//      FOR. When something newer was, the opposite is required, and the
+//      `startup-drop` scenario below measures both directions.
 //   5. that the shell tells logind anything AT ALL at startup. That one is the
 //      defect this run exists for: `onSecureStateChanged` fires on a change,
 //      so a shell restarted while logind believed the session locked left the
@@ -43,9 +45,25 @@ import "./src/windows"
 // and the shipped src/windows/Lockscreen.qml. Only `loginctl` and `busctl` are
 // stubs, and they record their argv, so every assertion below is about what
 // the shell would have said to logind.
+//
+// ── TWO SCENARIOS, BECAUSE ONE PROCESS CANNOT HOLD BOTH ─────────────────────
+//
+// $HINT_SCENARIO selects which run this is; the runner launches quickshell
+// once per scenario.
+//
+//   main          phases 0-9 below. The startup sync succeeds, so from phase 0
+//                 onward `_confirmed` is a defined boolean.
+//   startup-drop  the first sync FAILS, so `_confirmed` stays undefined — the
+//                 only state in which a newer request dropped by `_failed()`
+//                 is observable at all, and the only state in which an
+//                 unconditional re-pump is an infinite loop. Both directions
+//                 are asserted there and nowhere else, because a process
+//                 whose startup sync succeeded can never get back into it.
 
 ShellRoot {
     id: rootScope
+
+    property string scenario: Quickshell.env("HINT_SCENARIO") || "main"
 
     property int pass: 0
     property int fail: 0
@@ -180,7 +198,12 @@ ShellRoot {
 
     // ── the run ────────────────────────────────────────────────────────────
 
-    Component.onCompleted: settle(phase0)
+    Component.onCompleted: {
+        if (rootScope.scenario === "startup-drop")
+            drop0()
+        else
+            settle(phase0)
+    }
 
     // Phase 0 — the initial sync. Nothing below has called setLocked yet; the
     // only thing that can have written to the log is Lockscreen's own
@@ -420,6 +443,109 @@ ShellRoot {
                         })
                     })
                 })
+            })
+        })
+    }
+
+    // ── scenario `startup-drop` ─────────────────────────────────────────────
+    //
+    // Everything below runs INSTEAD of phases 0-9, in a process the runner
+    // started with the tools already failing. So Lockscreen's initial sync
+    // failed, and `_confirmed` is still undefined: the service has never
+    // successfully told logind anything.
+    //
+    // Why that window and not any other. The state is a boolean. Once
+    // `_confirmed` is a defined bool, a newer `_desired` that differs from the
+    // `_target` a failed chain was carrying must equal `_confirmed` — so there
+    // is nothing for logind to be told, and dropping it is harmless. While
+    // `_confirmed` is undefined the newer value differs from BOTH, and
+    // dropping it is a lock the user engaged that logind is never told about.
+    // apex-agentd polls exactly that property (ROADMAP.md §7, P0-015
+    // criterion 1), so this is the criterion, not an edge case.
+    //
+    // The same window is the only place the opposite mistake is visible: an
+    // unconditional `_pump()` from `_failed()` loops forever here, because
+    // _pump()'s `_desired === _confirmed` guard can never close against
+    // `undefined`. drop0 is that control and it is deliberately first.
+
+    // drop0 — the negative control. One failing sync, nothing newer asked for,
+    // and the service must sit still.
+    function drop0() {
+        pause(1200, function () {
+            readLog(function () {
+                const got = rootScope.fresh()
+                rootScope.check("a startup sync that fails with nothing newer asked for does not retry",
+                                got.length === 1 && isShowUser(got[0]))
+                if (got.length !== 1)
+                    console.log("  note: " + got.length + " calls in 1.2s: " + JSON.stringify(got.slice(0, 6)))
+                rootScope.check("and the service is idle rather than stuck busy",
+                                !LockedHintService._busy)
+                rootScope.check("premise: nothing is confirmed, which is the window the drop lives in",
+                                LockedHintService._confirmed === undefined)
+                rootScope.keep()
+                drop1()
+            })
+        })
+    }
+
+    // drop1 — the positive. A chain is in flight and failing; a LOCK arrives
+    // while it is in flight; the chain then fails. The lock must still reach
+    // logind.
+    //
+    // `slow-fail-showuser` sleeps before it fails, and the stub reads the
+    // control file before the sleep, so switching the mode back to `ok`
+    // mid-sleep does not rescue the chain that is already running — it only
+    // decides what the follow-up chain meets.
+    function drop1() {
+        setMode("slow-fail-showuser", function () {
+            LockedHintService.setLocked(false)
+            rootScope.check("premise: the older request started a chain",
+                            LockedHintService._busy && LockedHintService._target === false)
+            pause(150, function () {
+                const busyWhenItArrived = LockedHintService._busy
+                LockedHintService.setLocked(true)
+                rootScope.check("premise: the lock really did arrive while a chain was in flight",
+                                busyWhenItArrived)
+                rootScope.check("premise: and it only updated _desired — the in-flight chain still chases the old value",
+                                LockedHintService._desired === true && LockedHintService._target === false)
+                setMode("ok", function () {
+                    // Long enough for the 0.3s sleep to end, the chain to
+                    // fail, and a follow-up chain of three quick calls to run.
+                    pause(1500, function () {
+                        readLog(function () {
+                            const got = rootScope.fresh()
+                            const hints = got.filter(isSetHint)
+                            rootScope.check("a lock asked for during a chain that then FAILED still reaches logind",
+                                            hints.length === 1 && hints[0].indexOf("b true") >= 0)
+                            rootScope.check("it is a fresh chain and not a resumed one — step 1 ran again",
+                                            got.length === 4 && isShowUser(got[0]) && isShowUser(got[1])
+                                            && isGetSession(got[2]) && isSetHint(got[3]))
+                            if (got.length !== 4)
+                                console.log("  note: " + got.length + " calls: " + JSON.stringify(got.slice(0, 8)))
+                            rootScope.check("and logind's believed state is now the locked one",
+                                            LockedHintService._confirmed === true
+                                            && !LockedHintService._busy)
+                            rootScope.keep()
+                            drop2()
+                        })
+                    })
+                })
+            })
+        })
+    }
+
+    // drop2 — nothing keeps running afterwards. A fix that re-pumps too
+    // eagerly would still be spending processes here.
+    function drop2() {
+        pause(800, function () {
+            readLog(function () {
+                const got = rootScope.fresh()
+                rootScope.check("and then it stops — no calls at all once the request is delivered",
+                                got.length === 0)
+                if (got.length !== 0)
+                    console.log("  note: " + got.length + " stray calls: " + JSON.stringify(got.slice(0, 6)))
+                rootScope.keep()
+                finish()
             })
         })
     }
