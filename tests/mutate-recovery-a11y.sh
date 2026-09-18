@@ -387,6 +387,24 @@ mutate R11 "$SECTION" '    Accessible.name: root.title' \
                       '    Accessible.name: "Settings"' \
     'the group is named by its title'
 
+mutate R12 "$PAGE" '                            enabled: RecoveryService.commitReady' \
+                   '                            enabled: true' \
+    'the BUS is told it is unavailable before the loss list exists'
+
+# The defect that could not be committed. Swapping these two back is a one-line
+# edit that nothing else in this repository notices: recovery-test.js tests
+# commitArgv, which is correct in isolation, and check-recovery-ui.sh asserts
+# the wiring exists, which it does.
+mutate R13 "$SVC" '        root.resetPhase = "planned"
+        root.plan = p' \
+                  '        root.plan = p
+        root.resetPhase = "planned"' \
+    '_onPlan() sets resetPhase BEFORE plan'
+
+mutate R14 "$PAGE" '                            function onResetPhaseChanged() { lossList._ack() }' \
+                   '                            function onResetMessageChanged() { lossList._ack() }' \
+    'the loss list re-acknowledges on a phase change'
+
 echo
 echo "── GREEN: prose and unasserted markup must not move a single verdict ──"
 
