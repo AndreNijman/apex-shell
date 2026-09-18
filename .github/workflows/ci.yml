@@ -1562,7 +1562,27 @@ jobs:
       # row is a number that moves rather than a sentence somebody forgets.
       - name: Right-to-left layout baseline
         if: ${{ !cancelled() }}
-        run: ./tests/run-rtl-test.sh
+        run: |
+          # RED ON THIS RUNNER SINCE IT LANDED, and nobody saw it: ci.yml was
+          # last dispatched on this repository on 2026-09-12 and the RTL suite
+          # landed after that. Measured 2026-09-18 on runs 35351413253 and
+          # 35351740747 — the second on roadmap/v2.2 with none of the lock
+          # screen work on it, identical totals, so this is the runner and not
+          # anybody's branch: 17 passed, 3 failed, 2 skipped.
+          #
+          # The three reds are all section 1, and section 1 is the one that
+          # makes the rest mean anything: it requires a scrubbed run and an
+          # ar_EG run to DISAGREE about the application's layout direction.
+          # Round 23 measured what supplies that disagreement, and it is not the
+          # locale — Qt TRANSLATES the string QT_LAYOUT_DIRECTION and compares
+          # it to RTL, so the switch is a translation CATALOGUE reached through
+          # a platform theme. Neither half was installed here. qt6ct is the
+          # documented APEX default the suite probes with, and qt6-translations
+          # owns qt_ar.qm, which IS the mechanism — the same package apex-os
+          # round 27 found reaching the image only as a weak dependency.
+          pacman -S --needed --noconfirm qt6ct qt6-translations qt6-declarative qt6-base \
+            || echo "note: qt6ct/qt6-translations unavailable; section 1 cannot produce an RTL direction here"
+          ./tests/run-rtl-test.sh
 
       - name: Remote agent status invariants
         run: |

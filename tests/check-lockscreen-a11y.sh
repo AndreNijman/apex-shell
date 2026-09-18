@@ -682,8 +682,23 @@ fi
 # check against a runtime error on the lock screen. So it is RUN, on a fixture
 # that is deliberately not this file, and the negative control is in
 # tests/mutate-lockscreen-a11y.sh.
+# Finding the runner is distribution work, not a one-liner, and getting it
+# wrong costs the measurement rather than the run: the first version looked for
+# `qml-qt6` and `qml` on PATH, and on the GitHub Arch runner reported
+# COULD NOT RUN with qt6-declarative INSTALLED — Arch keeps the Qt 6 tools in
+# /usr/lib/qt6/bin and symlinks only a few of them into /usr/bin. Ask Qt where
+# its own binaries are before falling back to guessing.
 qmlbin=""
 for c in qml-qt6 qml; do command -v "$c" >/dev/null 2>&1 && { qmlbin="$c"; break; }; done
+if [ -z "$qmlbin" ] && command -v qmake6 >/dev/null 2>&1; then
+    hb="$(qmake6 -query QT_HOST_BINS 2>/dev/null)"
+    [ -n "$hb" ] && [ -x "$hb/qml" ] && qmlbin="$hb/qml"
+fi
+if [ -z "$qmlbin" ]; then
+    for c in /usr/lib/qt6/bin/qml /usr/lib64/qt6/bin/qml /usr/libexec/qt6/qml; do
+        [ -x "$c" ] && { qmlbin="$c"; break; }
+    done
+fi
 if [ -z "$qmlbin" ]; then
     nope "Accessible.announce() exists on the Qt that will run this" \
          "no qml runner on PATH (qt6-declarative); COULD NOT RUN — this is not a pass"
