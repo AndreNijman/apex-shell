@@ -1437,6 +1437,71 @@ jobs:
       - name: How far Reduce Motion reaches
         run: ./tests/check-reduce-motion.sh
 
+      # The LOCK screen, for a user who cannot see it (P2-003).
+      #
+      # The LOGIN screen is covered three ways in apex-os. The lock screen — the
+      # same act by a user already logged in, and the surface somebody meets
+      # when they cannot get into their own machine — had nothing, and
+      # src/windows/Lockscreen.qml carried zero `Accessible.` anything across
+      # 440 lines. No name or role on the password field, no `passwordEdit` (so
+      # nothing told an assistive technology to stop echoing what was typed into
+      # it), a wrong password reported by a red border and a shake, Caps Lock
+      # reported by a nerd-font glyph a reader spells out as "private use
+      # character F0A9B", and no role on the line that says which of those
+      # happened.
+      #
+      # Not a grep for Accessible.name: that is satisfied by a comment about
+      # accessibility and — the one that actually matters — by markup on the
+      # placeholder Text NESTED INSIDE the field, which is a different object
+      # announcing a different thing. Object bodies are extracted by brace depth
+      # and a binding counts only as a direct child. Six self-tests prove the
+      # extractor can tell those apart; two of them exist because the first
+      # draft HAD the defect they now foreclose.
+      #
+      # It reads source. The one thing it RUNS is a Qt-version probe, because
+      # the fix calls Accessible.announce() — Qt 6.8+, and a call to a method
+      # this Qt does not have is a runtime error ON THE LOCK SCREEN dressed up
+      # as a green check. A missing qml runner makes that a SKIP, and the suite
+      # counts skips separately on its totals line, so read the totals and not
+      # the ticks.
+      - name: Lock screen accessibility
+        if: ${{ !cancelled() }}
+        run: |
+          # python3 for the extractor, and a qml runner for the announce probe.
+          # Installed here rather than relied on from an earlier step: a job
+          # stops at its first failing step, and this suite must not silently
+          # degrade to a SKIP because somebody else's install line moved.
+          pacman -S --needed --noconfirm python qt6-declarative qt6-base \
+            || echo "note: Qt/python unavailable; the announce probe will SKIP or the suite will FATAL"
+          ./tests/check-lockscreen-a11y.sh
+
+      # …and that the suite above can go red, and does not go red at prose.
+      #
+      # A source-reading suite is the easiest kind to write vacuously, so twenty
+      # mutants each break one arm of the markup and a NAMED assertion has to
+      # fail; four more add comments and string literals quoting every one of
+      # those defects and the suite has to stay GREEN. A suite prose can turn
+      # red punishes people for explaining themselves, which matters here
+      # because accessibility markup is not self-explanatory.
+      #
+      # The verdict is four-way — CAUGHT / MISSCORED / CRASHED / SURVIVED — and
+      # the harness self-tests that it can produce all four, because a mutant
+      # that made the suite exit FATAL reads as "no failures reported" to any
+      # harness that only counts. It also proves its own restore mechanism on
+      # the real file before using it: in a container `git diff` can fail on
+      # dubious ownership, and then every verdict after the first is about a
+      # tree nobody put back.
+      - name: Lock screen accessibility — mutation pair
+        if: ${{ !cancelled() }}
+        run: |
+          # The harness restores with `git checkout --` and compares against
+          # HEAD after every mutate and every restore. A checkout owned by
+          # another uid makes git refuse, which the harness detects and aborts
+          # on rather than reporting two dozen verdicts about an unrestored
+          # tree; this is the line that stops it happening at all.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          ./tests/mutate-lockscreen-a11y.sh
+
       # Internationalisation, measured the only way that means anything: the
       # strings are extracted from the SHIPPED file with the real lupdate,
       # compiled with the real lrelease, and read back out of a running QML
@@ -2068,6 +2133,9 @@ jobs:
             "tests/a11y-controls-test.qml"
             "tests/run-a11y-controls-test.sh"
             "tests/check-reduce-motion.sh"
+            "src/windows/Lockscreen.qml"
+            "tests/check-lockscreen-a11y.sh"
+            "tests/mutate-lockscreen-a11y.sh"
             "tests/run-i18n-test.sh"
             "tests/run-rtl-test.sh"
             "tests/rtl-test.qml"
