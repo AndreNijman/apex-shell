@@ -5,19 +5,20 @@
 #  IDENTICAL to that file except for this block, which is the only thing added.
 #  Check it rather than believe it:
 #
-#      diff <(sed '2,25d' tests/lib/atspi.sh) ../apex-os/tests/lib/atspi.sh
+#      diff <(sed '2,26d' tests/lib/atspi.sh) ../apex-os/tests/lib/atspi.sh
 #
-#  The apex-os copy is 84f1dfe669cf00f2851609be42363d07e5c8fd0c022e5df164708419a1d20f6c
-#  at apex-os 4aae9249.
+#  The apex-os copy is 2380456588deea0747dee5562ecb5a11f915236a724324530d7498acdbcceba2
+#  at apex-os cb02019f.
 #
 #  It is duplicated rather than shared because apex-shell's CI checks out
 #  apex-shell alone: tests/run-lockscreen-atspi.sh needs a private accessibility
 #  bus and there is no apex-os tree on the Arch runner to source one from. The
 #  cost is that a fix made in one repo does not reach the other, so: FIX BOTH.
 #  The known history is apex-os 15283c02 (the file's origin), af8cbdd4 (a second
-#  machine correcting the status-flag paragraph), 23a862b5 (shellcheck) and
+#  machine correcting the status-flag paragraph), 23a862b5 (shellcheck),
 #  4aae9249 (GSETTINGS_BACKEND=memory, which is what made apex-shell's lock
-#  screen read-back measurable at all — it is in both copies).
+#  screen read-back measurable at all) and cb02019f (the at-spi helper paths,
+#  which differ on Arch). The last two are in both copies.
 #
 #  The paragraphs below talk about "the greeter" and about suites that live in
 #  apex-os. That is deliberate — the text is the original's, and rewording it
