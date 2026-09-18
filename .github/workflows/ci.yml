@@ -1549,6 +1549,56 @@ jobs:
             || echo "note: part of the a11y stack is unavailable; the suite will SKIP and say so"
           ./tests/run-lockscreen-atspi.sh
 
+      # The CAUSE of what the suite above measures, and the only step in this
+      # workflow that can name it. The read-back suite reports the symptom —
+      # the shell publishes one node to AT-SPI and nothing beneath it — and
+      # deliberately cannot say why. This one reproduces the why in a 168-line
+      # program in about two seconds, with no compositor, no bus, no
+      # quickshell and no AUR: QAccessible::installFactory registers a post
+      # routine that CLEARS Qt's accessibility factory list, post routines run
+      # from ~QCoreApplication, qtdeclarative installs its factory from a
+      # Q_CONSTRUCTOR_FUNCTION that can only ever run once, and quickshell
+      # destroys a QCoreApplication immediately before constructing its
+      # QGuiApplication.
+      #
+      # It is a PIN and it is meant to go red. Mode A is quickshell's shape and
+      # must produce a null accessible root; the day Qt or qtdeclarative fixes
+      # this, mode A gets a root, this step fails, and the message says to
+      # delete the pin and write the real read-back assertions.
+      #
+      # This step matters more on THIS machine than on the laptop that found
+      # the defect: the runner has no quickshell, so §2–§5 of the read-back
+      # suite can never run here, but every mode of this one can. base-devel is
+      # already installed by the setup job and Arch ships Qt's headers in
+      # qt6-base/qt6-declarative rather than a separate -devel package, so the
+      # only reason this would SKIP is a genuinely absent toolchain — and it
+      # names which piece is missing rather than printing one vague line.
+      - name: Quickshell accessibility — the named cause, reproduced
+        if: ${{ !cancelled() }}
+        run: |
+          pacman -S --needed --noconfirm qt6-declarative qt6-base pkgconf \
+            || echo "note: Qt 6 development files are unavailable; the suite will SKIP and say so"
+          ./tests/check-quickshell-a11y-cause.sh
+
+      # …and that the suite above can go red, in both directions. Eleven red
+      # mutants and two green ones, each a rebuild and five short runs.
+      #
+      # M1 is the whole argument: it makes mode A stop destroying the
+      # QCoreApplication, which is exactly what a fixed Qt would look like, and
+      # the pin has to notice. M2 breaks the control, because a control that
+      # cannot fail is not a control. M10 breaks the build, because a suite that
+      # read "did not compile" as anything but a failure would report five
+      # silent nulls as five findings. G1 appends a comment quoting every string
+      # the suite asserts and requires it to stay green — the difference between
+      # running a program and grepping it.
+      #
+      # Like every mutation harness in this repository it refuses to score
+      # anything when the baseline made too few assertions to be a baseline,
+      # and exits 0 saying so. Read the totals line.
+      - name: Quickshell accessibility — cause mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-quickshell-a11y-cause.sh
+
       # …and that the suite above can go red. Seven red mutants and three green
       # ones, every one of them a full bring-up: a compositor, two buses, a
       # registry, the shell and a session lock, about forty seconds each.
@@ -2239,6 +2289,9 @@ jobs:
             "tests/mutate-lockscreen-a11y.sh"
             "tests/run-lockscreen-atspi.sh"
             "tests/mutate-lockscreen-atspi.sh"
+            "tests/check-quickshell-a11y-cause.sh"
+            "tests/mutate-quickshell-a11y-cause.sh"
+            "tests/quickshell-a11y-cause.cpp"
             "tests/lockscreen-atspi-control.qml"
             "tests/atspi-walk.py"
             "tests/lib/atspi.sh"
