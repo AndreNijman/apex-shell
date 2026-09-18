@@ -49,6 +49,14 @@ Singleton {
     // and _pump() picks it up when the current chain finishes, so a
     // lock/unlock/lock flicker coalesces into one trailing call instead of a
     // pile-up of them.
+    //
+    // "Finishes" means either way. A chain that FAILS has to hand on a newer
+    // `_desired` too (see _failed), because such a request has never been
+    // tried — it is not the step that just failed. That is the whole reason
+    // _failed() tests `_desired !== _target` rather than pumping
+    // unconditionally: while `_confirmed` is still undefined, an
+    // unconditional pump is an infinite retry loop, because _pump()'s own
+    // `_desired === _confirmed` guard never closes against `undefined`.
     property var _confirmed: undefined
     property var _desired:   undefined
     property var _target:    undefined
@@ -84,12 +92,45 @@ Singleton {
 
     function _failed(where) {
         console.warn("LockedHintService: " + where + " failed — logind's LockedHint is now stale until the next lock/unlock")
+        // Was something NEWER asked for while this chain was in flight?
+        // `_target` is the value the chain that just died was carrying, so
+        // `_desired !== _target` is exactly "a setLocked() arrived meanwhile
+        // and has never been tried at all".
+        const newerRequestWasNeverTried = root._desired !== root._target
         root._busy = false
-        // Deliberately no retry here: a step that fails once (logind not
-        // reachable, no graphical session yet) is likely to fail again
-        // immediately, and retrying inline is exactly the call storm the
-        // idempotence guard above exists to avoid. The next real lock/unlock
-        // calls setLocked() again on its own.
+
+        if (!newerRequestWasNeverTried) {
+            // Deliberately no retry: a step that fails once (logind not
+            // reachable, no graphical session yet) is likely to fail again
+            // immediately, and retrying THE SAME VALUE inline is exactly the
+            // call storm the idempotence guard above exists to avoid. The
+            // next real lock/unlock calls setLocked() again on its own.
+            return
+        }
+
+        // Hand the untried request on. Dropping it is not conservatism, it is
+        // a lock the user engaged never reaching logind: apex-agentd polls
+        // LockedHint to decide whether agents and Remote Control keep
+        // running, and this service is its only writer.
+        //
+        // This cannot storm, and the reason is structural rather than a
+        // promise: the only thing that can make `_desired` differ from the
+        // `_target` that just failed is another setLocked() call from
+        // OUTSIDE. A failure can therefore never generate work for itself —
+        // the chain it starts carries a strictly different value, and if that
+        // one fails with nothing newer asked for it takes the `return` above.
+        // N external calls bound the follow-ups at N.
+        //
+        // Deferred with callLater rather than called inline because _failed()
+        // runs inside a Process's own onExited, and _pump() restarts
+        // showUserProc — which on a step-1 failure is that very Process being
+        // re-armed from inside its own signal emission. Whether Quickshell's
+        // Process tolerates that was NOT measured: the deferred form does not
+        // need it to. What is measured is that the follow-up chain launches
+        // and delivers on a step-1 failure — tests/locked-hint-test.qml,
+        // scenario startup-drop. callLater also collapses repeats of the same
+        // call into one.
+        Qt.callLater(root._pump)
     }
 
     function _succeeded() {

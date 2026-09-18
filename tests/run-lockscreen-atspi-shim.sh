@@ -272,20 +272,30 @@ fi
 # ── wait for the STARTUP hint chain to finish before asking for a lock ──────
 #
 # Load-bearing, and it cost four runs to find out. LockedHintService._pump()
-# returns immediately when _busy is true, and its _failed() path clears _busy
-# but DELIBERATELY does not re-pump (see the comment in
-# src/services/system/LockedHintService.qml). _succeeded() does. So a
-# setLocked(true) that arrives while a FAILING chain is still in flight updates
-# _desired and is then never acted on: the lock engages, the surface comes up,
-# and logind is never told. Lockscreen.qml's Component.onCompleted starts
-# exactly such a chain at startup, and on this private runtime directory it
-# always fails at step 1.
+# returns immediately when _busy is true, so a setLocked(true) arriving while a
+# chain is in flight only updated _desired — and _failed() used to clear _busy
+# and return, where _succeeded() re-pumps. The newer request was then never
+# acted on: the lock engaged, the surface came up, and logind was never told.
+# Lockscreen.qml's Component.onCompleted starts exactly such a chain at
+# startup, and on this private runtime directory it always fails at step 1.
 #
 # Measured here before this wait existed: the lock-acknowledged assertion went
 # red on 2 runs in 9 while the lock had in fact engaged — §6 read the whole
 # lock surface back in those same runs. tests/run-lockscreen-atspi.sh does not
 # see it because its §2 waits for that warning as an assertion of its own, and
-# so closes the race by accident. This closes it on purpose.
+# so closes the race by accident. This closed it on purpose.
+#
+# THAT DROP IS FIXED — apex-shell f6928d9, P0-015 round 31. `_failed()` now
+# re-pumps when `_desired !== _target`, i.e. when the request that arrived
+# mid-chain is a NEWER one that has never been tried rather than the step that
+# just failed, which is still deliberately not retried. This run lives entirely
+# in the window where that mattered: the loginctl stub exits 0 with no stdout,
+# so step 1 always fails and `_confirmed` never leaves `undefined`, which is
+# the only state in which the drop was observable at all.
+#
+# The wait stays anyway, and not out of caution: `hint_before` below is a CALL
+# COUNT, and counting from a moment when a chain may still be running makes the
+# comparison that follows meaningless whatever the service does with failures.
 for _ in $(seq 1 80); do
     grep -q 'LockedHintService: loginctl show-user failed' "$shell_log" && break
     sleep 0.25

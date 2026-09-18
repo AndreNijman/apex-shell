@@ -1994,6 +1994,18 @@ jobs:
           # shell says anything AT ALL at startup, which is the half that was
           # missing: onSecureStateChanged fires on a change.
           #
+          # "Does not retry" holds only WHEN NOTHING NEWER WAS ASKED FOR. A
+          # setLocked() arriving while a chain is in flight is recorded in
+          # _desired alone; if that chain then fails, the request has never
+          # been tried, and dropping it is a lock the user engaged that
+          # logind is never told about. So the run has a second scenario,
+          # a second quickshell launch, in the only state where either
+          # direction is visible — _confirmed still undefined, before the
+          # service has ever reached logind. It asserts both: the untried
+          # request is delivered, and a failure with nothing newer asked for
+          # sits still rather than spinning (an unconditional re-pump spends
+          # hundreds of processes there).
+          #
           # The last phase drives a REAL ext-session-lock, so the compositor
           # is headless and private and the runtime dir is checked before the
           # run — the one thing that must never happen is that lock landing
