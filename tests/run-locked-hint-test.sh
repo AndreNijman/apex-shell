@@ -41,7 +41,16 @@
 #     sitting in front of the machine.
 #   * the three calls happen, in order, with the right argv.
 #   * a lock/unlock/lock flicker makes one trailing call, not three.
-#   * a failure at each of the three steps stops the chain and does not retry.
+#   * a failure at each of the three steps stops the chain and does not retry
+#     WHEN NOTHING NEWER WAS ASKED FOR — and does the opposite when something
+#     was. A lock that arrives while a chain is in flight is only recorded in
+#     `_desired`; if that chain then fails, the lock has never been tried at
+#     all, and dropping it is a lock the user engaged that logind is never
+#     told about. apex-agentd polls exactly that property.
+#   * neither direction is measurable in the same process: the drop is only
+#     observable while `_confirmed` is undefined (see the second scenario),
+#     and a process whose startup sync succeeded can never return to that
+#     state. So this runs quickshell TWICE.
 #   * `WlSessionLock.secure` flips on a compositor that has acknowledged the
 #     lock, and that is what reaches logind.
 #
@@ -112,6 +121,15 @@ case "$mode" in
     # either waits its turn or restarts this step, and the two are told apart
     # by how many times this line runs.
     slow)           sleep 0.3 ;;
+    # Slow AND then fails. The mode is read ABOVE the sleep, on purpose: the
+    # test switches the control file back to `ok` while this is sleeping, so
+    # the chain already in flight still fails and only the follow-up chain
+    # meets working tools. Without that, "the request that arrived mid-chain
+    # was retried" and "the failing step was retried until it worked" would
+    # look the same in the log.
+    slow-fail-showuser)
+        sleep 0.3
+        echo "Failed to look up user: No such process" >&2; exit 1 ;;
 esac
 echo "3"
 exit 0
@@ -221,36 +239,83 @@ export WAYLAND_DISPLAY="$sock"
 echo "host: $comp on $WAYLAND_DISPLAY (headless, private XDG_RUNTIME_DIR and HOME)"
 echo "calls: $HINT_LOG"
 
-out="$(QT_LOGGING_RULES="qml=true" timeout 180 quickshell -p "$staged" 2>&1 \
-       | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/^[[:space:]]*DEBUG qml: //')"
+# ── one scenario, one quickshell run ─────────────────────────────────────────
+#
+# Both scenarios share this compositor, these stubs and this staged file; only
+# $HINT_SCENARIO and the mode the tools start in differ. The second run exists
+# because its assertions need a service that has NEVER successfully reached
+# logind, and there is no way back into that state inside a process whose
+# startup sync worked.
+total_pass=0
+total_fail=0
+broke=0
 
-echo "$out" | grep -E "^( *PASS| *FAIL|locked-hint:)" || true
+run_scenario() {
+    local scenario="$1" mode="$2" title="$3"
+    : > "$HINT_LOG"
+    printf '%s' "$mode" > "$HINT_CTL"
+    echo
+    echo "── $scenario — $title (tools start in mode '$mode')"
 
-if echo "$out" | grep -q "Failed to load configuration"; then
-    echo "$out" | tail -30
-    echo "RESULT: the test config failed to load"
+    local out
+    out="$(HINT_SCENARIO="$scenario" QT_LOGGING_RULES="qml=true" \
+           timeout 180 quickshell -p "$staged" 2>&1 \
+           | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/^[[:space:]]*DEBUG qml: //')"
+
+    printf '%s\n' "$out" | grep -E "^( *PASS| *FAIL| *note:|locked-hint:)" || true
+
+    # `[[ == * ]]` rather than `grep -q`: under `set -o pipefail` a `grep -q`
+    # that MATCHES can return 141 — it exits before the writer is finished and
+    # the writer takes SIGPIPE — so a match reads as a non-match. That has
+    # mis-seeded suites in this repository before.
+    if [[ "$out" == *"Failed to load configuration"* ]]; then
+        printf '%s\n' "$out" | tail -30
+        echo "RESULT: the test config failed to load ($scenario)"
+        broke=1
+        return 1
+    fi
+
+    local summary
+    summary="$(printf '%s\n' "$out" | grep -o 'locked-hint: passed=[0-9]* failed=[0-9]*' | tail -1)"
+    if [[ -z "$summary" ]]; then
+        printf '%s\n' "$out" | tail -30
+        echo "RESULT: the $scenario run did not run to completion"
+        broke=1
+        return 1
+    fi
+
+    if [[ "$out" == *"locked-hint: compositor-did-not-acknowledge"* ]]; then
+        echo "NOTE: $comp never acknowledged the ext-session-lock, so the end-to-end"
+        echo "      phase was not measured. Every other phase still counts."
+    fi
+
+    # Graded on the count the run reported, not on whether a FAIL line survived
+    # a grep. A summary saying failed=4 and a filter that prints none of them is
+    # how a red run gets reported green.
+    local passed="${summary#*passed=}"; passed="${passed%% *}"
+    local failed="${summary##*failed=}"
+    total_pass=$(( total_pass + passed ))
+    total_fail=$(( total_fail + failed ))
+    if [[ "$failed" -ne 0 ]]; then
+        echo "RESULT: $failed assertion(s) failed in the $scenario run"
+        return 1
+    fi
+    return 0
+}
+
+# Both always run: a red first scenario must not hide the second one's result.
+run_scenario main ok \
+    "the shipped service and lock screen, every step, ending on a real session lock"
+run_scenario startup-drop fail-showuser \
+    "nothing confirmed yet and the first sync failing — where a dropped request bites"
+
+if [[ "$broke" -ne 0 || "$total_fail" -ne 0 ]]; then
+    echo
+    echo "RESULT: $total_fail assertion(s) failed across the two runs"
     exit 1
 fi
 
-summary="$(echo "$out" | grep -o 'locked-hint: passed=[0-9]* failed=[0-9]*' | tail -1)"
-if [[ -z "$summary" ]]; then
-    echo "$out" | tail -30
-    echo "RESULT: the test did not run to completion"
-    exit 1
-fi
-
-if echo "$out" | grep -q "locked-hint: compositor-did-not-acknowledge"; then
-    echo "NOTE: $comp never acknowledged the ext-session-lock, so the end-to-end"
-    echo "      phase was not measured. Every other phase still counts."
-fi
-
-# Graded on the count the run reported, not on whether a FAIL line survived a
-# grep. A summary saying failed=4 and a filter that prints none of them is how
-# a red run gets reported green.
-failed="${summary##*failed=}"
-if [[ "$failed" -ne 0 ]]; then
-    echo "RESULT: $failed assertion(s) failed"
-    exit 1
-fi
-
-echo "RESULT: ${summary%% failed=*} — logind hears the lock, the unlock, and the shell starting"
+echo
+echo "RESULT: locked-hint: passed=$total_pass failed=0 — logind hears the lock, the"
+echo "        unlock, the shell starting, and the lock asked for while a chain was"
+echo "        in flight that then failed"
