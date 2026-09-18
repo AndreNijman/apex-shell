@@ -32,9 +32,26 @@
 #  accessibility markup — is unusually comment-heavy for exactly the reason that
 #  its markup is not self-explanatory.
 #
-#  Restores are `git checkout --`: authoritative about content, and the file set
-#  is compared against HEAD after every mutate AND every restore. A `cp` restore
-#  in this unit once left a file holding another agent's content.
+#  ── How the files get put back ──────────────────────────────────────────────
+#
+#  A pristine copy of each file is taken into a directory this run created with
+#  mktemp, and every restore copies it back and then VERIFIES the sha256 against
+#  the baseline taken before anything was touched. Not `git checkout --`, which
+#  is what the two sister harnesses in this repository use, for a reason
+#  measured on the runner rather than guessed: the arch-validate job installs
+#  git AFTER actions/checkout, so the checkout falls back to the tarball API and
+#  the workspace has no .git at all. `git rev-parse` fails, and a harness that
+#  read `git diff`'s empty output as "clean" would apply two dozen mutants on
+#  top of each other and print two dozen confident verdicts about a tree nobody
+#  restored.
+#
+#  Not a shared scratch directory either: a `cp` restore in this unit once put
+#  back a file holding ANOTHER agent's content, because the scratch path was
+#  shared. mktemp per run, removed on exit, and the sha is checked rather than
+#  assumed.
+#
+#  Where a git work tree does exist, it is used as an EXTRA check that the
+#  baseline being snapshotted is HEAD and not somebody's half-finished edit.
 #
 #  Run from anywhere: ./tests/mutate-lockscreen-a11y.sh
 # ─────────────────────────────────────────────────────────────────────────────
@@ -56,13 +73,32 @@ G_CAPS="$(python3 -c 'import sys; sys.stdout.write(chr(0xF0A9B))')"
 
 applied=0; noapply=0; caught=0; survived=0; misscored=0; held=0; falsered=0
 
-tree_clean() { [ -z "$(git diff --name-only -- $FILES 2>/dev/null)" ]; }
+SNAP="$(mktemp -d "${TMPDIR:-/tmp}/mutate-lockscreen.XXXXXX")" || exit 2
+trap 'rm -rf "$SNAP"' EXIT INT TERM
+
+snap_of() { printf '%s' "$1" | tr '/' '_'; }
+
+# shellcheck disable=SC2086  # $FILES is a deliberate, space-separated list
+take_snapshot() {
+    local f
+    for f in $FILES; do
+        [ -f "$f" ] || { echo "ABORT: $f does not exist" >&2; exit 3; }
+        cp -- "$f" "$SNAP/$(snap_of "$f")" || exit 3
+    done
+    sha256sum -- $FILES >"$SNAP/baseline.sha256" || exit 3
+}
+
+tree_clean() { sha256sum -c --status "$SNAP/baseline.sha256" 2>/dev/null; }
 
 restore() {
-    git checkout -- $FILES 2>/dev/null
+    local f
+    for f in $FILES; do
+        cp -- "$SNAP/$(snap_of "$f")" "$f" || exit 3
+    done
     if ! tree_clean; then
-        echo "ABORT: tree still dirty after restore; verdicts would be meaningless" >&2
-        git diff --stat -- $FILES >&2
+        echo "ABORT: a restored file does not match its baseline sha256;" >&2
+        echo "       every verdict after this point would be meaningless" >&2
+        sha256sum -c "$SNAP/baseline.sha256" >&2
         exit 3
     fi
 }
@@ -136,24 +172,38 @@ check-lockscreen-a11y: passed=32 failed=1 skipped=0"
 # last. The run would print two dozen confident verdicts about a file nobody
 # restored. So the mechanism is demonstrated, on the real file, before use.
 restore_selftest() {
-    git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
-        echo "ABORT: not a git work tree; this harness restores with git checkout" >&2; exit 3; }
-    git diff --name-only -- $FILES >/dev/null 2>&1 || {
-        echo "ABORT: 'git diff' failed here. In a container this is usually" >&2
-        echo "       dubious ownership: git config --global --add safe.directory <path>" >&2
-        exit 3; }
-    tree_clean || { echo "ABORT: tree already dirty; nothing below would mean anything" >&2; exit 3; }
+    command -v sha256sum >/dev/null 2>&1 || {
+        echo "ABORT: sha256sum is required to verify restores" >&2; exit 3; }
+
+    # Where a work tree exists, say whether the baseline is HEAD. Reported, NOT
+    # enforced: mutating a change you have not committed yet is the normal way
+    # to use this, and an ABORT here would make the harness unusable for exactly
+    # the person writing the markup. What makes the verdicts sound is the
+    # sha256 baseline below, which holds either way.
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+       && git diff --name-only -- $FILES >/dev/null 2>&1; then
+        if [ -n "$(git diff --name-only -- $FILES)" ]; then
+            echo "  note the baseline is a WORKING TREE state, not HEAD:"
+            git diff --name-only -- $FILES | sed 's/^/         /'
+        else
+            echo "  ok   the baseline being snapshotted is HEAD"
+        fi
+    else
+        echo "  note not a git work tree (a tarball checkout, which is what the arch"
+        echo "       runner delivers); the baseline is the files as they arrived"
+    fi
+
+    take_snapshot
+    tree_clean || { echo "ABORT: the snapshot does not match the files it was taken from" >&2; exit 3; }
+
     printf '\n// mutate-lockscreen-a11y.sh restore probe\n' >>"$LOCK"
     if tree_clean; then
-        echo "ABORT: a real edit to $LOCK was not seen as dirty — git is not watching" >&2
+        echo "ABORT: a real edit to $LOCK was not seen — the baseline is not being read" >&2
         exit 3
     fi
-    echo "  ok   a real edit to the file under test is SEEN as dirty"
-    git checkout -- $FILES 2>/dev/null
-    if ! tree_clean; then
-        echo "ABORT: the restore did not put $LOCK back" >&2; exit 3
-    fi
-    echo "  ok   …and git checkout puts it back, byte for byte"
+    echo "  ok   a real edit to the file under test is SEEN"
+    restore
+    echo "  ok   …and the restore puts it back, sha256 for sha256"
 }
 
 echo "── self-test: this harness can tell its four verdicts apart ──"
@@ -459,5 +509,5 @@ printf 'mutants applied=%d, failed-to-apply=%d | red: caught=%d SURVIVED=%d MISS
     "$applied" "$noapply" "$caught" "$survived" "$misscored" "$held" "$falsered"
 [ "$misscored" -eq 0 ] || echo "MISSCORED means this harness is wrong, not the shell." >&2
 tree_clean || { echo "ABORT: tree dirty at end of run" >&2; exit 3; }
-echo "the tree matches HEAD"
+echo "every file matches the sha256 it started with"
 [ "$survived" -eq 0 ] && [ "$misscored" -eq 0 ] && [ "$falsered" -eq 0 ] && [ "$noapply" -eq 0 ]
