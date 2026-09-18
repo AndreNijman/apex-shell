@@ -308,21 +308,53 @@ fi
 # to count a vacuous pass. That is expected here and is NOT the "a skip measures
 # nothing" warning the sister harness prints; what would be wrong is §1 or §2
 # skipping, because then the mutants below are aimed at checks that never ran.
-# A missing quickshell or a missing qml runtime is a COULD-NOT-RUN, not a
-# failure and not a pass. It is reported and the run stops with status 0, the
-# way every other suite in this tree treats a machine that cannot host it —
-# scoring mutants against checks that never ran would be worse than measuring
-# nothing, because it would print verdicts.
-if printf '%s' "$base" | grep -q 'SKIP the shell half of this suite'; then
-    echo "SKIP: quickshell is absent, so the suite's §2-§5 never ran and no"
-    echo "      mutant below could be scored against anything. NOTHING WAS"
-    echo "      MEASURED — this is a could-not-run, not a green run."
-    exit 0
-fi
-if printf '%s' "$base" | grep -q 'SKIP the control publishes'; then
-    echo "SKIP: no qml runtime, so the control never ran and R1, R2 and R2b"
-    echo "      would be scored against checks that are not there. NOTHING WAS"
-    echo "      MEASURED."
+# ── every mutant must be aimed at a check that actually ran ──────────────────
+#
+# A missing quickshell, a missing qml runtime, a missing accessibility stack or
+# a machine with no compositor is a COULD-NOT-RUN. The suite exits 0 and prints
+# `passed=0 failed=0 skipped=0` for all of them, which a harness that only asks
+# "is it green?" reads as a clean baseline.
+#
+# It did. On the GitHub Arch runner, 2026-09-18, the accessibility helpers were
+# installed at a path tests/lib/atspi.sh did not know, the suite skipped out
+# before its first assertion, and this harness went on to score ELEVEN mutants
+# against it: eight SURVIVED, three HELD, and a red CI step claiming the suite
+# could not detect anything. Every one of those verdicts was about nothing. The
+# same shape as the defect family this repository keeps meeting — a gate that
+# runs and inspects nothing — except here it was the gate ON the gate.
+#
+# The check below is therefore not "is the baseline green" but "did the baseline
+# ACTUALLY ASSERT the thing each mutant is aimed at". Every `want` string must
+# appear on an `ok` line of the baseline run. It cannot rot: a mutant whose
+# target assertion is renamed or deleted stops the run instead of silently
+# becoming a survival, and a new mutant gets the same protection for free
+# because the list below IS the list of wants used further down.
+WANTS=(
+    "an Accessible.name written in QML arrives on the bus verbatim"
+    "the control's window is MAPPED, not merely constructed"
+    "the control's WINDOW reaches the bus as a frame"
+    "org.a11y.Status.ScreenReaderEnabled is true"
+    "LockedHintService really does reach for loginctl at startup"
+    "nothing ever asks logind to set a locked hint"
+    "acknowledged ext-session-lock"
+)
+missing=()
+for w in "${WANTS[@]}"; do
+    found=0
+    while IFS= read -r line; do
+        case "$line" in
+            "  ok   "*) [[ "$line" == *"$w"* ]] && { found=1; break; } ;;
+        esac
+    done <<<"$base"
+    [ "$found" = 1 ] || missing+=("$w")
+done
+if [ "${#missing[@]}" -gt 0 ]; then
+    echo "SKIP: the baseline run did not assert the following, so no mutant aimed"
+    echo "      at them could be scored against anything:"
+    printf '        %s\n' "${missing[@]}"
+    echo
+    echo "      NOTHING WAS MEASURED. This is a could-not-run, not a green run."
+    echo "      The suite's own output says why — read it above, not this line."
     exit 0
 fi
 
