@@ -1487,20 +1487,21 @@ jobs:
       # The verdict is four-way — CAUGHT / MISSCORED / CRASHED / SURVIVED — and
       # the harness self-tests that it can produce all four, because a mutant
       # that made the suite exit FATAL reads as "no failures reported" to any
-      # harness that only counts. It also proves its own restore mechanism on
-      # the real file before using it: in a container `git diff` can fail on
-      # dubious ownership, and then every verdict after the first is about a
-      # tree nobody put back.
+      # harness that only counts.
+      #
+      # It also proves its own RESTORE on the real file before using it, and it
+      # restores from a sha256-verified snapshot rather than with
+      # `git checkout --` like the two sister harnesses in this repo. That is
+      # not a style choice, it is this job: the Checkout step above runs BEFORE
+      # git is installed, so actions/checkout falls back to the tarball API and
+      # THIS WORKSPACE HAS NO .git AT ALL. Measured here on 2026-09-18, where
+      # the first version aborted with "not a git work tree". A harness that had
+      # read `git diff`'s empty output as "clean" would instead have applied two
+      # dozen mutants on top of each other and printed two dozen confident
+      # verdicts about a tree nobody put back.
       - name: Lock screen accessibility — mutation pair
         if: ${{ !cancelled() }}
-        run: |
-          # The harness restores with `git checkout --` and compares against
-          # HEAD after every mutate and every restore. A checkout owned by
-          # another uid makes git refuse, which the harness detects and aborts
-          # on rather than reporting two dozen verdicts about an unrestored
-          # tree; this is the line that stops it happening at all.
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          ./tests/mutate-lockscreen-a11y.sh
+        run: ./tests/mutate-lockscreen-a11y.sh
 
       # Internationalisation, measured the only way that means anything: the
       # strings are extracted from the SHIPPED file with the real lupdate,
