@@ -1799,6 +1799,55 @@ jobs:
           # stay GREEN.
           ./tests/check-recovery-ui.sh
 
+      # The OTHER half of the recovery surface: what a user who cannot see it
+      # gets. RecoveryPage.qml had ZERO Accessible.* in 892 lines, and read
+      # back over real AT-SPI on 2026-09-19 the page published its shared Cfg*
+      # buttons and not one of its 8 component rows, 6 recovery routes, 7
+      # doctor checks, its headline status line, or a section title. Pressing
+      # "Show what would be lost" over the bus ran the dry run and added
+      # exactly ZERO nodes, and the `Erase N item(s) now` button did not exist
+      # on the bus at all — a bare Rectangle with a MouseArea, so a reader
+      # could walk three of the four deliberate steps of a factory reset and
+      # dead-end, and a keyboard user could not finish it while every SAFE
+      # control on the page could be pressed.
+      #
+      # Two rules it holds, neither of them visible in a diff: no private-use
+      # glyph may carry a role or reach a name, and no role may exist without
+      # an explicit Accessible.name (Qt's fallback from `text` is real, and it
+      # is silent the day it stops applying).
+      #
+      # This is the source-reading half and it runs anywhere. The runtime
+      # read-back needs quickshell, which is an AUR package and is not on this
+      # runner, so it prints a named SKIP — read the totals line, not the tick.
+      - name: Recovery screen accessibility
+        if: ${{ !cancelled() }}
+        run: |
+          pacman -S --needed --noconfirm python \
+            || echo "note: python unavailable; the suite will FATAL rather than pretend"
+          ./tests/check-recovery-a11y.sh
+
+      # …and that the suite above can go red, on the NAMED assertion, and does
+      # not go red at prose.
+      #
+      # Eleven mutants break one arm of the markup each; three more quote every
+      # rule the suite enforces in a comment, add a property nothing asserts,
+      # and add an icon with no markup, and the suite has to stay GREEN. A
+      # checker that prose can turn red punishes people for explaining
+      # themselves, which matters most where the markup is not self-evident.
+      #
+      # It mutates FOUR files, and the fourth is the point: round 31 made the
+      # factory reset's commit button reachable over the accessibility bus, and
+      # that is only defensible because the refusal lives in
+      # RecoveryService.commitReset() and not in the button's visibility. R9
+      # deletes that refusal and the suite has to say so.
+      #
+      # Restores come from a sha256-verified snapshot in a per-run mktemp -d,
+      # never `git checkout --`: the Checkout step in this job runs BEFORE git
+      # is installed, so the workspace has no .git at all.
+      - name: Recovery screen accessibility — mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-recovery-a11y.sh
+
       - name: Privacy & Permissions logic
         run: |
           # P1-061. Drives src/services/permissions.js — the file the shell
@@ -2297,6 +2346,8 @@ jobs:
             "src/services/config_tab/pages/RecoveryPage.qml"
             "tests/recovery-test.js"
             "tests/check-recovery-ui.sh"
+            "tests/check-recovery-a11y.sh"
+            "tests/mutate-recovery-a11y.sh"
             "src/services/permissions.js"
             "src/services/PermissionsService.qml"
             "src/services/config_tab/pages/PrivacyPage.qml"
