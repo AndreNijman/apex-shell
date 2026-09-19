@@ -30,11 +30,18 @@
 #
 #  ── The ratio is the baseline ───────────────────────────────────────────────
 #
-#  Five strings are translatable today out of several hundred user-facing
-#  literals in this tree. The suite counts both and prints the ratio, and pins
-#  the translatable count EXACTLY in both directions: a new qsTr() that nobody
-#  translated, or a lost one, both move the number and both should be a decision
-#  rather than a surprise.
+#  Round 33 moved this file from five marked strings to 186 — every word a user
+#  reads in AgentHelpContent.qml except command bodies, mono terms and mono
+#  descriptions, which are machine text and must not be translated. The suite
+#  counts the marked strings and the tree's user-facing literals, prints the
+#  ratio, and pins the translatable count EXACTLY in both directions: a new
+#  qsTr() that nobody translated, or a lost one, both move the number and both
+#  should be a decision rather than a surprise.
+#
+#  MARKED IS NOT TRANSLATED, and this suite is careful not to let the bigger
+#  number read as progress it is not. translations/apex-shell_de.ts carries
+#  German for five of the 186. The other 181 extract, compile and load, and come
+#  back in English because nobody has written them.
 #
 #  ── Headless discipline ─────────────────────────────────────────────────────
 #
@@ -83,7 +90,7 @@ section "1. the strings are marked for translation at all"
 # Counted from the file rather than remembered. This is the numerator of the
 # baseline, and it is pinned exactly: an unreviewed change in either direction
 # is a change in what this repository claims about its own translatability.
-EXPECT_TR=5
+EXPECT_TR=186
 # Code lines only. The header comment mentions qsTr by name, and a comment is
 # not a translatable string.
 n_tr="$(grep -vE '^\s*//' "$CONTENT" | grep -oE '\bqsTr\(' | wc -l | tr -d ' ')"

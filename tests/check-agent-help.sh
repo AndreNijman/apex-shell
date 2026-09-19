@@ -43,6 +43,50 @@ pass=0; fail=0
 ok()  { printf '  ok   %s\n' "$1"; pass=$((pass+1)); }
 bad() { printf '  FAIL %s\n' "$1"; fail=$((fail+1)); }
 
+# ── the qsTr() normaliser, and why this file needs one ──────────────────────
+# Round 33 wrapped this guide's prose for translation (roadmap P2-004), so
+# `{ k: "kv", t: "strict"` is now `{ k: "kv", t: qsTr("strict")`. Twenty greps
+# below name the unwrapped shape, and the mutation self-test at the bottom
+# carries another dozen anchors in it. Rewriting thirty-odd patterns would be
+# thirty chances to get one wrong with nothing to tell you which. So the guide
+# is read ONCE through a normaliser that turns every `qsTr("…")` back into
+# `"…"`, and everything below reads THAT — including the copy the self-test
+# mutates, which is why its anchors and its recheck functions are untouched by
+# the wrapping.
+#
+# The normaliser is proved in BOTH directions before a single check reads
+# through it. If the guide stopped being wrapped there would be nothing to
+# normalise and this mechanism would be dead code that kept passing; if the
+# normaliser stopped working, every grep below would silently stop matching and
+# report the guide as missing the things it says. Neither can happen quietly —
+# measured, not asserted: with the guide unwrapped this row reads "0 wrapped
+# going in" and goes red, and with the substitution removed it reads "181
+# wrapped going in, 181 still wrapped coming out" and takes the sandbox-mode
+# check red with it.
+#
+# The stop-slop check in section 4 is the one thing still pointed at the real
+# file, on purpose: its output names the path a human has to go and edit.
+TMP="$(mktemp -d)" || exit 2
+trap 'rm -rf "$TMP"' EXIT
+NORM="$TMP/content-normalised.qml"
+python3 - "$CONTENT" "$NORM" <<'NORMPY'
+import re, sys, pathlib
+STR = r'"(?:[^"\\]|\\.)*"'
+text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+pathlib.Path(sys.argv[2]).write_text(
+    re.sub(r'qsTr\((%s)\)' % STR, r'\1', text), encoding="utf-8")
+NORMPY
+# Counted on the KEYS, not on the word qsTr: the comment block at the top of
+# the guide names qsTr() in prose, and a count that included prose would answer
+# "still wrapped" about a normaliser that had worked perfectly.
+n_wrapped="$(grep -oE '\b(t|d|title): qsTr\("' "$CONTENT" | wc -l | tr -d ' ')"
+n_left="$(grep -oE '\b(t|d|title): qsTr\("' "$NORM" | wc -l | tr -d ' ')"
+if [ "$n_wrapped" -gt 0 ] && [ "$n_left" -eq 0 ]; then
+    ok "the qsTr() normaliser has $n_wrapped strings to unwrap and leaves none of them wrapped"
+else
+    bad "the qsTr() normaliser did not work: $n_wrapped wrapped going in, $n_left still wrapped coming out"
+fi
+
 # ── 1. Every apex verb the guide names is a verb the CLI has ────────────────
 osroot="${APEX_OS_ROOT:-$(cd ../apex-os 2>/dev/null && pwd)}"
 src="$osroot/apexd/apex/src"
@@ -107,7 +151,7 @@ echo "  verb source: $source_note"
 # a command block are literal two-character sequences in the QML source, so they
 # are turned back into newlines first; without that, `apex agent pause 4\napex`
 # hides the second command.
-used="$(python3 - "$CONTENT" <<'PY'
+used="$(python3 - "$NORM" <<'PY'
 import re, pathlib, sys
 text = pathlib.Path(sys.argv[1]).read_text(errors="replace").replace("\\n", "\n")
 for group in ("agent", "project", "request", "secret", "host"):
@@ -148,11 +192,11 @@ check_group host    "$HOST_VERBS"
 # no Config page for it" is the same defect as a premature promise, pointing
 # the other way — it sends a user looking for a per-session flag when the
 # setting they want is two clicks away.
-todo_bodies="$(grep -o '{ k: "todo"[^}]*}' "$CONTENT")"
+todo_bodies="$(grep -o '{ k: "todo"[^}]*}' "$NORM")"
 unbuilt_ok=1
 for pair in '--unsafe-everything|--unsafe-everything' '--system-access|--system-access'; do
     name="${pair%%|*}"; marker="${pair##*|}"
-    grep -q -- "$name" "$CONTENT" || { bad "the guide never mentions $name"; unbuilt_ok=0; continue; }
+    grep -q -- "$name" "$NORM" || { bad "the guide never mentions $name"; unbuilt_ok=0; continue; }
     grep -q -- "$marker" <<<"$todo_bodies" \
         || { bad "$name is described but no \"todo\" block says it is absent"; unbuilt_ok=0; }
 done
@@ -161,7 +205,7 @@ done
 # ── 2b. Always Unrestricted is documented as shipped, and located ────────────
 # P0-016. Two halves, because either one alone can be true while the guide is
 # still useless: a page nobody can find, or a name with a stale disclaimer.
-if grep -q "Config → Agents" "$CONTENT"; then
+if grep -q "Config → Agents" "$NORM"; then
     ok "the guide says where the Always Unrestricted toggle is"
 else
     bad "Always Unrestricted is described but the guide never says which page carries it"
@@ -201,7 +245,7 @@ fi
 # included. check_group scrapes `apex agent <verb>` out of the WHOLE file and
 # tests it against the CLI, so writing the command down before it exists turns
 # section 1 red. The marker below is prose for that reason.
-if grep -q "Speak to it" "$CONTENT"; then
+if grep -q "Speak to it" "$NORM"; then
     if grep -q "needs a runtime verb this build does not have" <<<"$todo_bodies"; then
         ok "push-to-talk is documented and its unbuilt last step is marked absent"
     else
@@ -221,7 +265,7 @@ for n in "1. The agent's own permission mode" \
          "4. The APEX secret and cloud capability layer" \
          "5. The APEX network policy" \
          "6. The remote-origin policy"; do
-    grep -qF "$n" "$CONTENT" && layers=$((layers + 1))
+    grep -qF "$n" "$NORM" && layers=$((layers + 1))
 done
 if [ "$layers" -eq 6 ]; then
     ok "all six permission layers are named separately (§3.1)"
@@ -231,9 +275,9 @@ fi
 
 # The three invariants, in the words that make them checkable rather than vague.
 inv=0
-grep -q "leaves the APEX sandbox switched on"          "$CONTENT" && inv=$((inv + 1))
-grep -q "full user access does not give it root"       "$CONTENT" && inv=$((inv + 1))
-grep -q "root does not hand over your stored tokens"   "$CONTENT" && inv=$((inv + 1))
+grep -q "leaves the APEX sandbox switched on"          "$NORM" && inv=$((inv + 1))
+grep -q "full user access does not give it root"       "$NORM" && inv=$((inv + 1))
+grep -q "root does not hand over your stored tokens"   "$NORM" && inv=$((inv + 1))
 if [ "$inv" -eq 3 ]; then
     ok "all three invariants are stated: bypass keeps the sandbox, unrestricted is not root, root is not secrets"
 else
@@ -243,7 +287,7 @@ fi
 # Each of the three sandbox modes gets its own entry, not one paragraph.
 modes=0
 for m in project strict unrestricted; do
-    grep -q "{ k: \"kv\", t: \"$m\"" "$CONTENT" && modes=$((modes + 1))
+    grep -q "{ k: \"kv\", t: \"$m\"" "$NORM" && modes=$((modes + 1))
 done
 if [ "$modes" -eq 3 ]; then
     ok "project, strict and unrestricted each get their own definition"
@@ -280,9 +324,7 @@ fi
 #  exactly that false verdict before.
 # ─────────────────────────────────────────────────────────────────────────────
 printf '\n── self-test: can these checks fail? ──\n'
-TMP="$(mktemp -d)" || exit 2
-trap 'rm -rf "$TMP"' EXIT
-cp "$CONTENT" "$TMP/content.qml"
+cp "$NORM" "$TMP/content.qml"
 applied=0; noapply=0
 
 mutate() {
