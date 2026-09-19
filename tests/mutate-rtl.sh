@@ -99,7 +99,7 @@ selftest() {
     # pass while the parser it is testing had stopped working.
     red="FAIL  the explicit numeric x: sites in src/ are exactly the bucketed ones — the set moved
 run-rtl-test: 24 passed, 6 failed, 0 skipped, 0 could-not-run"
-    green="run-rtl-test: 35 passed, 0 failed, 0 skipped, 0 could-not-run"
+    green="run-rtl-test: 37 passed, 0 failed, 0 skipped, 0 could-not-run"
     excused="CANTRUN  with qt6ct loaded the direction follows the locale — MEASURED: links no libKF6I18n
 run-rtl-test: 30 passed, 0 failed, 1 skipped, 3 could-not-run"
 
@@ -256,14 +256,24 @@ mutate R3 "$ROW" \
     "CfgRow passes mirroring down to the control it holds"
 
 # R4 — the pin in section 3. A window root gains mirroring and the ledger does
-#      not: the count must move and the suite must say so, because "0 of 14
-#      mirror" is the honest half of this row and a silently drifting number is
-#      how a named remaining half becomes a forgotten one.
+#      not: the count must move and the suite must say so, because "0 of 14"
+#      is the honest half of this row and a silently drifting number is how a
+#      named remaining half becomes a forgotten one.
+#
+#      Round 32 makes this mutant sharper than it was. What it writes is
+#      EXACTLY the edit somebody closing standing-queue item 7 would make, and
+#      that edit is a SILENT NO-OP: PanelWindow's chain is
+#      PanelWindowInterface -> WindowInterface -> Reloadable -> QObject, with
+#      no Item and no Window in it, so Qt attaches nothing, creates the object
+#      anyway, leaves errorString() empty and prints one QWARN. Before round 32
+#      this suite counted the STRING, so that no-op would have moved the count
+#      from 0 to 14 and been signed off as the remaining half of the row. The
+#      two rows this mutant now sits above are what stop that.
 mutate R4 "$WIN" \
     'PanelWindow {' \
     'PanelWindow {
     LayoutMirroring.enabled: false' \
-    "window roots mirror"
+    "window roots declare mirroring"
 
 # R5 — the locale probe stops varying. Both runs are handed the same locale, so
 #      the section measures a constant while printing a number that looks like a
@@ -360,6 +370,30 @@ mutate R13 "$SCROLL" \
     '    LayoutMirroring.enabled: Qt.application.layoutDirection === Qt.RightToLeft' \
     '    LayoutMirroring.enabled: true' \
     "an untouched CfgScroll mirrors on its shipped declaration alone"
+
+# R14 — the attach probe's CONTROL. Both halves of that row are turned into
+#       the same question, so the probe can no longer tell "LayoutMirroring
+#       silently does nothing HERE" from "LayoutMirroring does nothing
+#       ANYWHERE". A row whose control has stopped controlling must not stay
+#       green: without it, "the no-op is silent" would be a sentence about a
+#       probe that measures one thing twice.
+mutate R14 "$SUITE_F" \
+    '    Component { id: asWindow; Window { LayoutMirroring.enabled: true } }' \
+    '    Component { id: asWindow; QtObject { LayoutMirroring.enabled: true } }' \
+    "attaching LayoutMirroring to a non-Item is a SILENT no-op"
+
+# R15 — the OTHER direction of the prototype-chain row, and the direction that
+#       actually matters. That row exists to go RED on the day Quickshell gives
+#       its windows an Item or Window ancestor, because that is the day
+#       standing-queue item 7 stops being impossible and becomes a task. This
+#       makes the walk find an ancestor where there is none, and the suite has
+#       to say THE ROUTE HAS OPENED rather than quietly keep reporting a gap
+#       that is no longer a gap. A pin that can only fail when things get worse
+#       is half a pin.
+mutate R15 "$SUITE_F" \
+    '        [ "$link" = "Item" ] && has_item=1' \
+    '        [ "$link" = "Reloadable" ] && has_item=1' \
+    "the shell's window roots are types LayoutMirroring cannot attach to"
 
 echo
 printf 'mutants applied=%d, failed-to-apply=%d, caught=%d, SURVIVED=%d, MISSCORED=%d\n' \
