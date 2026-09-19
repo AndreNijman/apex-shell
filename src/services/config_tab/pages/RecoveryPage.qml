@@ -94,6 +94,13 @@ CfgScroll {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: theme.px(12)
 
+                // Deliberately carries NO Accessible.* — see the block at the
+                // foot of this file. Every glyph on this page is a private-use
+                // codepoint, and a reader that reaches one says "private use
+                // character" out loud in place of the words it was meant to
+                // read. The state it encodes is in the summary below, in
+                // words. tests/check-recovery-a11y.sh asserts that no icon on
+                // this page ever acquires a role.
                 Text {
                     text:           "󰑙"
                     font.pixelSize: theme.fs(28)
@@ -104,21 +111,34 @@ CfgScroll {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: theme.px(3)
 
+                    // The headline fact of the whole page. Named explicitly
+                    // rather than left to Qt's fallback from `text`: that
+                    // fallback exists, but it is silent when it stops
+                    // applying, and this is the one string a reader must get.
                     Text {
+                        id: summaryText
                         text: {
                             if (!RecoveryService.checked)  return "Checking this machine…"
                             if (!RecoveryService.available) return "The recovery surface is unavailable"
                             if (RecoveryService.needsAttention === 0)
                                 return "Nothing needs attention"
+                            // The verb agrees too. It did not until this
+                            // string became something a screen reader says out
+                            // loud, and "1 component need attention" is a
+                            // sentence nobody reading it aloud would write.
                             return RecoveryService.needsAttention
-                                + " component" + (RecoveryService.needsAttention === 1 ? "" : "s")
-                                + " need attention"
+                                + (RecoveryService.needsAttention === 1
+                                   ? " component needs attention"
+                                   : " components need attention")
                         }
                         font.pixelSize: theme.fs(15)
                         font.weight:    Font.Medium
                         color:          Theme.text
+                        Accessible.role: Accessible.StaticText
+                        Accessible.name: summaryText.text
                     }
                     Text {
+                        id: summaryDetail
                         text: RecoveryService.available
                             ? ("bootloader " + RecoveryService.status.bootloader
                                + "  ·  diagnostics: " + RecoveryService.doctorSummary)
@@ -126,6 +146,8 @@ CfgScroll {
                         font.pixelSize: theme.fs(10)
                         color:          Theme.subtext
                         font.family:    "JetBrains Mono"
+                        Accessible.role: Accessible.StaticText
+                        Accessible.name: summaryDetail.text
                     }
                 }
             }
@@ -142,6 +164,7 @@ CfgScroll {
         }
 
         Text {
+            id: pageIntro
             x:     theme.px(10)
             width: parent.width - theme.px(20)
             text: "Everything on this page is read from the machine, not from a "
@@ -152,6 +175,8 @@ CfgScroll {
             font.pixelSize: theme.fs(10)
             color:    Theme.subtext
             wrapMode: Text.WordWrap
+            Accessible.role: Accessible.StaticText
+            Accessible.name: pageIntro.text
         }
         Item { width: parent.width; height: theme.px(6) }
     }
@@ -180,6 +205,21 @@ CfgScroll {
 
                 width:  parent ? parent.width : 0
                 height: compCol.implicitHeight + theme.px(16)
+
+                // The row is ONE node, composed from its words. Its three
+                // Texts stay unmarked: a reader that met them separately would
+                // get "Secure Boot", "Needs attention" and the detail as three
+                // unrelated labels, and the state icon beside them is a
+                // private-use glyph that must never reach a name. The row's
+                // state is therefore carried as the STATE LABEL, which is the
+                // same string the eye reads.
+                Accessible.role: Accessible.ListItem
+                Accessible.name: (compRow.row ? compRow.row.label : "")
+                    + " — "
+                    + RecoveryService.stateLabel(compRow.row ? compRow.row.state : "")
+                Accessible.description: (compRow.row ? compRow.row.detail : "")
+                    + ((compRow.row && compRow.row.action !== "")
+                       ? (". Run in a terminal: " + compRow.row.action) : "")
 
                 Rectangle {
                     anchors.fill: parent
@@ -302,6 +342,17 @@ CfgScroll {
                 width:  parent ? parent.width : 0
                 height: stepCol.implicitHeight + theme.px(12)
 
+                // "What it will do" is the name; "why that is safe" is the
+                // description, because a reader deciding whether to press
+                // Repair needs the second sentence and a list of bare verbs
+                // does not give it to them.
+                Accessible.role: Accessible.ListItem
+                Accessible.name: stepRow.step ? stepRow.step.what : ""
+                Accessible.description: (stepRow.step ? stepRow.step.whySafe : "")
+                    + ((stepRow.step && !stepRow.step.runnableHere)
+                       ? (". This one is not run from here. Run in a terminal: "
+                          + RecoveryService.repairSystemCommand) : "")
+
                 Column {
                     id: stepCol
                     x: theme.px(20)
@@ -353,18 +404,29 @@ CfgScroll {
         visible: RecoveryService.available
 
         Text {
+            id: rollbackHintText
             x:     theme.px(10)
             width: parent.width - theme.px(20)
             text:  RecoveryService.rollbackHint
             font.pixelSize: theme.fs(10)
             color:    Theme.subtext
             wrapMode: Text.WordWrap
+            Accessible.role: Accessible.StaticText
+            Accessible.name: rollbackHintText.text
         }
         Item { width: parent.width; height: theme.px(8) }
 
+        // a11yExtra, not a name on the Text. CfgRow adopts a child with no
+        // accessible name and gives it the ROW's label, so naming the command
+        // here would replace "Boot the previous deployment" rather than add to
+        // it — and leaving it alone drops the command entirely, which is the
+        // one thing this row exists to hand over. Measured over AT-SPI: before
+        // this, the node read `name=Boot the previous deployment` and the
+        // command appeared nowhere in the tree.
         CfgRow {
             label:       "Boot the previous deployment"
             description: "Run this in a terminal. It needs root, so APEX Shell shows it instead of asking for a password."
+            a11yExtra:   "The command is: " + RecoveryService.rollbackCommand
             effect:      "reboot"
             Text {
                 text:           RecoveryService.rollbackCommand
@@ -377,6 +439,7 @@ CfgScroll {
         CfgRow {
             label:       "Keep the current one first"
             description: "bootc keeps only the booted and previous images, so two bad updates in a row can evict the last good one. Pinning stops that."
+            a11yExtra:   "The command is: " + RecoveryService.pinCommand
             Text {
                 text:           RecoveryService.pinCommand
                 font.pixelSize: theme.fs(11)
@@ -407,6 +470,18 @@ CfgScroll {
 
                 width:  parent ? parent.width : 0
                 height: routeCol.implicitHeight + theme.px(14)
+
+                // The tri-state is spoken, not drawn. `unknown` is NOT `no` —
+                // a running system cannot tell whether you have install media
+                // — and the tick/cross/dash that carries that distinction for
+                // the eye is a private-use glyph a reader cannot use.
+                Accessible.role: Accessible.ListItem
+                Accessible.name: (routeRow.route ? routeRow.route.id : "")
+                    + " — "
+                    + (routeRow.mark === "yes" ? "available"
+                       : (routeRow.mark === "no" ? "not available"
+                          : "cannot be determined from a running system"))
+                Accessible.description: routeRow.route ? routeRow.route.how : ""
 
                 Text {
                     id: routeIcon
@@ -463,6 +538,7 @@ CfgScroll {
         visible: RecoveryService.doctor.ok
 
         Text {
+            id: doctorIntro
             x:     theme.px(10)
             width: parent.width - theme.px(20)
             text:  RecoveryService.doctorSummary
@@ -470,6 +546,8 @@ CfgScroll {
             font.pixelSize: theme.fs(10)
             color:    Theme.subtext
             wrapMode: Text.WordWrap
+            Accessible.role: Accessible.StaticText
+            Accessible.name: doctorIntro.text
         }
         Item { width: parent.width; height: theme.px(8) }
 
@@ -483,6 +561,16 @@ CfgScroll {
 
                 width:  parent ? parent.width : 0
                 height: checkText.implicitHeight + theme.px(10)
+
+                // "pass" / "warning" in words, because the tick and the
+                // exclamation that separate them for the eye are private-use
+                // glyphs. The doctor's own comment says a WARN is information
+                // rather than a fault, so the word is "warning" and not
+                // "failed" — inventing a severity the payload does not carry
+                // would be worse spoken than drawn.
+                Accessible.role: Accessible.ListItem
+                Accessible.name: ((checkRow.check && checkRow.check.ok) ? "pass" : "warning")
+                    + " — " + (checkRow.check ? checkRow.check.check : "")
 
                 Text {
                     id: checkMark
@@ -580,11 +668,14 @@ CfgScroll {
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         Text {
+                            id: resetHeading
                             text:           "Reset this account's APEX state"
                             font.pixelSize: theme.fs(12)
                             font.weight:    Font.Medium
                             color:          Theme.text
                             anchors.verticalCenter: parent.verticalCenter
+                            Accessible.role: Accessible.StaticText
+                            Accessible.name: resetHeading.text
                         }
                     }
 
@@ -603,6 +694,7 @@ CfgScroll {
                 }
 
                 Text {
+                    id: resetBlurb
                     width: parent.width
                     text: "This removes APEX Shell's own settings for this account and, "
                         + "at the wider scope, your blueprint and per-game profiles. It "
@@ -613,6 +705,8 @@ CfgScroll {
                     font.pixelSize: theme.fs(10)
                     color:    Theme.subtext
                     wrapMode: Text.WordWrap
+                    Accessible.role: Accessible.StaticText
+                    Accessible.name: resetBlurb.text
                 }
 
                 // ── everything below is inside the disclosure ────────────────
@@ -651,6 +745,7 @@ CfgScroll {
                     }
 
                     Text {
+                        id: scopeSummary
                         width: parent.width
                         text: {
                             const scopes = RecoveryService.status.resetScopes
@@ -662,6 +757,12 @@ CfgScroll {
                         font.pixelSize: theme.fs(10)
                         color:    Theme.subtext
                         wrapMode: Text.WordWrap
+                        // What the CHOSEN scope covers. The two radio buttons
+                        // name themselves; this is the sentence that says what
+                        // picking one actually means, and it changes when they
+                        // change.
+                        Accessible.role: Accessible.StaticText
+                        Accessible.name: scopeSummary.text
                     }
 
                     CfgButton {
@@ -702,7 +803,24 @@ CfgScroll {
                         Component.onCompleted:   lossList._ack()
                         Component.onDestruction: RecoveryService.revokeLossList()
 
+                        // …and when the PHASE moves, which is the trigger
+                        // that was missing. acknowledgeLossList() refuses
+                        // while the phase is not yet "planned", and until
+                        // 2026-09-19 RecoveryService assigned `plan` before
+                        // `resetPhase` — so the only acknowledgement this
+                        // list ever sent was the one that gets refused, and
+                        // commitReady was false for ever. The service's order
+                        // is fixed too; this is here so that the order stops
+                        // being load-bearing. The guard is in
+                        // acknowledgeLossList(), so a phase change to
+                        // anything else re-acks harmlessly and is refused.
+                        Connections {
+                            target: RecoveryService
+                            function onResetPhaseChanged() { lossList._ack() }
+                        }
+
                         Text {
+                            id: lossHeadline
                             width: parent.width
                             text: {
                                 const p = lossList.plan
@@ -715,6 +833,8 @@ CfgScroll {
                             font.weight:    Font.Medium
                             color:          Theme.danger
                             wrapMode:       Text.WordWrap
+                            Accessible.role: Accessible.StaticText
+                            Accessible.name: lossHeadline.text
                         }
 
                         Repeater {
@@ -731,6 +851,27 @@ CfgScroll {
 
                                 width:  parent ? parent.width : 0
                                 height: lossCol.implicitHeight + theme.px(8)
+
+                                // The evidence. Before this, the loss list was
+                                // invisible on the accessibility bus: measured
+                                // 2026-09-19, pressing "Show what would be
+                                // lost" over AT-SPI ran the dry run and added
+                                // exactly ZERO nodes to the tree. A reader
+                                // could reach the third step of the four this
+                                // section is built around and then be told
+                                // nothing about what the fourth would erase.
+                                //
+                                // "NOT backed up" is in the name and not only
+                                // the description, because it is the one row
+                                // property a reader must not be able to skim
+                                // past: the cache is the single thing this
+                                // operation does not copy aside first.
+                                Accessible.role: Accessible.ListItem
+                                Accessible.name: (lossRow.loss ? lossRow.loss.relative : "")
+                                    + (lossRow.loss && !lossRow.loss.backedUp
+                                       ? " — NOT backed up" : "")
+                                Accessible.description: lossRow.loss
+                                    ? (lossRow.loss.verb + ". " + lossRow.loss.what) : ""
 
                                 Column {
                                     id: lossCol
@@ -769,17 +910,21 @@ CfgScroll {
                         // much space as the losses: a reset nobody can predict
                         // the boundary of is one nobody should press.
                         Text {
+                            id: preservedHeading
                             width:          parent.width
                             text:           "Preserved"
                             font.pixelSize: theme.fs(9)
                             font.weight:    Font.Bold
                             color:          Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
+                            Accessible.role: Accessible.StaticText
+                            Accessible.name: preservedHeading.text
                         }
 
                         Repeater {
                             model: lossList.plan ? lossList.plan.preserved.length : 0
 
                             delegate: Text {
+                                id: preservedRow
                                 required property int index
                                 readonly property string line:
                                     lossList.plan ? lossList.plan.preserved[index] : ""
@@ -790,6 +935,11 @@ CfgScroll {
                                 font.pixelSize: theme.fs(9)
                                 color:          Theme.subtext
                                 wrapMode:       Text.WordWrap
+                                // The name is the LINE, not the rendered text:
+                                // the middle dot is a bullet for the eye and a
+                                // reader would say it out loud.
+                                Accessible.role: Accessible.ListItem
+                                Accessible.name: preservedRow.line
                             }
                         }
 
@@ -801,7 +951,43 @@ CfgScroll {
                         // only place on this page that uses it. Every other
                         // destructive-looking thing here is a tint or an
                         // accent; this is the one button that erases.
+                        // ── the one control here that a reader could not
+                        // reach, and a keyboard could not press ─────────────
+                        //
+                        // Measured 2026-09-19 over real AT-SPI: every SAFE
+                        // control on this page — Re-check, Check, Open, the
+                        // two scope radio buttons, "Show what would be lost" —
+                        // arrived on the bus with a Press action, because each
+                        // is a CfgButton or a CfgSegmented. This one is a bare
+                        // Rectangle with a MouseArea, so it was absent
+                        // entirely: no role, no name, no action, no key
+                        // handling, no tab stop. A keyboard user could walk the
+                        // whole four-step reset and not finish it.
+                        //
+                        // It stays a Rectangle rather than becoming a
+                        // CfgButton because dangerFill/dangerFillHover is the
+                        // fill pair that exists for exactly this class of
+                        // control and CfgButton's danger variant is a tint. So
+                        // the reachability is added here instead, in
+                        // CfgButton's own shape: one press() that both the
+                        // pointer and the reader go through, Space and Return,
+                        // a focus ring, and a tab stop that exists only while
+                        // the button does.
+                        //
+                        // Exposing it is NOT a way around the gate, and that is
+                        // checked rather than asserted. The gate is in
+                        // RecoveryService.commitReset(), not in this item's
+                        // visibility: it returns early unless resetPhase is
+                        // "planned", and commitArgv refuses unless the
+                        // acknowledged token and the number of rows the
+                        // Repeater actually instantiated both match the plan.
+                        // A reader pressing this before the list is on screen
+                        // gets the same refusal a mouse would.
+                        // tests/run-recovery-atspi-shim.sh presses it over the
+                        // bus at exactly that moment and requires the stub
+                        // `apex` to have recorded no `--commit`.
                         Rectangle {
+                            id: commitBtn
                             width:  Math.min(parent.width, theme.px(260))
                             height: theme.px(36)
                             radius: theme.px(8)
@@ -809,26 +995,80 @@ CfgScroll {
                             color:  commitHov.hovered ? Theme.dangerFillHover : Theme.dangerFill
                             Behavior on color { ColorAnimation { duration: 120 } }
 
+                            readonly property string a11yLabel: {
+                                const p = lossList.plan
+                                return p ? ("Erase " + p.losses.length + " item(s) now") : "Erase"
+                            }
+
+                            function press() {
+                                if (!RecoveryService.commitReady) return
+                                RecoveryService.commitReset()
+                            }
+
+                            // Only while it is on screen. An invisible tab stop
+                            // on the most destructive control in the product is
+                            // worse than none: Tab would stop somewhere the
+                            // user cannot see and Space would fire it.
+                            activeFocusOnTab: RecoveryService.commitReady
+                            // …and the bus has to SAY it is unavailable, not
+                            // merely behave that way. Measured: with only
+                            // `visible` gating it, the node arrives before the
+                            // loss list exists carrying `enabled,sensitive`
+                            // and a Press action, named "Erase" — FOUND 16,
+                            // an invisible Qt Quick item still publishes. A
+                            // reader met a live-looking destructive button,
+                            // pressed it, and was told nothing, because
+                            // press() refuses in silence. `enabled` is what
+                            // Qt maps to the enabled/sensitive states, so
+                            // binding it to the same condition is the
+                            // difference between a control that is inert and
+                            // one that says so.
+                            enabled: RecoveryService.commitReady
+                            Accessible.role: Accessible.Button
+                            Accessible.name: commitBtn.a11yLabel
+                            Accessible.description:
+                                "Runs the factory reset now. This is the last step and it "
+                                + "cannot be undone; everything except caches has been copied "
+                                + "to a backup directory in your home first."
+                            Accessible.onPressAction: commitBtn.press()
+
+                            Keys.onPressed: function (event) {
+                                if (event.key === Qt.Key_Space || event.key === Qt.Key_Return
+                                    || event.key === Qt.Key_Enter) {
+                                    commitBtn.press()
+                                    event.accepted = true
+                                }
+                            }
+
                             Text {
                                 anchors.centerIn: parent
-                                text: {
-                                    const p = lossList.plan
-                                    return p ? ("Erase " + p.losses.length + " item(s) now")
-                                             : "Erase"
-                                }
+                                text:           commitBtn.a11yLabel
                                 font.pixelSize: theme.fs(12)
                                 font.bold:      true
                                 color:          Theme.fixedLight
                             }
 
+                            // The hover tint is the only "you are here" a
+                            // pointer gets, and a keyboard never triggers it.
+                            Rectangle {
+                                anchors.fill:    parent
+                                anchors.margins: -2
+                                radius:          theme.px(10)
+                                color:           "transparent"
+                                border.width:    2
+                                border.color:    Theme.danger
+                                visible:         commitBtn.activeFocus
+                            }
+
                             HoverHandler { id: commitHov; cursorShape: Qt.PointingHandCursor }
                             MouseArea {
                                 anchors.fill: parent
-                                onClicked: RecoveryService.commitReset()
+                                onClicked: { commitBtn.forceActiveFocus(); commitBtn.press() }
                             }
                         }
 
                         Text {
+                            id: notReadyText
                             width:   parent.width
                             visible: !RecoveryService.commitReady
                             text:    "The confirmation is not ready. It is derived from this "
@@ -837,6 +1077,12 @@ CfgScroll {
                             font.pixelSize: theme.fs(9)
                             color:    Theme.subtext
                             wrapMode: Text.WordWrap
+                            // Why there is no button. Without this a reader
+                            // reaches the end of the section and finds nothing
+                            // at all, which is indistinguishable from a page
+                            // that failed to render.
+                            Accessible.role: Accessible.StaticText
+                            Accessible.name: notReadyText.text
                         }
                     }
 
@@ -845,6 +1091,7 @@ CfgScroll {
                     // about it, so the message is shown as it was written
                     // rather than replaced with "failed".
                     Text {
+                        id: resetOutcome
                         width:   parent.width
                         visible: RecoveryService.resetMessage !== ""
                                  || RecoveryService.resetPhase === "committing"
@@ -855,6 +1102,17 @@ CfgScroll {
                         font.family:    "JetBrains Mono"
                         color: RecoveryService.resetPhase === "done" ? Theme.success : Theme.warning
                         wrapMode: Text.WordWrap
+                        // apexd's refusals name what did not match and what to
+                        // do about it, and they are the only feedback this
+                        // operation gives. A reader that presses the button and
+                        // is told nothing cannot tell a refusal from a success.
+                        // Note what this is NOT: a description change is not
+                        // speech (FOUND 12), so a reader whose focus is still
+                        // on the button does not hear this arrive. Announcing
+                        // it needs Accessible.announce and belongs with the
+                        // rest of that work.
+                        Accessible.role: Accessible.StaticText
+                        Accessible.name: resetOutcome.text
                     }
                 }
             }
@@ -889,4 +1147,36 @@ CfgScroll {
     }
 
     Item { width: parent.width; height: theme.px(10) }
+
+    // ── What a screen reader gets from this page, and what it still does not ─
+    //
+    // Added 2026-09-19 (p2-b round 31). Before it this file contained ZERO
+    // Accessible.* in 892 lines and everything a reader got came from the
+    // shared Cfg* controls it instantiates. Measured over real AT-SPI with the
+    // shell on a nested headless labwc and Qt's factory restored by the
+    // round-30 shim, against an `apex` answering the captured fixtures: the
+    // page published its buttons and NOT ONE of its 8 component rows, 6
+    // recovery routes, 7 doctor checks, its status line, or its section
+    // titles. Worse, pressing "Show what would be lost" over the bus ran the
+    // dry run and added exactly zero nodes, and the `Erase` button did not
+    // exist on the bus at all — so the destructive path could be walked three
+    // steps and then dead-ended with no information and no way to finish.
+    //
+    // Two rules this page follows, and tests/check-recovery-a11y.sh enforces
+    // both because neither is visible in a diff:
+    //
+    //   1. EVERY GLYPH HERE IS A PRIVATE-USE CODEPOINT and none of them may
+    //      carry a role or reach a name. A reader that meets one says "private
+    //      use character" before the words it was supposed to read. The state
+    //      a glyph encodes is always composed into its row's name IN WORDS —
+    //      stateLabel(), "available"/"not available"/"cannot be determined",
+    //      "pass"/"warning" — which is also what the eye reads beside it.
+    //   2. A ROLE WITHOUT AN EXPLICIT NAME IS NOT ALLOWED. Qt does fall back
+    //      to an item's `text` property when Accessible.name is unset, and the
+    //      fallback is silent the day it stops applying.
+    //
+    // Still missing, named rather than left to be discovered: the outcome line
+    // is a StaticText and not an announcement, so a reader whose focus is on
+    // the Erase button is not told what happened (FOUND 12 — a description is
+    // not speech; Accessible.announce is the fix and it is Qt 6.8+).
 }

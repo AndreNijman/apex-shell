@@ -67,6 +67,11 @@ Item {
             objectName: "switchRow"
             label:       "Reduce motion"
             description: "Turn off animations across the shell"
+            // Text for a reader that is NOT on any of the row's three visible
+            // lines. The case it was added for: a row whose CONTENT is a
+            // command to copy, where adoption renames the content Text to the
+            // row's own label and what it says is lost.
+            a11yExtra:   "The command is: apex shell reduce-motion on"
             status:      "on"
             CfgSwitch {
                 id: theSwitch
@@ -164,6 +169,25 @@ Item {
         sublabel: "MyNetwork"
         on: true
         onToggled: fixture.tileToggles++
+    }
+
+    // A titled group. Every Config page is built out of these, and until round
+    // 31 they were invisible to a reader: measured over real AT-SPI, the Nexus
+    // window published its controls as a FLAT list at one depth with several
+    // pages' controls mixed together and nothing saying which page was open.
+    // Placed off to the side rather than around `rows`, so the tab walk below
+    // measures exactly what it measured before.
+    CfgSection {
+        id: theSection
+        objectName: "theSection"
+        x: 320
+        y: 640
+        width: 240
+        title: "Reduce motion and friends"
+        CfgSwatch {
+            objectName: "theSwatch"
+            label: "accent"
+        }
     }
 
     // ── Tree helpers ─────────────────────────────────────────────────────────
@@ -281,6 +305,70 @@ Item {
                    "the row's description did not reach the control; got '" + d + "'")
             verify(d.indexOf("Currently on") >= 0,
                    "the effective value the machine reported is not announced; got '" + d + "'")
+        }
+
+        // a11yExtra is APPENDED, never a replacement: a row that used it to
+        // overwrite the description would have swapped one silence for
+        // another. Both halves are required, and so is their order.
+        function test_015_a11y_extra_is_appended_not_substituted() {
+            var d = theSwitch.Accessible.description
+            verify(d.indexOf("apex shell reduce-motion on") >= 0,
+                   "a11yExtra did not reach the control; got '" + d + "'")
+            verify(d.indexOf("Turn off animations") >= 0,
+                   "a11yExtra replaced the row's description; got '" + d + "'")
+            verify(d.indexOf("Currently on") >= 0,
+                   "a11yExtra replaced the read-back; got '" + d + "'")
+            verify(d.indexOf("Turn off animations") < d.indexOf("apex shell reduce-motion on"),
+                   "the extra is announced before the description it adds to; got '" + d + "'")
+        }
+
+        // An empty a11yExtra must add nothing at all — not an empty clause, not
+        // a stray separator. Measured on the SAME row rather than on a
+        // different one that happens to set none, because those two questions
+        // are not the same: this also proves the description is re-pushed to
+        // the control when a11yExtra changes, which is the half a property
+        // that is only read at construction would fail.
+        function test_016_an_unset_a11y_extra_adds_nothing() {
+            var withExtra = theSwitch.Accessible.description
+            switchRow.a11yExtra = ""
+            var without = theSwitch.Accessible.description
+            verify(without.indexOf("apex shell reduce-motion on") < 0,
+                   "clearing a11yExtra left it in the description; got '" + without + "'")
+            compare(without, "Turn off animations across the shell. Currently on",
+                    "an empty a11yExtra left a clause or a separator behind")
+            switchRow.a11yExtra = "The command is: apex shell reduce-motion on"
+            compare(theSwitch.Accessible.description, withExtra,
+                    "the description did not come back when a11yExtra was set again")
+        }
+
+        // ── The group a row sits in ──────────────────────────────────────────
+        // Grouping and not a Heading on the title: a heading leaves the tree
+        // flat and interleaves labels, where a group makes "these rows belong
+        // to this section" navigable. The title is the group's NAME, so the
+        // words are not said twice.
+        function test_017_a_section_is_a_named_group() {
+            compare(theSection.Accessible.role, Accessible.Grouping,
+                    "a settings section is not a group, so its rows have no parent on the bus")
+            compare(theSection.Accessible.name, "Reduce motion and friends",
+                    "the section's title is not its accessible name")
+        }
+
+        // The group must not become a tab stop or a focus scope. Adding one
+        // per section would put a stop between every pair of controls on every
+        // Config page.
+        function test_018_a_section_is_not_a_tab_stop() {
+            verify(!theSection.activeFocusOnTab,
+                   "a settings section became a tab stop")
+        }
+
+        // The rows really are inside it, in the QML tree the bridge walks — a
+        // group whose children are elsewhere names nothing.
+        function test_019_the_group_really_contains_its_rows() {
+            var swatch = fixture.named("theSwatch")
+            verify(swatch !== null, "the staged section built no child")
+            var p = swatch, found = false
+            while (p) { if (p === theSection) { found = true; break } p = p.parent }
+            verify(found, "the swatch is not a descendant of the section that names it")
         }
 
         // A control switched off for a reason must give the reason, not silence.

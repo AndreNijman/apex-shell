@@ -587,8 +587,25 @@ Singleton {
                 + "Nothing has been changed, and nothing will be without one."
             return
         }
-        root.plan = p
+        // ORDER IS LOAD-BEARING, and it was wrong until 2026-09-19.
+        //
+        // QML property notifications are synchronous. Assigning `plan` first
+        // runs the loss list's onPlanChanged handler — and therefore
+        // acknowledgeLossList() — while resetPhase is still "planning", so the
+        // acknowledgement is refused at its first guard. Nothing re-acks after
+        // the phase moves, because _ack() is wired to onPlanChanged,
+        // onShownChanged and Component.onCompleted and none of them fires
+        // again. The measured consequence was that commitReady stayed FALSE
+        // for ever, the Erase button was never visible, and the factory reset
+        // could not be completed by anybody — mouse, keyboard or screen
+        // reader. It was found by pressing that button over AT-SPI, which is
+        // the one place it was reachable while invisible.
+        //
+        // The page no longer DEPENDS on this order — it re-acknowledges when
+        // the phase changes — but the order is still the right way round, and
+        // a comment is cheaper than the next person rediscovering it.
         root.resetPhase = "planned"
+        root.plan = p
     }
 
     // Called by the container that instantiated the loss rows, with the token
