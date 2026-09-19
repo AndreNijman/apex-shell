@@ -686,10 +686,151 @@ WIN_MIRRORED_EXPECT=0
 [ "$win_total" -eq "$WIN_TOTAL_EXPECT" ] \
     && ok "the shell paints from $WIN_TOTAL_EXPECT window roots — counted $win_total" \
     || bad "the shell paints from $WIN_TOTAL_EXPECT window roots" "counted $win_total — update the pin deliberately"
+
+# ── AND THE PIN ABOVE USED TO BE A GATE THAT COULD CERTIFY A NO-OP ──────────
+#
+# The row below counts FILES CONTAINING THE STRING `LayoutMirroring`. Until
+# round 32 that was the whole measurement, and the ledger read "0 of 14 window
+# roots mirror" as a gap somebody had forgotten to close. It is not. Measured
+# this round from Quickshell's OWN type registry and from the Qt engine:
+#
+#   PanelWindow -> PanelWindowInterface -> WindowInterface -> Reloadable
+#                                                          -> QObject
+#
+# There is no Item and no Window anywhere in that chain, and FloatingWindow's
+# is the same. Qt's LayoutMirroring attached property "only works with Items
+# and Windows" — and when it does not, it DOES NOT FAIL. The object is still
+# created, `errorString()` is EMPTY, and the only trace is one QWARN on
+# stderr. So the two lines that work on CfgRow are, on any of these 14 roots,
+# a SILENT NO-OP.
+#
+# Which means the obvious way to close this row would have moved the count
+# from 0 to 14, turned this assertion green, and mirrored NOTHING — the suite
+# certifying the remaining half as done on the strength of a string. The two
+# rows after this one are what stop that: one asks whether the type can carry
+# the property at all, the other asks the engine what happens when it cannot.
+# Both are required to fail in both directions, so the day Quickshell gives
+# its windows an Item or Window ancestor this goes RED and says the route has
+# opened rather than staying quiet for another nineteen rounds.
 [ "$win_mirrored" -eq "$WIN_MIRRORED_EXPECT" ] \
-    && ok "$WIN_MIRRORED_EXPECT window roots mirror — the named remaining half of this row, not a claim that RTL is done" \
-    || bad "$WIN_MIRRORED_EXPECT window roots mirror" \
-           "counted $win_mirrored — if that is deliberate, move the pin and say so in the ledger"
+    && ok "$WIN_MIRRORED_EXPECT window roots declare mirroring — and that is NOT a forgotten edit: the two rows below measure that the declaration cannot work on these types at all" \
+    || bad "$WIN_MIRRORED_EXPECT window roots declare mirroring" \
+           "counted $win_mirrored — if one of them now carries LayoutMirroring, check FIRST that it is on an Item or a Window inside the root and not on the root itself, because on the root it is a silent no-op and this count cannot tell the difference"
+
+# ── row 2: what the engine does when the target is not an Item or a Window ──
+#
+# The control for the row after it, and the reason "silent no-op" is a
+# measurement rather than a reading of the Qt documentation. Needs no
+# quickshell, so it runs on the Arch CI runner where nothing else about these
+# window types can be asked.
+cat > "$probe/tst_mirror_attach.qml" <<'MIRQML'
+import QtQuick
+import QtQuick.Window
+import QtTest
+TestCase {
+    name: "attach"
+    Component { id: nonItem; QtObject { LayoutMirroring.enabled: true } }
+    Component { id: asWindow; Window { LayoutMirroring.enabled: true } }
+    function test_000_report() {
+        var a = nonItem.createObject(null)
+        console.log("APEXATTACH nonitem=" + (a ? "created" : "null")
+                    + " err=[" + nonItem.errorString().trim() + "]")
+        var w = asWindow.createObject(null)
+        console.log("APEXATTACH window=" + (w ? "created" : "null")
+                    + " mirrored=" + (w ? w.LayoutMirroring.enabled : "n/a"))
+        verify(true)
+    }
+}
+MIRQML
+attach_out="$(env -u WAYLAND_DISPLAY -u DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
+    -u LANG -u LC_ALL -u LANGUAGE -u QT_QPA_PLATFORMTHEME \
+    QT_LOGGING_RULES='*.debug=true;qt.*=false' QT_QPA_PLATFORM=offscreen \
+    timeout 60 "$runner" -platform offscreen -input "$probe/tst_mirror_attach.qml" 2>&1)"
+attach_nonitem="$(printf '%s\n' "$attach_out" | sed -n 's/.*APEXATTACH nonitem=\([a-z]*\) err=\[\(.*\)\]$/\1|\2/p' | head -1)"
+attach_window="$(printf '%s\n' "$attach_out"  | sed -n 's/.*APEXATTACH window=\([a-z]*\) mirrored=\([a-z/]*\).*/\1|\2/p' | head -1)"
+
+if [ -z "$attach_nonitem" ] || [ -z "$attach_window" ]; then
+    cant "attaching LayoutMirroring to a non-Item is a SILENT no-op, and to a Window it works" \
+         "the attach probe printed no APEXATTACH line — not a pass"
+elif [ "$attach_nonitem" = "created|" ] && [ "$attach_window" = "created|true" ]; then
+    ok "attaching LayoutMirroring to a non-Item is a SILENT no-op — the object is still created and errorString() is EMPTY — while the same declaration on a Window reads back enabled"
+elif [ "$attach_window" != "created|true" ]; then
+    bad "attaching LayoutMirroring to a non-Item is a SILENT no-op, and to a Window it works" \
+        "the Window control came back \"$attach_window\" — the probe cannot tell the two cases apart, so it proves nothing about the window roots"
+else
+    ok "attaching LayoutMirroring to a non-Item now REPORTS itself (\"$attach_nonitem\") instead of passing silently — Qt has changed; the no-op is no longer silent and the row above can be relaxed"
+fi
+
+# ── row 3: can the shell's window roots carry it at all? ────────────────────
+#
+# Read out of Quickshell's own .qmltypes, which is the registry the QML engine
+# itself resolves these names through — not out of quickshell's source, not
+# out of a version number, and not out of the documentation. FOUND 19's shape
+# for the directory: two spellings tried, the one used is printed.
+qsqml=""; qscore=""
+for d in $("${qtool%% *}" -query QT_INSTALL_QML 2>/dev/null) \
+         /usr/lib64/qt6/qml /usr/lib/qt6/qml; do
+    [ -n "$d" ] && [ -e "$d/Quickshell/_Window/quickshell-window.qmltypes" ] || continue
+    qsqml="$d/Quickshell/_Window/quickshell-window.qmltypes"
+    # The window module names its prototypes but does not DEFINE all of them;
+    # Reloadable lives in the core registry. Both are read so the chain
+    # resolves to its real root instead of stopping at the first name this
+    # file happens not to define — a chain that stops early cannot be told
+    # from a chain that ends there, and the whole assertion is about what the
+    # chain does NOT contain.
+    [ -e "$d/Quickshell/quickshell-core.qmltypes" ] && qscore="$d/Quickshell/quickshell-core.qmltypes"
+    break
+done
+if [ -z "$qsqml" ]; then
+    cant "the shell's window roots are types LayoutMirroring cannot attach to" \
+         "quickshell's window type registry is not installed on this machine (looked for Quickshell/_Window/quickshell-window.qmltypes under the Qt QML paths), so the prototype chain could not be read here"
+elif ! command -v python3 >/dev/null 2>&1; then
+    cant "the shell's window roots are types LayoutMirroring cannot attach to" \
+         "no python3 to walk the prototype chain in $qsqml"
+else
+    chain="$(python3 - "$qsqml" $qscore <<'CHAINPY'
+import re, sys
+proto = {}
+for path in sys.argv[1:]:
+    for blk in re.split(r'\n(?=    Component \{)', open(path, encoding="utf-8", errors="replace").read()):
+        n = re.search(r'name: "([^"]+)"', blk)
+        p = re.search(r'prototype: "([^"]+)"', blk)
+        if n:
+            proto.setdefault(n.group(1), p.group(1) if p else None)
+out = []
+for start in ("PanelWindowInterface", "FloatingWindowInterface"):
+    cur, seen = start, []
+    while cur and cur not in seen:
+        seen.append(cur)
+        cur = proto.get(cur)
+    out.append("->".join(seen))
+print(" ".join(out))
+CHAINPY
+)"
+    # Matched LINK BY LINK and never with a substring test, because "Window"
+    # appears INSIDE the interface names themselves — PanelWindowInterface,
+    # WindowInterface — so `case "$chain" in *Window*)` would answer YES on
+    # every chain including this one and the row would be a constant. And
+    # never `grep -q` either: a matching grep -q under pipefail closes the
+    # pipe on its writer and the pipeline reports 141, which is "no" exactly
+    # when the answer is yes (the same trap i18n_of carries in section 1).
+    has_item=0
+    for link in $(printf '%s' "$chain" | tr '> ' '\n\n' | tr -d '-'); do
+        [ "$link" = "Item" ] && has_item=1
+        [ "$link" = "Window" ] && has_item=1
+        [ "$link" = "QQuickItem" ] && has_item=1
+        [ "$link" = "QQuickWindow" ] && has_item=1
+    done
+    if [ -z "$chain" ]; then
+        cant "the shell's window roots are types LayoutMirroring cannot attach to" \
+             "the prototype walk over $qsqml produced nothing"
+    elif [ "$has_item" -eq 0 ]; then
+        ok "the shell's window roots are types LayoutMirroring cannot attach to — $chain, with no Item and no Window anywhere, so the two lines that work on CfgRow would be a silent no-op on all $win_total of them"
+    else
+        bad "the shell's window roots are types LayoutMirroring cannot attach to" \
+            "$chain now reaches an Item or a Window — THE ROUTE HAS OPENED. Standing-queue item 7 becomes doable: mirror the roots, move WIN_MIRRORED_EXPECT deliberately, and read the input-mask warning in this file before shipping it"
+    fi
+fi
 
 # ── and the thing mirroring can NEVER do ────────────────────────────────────
 #
