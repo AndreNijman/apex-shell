@@ -39,6 +39,23 @@
 #  a sentence somebody can forget. A suite that reported "RTL: done" over a
 #  mirrored settings page and an unmirrored bar would be worse than no suite.
 #
+#  ── Four outcomes, not three (round 32) ────────────────────────────────────
+#
+#  PASS / FAIL / SKIP / CANTRUN. The last one is new and it is the reason this
+#  suite stopped being permanently red on the Arch CI runner without anything
+#  being swept under a skip. SKIP means the machine is simply not the thing
+#  (not a booted APEX host, so a documented default is probed instead).
+#  CANTRUN means a NAMED, MEASURED precondition came back false and the reason
+#  is printed on the line. Section 1's three direction rows are the only ones
+#  gated that way, the gate is switched off entirely on a booted APEX host, and
+#  it cannot engage on a machine where the direction flipped anyway — so an
+#  excuse whose own reason has stopped being true goes red instead of quiet.
+#
+#  Section 2's right-to-left pass names the ROUTE that supplied its direction
+#  in every line it prints: "theme" (what APEX ships) or "preload" (a machine
+#  that had to be handed libKF6I18n, which the CI runner does). They are
+#  different claims and the suite must never print the same green for both.
+#
 #  Headless: -platform offscreen, WAYLAND_DISPLAY removed from the environment.
 #
 #  Run from anywhere: ./tests/run-rtl-test.sh
@@ -48,13 +65,29 @@ set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/.." && pwd)"
 
-pass=0; fail=0; skip=0
+pass=0; fail=0; skip=0; cantrun=0
 ok()  { printf 'PASS  %s\n' "$1"; pass=$((pass + 1)); }
 bad() { printf 'FAIL  %s%s\n' "$1" "${2:+  — $2}"; fail=$((fail + 1)); }
 skp() { printf 'SKIP  %s%s\n' "$1" "${2:+  — $2}"; skip=$((skip + 1)); }
+
+# A FOURTH outcome, and it is not decoration. This program's rule is that
+# refusal, absence and could-not-run are three different answers and a gate
+# that collapses them is the dominant defect family here — and until round 32
+# this suite collapsed two of them into `skp`: "this is not a booted APEX host"
+# (absence: the machine simply is not the thing, and the run continues against
+# a documented default) read exactly like "the probe printed no APEXDIR line"
+# (could-not-run: the measurement was attempted and produced nothing).
+#
+# `cant` is the second of those. It means: the measurement WAS attempted, a
+# NAMED and MEASURED precondition came back false, and the reason is printed on
+# the line. It is not a pass, it does not fail the suite, and it is counted
+# separately in the totals so a machine that could not run half of section 1
+# cannot read as a machine that ran it.
+cant() { printf 'CANTRUN  %s%s\n' "$1" "${2:+  — $2}"; cantrun=$((cantrun + 1)); }
 section() { printf '\n── %s ──\n' "$1"; }
 finish() {
-    printf '\nrun-rtl-test: %d passed, %d failed, %d skipped\n' "$pass" "$fail" "$skip"
+    printf '\nrun-rtl-test: %d passed, %d failed, %d skipped, %d could-not-run\n' \
+           "$pass" "$fail" "$skip" "$cantrun"
     [ "$fail" -eq 0 ]
 }
 
@@ -136,11 +169,11 @@ L_RTL="ar_EG.UTF-8"; L_RTL2="he_IL.UTF-8"; L_NOCAT="ur_PK.UTF-8"
 # locale name there is nothing to measure and everything below would be noise.
 td_rtl="$(text_dir "$L_RTL" "$THEME")"
 if [ -z "$td_rtl" ]; then
-    skp "Qt can be asked for a layout direction at all" \
-        "the probe printed no APEXDIR line — COULD-NOT-RUN, not a pass"
-    skp "the application direction follows the locale when a catalogue exists" "same"
-    skp "with no platform theme nothing flips" "same"
-    skp "an RTL language Qt has no catalogue for does not flip" "same"
+    cant "Qt can be asked for a layout direction at all" \
+         "the probe printed no APEXDIR line — nothing below was evaluated"
+    cant "the application direction follows the locale when a catalogue exists" "same"
+    cant "with no platform theme nothing flips" "same"
+    cant "an RTL language Qt has no catalogue for does not flip" "same"
 else
     [ "$td_rtl" = "1" ] \
         && ok "QLocale calls $L_RTL right-to-left, on an image that installs glibc-langpack-en only" \
@@ -154,66 +187,17 @@ else
     nocat_app="$(app_dir     "$L_NOCAT"  "$THEME")"
     nocat_text="$(text_dir   "$L_NOCAT"  "$THEME")"
 
-    # The load-bearing pair. Neither half means anything alone: a run that
-    # answers RightToLeft could answer that whatever the environment is, and a
-    # run that answers LeftToRight could be a probe that measured nothing.
-    if [ "$with_theme_rtl" = "1" ] && [ "$with_theme_ltr" = "0" ]; then
-        ok "with $THEME loaded the direction follows the locale — $L_RTL gives RightToLeft, scrubbed gives LeftToRight"
-    elif [ "$with_theme_rtl" = "$with_theme_ltr" ]; then
-        bad "with $THEME loaded the direction follows the locale" \
-            "both runs answered $with_theme_rtl — this machine cannot produce a right-to-left application direction, so CfgRow's switch can never fire here"
-    else
-        bad "with $THEME loaded the direction follows the locale" \
-            "$L_RTL gave $with_theme_rtl and the scrubbed run gave $with_theme_ltr"
-    fi
-
-    [ "$with_theme_heb" = "1" ] \
-        && ok "and under $L_RTL2 it is RightToLeft too — a second RTL locale, so this is not one lucky name" \
-        || bad "under $L_RTL2 it is RightToLeft" "got $with_theme_heb"
-
-    # THE MECHANISM, and the reason this section was rewritten. Qt decides the
-    # application direction by translating the string QT_LAYOUT_DIRECTION and
-    # comparing the answer to "RTL" -- so it needs a LOADED CATALOGUE, and
-    # quickshell installs no QTranslator of its own. What supplies one on a
-    # shipped APEX desktop is the qt6ct platform theme, which is configured for
-    # a dark palette (files/system/qt6ct/qt6ct.conf) and has no idea it is
-    # holding up right-to-left layout. Drop it and every mirrored surface
-    # silently stops mirroring with nothing red anywhere.
-    #
-    # Round 31 narrowed that: qt6ct is the CARRIER, not the mechanism. Fedora's
-    # build links libKF6I18n, and it is KF6I18n's startup that installs the Qt
-    # catalogue — see the block after the ur_PK control, which measures it with
-    # the theme removed entirely.
-    if [ "$no_theme_rtl" = "0" ] && [ "$with_theme_rtl" = "1" ]; then
-        ok "it is the platform theme that supplies the right-to-left direction — the same $L_RTL run with no platform theme gives LeftToRight"
-    elif [ "$no_theme_rtl" = "1" ]; then
-        ok "the direction no longer needs a platform theme — $L_RTL is RightToLeft without one (the dependency this suite pins has been removed; say so in the ledger)"
-    else
-        bad "it is the platform theme that supplies the right-to-left direction" \
-            "with theme=$with_theme_rtl, without=$no_theme_rtl — the pair does not isolate the theme"
-    fi
-    [ "$no_theme_ltr" = "0" ] \
-        && ok "with neither a locale nor a theme it is LeftToRight, which is the floor everything above is measured from" \
-        || bad "with neither a locale nor a theme it is LeftToRight" "got $no_theme_ltr"
-
-    # THE CEILING. Urdu is right-to-left and Qt's own QLocale says so in the
-    # same run; Qt ships no qt_ur.qm, so the application direction stays
-    # LeftToRight. Every RTL language without a Qt catalogue is in this bucket
-    # -- Pashto, Sindhi, Divehi, Yiddish -- and no amount of QML reaches them.
-    # This is pinned rather than fixed, the way check-reduce-motion.sh pins the
-    # int literals no switch can touch.
     qt_cats="$(ls /usr/share/qt6/translations/qt_*.qm 2>/dev/null | wc -l)"
-    if [ "$nocat_text" = "1" ] && [ "$nocat_app" = "0" ]; then
-        ok "an RTL language Qt has no catalogue for does NOT flip — $L_NOCAT is right-to-left to QLocale and LeftToRight to the application ($qt_cats qt_*.qm installed, none of them ur)"
-    elif [ "$nocat_text" != "1" ]; then
-        skp "an RTL language Qt has no catalogue for does NOT flip" \
-            "QLocale does not call $L_NOCAT right-to-left here (textDirection=$nocat_text) — COULD-NOT-RUN"
-    else
-        bad "an RTL language Qt has no catalogue for does NOT flip" \
-            "$L_NOCAT gave application direction $nocat_app — if a qt_ur.qm has appeared, move this pin deliberately"
-    fi
 
-    # ── WHAT loads the catalogue. Measured round 31; it is not the theme. ────
+    # ── THE PRECONDITION. Measured round 31, made load-bearing round 32. ─────
+    #
+    # This block sits ABOVE the three rows it gates, and that is the whole
+    # point of round 32. Those three rows require a right-to-left APPLICATION
+    # direction, and whether a machine can produce one at all is a property of
+    # its qt6ct build, not of APEX. Measuring that first is the difference
+    # between "APEX's right-to-left layout is broken" and "this machine has no
+    # process that loads the Qt catalogue" — two claims the suite used to print
+    # with the same three red lines.
     #
     # This suite has said since round 23 that "the platform theme supplies the
     # right-to-left direction", and the pair above does isolate the theme —
@@ -234,11 +218,20 @@ else
     # behind it, because Fedora ships a post-release git snapshot
     # (qt6ct-0.11-13.20250907git23a985f) built with the KDE integration.
     #
-    # That is also why this section is RED on the GitHub Arch runner and has
-    # been since it landed. Arch ships upstream release qt6ct 0.11-8, read out
-    # of run 35384106245's own log; the runner has 64 qt_*.qm including
-    # qt_ar.qm and `QLocale calls ar_EG right-to-left` PASSES there. Nothing is
-    # missing except a process that loads the catalogue.
+    # That is also why this section was RED on the GitHub Arch runner from the
+    # day it landed until round 32. Arch ships upstream release qt6ct 0.11-8,
+    # read out of run 35384106245's own log; the runner has 64 qt_*.qm
+    # including qt_ar.qm and `QLocale calls ar_EG right-to-left` PASSES there.
+    # Nothing is missing except a process that loads the catalogue.
+    #
+    # Round 32 did two separate things about that, and they answer two
+    # different questions. The GATE below turns those three reds into named
+    # could-not-runs on a machine whose theme measurably carries no loader —
+    # that is about the RUNNER. And ci.yml now installs `ki18n` there, which
+    # lets the suite take the "preload" route in section 2 — that is about
+    # APEX, and it is the half worth having: the shipped row is now measured
+    # under a real right-to-left direction on Arch and Qt 6.11.2 as well as on
+    # Fedora and Qt 6.10.3. Do not let the two collapse into one sentence.
     #
     # So the row below is an IF AND ONLY IF, and it is the assertion that tells
     # the two machines apart instead of leaving one of them unexplained. It can
@@ -268,16 +261,44 @@ else
     # under `set -o pipefail` a grep -q that MATCHES closes the pipe, ldd dies
     # with SIGPIPE and the pipeline's status is 141, so the check would answer
     # "no" precisely when the answer is yes.
-    i18n_of() {   # <elf> -> prints 1 if it pulls in a Qt translation loader
-        local out; out="$(ldd "$1" 2>/dev/null)"
+    #
+    # THREE-VALUED, not two, and that is round 32's correction. Until now an
+    # `ldd` that FAILED — unreadable file, not an ELF, a linker that refused —
+    # fell into the same `*)` arm as an ELF that genuinely links no KF6I18n and
+    # printed `0`. That was harmless while nothing depended on it; it is not
+    # harmless now that three assertions are gated on the answer, because a
+    # broken instrument would excuse exactly the reds it exists to explain.
+    # "Permission denied is not absence" is the same defect this tree has met
+    # about fourteen times. `err` is a fourth answer and it goes RED.
+    #
+    # `ldd` and not `readelf -d`: the claim is "the library ends up in the
+    # process", which is TRANSITIVE. Fedora's qt6ct may reach libKF6I18n
+    # through another KF6 library, and DT_NEEDED is direct-only.
+    i18n_of() {   # <elf> -> prints 1 | 0 | err
+        local out st
+        out="$(ldd "$1" 2>&1)"; st=$?
+        if [ "$st" -ne 0 ]; then printf 'err'; return; fi
         case "$out" in *libKF6I18n*) printf '1' ;; *) printf '0' ;; esac
     }
+
+    # 1 = the theme's plugin carries a Qt translation loader
+    # 0 = it measurably does not
+    # none = there is no plugin file for $THEME on this machine
+    # err  = the question could not be answered; NOTHING may be excused on it
+    THEME_I18N="none"
     if [ -z "$plugin" ]; then
-        skp "the direction flips if and only if the theme's plugin drags in a Qt translation loader" \
-            "no plugin file for $THEME under ${themedir:-<no plugin dir>} — COULD-NOT-RUN, so nothing was concluded about why"
+        cant "the direction flips if and only if the theme's plugin drags in a Qt translation loader" \
+             "no plugin file for $THEME under ${themedir:-<no plugin dir>} — so nothing was concluded about why"
     else
         i18n_linked="$(i18n_of "$plugin")"
-        if [ "$with_theme_rtl" = "1" ] && [ "$i18n_linked" = "1" ]; then
+        THEME_I18N="$i18n_linked"
+        if [ "$i18n_linked" = "err" ]; then
+            bad "the direction flips if and only if the theme's plugin drags in a Qt translation loader" \
+                "ldd could not read $plugin, so the precondition below is UNMEASURED — this is a broken instrument, not a machine without KF6I18n, and nothing is excused on it"
+        fi
+        if [ "$i18n_linked" = "err" ]; then
+            :   # already reported RED above; do not print a second verdict
+        elif [ "$with_theme_rtl" = "1" ] && [ "$i18n_linked" = "1" ]; then
             ok "the direction flips if and only if the theme's plugin drags in a Qt translation loader — it flipped, and $plugin links libKF6I18n"
         elif [ "$with_theme_rtl" = "0" ] && [ "$i18n_linked" = "0" ]; then
             ok "the direction flips if and only if the theme's plugin drags in a Qt translation loader — it did NOT flip, and $plugin links no libKF6I18n, so this machine's red above is that build of $THEME and not APEX"
@@ -298,15 +319,129 @@ else
             [ -e "$l" ] && { ctl_lib="$l"; break; }
         done
         if [ -z "$ctl_lib" ]; then
-            skp "…and the predicate can answer NO" \
-                "could not resolve libQt6Core.so.6 from $plugin to use as the control — COULD-NOT-RUN"
+            cant "…and the predicate can answer NO" \
+                 "could not resolve libQt6Core.so.6 from $plugin to use as the control"
         elif [ "$(i18n_of "$ctl_lib")" = "0" ]; then
             ok "…and the predicate can answer NO — the same question about $ctl_lib, which links no KF6, comes back negative"
         else
             bad "…and the predicate can answer NO" \
                 "$ctl_lib reported as linking libKF6I18n; the predicate says yes to everything and the row above proves nothing"
         fi
+
+        # …and it must be able to answer the THIRD thing, because round 32
+        # gates three assertions on this predicate and the whole reason for
+        # making it three-valued is that a FAILED ldd used to be indis-
+        # tinguishable from an ELF that links no KF6I18n. A predicate whose
+        # error arm has never been shown to fire is a two-valued predicate with
+        # a comment. `ldd` on a non-ELF exits non-zero on both machines this
+        # suite runs on, so the control costs one process and no assumptions.
+        notelf="$probe/not-an-elf"
+        printf 'this is not an ELF\n' > "$notelf"
+        if [ "$(i18n_of "$notelf")" = "err" ]; then
+            ok "…and the predicate can answer ERR — asked about a file that is not an ELF it reports the question as unanswerable, rather than as a negative"
+        else
+            bad "…and the predicate can answer ERR" \
+                "a non-ELF came back as $(i18n_of "$notelf") — a failed ldd is being read as 'links no KF6I18n', which is the exact confusion the gate below must never make"
+        fi
     fi
+
+    # ── THE GATE, and the two things it is NOT allowed to be ────────────────
+    #
+    # The three rows below all require a right-to-left APPLICATION direction.
+    # Whether a machine can produce one is the precondition just measured, so
+    # when it measurably cannot, those rows report a NAMED could-not-run that
+    # carries the reason instead of three red lines that read like an APEX
+    # defect. That is the round-32 decision, and it comes with two hard limits.
+    #
+    # ONE: it can never engage on a booted APEX host. On the machine this
+    # product actually ships to, a theme that cannot supply the direction IS
+    # the defect, and there is nothing to excuse. So `/run/ostree-booted`
+    # switches the gate off entirely — which is also why every mutant in
+    # tests/mutate-rtl.sh that breaks one of these rows still goes red here:
+    # the development machine is a booted APEX host and never reaches the gate.
+    #
+    # TWO: it can never engage when the direction DID flip. If a machine whose
+    # $THEME carries no translation loader produces a right-to-left direction
+    # anyway, the stated reason has stopped being the true one — the rows run,
+    # they pass, and the iff above goes RED saying round 31's mechanism is
+    # incomplete. An excuse that survives its own reason being false is not a
+    # precondition, it is a mask.
+    #
+    # `err` is deliberately absent from the case below: an unmeasurable
+    # precondition excuses nothing and has already gone red.
+    GATE_REASON=""
+    if [ ! -e /run/ostree-booted ] && [ "$with_theme_rtl" != "1" ]; then
+        case "$THEME_I18N" in
+            0)    GATE_REASON="MEASURED: $plugin links no libKF6I18n, which is the library that loads the Qt catalogue and flips the direction (FOUND 26). This machine's $THEME build carries no route to one, so it cannot produce a right-to-left application direction at all — nothing here is a statement about APEX" ;;
+            none) GATE_REASON="MEASURED: there is no $THEME plugin on this machine at all (looked under ${themedir:-<no plugin dir>}), so no platform theme can supply a Qt catalogue here" ;;
+        esac
+    fi
+
+    if [ -n "$GATE_REASON" ]; then
+        cant "with $THEME loaded the direction follows the locale" "$GATE_REASON"
+        cant "under $L_RTL2 it is RightToLeft" "$GATE_REASON"
+        cant "it is the platform theme that supplies the right-to-left direction" "$GATE_REASON"
+    else
+        # The load-bearing pair. Neither half means anything alone: a run that
+        # answers RightToLeft could answer that whatever the environment is, and a
+        # run that answers LeftToRight could be a probe that measured nothing.
+        if [ "$with_theme_rtl" = "1" ] && [ "$with_theme_ltr" = "0" ]; then
+            ok "with $THEME loaded the direction follows the locale — $L_RTL gives RightToLeft, scrubbed gives LeftToRight"
+        elif [ "$with_theme_rtl" = "$with_theme_ltr" ]; then
+            bad "with $THEME loaded the direction follows the locale" \
+                "both runs answered $with_theme_rtl — this machine cannot produce a right-to-left application direction, so CfgRow's switch can never fire here"
+        else
+            bad "with $THEME loaded the direction follows the locale" \
+                "$L_RTL gave $with_theme_rtl and the scrubbed run gave $with_theme_ltr"
+        fi
+
+        [ "$with_theme_heb" = "1" ] \
+            && ok "and under $L_RTL2 it is RightToLeft too — a second RTL locale, so this is not one lucky name" \
+            || bad "under $L_RTL2 it is RightToLeft" "got $with_theme_heb"
+
+        # THE MECHANISM, and the reason this section was rewritten. Qt decides the
+        # application direction by translating the string QT_LAYOUT_DIRECTION and
+        # comparing the answer to "RTL" -- so it needs a LOADED CATALOGUE, and
+        # quickshell installs no QTranslator of its own. What supplies one on a
+        # shipped APEX desktop is the qt6ct platform theme, which is configured for
+        # a dark palette (files/system/qt6ct/qt6ct.conf) and has no idea it is
+        # holding up right-to-left layout. Drop it and every mirrored surface
+        # silently stops mirroring with nothing red anywhere.
+        #
+        # Round 31 narrowed that: qt6ct is the CARRIER, not the mechanism. Fedora's
+        # build links libKF6I18n, and it is KF6I18n's startup that installs the Qt
+        # catalogue — see the block after the ur_PK control, which measures it with
+        # the theme removed entirely.
+        if [ "$no_theme_rtl" = "0" ] && [ "$with_theme_rtl" = "1" ]; then
+            ok "it is the platform theme that supplies the right-to-left direction — the same $L_RTL run with no platform theme gives LeftToRight"
+        elif [ "$no_theme_rtl" = "1" ]; then
+            ok "the direction no longer needs a platform theme — $L_RTL is RightToLeft without one (the dependency this suite pins has been removed; say so in the ledger)"
+        else
+            bad "it is the platform theme that supplies the right-to-left direction" \
+                "with theme=$with_theme_rtl, without=$no_theme_rtl — the pair does not isolate the theme"
+        fi
+    fi
+
+    [ "$no_theme_ltr" = "0" ] \
+        && ok "with neither a locale nor a theme it is LeftToRight, which is the floor everything above is measured from" \
+        || bad "with neither a locale nor a theme it is LeftToRight" "got $no_theme_ltr"
+
+    # THE CEILING. Urdu is right-to-left and Qt's own QLocale says so in the
+    # same run; Qt ships no qt_ur.qm, so the application direction stays
+    # LeftToRight. Every RTL language without a Qt catalogue is in this bucket
+    # -- Pashto, Sindhi, Divehi, Yiddish -- and no amount of QML reaches them.
+    # This is pinned rather than fixed, the way check-reduce-motion.sh pins the
+    # int literals no switch can touch.
+    if [ "$nocat_text" = "1" ] && [ "$nocat_app" = "0" ]; then
+        ok "an RTL language Qt has no catalogue for does NOT flip — $L_NOCAT is right-to-left to QLocale and LeftToRight to the application ($qt_cats qt_*.qm installed, none of them ur)"
+    elif [ "$nocat_text" != "1" ]; then
+        skp "an RTL language Qt has no catalogue for does NOT flip" \
+            "QLocale does not call $L_NOCAT right-to-left here (textDirection=$nocat_text) — COULD-NOT-RUN"
+    else
+        bad "an RTL language Qt has no catalogue for does NOT flip" \
+            "$L_NOCAT gave application direction $nocat_app — if a qt_ur.qm has appeared, move this pin deliberately"
+    fi
+
 
     # The mechanism, pinned directly rather than through its carrier: no
     # platform theme at all, one extra library in the process, and the
@@ -317,24 +452,46 @@ else
     for l in $(ldconfig -p 2>/dev/null | awk '/libKF6I18n\.so/ {print $NF}'); do
         [ -e "$l" ] && { kf6lib="$l"; break; }
     done
-    if [ -z "$kf6lib" ]; then
-        skp "a Qt translation loader ALONE flips the direction, with no platform theme" \
-            "no libKF6I18n.so on this machine — COULD-NOT-RUN, and on a machine without it nothing can load qt_ar.qm by itself"
-    else
-        preload_dir="$(env -u WAYLAND_DISPLAY -u DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
+    preload_probe() {   # preload_probe <locale or empty> -> application direction
+        env -u WAYLAND_DISPLAY -u DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
             -u LANG -u LC_ALL -u LANGUAGE -u QT_QPA_PLATFORMTHEME \
-            LANG="$L_RTL" LC_ALL="$L_RTL" LD_PRELOAD="$kf6lib" \
+            ${1:+LANG="$1"} ${1:+LC_ALL="$1"} LD_PRELOAD="$kf6lib" \
             QT_LOGGING_RULES='*.debug=true;qt.*=false' QT_QPA_PLATFORM=offscreen \
             timeout 60 "$runner" -platform offscreen -input "$probe/tst_dir.qml" 2>&1 \
-            | sed -n 's/.*APEXDIR=\([0-9]*\) .*/\1/p' | head -1)"
-        if [ "$preload_dir" = "1" ] && [ "$no_theme_rtl" = "0" ]; then
+            | sed -n 's/.*APEXDIR=\([0-9]*\) .*/\1/p' | head -1
+    }
+    if [ -z "$kf6lib" ]; then
+        cant "a Qt translation loader ALONE flips the direction, with no platform theme" \
+             "no libKF6I18n.so on this machine — on a machine without it nothing can load qt_ar.qm by itself, and the supplied-loader route below is unavailable"
+        cant "…and the supplied loader does not flip the direction BY ITSELF" "same"
+    else
+        preload_rtl="$(preload_probe "$L_RTL")"
+        preload_ltr="$(preload_probe "")"
+        if [ "$preload_rtl" = "1" ] && [ "$no_theme_rtl" = "0" ]; then
             ok "a Qt translation loader ALONE flips the direction, with no platform theme — $kf6lib preloaded gives RightToLeft where the same run without it gives LeftToRight"
-        elif [ -z "$preload_dir" ]; then
-            skp "a Qt translation loader ALONE flips the direction, with no platform theme" \
-                "the preloaded probe printed no APEXDIR line — COULD-NOT-RUN, not a pass"
+        elif [ -z "$preload_rtl" ]; then
+            cant "a Qt translation loader ALONE flips the direction, with no platform theme" \
+                 "the preloaded probe printed no APEXDIR line — not a pass"
         else
             bad "a Qt translation loader ALONE flips the direction, with no platform theme" \
-                "preloaded=$preload_dir, plain=$no_theme_rtl — if both are 1 the theme was never needed; if the preloaded run is 0 then KF6I18n no longer installs the Qt catalogue and APEX's mirroring rests on something else again"
+                "preloaded=$preload_rtl, plain=$no_theme_rtl — if both are 1 the theme was never needed; if the preloaded run is 0 then KF6I18n no longer installs the Qt catalogue and APEX's mirroring rests on something else again"
+        fi
+
+        # THE CONTROL THAT MAKES THE ROUTE USABLE, and section 2 is why it
+        # exists. On a machine whose own platform theme carries no translation
+        # loader, section 2's right-to-left pass is run with this library
+        # preloaded — so the two fixture passes differ in the LIBRARY as well
+        # as in the locale, and without this row "the row mirrored under
+        # ar_EG" could equally be "the row mirrored when KF6I18n was loaded".
+        # The library must move the direction ONLY through the locale.
+        if [ -z "$preload_ltr" ]; then
+            cant "…and the supplied loader does not flip the direction BY ITSELF" \
+                 "the scrubbed preloaded probe printed no APEXDIR line"
+        elif [ "$preload_ltr" = "0" ]; then
+            ok "…and the supplied loader does not flip the direction BY ITSELF — scrubbed, with $kf6lib preloaded, it is still LeftToRight, so what moves it is the locale and not the library"
+        else
+            bad "…and the supplied loader does not flip the direction BY ITSELF" \
+                "scrubbed + preload gives $preload_ltr — the library sets the direction on its own, so a mirrored fixture run under it would prove nothing about the locale and the route must not be used"
         fi
     fi
 fi
@@ -342,8 +499,28 @@ fi
 # The RTL half of section 2 needs an application direction that is actually
 # right-to-left. Whether this machine can produce one was just measured, so the
 # answer is carried forward rather than assumed a second time.
-RTL_AVAILABLE=0
-[ "${with_theme_rtl:-}" = "1" ] && RTL_AVAILABLE=1
+#
+# TWO routes, and the suite says WHICH one it used in every line it prints —
+# because "APEX's shipped row mirrors" and "the row mirrors once somebody hands
+# this machine a library it does not ship" are different claims, and a suite
+# that produced the same green for both would be worth nothing.
+#
+#   theme    the platform theme APEX ships carries the translation loader
+#            itself. This is what a booted APEX host uses, and it is the only
+#            route that is a statement about the product.
+#   preload  the platform theme on THIS machine carries none, but the machine
+#            has libKF6I18n and the two rows above measured that supplying it
+#            (a) flips the direction under an RTL locale and (b) does NOT flip
+#            it on its own. Used by the Arch CI runner, whose upstream
+#            qt6ct 0.11-8 links no KF6 at all. It exercises APEX's mirroring on
+#            a second distribution and a second Qt minor; it does not say
+#            anything about how that machine would behave unaided.
+RTL_AVAILABLE=0; RTL_ROUTE=""; RTL_PRELOAD=""
+if [ "${with_theme_rtl:-}" = "1" ]; then
+    RTL_AVAILABLE=1; RTL_ROUTE="theme"
+elif [ "${preload_rtl:-}" = "1" ] && [ "${preload_ltr:-}" = "0" ]; then
+    RTL_AVAILABLE=1; RTL_ROUTE="preload"; RTL_PRELOAD="$kf6lib"
+fi
 
 # ── 2. the shipped row, instantiated and mirrored ────────────────────────────
 section "2. the shipped settings row mirrors"
@@ -399,11 +576,12 @@ stage_theme_set "$stage" "$root" "$stage/components" || {
 # platform theme. Round 22 ran it once, in whatever direction the operator's
 # shell happened to be in, and every geometric assertion in it forced mirroring
 # on by hand. A row hardcoded `LayoutMirroring.enabled: false` passed all of it.
-run_fixture() {   # run_fixture <locale or empty> <theme or empty>
-    local l="$1" t="$2"
+run_fixture() {   # run_fixture <locale or empty> <theme or empty> [preload]
+    local l="$1" t="$2" p="${3:-}"
     env -u WAYLAND_DISPLAY -u DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
         -u LANG -u LC_ALL -u LANGUAGE -u QT_QPA_PLATFORMTHEME \
         ${l:+LANG="$l"} ${l:+LC_ALL="$l"} ${t:+QT_QPA_PLATFORMTHEME="$t"} \
+        ${p:+LD_PRELOAD="$p"} \
         QT_QPA_PLATFORM=offscreen QT_LOGGING_RULES="qt.qml.binding.removal.info=false" \
         timeout 120 "$runner" -platform offscreen -input "$stage/rtl-test.qml" 2>&1
 }
@@ -485,11 +663,12 @@ evaluate_pass "LTR" || { finish; exit 1; }
 # "the row mirrors when told to", and a row that never mirrors on its own
 # satisfies all of them.
 if [ "$RTL_AVAILABLE" -eq 1 ]; then
-    out="$(run_fixture "$L_RTL" "$THEME")"; status=$?
-    evaluate_pass "RTL"
+    echo "      note: the right-to-left direction for this pass comes from the \"$RTL_ROUTE\" route${RTL_PRELOAD:+ ($RTL_PRELOAD)}"
+    out="$(run_fixture "$L_RTL" "$THEME" "$RTL_PRELOAD")"; status=$?
+    evaluate_pass "RTL/$RTL_ROUTE"
 else
-    skp "the shipped row is measured under a right-to-left application direction" \
-        "section 1 could not produce one on this machine — COULD-NOT-RUN, so the binding CfgRow actually ships is unmeasured here"
+    cant "the shipped row is measured under a right-to-left application direction" \
+         "neither route produced one here — the theme gave ${with_theme_rtl:-<unmeasured>} and no usable Qt translation loader was found, so the binding CfgRow actually ships is unmeasured on this machine"
 fi
 
 # ── 3. how far this reaches, pinned exactly ─────────────────────────────────
@@ -507,10 +686,151 @@ WIN_MIRRORED_EXPECT=0
 [ "$win_total" -eq "$WIN_TOTAL_EXPECT" ] \
     && ok "the shell paints from $WIN_TOTAL_EXPECT window roots — counted $win_total" \
     || bad "the shell paints from $WIN_TOTAL_EXPECT window roots" "counted $win_total — update the pin deliberately"
+
+# ── AND THE PIN ABOVE USED TO BE A GATE THAT COULD CERTIFY A NO-OP ──────────
+#
+# The row below counts FILES CONTAINING THE STRING `LayoutMirroring`. Until
+# round 32 that was the whole measurement, and the ledger read "0 of 14 window
+# roots mirror" as a gap somebody had forgotten to close. It is not. Measured
+# this round from Quickshell's OWN type registry and from the Qt engine:
+#
+#   PanelWindow -> PanelWindowInterface -> WindowInterface -> Reloadable
+#                                                          -> QObject
+#
+# There is no Item and no Window anywhere in that chain, and FloatingWindow's
+# is the same. Qt's LayoutMirroring attached property "only works with Items
+# and Windows" — and when it does not, it DOES NOT FAIL. The object is still
+# created, `errorString()` is EMPTY, and the only trace is one QWARN on
+# stderr. So the two lines that work on CfgRow are, on any of these 14 roots,
+# a SILENT NO-OP.
+#
+# Which means the obvious way to close this row would have moved the count
+# from 0 to 14, turned this assertion green, and mirrored NOTHING — the suite
+# certifying the remaining half as done on the strength of a string. The two
+# rows after this one are what stop that: one asks whether the type can carry
+# the property at all, the other asks the engine what happens when it cannot.
+# Both are required to fail in both directions, so the day Quickshell gives
+# its windows an Item or Window ancestor this goes RED and says the route has
+# opened rather than staying quiet for another nineteen rounds.
 [ "$win_mirrored" -eq "$WIN_MIRRORED_EXPECT" ] \
-    && ok "$WIN_MIRRORED_EXPECT window roots mirror — the named remaining half of this row, not a claim that RTL is done" \
-    || bad "$WIN_MIRRORED_EXPECT window roots mirror" \
-           "counted $win_mirrored — if that is deliberate, move the pin and say so in the ledger"
+    && ok "$WIN_MIRRORED_EXPECT window roots declare mirroring — and that is NOT a forgotten edit: the two rows below measure that the declaration cannot work on these types at all" \
+    || bad "$WIN_MIRRORED_EXPECT window roots declare mirroring" \
+           "counted $win_mirrored — if one of them now carries LayoutMirroring, check FIRST that it is on an Item or a Window inside the root and not on the root itself, because on the root it is a silent no-op and this count cannot tell the difference"
+
+# ── row 2: what the engine does when the target is not an Item or a Window ──
+#
+# The control for the row after it, and the reason "silent no-op" is a
+# measurement rather than a reading of the Qt documentation. Needs no
+# quickshell, so it runs on the Arch CI runner where nothing else about these
+# window types can be asked.
+cat > "$probe/tst_mirror_attach.qml" <<'MIRQML'
+import QtQuick
+import QtQuick.Window
+import QtTest
+TestCase {
+    name: "attach"
+    Component { id: nonItem; QtObject { LayoutMirroring.enabled: true } }
+    Component { id: asWindow; Window { LayoutMirroring.enabled: true } }
+    function test_000_report() {
+        var a = nonItem.createObject(null)
+        console.log("APEXATTACH nonitem=" + (a ? "created" : "null")
+                    + " err=[" + nonItem.errorString().trim() + "]")
+        var w = asWindow.createObject(null)
+        console.log("APEXATTACH window=" + (w ? "created" : "null")
+                    + " mirrored=" + (w ? w.LayoutMirroring.enabled : "n/a"))
+        verify(true)
+    }
+}
+MIRQML
+attach_out="$(env -u WAYLAND_DISPLAY -u DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
+    -u LANG -u LC_ALL -u LANGUAGE -u QT_QPA_PLATFORMTHEME \
+    QT_LOGGING_RULES='*.debug=true;qt.*=false' QT_QPA_PLATFORM=offscreen \
+    timeout 60 "$runner" -platform offscreen -input "$probe/tst_mirror_attach.qml" 2>&1)"
+attach_nonitem="$(printf '%s\n' "$attach_out" | sed -n 's/.*APEXATTACH nonitem=\([a-z]*\) err=\[\(.*\)\]$/\1|\2/p' | head -1)"
+attach_window="$(printf '%s\n' "$attach_out"  | sed -n 's/.*APEXATTACH window=\([a-z]*\) mirrored=\([a-z/]*\).*/\1|\2/p' | head -1)"
+
+if [ -z "$attach_nonitem" ] || [ -z "$attach_window" ]; then
+    cant "attaching LayoutMirroring to a non-Item is a SILENT no-op, and to a Window it works" \
+         "the attach probe printed no APEXATTACH line — not a pass"
+elif [ "$attach_nonitem" = "created|" ] && [ "$attach_window" = "created|true" ]; then
+    ok "attaching LayoutMirroring to a non-Item is a SILENT no-op — the object is still created and errorString() is EMPTY — while the same declaration on a Window reads back enabled"
+elif [ "$attach_window" != "created|true" ]; then
+    bad "attaching LayoutMirroring to a non-Item is a SILENT no-op, and to a Window it works" \
+        "the Window control came back \"$attach_window\" — the probe cannot tell the two cases apart, so it proves nothing about the window roots"
+else
+    ok "attaching LayoutMirroring to a non-Item now REPORTS itself (\"$attach_nonitem\") instead of passing silently — Qt has changed; the no-op is no longer silent and the row above can be relaxed"
+fi
+
+# ── row 3: can the shell's window roots carry it at all? ────────────────────
+#
+# Read out of Quickshell's own .qmltypes, which is the registry the QML engine
+# itself resolves these names through — not out of quickshell's source, not
+# out of a version number, and not out of the documentation. FOUND 19's shape
+# for the directory: two spellings tried, the one used is printed.
+qsqml=""; qscore=""
+for d in $("${qtool%% *}" -query QT_INSTALL_QML 2>/dev/null) \
+         /usr/lib64/qt6/qml /usr/lib/qt6/qml; do
+    [ -n "$d" ] && [ -e "$d/Quickshell/_Window/quickshell-window.qmltypes" ] || continue
+    qsqml="$d/Quickshell/_Window/quickshell-window.qmltypes"
+    # The window module names its prototypes but does not DEFINE all of them;
+    # Reloadable lives in the core registry. Both are read so the chain
+    # resolves to its real root instead of stopping at the first name this
+    # file happens not to define — a chain that stops early cannot be told
+    # from a chain that ends there, and the whole assertion is about what the
+    # chain does NOT contain.
+    [ -e "$d/Quickshell/quickshell-core.qmltypes" ] && qscore="$d/Quickshell/quickshell-core.qmltypes"
+    break
+done
+if [ -z "$qsqml" ]; then
+    cant "the shell's window roots are types LayoutMirroring cannot attach to" \
+         "quickshell's window type registry is not installed on this machine (looked for Quickshell/_Window/quickshell-window.qmltypes under the Qt QML paths), so the prototype chain could not be read here"
+elif ! command -v python3 >/dev/null 2>&1; then
+    cant "the shell's window roots are types LayoutMirroring cannot attach to" \
+         "no python3 to walk the prototype chain in $qsqml"
+else
+    chain="$(python3 - "$qsqml" $qscore <<'CHAINPY'
+import re, sys
+proto = {}
+for path in sys.argv[1:]:
+    for blk in re.split(r'\n(?=    Component \{)', open(path, encoding="utf-8", errors="replace").read()):
+        n = re.search(r'name: "([^"]+)"', blk)
+        p = re.search(r'prototype: "([^"]+)"', blk)
+        if n:
+            proto.setdefault(n.group(1), p.group(1) if p else None)
+out = []
+for start in ("PanelWindowInterface", "FloatingWindowInterface"):
+    cur, seen = start, []
+    while cur and cur not in seen:
+        seen.append(cur)
+        cur = proto.get(cur)
+    out.append("->".join(seen))
+print(" ".join(out))
+CHAINPY
+)"
+    # Matched LINK BY LINK and never with a substring test, because "Window"
+    # appears INSIDE the interface names themselves — PanelWindowInterface,
+    # WindowInterface — so `case "$chain" in *Window*)` would answer YES on
+    # every chain including this one and the row would be a constant. And
+    # never `grep -q` either: a matching grep -q under pipefail closes the
+    # pipe on its writer and the pipeline reports 141, which is "no" exactly
+    # when the answer is yes (the same trap i18n_of carries in section 1).
+    has_item=0
+    for link in $(printf '%s' "$chain" | tr '> ' '\n\n' | tr -d '-'); do
+        [ "$link" = "Item" ] && has_item=1
+        [ "$link" = "Window" ] && has_item=1
+        [ "$link" = "QQuickItem" ] && has_item=1
+        [ "$link" = "QQuickWindow" ] && has_item=1
+    done
+    if [ -z "$chain" ]; then
+        cant "the shell's window roots are types LayoutMirroring cannot attach to" \
+             "the prototype walk over $qsqml produced nothing"
+    elif [ "$has_item" -eq 0 ]; then
+        ok "the shell's window roots are types LayoutMirroring cannot attach to — $chain, with no Item and no Window anywhere, so the two lines that work on CfgRow would be a silent no-op on all $win_total of them"
+    else
+        bad "the shell's window roots are types LayoutMirroring cannot attach to" \
+            "$chain now reaches an Item or a Window — THE ROUTE HAS OPENED. Standing-queue item 7 becomes doable: mirror the roots, move WIN_MIRRORED_EXPECT deliberately, and read the input-mask warning in this file before shipping it"
+    fi
+fi
 
 # ── and the thing mirroring can NEVER do ────────────────────────────────────
 #
