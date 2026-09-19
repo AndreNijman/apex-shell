@@ -1848,6 +1848,47 @@ jobs:
         if: ${{ !cancelled() }}
         run: ./tests/mutate-recovery-a11y.sh
 
+      # The runtime half of the two steps above: the same page, but read off a
+      # real AT-SPI bus instead of out of the source, and then DRIVEN over it.
+      #
+      # It walks the whole destructive flow with nothing but DoAction —
+      # disclosure, scope, dry run, commit — against an `apex` stub that
+      # RECORDS its argv, so "a reader can finish this" and "a reader cannot
+      # finish it early" are both checkable facts rather than readings of the
+      # markup. Pressing the commit button over the bus BEFORE the loss list
+      # exists must leave no `--commit` in that log; pressing it after must
+      # produce the exact argv, confirm token included.
+      #
+      # That is not a hypothetical. It is how the factory reset was found to be
+      # uncompletable BY ANYBODY on 2026-09-19 (the service acknowledged the
+      # loss list one line before its own phase allowed it, so `commitReady`
+      # was false for ever). A source-reading suite could not have found it —
+      # every wire it looks for was present and correct.
+      #
+      # Like every shell-half step in this job it will SKIP here for want of
+      # quickshell, and say so. Read the totals line, not the tick.
+      - name: Recovery screen accessibility — read-back and drive over AT-SPI
+        if: ${{ !cancelled() }}
+        run: |
+          pacman -S --needed --noconfirm at-spi2-core dbus python-gobject \
+            qt6-declarative qt6-base labwc pkgconf \
+            || echo "note: part of the a11y stack is unavailable; the suite will SKIP and say so"
+          ./tests/run-recovery-atspi-shim.sh
+
+      # …and that the suite above can go red, on the named assertion.
+      #
+      # The mutant that earns the pair is R7: it puts RecoveryService._onPlan()
+      # back the way it was before the fix — `plan` assigned before
+      # `resetPhase` — and requires ACT 4 to stop being completable. Without
+      # that mutant this suite is a green run nobody can distinguish from a
+      # green run against a product whose most destructive verb does not work.
+      #
+      # It refuses to score anything when the baseline made too few assertions
+      # to be a baseline, and exits 0 saying which pieces were missing.
+      - name: Recovery screen accessibility — read-back mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-recovery-atspi-shim.sh
+
       - name: Privacy & Permissions logic
         run: |
           # P1-061. Drives src/services/permissions.js — the file the shell
@@ -2348,6 +2389,8 @@ jobs:
             "tests/check-recovery-ui.sh"
             "tests/check-recovery-a11y.sh"
             "tests/mutate-recovery-a11y.sh"
+            "tests/run-recovery-atspi-shim.sh"
+            "tests/mutate-recovery-atspi-shim.sh"
             "src/services/permissions.js"
             "src/services/PermissionsService.qml"
             "src/services/config_tab/pages/PrivacyPage.qml"
