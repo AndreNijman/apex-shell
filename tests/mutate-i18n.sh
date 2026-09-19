@@ -72,6 +72,25 @@ if ! printf '%s' "$base" | grep -qE '^run-i18n-test: passed=[0-9]+ failed=0'; th
 fi
 
 echo
+echo "── section 1: the marked-string pin ──"
+# Round 33 took this file from five marked strings to 186, which makes section
+# 1 the headline number of the whole row — and until now NOTHING proved that
+# number is compared rather than printed. Two mutants, because the pin has two
+# halves that fail differently: the constant it is compared against, and the
+# token it counts.
+
+# S1 — the pin's constant moves by one. If the comparison were decorative the
+#      suite would stay green while claiming a count it never checked.
+mutate S1 "src/services/agents/AgentHelpContent.qml marks exactly" \
+  's|^EXPECT_TR=186$|EXPECT_TR=185|'
+
+# S2 — the counter looks for a macro that is not there, so it counts zero. This
+#      is the half that catches a counter quietly stopping: a pin whose subject
+#      has gone missing reads exactly like a file with no translatable strings.
+mutate S2 "src/services/agents/AgentHelpContent.qml marks exactly" \
+  's|\\bqsTr\\(|\\bqsTrNoSuchMacro\\(|'
+
+echo
 echo "── section 4: the host probe ──"
 
 # T1 — the control is pointed at the host that does NOT translate, so the probe
