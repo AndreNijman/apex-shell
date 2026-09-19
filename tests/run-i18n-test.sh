@@ -288,6 +288,17 @@ section "4. can a translated string reach the host the SHELL runs in?"
 # under src/ can install one however it is written. The gap is in the host, so
 # the host is what gets asked.
 #
+# EVERY ROW BELOW IS STILL TRUE, AND SINCE ROUND 33 IT IS NO LONGER A DEAD END.
+# What these rows measure is that quickshell installs no translator and takes no
+# automatic route — not that nothing can. A bare QQmlEngine still resolves QML
+# modules off its import path, and a module may carry a compiled plugin whose
+# initializeEngine() runs C++ in the shell's own process before a binding is
+# evaluated. tests/run-i18n-host-test.sh builds exactly that and reads the
+# SHIPPED AgentHelpContent singleton back in German inside the real
+# /usr/bin/quickshell. So these rows are the STATEMENT OF THE PROBLEM and
+# tests/apex-i18n-plugin.cpp is the answer to it; if quickshell itself ever
+# gains the call, these rows go red and say so, which is what they are for.
+#
 # Nothing here is trusted on an absence alone. Each claim has its positive
 # control in the SAME run, because "nm printed nothing" and "the binary contains
 # no such call" look identical from the outside — permission denied is not
@@ -567,9 +578,14 @@ else
     printf '       %s\n' "Section 4 measured WHERE it is, so the next round does not look in"
     printf '       %s\n' "src/: QTranslator is C++ and not a QML type, and the host that owns"
     printf '       %s\n' "the engine calls neither it nor the QQmlApplicationEngine route that"
-    printf '       %s\n' "would load a .qm on its own. Closing this needs a translator installed"
-    printf '       %s\n' "INTO the engine — upstream in quickshell, or by a QML extension"
-    printf '       %s\n' "module on the import path whose initializeEngine() installs one."
+    printf '       %s\n' "would load a .qm on its own."
+    printf '       %s\n' "The second of those two routes is now BUILT AND MEASURED rather than"
+    printf '       %s\n' "proposed: tests/apex-i18n-plugin.cpp is a QML extension module whose"
+    printf '       %s\n' "initializeEngine() installs one, and tests/run-i18n-host-test.sh reads"
+    printf '       %s\n' "this very singleton back in German inside the real quickshell. What is"
+    printf '       %s\n' "left is SHIPPING it — building the module into the image and importing"
+    printf '       %s\n' "it from shell.qml — which is why this note is still a note. THIS ROW"
+    printf '       %s\n' "FLIPS when src/ imports the module, not when the module exists."
 fi
 
 printf '\nrun-i18n-test: passed=%d failed=%d skipped=%d\n' "$pass" "$fail" "$skip"
