@@ -574,26 +574,65 @@ fi
 # ═════════════════════════════════════════════════════════════════════════════
 section "6. what this still does NOT prove"
 # ═════════════════════════════════════════════════════════════════════════════
-# Kept as a flip rather than a comment: the day somebody wires a translator up,
-# this stops printing a note and starts counting.
-if grep -rqn 'installTranslator\|QTranslator' src 2>/dev/null; then
-    ok "the shell installs a QTranslator, so translations reach real users"
-else
-    printf '  note %s\n' "no QTranslator reaches the running shell. The pipeline above is proven"
-    printf '       %s\n' "end to end, and no user sees German yet. This is the named gap for"
-    printf '       %s\n' "P2-004's 'translated shell' row."
-    printf '       %s\n' "Section 4 measured WHERE it is, so the next round does not look in"
-    printf '       %s\n' "src/: QTranslator is C++ and not a QML type, and the host that owns"
-    printf '       %s\n' "the engine calls neither it nor the QQmlApplicationEngine route that"
-    printf '       %s\n' "would load a .qm on its own."
-    printf '       %s\n' "The second of those two routes is now BUILT AND MEASURED rather than"
-    printf '       %s\n' "proposed: tests/apex-i18n-plugin.cpp is a QML extension module whose"
-    printf '       %s\n' "initializeEngine() installs one, and tests/run-i18n-host-test.sh reads"
-    printf '       %s\n' "this very singleton back in German inside the real quickshell. What is"
-    printf '       %s\n' "left is SHIPPING it — building the module into the image and importing"
-    printf '       %s\n' "it from shell.qml — which is why this note is still a note. THIS ROW"
-    printf '       %s\n' "FLIPS when src/ imports the module, not when the module exists."
+# ── The predicate, and why it is not the one that used to be here ───────────
+#
+# This row used to be `grep -r 'installTranslator\|QTranslator' src`, written
+# when nobody knew what the answer would look like. It is the wrong question in
+# two directions and round 34 met both:
+#
+#   * it answers NO about a shell that reaches a translator perfectly well.
+#     The route is a QML module whose C++ plugin installs one; nothing under
+#     src/ says `QTranslator`, and nothing ever will, because QTranslator is
+#     not a QML type. That is section 4's own finding.
+#   * it answers YES for the wrong reason the moment anyone puts the plugin's
+#     .cpp under src/ — a C++ file sitting in a directory is not the shell
+#     importing anything. That is one `git mv` away and it would have turned
+#     P2-004's named remaining half green over a file move.
+#
+# So the row asks the two things that are actually load-bearing, separately,
+# and both have to hold: the ENTRY POINT reaches the module, and the MODULE
+# installs a translator. Each is a live read of a real file.
+ENTRY="shell.qml"
+BOOT="src/i18n/I18nBootstrap.qml"
+PLUGIN="tests/apex-i18n-plugin.cpp"
+MODULE="Apex.I18n"
+
+reaches=0
+# The entry point must load the bootstrap file, and the bootstrap file must
+# import the module. Split, because "shell.qml mentions a path" and "that path
+# imports the module" are different claims and only the pair is the route.
+if grep -q "$BOOT" "$ENTRY" 2>/dev/null \
+   && grep -qE "^import +${MODULE//./\\.}\b" "$BOOT" 2>/dev/null; then
+    reaches=1
 fi
+installs=0
+grep -q 'installTranslator' "$PLUGIN" 2>/dev/null && installs=1
+
+if [ "$reaches" = 1 ] && [ "$installs" = 1 ]; then
+    ok "$ENTRY reaches the $MODULE module, whose plugin installs a QTranslator"
+elif [ "$installs" = 1 ]; then
+    bad "$ENTRY reaches the $MODULE module, whose plugin installs a QTranslator" \
+        "$PLUGIN installs one, but $ENTRY does not load $BOOT, or $BOOT does not import $MODULE"
+else
+    bad "$ENTRY reaches the $MODULE module, whose plugin installs a QTranslator" \
+        "$PLUGIN does not call installTranslator, so reaching the module would achieve nothing"
+fi
+
+# What the row above does NOT say, printed rather than implied. A route to a
+# translator is not a translation: QTranslator::load() finding no catalogue is
+# a successful, silent no-op, and today it finds none because the image ships
+# no compiled .qm at all. The plugin reports that by name — but through
+# qInfo(), which on Fedora goes to the JOURNAL and not to stderr unless
+# QT_FORCE_STDERR_LOGGING=1 is set, so the place to look is
+# `journalctl --user -b | grep APEXI18N`.
+printf '  note %s\n' "MARKED IS NOT TRANSLATED and REACHABLE IS NOT TRANSLATED. Two separate"
+printf '       %s\n' "things are still missing and neither is measured by the row above:"
+printf '       %s\n' "translations/apex-shell_de.ts carries German for 5 of the $EXPECT_TR marked"
+printf '       %s\n' "strings, and no .qm is compiled into the image for any language, so"
+printf '       %s\n' "QTranslator::load() finds nothing and every string comes back English."
+printf '       %s\n' "Compiling the catalogue needs lrelease, which is not in the image; it"
+printf '       %s\n' "must come from a discarded build stage, never from a dnf in the base"
+printf '       %s\n' "tier, which costs 113 MB of rewritten rpmdb per machine per update."
 
 printf '\nrun-i18n-test: passed=%d failed=%d skipped=%d\n' "$pass" "$fail" "$skip"
 [ "$fail" -eq 0 ]
