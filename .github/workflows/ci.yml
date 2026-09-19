@@ -1829,9 +1829,13 @@ jobs:
       # …and that the suite above can go red, on the NAMED assertion, and does
       # not go red at prose.
       #
-      # Eleven mutants break one arm of the markup each; three more quote every
-      # rule the suite enforces in a comment, add a property nothing asserts,
-      # and add an icon with no markup, and the suite has to stay GREEN. A
+      # Fourteen mutants break one arm of the markup each; three more quote
+      # every rule the suite enforces in a comment, add a property nothing
+      # asserts, and add an icon with no markup, and the suite has to stay
+      # GREEN. (It was eleven-plus-three until 5327bc6 added three assertions
+      # and three mutants for the FOUND 28 fix; 34/0/0 and 17 applied / 14
+      # CAUGHT / 3 HELD are the current numbers, the same here and on this
+      # runner.) A
       # checker that prose can turn red punishes people for explaining
       # themselves, which matters most where the markup is not self-evident.
       #
@@ -1877,11 +1881,23 @@ jobs:
 
       # …and that the suite above can go red, on the named assertion.
       #
-      # The mutant that earns the pair is R7: it puts RecoveryService._onPlan()
-      # back the way it was before the fix — `plan` assigned before
-      # `resetPhase` — and requires ACT 4 to stop being completable. Without
-      # that mutant this suite is a green run nobody can distinguish from a
-      # green run against a product whose most destructive verb does not work.
+      # The mutant that earns the pair is R12, and it is the ONLY one here that
+      # applies TWO edits. It reverts RecoveryService._onPlan()'s assignment
+      # order — `plan` before `resetPhase`, the 2026-09-19 defect — AND removes
+      # the page's phase-change re-ack, and then requires ACT 4 to stop being
+      # completable. Two edits because the fix is genuinely two-deep: either
+      # half alone restores a completable reset, so no SINGLE edit reproduces
+      # the defect, and a harness that broke whichever half it could and called
+      # that a regression gate would be claiming a two-deep guard is one-deep.
+      # Without this mutant the suite is a green run nobody can distinguish
+      # from a green run against a product whose most destructive verb does not
+      # work — which is exactly what shipped until that date.
+      #
+      # One assertion here has NO mutant, by design and stated in the harness's
+      # own totals output: "pressing Erase before the loss list exists commits
+      # NOTHING" is three-deep (press() checks commitReady, commitReset()
+      # checks the phase, commitArgv() checks the token against the rendered
+      # count), so no single edit makes a --commit appear there.
       #
       # It refuses to score anything when the baseline made too few assertions
       # to be a baseline, and exits 0 saying which pieces were missing.
