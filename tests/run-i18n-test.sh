@@ -618,21 +618,21 @@ else
         "$PLUGIN does not call installTranslator, so reaching the module would achieve nothing"
 fi
 
-# What the row above does NOT say, printed rather than implied. A route to a
-# translator is not a translation: QTranslator::load() finding no catalogue is
-# a successful, silent no-op, and today it finds none because the image ships
-# no compiled .qm at all. The plugin reports that by name — but through
-# qInfo(), which on Fedora goes to the JOURNAL and not to stderr unless
-# QT_FORCE_STDERR_LOGGING=1 is set, so the place to look is
-# `journalctl --user -b | grep APEXI18N`.
-printf '  note %s\n' "MARKED IS NOT TRANSLATED and REACHABLE IS NOT TRANSLATED. Two separate"
-printf '       %s\n' "things are still missing and neither is measured by the row above:"
-printf '       %s\n' "translations/apex-shell_de.ts carries German for 5 of the $EXPECT_TR marked"
-printf '       %s\n' "strings, and no .qm is compiled into the image for any language, so"
-printf '       %s\n' "QTranslator::load() finds nothing and every string comes back English."
-printf '       %s\n' "Compiling the catalogue needs lrelease, which is not in the image; it"
-printf '       %s\n' "must come from a discarded build stage, never from a dnf in the base"
-printf '       %s\n' "tier, which costs 113 MB of rewritten rpmdb per machine per update."
+# What the row above does NOT say, printed rather than implied. Reaching a
+# translator is not being translated, and neither is having a catalogue: the
+# gap now is the SOURCE side, one .ts file per language written by a person.
+# Note where the plugin says all this at run time — through qInfo(), which on
+# Fedora goes to the JOURNAL and not to stderr unless QT_FORCE_STDERR_LOGGING=1
+# is set, so the place to look is `journalctl --user -b | grep APEXI18N`.
+n_ts="$(find translations -maxdepth 1 -name 'apex-shell_*.ts' 2>/dev/null | wc -l | tr -d ' ')"
+n_de="$(grep -c '<translation>' translations/apex-shell_de.ts 2>/dev/null || echo 0)"
+printf '  note %s\n' "MARKED IS NOT TRANSLATED. $n_ts language file(s) exist and apex-shell_de.ts"
+printf '       %s\n' "carries German for $n_de of the $EXPECT_TR marked strings; the other strings"
+printf '       %s\n' "extract, compile and load and come back in English because nobody has"
+printf '       %s\n' "written them. That is a translator's job and this line is the gap, not"
+printf '       %s\n' "a failure. The image side is done: apex-os Containerfile.base compiles"
+printf '       %s\n' "every translations/*.ts in a DISCARDED stage and proves each .qm loads,"
+printf '       %s\n' "so a new language is one file here and no apex-os change at all."
 
 printf '\nrun-i18n-test: passed=%d failed=%d skipped=%d\n' "$pass" "$fail" "$skip"
 [ "$fail" -eq 0 ]
