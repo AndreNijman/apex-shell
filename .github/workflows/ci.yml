@@ -2519,6 +2519,7 @@ jobs:
             "tests/run-i18n-test.sh"
             "tests/run-i18n-host-test.sh"
             "tests/mutate-i18n-host.sh"
+            "src/i18n/I18nBootstrap.qml"
             "tests/apex-i18n-plugin.cpp"
             "tests/apex-i18n-host.cpp"
             "tests/apex-i18n-qmldir"
