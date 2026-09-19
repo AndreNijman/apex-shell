@@ -1,0 +1,19 @@
+# The qmldir of the Apex.I18n QML module (roadmap P2-004).
+#
+# Copied into <module root>/Apex/I18n/ beside the built plugin. Three lines and
+# every one of them is load-bearing:
+#
+#   module     the URI shell.qml imports. Must match the directory path under
+#              the import root or the engine never looks here.
+#   plugin     the library BASE name — libapexi18n.so, without lib/.so. Drop
+#              this line and the module resolves to an empty QML module: the
+#              import SUCCEEDS, no C++ runs, and every string stays English
+#              with nothing reporting it.
+#   classname  the plugin class. Qt uses it for static builds and it is what
+#              makes the metadata legible to qmlimportscanner.
+#
+# There is deliberately no QML type here. The module exists so that its plugin
+# is loaded; the plugin's registerTypes() is what registers the module.
+module Apex.I18n
+plugin apexi18n
+classname ApexI18nPlugin
