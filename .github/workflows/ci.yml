@@ -1717,39 +1717,59 @@ jobs:
       - name: Right-to-left layout baseline
         if: ${{ !cancelled() }}
         run: |
-          # RED ON THIS RUNNER SINCE IT LANDED, and nobody saw it: ci.yml was
-          # last dispatched on this repository on 2026-09-12 and the RTL suite
-          # landed after that. Measured 2026-09-18 on runs 35351413253 and
-          # 35351740747 — the second on roadmap/v2.2 with none of the lock
-          # screen work on it, identical totals, so this is the runner and not
-          # anybody's branch: 17 passed, 3 failed, 2 skipped.
+          # RED ON THIS RUNNER FROM THE DAY IT LANDED UNTIL ROUND 32, on
+          # exactly three assertions, and four rounds correctly refused to
+          # paper over it. The cause is now measured rather than suspected:
+          # Arch ships UPSTREAM qt6ct 0.11-8, which links no libKF6I18n, and
+          # libKF6I18n is what loads the Qt catalogue that flips the layout
+          # direction (p2-b FOUND 26). Fedora ships a post-release git snapshot
+          # built with the KDE integration, so APEX inherits right-to-left from
+          # a packaging choice and from nothing APEX declares. Both candidates
+          # that used to be listed here — Qt 6.11.2 vs 6.10.3, and the absent
+          # /etc/xdg/qt6ct/qt6ct.conf — were ELIMINATED BY MEASUREMENT in round
+          # 31 and the old text claiming they were open has been removed.
           #
-          # The three reds are all section 1, and section 1 is the one that
-          # makes the rest mean anything: it requires a scrubbed run and an
-          # ar_EG run to DISAGREE about the application's layout direction.
-          # Round 23 measured what supplies that disagreement, and it is not the
-          # locale — Qt TRANSLATES the string QT_LAYOUT_DIRECTION and compares
-          # it to RTL, so the switch is a translation CATALOGUE reached through
-          # a platform theme.
+          # Round 32 does TWO things about that, deliberately not one, and they
+          # are different claims:
           #
-          # These two packages are NECESSARY AND NOT SUFFICIENT, and this line
-          # says so rather than reading like a fix somebody has already tried.
-          # Measured on run 35352450127: qt6ct was genuinely absent and is
-          # installed here; qt6-translations (which owns qt_ar.qm, the same
-          # package apex-os round 27 found reaching the image only as a weak
-          # dependency) was ALREADY present at 6.11.2 — and section 1 still
-          # answers LeftToRight under both ar_EG and he_IL, so the remaining
-          # cause is something else. The two candidates nobody has yet ruled
-          # out: the runner is Qt 6.11.2 where the laptop is 6.10.3, and qt6ct
-          # here has no /etc/xdg/qt6ct/qt6ct.conf, which APEX ships and which
-          # the plugin may need before it does anything.
+          #  1. The suite measures the precondition BEFORE section 1 draws a
+          #     conclusion from it — does this machine's qt6ct plugin actually
+          #     link a Qt translation loader, read with `ldd` rather than
+          #     inferred from a distribution name — and reports the three
+          #     direction rows as NAMED COULD-NOT-RUNs carrying that reason
+          #     when it measurably does not. That gate is switched off entirely
+          #     on a booted APEX host and cannot engage on a machine where the
+          #     direction flipped anyway, so it goes red rather than quiet the
+          #     moment its own reason stops being true. That half is about THE
+          #     RUNNER.
           #
-          # DO NOT "fix" this by making section 1 SKIP. Its whole job is to
-          # require a scrubbed run and an ar_EG run to DISAGREE; a suite that
-          # skipped its own discriminator would report four green lines about a
-          # constant. p2-b's card carries this at the top of its queue.
+          #  2. `ki18n` is installed HERE so the runner stops being permanently
+          #     excused. With it present the suite takes its "preload" route
+          #     and section 2 runs its whole right-to-left fixture pass on this
+          #     machine for the first time — nine assertions about the SHIPPED
+          #     CfgRow and CfgScroll, under a real right-to-left application
+          #     direction, on Arch and Qt 6.11.2. That half is about APEX, and
+          #     it is the half worth having. Measured before landing in an
+          #     archlinux:latest container that reproduces this job's totals
+          #     exactly: 19/3/3 unchanged, 30 passed / 0 failed / 1 skipped /
+          #     3 could-not-run after.
+          #
+          # ki18n is on its OWN pacman line and NOT under a `|| echo`. If it
+          # fails to install, the supplied-loader route could-not-runs, section
+          # 2's right-to-left half goes unmeasured, and this step would still
+          # tick green — which is the failure mode the rest of this file exists
+          # to prevent. Let it fail the job instead.
+          #
+          # DO NOT "fix" a future red here by making section 1 SKIP. Its whole
+          # job is to require a scrubbed run and an ar_EG run to DISAGREE; a
+          # suite that skipped its own discriminator would report four green
+          # lines about a constant. And do NOT put LD_PRELOAD on this step: the
+          # suite finds the library itself and can therefore report WHICH route
+          # supplied the direction, where a step-level preload would leak into
+          # every probe in section 1 and break the if-and-only-if.
           pacman -S --needed --noconfirm qt6ct qt6-translations qt6-declarative qt6-base \
             || echo "note: qt6ct/qt6-translations unavailable; section 1 certainly cannot produce an RTL direction here"
+          pacman -S --needed --noconfirm ki18n
           ./tests/run-rtl-test.sh
 
       - name: Remote agent status invariants
