@@ -58,16 +58,32 @@ suite_failures() {
         | head -1 | grep -E '^[0-9]+$' || echo 0
 }
 
-# classify <suite output> <expected FAIL substring> -> CAUGHT | MISSCORED | SURVIVED
+# classify <suite output> <want> -> CAUGHT | EXCUSED | MISSCORED | SURVIVED
 #
 # Factored out of mutate() so it can be exercised on canned output below. A
-# three-way verdict that has never been shown to produce all three answers is a
+# multi-way verdict that has never been shown to produce all its answers is a
 # gate that inspects nothing -- the dominant defect family in this repository,
 # and one this harness exists to catch in other people's suites.
+#
+# EXCUSED is round 32's addition and it exists because run-rtl-test.sh now has
+# a FOURTH outcome. Three of its assertions are gated on a measured
+# precondition and report CANTRUN -- a named could-not-run -- on a machine
+# whose platform theme carries no Qt translation loader. A mutant whose target
+# row could-not-RAN was never evaluated, so calling that a SURVIVAL would
+# accuse the suite of a vacuous assertion it never made, and calling it CAUGHT
+# would be worse. It is neither: it is a verdict this harness may not give, and
+# it fails the run.
+#
+# The gate cannot engage on a booted APEX host, which is where this harness is
+# run, so in practice this arm should never fire. "Should never fire" is
+# exactly the kind of claim this tree has been wrong about before, so it is
+# detected rather than assumed.
 classify() {
     local out="$1" want="$2"
     if printf '%s' "$out" | grep -q "^FAIL  .*$want"; then
         echo CAUGHT
+    elif printf '%s' "$out" | grep -q "^CANTRUN  .*$want"; then
+        echo EXCUSED
     elif [ "$(suite_failures "$out")" -gt 0 ]; then
         echo MISSCORED
     else
@@ -78,9 +94,14 @@ classify() {
 # ── self-test: the scoring above, in all three states and both directions ────
 selftest() {
     local red green fails=0
+    # The canned totals lines are the REAL format, four fields since round 32.
+    # A self-test written against a format the suite no longer prints would
+    # pass while the parser it is testing had stopped working.
     red="FAIL  the explicit numeric x: sites in src/ are exactly the bucketed ones — the set moved
-run-rtl-test: 24 passed, 6 failed, 0 skipped"
-    green="run-rtl-test: 30 passed, 0 failed, 0 skipped"
+run-rtl-test: 24 passed, 6 failed, 0 skipped, 0 could-not-run"
+    green="run-rtl-test: 37 passed, 0 failed, 0 skipped, 0 could-not-run"
+    excused="CANTRUN  with qt6ct loaded the direction follows the locale — MEASURED: links no libKF6I18n
+run-rtl-test: 30 passed, 0 failed, 1 skipped, 3 could-not-run"
 
     chk() {  # chk <label> <want> <got>
         if [ "$2" = "$3" ]; then printf '  ok   %s\n' "$1"
@@ -92,6 +113,10 @@ run-rtl-test: 24 passed, 6 failed, 0 skipped"
         MISSCORED "$(classify "$red"   "a sentence this suite never prints")"
     chk "a green suite is the only thing that is a SURVIVAL" \
         SURVIVED  "$(classify "$green" "a sentence this suite never prints")"
+    chk "a row the suite COULD NOT RUN is EXCUSED, not a survival" \
+        EXCUSED   "$(classify "$excused" "the direction follows the locale")"
+    chk "and a could-not-run the mutant was not aimed at is still a survival" \
+        SURVIVED  "$(classify "$excused" "a sentence this suite never prints")"
     chk "counting failures off a red totals line"   6 "$(suite_failures "$red")"
     chk "counting failures off a green totals line" 0 "$(suite_failures "$green")"
     chk "output with no totals line at all counts 0 and cannot read as green" \
@@ -147,10 +172,19 @@ EDIT
         printf '      ── FIX THE EXPECTATION, NOT THE CODE. What actually went red: ──\n'
         printf '%s\n' "$out" | grep -E '^FAIL' | sed 's/^/      /'
         misscored=$((misscored + 1))
+    elif [ "$verdict" = EXCUSED ]; then
+        # The row this mutant is aimed at reported a could-not-run, so it was
+        # never evaluated and no verdict about it is available. Counted with
+        # the misscores because it means the same thing: this harness cannot
+        # score this mutant on this machine and must not pretend otherwise.
+        printf '%-5s EXCUSED   the target row could-not-RAN; no verdict is available\n' "$id"
+        printf '      the assertion aimed at: %s\n' "$want"
+        printf '%s\n' "$out" | grep -E '^CANTRUN' | sed 's/^/      /'
+        misscored=$((misscored + 1))
     else
         printf '%-5s SURVIVED  %s\n' "$id" "$want"
         printf '      ── the suite stayed GREEN with this mutant applied ──\n'
-        printf '%s\n' "$out" | grep -E '^(FAIL|SKIP|run-rtl-test)' | sed 's/^/      /'
+        printf '%s\n' "$out" | grep -E '^(FAIL|SKIP|CANTRUN|run-rtl-test)' | sed 's/^/      /'
         survived=$((survived + 1))
     fi
     restore
@@ -222,14 +256,24 @@ mutate R3 "$ROW" \
     "CfgRow passes mirroring down to the control it holds"
 
 # R4 — the pin in section 3. A window root gains mirroring and the ledger does
-#      not: the count must move and the suite must say so, because "0 of 14
-#      mirror" is the honest half of this row and a silently drifting number is
-#      how a named remaining half becomes a forgotten one.
+#      not: the count must move and the suite must say so, because "0 of 14"
+#      is the honest half of this row and a silently drifting number is how a
+#      named remaining half becomes a forgotten one.
+#
+#      Round 32 makes this mutant sharper than it was. What it writes is
+#      EXACTLY the edit somebody closing standing-queue item 7 would make, and
+#      that edit is a SILENT NO-OP: PanelWindow's chain is
+#      PanelWindowInterface -> WindowInterface -> Reloadable -> QObject, with
+#      no Item and no Window in it, so Qt attaches nothing, creates the object
+#      anyway, leaves errorString() empty and prints one QWARN. Before round 32
+#      this suite counted the STRING, so that no-op would have moved the count
+#      from 0 to 14 and been signed off as the remaining half of the row. The
+#      two rows this mutant now sits above are what stop that.
 mutate R4 "$WIN" \
     'PanelWindow {' \
     'PanelWindow {
     LayoutMirroring.enabled: false' \
-    "window roots mirror"
+    "window roots declare mirroring"
 
 # R5 — the locale probe stops varying. Both runs are handed the same locale, so
 #      the section measures a constant while printing a number that looks like a
@@ -326,6 +370,30 @@ mutate R13 "$SCROLL" \
     '    LayoutMirroring.enabled: Qt.application.layoutDirection === Qt.RightToLeft' \
     '    LayoutMirroring.enabled: true' \
     "an untouched CfgScroll mirrors on its shipped declaration alone"
+
+# R14 — the attach probe's CONTROL. Both halves of that row are turned into
+#       the same question, so the probe can no longer tell "LayoutMirroring
+#       silently does nothing HERE" from "LayoutMirroring does nothing
+#       ANYWHERE". A row whose control has stopped controlling must not stay
+#       green: without it, "the no-op is silent" would be a sentence about a
+#       probe that measures one thing twice.
+mutate R14 "$SUITE_F" \
+    '    Component { id: asWindow; Window { LayoutMirroring.enabled: true } }' \
+    '    Component { id: asWindow; QtObject { LayoutMirroring.enabled: true } }' \
+    "attaching LayoutMirroring to a non-Item is a SILENT no-op"
+
+# R15 — the OTHER direction of the prototype-chain row, and the direction that
+#       actually matters. That row exists to go RED on the day Quickshell gives
+#       its windows an Item or Window ancestor, because that is the day
+#       standing-queue item 7 stops being impossible and becomes a task. This
+#       makes the walk find an ancestor where there is none, and the suite has
+#       to say THE ROUTE HAS OPENED rather than quietly keep reporting a gap
+#       that is no longer a gap. A pin that can only fail when things get worse
+#       is half a pin.
+mutate R15 "$SUITE_F" \
+    '        [ "$link" = "Item" ] && has_item=1' \
+    '        [ "$link" = "Reloadable" ] && has_item=1' \
+    "the shell's window roots are types LayoutMirroring cannot attach to"
 
 echo
 printf 'mutants applied=%d, failed-to-apply=%d, caught=%d, SURVIVED=%d, MISSCORED=%d\n' \
