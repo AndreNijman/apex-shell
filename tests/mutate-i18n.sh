@@ -96,6 +96,38 @@ mutate S2 "src/services/agents/AgentHelpContent.qml marks exactly" \
   's|\\bqsTr\\(|\\bqsTrNoSuchMacro\\(|'
 
 echo
+echo "── section 6: the route from the shell to a translator ──"
+# Round 34 replaced a grep that could answer NO about a shell that reaches a
+# translator perfectly well, and YES about a C++ file somebody moved into src/.
+# Its replacement reads three real files, so all three reads get a mutant: a
+# row built out of file reads is only worth the reads still happening.
+
+# I1 — the entry-point half is pointed at a file shell.qml does not load. The
+#      row must go red: it reads shell.qml's CONTENT, not a name it remembers.
+mutate I1 "shell.qml reaches the Apex.I18n module" \
+  's|^BOOT="src/i18n/I18nBootstrap.qml"$|BOOT="src/services/Time.qml"|'
+
+# I2 — the module half is pointed at a source file that installs no translator.
+#      The qmldir is the module's other half and installs nothing, so the row is
+#      red for the OTHER reason, with the other message — which is why the two
+#      halves are separate arms rather than one `&&`.
+mutate I2 "shell.qml reaches the Apex.I18n module" \
+  's|^PLUGIN="tests/apex-i18n-plugin.cpp"$|PLUGIN="tests/apex-i18n-qmldir"|'
+
+# I3 — the import line's anchor is spelled so that it can never match, leaving
+#      the filename test standing alone. This is the read the other two cannot
+#      cover: I1 and I2 both leave the import grep intact, so a row that had
+#      stopped looking at the import line would be caught by neither.
+#
+#      Note what this mutant deliberately does NOT touch: `MODULE`. Changing it
+#      would also change the assertion's own title, the harness would look for
+#      a sentence the suite no longer prints, and a correctly detected defect
+#      would be reported as a broken expectation — FOUND 29, met once already
+#      in this repository and not worth meeting twice.
+mutate I3 "shell.qml reaches the Apex.I18n module" \
+  's|"\^import +|"^importt +|'
+
+echo
 echo "── section 4: the host probe ──"
 
 # T1 — the control is pointed at the host that does NOT translate, so the probe
