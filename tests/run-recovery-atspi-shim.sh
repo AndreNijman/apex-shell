@@ -61,7 +61,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/.." && pwd)"
 
 pass=0; fail=0; skip=0
-ok()   { echo "  ok   $1"; pass=$((pass + 1)); }
+ok()   { echo "  ok   $1${2:+  — $2}"; pass=$((pass + 1)); }
 bad()  { echo "  FAIL $1${2:+  — $2}"; fail=$((fail + 1)); }
 nope() { echo "  SKIP $1${2:+  — $2}"; skip=$((skip + 1)); }
 section() { printf '\n── %s ──\n' "$1"; }
@@ -89,6 +89,68 @@ FX_CACHE=".cache/apex-shell"
 FX_ATTENTION="Secure Boot"
 FX_ROUTE_UNKNOWN="installer-media"
 FX_DOCTOR_WARN="ACPI platform_profile present"
+
+# ─────────────────────────────────────────────────────────────────────────────
+section "§0 this suite calls each assertion by ONE name, whatever the outcome"
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Deliberately ABOVE every skip-out, so it runs on machines that can host
+# nothing else here — the Arch runner has no quickshell and would otherwise
+# leave this unchecked for ever.
+#
+# The defect it gates was found by tests/mutate-recovery-atspi-shim.sh on
+# 2026-09-19, and it is the assertion-level version of a shape this tree keeps
+# meeting. The pre-plan Erase row used to say
+#
+#     ok   … the Erase button reports NO states at all — a reader is told it is unavailable
+#     FAIL … the Erase button reports itself unavailable
+#
+# — one row with two names. Nothing about that is visible in a diff, and
+# everything that keys on the assertion breaks: a mutation harness verifies a
+# mutant's target against the `ok` wording and then looks for it in the `FAIL`
+# wording, finds nothing, and scores MISSCORED — a real defect reported as a
+# broken expectation. A human diffing two runs loses the row the same way.
+#
+# So: every `bad` title must be a substring of some `ok` or `nope` title. That
+# is the exact property the harness depends on, stated once, checked here.
+if ! command -v python3 >/dev/null 2>&1; then
+    nope "every assertion is called by the same name whether it passes or fails" \
+         "no python3, so this suite's own source could not be parsed"
+else
+    drift="$(python3 - "${BASH_SOURCE[0]}" <<'PY'
+import re, sys
+src = open(sys.argv[1], encoding="utf-8").read()
+# The FIRST quoted argument of every ok/bad/nope call is the assertion's name;
+# the optional second is the detail, which is free to differ and should.
+calls = [(m.group(1), m.group(2))
+         for m in re.finditer(r'\b(ok|bad|nope)\s+"((?:[^"\\]|\\.)*)"', src)]
+titles = {k: [t for w, t in calls if w == k] for k in ("ok", "bad", "nope")}
+# A negative control, so this check is never a gate that inspects nothing: the
+# same matcher, run over a pair that HAS drifted, must find it.
+control = [t for t in ["a row that reports NO states at all"]
+           if not any(t in o for o in ["a row that reports itself unavailable"])]
+if len(control) != 1:
+    print("CONTROL-FAILED")
+    sys.exit(0)
+orphans = sorted({b for b in titles["bad"]
+                  if not any(b in o for o in titles["ok"] + titles["nope"])})
+print("%d %d %d" % (len(titles["ok"]), len(titles["bad"]), len(titles["nope"])))
+for o in orphans:
+    print("   ", o)
+PY
+)"
+    if [ "$(printf '%s\n' "$drift" | head -1)" = "CONTROL-FAILED" ]; then
+        bad "every assertion is called by the same name whether it passes or fails" \
+            "the matcher did not flag a pair that HAS drifted, so it would not have flagged a real one either"
+    elif [ "$(printf '%s\n' "$drift" | wc -l)" -eq 1 ]; then
+        ok "every assertion is called by the same name whether it passes or fails" \
+           "$(printf '%s\n' "$drift" | head -1 | awk '{print $1" ok / "$2" FAIL / "$3" SKIP titles"}')"
+    else
+        bad "every assertion is called by the same name whether it passes or fails" \
+            "these FAIL titles appear under no ok/SKIP title, so a harness that verified the ok wording cannot match the FAIL wording"
+        printf '%s\n' "$drift" | tail -n +2 | sed 's/^/      /'
+    fi
+fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 section "§1 what it takes to run at all — each missing piece named separately"
@@ -592,7 +654,7 @@ fi
 # that refuses in silence.
 pre="$(grep -E '^ +[0-9]+ \| role=push button \| name=Erase \|' "$W/tree-open.txt" | head -1)"
 if [ -z "$pre" ]; then
-    nope "before the plan exists the Erase button is on the bus but reports itself unavailable" \
+    nope "before the plan exists the Erase button reports itself unavailable" \
          "there is no 'Erase' node before the plan — if Qt has stopped publishing invisible items, FOUND 16 has moved and this assertion needs rewriting rather than deleting"
 else
     # The states field, taken out by name rather than matched inside the whole
@@ -601,7 +663,8 @@ else
     # contains the word.
     pre_states="$(printf '%s\n' "$pre" | sed -n 's/.*| states=\([^|]*\)|.*/\1/p' | tr -d ' ')"
     if [ -z "$pre_states" ]; then
-        ok "before the plan exists the Erase button reports NO states at all — a reader is told it is unavailable"
+        ok "before the plan exists the Erase button reports itself unavailable" \
+            "it carries no states at all, which is how a reader is told"
     else
         bad "before the plan exists the Erase button reports itself unavailable" \
             "it carries states=$pre_states. Binding \`enabled\` to RecoveryService.commitReady is what Qt maps to the enabled/sensitive states; without it a reader meets a live-looking destructive button and is refused in silence."
@@ -639,9 +702,9 @@ for _ in $(seq 1 60); do
     sleep 0.25
 done
 if grep -q -- 'apex recover reset --scope desktop --json' "$APEX_ARGV"; then
-    ok "ACT 3: pressing 'Show what would be lost' over the bus really runs the DRY RUN, and only the dry run"
+    ok "ACT 3: pressing 'Show what would be lost' over the bus really runs the dry run, and only the dry run"
 else
-    bad "ACT 3: pressing 'Show what would be lost' over the bus really runs the dry run" \
+    bad "ACT 3: pressing 'Show what would be lost' over the bus really runs the dry run, and only the dry run" \
         "the stub recorded: $(tr '\n' ';' <"$APEX_ARGV")"
 fi
 
@@ -685,9 +748,10 @@ else
     done
     case "$post" in *"actions=Press"*) : ;; *) miss="$miss Press-action" ;; esac
     if [ -z "$miss" ]; then
-        ok "with the list rendered, the Erase button becomes available — enabled, sensitive, focusable, pressable"
+        ok "with the list rendered, the Erase button becomes available on the bus" \
+            "enabled, sensitive, focusable, pressable"
     else
-        bad "with the list rendered, the Erase button becomes available" \
+        bad "with the list rendered, the Erase button becomes available on the bus" \
             "missing:$miss in $post"
     fi
 fi
@@ -699,7 +763,7 @@ for _ in $(seq 1 60); do
 done
 commit_line="$(grep -- '--commit' "$APEX_ARGV" | head -1)"
 if [ -z "$commit_line" ]; then
-    bad "ACT 4: a reader can COMPLETE the reset over the bus, and the exact argv goes out" \
+    bad "ACT 4: a reader can COMPLETE the reset over the bus, with the exact token the plan printed" \
         "nothing with --commit was recorded. This is the shape of the defect found on 2026-09-19: the loss list acknowledged itself one line before the phase allowed it, commitReady was false for ever, and the reset could not be completed by anybody. Recorded: $(tr '\n' ';' <"$APEX_ARGV")"
 elif [ "$commit_line" = "apex recover reset --scope desktop --commit --confirm $FX_TOKEN" ]; then
     ok "ACT 4: a reader can COMPLETE the reset over the bus, with the exact token the plan printed"

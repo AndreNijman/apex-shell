@@ -415,7 +415,7 @@ mutate R4 "$PAGE" '                Accessible.description: (compRow.row ? compRo
 # in silence. `enabled` is what Qt maps to those states.
 mutate R5 "$PAGE" '                            enabled: RecoveryService.commitReady' \
                   '                            enabled: true' \
-    'before the plan exists the Erase button reports NO states at all'
+    'before the plan exists the Erase button reports itself unavailable'
 
 mutate R6 "$PAGE" '                            Accessible.name: lossHeadline.text' \
                   '                            Accessible.name: ""' \
