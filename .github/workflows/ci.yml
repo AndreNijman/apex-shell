@@ -1697,6 +1697,44 @@ jobs:
             || echo "note: fonts unavailable; the non-Latin rendering section will SKIP"
           ./tests/run-i18n-test.sh
 
+      # The HOST half of P2-004, and the row the ledger has been blocked on
+      # since round 3. run-i18n-test.sh section 4 measures that quickshell
+      # builds a bare QQmlEngine and calls no installTranslator, so the shell's
+      # qsTr() strings can never change language however well the pipeline
+      # works. The conclusion drawn from it -- that the fix is upstream's --
+      # was one step too far: a bare QQmlEngine still resolves QML modules off
+      # its import path, and a QML module may carry a compiled plugin that runs
+      # C++ inside the shell's process before a binding is evaluated.
+      #
+      # tests/apex-i18n-plugin.cpp is that module. This step builds it and
+      # measures it in a bare QQmlEngine assembled out of quickshell's own two
+      # lines -- which is the half that RUNS here, because the runner has no
+      # quickshell. Section 4 of the suite is the in-situ half and refuses BY
+      # NAME on this machine rather than skipping quietly. Read the totals line.
+      #
+      # pkgconf for pkg-config, qt6-tools for lrelease AND for moc's host-tool
+      # directory, which is on no distribution's PATH and differs between Arch
+      # and Fedora -- the suite asks qmake6 -query QT_HOST_LIBEXECS rather than
+      # hardcoding either.
+      - name: Internationalisation — the host change, built and measured
+        if: ${{ !cancelled() }}
+        run: |
+          pacman -S --needed --noconfirm qt6-declarative qt6-base qt6-tools pkgconf \
+            || echo "note: Qt 6 development files are unavailable; the suite will SKIP and say so"
+          ./tests/run-i18n-host-test.sh
+
+      # ...and that the suite above can go red, in both directions. The mutant
+      # that matters is M1: it takes qmlRegisterModule() out of the plugin's
+      # registerTypes(), which is the exact trap that cost this round an
+      # afternoon -- the .so is still dlopen()ed and the qmldir is still read,
+      # and the import fails with "module is not installed" while every symptom
+      # says the plugin is fine. Like every mutation harness in this repository
+      # it refuses to score anything when the baseline made too few assertions
+      # to be a baseline, and exits 0 saying so.
+      - name: Internationalisation — the host change, mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-i18n-host.sh
+
       # Right-to-left layout (P2-004). The ledger carried "RTL: the image
       # cannot render it" for nineteen rounds on an argument nobody ran; round
       # 20 measured it and it is false -- Arabic, Hebrew, Thai and Devanagari
@@ -2479,6 +2517,11 @@ jobs:
             "tests/atspi-walk.py"
             "tests/lib/atspi.sh"
             "tests/run-i18n-test.sh"
+            "tests/run-i18n-host-test.sh"
+            "tests/mutate-i18n-host.sh"
+            "tests/apex-i18n-plugin.cpp"
+            "tests/apex-i18n-host.cpp"
+            "tests/apex-i18n-qmldir"
             "tests/run-rtl-test.sh"
             "tests/rtl-test.qml"
             "translations/apex-shell_de.ts"
