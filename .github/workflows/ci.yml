@@ -1799,6 +1799,112 @@ jobs:
           # stay GREEN.
           ./tests/check-recovery-ui.sh
 
+      # The OTHER half of the recovery surface: what a user who cannot see it
+      # gets. RecoveryPage.qml had ZERO Accessible.* in 892 lines, and read
+      # back over real AT-SPI on 2026-09-19 the page published its shared Cfg*
+      # buttons and not one of its 8 component rows, 6 recovery routes, 7
+      # doctor checks, its headline status line, or a section title. Pressing
+      # "Show what would be lost" over the bus ran the dry run and added
+      # exactly ZERO nodes, and the `Erase N item(s) now` button did not exist
+      # on the bus at all — a bare Rectangle with a MouseArea, so a reader
+      # could walk three of the four deliberate steps of a factory reset and
+      # dead-end, and a keyboard user could not finish it while every SAFE
+      # control on the page could be pressed.
+      #
+      # Two rules it holds, neither of them visible in a diff: no private-use
+      # glyph may carry a role or reach a name, and no role may exist without
+      # an explicit Accessible.name (Qt's fallback from `text` is real, and it
+      # is silent the day it stops applying).
+      #
+      # This is the source-reading half and it runs anywhere. The runtime
+      # read-back needs quickshell, which is an AUR package and is not on this
+      # runner, so it prints a named SKIP — read the totals line, not the tick.
+      - name: Recovery screen accessibility
+        if: ${{ !cancelled() }}
+        run: |
+          pacman -S --needed --noconfirm python \
+            || echo "note: python unavailable; the suite will FATAL rather than pretend"
+          ./tests/check-recovery-a11y.sh
+
+      # …and that the suite above can go red, on the NAMED assertion, and does
+      # not go red at prose.
+      #
+      # Fourteen mutants break one arm of the markup each; three more quote
+      # every rule the suite enforces in a comment, add a property nothing
+      # asserts, and add an icon with no markup, and the suite has to stay
+      # GREEN. (It was eleven-plus-three until 5327bc6 added three assertions
+      # and three mutants for the FOUND 28 fix; 34/0/0 and 17 applied / 14
+      # CAUGHT / 3 HELD are the current numbers, the same here and on this
+      # runner.) A
+      # checker that prose can turn red punishes people for explaining
+      # themselves, which matters most where the markup is not self-evident.
+      #
+      # It mutates FOUR files, and the fourth is the point: round 31 made the
+      # factory reset's commit button reachable over the accessibility bus, and
+      # that is only defensible because the refusal lives in
+      # RecoveryService.commitReset() and not in the button's visibility. R9
+      # deletes that refusal and the suite has to say so.
+      #
+      # Restores come from a sha256-verified snapshot in a per-run mktemp -d,
+      # never `git checkout --`: the Checkout step in this job runs BEFORE git
+      # is installed, so the workspace has no .git at all.
+      - name: Recovery screen accessibility — mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-recovery-a11y.sh
+
+      # The runtime half of the two steps above: the same page, but read off a
+      # real AT-SPI bus instead of out of the source, and then DRIVEN over it.
+      #
+      # It walks the whole destructive flow with nothing but DoAction —
+      # disclosure, scope, dry run, commit — against an `apex` stub that
+      # RECORDS its argv, so "a reader can finish this" and "a reader cannot
+      # finish it early" are both checkable facts rather than readings of the
+      # markup. Pressing the commit button over the bus BEFORE the loss list
+      # exists must leave no `--commit` in that log; pressing it after must
+      # produce the exact argv, confirm token included.
+      #
+      # That is not a hypothetical. It is how the factory reset was found to be
+      # uncompletable BY ANYBODY on 2026-09-19 (the service acknowledged the
+      # loss list one line before its own phase allowed it, so `commitReady`
+      # was false for ever). A source-reading suite could not have found it —
+      # every wire it looks for was present and correct.
+      #
+      # Like every shell-half step in this job it will SKIP here for want of
+      # quickshell, and say so. Read the totals line, not the tick.
+      - name: Recovery screen accessibility — read-back and drive over AT-SPI
+        if: ${{ !cancelled() }}
+        run: |
+          pacman -S --needed --noconfirm at-spi2-core dbus python-gobject \
+            qt6-declarative qt6-base labwc pkgconf \
+            || echo "note: part of the a11y stack is unavailable; the suite will SKIP and say so"
+          ./tests/run-recovery-atspi-shim.sh
+
+      # …and that the suite above can go red, on the named assertion.
+      #
+      # The mutant that earns the pair is R12, and it is the ONLY one here that
+      # applies TWO edits. It reverts RecoveryService._onPlan()'s assignment
+      # order — `plan` before `resetPhase`, the 2026-09-19 defect — AND removes
+      # the page's phase-change re-ack, and then requires ACT 4 to stop being
+      # completable. Two edits because the fix is genuinely two-deep: either
+      # half alone restores a completable reset, so no SINGLE edit reproduces
+      # the defect, and a harness that broke whichever half it could and called
+      # that a regression gate would be claiming a two-deep guard is one-deep.
+      # Without this mutant the suite is a green run nobody can distinguish
+      # from a green run against a product whose most destructive verb does not
+      # work — which is exactly what shipped until that date.
+      #
+      # One assertion here has NO mutant, by design and stated in the harness's
+      # own totals output: "pressing Erase before the loss list exists commits
+      # NOTHING" is three-deep (press() checks commitReady, commitReset()
+      # checks the phase, commitArgv() checks the token against the rendered
+      # count), so no single edit makes a --commit appear there.
+      #
+      # It refuses to score anything when the baseline made too few assertions
+      # to be a baseline, and exits 0 saying which pieces were missing.
+      - name: Recovery screen accessibility — read-back mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-recovery-atspi-shim.sh
+
       - name: Privacy & Permissions logic
         run: |
           # P1-061. Drives src/services/permissions.js — the file the shell
@@ -2309,6 +2415,10 @@ jobs:
             "src/services/config_tab/pages/RecoveryPage.qml"
             "tests/recovery-test.js"
             "tests/check-recovery-ui.sh"
+            "tests/check-recovery-a11y.sh"
+            "tests/mutate-recovery-a11y.sh"
+            "tests/run-recovery-atspi-shim.sh"
+            "tests/mutate-recovery-atspi-shim.sh"
             "src/services/permissions.js"
             "src/services/PermissionsService.qml"
             "src/services/config_tab/pages/PrivacyPage.qml"
