@@ -964,6 +964,34 @@ jobs:
           # than it silently not existing.
           ./tests/run-hypr-configerrors-test.sh
 
+      - name: the ALT+Tab switcher, driven by real ALT and TAB keys
+        run: |
+          # Every keystroke reaching the switcher, on a headless labwc with the
+          # same four bindings shape the image ships, pressed by wtype. Eleven
+          # assertions about what the keys do: the single-tap case selects the
+          # PREVIOUS window, more taps step and wrap, SHIFT steps back, Escape
+          # closes without touching focus, Return commits, a commit with nothing
+          # open is harmless, and a window that has left the screen is still in
+          # the list and still selectable.
+          #
+          # SKIPS without labwc, quickshell or wtype, which is what this
+          # container will do — the value is on a machine that has them. The
+          # step exists so the entry point cannot quietly stop existing.
+          ./tests/run-window-switcher-test.sh
+
+      - name: the switcher's commit, measured against a real compositor
+        run: |
+          # The other half. A headless labwc accepts a foreign-toplevel
+          # activate() and changes nothing — measured, with and without a
+          # virtual keyboard on the seat — so "the window you switched to is
+          # focused, and the pointer is in it" is asserted in a nested Hyprland
+          # instead, which is also the session that binds this switcher.
+          #
+          # Seven assertions, including the two Andre asked for by name: a
+          # window on another workspace is in the list, and committing it both
+          # focuses it and switches workspace.
+          ./tests/run-switcher-activate-test.sh
+
       - name: labwc session support is wired up
         run: |
           fail=0

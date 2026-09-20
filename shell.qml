@@ -88,6 +88,11 @@ ShellRoot {
                 // Volume / brightness / mic OSD — transient top-centre pill
                 Osd { screen: modelData }
 
+                // ALT+Tab. One per output, and only the one on the focused
+                // output draws; it takes no keyboard focus, so it cannot steal
+                // focus from the window it is about to activate.
+                WindowSwitcher { screen: modelData; screenName: modelData.name }
+
                 // Standalone settings window. Not part of PopupLayer on
                 // purpose: it is a window you leave open, so it must not be
                 // subject to the popup fleet's click-outside dismissal.

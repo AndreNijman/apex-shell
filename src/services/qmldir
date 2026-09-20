@@ -18,6 +18,9 @@ singleton NotificationService 1.0 ./notifications/NotificationService.qml
 NotificationList ./notifications/NotificationList.qml
 singleton WallpaperService 1.0 WallpaperService.qml
 singleton ScreenRecService 1.0 ScreenRecService.qml
+# The ALT+Tab switcher's state. A singleton because the overlay is built per
+# output and all of them show one selection.
+singleton WindowSwitcherService 1.0 WindowSwitcherService.qml
 singleton SettingsService 1.0 SettingsService.qml
 KanbanBoard KanbanBoard.qml
 AppLauncher AppLauncher.qml
