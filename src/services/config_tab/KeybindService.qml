@@ -1025,6 +1025,36 @@ QtObject {
             lines.push("")
         }
         lines.push("}")
+
+        // ── niri's own ALT+Tab ───────────────────────────────────────────────
+        //
+        // The Hyprland session binds APEX's window switcher; niri keeps its own
+        // `recent-windows`, which has been a real hold-ALT-tap-Tab-release-ALT
+        // switcher with MRU ordering and live previews since 25.11. The shell's
+        // could not be given a hold-and-release there: it needs the compositor
+        // to report the ALT RELEASE (a switcher surface that took keyboard
+        // focus to see it itself would be taking focus off the window it is
+        // about to activate), and niri has no release binding.
+        //
+        // Written out even though it is niri's DEFAULT, for the same reason
+        // apex-os writes `cursor { no_warps = false }` into the Hyprland seed
+        // when that too is the default: APEX's ALT+Tab must not be a thing a
+        // later upstream release can change its mind about. Only the binds are
+        // named; every other recent-windows setting is deliberately left at
+        // niri's value rather than re-stated here where it would rot.
+        //
+        // niri merges included sections key by key and later definitions win,
+        // so this overrides a `recent-windows` block above it in config.kdl
+        // without disturbing settings it does not mention.
+        lines.push("")
+        lines.push("// niri's own Alt-Tab, pinned rather than inherited. See the note in")
+        lines.push("// src/services/WindowSwitcherService.qml for why this session keeps it.")
+        lines.push("recent-windows {")
+        lines.push("    binds {")
+        lines.push("        Alt+Tab       { next-window; }")
+        lines.push("        Alt+Shift+Tab { previous-window; }")
+        lines.push("    }")
+        lines.push("}")
         return lines.join("\n")
     }
 

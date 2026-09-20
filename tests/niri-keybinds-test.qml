@@ -118,6 +118,17 @@ ShellRoot {
         check("untranslatable bindings are reported",
               root.kdl.indexOf("no niri equivalent of") >= 0)
 
+        // niri's own ALT+Tab, written out rather than inherited. The Hyprland
+        // session binds APEX's switcher; niri has no key-RELEASE binding for it
+        // to commit on, and 26.04 ships a hold-and-release switcher of its own.
+        // Pinned here so APEX's ALT+Tab cannot change because upstream changed
+        // a default — the same reason apex-os writes `cursor { no_warps =
+        // false }` into the Hyprland seed when that is also the default.
+        check("niri's recent-windows switcher is configured, not inherited",
+              /recent-windows\s*\{[\s\S]*Alt\+Tab\s*\{\s*next-window;/.test(root.kdl))
+        check("and ALT+SHIFT+Tab steps backwards",
+              root.kdl.indexOf("Alt+Shift+Tab { previous-window; }") >= 0)
+
         // Write it out for niri to read.
         root._write.command = ["bash", "-c",
             "printf '%s' \"$1\" > \"$2\"", "--", root.kdl, root.outPath]
