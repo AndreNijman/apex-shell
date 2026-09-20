@@ -91,12 +91,18 @@ headless_begin
 # apex-os's own build asserts its rc.xml carries them — what is under test here
 # is what the shell does when they fire.
 #
-# The command is a stub apex-switcher. The shipped one tests a flag file first
-# so that an ALT release with nothing open costs no IPC; that filtering is
-# asserted in apex-os's image build. Leaving it OUT here is deliberate, because
-# it makes this suite answer a question the other cannot: every ALT release the
-# machine produces reaches the shell, so a `commit` with nothing open must be
-# silently harmless rather than an error or a stray activation.
+# The command is a stub apex-switcher, and it reproduces the shipped one's flag
+# file — including the part that matters most, which is that `next` writes the
+# flag BEFORE the IPC rather than leaving it to the shell. That ordering is the
+# whole of the single-tap race: a quick ALT+Tab releases ALT about 60ms after
+# Tab goes down, and the shell's own write is at the end of a
+# spawn -> apex -> qs ipc -> Process chain that takes longer than that. A stub
+# without it would pass this suite while the shipped path dropped every fast
+# commit.
+#
+# The stub's own flag lives under $HEADLESS_W rather than XDG_RUNTIME_DIR, so
+# the assertion below about a stale flag can put the two deliberately out of
+# step.
 mkdir -p "$HEADLESS_W/cfg/labwc"
 #
 # The pid is read from a FILE rather than inherited from the environment. labwc
@@ -106,6 +112,12 @@ mkdir -p "$HEADLESS_W/cfg/labwc"
 # keys never reached the switcher. Which is true, and blames the wrong thing.
 cat > "$HEADLESS_W/bin/apex-switcher" <<STUB
 #!/usr/bin/env bash
+flag="$HEADLESS_W/flag/switcher-open"
+case "\$1" in
+    next|prev)     mkdir -p "\${flag%/*}"; : > "\$flag" ;;
+    commit|cancel) [ -e "\$flag" ] || { echo "\$(date +%s.%N) \$1 SKIPPED-no-flag" \
+                       >> "$HEADLESS_W/switcher-stub.log"; exit 0; } ;;
+esac
 pid="\$(cat "$HEADLESS_W/shell.pid" 2>/dev/null)"
 [ -n "\$pid" ] || { echo "no shell pid" >> "$HEADLESS_W/switcher-stub.log"; exit 1; }
 echo "\$(date +%s.%N) \$1" >> "$HEADLESS_W/switcher-stub.log"
@@ -136,11 +148,7 @@ cat > "$HEADLESS_W/cfg/labwc/rc.xml" <<XML
     <keybind key="A-Return">
       <action name="Execute" command="$HEADLESS_W/bin/apex-switcher commit"/>
     </keybind>
-    <keybind key="W-2">
-      <action name="SendToDesktop" to="2"/>
-    </keybind>
   </keyboard>
-  <desktops number="2"/>
 </labwc_config>
 XML
 
@@ -335,6 +343,47 @@ if [ "$idle" = "$before" ] && [ "$state" = "closed" ] && [ "$out" = "closed" ]; 
     ok "a commit arriving with nothing open changes nothing (said: $out)"
 else
     bad "a commit arriving with nothing open changes nothing ($before -> $idle, state $state, said $out)"
+fi
+
+# ── 6b. the SINGLE-TAP race: Tab and commit with no pause between them ──────
+#
+# The case the whole flag-file ordering exists for. A quick ALT+Tab releases ALT
+# roughly 60ms after Tab goes down, and the shell's own flag write is at the end
+# of a spawn -> apex -> qs ipc -> Process chain longer than that. If the flag is
+# written by the SHELL rather than by the helper, the commit finds no flag,
+# exits silently, and the switcher is left open on entry 2 — so the next switch
+# commits the wrong window.
+#
+# No -s anywhere in this line, deliberately: the two keys are as close together
+# as wtype can put them.
+: > "$HEADLESS_W/switcher-stub.log"
+before="$(active)"
+wtype -M alt -P Alt_L -k Tab -k Return -p Alt_L -m alt
+sleep 1.5
+state="$(probe state)"
+skipped="$(grep -c 'SKIPPED-no-flag' "$HEADLESS_W/switcher-stub.log" 2>/dev/null || true)"
+if [ "$state" = "closed" ] && [ "${skipped:-0}" -eq 0 ]; then
+    ok "a single tap with no pause still commits — the flag beat the release"
+else
+    bad "a single tap with no pause still commits (state $state, $skipped commits dropped for want of a flag)"
+    tail -6 "$HEADLESS_W/switcher-stub.log" 2>/dev/null | sed 's/^/       /'
+fi
+
+# ── 6c. a stale flag repairs itself ─────────────────────────────────────────
+#
+# `next` writes the flag and `next` with one window open opens nothing, and a
+# shell killed mid-switch never removes its own. Either leaves every later ALT
+# release paying for an IPC call. The call that proves the flag is stale is the
+# one that clears it.
+shell_flag="$(probe flag)"
+mkdir -p "${shell_flag%/*}" 2>/dev/null
+: > "$shell_flag"
+quickshell ipc --pid "$shell_pid" call window-switcher commit >/dev/null 2>&1
+sleep 0.8
+if [ ! -e "$shell_flag" ]; then
+    ok "a commit arriving with nothing open removes the stale flag ($shell_flag)"
+else
+    bad "a commit arriving with nothing open removes the stale flag ($shell_flag is still there)"
 fi
 
 # ── 7. a window that is not on this desktop is still in the list ────────────
