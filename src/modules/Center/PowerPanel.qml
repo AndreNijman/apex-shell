@@ -2,9 +2,14 @@ import QtQuick
 import "../../"
 import "../../components"
 
-// Power Profile panel — 5 named tiers (Ultra Max … Power Saver), backed by
-// PowerProfileService. The GPU Mode (envycontrol Integrated/Hybrid) selector was
-// removed: this machine has only the Radeon 780M iGPU, no NVIDIA dGPU.
+// Power Profile panel — the named tiers apexd will actually accept, backed by
+// PowerProfileService. The count is deliberately not repeated here: this comment
+// said "5 named tiers (Ultra Max … Power Saver)" for a whole release after apexd
+// had dropped two of them, so it documented buttons that could only fail. The
+// list lives in PowerProfileService and nowhere else.
+//
+// The GPU Mode (envycontrol Integrated/Hybrid) selector was removed: this
+// machine has only the Radeon 780M iGPU, no NVIDIA dGPU.
 Item {
     id: root
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
