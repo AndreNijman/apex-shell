@@ -445,6 +445,52 @@ QtObject {
         onTriggered: { Popups.closeAll(); Popups.contextMenuOpen = true }
     }
 
+    // ── ALT+Tab window switcher ──────────────────────────────────────────────
+    //
+    // Four functions on one target, because they are four operations on one
+    // piece of state and the shell has to see them in the order the keyboard
+    // produced them.
+    //
+    // `commit` and `cancel` arrive from a keybind on the ALT *release*, which
+    // the compositor fires every time anybody lets go of ALT — see
+    // WindowSwitcherService for why the release is a compositor binding and not
+    // a keyboard grab. /usr/libexec/apex-switcher filters the closed case out
+    // before this is reached, so a call getting here is nearly always real; the
+    // service still returns quietly when nothing is open, because "nearly
+    // always" is not "always" and a stale flag file must not produce an error.
+    //
+    // Each returns a string so `apex shell switcher …` has something to print
+    // and, more usefully, so a test can drive the switcher over IPC and read
+    // back what it did.
+    property var windowSwitcher: IpcHandler {
+        target: "window-switcher"
+
+        function next(): string {
+            WindowSwitcherService.next()
+            return root._switcherState()
+        }
+        function prev(): string {
+            WindowSwitcherService.prev()
+            return root._switcherState()
+        }
+        function commit(): string {
+            const was = WindowSwitcherService.labelFor(WindowSwitcherService.selected)
+            WindowSwitcherService.commit()
+            return was === "" ? "closed" : "activated " + was
+        }
+        function cancel(): string {
+            WindowSwitcherService.cancel()
+            return "closed"
+        }
+    }
+
+    function _switcherState() {
+        if (!WindowSwitcherService.open) return "closed"
+        return "open " + (WindowSwitcherService.index + 1)
+            + "/" + WindowSwitcherService.entries.length
+            + " " + WindowSwitcherService.labelFor(WindowSwitcherService.selected)
+    }
+
     property var clipboard: IpcHandler {
         target: "clipboard-toggle"
         function toggle() {
