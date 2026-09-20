@@ -197,6 +197,13 @@ Singleton {
         const n = root.entries.length
         if (n === 0) { root.cancel(); return }
         root.index = ((root.index + delta) % n + n) % n
+
+        // The commit for this step may already have come and gone.
+        if (root._commitArrivedAt > 0
+            && (Date.now() - root._commitArrivedAt) < root._outOfOrderWindowMs) {
+            root._commitArrivedAt = 0
+            root.commit()
+        }
     }
 
     // ── Holding the compositor's window list while a switch is in progress ──
@@ -260,7 +267,7 @@ Singleton {
     /// `activate()`, so the fallback below is the only path there and nothing
     /// is called twice.
     function commit() {
-        if (!root.open) return
+        if (!root.open) { root._commitOutOfOrder(); return }
         const handle = root.selected
         const address = root._compositorHandle(handle)
         root._close()
@@ -270,17 +277,100 @@ Singleton {
         // does not matter for focus — but it does for the pointer: the
         // compositor warps the cursor into the window it focuses, and a surface
         // still mapped over that point would take the enter event first.
-        let done = false
-        if (address !== "") done = CompositorService.focusWindow(address)
-        if (!done && typeof handle.activate === "function") handle.activate()
+        if (address !== "" && CompositorService.focusWindow(address)) {
+            root._touch(handle)
+            return
+        }
+
+        // Nothing matched. On Hyprland that is very often a RACE rather than an
+        // answer: the window list is populated by a `hyprctl clients` that only
+        // starts when the ref above is taken, so a switch fast enough to open
+        // and commit inside one round trip finds it still empty. Falling
+        // straight through to activate() there would be falling through to the
+        // path measured NOT to move focus in a nested compositor.
+        //
+        // So an empty list is waited on, once, briefly. A list that is
+        // populated and simply does not contain this window is not a race and
+        // is not waited on — that is the two-identical-terminals case, which
+        // _compositorHandle refuses on purpose.
+        if (CompositorService.can
+            && CompositorService.can.windowFocus
+            && (CompositorService.windows || []).length === 0) {
+            root._pending = handle
+            root._settle.restart()
+            return
+        }
+
+        if (typeof handle.activate === "function") handle.activate()
         root._touch(handle)
+    }
+
+    property var _pending: null
+
+    property var _settle: Timer {
+        // Long enough for one `hyprctl clients` on a busy desk, short enough
+        // that a user who pressed the key sees the switch rather than a pause.
+        // A commit that is still unmatched when it fires takes the protocol's
+        // own route rather than waiting again: one retry, then the fallback.
+        interval: 250
+        repeat: false
+        onTriggered: {
+            const handle = root._pending
+            root._pending = null
+            if (!handle) return
+            const address = root._compositorHandle(handle)
+            if (address !== "" && CompositorService.focusWindow(address)) {
+                root._touch(handle)
+                return
+            }
+            if (typeof handle.activate === "function") handle.activate()
+            root._touch(handle)
+        }
     }
 
     /// Close and change nothing. ALT+ESCAPE, and ESCAPE inside the overlay.
     function cancel() {
-        if (!root.open) return
+        if (!root.open) { root._healFlag(); return }
         root._close()
     }
+
+    // ── A commit that arrived before the open it belongs to ──────────────────
+    //
+    // ALT+Tab and the ALT release are two INDEPENDENT short-lived processes —
+    // the compositor spawns /usr/libexec/apex-switcher for each — and each one
+    // is a spawn, an `apex`, and a `qs ipc call`. On a fast tap they are maybe
+    // 60ms apart at the keyboard and 50-100ms long, so the commit can reach
+    // this service before the `next` it belongs to. The switcher then opens
+    // AFTER its own commit and sits there, and the user's next switch commits
+    // the wrong window.
+    //
+    // It cannot be fixed by ordering the processes; it is fixed by remembering.
+    // A commit with nothing open records the moment, and the next `_step` that
+    // opens within the window below commits immediately — a fast tap behaves
+    // like a fast tap.
+    //
+    // This cannot be armed by a stray ALT release. /usr/libexec/apex-switcher
+    // only forwards a commit when the flag file exists, and only `next` and
+    // `prev` create it — so a commit reaching this function at all means a step
+    // really did happen.
+    property double _commitArrivedAt: 0
+
+    // Generous, because the thing being waited for is two process spawns, and
+    // harmless, because arming it requires a step that is already on its way.
+    readonly property int _outOfOrderWindowMs: 600
+
+    function _commitOutOfOrder() {
+        root._commitArrivedAt = Date.now()
+        root._healFlag()
+    }
+
+    /// A commit or cancel that arrives with nothing open means the flag file
+    /// outlived the switcher — `next` with only one window open writes one and
+    /// opens nothing, and a shell that was killed mid-switch never removed its.
+    /// Every Alt release would then pay for an IPC call forever. Clearing it
+    /// from the one call that proves it is stale costs nothing and repairs the
+    /// state without anything having to notice.
+    function _healFlag() { root._writeFlag(false) }
 
     function _close() {
         root.open = false
@@ -315,6 +405,21 @@ Singleton {
             ? ["sh", "-c", 'mkdir -p "$(dirname "$0")" && : > "$0"', root.flagPath]
             : ["sh", "-c", 'rm -f "$0"', root.flagPath]
         root._flagProc.running = true
+    }
+
+    // ── Seeding ──────────────────────────────────────────────────────────────
+    //
+    // `_mru` is built from focus CHANGES, so at startup it is empty and the
+    // snapshot falls back to the compositor's own order — in which entry 1 is
+    // very likely not the window the user is looking at, and the first single
+    // tap of the session lands on a window that is already focused and looks
+    // like a dead shortcut. Seeding from whatever is active when the shell
+    // comes up costs one line and removes that.
+    Component.onCompleted: {
+        if (ToplevelManager.activeToplevel) root._touch(ToplevelManager.activeToplevel)
+        // A flag left by a previous shell would make every ALT release pay for
+        // an IPC call until the first switch. This shell has nothing open.
+        root._writeFlag(false)
     }
 
     // A shell that exits with the switcher open would leave the flag behind,
