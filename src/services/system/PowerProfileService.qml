@@ -7,10 +7,11 @@ import Quickshell.Io
 // PowerProfileService — APEX Shell front-end for apexd, the APEX-OS power daemon
 // (D-Bus org.apexos.Apexd1.Power). Set goes through the `apex` CLI, which calls
 // SetTier over D-Bus; apexd applies the governor/EPP/platform_profile for the
-// tier (+ the RyzenAdj reapply loop on ultra-max where the profile enables it)
-// and authorizes the call via polkit — passwordless for the active local user.
+// tier and authorizes the call via polkit — passwordless for the active local
+// user. The RyzenAdj reapply loop this comment used to mention went with the
+// tiers that drove it.
 //
-// The five tier IDs are exactly apexd's (ultra-max … power-saver). The current
+// The three tier IDs are exactly apexd's (performance … power-saver). The current
 // tier is read from the D-Bus `Tier` property via busctl, so apexd's AC↔battery
 // auto-switching (it changes tier on plug/unplug) is reflected in the UI
 // regardless of which surface set it. If apexd is not running, reads fail
@@ -31,15 +32,18 @@ Singleton {
     property int interval: 4000
 
     // High→low, matching apexd's tier ladder and the historical picker order.
+    //
+    // `ultra-max` and `ultra` are NOT here and must not come back. apexd removed
+    // both in the universal-hardware pass — `apexd-core/src/tier.rs` says so, and
+    // `apexd-core/tests/tier_plan.rs` asserts that neither string parses into a
+    // Tier. This list went on offering them anyway, so two buttons sat on the
+    // System page that could only ever fail: `apex tier ultra` exits non-zero and
+    // the optimistic label snapped back on the next poll. Nobody noticed for a
+    // release; Andre found them by looking at the page.
+    //
+    // `check-tier-parity` in apex-os now fails CI if this list and apexd's
+    // `Tier` disagree, in either direction.
     readonly property var profiles: [
-        {
-            "id": "ultra-max",
-            "label": "Ultra-Max"
-        },
-        {
-            "id": "ultra",
-            "label": "Ultra Performance"
-        },
         {
             "id": "performance",
             "label": "Performance"
@@ -71,7 +75,7 @@ Singleton {
         root.setProc.running = true
     }
 
-    // read: busctl get-property prints `s "ultra"`; pull the quoted value.
+    // read: busctl get-property prints `s "balanced"`; pull the quoted value.
     readonly property Process getProc: Process {
         command: ["busctl", "--system", "get-property", "org.apexos.Apexd1", "/org/apexos/Apexd1", "org.apexos.Apexd1.Power", "Tier"]
         running: false
