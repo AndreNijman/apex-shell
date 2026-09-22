@@ -228,6 +228,20 @@ QtObject {
         CompositorService.setAccentBorder(String(Theme.active).replace('#', ''))
     }
 
+    // Theme.active arrives asynchronously: ColorLoader watches matugen's
+    // colors.json, so at Component.onCompleted it is usually still the built-in
+    // default rather than the wallpaper's accent. Retinting only there set the
+    // border once from a palette that had not loaded and never again until the
+    // user next changed wallpaper — which is why a freshly booted session sat on
+    // the stock chartreuse while the rest of the bar was warm. Following the
+    // property covers both the first load and every later matugen run.
+    // Wrapped in a property because the root is a QtObject, which has no default
+    // property — a bare child here is silently dropped rather than rejected.
+    property var _accentWatch: Connections {
+        target: Theme
+        function onActiveChanged() { root.updateBorders() }
+    }
+
     Component.onCompleted: {
         readConfigProc.running = true
         if (Theme.active && String(Theme.active).trim() !== "") {
