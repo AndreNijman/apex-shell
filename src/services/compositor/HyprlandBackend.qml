@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import "title.js" as Title
 import Quickshell.Io
 import Quickshell.Hyprland
 import "../../"
@@ -222,16 +223,17 @@ QtObject {
                 // Same race as the window list: a title landing after the ref
                 // was released would overwrite the placeholder.
                 if (!root.titleWanted) return
-                let t = ""
-                let a = ""
-                try {
-                    const d = JSON.parse(this.text)
-                    // `{}` is what Hyprland returns with nothing focused.
-                    t = (d && d.title)        ? d.title        : ""
-                    a = (d && d.initialTitle) ? d.initialTitle : ""
-                } catch (e) { t = ""; a = "" }
-                root.focusedTitle   = t !== "" ? t : "Desktop"
-                root.focusedAppName = a !== "" ? a : "Desktop"
+
+                // The decision lives in title.js so tests/title-test.js can
+                // drive the file the shell loads rather than a copy. null
+                // means the read never completed — a killed or truncated
+                // `hyprctl`, which _refreshTitle() causes by design on every
+                // raw event — and the last known-good title must stand.
+                // Writing "Desktop" there is what made the notch flash.
+                const r = Title.readActiveWindow(this.text)
+                if (r === null) return
+                root.focusedTitle   = r.title
+                root.focusedAppName = r.appName
             }
         }
     }
