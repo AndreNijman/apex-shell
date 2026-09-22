@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import "title.js" as Title
+import "clients.js" as Clients
 import Quickshell.Io
 import Quickshell.Hyprland
 import "../../"
@@ -266,27 +267,20 @@ QtObject {
                 // cleared the list and this result would refill it — a poller
                 // that "stopped" but left stale data behind. Discard it.
                 if (!root.windowsWanted) return
-                let out = []
-                try {
-                    const list = JSON.parse(this.text) || []
-                    for (let i = 0; i < list.length; i++) {
-                        const c = list[i]
-                        if (!c.mapped) continue
-                        out.push({
-                            handle:      c.address,
-                            title:       c.title || "",
-                            appId:       c.class || "",
-                            workspaceId: c.workspace ? c.workspace.id : -1,
-                            output:      c.monitor !== undefined ? String(c.monitor) : "",
-                            focused:     false,
-                            x:           c.at   ? c.at[0]   : 0,
-                            y:           c.at   ? c.at[1]   : 0,
-                            width:       c.size ? c.size[0] : 0,
-                            height:      c.size ? c.size[1] : 0
-                        })
-                    }
-                } catch (e) { out = [] }
-                root.windows = out
+
+                // The decision lives in clients.js so tests/clients-test.js can
+                // drive the file the shell loads rather than a copy. null means
+                // the read never completed — a killed or truncated `hyprctl`,
+                // which _refreshWindows() causes by design on every raw event —
+                // and the last known-good list must stand. Assigning [] there
+                // is what made the launcher's lower rows flash: every window
+                // row vanished and the next poll put them all back.
+                //
+                // `[]` that PARSED is a different thing and does clear the
+                // list: it is Hyprland's answer for "no windows are open".
+                const r = Clients.readClients(this.text)
+                if (r === null) return
+                root.windows = r
             }
         }
     }

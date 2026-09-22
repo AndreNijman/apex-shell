@@ -243,6 +243,11 @@ jobs:
           # contract.
           node tests/firewall-test.js
           node tests/title-test.js
+          # Same defect one property along, and the title fix did not touch it:
+          # a killed `hyprctl -j clients` used to assign an EMPTY window list,
+          # so the launcher's ranked rows blinked out and back on every
+          # Hyprland raw event. `[]` that parsed is still a real answer.
+          node tests/clients-test.js
 
       - name: Firewall surface invariants
         run: |
