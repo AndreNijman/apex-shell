@@ -7,6 +7,8 @@ import "../"
 
 FloatingWindow {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }   // P1-040: this output's sizes
+
 
     property int warnLevel: 30
     property int timeout:   8000
@@ -27,8 +29,9 @@ FloatingWindow {
     onVisibleChanged: if (visible) autoClose.restart()
 
     // ── Severity helpers ─────────────────────────────────────────────────────
-    readonly property color accentColor: warnLevel <= 5  ? "#ff4444" :
-                                         warnLevel <= 10 ? "#ff6b00" : "#ffcc00"
+    // Two colours for three titles on purpose: the title carries the third step.
+    // Matches BatteryStatus's icon, which reports the same fact in the bar.
+    readonly property color accentColor: warnLevel <= 10 ? Theme.danger : Theme.warning
     readonly property string title:      warnLevel <= 5  ? "Critical Battery" :
                                          warnLevel <= 10 ? "Very Low Battery"  : "Low Battery"
     readonly property string message:    warnLevel <= 5
@@ -38,7 +41,7 @@ FloatingWindow {
     // ── Visuals ───────────────────────────────────────────────────────────────
     Rectangle {
         anchors.fill: parent
-        radius:       Theme.cornerRadius + 4
+        radius:       theme.cornerRadius + 4
         color:        Theme.background
 
         // Left accent bar
@@ -65,14 +68,14 @@ FloatingWindow {
             Text {
                 text:           "⚠  " + root.title
                 color:          root.accentColor
-                font.pixelSize: Theme.fs(13)
+                font.pixelSize: theme.fs(13)
                 font.bold:      true
             }
 
             Text {
                 text:           root.message
                 color:          Theme.text
-                font.pixelSize: Theme.fs(12)
+                font.pixelSize: theme.fs(12)
                 width:          parent.width
                 wrapMode:       Text.WordWrap
             }

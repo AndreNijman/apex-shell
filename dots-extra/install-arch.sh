@@ -332,6 +332,26 @@ if [[ -f "$POLKIT_RULE_SRC" ]]; then
     fi
 fi
 
+# ── Agent sandbox default (polkit action) ────────────────────────────────────
+# Config → Agents switches the APEX sandbox default for new agent sessions, and
+# switching it toward unrestricted takes a password at the desktop's polkit
+# agent. That needs an ACTION registered (not a rule): without it pkcheck exits
+# 127 with "is not registered" and the toggle cannot be turned on at all.
+#
+# Installed unconditionally. It grants nothing — it only declares that this one
+# id exists and is answered with the user's own password — so it is harmless on
+# a machine with no agent runtime, and installing it later would mean the
+# setting is silently unavailable until somebody re-runs the installer.
+POLKIT_ACTION_SRC="$REPO_DIR/dots-extra/polkit/org.apexos.shell.agent.policy"
+POLKIT_ACTION_DST="/usr/share/polkit-1/actions/org.apexos.shell.agent.policy"
+if [[ -f "$POLKIT_ACTION_SRC" ]]; then
+    if sudo install -Dm644 "$POLKIT_ACTION_SRC" "$POLKIT_ACTION_DST" 2>/dev/null; then
+        log_ok   "polkit: agent sandbox action → $POLKIT_ACTION_DST"
+    else
+        log_warn "polkit: could not install the agent action (Config → Agents cannot switch the sandbox default on)"
+    fi
+fi
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # STEP 5 — Hyprland Config

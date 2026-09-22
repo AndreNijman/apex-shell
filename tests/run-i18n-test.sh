@@ -1,0 +1,638 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────────────────────
+#  run-i18n-test.sh — do this shell's strings extract, compile, and SUBSTITUTE?
+#  (roadmap P2-004, internationalisation baseline)
+#
+#  ── Why the bar is "substitute", not "supports translation" ─────────────────
+#
+#  Qt supports translation. Saying so measures nothing: every QML tree on earth
+#  supports translation in the same sense, including this one on the day it had
+#  zero translatable strings. What decides whether a German user sees German is
+#  a chain of four links, and any one of them breaks silently:
+#
+#     1. the string sits inside qsTr()          — or lupdate never sees it
+#     2. lupdate extracts it into a .ts         — or there is nothing to translate
+#     3. lrelease compiles the .ts to a .qm     — or there is nothing to load
+#     4. a QTranslator is installed and the     — or the words never change
+#        engine reads the translated text
+#
+#  So this suite runs all four on the SHIPPED file, with the real tools, and
+#  reads the result back out of a running QML engine.
+#
+#  ── The assertion that makes the rest mean anything ─────────────────────────
+#
+#  A test that loads a translation and finds German proves nothing on its own:
+#  it could be reading a hardcoded German string, or the fixture could be wrong
+#  in a way that happens to match. So the SAME fixture runs twice, once with
+#  -translation and once without, and the two runs must DISAGREE. An identical
+#  pair means the translation was never loaded and every other check here is
+#  decoration.
+#
+#  ── The ratio is the baseline ───────────────────────────────────────────────
+#
+#  Round 33 moved this file from five marked strings to 186 — every word a user
+#  reads in AgentHelpContent.qml except command bodies, mono terms and mono
+#  descriptions, which are machine text and must not be translated. The suite
+#  counts the marked strings and the tree's user-facing literals, prints the
+#  ratio, and pins the translatable count EXACTLY in both directions: a new
+#  qsTr() that nobody translated, or a lost one, both move the number and both
+#  should be a decision rather than a surprise.
+#
+#  MARKED IS NOT TRANSLATED, and this suite is careful not to let the bigger
+#  number read as progress it is not. translations/apex-shell_de.ts carries
+#  German for five of the 186. The other 181 extract, compile and load, and come
+#  back in English because nobody has written them.
+#
+#  ── Headless discipline ─────────────────────────────────────────────────────
+#
+#  qmltestrunner on the offscreen platform. The ambient display variables get
+#  removed from the environment rather than merely ignored, the same way
+#  run-a11y-controls-test.sh does it, so no plugin that decides to go looking
+#  can find the compositor somebody is working in.
+# ─────────────────────────────────────────────────────────────────────────────
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root="$(cd "$here/.." && pwd)"
+cd "$root" || exit 2
+
+CONTENT="src/services/agents/AgentHelpContent.qml"
+TS="translations/apex-shell_de.ts"
+
+pass=0; fail=0; skip=0
+ok()  { printf '  ok   %s\n' "$1"; pass=$((pass + 1)); }
+bad() { printf '  FAIL %s%s\n' "$1" "${2:+  — $2}"; fail=$((fail + 1)); }
+skp() { printf '  skip %s%s\n' "$1" "${2:+  — $2}"; skip=$((skip + 1)); }
+section() { printf '\n── %s ──\n' "$1"; }
+
+[ -f "$CONTENT" ] || { echo "FATAL: no $CONTENT" >&2; exit 2; }
+[ -f "$TS" ]      || { echo "FATAL: no $TS" >&2; exit 2; }
+
+stage="$(mktemp -d)"
+cleanup() { rm -rf "$stage"; }
+trap cleanup EXIT INT TERM
+
+# Fedora suffixes these binaries; Debian/Ubuntu use a `6` suffix or none.
+find_tool() {
+    local n
+    for n in "$@"; do
+        command -v "$n" >/dev/null 2>&1 && { printf '%s' "$n"; return 0; }
+    done
+    return 1
+}
+LUPDATE="$(find_tool lupdate-qt6 lupdate6 lupdate /usr/lib64/qt6/bin/lupdate)"
+LRELEASE="$(find_tool lrelease-qt6 lrelease6 lrelease /usr/lib64/qt6/bin/lrelease)"
+RUNNER="$(find_tool qmltestrunner-qt6 qmltestrunner /usr/lib64/qt6/bin/qmltestrunner)"
+
+# ═════════════════════════════════════════════════════════════════════════════
+section "1. the strings are marked for translation at all"
+# ═════════════════════════════════════════════════════════════════════════════
+# Counted from the file rather than remembered. This is the numerator of the
+# baseline, and it is pinned exactly: an unreviewed change in either direction
+# is a change in what this repository claims about its own translatability.
+EXPECT_TR=186
+# Code lines only. The header comment mentions qsTr by name, and a comment is
+# not a translatable string.
+n_tr="$(grep -vE '^\s*//' "$CONTENT" | grep -oE '\bqsTr\(' | wc -l | tr -d ' ')"
+if [ "$n_tr" = "$EXPECT_TR" ]; then
+    ok "$CONTENT marks exactly $EXPECT_TR strings with qsTr()"
+else
+    bad "$CONTENT marks exactly $EXPECT_TR strings with qsTr()" "found $n_tr"
+fi
+
+# The denominator. Deliberately a wide net over the whole tree: the point of a
+# baseline is the honest total, not a flattering one. Printed, not asserted —
+# it moves whenever anyone writes a label, and failing a build for that would
+# teach people to stop writing labels.
+LITERAL_RE='\b(text|label|title|description|tooltip|placeholderText|tip|blurb|heading)\s*:\s*[^\n]*"[A-Za-z][^"]*"'
+n_lit="$(grep -rnE "$LITERAL_RE" src --include='*.qml' 2>/dev/null | grep -vE ':[0-9]+:\s*//' | wc -l | tr -d ' ')"
+n_tr_all="$(grep -rn 'qsTr(' src --include='*.qml' 2>/dev/null | grep -vE ':[0-9]+:\s*//' | wc -l | tr -d ' ')"
+printf '       baseline: %s call sites use qsTr(); about %s user-facing literals in src/**.qml\n' \
+    "$n_tr_all" "$n_lit"
+
+# ═════════════════════════════════════════════════════════════════════════════
+section "2. lupdate really extracts them"
+# ═════════════════════════════════════════════════════════════════════════════
+if [ -z "$LUPDATE" ]; then
+    skp "lupdate extracts the marked strings" "no lupdate on this machine (qt6-qttools-devel)"
+else
+    cp "$CONTENT" "$stage/AgentHelpContent.qml"
+    # -no-obsolete so the count is what this file marks TODAY, not the union of
+    # everything it has ever marked.
+    "$LUPDATE" -silent -no-obsolete "$stage/AgentHelpContent.qml" \
+        -ts "$stage/extracted.ts" >/dev/null 2>&1
+    if [ -s "$stage/extracted.ts" ]; then
+        n_src="$(grep -c '<source>' "$stage/extracted.ts" 2>/dev/null | tr -d ' ')"
+        if [ "$n_src" = "$EXPECT_TR" ]; then
+            ok "lupdate extracted exactly $EXPECT_TR strings from the shipped file"
+        else
+            bad "lupdate extracted exactly $EXPECT_TR strings from the shipped file" \
+                "extracted $n_src"
+        fi
+        # The context name decides which <context> block a translation must sit
+        # in. Getting it wrong produces a .qm that loads and translates nothing,
+        # which is the quietest failure in this whole chain.
+        if grep -q '<name>AgentHelpContent</name>' "$stage/extracted.ts"; then
+            ok "the extracted context is AgentHelpContent, which is what $TS translates"
+        else
+            bad "the extracted context is AgentHelpContent" \
+                "got: $(grep -m1 '<name>' "$stage/extracted.ts" | tr -d ' ')"
+        fi
+        # Every source string in the checked-in .ts must be one lupdate really
+        # produces. A stale .ts translates strings that no longer exist and
+        # leaves the live ones English, with nothing anywhere reporting it.
+        missing=0
+        while IFS= read -r src_line; do
+            grep -qF "$src_line" "$stage/extracted.ts" || missing=$((missing + 1))
+        done < <(grep -oE '<source>[^<]*</source>' "$TS")
+        if [ "$missing" = 0 ]; then
+            ok "every string $TS translates is one lupdate still extracts (no stale entries)"
+        else
+            bad "every string $TS translates is one lupdate still extracts" \
+                "$missing entr(ies) in $TS no longer exist in the source"
+        fi
+    else
+        bad "lupdate extracted exactly $EXPECT_TR strings from the shipped file" \
+            "lupdate produced no .ts"
+    fi
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
+section "3. lrelease compiles, and a running engine substitutes"
+# ═════════════════════════════════════════════════════════════════════════════
+if [ -z "$RUNNER" ]; then
+    skp "a running QML engine reads the German strings" "no qmltestrunner"
+elif [ -z "$LRELEASE" ]; then
+    skp "a running QML engine reads the German strings" "no lrelease"
+else
+    if ! "$LRELEASE" -silent "$TS" -qm "$stage/de.qm" >/dev/null 2>&1 \
+       || [ ! -s "$stage/de.qm" ]; then
+        bad "lrelease compiles $TS into a .qm"
+    else
+        ok "lrelease compiles $TS into a loadable .qm"
+
+        # The fixture instantiates the SHIPPED singleton and reports what the
+        # engine actually resolved each property to. It asserts nothing itself:
+        # the two runs are compared out here, so a single run cannot decide the
+        # answer on its own.
+        cp "$CONTENT" "$stage/AgentHelpContent.qml"
+        cat > "$stage/qmldir" <<'QMLDIR'
+singleton AgentHelpContent AgentHelpContent.qml
+QMLDIR
+        cat > "$stage/i18n-test.qml" <<'FIXTURE'
+import QtQuick
+import QtTest
+import "."
+
+TestCase {
+    name: "I18n"
+    // Printed, never asserted here. What the strings SHOULD be depends on
+    // whether a translator was installed, and only the runner outside knows
+    // that. Keeping the judgement out of the fixture is what lets the same
+    // fixture serve as both halves of the comparison.
+    function test_000_report() {
+        console.log("I18N entryLabel=" + AgentHelpContent.entryLabel)
+        console.log("I18N cardTitle=" + AgentHelpContent.cardTitle)
+        console.log("I18N cardRead=" + AgentHelpContent.cardRead)
+        console.log("I18N cardDismiss=" + AgentHelpContent.cardDismiss)
+        verify(true)
+    }
+}
+FIXTURE
+
+        # console.log from QML lands on the `qml` logging category, and Qt ships
+        # with debug output off by default — the first version of this suite read
+        # nothing at all and reported an empty string for both runs. The category
+        # is turned back on explicitly rather than relying on the machine's
+        # /etc/xdg/QtProject/qtlogging.ini, which differs between distributions.
+        run_fixture() {   # run_fixture [qm]
+            local qm="${1:-}"
+            env -u WAYLAND_DISPLAY -u DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
+                QT_QPA_PLATFORM=offscreen \
+                QT_LOGGING_RULES="qml.debug=true;js.debug=true;qt.qml.binding.removal.info=false" \
+                timeout 120 "$RUNNER" -platform offscreen \
+                ${qm:+-translation "$qm"} \
+                -input "$stage/i18n-test.qml" 2>&1
+        }
+
+        plain="$(run_fixture)"
+        german="$(run_fixture "$stage/de.qm")"
+
+        field() {   # field <output> <name>
+            printf '%s' "$1" | sed -n "s/.*I18N $2=\\(.*\\)/\\1/p" | head -1 | sed 's/[[:space:]]*$//'
+        }
+
+        p_entry="$(field "$plain" entryLabel)"
+        g_entry="$(field "$german" entryLabel)"
+        p_read="$(field "$plain" cardRead)"
+        g_read="$(field "$german" cardRead)"
+        p_dis="$(field "$plain" cardDismiss)"
+        g_dis="$(field "$german" cardDismiss)"
+
+        if [ -z "$p_entry" ] || [ -z "$g_entry" ]; then
+            bad "the fixture instantiated the shipped singleton and reported its strings" \
+                "plain[$p_entry] german[$g_entry] — see: $(printf '%s' "$german" | tail -3 | tr '\n' ' ')"
+        else
+            ok "the fixture instantiated the shipped singleton and reported its strings"
+
+            # THE SENSITIVITY CHECK. Without this the rest is decoration: a
+            # fixture that never loaded the translator would return English
+            # twice and every equality below could still be written to pass.
+            if [ "$p_entry" != "$g_entry" ]; then
+                ok "the same fixture gives DIFFERENT text with and without -translation"
+            else
+                bad "the same fixture gives different text with and without -translation" \
+                    "both runs said [$p_entry] — the translation was never loaded"
+            fi
+
+            # Untranslated: the source strings, unchanged.
+            [ "$p_entry" = "How Agents & Workspaces work" ] \
+                && ok "untranslated, the engine reads the English source string" \
+                || bad "untranslated, the engine reads the English source string" "got [$p_entry]"
+
+            # Translated: the German the .ts supplies, read off the live object.
+            [ "$g_entry" = "Wie Agenten und Arbeitsbereiche funktionieren" ] \
+                && ok "translated, entryLabel reads the German from $TS" \
+                || bad "translated, entryLabel reads the German from $TS" "got [$g_entry]"
+
+            [ "$g_read" = "Anleitung lesen" ] \
+                && ok "translated, cardRead reads the German from $TS" \
+                || bad "translated, cardRead reads the German from $TS" "got [$g_read]"
+
+            [ "$g_dis" = "Verstanden" ] \
+                && ok "translated, cardDismiss reads the German from $TS" \
+                || bad "translated, cardDismiss reads the German from $TS" "got [$g_dis]"
+
+            # Three independent strings, so one lucky match cannot carry the
+            # verdict — and they must differ from their English forms.
+            changed=0
+            [ "$p_entry" != "$g_entry" ] && changed=$((changed + 1))
+            [ "$p_read"  != "$g_read"  ] && changed=$((changed + 1))
+            [ "$p_dis"   != "$g_dis"   ] && changed=$((changed + 1))
+            if [ "$changed" = 3 ]; then
+                ok "all three sampled strings changed under translation, not just one"
+            else
+                bad "all three sampled strings changed under translation" \
+                    "only $changed of 3 moved"
+            fi
+        fi
+    fi
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
+section "4. can a translated string reach the host the SHELL runs in?"
+# ═════════════════════════════════════════════════════════════════════════════
+# Section 3 ended in German. It ended in German inside qmltestrunner, which
+# installs a QTranslator for you the moment you pass -translation. The shell
+# does not run inside qmltestrunner: it runs inside quickshell, and whether a
+# QTranslator is ever installed there is a property of THAT binary, not of this
+# repository.
+#
+# Earlier rounds recorded the gap as "no QTranslator anywhere in src/" — a grep
+# over QML. The observation was right and the spelling invited the wrong repair,
+# because it reads like an omission somebody could fix by writing a line of QML.
+# They cannot: QTranslator is a C++ class and is not a QML type, so no file
+# under src/ can install one however it is written. The gap is in the host, so
+# the host is what gets asked.
+#
+# EVERY ROW BELOW IS STILL TRUE, AND SINCE ROUND 33 IT IS NO LONGER A DEAD END.
+# What these rows measure is that quickshell installs no translator and takes no
+# automatic route — not that nothing can. A bare QQmlEngine still resolves QML
+# modules off its import path, and a module may carry a compiled plugin whose
+# initializeEngine() runs C++ in the shell's own process before a binding is
+# evaluated. tests/run-i18n-host-test.sh builds exactly that and reads the
+# SHIPPED AgentHelpContent singleton back in German inside the real
+# /usr/bin/quickshell. So these rows are the STATEMENT OF THE PROBLEM and
+# tests/apex-i18n-plugin.cpp is the answer to it; if quickshell itself ever
+# gains the call, these rows go red and say so, which is what they are for.
+#
+# Nothing here is trusted on an absence alone. Each claim has its positive
+# control in the SAME run, because "nm printed nothing" and "the binary contains
+# no such call" look identical from the outside — permission denied is not
+# absence, in binary form:
+#
+#   - the same probe is pointed at libQt6QuickTest, the host section 3 has just
+#     watched translate, and must FIND the translator calls there;
+#   - Qt's automatic route — an i18n/qml_<lang>.qm beside the root QML file — is
+#     shown to EXIST in libQt6Qml before quickshell is shown not to take it;
+#   - and the probe must find quickshell's OWN engine class before the absence
+#     of the other one is allowed to mean anything.
+#
+# Mangled names are matched directly: the Itanium ABI spells QTranslator into
+# the symbol as the literal substring, so this needs `nm` and not `c++filt`.
+
+# Undefined symbols only: what this binary CALLS, never what a library it
+# happens to link DEFINES. That distinction is the whole probe. libQt6Qml both
+# defines QTranslator's caller and is linked by every QML host on the machine,
+# so a scan of the link closure reports "found" for a host that never calls it.
+refs() {   # refs <file> <extended-regex> -> count of matching undefined symbols
+    nm -D --undefined-only "$1" 2>/dev/null | grep -cE "$2"
+}
+
+QS_BIN="$(command -v quickshell 2>/dev/null || true)"
+if ! command -v nm >/dev/null 2>&1; then
+    skp "the host the shell runs in can install a QTranslator" \
+        "no nm on this machine (binutils) — the symbol table cannot be read"
+elif [ -z "$QS_BIN" ]; then
+    skp "the host the shell runs in can install a QTranslator" \
+        "quickshell is not installed here, so its symbol table cannot be read"
+else
+    QS_REAL="$(readlink -f "$QS_BIN")"
+    CTRL=""
+    [ -n "$RUNNER" ] && CTRL="$(ldd "$(command -v "$RUNNER")" 2>/dev/null \
+        | awk '$1 ~ /^libQt6QuickTest\.so/ { print $3; exit }')"
+    # Exact match on the soname: /libQt6Qml/ also catches libQt6QmlMeta,
+    # libQt6QmlModels and libQt6QmlWorkerScript, and nm handed three paths at
+    # once answers 0 to everything while looking like a measurement.
+    QMLLIB="$(ldd "$QS_REAL" 2>/dev/null | awk '$1 == "libQt6Qml.so.6" { print $3; exit }')"
+
+    # ── control: the probe can see a translator call where one exists ────────
+    ctrl_ok=0
+    if [ -z "$CTRL" ] || [ ! -e "$CTRL" ]; then
+        skp "the probe finds a translator call in the host that DID translate" \
+            "no libQt6QuickTest to point it at"
+    else
+        n_ctrl="$(refs "$CTRL" 'QTranslator')"
+        if [ "$n_ctrl" -gt 0 ]; then
+            ok "the probe finds a translator call in the host that DID translate — $(basename "$CTRL") calls QTranslator ($n_ctrl symbols)"
+            ctrl_ok=1
+        else
+            bad "the probe finds a translator call in the host that DID translate" \
+                "$(basename "$CTRL") shows none, so the probe is broken and every absence below would be meaningless"
+        fi
+    fi
+
+    # ── the shipped host calls nothing of the sort ───────────────────────────
+    if [ "$ctrl_ok" = 1 ]; then
+        n_qs="$(refs "$QS_REAL" 'QTranslator|installTranslator')"
+        if [ "$n_qs" = 0 ]; then
+            ok "quickshell — the host the shell really runs in — calls no QTranslator and no installTranslator"
+        else
+            bad "quickshell calls no QTranslator and no installTranslator" \
+                "found $n_qs such symbols; if the host gained translator support, this row can change"
+        fi
+    else
+        skp "quickshell calls no QTranslator and no installTranslator" \
+            "the control failed, so an absence here would prove nothing"
+    fi
+
+    # ── and Qt's automatic route is not taken either ─────────────────────────
+    auto_ok=0
+    if [ -z "$QMLLIB" ] || [ ! -e "$QMLLIB" ]; then
+        skp "Qt's automatic i18n/ route exists" "libQt6Qml.so.6 not resolvable from $QS_REAL"
+    else
+        n_auto="$(nm -D --defined-only "$QMLLIB" 2>/dev/null | grep -c 'loadTranslations')"
+        n_appdef="$(nm -D --defined-only "$QMLLIB" 2>/dev/null | grep -c 'QQmlApplicationEngine')"
+        if [ "$n_auto" -gt 0 ] && [ "$n_appdef" -gt 0 ]; then
+            ok "Qt does have an automatic route — libQt6Qml defines QQmlApplicationEngine and its translation loader, which installs a .qm found beside the root QML file"
+            auto_ok=1
+        else
+            bad "Qt has an automatic route in libQt6Qml" \
+                "loadTranslations=$n_auto QQmlApplicationEngine=$n_appdef — if Qt dropped it, the paragraph below is out of date"
+        fi
+    fi
+
+    if [ "$auto_ok" = 1 ]; then
+        n_app="$(refs "$QS_REAL" 'QQmlApplicationEngine')"
+        n_eng="$(refs "$QS_REAL" 'QQmlEngineC[12]E')"
+        if [ "$n_app" = 0 ] && [ "$n_eng" -gt 0 ]; then
+            ok "quickshell constructs a bare QQmlEngine and never a QQmlApplicationEngine, so Qt's automatic route is not taken either"
+        else
+            bad "quickshell constructs a bare QQmlEngine and never a QQmlApplicationEngine" \
+                "QQmlApplicationEngine refs=$n_app, QQmlEngine constructor refs=$n_eng — the second being 0 means the probe saw no engine at all"
+        fi
+    else
+        skp "quickshell constructs a bare QQmlEngine and never a QQmlApplicationEngine" \
+            "without the route being shown to exist, not taking it says nothing"
+    fi
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
+section "5. does the shell's hardcoded font render non-Latin text?"
+# ═════════════════════════════════════════════════════════════════════════════
+# The ledger has carried "CJK — fonts present, shell will tofu" since round 1,
+# reasoning that ~45 sites write font.family: "JetBrains Mono" and that family
+# has no CJK coverage. Both halves of that are true and the conclusion was never
+# run. Qt does not stop at the family it was handed: QFontEngineMulti asks
+# fontconfig for a font that owns the glyph. Whether that rescues this shell is
+# a measurement, and this is it.
+#
+# ── How a rendered glyph is told from a .notdef box ─────────────────────────
+#
+# Width alone cannot: both have one. So each script is measured twice — once
+# under the family the shell hardcodes, and once under every family fontconfig
+# says COVERS that codepoint — and the first must equal one of the second. An
+# advance matching a font that owns the glyph is that font having drawn it; a
+# box would measure the requested family's own width.
+#
+# The first draft of this used a private-use codepoint as a "tofu signature"
+# and it was wrong: `fc-list :charset=e000` reports 43 families on this
+# machine, so U+E000 is not the uncovered character it was assumed to be, and
+# the number it produced was a real glyph. Checked, then rewritten.
+#
+# Each script is also required NOT to be covered by the hardcoded family
+# itself, or "it matched another font" would be a coincidence rather than a
+# fallback.
+if [ -z "$RUNNER" ]; then
+    skp "the shell's hardcoded font renders non-Latin text" "no qmltestrunner"
+elif ! command -v fc-list >/dev/null 2>&1; then
+    skp "the shell's hardcoded font renders non-Latin text" "no fc-list (fontconfig) to ask what covers what"
+else
+    SHELL_FAM="JetBrains Mono"
+    if ! fc-list -q ":family=$SHELL_FAM" 2>/dev/null; then
+        skp "the shell's hardcoded font renders non-Latin text" \
+            "$SHELL_FAM is not installed here, so what the shell asks for cannot be measured"
+    else
+        # script:label:codepoint:the character itself
+        SCRIPTS="cjk:CJK:6f22:漢 ar:Arabic:0627:ا he:Hebrew:05d0:א th:Thai:0e01:ก hi:Devanagari:0905:अ"
+
+        covering() {   # covering <hex codepoint> -> up to 4 family names, one per line
+            fc-list ":charset=$1" family 2>/dev/null | tr ',' '\n' \
+                | sed 's/^ *//; s/ *$//' | grep '[^[:space:]]' | sort -u | head -4
+        }
+
+        # Build one fixture holding every measurement, so the engine starts once.
+        {
+            printf 'import QtQuick\nimport QtTest\n\nTestCase {\n    id: root\n    name: "Fonts"\n'
+            printf '    TextMetrics { id: mA; font.family: "%s"; font.pixelSize: 32; text: "A" }\n' "$SHELL_FAM"
+            printf '    TextMetrics { id: mW; font.family: "%s"; font.pixelSize: 32; text: "W" }\n' "$SHELL_FAM"
+            printf '    TextMetrics { id: mI; font.family: "%s"; font.pixelSize: 32; text: "i" }\n' "$SHELL_FAM"
+            for spec in $SCRIPTS; do
+                key="${spec%%:*}"; r1="${spec#*:}"; r2="${r1#*:}"; ch="${r2#*:}"; cp="${r2%%:*}"
+                printf '    TextMetrics { id: s_%s; font.family: "%s"; font.pixelSize: 32; text: "%s" }\n' \
+                    "$key" "$SHELL_FAM" "$ch"
+                n=0
+                while IFS= read -r fam; do
+                    printf '    TextMetrics { id: c_%s_%d; font.family: "%s"; font.pixelSize: 32; text: "%s" }\n' \
+                        "$key" "$n" "$fam" "$ch"
+                    n=$((n + 1))
+                done < <(covering "$cp")
+                # 'A' under the first covering family is the control that the
+                # family property is honoured at all.
+                [ "$n" -gt 0 ] && [ "$key" = cjk ] && printf \
+                    '    TextMetrics { id: ctrlA; font.family: "%s"; font.pixelSize: 32; text: "A" }\n' \
+                    "$(covering "$cp" | head -1)"
+            done
+            printf '    function test_000_report() {\n'
+            printf '        console.log("FONT shellA=" + mA.advanceWidth)\n'
+            printf '        console.log("FONT shellW=" + mW.advanceWidth)\n'
+            printf '        console.log("FONT shellI=" + mI.advanceWidth)\n'
+            printf '        if (typeof ctrlA !== "undefined") console.log("FONT ctrlA=" + ctrlA.advanceWidth)\n'
+            for spec in $SCRIPTS; do
+                key="${spec%%:*}"; r1="${spec#*:}"; r2="${r1#*:}"; cp="${r2%%:*}"
+                printf '        console.log("FONT s_%s=" + s_%s.advanceWidth)\n' "$key" "$key"
+                n=0
+                while IFS= read -r _fam; do
+                    printf '        console.log("FONT c_%s_%d=" + c_%s_%d.advanceWidth)\n' "$key" "$n" "$key" "$n"
+                    n=$((n + 1))
+                done < <(covering "$cp")
+            done
+            printf '        verify(true)\n    }\n}\n'
+        } > "$stage/fonts-test.qml"
+
+        fout="$(env -u WAYLAND_DISPLAY -u DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
+            QT_QPA_PLATFORM=offscreen \
+            QT_LOGGING_RULES="qml.debug=true;js.debug=true" \
+            timeout 120 "$RUNNER" -platform offscreen -input "$stage/fonts-test.qml" 2>&1)"
+        ffield() { printf '%s' "$fout" | sed -n "s/.*FONT $1=\\([0-9.]*\\).*/\\1/p" | head -1; }
+        # 26.6 metrics, not integers: compared with a tolerance rather than as
+        # strings.
+        feq() { awk -v a="$1" -v b="$2" 'BEGIN { exit !(a != "" && b != "" && (a-b < 0.01) && (b-a < 0.01)) }'; }
+
+        f_a="$(ffield shellA)"; f_w="$(ffield shellW)"; f_i="$(ffield shellI)"; f_c="$(ffield ctrlA)"
+
+        if [ -z "$f_a" ]; then
+            bad "the font fixture reported its advances" \
+                "see: $(printf '%s' "$fout" | tail -3 | tr '\n' ' ')"
+        else
+            if [ -z "$f_c" ]; then
+                skp "the family property is honoured at all" "no covering family to compare 'A' against"
+            elif feq "$f_a" "$f_c"; then
+                bad "the family property is honoured at all" \
+                    "'A' measures $f_a under two different families — every comparison below would be a tautology"
+            else
+                ok "the family property is honoured — 'A' is $f_a under $SHELL_FAM and $f_c under another family"
+            fi
+
+            if feq "$f_a" "$f_w" && feq "$f_a" "$f_i"; then
+                ok "$SHELL_FAM is monospaced here: A, W and i all advance $f_a"
+            else
+                bad "$SHELL_FAM is monospaced here" "A=$f_a W=$f_w i=$f_i"
+            fi
+
+            for spec in $SCRIPTS; do
+                key="${spec%%:*}"; r1="${spec#*:}"; label="${r1%%:*}"; r2="${r1#*:}"; cp="${r2%%:*}"
+                adv="$(ffield "s_$key")"
+                fams="$(covering "$cp")"
+                nf="$(printf '%s' "$fams" | grep -c '[^[:space:]]')"
+                self=0
+                fc-list -q ":family=$SHELL_FAM:charset=$cp" 2>/dev/null && self=1
+                if [ "$nf" -lt 1 ]; then
+                    # Which answer this is depends on WHOSE font set is being
+                    # measured. On an APEX deployment /usr IS the image, so a
+                    # script nothing covers is a product defect. On a bare CI
+                    # container it is a fact about the container, and failing
+                    # there would be the round-19 mistake of asserting about
+                    # the runner instead of the product.
+                    if [ -e /run/ostree-booted ]; then
+                        bad "$label can be rendered at all" \
+                            "fontconfig reports no installed family covering U+$cp — on this deployment that text WOULD tofu"
+                    else
+                        skp "$label can be rendered at all" \
+                            "no family here covers U+$cp, and this machine is not an APEX deployment — that is the container's font set, not the image's"
+                    fi
+                elif [ "$self" = 1 ]; then
+                    # Still measured. Without this the arm passes on fontconfig's
+                    # word alone, and a probe that wrongly said "yes" for every
+                    # script would turn this whole section green over nothing.
+                    if feq "$adv" "$f_a"; then
+                        ok "$label is covered by $SHELL_FAM itself — advance $adv is its own, no fallback needed"
+                    else
+                        bad "$label is covered by $SHELL_FAM itself" \
+                            "fontconfig says it covers U+$cp, but the advance $adv is not $SHELL_FAM's own $f_a"
+                    fi
+                elif [ -z "$adv" ]; then
+                    bad "$label is drawn by a font that covers it" "the fixture reported no advance"
+                else
+                    hit=""; n=0
+                    while IFS= read -r fam; do
+                        if feq "$adv" "$(ffield "c_${key}_${n}")"; then hit="$fam"; break; fi
+                        n=$((n + 1))
+                    done < <(printf '%s\n' "$fams")
+                    if [ -n "$hit" ]; then
+                        ok "$label falls back out of $SHELL_FAM to a font that covers U+$cp — advance $adv matches $hit, one of the $nf covering families, and is not $SHELL_FAM's own $f_a"
+                    else
+                        bad "$label is drawn by a font that covers it" \
+                            "advance $adv under $SHELL_FAM matches none of the $nf families covering U+$cp — that is what a .notdef box looks like"
+                    fi
+                fi
+            done
+        fi
+    fi
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
+section "6. what this still does NOT prove"
+# ═════════════════════════════════════════════════════════════════════════════
+# ── The predicate, and why it is not the one that used to be here ───────────
+#
+# This row used to be `grep -r 'installTranslator\|QTranslator' src`, written
+# when nobody knew what the answer would look like. It is the wrong question in
+# two directions and round 34 met both:
+#
+#   * it answers NO about a shell that reaches a translator perfectly well.
+#     The route is a QML module whose C++ plugin installs one; nothing under
+#     src/ says `QTranslator`, and nothing ever will, because QTranslator is
+#     not a QML type. That is section 4's own finding.
+#   * it answers YES for the wrong reason the moment anyone puts the plugin's
+#     .cpp under src/ — a C++ file sitting in a directory is not the shell
+#     importing anything. That is one `git mv` away and it would have turned
+#     P2-004's named remaining half green over a file move.
+#
+# So the row asks the two things that are actually load-bearing, separately,
+# and both have to hold: the ENTRY POINT reaches the module, and the MODULE
+# installs a translator. Each is a live read of a real file.
+ENTRY="shell.qml"
+BOOT="src/i18n/I18nBootstrap.qml"
+PLUGIN="tests/apex-i18n-plugin.cpp"
+MODULE="Apex.I18n"
+
+reaches=0
+# The entry point must load the bootstrap file, and the bootstrap file must
+# import the module. Split, because "shell.qml mentions a path" and "that path
+# imports the module" are different claims and only the pair is the route.
+if grep -q "$BOOT" "$ENTRY" 2>/dev/null \
+   && grep -qE "^import +${MODULE//./\\.}\b" "$BOOT" 2>/dev/null; then
+    reaches=1
+fi
+installs=0
+grep -q 'installTranslator' "$PLUGIN" 2>/dev/null && installs=1
+
+if [ "$reaches" = 1 ] && [ "$installs" = 1 ]; then
+    ok "$ENTRY reaches the $MODULE module, whose plugin installs a QTranslator"
+elif [ "$installs" = 1 ]; then
+    bad "$ENTRY reaches the $MODULE module, whose plugin installs a QTranslator" \
+        "$PLUGIN installs one, but $ENTRY does not load $BOOT, or $BOOT does not import $MODULE"
+else
+    bad "$ENTRY reaches the $MODULE module, whose plugin installs a QTranslator" \
+        "$PLUGIN does not call installTranslator, so reaching the module would achieve nothing"
+fi
+
+# What the row above does NOT say, printed rather than implied. Reaching a
+# translator is not being translated, and neither is having a catalogue: the
+# gap now is the SOURCE side, one .ts file per language written by a person.
+# Note where the plugin says all this at run time — through qInfo(), which on
+# Fedora goes to the JOURNAL and not to stderr unless QT_FORCE_STDERR_LOGGING=1
+# is set, so the place to look is `journalctl --user -b | grep APEXI18N`.
+n_ts="$(find translations -maxdepth 1 -name 'apex-shell_*.ts' 2>/dev/null | wc -l | tr -d ' ')"
+n_de="$(grep -c '<translation>' translations/apex-shell_de.ts 2>/dev/null || echo 0)"
+printf '  note %s\n' "MARKED IS NOT TRANSLATED. $n_ts language file(s) exist and apex-shell_de.ts"
+printf '       %s\n' "carries German for $n_de of the $EXPECT_TR marked strings; the other strings"
+printf '       %s\n' "extract, compile and load and come back in English because nobody has"
+printf '       %s\n' "written them. That is a translator's job and this line is the gap, not"
+printf '       %s\n' "a failure. The image side is done: apex-os Containerfile.base compiles"
+printf '       %s\n' "every translations/*.ts in a DISCARDED stage and proves each .qm loads,"
+printf '       %s\n' "so a new language is one file here and no apex-os change at all."
+
+printf '\nrun-i18n-test: passed=%d failed=%d skipped=%d\n' "$pass" "$fail" "$skip"
+[ "$fail" -eq 0 ]

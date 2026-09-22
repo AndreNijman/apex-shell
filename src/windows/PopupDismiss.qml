@@ -2,8 +2,6 @@ import Quickshell
 import Quickshell.Wayland
 import QtQuick
 import "../"
-import Quickshell.Hyprland
-import Quickshell.WindowManager
 
 // Transparent fullscreen overlay that dismisses all popups when:
 //   - The user clicks anywhere on screen
@@ -14,6 +12,8 @@ import Quickshell.WindowManager
 
 PanelWindow {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }   // P1-040: this output's sizes
+
 
     // The output this overlay belongs to, passed in by shell.qml.
     //
@@ -23,28 +23,53 @@ PanelWindow {
     // what decides whether it maps. That loop was firing on every popup open.
     required property string screenName
 
+    // THIS output's bar, handed over by shell.qml from the same per-screen
+    // Scope that built both of them (P1-040).
+    //
+    // The three notch widths used to arrive through ShellState.topBar{L,C,R}Width
+    // — one singleton field per width, one bar per output, and every bar bound
+    // into it. Last writer won. That was harmless only for as long as every bar
+    // computed the SAME number, which is exactly what stops being true the
+    // moment a bar sizes itself from its own output's density: two bars would
+    // write two different widths into one field and this mask would carve its
+    // click-through gaps out of the other monitor's geometry, non-
+    // deterministically, depending on which bar re-evaluated last.
+    //
+    // There is no per-screen map here either. The bar object itself is the
+    // per-screen state, shell.qml already holds it, and PopupLayer already takes
+    // it the same way.
+    required property var topBar
+
     color: "transparent"
 
     mask: Region {
         Region {
-            x:      Theme.borderWidth
-            y:      Theme.notchHeight - Theme.borderWidth
-            width:  root.width - (Theme.borderWidth * 2)
-            height: root.height - Theme.notchHeight - Theme.borderWidth
+            x:      theme.borderWidth
+            y:      theme.notchHeight - theme.borderWidth
+            width:  root.width - (theme.borderWidth * 2)
+            height: root.height - theme.notchHeight - theme.borderWidth
         }
         Region {
-            x:      ShellState.topBarLWidth - Theme.borderWidth
+            x:      root.barLWidth - theme.borderWidth
             y:      0
-            width:  (root.width / 2) - (ShellState.topBarCWidth / 2) - ShellState.topBarLWidth+ Theme.borderWidth
-            height: Theme.notchHeight
+            width:  (root.width / 2) - (root.barCWidth / 2) - root.barLWidth + theme.borderWidth
+            height: theme.notchHeight
         }
         Region{
-            x:     (root.width / 2) + (ShellState.topBarCWidth / 2)
+            x:     (root.width / 2) + (root.barCWidth / 2)
             y:     0
-            width: (root.width / 2) - (ShellState.topBarCWidth / 2) - ShellState.topBarRWidth + Theme.borderWidth
-            height: Theme.notchHeight
+            width: (root.width / 2) - (root.barCWidth / 2) - root.barRWidth + theme.borderWidth
+            height: theme.notchHeight
         }
     }
+
+    // Named so the mask above reads as geometry rather than as null-guards, and
+    // so a suite can assert what this overlay carved without reaching into a
+    // Region's children. A bar is always present in the shell; the fallbacks are
+    // for a window built before its bar has finished constructing.
+    readonly property int barLWidth: root.topBar ? root.topBar.lWidth : 0
+    readonly property int barCWidth: root.topBar ? root.topBar.cWidth : 0
+    readonly property int barRWidth: root.topBar ? root.topBar.rWidth : 0
 
     // Span entire screen
     anchors {
@@ -54,10 +79,10 @@ PanelWindow {
         bottom: true
     }
     
-    margins.top: Theme.borderWidth // Start below the notch so it doesn't interfere with TopBar popups
-    margins.left: Theme.borderWidth
-    margins.right: Theme.borderWidth
-    margins.bottom: Theme.borderWidth
+    margins.top: theme.borderWidth // Start below the notch so it doesn't interfere with TopBar popups
+    margins.left: theme.borderWidth
+    margins.right: theme.borderWidth
+    margins.bottom: theme.borderWidth
     // Don't push windows away
     exclusionMode: ExclusionMode.Ignore
 
@@ -67,7 +92,7 @@ PanelWindow {
     // though PopupDismiss is instantiated first. Its fullscreen mask therefore
     // receives every button click before the visible power menu can. Leave the
     // dismiss surface unmapped for that one popup on labwc; the compositor's
-    // toplevel/workspace listeners below still close it when focus moves, and
+    // focusMoved listener below still closes it when focus moves, and
     // the power key/button toggles it closed directly.
     visible: (Popups.anyOpen
               && !(Compositor.isLabwc && Popups.archMenuOpen)
@@ -99,50 +124,24 @@ PanelWindow {
         }
     }
     
+    // Dismiss on "the user is now looking somewhere else". That was three
+    // separate listener blocks — a Hyprland raw-event filter, a niri pair of
+    // property watchers and a labwc foreign-toplevel hook — each with its own
+    // conditional target, and each a place to get the guard subtly wrong. The
+    // adapter emits one signal from whichever of those it has.
+    //
+    // Title changes deliberately do not count: a browser switching tabs is not
+    // the user looking elsewhere, and a popup that vanishes when a background
+    // tab finishes loading is worse than one that lingers.
+    //
+    // A monitor change DOES count, and on Hyprland with `follow_mouse` that
+    // means a cursor crossing a monitor boundary closes whatever is open. If
+    // that ever reads as a bug, it is not: HyprlandBackend._FOCUS_EVENTS says
+    // why, and `closeAll()` here is global, so the alternative is a popup left
+    // behind on a monitor the user has walked away from.
     Connections {
-        // Conditional target and a positive guard. `target: Hyprland` resolves
-        // the singleton even when disabled, and constructing it off Hyprland
-        // logs "cannot connect to hyprland"; `!isNiri` was also true on labwc,
-        // which is neither.
-        target: Compositor.isHyprland ? Hyprland : null
-        enabled: Compositor.isHyprland
-
-        // Quickshell emits (name, data) for raw events
-        function onRawEvent(event) {
-            if (event.name === "workspace" || event.name === "activemonitor" || event.name === "activespecial" || event.name === "openwindow") {
-                Popups.closeAll();
-            }
-        }
+        target: CompositorService
+        function onFocusMoved() { Popups.closeAll(); }
     }
 
-    // niri equivalent: dismiss popups when the focused workspace or window changes
-    // (mirrors the workspace / openwindow / activemonitor auto-close above).
-    Connections {
-        target: NiriService
-        enabled: Compositor.isNiri
-        function onFocusedWorkspaceIdChanged() { Popups.closeAll(); }
-        function onFocusedWindowIdChanged()    { Popups.closeAll(); }
-    }
-
-    // labwc equivalent. labwc publishes no IPC event stream at all, so the
-    // signals come from Wayland protocols it does implement:
-    // wlr-foreign-toplevel for focus changes, and ext-workspace for desktop
-    // switches. Between them these cover what the Hyprland rawEvent branch
-    // above reacts to.
-    Connections {
-        target: Compositor.isLabwc ? ToplevelManager : null
-        enabled: Compositor.isLabwc
-        function onActiveToplevelChanged() { Popups.closeAll(); }
-    }
-
-    Repeater {
-        model: Compositor.isLabwc ? WindowManager.windowsets : 0
-
-        Item {
-            required property var modelData
-
-            readonly property bool wsActive: modelData.active
-            onWsActiveChanged: if (wsActive) Popups.closeAll()
-        }
-    }
 }

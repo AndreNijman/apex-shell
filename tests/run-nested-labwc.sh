@@ -1,81 +1,55 @@
 #!/usr/bin/env bash
-# Run labwc nested inside the current Wayland session and exercise a QML config
-# inside it. This is the only way to verify labwc support without rebooting into
-# a labwc session.
+# Run a QML entry point on a labwc of its own and print what it said.
 #
-# usage: labwc-nested.sh <qml-entry-point> [seconds]
+#     ./tests/run-nested-labwc.sh shell.qml 20
+#
+# This is how labwc support is verified without rebooting into a labwc session,
+# and it is the harness the compositor-facade suite used before that suite grew
+# its own.
+#
+# ── Headless, not nested in your session ─────────────────────────────────────
+#
+# It used to start labwc inside the current Wayland session, which put a
+# compositor window — and then a whole shell inside it — on whatever desktop the
+# person running it was using. It now goes through tests/lib/headless.sh: labwc
+# on the wlroots headless backend, in a runtime directory this run created, with
+# a private HOME. The library refuses to continue if the display it ends up on
+# is the ambient one.
+#
+# The name still says "nested" because that is what the QML under test sees: a
+# labwc it is the only client of, rather than the session it was launched from.
 set -uo pipefail
 
-entry="${1:?usage: labwc-nested.sh <qml> [seconds]}"
+entry="${1:?usage: run-nested-labwc.sh <qml> [seconds]}"
 secs="${2:-12}"
-cfg="$(mktemp -d)"
-cp "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/labwc-test-rc.xml" "$cfg/rc.xml"
-log="$(mktemp)"
-shell_log="$(mktemp)"
 
-: > "$log"
-: > "$shell_log"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$here/lib/headless.sh"
 
-# labwc logs nothing about its socket, so find it by diffing the runtime dir
-# rather than scraping output.
-#
-# Globbed rather than `ls | grep`: requiring an actual socket (-S) is both more
-# correct and cheaper than filtering names, since it drops the .lock file and
-# the per-app sockets (wayland-1-awww-daemon.sock) for free.
-list_sockets() {
-    local f name suffix
-    for f in "$XDG_RUNTIME_DIR"/wayland-*; do
-        [ -S "$f" ] || continue
-        name="${f##*/}"
-        suffix="${name#wayland-}"
-        case "$suffix" in
-            '' | *[!0-9]*) continue ;;
-        esac
-        printf '%s\n' "$name"
-    done | sort
-}
+headless_require quickshell labwc
 
-before="$(list_sockets)"
-
-# Nested labwc must NOT inherit Hyprland's identity, or the shell under test
-# will detect the wrong compositor.
-env -u HYPRLAND_INSTANCE_SIGNATURE -u NIRI_SOCKET \
-    XDG_CURRENT_DESKTOP=labwc:wlroots \
-    labwc -C "$cfg" >"$log" 2>&1 &
-labwc_pid=$!
-
-cleanup() {
-    kill "$labwc_pid" 2>/dev/null
-    wait "$labwc_pid" 2>/dev/null
-    rm -rf "$cfg" "$log" "$shell_log"
-    return 0
-}
+cleanup() { headless_cleanup; }
 trap cleanup EXIT INT TERM
 
-nested=""
-for _ in $(seq 1 60); do
-    after="$(list_sockets)"
-    nested="$(comm -13 <(echo "$before") <(echo "$after") | head -1)"
-    [[ -n "$nested" ]] && break
-    sleep 0.25
-done
+headless_begin
+headless_start labwc || exit 0
 
-if [[ -z "$nested" ]]; then
-    echo "FAIL: labwc did not report a nested wayland display"
-    tail -20 "$log"
-    exit 1
-fi
+# A compositor with nothing running inside it is not a session: the app dock has
+# nothing to list, the foreign-toplevel feed nothing to publish, and any
+# assertion over the window list is an empty loop that passes without testing
+# anything. A filler toplevel goes up first, and a filler that died is a failure
+# rather than a skip.
+headless_filler || exit 1
 
-echo "labwc running on nested display: $nested (labwc $(labwc --version 2>&1 | head -1))"
-
-env -u HYPRLAND_INSTANCE_SIGNATURE -u NIRI_SOCKET \
-    WAYLAND_DISPLAY="$nested" \
-    XDG_CURRENT_DESKTOP=labwc:wlroots \
-    QT_LOGGING_RULES="qml=true" \
-    timeout "$secs" quickshell -p "$entry" >"$shell_log" 2>&1
+shell_log="$HEADLESS_W/shell.log"
+QT_LOGGING_RULES="qml=true" timeout "$secs" quickshell -p "$entry" >"$shell_log" 2>&1
 
 echo "--- shell output ---"
-sed 's/\x1b\[[0-9;]*m//g' "$shell_log" | grep -vE "qt.qpa.wayland.textinput|Registration will|notification server" | head -40
+# Generous line budget: a truncated run hides the summary line, which is the one
+# line that says whether it passed.
+sed 's/\x1b\[[0-9;]*m//g' "$shell_log" \
+    | grep -vE "qt.qpa.wayland.textinput|Registration will|notification server" \
+    | head -120
 echo "--- labwc errors ---"
-grep -iE "error|fail" "$log" | head -10
+grep -iE "error|fail" "$HEADLESS_W/comp.log" 2>/dev/null | head -10
 echo "--- ERROR count: $(grep -c 'ERROR' "$shell_log") ---"

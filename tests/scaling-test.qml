@@ -2,14 +2,29 @@ import Quickshell
 import QtQuick
 import "./src/theme"
 import "./src/services"
+import "./src/state"
 import "./src"
+import "./src/windows"
+import "./src/popups"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Scaling tests. Run via tests/run-scaling-test.sh.
+// Scaling, against a real session. Run via tests/run-scaling-test.sh, which
+// brings its own headless compositor, its own HOME and — when it can — TWO
+// outputs of different densities.
 //
-// The critical property is that scale is 1.0 on a 1080p/1200p panel: the whole
-// token set was calibrated on one, so the refactor must be a NO-OP there. A
-// scaling change that silently resizes the reference machine is a regression.
+// ── What changed, and why the old version could not fail ────────────────────
+//
+// This file used to carry a `bucket()` function that re-implemented Metrics'
+// breakpoint table, and seven assertions comparing that copy to its own
+// literals. Moving the 1440p breakpoint from 1600 to 1500 in Metrics.qml left
+// the suite at 25 passed, 0 failed. The table is now theme/scaling.js, both the
+// shell and tests/scaling-test.js read it, and the arithmetic is asserted
+// there. What is left here is what only a running session can answer: what the
+// shell resolves on the outputs it was actually given.
+//
+// The critical property is unchanged: scale is 1.0 on a 1080p/1200p panel. The
+// whole token set was calibrated on one, so any change here must be a NO-OP
+// there.
 // ─────────────────────────────────────────────────────────────────────────────
 
 ShellRoot {
@@ -17,6 +32,97 @@ ShellRoot {
 
     property int passed: 0
     property int failed: 0
+
+    // ── The surfaces that size themselves from their own output ──────────────
+    //
+    // These are the PRODUCTION components, built here exactly as shell.qml
+    // builds them: one per entry in Quickshell.screens, each handed its own
+    // ShellScreen. Nothing about them is reimplemented for the test, because a
+    // test that builds its own copy of the thing it is checking is the defect
+    // this whole item was opened for — tests/scaling-test.qml used to carry its
+    // own `bucket()` and assert that.
+    //
+    // They are never visible: DisplayConfirm shows only while
+    // DisplayService.pending and ConfirmDialog only while Popups.confirmOpen,
+    // and both stay false. The sizes below are laid out anyway, which is the
+    // point — `screen` is exact at construction, so the card does not wait for
+    // a surface to be mapped to know how wide it is.
+    property var perOutput: []
+
+    /// One entry per screen: that screen's TopBar and the PopupDismiss overlay
+    /// that is supposed to be reading it.
+    property var perBar: []
+
+    Variants {
+        model: Quickshell.screens
+        delegate: Component {
+            Scope {
+                required property var modelData
+
+                DisplayConfirm {
+                    screen: modelData
+                    screenName: modelData.name
+                    Component.onCompleted: root.perOutput.push({
+                        kind: "DisplayConfirm", win: this, screen: modelData,
+                        card: "apex-display-confirm-card"
+                    })
+                }
+
+                ConfirmDialog {
+                    screen: modelData
+                    Component.onCompleted: root.perOutput.push({
+                        kind: "ConfirmDialog", win: this, screen: modelData,
+                        card: "apex-confirm-dialog-card"
+                    })
+                }
+
+                // ── The bar, and the overlay that carves holes around it ─────
+                // The notch widths used to reach PopupDismiss through three
+                // ShellState singleton fields that every bar wrote into. These
+                // two are built here, per output, exactly as shell.qml builds
+                // them, so the suite can ask the only question that matters:
+                // does the overlay on THIS output use THIS output's bar.
+                TopBar { id: bar; screen: modelData }
+
+                PopupDismiss {
+                    id: dismiss
+                    screen: modelData
+                    screenName: modelData.name
+                    topBar: bar
+                }
+
+                // A PopupWindow, which is the one window kind whose `screen`
+                // nobody has checked. It is not given one: quickshell derives
+                // it from the anchor, and six of this shell's popups now size
+                // themselves from it. If that derivation does not hold, those
+                // six are silently at the reference output's factor — the
+                // "permission denied is not absence" shape, in a window.
+                QuickControl {
+                    id: quick
+                    anchorWindow: bar
+                    Component.onCompleted: root.perBar.push({
+                        name: modelData.name, screen: modelData,
+                        bar: bar, dismiss: dismiss, popup: this
+                    })
+                }
+            }
+        }
+    }
+
+    /// Every descendant with this objectName, as a list. A list rather than the
+    /// first hit on purpose: the assertions below check HOW MANY were found, so
+    /// a renamed or deleted objectName fails the run instead of quietly
+    /// reducing it to nothing.
+    function findByName(item, name, acc) {
+        if (!item)
+            return acc;
+        if (item.objectName === name)
+            acc.push(item);
+        const kids = item.children || [];
+        for (let i = 0; i < kids.length; i++)
+            root.findByName(kids[i], name, acc);
+        return acc;
+    }
 
     function check(name, cond) {
         if (cond) {
@@ -32,50 +138,31 @@ ShellRoot {
         root.check(name + " (got " + got + ", want " + want + ")", got === want);
     }
 
-    // Replicates Metrics.autoScale so the breakpoints can be checked at every
-    // height without physically owning the monitors.
-    function bucket(h) {
-        if (h < 900)
-            return 0.85;
-        if (h < 1250)
-            return 1.00;
-        if (h < 1600)
-            return 1.20;
-        if (h < 2000)
-            return 1.35;
-        return 1.50;
-    }
-
     Timer {
         interval: 900
         running: true
         repeat: false
         onTriggered: {
+            const screens = Quickshell.screens;
             console.log("[reference] screen=" + (Metrics.referenceScreen ? Metrics.referenceScreen.name : "none") + " height=" + Metrics.referenceHeight + " scale=" + Metrics.scale);
-
-            // ── Breakpoints ───────────────────────────────────────────────
-            root.eq("768p  -> 0.85", root.bucket(768), 0.85);
-            root.eq("900p  -> 1.00", root.bucket(900), 1.00);
-            root.eq("1080p -> 1.00", root.bucket(1080), 1.00);
-            root.eq("1200p -> 1.00 (calibrated baseline, must not grow)", root.bucket(1200), 1.00);
-            root.eq("1440p -> 1.20", root.bucket(1440), 1.20);
-            root.eq("1600p -> 1.35", root.bucket(1600), 1.35);
-            root.eq("2160p -> 1.50", root.bucket(2160), 1.50);
-
-            // Monotonic: a taller screen must never scale down.
-            let mono = true;
-            let prev = 0;
-            for (const h of [720, 768, 900, 1080, 1200, 1440, 1600, 1800, 2160, 4320]) {
-                const s = root.bucket(h);
-                if (s < prev)
-                    mono = false;
-                prev = s;
+            for (let i = 0; i < screens.length; i++) {
+                const s = screens[i];
+                console.log("[screen] " + s.name + " " + s.width + "x" + s.height + " dpr=" + s.devicePixelRatio + " wants=" + Metrics.scaleForScreen(s));
             }
-            root.check("scale is monotonic in height", mono);
+
+            // ── The table, through the shell's own function ────────────────
+            // Not a copy of it. tests/scaling-test.js pins every breakpoint and
+            // both sides of every edge; these four are here so that a Metrics
+            // that stops delegating to theme/scaling.js is caught by the suite
+            // that runs against a real session too.
+            root.eq("Metrics answers the table at 768", Metrics.scaleForHeight(768), 0.85);
+            root.eq("Metrics answers the table at 1080", Metrics.scaleForHeight(1080), 1.00);
+            root.eq("Metrics answers the table at 1440", Metrics.scaleForHeight(1440), 1.20);
+            root.eq("Metrics answers the table at 2160", Metrics.scaleForHeight(2160), 1.50);
 
             // ── Live values on this machine ───────────────────────────────
             root.check("a reference screen was resolved", Metrics.referenceScreen !== null);
-            root.eq("live scale matches the bucket for this panel", Metrics.scale, root.bucket(Metrics.referenceHeight));
+            root.eq("the live factor is the table's answer for the reference height", Metrics.scale, Metrics.scaleForHeight(Metrics.referenceHeight));
 
             // ── px()/fs() behaviour ──────────────────────────────────────
             root.check("px() returns whole pixels", Metrics.px(17) === Math.round(17 * Metrics.scale));
@@ -88,17 +175,208 @@ ShellRoot {
             root.eq("notchPadding is scaled", Metrics.notchPadding, Math.round(16 * Metrics.scale));
             root.eq("cNotchMinWidth is scaled", Metrics.cNotchMinWidth, Math.round(300 * Metrics.scale));
 
-            // On the reference panel class the refactor must change nothing.
+            // On the reference panel class the token set must not move.
             if (Metrics.referenceHeight >= 1000 && Metrics.referenceHeight < 1250) {
                 root.eq("baseline panel: scale is exactly 1.0", Metrics.scale, 1.0);
                 root.eq("baseline panel: notchPadding unchanged at 16", Metrics.notchPadding, 16);
                 root.eq("baseline panel: fs(12) unchanged at 12", Metrics.fs(12), 12);
             }
 
+            // ── The mixed desk (P1-040) ───────────────────────────────────
+            //
+            // The whole point of the task, and it needs two outputs, so the
+            // runner supplies them. THE SHELL HAS ONE FACTOR: what is asserted
+            // is not that both screens are laid out correctly — they cannot be
+            // — but that the shell agrees with the arithmetic about which ones
+            // disagree, and that the reference screen is one of the connected
+            // ones rather than a stale name.
+            if (screens.length > 1) {
+                let distinct = {};
+                for (let i = 0; i < screens.length; i++)
+                    distinct[String(Metrics.scaleForScreen(screens[i]))] = true;
+                const wanted = Object.keys(distinct);
+                console.log("[mixed] outputs=" + screens.length + " distinct factors=" + wanted.join(","));
+
+                root.check("every connected output is asked what it wants",
+                           wanted.length >= 1);
+                root.check("the global factor is what SOME connected output wants",
+                           wanted.indexOf(String(Metrics.scale)) >= 0);
+
+                let refIsLive = false;
+                for (let i = 0; i < screens.length; i++)
+                    if (Metrics.referenceScreen && screens[i].name === Metrics.referenceScreen.name)
+                        refIsLive = true;
+                root.check("the reference screen is one that is connected", refIsLive);
+
+                if (wanted.length === 1) {
+                    // The state the Display page's recommended scales exist to
+                    // produce, asserted where it can be produced: give the 4K a
+                    // compositor scale of 2 and both outputs arrive as 1920x1080
+                    // logical, so the one global factor is right for both.
+                    //   SCALING_SCALES="2 1" ./tests/run-scaling-test.sh
+                    root.eq("every output wants the same factor, and the shell uses it",
+                            Metrics.scale, Metrics.scaleForScreen(screens[0]));
+                    root.check("no output is laid out at a factor it did not want",
+                               Metrics.scale === Metrics.scaleForScreen(screens[screens.length - 1]));
+                }
+
+                if (wanted.length > 1) {
+                    // This is the defect, asserted as a defect: on a desk whose
+                    // outputs disagree, the one factor is wrong for at least
+                    // one of them, and the Display page's "Shell scaling"
+                    // section exists to say so.
+                    console.log("[mixed] the outputs disagree, so one factor is wrong for at least one of them");
+                    root.check("a disagreeing desk still resolves a factor rather than none",
+                               Metrics.scale > 0);
+                }
+            }
+
+            // ── THE REMAINDER OF P1-040, ASSERTED ────────────────────────
+            //
+            //   "two outputs at compositor scale 1 with different densities
+            //    each get their own size."
+            //
+            // Everything above this line is about the ONE factor: which output
+            // the shell picked and what it resolved. This section is about two
+            // outputs getting two different answers at the same time, on the
+            // production surfaces that have been migrated to ask for their own.
+            //
+            // Only these two surfaces have been. The shell's other 114 files
+            // still read the global Theme, and the Display page still says so.
+            // See ROADMAP/state/agents/p1-040.md for what the rest costs.
+
+            // The harness asked the backend for a number of outputs. If it did
+            // not get them, every assertion below would pass on one screen by
+            // never comparing anything — the exact shape of a suite that
+            // vanishes instead of failing. So the count is itself an assertion.
+            const wantOutputs = parseInt(Quickshell.env("SCALING_EXPECT_OUTPUTS") || "0", 10);
+            if (wantOutputs > 0)
+                root.eq("the backend supplied the outputs the runner asked for",
+                        screens.length, wantOutputs);
+
+            // Two surfaces per output, and the same again: if the Variants
+            // delegate silently built none, the loops below would assert
+            // nothing at all.
+            root.eq("one per-output surface set was built for every screen",
+                    root.perOutput.length, screens.length * 2);
+
+            let sizes = {};   // kind -> [ {name, scale, cardW, cardR} ]
+            for (let i = 0; i < root.perOutput.length; i++) {
+                const e = root.perOutput[i];
+                const cards = root.findByName(e.win.contentItem, e.card, []);
+
+                // The lookup is by objectName, which is a lookup BY CONTENT: if
+                // the name is removed the search returns nothing and every
+                // assertion that depends on it evaporates. Asserting the count
+                // first is what turns that into a failure.
+                root.eq(e.kind + " on " + e.screen.name + ": exactly one card was found",
+                        cards.length, 1);
+                if (cards.length !== 1)
+                    continue;
+
+                const want = Metrics.scaleForScreen(e.screen);
+                root.eq(e.kind + " on " + e.screen.name + " resolved its OWN output's factor",
+                        e.win.theme.scale, want);
+
+                if (!sizes[e.kind]) sizes[e.kind] = [];
+                sizes[e.kind].push({
+                    name: e.screen.name, scale: e.win.theme.scale,
+                    cardW: cards[0].width, cardR: cards[0].radius,
+                    wantPx400: e.win.theme.px(400), wantRadius: e.win.theme.notchRadius
+                });
+                console.log("[per-output] " + e.kind + " " + e.screen.name
+                            + " scale=" + e.win.theme.scale
+                            + " card=" + cards[0].width + "x" + Math.round(cards[0].height)
+                            + " radius=" + cards[0].radius);
+            }
+
+            // The card is measured, not recomputed. `width: theme.px(400)` is
+            // what the file says; this reads the laid-out width off the real
+            // Rectangle and checks it against that output's scaler.
+            const dc = sizes["DisplayConfirm"] || [];
+            for (let i = 0; i < dc.length; i++)
+                root.eq("DisplayConfirm card on " + dc[i].name + " is laid out at its own output's px(400)",
+                        dc[i].cardW, dc[i].wantPx400);
+
+            const cd = sizes["ConfirmDialog"] || [];
+            for (let i = 0; i < cd.length; i++)
+                root.eq("ConfirmDialog card on " + cd[i].name + " is rounded at its own output's notchRadius",
+                        cd[i].cardR, cd[i].wantRadius);
+
+            // ── The assertion this unit exists for ───────────────────────────
+            // Guarded on the outputs genuinely disagreeing, and the guard is
+            // itself asserted above: with SCALING_SCALES="2 1" both outputs
+            // arrive as 1920x1080 logical and SHOULD agree, which is the other
+            // half of the Display page's story.
+            if (screens.length > 1) {
+                let distinctWanted = {};
+                for (let i = 0; i < screens.length; i++)
+                    distinctWanted[String(Metrics.scaleForScreen(screens[i]))] = true;
+
+                if (Object.keys(distinctWanted).length > 1) {
+                    root.check("two outputs of different densities resolved two different factors",
+                               dc.length === 2 && dc[0].scale !== dc[1].scale);
+                    root.check("...and each DisplayConfirm card is therefore a different WIDTH ("
+                               + dc.map(function (d) { return d.name + "=" + d.cardW }).join(", ") + ")",
+                               dc.length === 2 && dc[0].cardW !== dc[1].cardW);
+                    root.check("...and each ConfirmDialog card a different RADIUS ("
+                               + cd.map(function (d) { return d.name + "=" + d.cardR }).join(", ") + ")",
+                               cd.length === 2 && cd[0].cardR !== cd[1].cardR);
+
+                    // The global factor is one of the two. The surface that is
+                    // NOT on the reference output is the one that used to be
+                    // laid out wrong, so name it: this is the assertion failing
+                    // if per-output resolution regresses to the singleton.
+                    let offReference = 0;
+                    for (let i = 0; i < dc.length; i++)
+                        if (dc[i].scale !== Metrics.scale) offReference++;
+                    root.check("at least one output is now sized at a factor that is NOT the shell's global one",
+                               offReference >= 1);
+                } else {
+                    // Both outputs want the same factor — the state the Display
+                    // page's recommended compositor scales exist to produce.
+                    root.check("outputs that agree are sized the same, and that is not a per-output failure",
+                               dc.length === 2 && dc[0].cardW === dc[1].cardW);
+                }
+            }
+
+            // ── Every surface builds its own set, at its own factor ──────
+            //
+            // A registry of five shared sets — one per factor the table can
+            // answer — was built here and then removed, because a ThemeSet
+            // handed out by a singleton evaluates to undefined at the call
+            // site in some contexts. theme/OutputScale.qml records the
+            // measurement. What is asserted instead is the thing that has to
+            // be true either way: the FACTOR each surface builds its set at
+            // is its own output's, and the policy is the single one.
+            root.eq("the policy answers the table at 2160", Theme.factorForHeight(2160), 1.5);
+            root.eq("the policy answers the table at 1080", Theme.factorForHeight(1080), 1.0);
+            root.check("Theme and OutputScale are the same policy, not two",
+                       Theme.factorForHeight(1440) === OutputScale.factorForHeight(1440));
+            root.eq("a set built at the 4K factor sizes a 400px card at 600",
+                    Theme.factorForHeight(2160) * 400, 600);
+
+            if (root.perOutput.length >= 2) {
+                let ownFactor = true, ownObject = true;
+                let seen = [];
+                for (let i = 0; i < root.perOutput.length; i++) {
+                    const e = root.perOutput[i];
+                    if (e.win.theme.scale !== Theme.factorForScreen(e.screen)) ownFactor = false;
+                    // Its OWN set, not a shared one: two surfaces on the same
+                    // output must still be two objects, which is what makes the
+                    // sizes defined at construction rather than a moment later.
+                    for (let k = 0; k < seen.length; k++)
+                        if (seen[k] === e.win.theme) ownObject = false;
+                    seen.push(e.win.theme);
+                }
+                root.check("every per-output surface built a set at its own screen's factor", ownFactor);
+                root.check("and each built its own, so no surface depends on another's lifetime", ownObject);
+            }
+
             // ── Manual override ──────────────────────────────────────────
-            // SettingsService persists to the user's real settings.json, so the
-            // originals are captured and put back before exiting. A test that
-            // leaves the user's shell scaled to 1.5 is not a passing test.
+            // SettingsService persists, so the runner gives this suite a
+            // private HOME. The originals are restored anyway: a test that
+            // leaves a shell at 150% is not a passing test even in a sandbox.
             const origMode = SettingsService.scaleMode;
             const origManual = SettingsService.scaleManual;
 
@@ -106,6 +384,28 @@ ShellRoot {
             SettingsService.set("scaleMode", "manual");
             root.eq("manual mode takes the manual factor", Metrics.scale, 1.5);
             root.eq("manual mode scales geometry", Metrics.notchPadding, 24);
+
+            // A manual factor is an explicit instruction and it applies to the
+            // whole desk, per-output surfaces included. This is the half of the
+            // policy the auto-mode assertions above cannot see: HEADLESS-2's
+            // own factor is 1.0, so if OutputScale ever stopped honouring the
+            // override, the suite would stay green in auto and the user's 150%
+            // would silently not reach these two windows.
+            for (let m = 0; m < root.perOutput.length; m++) {
+                const e = root.perOutput[m];
+                root.eq(e.kind + " on " + e.screen.name + " follows the manual override, not its own density",
+                        e.win.theme.scale, 1.5);
+            }
+            root.check("the manual override reached every per-output surface there is",
+                       root.perOutput.length === screens.length * 2);
+
+            // The policy has to honour the override at every height, or a
+            // per-output surface on a dense monitor would quietly keep its own
+            // density's factor while the user's 150% reached everything else.
+            root.eq("in manual mode every height resolves to the manual factor",
+                    Theme.factorForHeight(2160), 1.5);
+            root.eq("...including the one whose own density wants 1.0",
+                    Theme.factorForHeight(1080), 1.5);
 
             SettingsService.set("scaleManual", 99);
             root.check("manual factor is clamped to a usable range", SettingsService.scaleManual <= 3.0);
@@ -119,15 +419,239 @@ ShellRoot {
             SettingsService.set("scaleMode", "auto");
             root.eq("auto mode returns to the derived factor", Metrics.scale, Metrics.autoScale);
 
+            // ── Choosing which monitor sets the size ─────────────────────
+            // The one lever the architecture does offer on a mixed desk. It was
+            // never exercised: nothing checked that naming an output actually
+            // moved the factor to that output's.
+            if (screens.length > 1) {
+                const origScreen = SettingsService.scaleScreen;
+                for (let i = 0; i < screens.length; i++) {
+                    SettingsService.set("scaleScreen", screens[i].name);
+                    root.eq("naming " + screens[i].name + " makes it the reference",
+                            Metrics.referenceScreen ? Metrics.referenceScreen.name : "none",
+                            screens[i].name);
+                    root.eq("and the factor becomes that output's",
+                            Metrics.scale, Metrics.scaleForScreen(screens[i]));
+                }
+                SettingsService.set("scaleScreen", "no-such-output-DP-99");
+                root.check("an output that is not connected falls back to the tallest",
+                           Metrics.referenceScreen !== null);
+                SettingsService.set("scaleScreen", origScreen);
+            }
+
             // Restore whatever the user actually had.
             SettingsService.set("scaleManual", origManual);
             SettingsService.set("scaleMode", origMode);
             root.eq("settings restored: mode", SettingsService.scaleMode, origMode);
             root.eq("settings restored: manual factor", SettingsService.scaleManual, origManual);
 
-            console.log("");
-            console.log("passed=" + root.passed + " failed=" + root.failed);
-            Qt.exit(root.failed === 0 ? 0 : 1);
+            // ── Phase two: the bar's widths, which are not a factor ──────────
+            // Everything above is about what each output RESOLVES. What follows
+            // is about a size crossing a window boundary, and it needs the two
+            // bars to be genuinely different widths, which takes a state change
+            // and a moment for it to settle. Reduce Motion is the shipped
+            // setting that makes "a moment" deterministic rather than a guess
+            // at an animation curve.
+            root._origReduceMotion = SettingsService.reduceMotion;
+            root._origDashOpen     = Popups.dashboardOpen;
+            root._origDashScreen   = Popups.dashboardScreen;
+            SettingsService.set("reduceMotion", true);
+            barPhase.start();
         }
+    }
+
+    // ── The bar widths reach the overlay through the bar, not a singleton ────
+    property bool _origReduceMotion: false
+    property bool _origDashOpen: false
+    property string _origDashScreen: ""
+
+    Timer {
+        id: barPhase
+        interval: 700
+        repeat: false
+        onTriggered: {
+            const screens = Quickshell.screens;
+
+            // Same trap as the cards: if the delegate built nothing, every
+            // comparison below is a loop over an empty list.
+            root.eq("one bar and one dismiss overlay were built for every screen",
+                    root.perBar.length, screens.length);
+
+            // ── The bar itself is per-output now ────────────────────────
+            // TopBar is the shell's layout datum: the border strips and the OSD
+            // anchor to its height and every notch widget is inside it, which
+            // is why round one could not migrate it alone. It reads its own
+            // output's token set, and so does everything under it.
+            for (let i = 0; i < root.perBar.length; i++) {
+                const e = root.perBar[i];
+                root.eq(e.name + ": the bar resolved its OWN output's factor",
+                        e.bar.theme.scale, Metrics.scaleForScreen(e.screen));
+                root.eq(e.name + ": the bar's height is that factor's notchHeight",
+                        e.bar.implicitHeight, e.bar.theme.notchHeight);
+            }
+
+            // ── A PopupWindow is sized by its ANCHOR's output ───────────
+            //
+            // Measured here, because it is not what it looks like: a
+            // PopupWindow's own `screen` is NOT the output it is anchored to.
+            // On this harness the popup anchored to the bar on HEADLESS-1
+            // reports HEADLESS-2. Six of this shell's popups size themselves
+            // from it, so reading `root.screen` there would put all six at the
+            // wrong factor on the denser monitor, silently. They read
+            // `anchorWindow.screen`, and this is the assertion that fails if
+            // anyone changes them back.
+            for (let i = 0; i < root.perBar.length; i++) {
+                const e = root.perBar[i];
+                console.log("[popup] anchored to " + e.name
+                            + " but PopupWindow.screen says "
+                            + (e.popup.screen ? e.popup.screen.name : "null"));
+                root.eq(e.name + ": the popup is sized at the factor of the output it is ANCHORED to",
+                        e.popup.theme.scale, Metrics.scaleForScreen(e.screen));
+
+                // And POSITIONED by that output too, which is a SECOND bug with
+                // the same cause and was left standing when the first was fixed.
+                // QuickControl centres its panel on half the output height; it
+                // read `root.screen.height` to get it, which on this desk is the
+                // other monitor's height. The anchor rect is what the compositor
+                // places the window by, so this is the number that decides where
+                // a user sees it — and on one monitor it is the same number
+                // either way, which is why it survived.
+                //
+                // Within a pixel, not exactly: the expression is (h + fh + 5)/2,
+                // which lands on a half pixel whenever h + fh is even, and the
+                // anchor rect is integer-valued. The defect this catches misses
+                // by half the difference between the two outputs — 540px here —
+                // so a one-pixel tolerance costs it nothing.
+                const wantY = (e.screen.height + e.popup.fh + 5) / 2;
+                root.check(e.name + ": the popup is anchored at half the height of the"
+                           + " output it is ANCHORED to (got " + e.popup.anchor.rect.y
+                           + ", want " + wantY + ")",
+                           Math.abs(e.popup.anchor.rect.y - wantY) <= 1);
+            }
+
+            // ── DashboardLayout answers for the set it is handed ────────────
+            // It is a singleton doing arithmetic for a window, so the window
+            // passes its own token set in. Handing it two different sets must
+            // give two different widths, or the parameter is decoration.
+            if (root.perBar.length > 1) {
+                const wa = DashboardLayout.widthFor(root.perBar[0].bar.theme, "home",
+                                                    root.perBar[0].screen.width);
+                const wb = DashboardLayout.widthFor(root.perBar[1].bar.theme, "home",
+                                                    root.perBar[1].screen.width);
+                console.log("[dash] widthFor(home) " + root.perBar[0].name + "=" + wa
+                            + " " + root.perBar[1].name + "=" + wb);
+                if (Metrics.scaleForScreen(root.perBar[0].screen)
+                    !== Metrics.scaleForScreen(root.perBar[1].screen)) {
+                    root.check("the dashboard width follows the set it is given, not a singleton ("
+                               + wa + " vs " + wb + ")", wa !== wb);
+                    root.eq("and each is that set's own px() of the page's base width",
+                            wa, root.perBar[0].bar.theme.px(900));
+                }
+                root.eq("the tab bar width is the page width less two insets",
+                        DashboardLayout.barWidthFor(root.perBar[0].bar.theme, "home",
+                                                    root.perBar[0].screen.width),
+                        wa - 2 * DashboardLayout.contentInset(root.perBar[0].bar.theme));
+            }
+
+            if (root.perBar.length > 1) {
+                const a = root.perBar[0], b = root.perBar[1];
+                const differ = Metrics.scaleForScreen(a.screen) !== Metrics.scaleForScreen(b.screen);
+                if (differ) {
+                    // THE RESULT. Two outputs at compositor scale 1 with
+                    // different densities, and the bar — the surface the whole
+                    // desk is laid out against — is a different size on each,
+                    // measured off the laid-out windows rather than recomputed.
+                    root.check("two densities give the bar two different HEIGHTS ("
+                               + a.name + "=" + a.bar.implicitHeight + ", "
+                               + b.name + "=" + b.bar.implicitHeight + ")",
+                               a.bar.implicitHeight !== b.bar.implicitHeight);
+                    root.check("...and two different LEFT notch widths ("
+                               + a.bar.lWidth + " vs " + b.bar.lWidth + ")",
+                               a.bar.lWidth !== b.bar.lWidth);
+                    root.check("...and two different RIGHT notch widths ("
+                               + a.bar.rWidth + " vs " + b.bar.rWidth + ")",
+                               a.bar.rWidth !== b.bar.rWidth);
+                    // One of them is NOT the global factor's size. That is the
+                    // assertion that fails if the bar regresses to the
+                    // singleton, on the output the singleton was never for.
+                    let off = 0;
+                    for (let i = 0; i < root.perBar.length; i++)
+                        if (root.perBar[i].bar.theme.scale !== Metrics.scale) off++;
+                    root.check("at least one bar is sized at a factor that is NOT the shell's global one",
+                               off >= 1);
+                } else {
+                    root.check("outputs that agree give the bar the same height, which is not a failure",
+                               a.bar.implicitHeight === b.bar.implicitHeight);
+                }
+            }
+
+            for (let i = 0; i < root.perBar.length; i++) {
+                const e = root.perBar[i];
+                console.log("[bar] " + e.name + " l=" + e.bar.lWidth
+                            + " c=" + e.bar.cWidth + " r=" + e.bar.rWidth
+                            + " -> overlay l=" + e.dismiss.barLWidth
+                            + " c=" + e.dismiss.barCWidth
+                            + " r=" + e.dismiss.barRWidth);
+                root.eq(e.name + ": the dismiss overlay carves at its own bar's LEFT width",
+                        e.dismiss.barLWidth, e.bar.lWidth);
+                root.eq(e.name + ": the dismiss overlay carves at its own bar's CENTRE width",
+                        e.dismiss.barCWidth, e.bar.cWidth);
+                root.eq(e.name + ": the dismiss overlay carves at its own bar's RIGHT width",
+                        e.dismiss.barRWidth, e.bar.rWidth);
+            }
+
+            if (root.perBar.length > 1) {
+                // Make the two bars genuinely disagree, with production state
+                // and nothing else: the dashboard is open on ONE output, so
+                // that bar's centre notch expands to the page width while every
+                // other bar keeps its minimum. Before this, both bars computed
+                // the same three numbers, and an overlay reading the WRONG
+                // bar's widths was indistinguishable from one reading its own.
+                Popups.dashboardScreen = root.perBar[0].name;
+                Popups.dashboardOpen   = true;
+                settle.start();
+            } else {
+                root.finish();
+            }
+        }
+    }
+
+    Timer {
+        id: settle
+        interval: 400
+        repeat: false
+        onTriggered: {
+            const a = root.perBar[0], b = root.perBar[1];
+            console.log("[bar] dashboard open on " + a.name
+                        + ": centre widths " + a.name + "=" + a.bar.cWidth
+                        + " " + b.name + "=" + b.bar.cWidth);
+
+            // The premise of the three assertions after it, asserted. If the
+            // two bars did NOT come apart, they would all pass by comparing a
+            // number with itself.
+            root.check("opening the dashboard on one output makes the two bars disagree ("
+                       + a.bar.cWidth + " vs " + b.bar.cWidth + ")",
+                       a.bar.cWidth !== b.bar.cWidth);
+
+            root.eq(a.name + ": its overlay follows the bar that expanded",
+                    a.dismiss.barCWidth, a.bar.cWidth);
+            root.eq(b.name + ": its overlay is NOT carved at the other output's expanded notch",
+                    b.dismiss.barCWidth, b.bar.cWidth);
+            root.check(b.name + ": and that width really is the un-expanded one",
+                       b.dismiss.barCWidth !== a.bar.cWidth);
+
+            Popups.dashboardOpen   = root._origDashOpen;
+            Popups.dashboardScreen = root._origDashScreen;
+            root.finish();
+        }
+    }
+
+    function finish() {
+        SettingsService.set("reduceMotion", root._origReduceMotion);
+        root.eq("settings restored: reduce motion",
+                SettingsService.reduceMotion, root._origReduceMotion);
+        console.log("");
+        console.log("passed=" + root.passed + " failed=" + root.failed);
+        Qt.exit(root.failed === 0 ? 0 : 1);
     }
 }

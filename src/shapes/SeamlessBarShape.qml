@@ -3,6 +3,8 @@ import "../"
 
 Canvas {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
     anchors.fill: parent
 
     // Multisample the canvas so the notch curves are crisp, not stair-stepped.
@@ -12,13 +14,13 @@ Canvas {
 
     // These are set by TopBar.qml with the real clamped widths.
     // They default to the Theme constraints so the shape is never empty.
-    property int leftWidth:   Theme.lNotchMinWidth
-    property int centerWidth: Theme.cNotchMinWidth
-    property int rightWidth:  Theme.rNotchMinWidth
+    property int leftWidth:   theme.lNotchMinWidth
+    property int centerWidth: theme.cNotchMinWidth
+    property int rightWidth:  theme.rNotchMinWidth
 
-    property int notchHeight:     Theme.notchHeight
-    property int radius:          Theme.notchRadius
-    property int topBorderWidth:  Theme.borderWidth
+    property int notchHeight:     theme.notchHeight
+    property int radius:          theme.notchRadius
+    property int topBorderWidth:  theme.borderWidth
     property color color:         Theme.background
 
     // Right notch bottom-left corner radius. TopBar animates this to 0 while a

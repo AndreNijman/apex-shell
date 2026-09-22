@@ -5,6 +5,22 @@ on:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
+  # The roadmap v2.2 program works on task branches and integrates onto
+  # roadmap/v2.2, so nothing here has run for any of it: a task branch matches
+  # neither trigger above, and the program is forbidden from opening a pull
+  # request until the final integration. Every roadmap suite in this repository
+  # has therefore been verified on exactly one laptop — one kernel, one set of
+  # installed packages, one Qt build.
+  #
+  # workflow_dispatch lets a task branch be checked BEFORE it lands rather than
+  # after: `gh workflow run ci.yml --ref <branch>`. It changes nothing about
+  # what a push or a pull request does. (apex-os made the same change to
+  # pr-validation.yml for the same reason.)
+  #
+  # Note for whoever needs it next: GitHub only offers the dispatch once this
+  # file is on the DEFAULT branch, so it does nothing for the branch that adds
+  # it.
+  workflow_dispatch:
 
 jobs:
   # ─────────────────────────────────────────────
@@ -100,6 +116,7 @@ jobs:
         run: |
           bash -n src/scripts/GfxSwitch.sh
           bash -n src/scripts/PowerControl.sh
+          bash -n src/scripts/SearchRun.sh
           shellcheck src/scripts/screenshot.sh
           echo "✓ src/scripts/ passed ShellCheck"
 
@@ -126,12 +143,139 @@ jobs:
         run: |
           node tests/answer-test.js
 
+      - name: APEX Search decision logic
+        run: |
+          # §15 turned the launcher into a command surface with system reach,
+          # reached by fuzzy match while typing. Every rule about what that may
+          # do lives in src/services/search.js so it can be proved HERE, on a
+          # runner with no compositor, rather than in a QML binding that every
+          # behavioural suite in this repo skips.
+          #
+          # Three groups of assertion carry the weight:
+          #
+          #   * the commit rule, enumerated over its whole cross product, with
+          #     one assertion that no input where the previewed row differs from
+          #     the selected row can run a system-changing action. That is what
+          #     makes the preview mandatory rather than merely available.
+          #   * the scheduler, driven by a fake clock with a spawn log, so
+          #     "typing does not spawn a process per provider per keystroke" is
+          #     a counted number.
+          #   * the network boundary: thirteen queries a user can reach without
+          #     typing a package verb, none of which reaches the one provider
+          #     that can leave this machine.
+          #
+          # It spawns no process and reads one file (PageRegistry.qml, to check
+          # the settings index still names pages that exist), so nothing here
+          # can skip.
+          node tests/search-test.js
+
+      - name: Test blueprint editor logic
+        run: |
+          # §10's editor keeps every decision it makes in a plain module —
+          # plan classification, the omit-not-null rule for cleared fields, the
+          # stale-write and erase guards — precisely so it can be proved on a
+          # runner with no compositor and no `apex`. It spawns no process and
+          # reads no file, so there is nothing here that can skip.
+          node tests/blueprint-editor-test.js
+
+      - name: Test Gaming settings logic
+        run: |
+          # P1-049's page has to be good at ONE state above all: not installed.
+          # Steam, gamescope and the overlay are on-demand `apex install`
+          # packages and a fresh image carries none of them, so the fixture here
+          # is the real `apex gaming --json` from a machine with all three
+          # missing. Two refusals are asserted: a check the report does not
+          # carry must not read as passing (a renamed probe would otherwise
+          # report a machine ready on a build that had stopped looking), and a
+          # check the CLI reports that the shell cannot name must be surfaced
+          # rather than dropped. Spawns no process, reads no file, cannot skip.
+          node tests/gaming-settings-test.js
+
       - name: Lint test harness scripts
         run: |
           # -S warning matches the threshold apex-os uses: style/info findings in
           # a test harness are not worth failing a build over.
-          shellcheck -S warning tests/*.sh
+          #
+          # -x is not decoration. Without it shellcheck cannot follow
+          # `. tests/lib/headless.sh`, so every variable a suite sets FOR the
+          # library to read looks unused and comes back as SC2034. That is what
+          # this step failed on the moment tests/test-headless-lib.sh landed:
+          # four assignments that are the whole point of the test, reported as
+          # dead code. The documented local gate is `shellcheck -S warning -x`,
+          # so CI was failing files that the gate developers run passes — and,
+          # because a job stops at its first red step, it took the
+          # accessibility and internationalisation measurements below down with
+          # it while reporting a lint error.
+          shellcheck -S warning -x tests/*.sh
           echo "✓ test harnesses passed ShellCheck"
+
+      - name: No merge conflict markers anywhere in the tree
+        run: |
+          # This check was written because `roadmap/v2.2` SHIPPED with
+          # unresolved markers in src/state/IpcManager.qml and
+          # tests/run-agent-center-smoke.sh — the shell does not load at all in
+          # that state — and then it was never wired to anything. A gate that
+          # runs nowhere is the same as no gate, and this one is three lines of
+          # grep standing between the repository and a tree that cannot start.
+          #
+          # Early in the job on purpose: a tree with markers in it will fail
+          # everything below in ways that read like real defects.
+          ./tests/check-no-conflict-markers.sh
+
+      - name: Firewall surface logic
+        run: |
+          # P1-044. Drives src/services/firewall.js — the file the shell loads
+          # — over payloads in tests/fixtures/firewall/, every one of them
+          # captured from the shipped files/system/libexec/apex-firewall under
+          # an nft shim by tests/fixtures/firewall/gen-firewall-fixtures.sh.
+          #
+          # This suite existed and ran NOWHERE, which is how its fixtures were
+          # able to drift away from the tool while staying green: apex-os
+          # c7a28f2c added a paragraph to the status screen, the parser read it
+          # as the list of traffic the firewall never drops, and the page told
+          # root sessions that what their firewall always allows is "DHCP and
+          # DNS are open on those links only".
+          #
+          # The load-bearing half is the shape checking on `apex firewall
+          # status --json`: a renamed key must be a failed read, not an empty
+          # string, because an empty string renders as nothing and nothing is
+          # silent. Fourteen of the checks are documents that are NOT the
+          # contract.
+          node tests/firewall-test.js
+          node tests/title-test.js
+          # Same defect one property along, and the title fix did not touch it:
+          # a killed `hyprctl -j clients` used to assign an EMPTY window list,
+          # so the launcher's ranked rows blinked out and back on every
+          # Hyprland raw event. `[]` that parsed is still a real answer.
+          node tests/clients-test.js
+
+      - name: Firewall surface invariants
+        run: |
+          # Static half, and the part node cannot see: that the sweep asks for
+          # `--json` rather than prose, that a document failing validation
+          # still gets an answer through the prose fallback, that nothing on a
+          # timer can reach `apex firewall allow`, and that the argv table's
+          # entry count is asserted against the names it actually lists.
+          #
+          # Self-tests with twenty mutants that must each go red, a hard
+          # failure for any that did not change the file, and a prose-only copy
+          # quoting every banned command that must stay GREEN.
+          ./tests/check-firewall-ui.sh --self-test
+
+      - name: Agent state colours, measured
+        run: |
+          # P0-021. Computes WCAG 2.1 contrast and CIE76 ΔE over Viénot-1999
+          # dichromat simulations against the palettes the shell ships, rather
+          # than asserting that they are fine. It was another suite wired to
+          # nothing.
+          node tests/agent-state-test.js
+
+      - name: Display colour section invariants
+        run: |
+          # P1-041. The behavioural half needs quickshell and a compositor and
+          # skips on every runner, which is exactly why the static half exists
+          # — and it was not running either.
+          ./tests/check-colour-page.sh
 
       - name: Service-tier behavioural test
         run: |
@@ -139,6 +283,19 @@ jobs:
           # documents the entry point rather than silently not existing. Run it
           # locally in a Wayland session to actually exercise the 32 assertions.
           ./tests/run-service-tier-test.sh
+
+      - name: A Terminal=true desktop entry lands in a terminal
+        run: |
+          # nvim ships in every image with Terminal=true, and DesktopEntry
+          # .execute() does not honour that field — it starts the program on
+          # pipes, so clicking Neovim did nothing and the user was told the
+          # editor was "provided by APEX-OS". This suite measures that upstream
+          # behaviour (the routing depends on it staying true), then measures
+          # that the shell's own path hands such an entry to xdg-terminal-exec
+          # and leaves Terminal=false entries alone. Needs a compositor and
+          # skips cleanly without one, like the suite above. No window opens:
+          # the terminal is a stub that gives the program a pty.
+          ./tests/run-terminal-entry-test.sh
 
       - name: Assert telemetry services stay lazy and refcounted
         run: |
@@ -188,6 +345,53 @@ jobs:
             fail=1
           fi
 
+          # SystemStats is a refcounted VIEW, not a singleton, so it cannot go
+          # through the singleton loop above — but it shells out to a package
+          # manager, so it needs the same gate.
+          #
+          # Every match below is against the file with // comment lines
+          # STRIPPED. SystemStats' header explains what it replaced and names
+          # onVisibleChanged while doing so, so a whole-file grep would fail on
+          # a file that is correct — the check would be red because the comment
+          # documents the fix. The inverse of the same bug is a check that stays
+          # green because a header paragraph matches.
+          ss=src/services/system/SystemStats.qml
+          sscode="$(grep -vE '^\s*//' "$ss")"
+          grep -q 'property int refCount' <<<"$sscode" \
+            || { echo "✗ SystemStats has no refCount"; fail=1; }
+          grep -q 'onRefCountChanged' <<<"$sscode" \
+            || { echo "✗ SystemStats never acts on its refCount"; fail=1; }
+          if grep -nE '^\s*running:\s*true\s*$' <<<"$sscode"; then
+            echo "✗ SystemStats runs its collector unconditionally"
+            fail=1
+          fi
+          # It used to reload from onVisibleChanged, which fires for an Item in
+          # a window nobody has opened and never fires again on a real second
+          # reveal. Same class as the `active: visible` check above.
+          if grep -nE '^\s*onVisibleChanged:' <<<"$sscode"; then
+            echo "✗ SystemStats is back to reloading on Item visibility"
+            fail=1
+          fi
+          # It must be instantiated somewhere, or it is the dead code it was.
+          # Comment lines are dropped: a commented-out instantiation still
+          # contains the string, and a mutant that commented it out went
+          # undetected until this was anchored.
+          if ! grep -rn 'SystemStats {' --include="*.qml" src/ \
+               | grep -vE ':[[:space:]]*(//|\*)' | grep -q .; then
+            echo "✗ SystemStats is registered but instantiated nowhere"
+            fail=1
+          fi
+          # Its host page must declare needsScreen, or the ServiceRef it holds is
+          # bound to an onScreen that nobody ever writes — permanently false,
+          # and the rows would stay empty forever.
+          grep -q '"id": "misc"' src/nexus/PageRegistry.qml \
+            || { echo "✗ the misc page is not in PageRegistry"; fail=1; }
+          if ! awk '/"id": "misc"/,/}/' src/nexus/PageRegistry.qml \
+               | grep -q '"needsScreen": true'; then
+            echo "✗ the misc page hosts SystemStats but does not declare needsScreen"
+            fail=1
+          fi
+
           # The always-mapped bar must not carry offscreen render targets.
           # Anchored to a property assignment so prose mentioning it does not
           # trip the check.
@@ -215,14 +419,402 @@ jobs:
             fail=1
           fi
 
-          # A bare `target: Hyprland` must always be conditional.
-          if grep -rnE '^\s*target:\s*Hyprland\s*$' --include="*.qml" src/; then
+          # A bare `target: Hyprland` must always be conditional — EXCEPT inside
+          # the Hyprland adapter, which is the one file that cannot be loaded off
+          # Hyprland. CompositorService picks its backend by URL, so
+          # HyprlandBackend.qml and its `import Quickshell.Hyprland` are never
+          # even parsed on niri or labwc. Making it conditional there would be
+          # cargo cult: the condition is the file's existence in the process.
+          #
+          # This is the direction the rest of the shell is moving in — the
+          # conditional-target dance exists because consumers reach the Hyprland
+          # singleton directly, and §17's migration is what removes it.
+          if grep -rnE '^\s*target:\s*Hyprland\s*$' --include="*.qml" src/ \
+               | grep -v '^src/services/compositor/HyprlandBackend.qml:'; then
             echo "✗ unconditional Hyprland target; use 'isHyprland ? Hyprland : null'"
+            echo "  (or move the code into src/services/compositor/HyprlandBackend.qml)"
             fail=1
           fi
 
           [ "$fail" -eq 0 ] || exit 1
           echo "✓ compositor guards are positive and targets are conditional"
+
+      - name: Compositor adapter invariants
+        run: |
+          # Static half of the §17 adapter coverage: capability parity across all
+          # four backends, the facade agreeing with them, backends selected by
+          # URL, and the Quickshell.Hyprland import staying inside the Hyprland
+          # backend. Runs headless, which matters — the behavioural test below
+          # needs a compositor and skips here, and a suite that skips proves
+          # nothing.
+          #
+          # It also enforces 5.2's finish line: nothing under src/ outside
+          # src/services/compositor/ SPAWNS hyprctl. Three files still may, each
+          # named in the script with a reason, and each asserted to still need
+          # it so the allowlist cannot outlive its entries. Matching is
+          # command-shaped, not "contains the word" — the shell's prose is full
+          # of what it used to spawn, and the Display page's own error text
+          # mentions hyprctl.
+          ./tests/check-compositor-backends.sh
+
+      - name: What Settings is allowed to call the compositor
+        run: |
+          # BASE-013 criterion 3: compositor names stay implementation details
+          # for normal users. Settings is a normal-user surface and its
+          # compositor control labelled its options with the raw ids
+          # "hyprland" and "niri" — upstream project names in lower case —
+          # while omitting labwc entirely, so a Floating user could not pin
+          # their own compositor at all.
+          #
+          # There are now THREE names for a compositor in this shell and the
+          # fix is only correct while they stay apart: the id (stored,
+          # detected, branched on), displayName (the adapter's own name, which
+          # the About panel writes down) and presentedName() (the product's
+          # word). This checks the values were NOT translated, that
+          # displayName was left alone, and that the ids and the product names
+          # stay disjoint — a "fix" that renamed displayName or translated the
+          # option values would pass a naive label check and break the shell.
+          #
+          # It also re-reads the help text's feature claims off the capability
+          # maps, so the prose cannot rot silently when a backend gains or
+          # loses a capability.
+          ./tests/check-compositor-naming.sh
+
+      - name: Screenshot dispatch, on every compositor
+        run: |
+          # P1-038. Screenshots were dead on labwc and niri for months and
+          # nothing said so: the script called grimblast unconditionally,
+          # grimblast refuses to start without HYPRLAND_INSTANCE_SIGNATURE, and
+          # the keybind swallows its stderr. A grep cannot tell the broken tree
+          # from the fixed one — both contain the word "grim" — so this runs the
+          # shipped script against stub binaries that record their own argv and
+          # grades which tool was actually invoked.
+          #
+          # It needs no compositor, no display and no GPU, so unlike the rest of
+          # the Floating matrix it is real coverage on any runner.
+          #
+          # Its own PATH holds the stubs and nothing else. That is load-bearing:
+          # on a developer's machine the real grim and slurp are installed, and
+          # with /usr/bin visible every "the tool is missing" case silently ran
+          # the real tool instead.
+          ./tests/check-screenshot-dispatch.sh
+
+      - name: Display transaction invariants
+        run: |
+          # P0-018. The user pressed Apply, the fifteen-second confirmation
+          # never appeared, and the layout they wanted was reverted from under
+          # them. The cause was structural: the Keep button lived in a section
+          # of the Display PAGE, and both places that page is shown are torn
+          # down by the very apply they were asking about — the dashboard's
+          # Config tab is a popup that closes on a compositor focus change, and
+          # the Nexus window is one per output.
+          #
+          # These are the properties a refactor would quietly undo: the
+          # confirmation is a layer-shell window built for every output, the
+          # countdown has an owner outside the shell process, and a temporary
+          # apply cannot write the persisted model. The behavioural suite next
+          # to it needs a wlroots session and the installed engine, so it skips
+          # here; this does not.
+          ./tests/check-display-transaction.sh
+
+      - name: Blueprint editor invariants
+        run: |
+          # The properties that make §10's editor safe are properties of the
+          # SOURCE, not of a running session: it never authors TOML, never
+          # applies from a timer, never escalates, and writes only the
+          # user-owned blueprint — never the generated applied-state file. All
+          # of them are grep-able, so they have real CI coverage even though no
+          # runner has a compositor.
+          #
+          # It also asserts that no suite under tests/ can reach a non-dry-run
+          # `apex apply` or a `blueprint set`. That is not hypothetical: a test
+          # in this repo once reconfigured the developer's live display.
+          ./tests/check-blueprint-editor.sh
+
+      - name: Gaming settings discipline (no invented daemon, no escalation)
+        run: |
+          # P1-049 asks for a master "optimise games automatically" control, and
+          # `apex mode set --auto` is documented one-shot: "APEX ships nothing
+          # that re-evaluates this on a timer." A poller in the shell would be
+          # this page inventing the daemon the OS declined to ship, and it would
+          # do it invisibly — the page would appear to work while overriding a
+          # mode the user had set by hand. So: no Timer in either file, exactly
+          # one command that can change anything, reachable from one function,
+          # and a re-read of `apex mode status` after every switch rather than
+          # trust in an exit code.
+          #
+          # Installing the missing packages needs root; the command is shown as
+          # text with no button beside it, the same rule the Blueprint page
+          # follows for `sudo apex apply`.
+          ./tests/check-gaming-settings.sh
+
+      - name: Whether the power menu may offer Gaming Mode
+        run: |
+          # BASE-009. gamescope and Steam are ON-DEMAND packages in APEX, so
+          # apex-gaming.desktop ships on every machine while /usr/bin/gamescope
+          # does not — which is why the entry carries TryExec and why
+          # apex-greet's enumeration honours it.
+          #
+          # PowerMenu.qml's probe tested the session helper and the session FILE
+          # and nothing else, so the menu and the greeter disagreed: the menu
+          # offered "Gaming Mode" on any APEX install, taking it logged the user
+          # out, and the greeter then HID the session they had just chosen —
+          # leaving them back on the desktop with last-session=apex-gaming
+          # written. Containerfile.apex has a build gate asserting the greeter's
+          # half; nothing asserted that this menu agreed.
+          #
+          # The probe's own `sh -c` script is lifted out of the QML and RUN
+          # against fixtures, because a grep for "TryExec" would pass on a probe
+          # that read the key and ignored it — and on one whose quoting was
+          # broken so every branch exited 0, which is the failure that matters
+          # for a gate whose whole job is to fail closed.
+          ./tests/check-gaming-mode-gate.sh
+
+      - name: niri keybind generation
+        run: |
+          # niri rejects a bad include WHOLESALE — one unknown action verb and
+          # the user loses every binding in the file, not just that line. So the
+          # static half checks every mapped action name against niri's own
+          # `msg action --help` when the binary is present, and the behavioural
+          # half puts real generated output through `niri validate`.
+          #
+          # The static half runs here; the behavioural half needs a compositor
+          # and skips, which is why the name checking is not left to it.
+          ./tests/run-niri-keybinds-test.sh
+
+      - name: Compositor facade behavioural test
+        run: |
+          # Needs a compositor; the harness skips cleanly without one so this
+          # documents the entry point rather than silently not existing. Run it
+          # in a Wayland session to exercise all 48 assertions, including
+          # loading every backend — not just the one for the running session.
+          #
+          # Its header explains how to stage it into a nested labwc, which is
+          # the only way to exercise the pushed-state branches without
+          # rebooting; both runs are 48/48.
+          ./tests/run-compositor-facade-test.sh
+
+      - name: Every suite is reachable from CI, and the Nexus surface opens
+        run: |
+          # Two things, both about a suite nobody runs.
+          #
+          # apex-os has had a suite-coverage gate since 2026-09-12 — it found 13
+          # of 70 suites named in no workflow — but it globs `tests/test-*.sh`
+          # IN APEX-OS ONLY and can neither see nor protect anything here. This
+          # is apex-shell's half, and it asks REACHABILITY rather than "named in
+          # a workflow", because this repo invokes suites through other suites:
+          # check-headless-runners.sh drives six, and asking the narrower
+          # question would condemn six innocent files.
+          ./tests/check-suites-run-in-ci.sh
+          # The one orphan it found. run-nexus-smoke.sh opens, toggles and closes
+          # the Nexus settings surface over IPC on a headless labwc with a
+          # private HOME, and reports the shell's own ERROR count — the same
+          # shape as run-popup-smoke.sh above it, which CI has always run.
+          ./tests/run-nexus-smoke.sh
+
+      - name: Floating/labwc behavioural matrix
+        run: |
+          # P1-038, roadmap §21. Every labwc defect this shell has shipped had
+          # the same shape: it draws perfectly and ignores every click. A popup
+          # whose input region sits outside its own surface, a dismiss overlay
+          # stacked above the menu it dismisses, a bar mask over the titlebars
+          # labwc draws — none of them log anything, so run-popup-smoke.sh exits
+          # zero over all three. Three branches of them landed in August, each
+          # found by a person using the session rather than by CI.
+          #
+          # So this measures. It starts its OWN headless labwc on two outputs
+          # in a private XDG_RUNTIME_DIR with a private HOME, publishes a filler
+          # toplevel so the dock has something real to list, and reads geometry
+          # back off live objects: every mask inside its surface, one bar and
+          # one dismiss surface per output each naming its own, the dismiss
+          # surface unmapped for the power menu and mapped for everything else,
+          # the bar mask down to the painted border, the dock inside its notch
+          # budget.
+          #
+          # labwc identity is a hard precondition, not a skip. The bar mask and
+          # the dismiss surface assert the labwc arm of a Compositor.isLabwc
+          # branch, and on any other host they would pass over the arm they do
+          # not test — a green labwc suite that never saw labwc.
+          #
+          # Skips cleanly without quickshell or labwc, so a runner with neither
+          # does not fail the build.
+          ./tests/run-labwc-matrix-test.sh
+
+      - name: Display transaction behavioural test
+        run: |
+          # Needs labwc, wlr-randr and the installed display engine, and skips
+          # cleanly without them — so this documents the entry point rather
+          # than it silently not existing.
+          #
+          # On a machine that has them it starts its OWN headless wlroots
+          # session with two virtual outputs shaped like the desk this was
+          # reported from, and covers all six of P0-018's required scenarios:
+          # confirm, timeout, manual revert, invalid mode, disconnected output,
+          # and SIGKILLing the shell mid-countdown. The last two are why it
+          # needs a real compositor — an output that leaves Quickshell.screens
+          # is not something a mock can produce.
+          ./tests/run-display-transaction-test.sh
+
+      - name: Input settings behavioural test
+        run: |
+          # UI-003 / P0-019. Needs labwc, quickshell and the input generator,
+          # and skips cleanly without them — so this documents the entry point
+          # rather than it silently not existing.
+          #
+          # It runs the service twice against the REAL generator, once as
+          # labwc and once as niri, because the interesting behaviour is a
+          # refusal: niri has no three-finger drag and no click method that
+          # produces no button, and a control the compositor cannot honour has
+          # to be refused rather than written and reported as applied. That is
+          # the whole of "changing Input configuration has no effect", and it
+          # cannot be checked against a stub — a stub would prove the page
+          # agrees with the stub.
+          ./tests/run-input-settings-test.sh
+
+      - name: Display recovery against real hotplug
+        run: |
+          # The scenarios the labwc harness above cannot reach, because labwc
+          # cannot add or remove an output while it is running. sway's headless
+          # backend can: `swaymsg create_output` and `output <name> unplug` are
+          # genuine wlroots hotplugs, seen by every layer.
+          #
+          # Four arms, all of P0-018 criterion 5 and 6: a timeout compared
+          # field for field across two outputs rather than on the one value the
+          # assertion happened to look at; an output destroyed before Apply; an
+          # output the ROLLBACK names destroyed during the countdown; and the
+          # engine failing while the guard is trying to put the layout back.
+          # The last two each found a defect the static checks could not see.
+          ./tests/run-display-unplug-test.sh
+
+      - name: Plugin platform decision logic
+        run: |
+          # Roadmap §16. Manifest validation, the apiVersion compatibility
+          # policy, the source scan, the network host allowlist, and the row
+          # and tile allowlists for the two extension points where the SHELL
+          # draws plugin-supplied strings — the security-critical half of the
+          # plugin platform, decided in plain JavaScript precisely so it can be
+          # exercised here.
+          #
+          # The launcher row allowlist is the one to know about.
+          # AppLauncher.activate() dispatches on fields it finds on a row:
+          # `entry` runs a DesktopEntry and `exec` goes to `bash -c`. A row that
+          # kept either would be arbitrary command execution granted to a plugin
+          # that declared no permissions — the `system` permission this shell
+          # refuses at load, through the back door. launcherResults() builds a
+          # fresh object from an allowlist rather than deleting known-bad keys,
+          # because an allowlist cannot fall behind a launcher that learns a new
+          # row shape.
+          #
+          # The QML engine imports the same src/services/plugins/manifest.js
+          # that this requires, so these are assertions about the shipped file
+          # rather than a test double. That matters: the behavioural suite
+          # below needs a compositor and skips on every runner, so a permission
+          # check that only ran on a developer's laptop would not be checked at
+          # all.
+          node tests/plugin-manifest-test.js
+
+      - name: Plugin platform invariants
+        run: |
+          # The wiring half of §16: that those decisions are connected to
+          # something, that nothing re-implements URL parsing or names its own
+          # curl outside curlArgv(), that discovery has no poll timer, that the
+          # crash-isolating Loader still handles Loader.Error in every one of
+          # the three hosts, and that all three shipped example plugins pass the
+          # validator they meet at runtime.
+          #
+          # It also pairs EXTENSION_POINTS against the hosts in both directions.
+          # The list is read out of the shipped manifest.js rather than repeated
+          # here, so adding a name without writing a host fails the build — a
+          # name with no host behind it is a plugin that loads, is granted, and
+          # is then mounted by nothing, which to its author is indistinguishable
+          # from a bug in their own code.
+          #
+          # And it asserts the plugin-row branch of AppLauncher.activate() comes
+          # BEFORE the branches that run a DesktopEntry or hand an Exec string
+          # to `bash -c`. That is the second lock on the door the row allowlist
+          # already closes.
+          #
+          # It also greps for "not a sandbox" in manifest.js, PluginService.qml
+          # and docs/plugins.md. QML plugins run in-process; the permission
+          # model gates the API and the source scan defends the API's monopoly,
+          # and neither confines hostile code. Deleting that sentence because it
+          # reads as pessimistic would leave the platform promising confinement
+          # it does not provide, so its absence fails the build.
+          ./tests/check-plugin-platform.sh
+
+      - name: Plugin host behavioural test
+        run: |
+          # Needs a compositor; the harness skips cleanly without one so this
+          # documents the entry point rather than silently not existing. Run it
+          # in a Wayland session to exercise all 94 assertions — discovery on a
+          # real filesystem, every refusal reason arriving on the fixture built
+          # to trigger it, crash isolation proven by a plugin that passes every
+          # static check and then fails in the QML engine, and each of the three
+          # extension points mounting through the host the shell really uses.
+          #
+          # One fixture is a launcher provider that passes every static check
+          # and then hands back rows carrying `exec`, `entry` and a `command`
+          # array. The node suite proves the sanitiser drops them; this proves
+          # nothing puts them back on the way through a real Loader, a real
+          # property written by the host, and a real array read back out.
+          #
+          # It builds its fixtures under XDG_RUNTIME_DIR and never reads or
+          # writes the real ~/.config/apex-shell/plugins, and it makes no
+          # network call: the granted path is checked by shape, never fetched.
+          ./tests/run-plugin-host-test.sh
+
+      - name: APEX Search invariants
+        run: |
+          # The node suite proves what search.js DECIDES. This proves the QML
+          # cannot go around it: exactly one function starts a provider
+          # subprocess and it is the one that applies the reducer's start list;
+          # no file under src/services/search/ so much as names Process,
+          # Quickshell.Io, FileView or Socket; activate() is called from exactly
+          # one place and that place consults Search.commitDecision() first.
+          #
+          # An AppLauncher that ran the row straight from its click handler
+          # would pass every node assertion and ship a launcher that reboots on
+          # a fuzzy match. That is mutant m1 here.
+          #
+          # Self-testing: twelve forward mutants, each diffed against its source
+          # so a sed that matched nothing is a hard failure rather than a quiet
+          # pass, each bounded so a mutant that damaged the copy cannot read as
+          # "caught", plus an inverse mutant of prose quoting every one of those
+          # bugs verbatim that must stay green.
+          ./tests/check-unified-search.sh
+
+      - name: APEX Search spawns one process, not one per keystroke
+        run: |
+          # §15's hard constraint, measured with REAL processes: a shim `apex`
+          # and a shim `ls` go first on PATH, the same reducer the shell drives
+          # is driven, and every argv it asks for is actually executed. The
+          # counts come out of a log the shim wrote, not one the test wrote.
+          #
+          # Seventy-odd keystrokes across three query shapes, two idle periods
+          # and a directory walk cost six invocations. The tab-separated log
+          # also measures the argv boundary — a package name spliced into a
+          # command string would arrive as one field containing a space.
+          #
+          # Needs node and /bin/sh and nothing else. It deliberately starts no
+          # shell, no compositor and no window, so unlike the behavioural
+          # suites it does not skip here.
+          ./tests/measure-search-spawns.sh
+      - name: Caffeine idle-inhibit invariants
+        run: |
+          # Caffeine must keep working on every compositor APEX ships. Whether
+          # it ACTUALLY suppresses idle needs a live compositor and a live idle
+          # daemon, which no runner has — tests/measure-idle-inhibit.sh does
+          # that manually and records its numbers. What runs here is the
+          # property that measurement established: neither mechanism is
+          # conditional on anything except Caffeine itself.
+          #
+          # The bug this replaced: the logind inhibitor was gated
+          # `root.caffeine && Compositor.isLabwc` on the belief that the Wayland
+          # surface inhibitor covered Hyprland. Hyprland ignores idle inhibitors
+          # on layer-shell surfaces and a bar is one, so Caffeine did nothing at
+          # all on the primary compositor while the tile lit up. Nothing logged,
+          # nothing threw, the screen just locked.
+          ./tests/check-idle-inhibit.sh
 
       - name: Popup input regions must not sit outside their surface
         run: |
@@ -278,13 +870,133 @@ jobs:
           # Hyprland's plain `bind` fires once per press. A volume or brightness
           # key that does not repeat is technically bound and practically
           # useless, and nothing errors when the flag is lost.
+          #
+          # hyprlang spelled it `bindel`; the Lua option table spells it
+          # { locked = true, repeating = true }. The Lua generator dropped the
+          # flag entirely until P0-025 — it emitted a plain hl.bind for every
+          # entry — so holding a volume key on a Lua config stepped exactly once.
           fail=0
-          grep -q 'e.repeat ? "bindel" : "bind"' src/services/config_tab/KeybindService.qml \
-            || { echo "✗ the keybind generator no longer emits bindel"; fail=1; }
+          grep -q 'locked = true, repeating = true' src/services/config_tab/KeybindService.qml \
+            || { echo "✗ the keybind generator no longer emits a repeating bind"; fail=1; }
           grep -q 'repeat: true' src/services/config_tab/KeybindService.qml \
             || { echo "✗ no bind asks to repeat; volume/brightness will single-step"; fail=1; }
           [ "$fail" -eq 0 ] || exit 1
           echo "✓ held volume and brightness keys repeat"
+
+      - name: The Hyprland keybind generator writes Lua, not hyprlang
+        run: |
+          # Hyprland 0.55 deprecated hyprlang and 0.56.2 loads hyprland.lua in
+          # preference to a hyprland.conf beside it — without saying it ignored
+          # one. So a generator that went back to writing .conf would produce a
+          # file that looks current, is read by nothing, and reports nothing.
+          KS=src/services/config_tab/KeybindService.qml
+          fail=0
+
+          # Comment lines stripped first: a grep for a construct is otherwise
+          # satisfied by the prose explaining its removal. This file explicitly
+          # documents what _genConf used to do.
+          code=$(grep -v '^\s*//' "$KS")
+
+          # The path is assembled from _hyprDir + the leaf, so match the leaf and
+          # the directory separately rather than a string that is never literal.
+          grep -q '/apex/shell-keybinds.lua' <<<"$code" \
+            || { echo "✗ the Hyprland artifact is not apex/shell-keybinds.lua"; fail=1; }
+          grep -q '.config/hypr' <<<"$code" \
+            || { echo "✗ the Hyprland artifact is not under ~/.config/hypr"; fail=1; }
+          grep -q '_genConf' <<<"$code" \
+            && { echo "✗ the hyprlang generator is back"; fail=1; }
+          grep -q 'ApexShellKeybinds.conf' <<<"$code" \
+            && { echo "✗ the shell still writes a hyprlang keybind fragment"; fail=1; }
+
+          # The dispatchers must be real Lua calls. They used to be emitted as
+          # hl.dsp.exec_cmd("hyprctl dispatch <verb>") — the compositor spawning
+          # a shell to run a client that talks back to the compositor, once per
+          # keypress, for something the Lua API does directly.
+          grep -q 'hyprctl dispatch' <<<"$code" \
+            && { echo "✗ the Lua generator still shells out to hyprctl dispatch"; fail=1; }
+          grep -q 'hl.dsp.window.close()' <<<"$code" \
+            || { echo "✗ the Lua generator has no native dispatcher mapping"; fail=1; }
+
+          # SUPER+W must open the DEFAULT browser. The Lua path substituted
+          # `firefox` while the niri and conf paths used the helper, so a
+          # Hyprland user's SUPER+W ignored their own default browser.
+          grep -q 'apex-open-browser' <<<"$code" \
+            || { echo "✗ the browser bind does not use apex-open-browser"; fail=1; }
+          grep -qE '"\$browser",\s*"(firefox|zen)"' <<<"$code" \
+            && { echo "✗ the browser bind names a browser"; fail=1; }
+
+          # `hyprctl keyword` is refused by a Lua config ("keyword can't work
+          # with non-legacy parsers. Use eval."), so every live config write has
+          # to have a lua branch. setGaps was the one that did not.
+          if grep -n 'hyprctl keyword' src/services/compositor/HyprlandBackend.qml \
+             | grep -v '_lua' | grep -qv 'root._lua'; then
+            grep -q '_lua' src/services/compositor/HyprlandBackend.qml \
+              || { echo "✗ a live keyword write has no Lua branch"; fail=1; }
+          fi
+          grep -q "hyprctl eval 'hl.config({ general = { gaps_in =" \
+            src/services/compositor/HyprlandBackend.qml \
+            || { echo "✗ setGaps has no hyprctl eval branch; the gaps slider is inert on Lua"; fail=1; }
+
+          [ "$fail" -eq 0 ] || exit 1
+          echo "✓ the Hyprland keybind generator writes Lua and the live writes use eval"
+
+      - name: The generator does not eat a keybind it did not write
+        run: |
+          # apex/shell-keybinds.lua has two writers: this generator, which
+          # rewrites it whole on every shell start, and apex-hypr-migrate, which
+          # converts the user's old ApexShellKeybinds.conf INTO it because that
+          # is the only name `require` can reach the module by. So the migration
+          # carried a hand-edited bind across and the next login deleted it.
+          #
+          # Runs the rescue script for real against fixtures; no compositor
+          # needed. Six behavioural cases plus the greps that keep the generator
+          # pointed at it.
+          ./tests/check-keybind-lua.sh
+
+      - name: hyprctl configerrors against a nested Hyprland
+        run: |
+          # The acceptance criterion is "hyprctl reload and hyprctl configerrors
+          # are clean after any generated change", and configerrors needs a
+          # RUNNING Hyprland. This starts one — nested, with its own signature,
+          # runtime dir and HOME — generates the module with the shipped
+          # KeybindService, rebinds a key through the page's own path, reloads,
+          # and asks that instance by signature.
+          #
+          # It needs a Wayland session to nest inside: Hyprland 0.56.2 will not
+          # start headless on a machine with a GPU and no DRM master, and
+          # nesting it in a headless labwc dies the same way in
+          # CBackend::create(). Both measured. So it SKIPS in this container and
+          # is run on a real session; this step documents the entry point rather
+          # than it silently not existing.
+          ./tests/run-hypr-configerrors-test.sh
+
+      - name: the ALT+Tab switcher, driven by real ALT and TAB keys
+        run: |
+          # Every keystroke reaching the switcher, on a headless labwc with the
+          # same four bindings shape the image ships, pressed by wtype. Eleven
+          # assertions about what the keys do: the single-tap case selects the
+          # PREVIOUS window, more taps step and wrap, SHIFT steps back, Escape
+          # closes without touching focus, Return commits, a commit with nothing
+          # open is harmless, and a window that has left the screen is still in
+          # the list and still selectable.
+          #
+          # SKIPS without labwc, quickshell or wtype, which is what this
+          # container will do — the value is on a machine that has them. The
+          # step exists so the entry point cannot quietly stop existing.
+          ./tests/run-window-switcher-test.sh
+
+      - name: the switcher's commit, measured against a real compositor
+        run: |
+          # The other half. A headless labwc accepts a foreign-toplevel
+          # activate() and changes nothing — measured, with and without a
+          # virtual keyboard on the seat — so "the window you switched to is
+          # focused, and the pointer is in it" is asserted in a nested Hyprland
+          # instead, which is also the session that binds this switcher.
+          #
+          # Seven assertions, including the two Andre asked for by name: a
+          # window on another workspace is in the list, and committing it both
+          # focuses it and switches workspace.
+          ./tests/run-switcher-activate-test.sh
 
       - name: labwc session support is wired up
         run: |
@@ -293,26 +1005,34 @@ jobs:
             || { echo "✗ Compositor does not detect labwc"; fail=1; }
           # labwc has no IPC, so ext-workspace is the ONLY route to workspace
           # state. Losing this import silently empties the workspace indicator.
-          grep -q 'Quickshell.WindowManager' src/modules/Left/Workspaces.qml \
-            || { echo "✗ Workspaces lost the ext-workspace import"; fail=1; }
+          # It moved out of the view and into the labwc adapter with §17 — the
+          # bar reads one model from CompositorService now and does not know
+          # which protocol filled it. Same invariant, one directory over.
+          grep -q 'Quickshell.WindowManager' src/services/compositor/LabwcBackend.qml \
+            || { echo "✗ LabwcBackend lost the ext-workspace import"; fail=1; }
+          grep -q 'CompositorService.workspaces' src/modules/Left/Workspaces.qml \
+            || { echo "✗ the workspace indicator no longer reads the adapter"; fail=1; }
           grep -q 'visible: Compositor.isLabwc' src/modules/Left/AppDock.qml \
             || { echo "✗ labwc app dock is missing or not positively gated"; fail=1; }
           grep -q 'ToplevelManager.toplevels' src/modules/Left/AppDock.qml \
             || { echo "✗ labwc app dock lost foreign-toplevel tracking"; fail=1; }
-          grep -q 'systemd-inhibit' src/state/ShellState.qml \
-            || { echo "✗ labwc caffeine lost its logind inhibitor"; fail=1; }
+          # Caffeine's inhibitors USED to be asserted here, because the logind
+          # one was gated on Compositor.isLabwc. It no longer is: Hyprland
+          # ignores idle inhibitors on layer-shell surfaces, so the logind lock
+          # is what makes Caffeine work everywhere and is now held
+          # unconditionally. Asserting it in a labwc step would restate the
+          # wrong fact that motivated the bug. It moved, with stricter checks,
+          # to tests/check-idle-inhibit.sh — including the --pdeathsig pair.
           grep -q 'mask: Region' src/windows/TopBar.qml \
             || { echo "✗ full-width top bar can intercept titlebar controls"; fail=1; }
-          grep -q 'height: Compositor.isLabwc ? Theme.borderWidth : root.implicitHeight' src/windows/TopBar.qml \
+          grep -q 'height: Compositor.isLabwc ? theme.borderWidth : root.implicitHeight' src/windows/TopBar.qml \
             || { echo "✗ top-bar mask no longer preserves Hyprland input behavior"; fail=1; }
-          grep -q 'Math.max(Theme.notchHeight, Theme.exclusionGap)' src/windows/TopBar.qml \
+          grep -q 'Math.max(theme.notchHeight, theme.exclusionGap)' src/windows/TopBar.qml \
             || { echo "✗ labwc bar no longer honours its exclusion-gap floor"; fail=1; }
           grep -q 'availableWidth:' src/modules/Left/LeftContent.qml \
             || { echo "✗ labwc app dock no longer respects the notch budget"; fail=1; }
           grep -q '!(Compositor.isLabwc && Popups.archMenuOpen)' src/windows/PopupDismiss.qml \
             || { echo "✗ labwc dismiss surface can intercept the power menu"; fail=1; }
-          [ "$(grep -c -- '--pdeathsig' src/state/ShellState.qml)" -ge 2 ] \
-            || { echo "✗ caffeine inhibitor can survive its shell parent"; fail=1; }
           ! grep -q 'nmcli monitor' src/state/ShellState.qml \
             || { echo "✗ persistent VPN monitor can leak across shell reloads"; fail=1; }
           test -x tests/run-nested-labwc.sh \
@@ -366,10 +1086,52 @@ jobs:
           done
           grep -q "confirmSeconds" src/services/config_tab/pages/DisplayPage.qml \
             || { echo "✗ the Display page never shows the revert countdown"; fail=1; }
+          # …but the page must never be the ONLY place the countdown can be
+          # answered. That was P0-018: the Keep button was a section of a page
+          # shown inside surfaces the apply itself tears down, so the user saw
+          # no confirmation at all. tests/check-display-transaction.sh checks
+          # this and thirty more; it is duplicated here because this is the
+          # step a reviewer opens for display invariants.
+          test -s src/windows/DisplayConfirm.qml \
+            || { echo "✗ there is no confirmation window; the page cannot be the only one asked"; fail=1; }
+          grep -qE "DisplayConfirm \{ *screen: modelData" shell.qml \
+            || { echo "✗ the confirmation is not built per output; an apply can destroy the only copy"; fail=1; }
+          test -x src/scripts/apex-display-guard.sh \
+            || { echo "✗ no display guard; a shell that dies during the countdown never reverts"; fail=1; }
           # save() must stay distinct from apply(): it is the action that writes
           # persistence WITHOUT touching hardware.
           grep -q "function save()" src/services/config_tab/DisplayService.qml \
             || { echo "✗ DisplayService has no save(); every change would touch hardware"; fail=1; }
+
+          # THE BLUEPRINT EDITOR MUST NOT APPLY AUTOMATICALLY EITHER.
+          #
+          # Same guard, same shape, different reason. A blueprint is a
+          # declarative statement of what the machine should be; the point of
+          # it is that you say so, look at what would change, and THEN decide.
+          # An editor that converged on edit would make the file an imperative
+          # remote control with extra steps.
+          #
+          # `blueprint set` is also a full-file replace, so a debounced SAVE
+          # would rewrite the user's blueprint on every keystroke. Both shapes
+          # are refused. tests/check-blueprint-editor.sh checks these and
+          # ~60 more; these two are duplicated here because this is where a
+          # reviewer looks for "must not apply automatically".
+          if grep -qE "onTriggered:\s*root\.apply\(\)" src/services/config_tab/BlueprintService.qml; then
+            echo "✗ BlueprintService applies from a timer; convergence must be explicit"
+            fail=1
+          fi
+          if grep -qE "onTriggered:\s*root\.(save|_write)\(\)" src/services/config_tab/BlueprintService.qml; then
+            echo "✗ BlueprintService saves from a timer; set is a full-file replace"
+            fail=1
+          fi
+          # apply never escalates: `apex apply` converges the domain it is
+          # already in and reports the other, which is why it cannot raise an
+          # authentication prompt at all.
+          if grep -nE '"sudo"|pkexec|polkit' src/services/config_tab/BlueprintService.qml \
+               | grep -vE '^[0-9]+:\s*//'; then
+            echo "✗ BlueprintService tries to escalate; apply must never run sudo"
+            fail=1
+          fi
 
           # Neither service may splice its model into a shell string. Values
           # here come off disk and out of EDID; interpolating them is a shell
@@ -387,72 +1149,1153 @@ jobs:
           [ "$fail" -eq 0 ] || exit 1
           echo "✓ input and display pages registered; display applies only on request"
 
+      # The Agent Center navigates, does not decide, and stays lazy — five
+      # invariants that used to be seventy lines of shell inline here.
+      #
+      # Two of them were a bare grep for a word, which was sound until §43 gave
+      # the tab a help document. AgentHelpContent.qml explains the privilege
+      # model, so it prints `sudo apex request approve` and names
+      # $XDG_RUNTIME_DIR/apex-agentd/control.sock — and this step went red for
+      # seven mentions, none of them a call site. The check now separates
+      # naming a command from being able to run one, and it lives in a script
+      # so its own ability to fail can be proved.
       - name: Agent Center invariants
+        run: ./tests/check-agent-center-invariants.sh
+
+      - name: Agent lifecycle types
         run: |
-          fail=0
-
-          # 1. The shell must NEVER approve a privilege request itself.
+          # P1-029 / ROADMAP.md §19. Which KIND of agent a row is, as opposed
+          # to what state it is in, against the file the shell loads.
           #
-          # Approving performs the operation with the user's own root, so it
-          # belongs in a terminal where the prompt and the sudo authentication
-          # are both visible. An [Allow] button in a status list would be one
-          # unconfirmed click from an OS change, judged from a two-line
-          # summary. The Agent Center therefore navigates to a terminal and
-          # decides nothing — this is the check that keeps it that way.
-          if grep -rnE "request (approve|allow|deny)|\bsudo\b" \
-               --include="*.qml" src/services/agents/ src/services/AgentService.qml \
-               | grep -vE "^[^:]+:[0-9]+:[[:space:]]*//"; then
-            echo "✗ the Agent Center decides privilege requests; it must only navigate"
-            fail=1
-          fi
+          # The classifier reads apex-agentd's own `request_origin`, so
+          # section 1 of the suite reads the real `RequestOrigin::as_str` arms
+          # out of an apex-os checkout when one is present and falls back to a
+          # transcribed vocabulary when it is not, saying which it used. CI has
+          # no apex-os checkout, so it runs on the transcription — which is why
+          # the fallback list is asserted against the daemon on a developer
+          # machine rather than trusted here.
+          node tests/agent-lifecycle-test.js
 
-          # 2. It must go through the `apex` CLI, not the control socket.
+      - name: Remote agent status logic
+        run: |
+          # §20's parsing and status decisions, against the file the shell
+          # loads. Runs headless and needs nothing installed, which is the
+          # point: the behavioural test below needs a compositor AND an
+          # apex-os checkout, so without this the whole feature would have no
+          # CI coverage at all.
+          node tests/remote-agents-test.js
+
+      - name: The QR encoder, against an independent implementation
+        run: |
+          # P1-051's pairing code. `apex remote pair` refuses to draw a QR in
+          # the terminal and says why in its own source: "a wrong QR is worse
+          # than none — a phone scans it, fails, and the person concludes
+          # their camera is broken." So "it renders" is not a test here, and
+          # this step is what makes the claim checkable: every module of 36
+          # symbols from segno 1.6.6, versions 1 through 40, all four error
+          # correction levels, all eight masks.
           #
-          # The CLI already handles an absent daemon and a protocol-version
-          # mismatch. A second implementation of the socket protocol in QML is
-          # a second thing to keep in step with every protocol change, and it
-          # would drift silently.
-          # The dot is escaped and comments are stripped: an unescaped
-          # `control.sock` also matches the prose "control socket" in
-          # AgentService's own header, which is a check that fails on its own
-          # documentation.
-          if grep -rnE "control\\.sock|apex-agentd/control" \
-               --include="*.qml" src/services/ \
-               | grep -vE "^[^:]+:[0-9]+:[[:space:]]*//"; then
-            echo "✗ QML talks to the agentd socket directly; use the apex CLI"
-            fail=1
-          fi
+          # The fixtures are evidence, not a dependency — nothing at run time
+          # or test time needs segno or a venv, and the whole suite is one
+          # `node` invocation with no build step. It already earned its place
+          # twice: it caught an alignment-pattern table that was wrong for
+          # every version from 7 up, and it is why the encoder does not
+          # reproduce segno's own deviation from ISO/IEC 18004 §7.4.10.
+          node tests/qr-test.js
 
-          # 3. The Agent Center's parts must stay registered.
+      - name: APEX Remote pairing logic
+        run: |
+          # P1-051's parsing and presentation decisions, against the file the
+          # shell loads. Runs headless and needs nothing installed, which is
+          # the point: the behavioural suite below needs quickshell AND a
+          # compositor, so without this the two pages would have no CI cover
+          # on a runner that has neither.
           #
-          # AgentCenter is loaded THROUGH src/services/qmldir, so its own
-          # directory is not on the import path and implicit sibling resolution
-          # does not apply. Dropping an entry gives "RequestRow is not a type"
-          # at load, which takes the whole shell down — not just the page.
-          for t in AgentCenter RequestRow SessionRow SectionHeading SmallIconButton; do
-            grep -qE "^${t} agents/${t}\.qml$" src/services/qmldir \
-              || { echo "✗ $t is not registered in src/services/qmldir"; fail=1; }
-          done
-          grep -q "^singleton AgentService " src/services/qmldir \
-            || { echo "✗ AgentService is not registered as a singleton"; fail=1; }
+          # The assertion that pays for this step is the one about an absence.
+          # `requires_user_verification` is the DEVICE's claim that its key is
+          # held behind a biometric lock, and this desktop cannot check it.
+          # remotepairing.js therefore exposes it only as a sentence naming the
+          # devices, never as anything a row could draw as a tick -- because a
+          # tick in a table reads as a fact this machine verified. The test
+          # asserts the exported surface has nothing else matching /verif/i, so
+          # adding a per-device renderer fails here rather than in review.
+          node tests/remote-pairing-test.js
 
-          # 4. The page must be lazy and refcounted like every other one.
-          grep -q "ServiceRef" src/services/agents/AgentCenter.qml \
-            || { echo "✗ the Agent Center does not hold a ServiceRef"; fail=1; }
-          grep -q "refCount" src/services/AgentService.qml \
-            || { echo "✗ AgentService has no refCount"; fail=1; }
-          grep -q 'shown: root.page === "agents"' src/popups/Dashboard.qml \
-            || { echo "✗ the Agents tab is not lazily built"; fail=1; }
+      - name: Push-to-talk decision layer
+        run: |
+          # §8.2's push-to-talk, at the layer where its edge cases are: when
+          # the microphone opens, whose session the words go to, and what
+          # closes it again. Drives src/services/pushtotalk.js — the file the
+          # shell loads — rather than a copy of it.
+          #
+          # The assertion that pays for this step is that no reachable path
+          # leaves the phase at "recording" with no target. Push-to-talk is a
+          # toggle rather than hold-to-talk because niri 26.04 has no bind
+          # that fires on key release, and a toggle's characteristic failure
+          # is a microphone left open. So the ninety-second cap and the
+          # refusal to record without a named destination are the feature,
+          # not hardening around it.
+          #
+          # Self-tested the way check-agent-help.sh is: fourteen mutants that
+          # must each turn the battery red, and a hard failure for a mutant
+          # that did not change the source, because a mutant that failed to
+          # apply proves nothing while looking like proof.
+          #
+          # The fourteenth guards the one event a TIMER sends: an error is the
+          # only phase that does not end on its own, so the service dismisses
+          # it after six seconds, and the reducer accepts a dismiss from that
+          # phase and no other. Without the guard the timer's condition
+          # becomes load-bearing, and a wrong one drops a live microphone
+          # mid-sentence or throws away words already spoken.
+          node tests/push-to-talk-test.js
 
-          # 5. AgentService's timer is deliberately always running — it slows to
-          # 15s with no refs rather than stopping, because a notification has to
-          # arrive when nothing is on screen. Assert the SLOW tier exists, so
-          # "always running" cannot quietly become "always running fast".
-          grep -qE "refCount > 0 \? [0-9]+ : [0-9]+" src/services/AgentService.qml \
-            || { echo "✗ AgentService has no two-tier poll interval"; fail=1; }
+      - name: Push-to-talk wiring
+        run: |
+          # The other half of P1-023, and the half the node suite structurally
+          # cannot see: whether the reducer above is REACHABLE. A perfect state
+          # machine nothing calls is a file, not a feature, and every link in
+          # the chain fails silently.
+          #
+          # The link that pays for this step is the shape of the keybind. An
+          # entry in KeybindService `_defaults` with NO `type` field becomes
+          # `qs ipc call voice-ptt toggle` in the Hyprland and niri generators
+          # automatically, and apex-os's apex-labwc-keybinds translates the
+          # ACTION ID through its VERBS allowlist. Written the obvious way
+          # instead — type: "exec", command: "$qsIpc voice-ptt toggle" — it
+          # reaches Hyprland and niri and is silently DROPPED on labwc, because
+          # that generator's exec arm substitutes only $terminal/$browser/
+          # $fileManager. Two compositors out of the three the acceptance
+          # criterion names, reading like three. So the ABSENCE of a field is
+          # the invariant, which is why `_defaults` is evaluated as JavaScript
+          # here rather than grepped: a negative grep on a line is fooled by
+          # reformatting, and evaluating the table also compares every combo
+          # against every other one.
+          #
+          # It also pins the two things about a microphone that must not drift:
+          # the recorder's `running:` is bound to the reducer's micOpen and
+          # never to a constant, and nothing under src/services/agents/ may
+          # NAME an audio device — a mention fails, not just a use, because
+          # AgentHelpContent already promises a sandboxed session has "No
+          # camera and no microphone".
+          #
+          # It also pins the INDICATOR, which is its own acceptance criterion:
+          # the notch carousel gains an item whenever the reducer is not idle,
+          # the delegate renders the reducer's label rather than rebuilding a
+          # phase string of its own — the label is where the target session is
+          # named, so re-deriving it is how "explicit target" quietly stops
+          # being true — and an open microphone force-scrolls the carousel to
+          # itself instead of sitting behind whatever the user last scrolled
+          # to. A toggle's characteristic failure is a hot mic nobody noticed.
+          #
+          # Fourteen mutants, each applied to a verified-changed copy
+          # (checksummed before and after, so a sed that matched nothing is
+          # reported instead of counted as a catch), all fourteen caught, with
+          # the control re-confirmed green after every restore. One is not
+          # obvious:
+          # moving voice-ptt onto SUPER+V is caught by the hardcoded combo
+          # assertion whether or not the duplicate scan works, so it cannot
+          # prove that scan — the eighth moves clipboard-toggle ONTO
+          # SUPER+ALT+V instead, leaving voice-ptt correct, and then the dupe
+          # scan is the only assertion that can fire.
+          #
+          # What this step cannot see, because it is static: whether any of it
+          # LOADS. That was checked separately against labwc headless with the
+          # real shell.qml — `ipc show` lists target voice-ptt with toggle()
+          # and state(), the singleton resolves, and a toggle with no STT hook
+          # answers "no speech-to-text command is configured" without opening
+          # a microphone. Not a CI step because it needs a compositor.
+          bash tests/check-push-to-talk.sh
 
-          [ "$fail" -eq 0 ] || exit 1
-          echo "✓ the Agent Center navigates, does not decide, and stays lazy"
+      # Theme exposes two scalers and they are not interchangeable:
+      # px(v) = round(v*scale), fs(v) = max(7, round(v*scale)). The floor in
+      # fs() is a text legibility rule, and using it for geometry silently
+      # clamps every small value up to 7px.
+      #
+      # The Agent Center was built that way — 42 call sites, 16 of them under
+      # the floor, so `spacing: Theme.fs(2)` rendered at 7px and the tab's
+      # rhythm matched nothing else in the shell. Every unit test passed
+      # throughout; the wrong function was simply being called and nothing
+      # looked. It then spread: a later section copied the surrounding idiom
+      # and added twelve more.
+      #
+      # This check is anchored to a property assignment so a mention in a
+      # comment cannot satisfy it, and it self-tests both directions — a
+      # reintroduced fs() must be caught, and a comment naming the pattern must
+      # not cause a false failure.
+      - name: Scale-token discipline (geometry px, text fs)
+        run: ./tests/check-scale-tokens.sh
+
+      # The breakpoint arithmetic itself. tests/scaling-test.js exists BECAUSE
+      # the QML scaling suite needs a compositor and skips without one, which is
+      # every runner here — and it was never actually added to this file, so the
+      # table it guards has been unguarded in CI since it was written. It needs
+      # node and nothing else.
+      #
+      # What it cannot see is a running session: which output the shell picks,
+      # and whether two outputs of different densities each get their own size.
+      # That is tests/run-scaling-test.sh, which brings its own headless wlroots
+      # compositor and two outputs. It skips cleanly here when quickshell or a
+      # compositor is absent, so it is run for the machines that have them
+      # rather than left out for the ones that do not, and it is run TWICE: once
+      # on a desk whose outputs disagree, and once with the compositor scales
+      # that bring them into agreement, because those are different verdicts.
+      - name: Shell scaling arithmetic (P1-040)
+        run: node tests/scaling-test.js
+
+      - name: Shell scaling, live on two outputs (P1-040)
+        run: |
+          ./tests/run-scaling-test.sh
+          SCALING_SCALES="2 1" ./tests/run-scaling-test.sh
+
+      # The colour half of the same problem. Outside src/theme/ the tree held 66
+      # lines of hardcoded hex, including SEVEN different reds all meaning "this
+      # is wrong" — and two surfaces showing the same notification disagreed
+      # about its accent, so the bar changed colour as a toast expired into the
+      # list. A further 45 occurrences were hidden from grep entirely, written as
+      # Qt.rgba(248/255, 113/255, 113/255, a) — a hex literal in component
+      # fractions; 43 became tokens, 2 are allowlisted. Among them, the home
+      # dashboard's Calendar and Profile cards hardcoded the exact fallback
+      # values of `active` and `text`, so those two cards never followed the
+      # wallpaper at all.
+      #
+      # The allowlist is a set of (file, colour) pairs with a stated reason for
+      # each, and the total is asserted EXACTLY. A per-file tally would pass
+      # while someone swapped one literal for another in the same file, and this
+      # repo has shipped a `-ge 30` assertion that stayed green while 20 of 68
+      # items were dropped. Colours are extracted with a comment- and
+      # string-aware scanner, so prose can neither satisfy nor trip it, and that
+      # is self-tested in both directions.
+      - name: Colour-token discipline (theme tokens, allowlisted exceptions)
+        run: ./tests/check-color-tokens.sh
+
+      # Twelve runners in tests/ started quickshell, a compositor, or the whole
+      # shell on whatever WAYLAND_DISPLAY they inherited, and run-nested-labwc.sh
+      # said so in its own first line. On a build box that is nothing; on the
+      # machine somebody is working at it is twenty windows landing on top of
+      # them. tests/lib/headless.sh was the repair and this is what keeps it,
+      # because the next suite gets written by copying the one next to it.
+      #
+      # Four rules, and the fourth is the one that matters: a launch covered by
+      # an earlier unset or its own `env -u` prefix; no read of
+      # $WAYLAND_DISPLAY before dropping it; no use outside lib/ of the
+      # HEADLESS_AMBIENT_* values the library keeps in order to refuse; and no
+      # defaulting the variable back to a guess. `${WAYLAND_DISPLAY:-wayland-1}`
+      # after headless_begin satisfies the first three and still lands the run
+      # on somebody's session — that mutation was written by hand, it passed,
+      # and rule D exists because of it.
+      #
+      # Source-level, so it needs no compositor. Four mutants and a control run
+      # every time, one per rule.
+      - name: Headless discipline (no suite opens a window on the live session)
+        run: ./tests/check-headless-runners.sh
+
+      # UI-004: "Scrolling over sliders changes values." Every settings page is
+      # read by scrolling, the shared CfgSlider carried a WheelHandler, and so
+      # reading a page edited it. The same handler had been copied onto five
+      # controls — the settings slider, the audio and quick-control volume
+      # columns, the dashboard brightness bar and the HH:MM spinners — and two
+      # of them sat inside a Flickable, where the bug reproduced literally.
+      #
+      # An allowlist names the wheel sites that stay (workspaces, tab switcher,
+      # carousel, tray forwarding, wallpaper grid), each with what it does and
+      # why that is navigation rather than an edit. A separate denylist names
+      # the value bars, which no allowlist row can argue past, and the total is
+      # asserted EXACTLY so a second handler in an already-listed file fails.
+      # Sites are found with a comment- and string-aware scanner, self-tested in
+      # both directions.
+      - name: Wheel discipline (the wheel scrolls, it never sets a value)
+        run: ./tests/check-wheel-value.sh
+
+      - name: Slider wheel behaviour (real events, offscreen)
+        run: |
+          # The runtime half. qmltestrunner posts a real QWheelEvent at a real
+          # CfgSlider inside a real CfgScroll and asserts the value holds while
+          # the page moves, plus that click, drag and the arrow keys still work.
+          # Offscreen, so it needs no compositor — unlike every other QML suite
+          # here, this one can actually run on a CI box.
+          pacman -S --needed --noconfirm qt6-declarative qt6-base
+          ./tests/run-slider-wheel-test.sh
+
+      - name: Settings vocabulary (P0-023)
+        run: |
+          # The words a settings page may use, and the pages that have to speak
+          # them. Ten surfaces had grown three mental models and no shared
+          # words: Save persisted something already real on one page, made
+          # something real on another, and did not exist on six.
+          #
+          # Here rather than only in the two QML suites below because those need
+          # a compositor and skip without one, which is every runner this
+          # project has. A suite that skips proves nothing, and this repository
+          # has shipped assertions that passed because they never ran. This one
+          # needs a file reader.
+          #
+          # It reads src/components/config/settings-semantics.js — the file the
+          # shell loads — and scans the pages against it: every page declares
+          # which of the four states its controls are in, no control is
+          # labelled with one of the four verbs' other names, and every page
+          # that holds a draft reaches the shared bar rather than drawing its
+          # own. Self-tested in both directions: a banned word in a comment must
+          # not trip it, and a real label must still be seen.
+          node tests/settings-semantics-test.js
+
+      - name: Settings controls (real clicks, offscreen)
+        run: |
+          # The runtime half of the vocabulary, on the shared controls. Same
+          # recipe as the slider wheel suite above — qmltestrunner on the
+          # offscreen platform, so it needs no compositor and actually runs on
+          # a CI box.
+          #
+          # It presses the commit bar: one button per act, a busy bar that emits
+          # nothing so a second Apply cannot land on the first, and a refused
+          # write that replaces the hint WITHOUT touching the count, because a
+          # page that clears its draft and then reports a failure has told the
+          # user about work it already destroyed.
+          pacman -S --needed --noconfirm qt6-declarative qt6-base
+          ./tests/run-settings-controls-test.sh
+
+      # What a screen reader and a keyboard-only user get from the shared
+      # settings controls. Before this suite the shell had ZERO `Accessible.`
+      # usages across 209 QML files, no FocusScope, no KeyNavigation and exactly
+      # one real activeFocusOnTab (CfgSlider) against 166 MouseArea — eleven
+      # Settings pages and the nav pane were reachable only with a mouse.
+      #
+      # The repair is in the shared controls rather than the pages: 294 of this
+      # tree's 671 user-facing labels live in config_tab/pages, and naming each
+      # control at its call site would be 294 edits that rot the first time
+      # somebody changes a label without changing its twin. CfgRow already holds
+      # the words, so it hands them to whatever control was placed in it.
+      #
+      # Not a grep for Accessible.name: the names and roles are read back off
+      # the LIVE attached objects under qmltestrunner, and every "it is
+      # reachable / it is operable" assertion posts a real QKeyEvent and counts
+      # the signal the pages listen to. -platform offscreen, so it opens
+      # nothing.
+      - name: Accessibility of the shared settings controls
+        run: |
+          ./tests/run-a11y-controls-test.sh
+
+      # How far the Reduce Motion switch actually reaches. It is a real setting
+      # with real UI and it touches 39 of this tree's 450 animation durations —
+      # the other 402 are integer literals written in place, which no switch can
+      # reach. A user who turns it on because motion makes them ill still gets
+      # 89% of the animation, and nothing said so: there was no test of this
+      # setting at all.
+      #
+      # The counts are exact and ratcheted in both directions, the way
+      # check-color-tokens.sh's EXPECT_WHITE_FG is. More literals is the
+      # regression; fewer means somebody fixed some and the constant should be
+      # tightened to lock it in; a moving total means the scanner itself
+      # changed, which is how an exact count becomes a green light for nothing.
+      - name: How far Reduce Motion reaches
+        run: ./tests/check-reduce-motion.sh
+
+      # The LOCK screen, for a user who cannot see it (P2-003).
+      #
+      # The LOGIN screen is covered three ways in apex-os. The lock screen — the
+      # same act by a user already logged in, and the surface somebody meets
+      # when they cannot get into their own machine — had nothing, and
+      # src/windows/Lockscreen.qml carried zero `Accessible.` anything across
+      # 440 lines. No name or role on the password field, no `passwordEdit` (so
+      # nothing told an assistive technology to stop echoing what was typed into
+      # it), a wrong password reported by a red border and a shake, Caps Lock
+      # reported by a nerd-font glyph a reader spells out as "private use
+      # character F0A9B", and no role on the line that says which of those
+      # happened.
+      #
+      # Not a grep for Accessible.name: that is satisfied by a comment about
+      # accessibility and — the one that actually matters — by markup on the
+      # placeholder Text NESTED INSIDE the field, which is a different object
+      # announcing a different thing. Object bodies are extracted by brace depth
+      # and a binding counts only as a direct child. Six self-tests prove the
+      # extractor can tell those apart; two of them exist because the first
+      # draft HAD the defect they now foreclose.
+      #
+      # It reads source. The one thing it RUNS is a Qt-version probe, because
+      # the fix calls Accessible.announce() — Qt 6.8+, and a call to a method
+      # this Qt does not have is a runtime error ON THE LOCK SCREEN dressed up
+      # as a green check. A missing qml runner makes that a SKIP, and the suite
+      # counts skips separately on its totals line, so read the totals and not
+      # the ticks.
+      - name: Lock screen accessibility
+        if: ${{ !cancelled() }}
+        run: |
+          # python3 for the extractor, and a qml runner for the announce probe.
+          # Installed here rather than relied on from an earlier step: a job
+          # stops at its first failing step, and this suite must not silently
+          # degrade to a SKIP because somebody else's install line moved.
+          pacman -S --needed --noconfirm python qt6-declarative qt6-base \
+            || echo "note: Qt/python unavailable; the announce probe will SKIP or the suite will FATAL"
+          ./tests/check-lockscreen-a11y.sh
+
+      # …and that the suite above can go red, and does not go red at prose.
+      #
+      # A source-reading suite is the easiest kind to write vacuously, so twenty
+      # mutants each break one arm of the markup and a NAMED assertion has to
+      # fail; four more add comments and string literals quoting every one of
+      # those defects and the suite has to stay GREEN. A suite prose can turn
+      # red punishes people for explaining themselves, which matters here
+      # because accessibility markup is not self-explanatory.
+      #
+      # The verdict is four-way — CAUGHT / MISSCORED / CRASHED / SURVIVED — and
+      # the harness self-tests that it can produce all four, because a mutant
+      # that made the suite exit FATAL reads as "no failures reported" to any
+      # harness that only counts.
+      #
+      # It also proves its own RESTORE on the real file before using it, and it
+      # restores from a sha256-verified snapshot rather than with
+      # `git checkout --` like the two sister harnesses in this repo. That is
+      # not a style choice, it is this job: the Checkout step above runs BEFORE
+      # git is installed, so actions/checkout falls back to the tarball API and
+      # THIS WORKSPACE HAS NO .git AT ALL. Measured here on 2026-09-18, where
+      # the first version aborted with "not a git work tree". A harness that had
+      # read `git diff`'s empty output as "clean" would instead have applied two
+      # dozen mutants on top of each other and printed two dozen confident
+      # verdicts about a tree nobody put back.
+      - name: Lock screen accessibility — mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-lockscreen-a11y.sh
+
+      # The other half of the lock screen's accessibility: what a screen reader
+      # actually RECEIVES, read back over real AT-SPI on D-Bus rather than off
+      # the source.
+      #
+      # It found that the shell publishes one accessibility node — itself — and
+      # nothing beneath it, so every Accessible.* binding in this repository is
+      # unreachable at runtime. The suite pins that as an equality and goes RED
+      # the day it stops being true, which is the day somebody should write the
+      # real read-back assertions it currently records as SKIPs.
+      #
+      # ── It will SKIP here, and that is the honest answer ────────────────────
+      #
+      # quickshell is an AUR package and this job cannot build one, so the shell
+      # half cannot run on the runner. The packages below are still installed
+      # because §1 — the CONTROL, a plain Qt Quick Window read back over the
+      # same private bus — CAN run here, and a second machine has corrected this
+      # unit's findings twice. If the control passes on Arch and on the laptop,
+      # the harness is not a laptop artefact.
+      #
+      # Read the totals line, never the tick: this suite exits 0 on a skip.
+      - name: Lock screen accessibility — AT-SPI read-back
+        if: ${{ !cancelled() }}
+        run: |
+          pacman -S --needed --noconfirm at-spi2-core dbus python-gobject \
+            qt6-declarative qt6-base labwc \
+            || echo "note: part of the a11y stack is unavailable; the suite will SKIP and say so"
+          ./tests/run-lockscreen-atspi.sh
+
+      # The CAUSE of what the suite above measures, and the only step in this
+      # workflow that can name it. The read-back suite reports the symptom —
+      # the shell publishes one node to AT-SPI and nothing beneath it — and
+      # deliberately cannot say why. This one reproduces the why in a 168-line
+      # program in about two seconds, with no compositor, no bus, no
+      # quickshell and no AUR: QAccessible::installFactory registers a post
+      # routine that CLEARS Qt's accessibility factory list, post routines run
+      # from ~QCoreApplication, qtdeclarative installs its factory from a
+      # Q_CONSTRUCTOR_FUNCTION that can only ever run once, and quickshell
+      # destroys a QCoreApplication immediately before constructing its
+      # QGuiApplication.
+      #
+      # It is a PIN and it is meant to go red. Mode A is quickshell's shape and
+      # must produce a null accessible root; the day Qt or qtdeclarative fixes
+      # this, mode A gets a root, this step fails, and the message says to
+      # delete the pin and write the real read-back assertions.
+      #
+      # This step matters more on THIS machine than on the laptop that found
+      # the defect: the runner has no quickshell, so §2–§5 of the read-back
+      # suite can never run here, but every mode of this one can. base-devel is
+      # already installed by the setup job and Arch ships Qt's headers in
+      # qt6-base/qt6-declarative rather than a separate -devel package, so the
+      # only reason this would SKIP is a genuinely absent toolchain — and it
+      # names which piece is missing rather than printing one vague line.
+      - name: Quickshell accessibility — the named cause, reproduced
+        if: ${{ !cancelled() }}
+        run: |
+          pacman -S --needed --noconfirm qt6-declarative qt6-base pkgconf \
+            || echo "note: Qt 6 development files are unavailable; the suite will SKIP and say so"
+          ./tests/check-quickshell-a11y-cause.sh
+
+      # …and that the suite above can go red, in both directions. Eleven red
+      # mutants and two green ones, each a rebuild and five short runs.
+      #
+      # M1 is the whole argument: it makes mode A stop destroying the
+      # QCoreApplication, which is exactly what a fixed Qt would look like, and
+      # the pin has to notice. M2 breaks the control, because a control that
+      # cannot fail is not a control. M10 breaks the build, because a suite that
+      # read "did not compile" as anything but a failure would report five
+      # silent nulls as five findings. G1 appends a comment quoting every string
+      # the suite asserts and requires it to stay green — the difference between
+      # running a program and grepping it.
+      #
+      # Like every mutation harness in this repository it refuses to score
+      # anything when the baseline made too few assertions to be a baseline,
+      # and exits 0 saying so. Read the totals line.
+      - name: Quickshell accessibility — cause mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-quickshell-a11y-cause.sh
+
+      # The read-back the roadmap has been asking for since P2-003 was written,
+      # finally answerable. run-lockscreen-atspi.sh records it as SKIPs because
+      # an empty tree satisfies every one of those assertions vacuously; the
+      # step above names why the tree is empty; this one puts Qt's
+      # accessibility factory back inside the running shell with a TEST-ONLY
+      # LD_PRELOAD and reads the shipped markup off the bus for real.
+      #
+      # Its control is inside the run: it walks the tree BEFORE installing
+      # anything and requires exactly one node, so the tree it then measures is
+      # attributable to the factory install and to nothing else — not a bus
+      # that came up late, not a lock that engaged this time.
+      #
+      # It will SKIP here and say so: the runner has no quickshell. That is the
+      # same could-not-run every shell-half step in this job reports, and the
+      # step exists anyway because the day quickshell is available it starts
+      # measuring without anyone remembering to add it. Read the totals line.
+      - name: Lock screen accessibility — read-back with the factory restored
+        if: ${{ !cancelled() }}
+        run: |
+          pacman -S --needed --noconfirm at-spi2-core dbus python-gobject \
+            qt6-declarative qt6-base labwc pkgconf \
+            || echo "note: part of the a11y stack is unavailable; the suite will SKIP and say so"
+          ./tests/run-lockscreen-atspi-shim.sh
+
+      # …and that the suite above can go red. Four mutants break the SHIPPED
+      # QML and require the BUS to notice — removing Accessible.passwordEdit
+      # must make the field's name arrive, which is the only way that
+      # suppression is observable at all — and two break the INSTRUMENT, because
+      # a suite that cannot tell "the markup is missing" from "the shim hooked
+      # nothing" would report the shell's markup as absent on the strength of a
+      # broken tool.
+      #
+      # It refuses to score anything when the baseline made too few assertions
+      # to be a baseline, and exits 0 saying which pieces were missing.
+      - name: Lock screen accessibility — read-back mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-lockscreen-atspi-shim.sh
+
+      # …and that the suite above can go red. Seven red mutants and three green
+      # ones, every one of them a full bring-up: a compositor, two buses, a
+      # registry, the shell and a session lock, about forty seconds each.
+      #
+      # Three of the eight break the suite's own CONTROL rather than the shell,
+      # because the suite's headline result is a NEGATIVE and a negative from an
+      # unchecked instrument is worth nothing. R3 removes the
+      # GSETTINGS_BACKEND=memory line from tests/lib/atspi.sh, which is the
+      # false negative this whole suite exists to be immune to: without it the
+      # a11y status flags silently fail to take and EVERY application publishes
+      # an empty tree.
+      #
+      # It stops and says NOTHING WAS MEASURED when quickshell or the qml
+      # runtime is missing, rather than scoring eleven mutants against checks that
+      # never ran. That is a could-not-run with status 0, like every other suite
+      # here — read the output, not the tick.
+      - name: Lock screen accessibility — AT-SPI mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-lockscreen-atspi.sh
+
+      # Internationalisation, measured the only way that means anything: the
+      # strings are extracted from the SHIPPED file with the real lupdate,
+      # compiled with the real lrelease, and read back out of a running QML
+      # engine in German. "Qt supports translation" is not a measurement — every
+      # QML tree supports it, including this one on the day it had zero
+      # translatable strings.
+      #
+      # The load-bearing assertion is the sensitivity one: the SAME fixture runs
+      # with and without -translation and the two must DISAGREE. Without it a
+      # run that never loaded the translator would read English twice and every
+      # other check could still be written to pass.
+      #
+      # The suite skips rather than fails where lupdate/lrelease are absent, so
+      # install them — a skip on every run measures nothing.
+      - name: Internationalisation baseline
+        # A job stops at its first failing step, so anything red above this one
+        # switches the measurement off and reports itself instead. That is not
+        # hypothetical here: the shellcheck step two above ran without -x, went
+        # red on tests/test-headless-lib.sh, and took this suite with it. NOT
+        # continue-on-error — a failure here still fails the job; this only
+        # stops somebody else's red step from hiding it. Same clause round 19
+        # put on four accessibility steps in apex-os for the same reason.
+        if: ${{ !cancelled() }}
+        run: |
+          # pacman, not apt-get: this job runs in an archlinux:latest
+          # container. `sudo apt-get update` was the only apt call in this
+          # workflow -- every other install here uses pacman -- and it failed
+          # the step before run-i18n-test.sh ever started, so an entire suite
+          # had never run on a second machine. The `|| echo` was on the install
+          # line, not the update line, so it caught nothing.
+          pacman -S --needed --noconfirm qt6-tools qt6-declarative qt6-base \
+            || echo "note: Qt translation tools unavailable; the suite will SKIP those sections"
+          # The fonts section 5 measures, in a SEPARATE call on purpose: pacman
+          # installs a list as one transaction, so a font name that is not in
+          # the repos would take the Qt tools down with it and the suite would
+          # skip the translation pipeline too, reporting a note either way.
+          pacman -S --needed --noconfirm ttf-jetbrains-mono noto-fonts-cjk \
+            || echo "note: fonts unavailable; the non-Latin rendering section will SKIP"
+          ./tests/run-i18n-test.sh
+
+      # The HOST half of P2-004, and the row the ledger has been blocked on
+      # since round 3. run-i18n-test.sh section 4 measures that quickshell
+      # builds a bare QQmlEngine and calls no installTranslator, so the shell's
+      # qsTr() strings can never change language however well the pipeline
+      # works. The conclusion drawn from it -- that the fix is upstream's --
+      # was one step too far: a bare QQmlEngine still resolves QML modules off
+      # its import path, and a QML module may carry a compiled plugin that runs
+      # C++ inside the shell's process before a binding is evaluated.
+      #
+      # tests/apex-i18n-plugin.cpp is that module. This step builds it and
+      # measures it in a bare QQmlEngine assembled out of quickshell's own two
+      # lines -- which is the half that RUNS here, because the runner has no
+      # quickshell. Section 4 of the suite is the in-situ half and refuses BY
+      # NAME on this machine rather than skipping quietly. Read the totals line.
+      #
+      # pkgconf for pkg-config, qt6-tools for lrelease AND for moc's host-tool
+      # directory, which is on no distribution's PATH and differs between Arch
+      # and Fedora -- the suite asks qmake6 -query QT_HOST_LIBEXECS rather than
+      # hardcoding either.
+      - name: Internationalisation — the host change, built and measured
+        if: ${{ !cancelled() }}
+        run: |
+          pacman -S --needed --noconfirm qt6-declarative qt6-base qt6-tools pkgconf \
+            || echo "note: Qt 6 development files are unavailable; the suite will SKIP and say so"
+          ./tests/run-i18n-host-test.sh
+
+      # ...and that the suite above can go red, in both directions. The mutant
+      # that matters is M1: it takes qmlRegisterModule() out of the plugin's
+      # registerTypes(), which is the exact trap that cost this round an
+      # afternoon -- the .so is still dlopen()ed and the qmldir is still read,
+      # and the import fails with "module is not installed" while every symptom
+      # says the plugin is fine. Like every mutation harness in this repository
+      # it refuses to score anything when the baseline made too few assertions
+      # to be a baseline, and exits 0 saying so.
+      - name: Internationalisation — the host change, mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-i18n-host.sh
+
+      # Right-to-left layout (P2-004). The ledger carried "RTL: the image
+      # cannot render it" for nineteen rounds on an argument nobody ran; round
+      # 20 measured it and it is false -- Arabic, Hebrew, Thai and Devanagari
+      # all fall out of the hardcoded JetBrains Mono into image-owned fonts that
+      # cover them. What was actually missing is LAYOUT, and this measures that:
+      # a shipped CfgRow instantiated, mirrored, and its label and its control
+      # read back off the live objects as having swapped sides.
+      #
+      # Section 1 is the part that needed a second machine most. Qt's layout
+      # direction is taken from the locale, and the image installs
+      # glibc-langpack-en ONLY -- so "does ar_EG give RightToLeft here" is a
+      # question about the machine, not about Qt, and the suite answers it by
+      # running the same fixture twice and requiring the two to DISAGREE.
+      #
+      # Section 3 pins what mirroring does NOT reach -- 14 window roots, none of
+      # them mirrored yet -- in both directions, so the remaining half of the
+      # row is a number that moves rather than a sentence somebody forgets.
+      - name: Right-to-left layout baseline
+        if: ${{ !cancelled() }}
+        run: |
+          # RED ON THIS RUNNER FROM THE DAY IT LANDED UNTIL ROUND 32, on
+          # exactly three assertions, and four rounds correctly refused to
+          # paper over it. The cause is now measured rather than suspected:
+          # Arch ships UPSTREAM qt6ct 0.11-8, which links no libKF6I18n, and
+          # libKF6I18n is what loads the Qt catalogue that flips the layout
+          # direction (p2-b FOUND 26). Fedora ships a post-release git snapshot
+          # built with the KDE integration, so APEX inherits right-to-left from
+          # a packaging choice and from nothing APEX declares. Both candidates
+          # that used to be listed here — Qt 6.11.2 vs 6.10.3, and the absent
+          # /etc/xdg/qt6ct/qt6ct.conf — were ELIMINATED BY MEASUREMENT in round
+          # 31 and the old text claiming they were open has been removed.
+          #
+          # Round 32 does TWO things about that, deliberately not one, and they
+          # are different claims:
+          #
+          #  1. The suite measures the precondition BEFORE section 1 draws a
+          #     conclusion from it — does this machine's qt6ct plugin actually
+          #     link a Qt translation loader, read with `ldd` rather than
+          #     inferred from a distribution name — and reports the three
+          #     direction rows as NAMED COULD-NOT-RUNs carrying that reason
+          #     when it measurably does not. That gate is switched off entirely
+          #     on a booted APEX host and cannot engage on a machine where the
+          #     direction flipped anyway, so it goes red rather than quiet the
+          #     moment its own reason stops being true. That half is about THE
+          #     RUNNER.
+          #
+          #  2. `ki18n` is installed HERE so the runner stops being permanently
+          #     excused. With it present the suite takes its "preload" route
+          #     and section 2 runs its whole right-to-left fixture pass on this
+          #     machine for the first time — nine assertions about the SHIPPED
+          #     CfgRow and CfgScroll, under a real right-to-left application
+          #     direction, on Arch and Qt 6.11.2. That half is about APEX, and
+          #     it is the half worth having. Measured before landing in an
+          #     archlinux:latest container that reproduces this job's totals
+          #     exactly: 19/3/3 unchanged, 30 passed / 0 failed / 1 skipped /
+          #     3 could-not-run after.
+          #
+          # ki18n is on its OWN pacman line and NOT under a `|| echo`. If it
+          # fails to install, the supplied-loader route could-not-runs, section
+          # 2's right-to-left half goes unmeasured, and this step would still
+          # tick green — which is the failure mode the rest of this file exists
+          # to prevent. Let it fail the job instead.
+          #
+          # DO NOT "fix" a future red here by making section 1 SKIP. Its whole
+          # job is to require a scrubbed run and an ar_EG run to DISAGREE; a
+          # suite that skipped its own discriminator would report four green
+          # lines about a constant. And do NOT put LD_PRELOAD on this step: the
+          # suite finds the library itself and can therefore report WHICH route
+          # supplied the direction, where a step-level preload would leak into
+          # every probe in section 1 and break the if-and-only-if.
+          pacman -S --needed --noconfirm qt6ct qt6-translations qt6-declarative qt6-base \
+            || echo "note: qt6ct/qt6-translations unavailable; section 1 certainly cannot produce an RTL direction here"
+          pacman -S --needed --noconfirm ki18n
+          ./tests/run-rtl-test.sh
+
+      - name: Remote agent status invariants
+        run: |
+          # Static half. Also SELF-TESTS its own checks: it mutates copies of
+          # the files and asserts each mutant goes red, asserts an unmutated
+          # copy goes green, and asserts that a copy carrying only PROSE about
+          # every one of those bugs stays green.
+          #
+          # That last one is not decoration. This repo has shipped four
+          # grep-style checks in one day that were satisfied by the comments in
+          # the file they were guarding, and the inverse — a check a comment can
+          # turn red — punishes people for explaining themselves. The harness
+          # also refuses to believe a mutant that did not actually change the
+          # file, and bounds how many checks a mutant may break, so a mutant
+          # that damaged the copy cannot be read as a mutant that was caught.
+          ./tests/check-remote-agents.sh
+
+      - name: Recovery surface logic
+        run: |
+          # §19's recovery panel, and §25's "recovery and rollback are normal
+          # UX, not expert documentation". Drives src/services/recovery.js —
+          # the file the shell loads — against payloads CAPTURED from a real
+          # `apex recover status --json`, `apex doctor --json` and a factory
+          # reset DRY RUN, not invented ones.
+          #
+          # Two of these assertions exist because the obvious code is wrong:
+          # `apex recover status` exits 1 when a component needs attention, so
+          # treating non-zero as failure blanks the panel on exactly the
+          # machines it is for; and `apex doctor` always exits 0 even with
+          # warnings, so reading ITS exit code as health reports every machine
+          # healthy.
+          node tests/recovery-test.js
+
+      - name: Recovery surface invariants
+        run: |
+          # Static half, and the part the node suite cannot see: that nothing
+          # on a timer can reach a verb that changes the machine, that no argv
+          # here is privileged, that the factory reset's confirm token is never
+          # constructed, and that the erase button cannot exist before the loss
+          # list has rendered and acknowledged itself.
+          #
+          # Self-tests the same way check-remote-agents.sh does: eleven mutants
+          # that must each go red, a bound on how many checks one may break, a
+          # hard failure for any mutant that did not actually change the file,
+          # and a prose-only copy quoting every one of those bugs that must
+          # stay GREEN.
+          ./tests/check-recovery-ui.sh
+
+      # The OTHER half of the recovery surface: what a user who cannot see it
+      # gets. RecoveryPage.qml had ZERO Accessible.* in 892 lines, and read
+      # back over real AT-SPI on 2026-09-19 the page published its shared Cfg*
+      # buttons and not one of its 8 component rows, 6 recovery routes, 7
+      # doctor checks, its headline status line, or a section title. Pressing
+      # "Show what would be lost" over the bus ran the dry run and added
+      # exactly ZERO nodes, and the `Erase N item(s) now` button did not exist
+      # on the bus at all — a bare Rectangle with a MouseArea, so a reader
+      # could walk three of the four deliberate steps of a factory reset and
+      # dead-end, and a keyboard user could not finish it while every SAFE
+      # control on the page could be pressed.
+      #
+      # Two rules it holds, neither of them visible in a diff: no private-use
+      # glyph may carry a role or reach a name, and no role may exist without
+      # an explicit Accessible.name (Qt's fallback from `text` is real, and it
+      # is silent the day it stops applying).
+      #
+      # This is the source-reading half and it runs anywhere. The runtime
+      # read-back needs quickshell, which is an AUR package and is not on this
+      # runner, so it prints a named SKIP — read the totals line, not the tick.
+      - name: Recovery screen accessibility
+        if: ${{ !cancelled() }}
+        run: |
+          pacman -S --needed --noconfirm python \
+            || echo "note: python unavailable; the suite will FATAL rather than pretend"
+          ./tests/check-recovery-a11y.sh
+
+      # …and that the suite above can go red, on the NAMED assertion, and does
+      # not go red at prose.
+      #
+      # Fourteen mutants break one arm of the markup each; three more quote
+      # every rule the suite enforces in a comment, add a property nothing
+      # asserts, and add an icon with no markup, and the suite has to stay
+      # GREEN. (It was eleven-plus-three until 5327bc6 added three assertions
+      # and three mutants for the FOUND 28 fix; 34/0/0 and 17 applied / 14
+      # CAUGHT / 3 HELD are the current numbers, the same here and on this
+      # runner.) A
+      # checker that prose can turn red punishes people for explaining
+      # themselves, which matters most where the markup is not self-evident.
+      #
+      # It mutates FOUR files, and the fourth is the point: round 31 made the
+      # factory reset's commit button reachable over the accessibility bus, and
+      # that is only defensible because the refusal lives in
+      # RecoveryService.commitReset() and not in the button's visibility. R9
+      # deletes that refusal and the suite has to say so.
+      #
+      # Restores come from a sha256-verified snapshot in a per-run mktemp -d,
+      # never `git checkout --`: the Checkout step in this job runs BEFORE git
+      # is installed, so the workspace has no .git at all.
+      - name: Recovery screen accessibility — mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-recovery-a11y.sh
+
+      # The runtime half of the two steps above: the same page, but read off a
+      # real AT-SPI bus instead of out of the source, and then DRIVEN over it.
+      #
+      # It walks the whole destructive flow with nothing but DoAction —
+      # disclosure, scope, dry run, commit — against an `apex` stub that
+      # RECORDS its argv, so "a reader can finish this" and "a reader cannot
+      # finish it early" are both checkable facts rather than readings of the
+      # markup. Pressing the commit button over the bus BEFORE the loss list
+      # exists must leave no `--commit` in that log; pressing it after must
+      # produce the exact argv, confirm token included.
+      #
+      # That is not a hypothetical. It is how the factory reset was found to be
+      # uncompletable BY ANYBODY on 2026-09-19 (the service acknowledged the
+      # loss list one line before its own phase allowed it, so `commitReady`
+      # was false for ever). A source-reading suite could not have found it —
+      # every wire it looks for was present and correct.
+      #
+      # Like every shell-half step in this job it will SKIP here for want of
+      # quickshell, and say so. Read the totals line, not the tick.
+      - name: Recovery screen accessibility — read-back and drive over AT-SPI
+        if: ${{ !cancelled() }}
+        run: |
+          pacman -S --needed --noconfirm at-spi2-core dbus python-gobject \
+            qt6-declarative qt6-base labwc pkgconf \
+            || echo "note: part of the a11y stack is unavailable; the suite will SKIP and say so"
+          ./tests/run-recovery-atspi-shim.sh
+
+      # …and that the suite above can go red, on the named assertion.
+      #
+      # The mutant that earns the pair is R12, and it is the ONLY one here that
+      # applies TWO edits. It reverts RecoveryService._onPlan()'s assignment
+      # order — `plan` before `resetPhase`, the 2026-09-19 defect — AND removes
+      # the page's phase-change re-ack, and then requires ACT 4 to stop being
+      # completable. Two edits because the fix is genuinely two-deep: either
+      # half alone restores a completable reset, so no SINGLE edit reproduces
+      # the defect, and a harness that broke whichever half it could and called
+      # that a regression gate would be claiming a two-deep guard is one-deep.
+      # Without this mutant the suite is a green run nobody can distinguish
+      # from a green run against a product whose most destructive verb does not
+      # work — which is exactly what shipped until that date.
+      #
+      # One assertion here has NO mutant, by design and stated in the harness's
+      # own totals output: "pressing Erase before the loss list exists commits
+      # NOTHING" is three-deep (press() checks commitReady, commitReset()
+      # checks the phase, commitArgv() checks the token against the rendered
+      # count), so no single edit makes a --commit appear there.
+      #
+      # It refuses to score anything when the baseline made too few assertions
+      # to be a baseline, and exits 0 saying which pieces were missing.
+      - name: Recovery screen accessibility — read-back mutation pair
+        if: ${{ !cancelled() }}
+        run: ./tests/mutate-recovery-atspi-shim.sh
+
+      - name: Privacy & Permissions logic
+        run: |
+          # P1-061. Drives src/services/permissions.js — the file the shell
+          # loads — against a payload CAPTURED from `apex permissions show
+          # … --json` on a real machine: a Flatpak that goes through the
+          # portal, a Flatpak whose manifest carries `devices=all`, and a
+          # native program.
+          #
+          # The assertion that matters is that the second and third read
+          # IDENTICALLY, because they have the same enforcer — the ACL on
+          # /dev/video0 — and the first differs, because it does not. A page
+          # that showed all three with the same tick would be a lie about the
+          # machine, and it is the lie the item exists to prevent.
+          node tests/permissions-test.js
+
+      - name: Privacy & Permissions surface invariants
+        run: |
+          # Static half, and the part node cannot see: that nothing on a timer
+          # can reach `apex permissions revoke`, that no row renders an answer
+          # without the enforcer beside it, that a control exists only where
+          # controlsFor produced one, and that the poller is gated on the page
+          # being looked at.
+          #
+          # Self-tested the way check-recovery-ui.sh is: six mutants that must
+          # each go red, a hard failure for any that did not change the file,
+          # and a prose-only copy quoting every one of those bugs that must
+          # stay GREEN.
+          ./tests/check-privacy-ui.sh
+
+      - name: Privacy & Permissions page, built and drawn
+        run: |
+          # P1-061 criterion 3. The item landed with three kinds of
+          # verification and none of them was a running page: qmllint parsed
+          # the file, node drove permissions.js, and check-privacy-ui.sh
+          # checked the wiring. The first run that actually instantiated the
+          # page found, in the first second, a TypeError all three had missed —
+          # `parseList` returned `session: null` for a report it could not
+          # read, and the session section's binding is evaluated even while
+          # that section is invisible.
+          #
+          # So this builds the page through PageRegistry inside a FloatingWindow
+          # on its own headless labwc, with a stub `apex` answering from
+          # tests/fixtures/permissions-list.json — the real `apex permissions
+          # revoke` WRITES, and a page test is not worth taking somebody's
+          # camera grant away. Three phases: the captured report, an `apex`
+          # that fails, and a rasterise-and-inspect. A TypeError in any phase
+          # log is a hard failure.
+          #
+          # Skips cleanly without quickshell or a wlroots compositor, which is
+          # what happens on this runner — so this documents the entry point
+          # rather than it silently not existing. The render evidence comes
+          # from a machine that has both.
+          ./tests/run-privacy-page-test.sh
+
+      - name: Closing the Lid logic
+        run: |
+          # P1-063, the item Andre asked for in his own words: "if i close my
+          # laptop lid without shutting down ... all agents and whatever theyre
+          # using/doing can stay running, also staying with the vpn".
+          #
+          # Drives src/services/lid.js — the file the shell loads — over
+          # fixtures that are serde's OWN output from a real `apex lid` binary
+          # (tests/fixtures/lid/gen-lid-fixtures.sh regenerates them). `apex lid
+          # status --json` is nine nested objects deep and six of them are
+          # internally tagged enums, so a fixture written from memory would go
+          # on agreeing with a parser that no longer matched the machine.
+          #
+          # The load-bearing assertion walks the ENTIRE returned shape on every
+          # failure path and fails on a null at any depth — the PrivacyPage
+          # TypeError stated as a test, on a page with strictly more nested
+          # objects than that one had.
+          node tests/lid-test.js
+
+      - name: Closing the Lid page, built and drawn
+        run: |
+          # The same argument as the privacy page above, one page later. Five
+          # phases through PageRegistry inside a FloatingWindow on its own
+          # headless labwc, with a stub `apex`: the real `apex lid pin` rewrites
+          # ~/.config/apex/lid.toml and the ROOT driver obeys that file, so a
+          # suite running it would repin the machine it is testing on.
+          #
+          #   docked      the real L16 capture — an external display, so logind
+          #               consults HandleLidSwitchDocked before any inhibitor
+          #               and the lid does nothing whatever the pin says
+          #   working     undocked and pinned on, with a real closed period
+          #   guard       a thermal guard on a docked machine, which must
+          #               outrank the docked frame because a guard suspend is
+          #               the driver calling `systemctl suspend` itself
+          #   unreadable  `apex` fails. The page must say so and must not throw
+          #   pixels      rasterise and inspect
+          #
+          # A TypeError in any phase log is a hard failure. Skips cleanly
+          # without quickshell or a wlroots compositor, which is what happens on
+          # this runner — so this documents the entry point rather than it
+          # silently not existing.
+          ./tests/run-lid-page-test.sh
+
+      - name: Agents & Workspaces help invariants
+        run: |
+          # §43's guide. A help page is the one surface where a plausible
+          # sentence is worse than a crash: a user who types a flag this page
+          # invented gets an error and no way to tell whether the page or the
+          # CLI is wrong.
+          #
+          # So this reads every `apex …` command out of the guide's strings and
+          # checks each verb against the clap enums in apex-os when a checkout
+          # is present, asserts that every permission mode the roadmap only
+          # PLANS carries a NOT-IN-THIS-BUILD block, asserts all six permission
+          # layers and all three invariants of §3.1 are stated, and runs the
+          # stop-slop rules over the prose.
+          #
+          # Self-tested the way check-recovery-ui.sh is: five mutants that must
+          # each go red, a hard failure for a mutant that did not change the
+          # file, and an inverse mutant proving the checks read the guide and
+          # not this script's own header.
+          ./tests/check-agent-help.sh
+
+      - name: Agent sandbox default logic
+        run: |
+          # §42.1's Always Unrestricted toggle, at the layer where its edge
+          # cases are. Drives src/services/agentpolicy.js — the file the shell
+          # loads — over configuration shapes transcribed from apex-agent-core
+          # rather than invented.
+          #
+          # Two assertions exist because the obvious code is wrong. apex's
+          # `Config::normalise` resets ALL SIX permission dimensions when a
+          # stored default fails `validate`, so writing `sandbox: unrestricted`
+          # into a file that also says `network: offline` silently discards the
+          # user's `native: bypass` as well and changes no sandbox at all. And
+          # a session's mode is read from the session's own record, never from
+          # the default, so the function that answers it is given no way to see
+          # one.
+          node tests/agent-policy-test.js
+
+      - name: Agent sandbox default invariants
+        run: |
+          # Static half, and the part the node suite cannot see: that the
+          # password is asked for on the way IN and never on the way out, at a
+          # polkit action that authenticates the user rather than an
+          # administrator and caches nothing, through no root helper at all,
+          # writing one key of a path resolved the way apex-agent-core's
+          # paths.rs resolves it.
+          #
+          # Self-tested the way check-remote-agents.sh is: twelve mutants that
+          # must each go red, a bound on how many checks one may break, a hard
+          # failure for a mutant that did not change the file, and a prose-only
+          # copy quoting every one of those bugs that must stay GREEN. The
+          # baseline mutant earned its place here immediately — it caught an
+          # ordering check whose awk variables were being set on the wrong side
+          # of a pipe, which made it green for any input at all.
+          ./tests/check-agent-settings.sh
+
+      - name: Agent sandbox default, driven for real
+        run: |
+          # The three things neither of the two above can answer, because only
+          # Qt can: that the page LOADS (every type this feature adds is
+          # reached through src/services/qmldir, and a missing entry there
+          # takes the whole shell down rather than one page); that the Process
+          # doing the write preserves the other five dimensions on a real file
+          # with a real `mv`; and that pkcheck is invoked on exactly one of the
+          # two transitions.
+          #
+          # It brings its own headless compositor in a private
+          # XDG_RUNTIME_DIR, its own XDG_CONFIG_HOME, a fake `apex` so the
+          # result does not depend on what happens to be running, and a FAKE
+          # pkcheck that records its argv and refuses. No polkit dialog is
+          # ever raised: there is nobody on a runner to answer one, and an
+          # unasked-for password prompt on a desktop is the thing this project
+          # has twice been told never to produce.
+          #
+          # Skips cleanly without quickshell or a compositor.
+          ./tests/run-agent-settings-test.sh
+
+      - name: The lock screen tells logind, driven for real
+        run: |
+          # P0-015 (ROADMAP.md §7). APEX Shell locks the session with
+          # ext-session-lock and told logind nothing about it, so
+          # `loginctl show-session -p LockedHint` answered "no" on a session
+          # that had been locked for an hour — the same thing it answers on
+          # one nobody has touched. apex-agentd polls that property to decide
+          # whether Remote Control keeps running and whether a short-lived
+          # root grant survives, so a stale value holds sessions and revokes
+          # grants while the owner is sitting in front of the machine.
+          #
+          # Five things only a live run can answer. That the four-step
+          # asynchronous chain runs at all. That the three calls happen in
+          # order with the right argv, including the object path being ASKED
+          # of logind rather than built by hand — session "3" is
+          # /org/freedesktop/login1/session/_33 and getting that escaping
+          # wrong is silent. That a lock/unlock/lock flicker makes one
+          # trailing call rather than three. That a failure at each of the
+          # three steps stops the chain and does not retry. And that the
+          # shell says anything AT ALL at startup, which is the half that was
+          # missing: onSecureStateChanged fires on a change.
+          #
+          # "Does not retry" holds only WHEN NOTHING NEWER WAS ASKED FOR. A
+          # setLocked() arriving while a chain is in flight is recorded in
+          # _desired alone; if that chain then fails, the request has never
+          # been tried, and dropping it is a lock the user engaged that
+          # logind is never told about. So the run has a second scenario,
+          # a second quickshell launch, in the only state where either
+          # direction is visible — _confirmed still undefined, before the
+          # service has ever reached logind. It asserts both: the untried
+          # request is delivered, and a failure with nothing newer asked for
+          # sits still rather than spinning (an unconditional re-pump spends
+          # hundreds of processes there).
+          #
+          # The last phase drives a REAL ext-session-lock, so the compositor
+          # is headless and private and the runtime dir is checked before the
+          # run — the one thing that must never happen is that lock landing
+          # on the developer's session. `loginctl` and `busctl` are stubs
+          # that record argv; nothing here reads or writes the real logind.
+          #
+          # Skips cleanly without quickshell or a compositor.
+          ./tests/run-locked-hint-test.sh
+
+      - name: Every settings page, built and asked what it is
+        run: |
+          # Criterion 1 of the settings regression harness: every page, not a
+          # sample. The model is PageRegistry itself, so a page added tomorrow
+          # is exercised the day it is added and cannot be forgotten here.
+          #
+          # Three things only Qt can answer. That the page LOADS — every page
+          # is reached through a qmldir, and a missing entry is not a broken
+          # page, it is "CfgCommit is not a type" and the whole shell fails to
+          # start. What a control is LABELLED — the label is an expression, so
+          # the source tells you the expression and only the engine tells you
+          # the word. And which lifecycle a page CLAIMS — nine declare it on
+          # their CfgScroll and one places the line by hand, so there is no
+          # single string to grep for.
+          #
+          # Brings its own headless compositor in a private XDG_RUNTIME_DIR,
+          # its own home, and stubs for everything a page shells out to:
+          # building ten real pages otherwise means `apex recover status`,
+          # `hyprctl`, `df` and a wallpaper scan against the runner.
+          #
+          # Skips cleanly without quickshell or a compositor.
+          ./tests/run-settings-pages-test.sh
+
+      - name: The two APEX Remote pages, built and driven
+        run: |
+          # P1-051's criteria 1, 3 and 5, at the only layer that can answer
+          # them: the pages built by the real engine out of PageRegistry.
+          #
+          # The `apex` on PATH is a stub, and that is not tidiness. `apex
+          # remote pair` MINTS A ONE-TIME PAIRING TOKEN and arms the daemon
+          # for the next device presenting it; `apex remote revoke` takes a
+          # real device's access away. A suite running the real commands would
+          # do both to whoever ran it. That is also why the service goes
+          # through the CLI rather than apex-remoted's control socket — a
+          # socket client would walk past the stub, and no PATH or HOME
+          # isolates a unix socket.
+          #
+          # The assertion that pays for this step is a NEGATIVE one, in the
+          # pair-fail phase. `apex remote pair` refuses to draw a QR in a
+          # terminal and says why: "a wrong QR is worse than none — a phone
+          # scans it, fails, and the person concludes their camera is broken."
+          # A page that drew a placeholder, a greyed square or a stale code
+          # when it had no offer reintroduces exactly that, and it looks
+          # perfectly fine in a screenshot. So the phase asserts that nothing
+          # in the built page holds a QR matrix at all.
+          #
+          # Skips cleanly without quickshell or a compositor.
+          ./tests/run-remote-pairing-page-test.sh
+
+      - name: A staged settings edit, and what it survives
+        run: |
+          # Criteria 3, 4 and 6 of P0-023, none of which a grep can answer,
+          # because all three are about object lifetime and exit codes.
+          #
+          # The settings pages are presented in two hosts and each host's
+          # Repeater builds its OWN instance, so "the staged state" was never
+          # one thing: a user who staged four rebinds in the dashboard and
+          # pressed "Open in window" arrived at an empty page and was told
+          # nothing. Both hosts are also rebuilt per entry in
+          # Quickshell.screens, so applying a display change threw the draft
+          # away — one settings page destroying another's work.
+          #
+          # It holds two pages the way the two hosts do, switches tabs in a
+          # real ShellConfig, destroys and rebuilds a host, and then chmods the
+          # directory holding keybinds.json to 0500 and applies into it —
+          # because "a backend failure keeps the user's intent recoverable"
+          # cannot be tested while every write succeeds. Private home
+          # throughout, so the permissions it breaks are never anybody's real
+          # ones.
+          #
+          # Skips cleanly without quickshell or a compositor.
+          ./tests/run-settings-staged-test.sh
+
+      - name: Remote agent status smoke test
+        run: |
+          # Needs a compositor AND the apex-os runtime built; the harness skips
+          # cleanly without either, so this documents the entry point rather
+          # than silently not existing. Run it in a Wayland session to
+          # exercise the 18 assertions, which include the two that cannot be
+          # made statically: that a device whose runtime was never demonstrated
+          # is not queried at all, and that closing the page stops the queries
+          # completely rather than slowing them down.
+          ./tests/run-remote-agent-smoke.sh
 
       - name: Agent Center smoke test
         run: |
@@ -461,6 +2304,74 @@ jobs:
           # than silently not existing. Run it in a Wayland session to actually
           # exercise the page against a live runtime.
           ./tests/run-agent-center-smoke.sh
+
+      - name: Notification deduplication
+        run: |
+          # P1-022. Replays a fleet of agents through src/services/notifybus.js
+          # — the file the shell loads — and counts what a person would have
+          # been interrupted by. Needs node and nothing else, which matters:
+          # the behavioural half below wants a compositor and skips without
+          # one, so without this the rule would have no CI coverage at all.
+          #
+          # It carries its own mutants, including an inverse one, and it
+          # asserts the fixture is non-trivial BEFORE measuring anything —
+          # a property test handed an empty timeline proves nothing and this
+          # program has shipped one of those already.
+          node tests/notifybus-test.js
+
+      - name: The agent/subagent graph
+        run: |
+          # P1-020. Replays the records apex agent list --json emits through
+          # src/services/agentgraph.js — the file the shell loads — and checks
+          # the two things the program itself got wrong: that liveness is
+          # derived from evidence rather than read out of a status field, and
+          # that an ABSENT `children` key is not an empty one. Every daemon in
+          # the shipped image writes no key at all, so reading the absence as
+          # "no subagents" would put a confident zero under every agent on the
+          # only machine anybody runs.
+          #
+          # Needs node and nothing else. It carries its own mutants, including
+          # an inverse one, and asserts the fixture is non-trivial before
+          # measuring anything.
+          node tests/agentgraph-test.js
+
+      - name: Status-line telemetry
+        run: |
+          # P1-021. Replays a six-agent fleet through
+          # src/services/agenttelemetry.js — the file the shell loads — and
+          # checks the decision the whole feature turns on: a rate-limit window
+          # belongs to the ACCOUNT, so six sessions reporting the same 62% must
+          # produce ONE line, taken from the freshest observation rather than
+          # from whichever session came first in the list.
+          #
+          # Needs node and nothing else. Carries its own mutants, including an
+          # inverse one, and asserts the fixture is non-trivial first.
+          node tests/agenttelemetry-test.js
+
+      - name: The graph rows, as Qt builds them
+        run: |
+          # The half the node suite cannot see: that SubagentRow resolves as a
+          # type at all (a component missing from src/services/qmldir fails the
+          # whole shell, not the page), that expanding a session grows its card
+          # instead of drawing over the next row, and that the child list sits
+          # outside the header's tap target.
+          #
+          # Brings its own headless compositor and a private XDG_RUNTIME_DIR;
+          # skips cleanly without quickshell or wlroots.
+          ./tests/run-agent-graph-render-test.sh
+
+      - name: One Process carries one notification
+        run: |
+          # The measured half of P1-022, and the reason the fix exists. A
+          # Quickshell Process holds one pending command and a new assignment
+          # overwrites it, so a `notify-send --wait` nobody has dismissed used
+          # to destroy every notification raised behind it except the newest.
+          # That is not in the type information, so it is asked of the engine
+          # under a headless compositor rather than remembered in a comment.
+          #
+          # Raises no desktop notification and opens no window; skips cleanly
+          # without quickshell or a wlroots compositor.
+          ./tests/run-notify-spawn-test.sh
 
       - name: Validate QML files exist and are non-empty
         run: |
@@ -580,6 +2491,113 @@ jobs:
             "src/popups/Dashboard.qml"
             "src/services/answer.js"
             "tests/answer-test.js"
+            "src/services/config_tab/blueprint.js"
+            "src/services/config_tab/BlueprintService.qml"
+            "src/services/config_tab/pages/BlueprintPage.qml"
+            "tests/blueprint-editor-test.js"
+            "tests/check-blueprint-editor.sh"
+            "src/services/config_tab/gaming.js"
+            "src/services/config_tab/GamingService.qml"
+            "src/services/config_tab/pages/GamingPage.qml"
+            "tests/gaming-settings-test.js"
+            "tests/check-gaming-settings.sh"
+            "tests/check-gaming-mode-gate.sh"
+            "src/services/recovery.js"
+            "src/services/RecoveryService.qml"
+            "src/services/config_tab/pages/RecoveryPage.qml"
+            "tests/recovery-test.js"
+            "tests/check-recovery-ui.sh"
+            "tests/check-recovery-a11y.sh"
+            "tests/mutate-recovery-a11y.sh"
+            "tests/run-recovery-atspi-shim.sh"
+            "tests/mutate-recovery-atspi-shim.sh"
+            "src/services/permissions.js"
+            "src/services/PermissionsService.qml"
+            "src/services/config_tab/pages/PrivacyPage.qml"
+            "tests/fixtures/permissions-list.json"
+            "tests/permissions-test.js"
+            "tests/check-privacy-ui.sh"
+            "src/services/search.js"
+            "src/services/SearchService.qml"
+            "src/scripts/SearchRun.sh"
+            "tests/search-test.js"
+            "tests/check-unified-search.sh"
+            "tests/measure-search-spawns.sh"
+            "src/components/config/CfgSlider.qml"
+            "tests/check-wheel-value.sh"
+            "tests/slider-wheel-test.qml"
+            "tests/run-slider-wheel-test.sh"
+            "src/components/config/settings-semantics.js"
+            "src/components/config/CfgCommit.qml"
+            "src/components/config/CfgLifecycle.qml"
+            "tests/settings-semantics-test.js"
+            "tests/settings-controls-test.qml"
+            "tests/run-settings-controls-test.sh"
+            "tests/a11y-controls-test.qml"
+            "tests/run-a11y-controls-test.sh"
+            "tests/check-reduce-motion.sh"
+            "src/windows/Lockscreen.qml"
+            "tests/check-lockscreen-a11y.sh"
+            "tests/mutate-lockscreen-a11y.sh"
+            "tests/run-lockscreen-atspi.sh"
+            "tests/mutate-lockscreen-atspi.sh"
+            "tests/check-quickshell-a11y-cause.sh"
+            "tests/mutate-quickshell-a11y-cause.sh"
+            "tests/quickshell-a11y-cause.cpp"
+            "tests/run-lockscreen-atspi-shim.sh"
+            "tests/mutate-lockscreen-atspi-shim.sh"
+            "tests/quickshell-a11y-shim.cpp"
+            "tests/lockscreen-atspi-control.qml"
+            "tests/atspi-walk.py"
+            "tests/lib/atspi.sh"
+            "tests/run-i18n-test.sh"
+            "tests/run-i18n-host-test.sh"
+            "tests/mutate-i18n-host.sh"
+            "src/i18n/I18nBootstrap.qml"
+            "tests/apex-i18n-plugin.cpp"
+            "tests/apex-i18n-host.cpp"
+            "tests/apex-i18n-qmldir"
+            "tests/run-rtl-test.sh"
+            "tests/rtl-test.qml"
+            "translations/apex-shell_de.ts"
+            "tests/settings-pages-test.qml"
+            "tests/run-settings-pages-test.sh"
+            "tests/settings-staged-test.qml"
+            "tests/run-settings-staged-test.sh"
+            "src/services/qr.js"
+            "tests/qr-test.js"
+            "src/services/remotepairing.js"
+            "src/services/RemotePairingService.qml"
+            "src/components/QrCode.qml"
+            "src/services/config_tab/pages/RemotePairPage.qml"
+            "src/services/config_tab/pages/RemoteDevicesPage.qml"
+            "tests/remote-pairing-test.js"
+            "tests/remote-pairing-page-test.qml"
+            "tests/run-remote-pairing-page-test.sh"
+            "tests/fixtures/qr-vectors.json"
+            "tests/fixtures/gen-qr-vectors.py"
+            "src/services/notifybus.js"
+            "tests/notifybus-test.js"
+            "src/services/agentgraph.js"
+            "src/services/agents/SubagentRow.qml"
+            "tests/agentgraph-test.js"
+            "tests/agent-graph-render-test.qml"
+            "tests/run-agent-graph-render-test.sh"
+            "src/services/agenttelemetry.js"
+            "src/services/agents/TelemetryStrip.qml"
+            "tests/agenttelemetry-test.js"
+            "tests/notify-spawn-test.qml"
+            "tests/run-notify-spawn-test.sh"
+            "tests/check-compositor-naming.sh"
+            "src/services/lid.js"
+            "src/services/LidService.qml"
+            "src/services/config_tab/pages/LidPage.qml"
+            "tests/lid-test.js"
+            "tests/lid-page-test.qml"
+            "tests/run-lid-page-test.sh"
+            "tests/fixtures/lid/gen-lid-fixtures.sh"
+            "tests/fixtures/lid/status-l16-docked.json"
+            "tests/fixtures/lid/report-period.json"
           )
           FAILED=()
           for f in "${REQUIRED[@]}"; do

@@ -1,10 +1,10 @@
 import QtQuick
 import QtQuick.Effects
 import Quickshell.Widgets
-import Quickshell.Hyprland
 import Quickshell.Services.Mpris
 import Quickshell.Io
 import "../../"
+import "../../components"
 import "../../services/home/."
 
 // CenterContent — scrollable dynamic island carousel.
@@ -14,6 +14,7 @@ import "../../services/home/."
 //   "music"     — MPRIS player present
 //   "timer"     — ClockState.timerRunning
 //   "stopwatch" — ClockState.swRunning
+//   "voice"     — push-to-talk is listening, transcribing or refusing (P1-023)
 //
 // CenterNotchMonitor (internal QtObject) watches ClockState and
 // handles urgent transitions:
@@ -25,16 +26,18 @@ import "../../services/home/."
 
 Item {
 	id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 	required property string screenName
 
-	width:  Theme.cNotchMinWidth
+	width:  theme.cNotchMinWidth
 	height: 30
 
 	// ── Required notch width for the current carousel item ────────────────────
 	// TopBar.cWidth reads this so the notch always matches what is visible,
 	// even if the user scrolls away from record_active while recording.
-	readonly property int fw: Theme.notchRadius
-	readonly property int requiredWidth: Theme.cNotchMinWidth
+	readonly property int fw: theme.notchRadius
+	readonly property int requiredWidth: theme.cNotchMinWidth
 	// ── MPRIS ─────────────────────────────────────────────────────────────────
 	readonly property var    player:    Mpris.players.values.length > 0
 	? Mpris.players.values[0] : null
@@ -42,80 +45,28 @@ Item {
 	?? false
 	readonly property string artUrl:    player?.trackArtUrl ?? ""
 
-	property string activeTitle: "Desktop"
-
-	// Compositor — Hyprland drives the title via hyprctl + raw events; niri drives
-	// it from NiriService's focused-window event stream.
-	readonly property bool isNiri: Compositor.isNiri
-	readonly property bool isHyprland: Compositor.isHyprland
-
-	// ── App name helper ───────────────────────────────────────────────────────
-	// 2. Process to fetch the initialTitle
-	property var _titleProc: Process {
-		command: ["hyprctl", "activewindow", "-j"]
-		running: false
-
-		onRunningChanged: {
-			if (running) {
-			}
-		}
-
-		stdout: StdioCollector {
-			id: titleOut
-		}
-
-		onExited: function(exitCode, exitStatus) {
-
-			var out = titleOut.text.trim()            
-			// Check for empty, Invalid, or empty JSON object
-			if (exitCode !== 0 || out === "" || out === "Invalid" || out === "{}") {
-				root.activeTitle = "Desktop"
-				return
-			}
-
-			try {
-				// Parse the JSON natively in Quickshell
-				var data = JSON.parse(out)
-				var title = data.initialTitle || ""
-
-				if (title !== "") {
-					// Capitalize the first letter (e.g., "kitty" -> "Kitty")
-					var finalTitle = title.charAt(0).toUpperCase() + title.slice(1)
-					root.activeTitle = finalTitle
-				} else {
-					root.activeTitle = "Desktop"
-				}
-			} catch(e) {
-				root.activeTitle = "Desktop"
-			}
-		}
+	// ── Focused application name ──────────────────────────────────────────────
+	// The notch shows which app has focus. Which is genuinely three different
+	// questions underneath — Hyprland's initialTitle, niri's app_id, labwc's
+	// foreign-toplevel app id — and CompositorService is where those three live
+	// now. This used to be a hyprctl Process plus a raw-event listener plus a
+	// separate NiriService mirror, right here in a view file, and it showed the
+	// application on Hyprland but the raw window title on niri.
+	//
+	// Capitalised for display: "kitty" -> "Kitty".
+	readonly property string activeTitle: {
+		const n = CompositorService.focusedAppName
+		return (n && n !== "") ? n.charAt(0).toUpperCase() + n.slice(1) : "Desktop"
 	}
 
-	Connections{
-		// Conditional target and a positive guard: resolving the Hyprland
-		// singleton constructs it, and `!isNiri` was true on labwc, which is
-		// neither Hyprland nor niri.
-		target: root.isHyprland ? Hyprland : null
-		enabled: root.isHyprland
-		// 3. Your Raw Event Monitor
-		function onRawEvent(event) {
-			// 3. Trigger title fetch on any window/workspace focus change
-			var titleTriggers = ["workspace", "activewindow", "activespecial", "destroyworkspace", "closewindow", "changefloatingmode"]
-
-			if (titleTriggers.includes(event.name)) {
-				_titleProc.running = false
-				_titleProc.running = true
-			}
-		}
+	// Tracking the focused window costs a hyprctl call per raw event on
+	// Hyprland, so it is held only while this notch can actually be seen. A
+	// fullscreen window unmaps the bar — during a game, that is the whole
+	// session — and the old code kept querying anyway.
+	ServiceRef {
+		service: CompositorService.titleRef
+		active:  !ShellState.fullscreenCovers(root.screenName)
 	}
-
-	// niri: mirror the focused-window title from NiriService's event stream.
-	Connections {
-		target: NiriService
-		enabled: root.isNiri
-		function onFocusedTitleChanged() { root.activeTitle = NiriService.focusedTitle }
-	}
-	Component.onCompleted: if (root.isNiri) root.activeTitle = NiriService.focusedTitle
 
 	// ── Dynamic item list ─────────────────────────────────────────────────────
 	property var  _items:         ["title"]
@@ -132,6 +83,13 @@ Item {
 		if (ClockState.swStarted)                      list.push("stopwatch")
 		if (ShellState.screenRecord && !ScreenRecService.recording) list.push("record_setup")
 		if (ScreenRecService.recording)           list.push("record_active")
+		// P1-023's "microphone indicator visible", and the reason it is not
+		// gated on micOpen alone: a REFUSAL has to be visible too, or a person
+		// who has not configured the speech-to-text hook presses the key and
+		// nothing whatsoever happens. indicatorLabel is "" only at idle, so one
+		// string decides presence and supplies the text, and there is no second
+		// copy of the phase table in here to drift from the reducer's.
+		if (PushToTalkService.indicatorLabel !== "") list.push("voice")
 
 		root._items = list
 
@@ -145,7 +103,12 @@ Item {
 				// Other items only auto-scroll when coming from "title".
 				var isScreenRec = (autoScrollType === "record_setup" ||
 				autoScrollType === "record_active")
-				if (isScreenRec || currentType === "title")
+				// An open microphone gets the same override, and for a stronger reason
+				// than a screen recording: push-to-talk is a TOGGLE because niri has no
+				// release bind, so the failure it has to defend against is a hot mic the
+				// user forgot. An indicator parked behind whatever they last scrolled to
+				// would not defend against it.
+				if (isScreenRec || autoScrollType === "voice" || currentType === "title")
 				idx = nIdx
 			}
 		}
@@ -198,6 +161,15 @@ Item {
 			root._rebuildItems("record_setup")
 			else if (!ShellState.screenRecord)
 			root._rebuildItems(null)
+		}
+	}
+
+	Connections {
+		target: PushToTalkService
+		// One signal, because one string decides both presence and text.
+		function onIndicatorLabelChanged() {
+			root._rebuildItems(PushToTalkService.indicatorLabel !== "" ? "voice" : null)
+			if (PushToTalkService.micOpen) root._forceScrollTo("voice")
 		}
 	}
 
@@ -269,7 +241,7 @@ Item {
 				required property string modelData
 				required property int    index
 
-				width:  Theme.cNotchMinWidth
+				width:  theme.cNotchMinWidth
 				height: 30
 
 				// ── Title ──────────────────────────────────────────────────────
@@ -278,7 +250,7 @@ Item {
 					visible:      modelData === "title"
 					text:         root.activeTitle
 					color:        Theme.text
-					font.pixelSize: Theme.fs(13)
+					font.pixelSize: theme.fs(13)
 					verticalAlignment:   Text.AlignVCenter
 					horizontalAlignment: Text.AlignHCenter
 					// leftPadding:  8u					rightPadding: 8
@@ -323,7 +295,7 @@ Item {
 							Text {
 								anchors.centerIn: parent
 								text:           "♪"
-								font.pixelSize: Theme.fs(9)
+								font.pixelSize: theme.fs(9)
 								color:          Theme.active
 							}
 						}
@@ -426,8 +398,8 @@ Item {
 									verticalCenter: parent.verticalCenter
 								}
 								text:           "󰔟"
-								font.pixelSize: Theme.fs(16)
-								color:          root.timerUrgent ? "#ff5555" : Theme.active
+								font.pixelSize: theme.fs(16)
+								color:          root.timerUrgent ? Theme.danger : Theme.active
 								Behavior on color { ColorAnimation { duration: 200 } }
 							}
 
@@ -442,11 +414,11 @@ Item {
 									verticalCenter: parent.verticalCenter
 								}
 								text:           ClockState.timerDisplay
-								font.pixelSize: Theme.fs(15)
+								font.pixelSize: theme.fs(15)
 								font.weight:    Font.Bold
 								font.family:    "JetBrains Mono"
 								horizontalAlignment: Text.AlignHCenter
-								color:          root.timerUrgent ? "#ff5555" : Theme.text
+								color:          root.timerUrgent ? Theme.danger : Theme.text
 								Behavior on color { ColorAnimation { duration: 200 } }
 
 								// Blink when urgent — opacity pulses 1 → 0.25 → 1
@@ -480,7 +452,7 @@ Item {
 										verticalCenter: parent.verticalCenter
 									}
 									text:           ClockState.timerRunning ? "󱫟" : "󱫡"
-									font.pixelSize: Theme.fs(16)
+									font.pixelSize: theme.fs(16)
 									color:          _timerPauseHov.hovered ? Theme.active : Theme.text
 									HoverHandler { id: _timerPauseHov;  }
 									MouseArea {
@@ -494,7 +466,7 @@ Item {
 										verticalCenter: parent.verticalCenter
 									}
 									text:			"󱫥"
-									font.pixelSize: Theme.fs(16)
+									font.pixelSize: theme.fs(16)
 									color:			_timerResetHov.hovered ? Theme.active : Theme.text
 									HoverHandler { id: _timerResetHov; cursorShape: Qt.PointingHandCursor }
 									MouseArea {
@@ -520,7 +492,7 @@ Item {
 									verticalCenter: parent.verticalCenter
 								}
 								text:           ""
-								font.pixelSize: Theme.fs(16)
+								font.pixelSize: theme.fs(16)
 								color:          Theme.active
 							}
 
@@ -534,7 +506,7 @@ Item {
 									verticalCenter: parent.verticalCenter
 								}
 								text:           ClockState.swDisplay
-								font.pixelSize: Theme.fs(15)
+								font.pixelSize: theme.fs(15)
 								font.weight:    Font.Bold
 								font.family:    "JetBrains Mono"
 								horizontalAlignment: Text.AlignHCenter
@@ -554,7 +526,7 @@ Item {
 										verticalCenter: parent.verticalCenter
 									}
 									text:           ClockState.swRunning ? "󱫟" : "󱫡"
-									font.pixelSize: Theme.fs(16)
+									font.pixelSize: theme.fs(16)
 									color:          _pauseHov.hovered ? Theme.active : Theme.text
 									HoverHandler { id: _pauseHov;  }
 									MouseArea {
@@ -570,7 +542,7 @@ Item {
 										verticalCenter: parent.verticalCenter
 									}
 									text:			"󱫥"
-									font.pixelSize: Theme.fs(16)
+									font.pixelSize: theme.fs(16)
 									color:			_notchResetHov.hovered ? Theme.active : Theme.text
 										
 									HoverHandler { id: _notchResetHov; cursorShape: Qt.PointingHandCursor }
@@ -624,7 +596,7 @@ Item {
 										spacing: 5
 										Text {
 											text: ScreenRecService.captureIcon
-											font.pixelSize: Theme.fs(13)
+											font.pixelSize: theme.fs(13)
 											color: ScreenRecService.openStrip === "capture"
 											? Theme.active : Qt.rgba(1,1,1,0.7)
 											anchors.verticalCenter: parent.verticalCenter
@@ -632,14 +604,14 @@ Item {
 										}
 										Text {
 											text: ScreenRecService.captureLabel
-											font.pixelSize: Theme.fs(11)
+											font.pixelSize: theme.fs(11)
 											color: ScreenRecService.openStrip === "capture"
 											? Theme.active : Qt.rgba(1,1,1,0.7)
 											anchors.verticalCenter: parent.verticalCenter
 											Behavior on color { ColorAnimation { duration: 100 } }
 										}
 										Text {
-											text: "▾"; font.pixelSize: Theme.fs(8)
+											text: "▾"; font.pixelSize: theme.fs(8)
 											color: Qt.rgba(1,1,1,0.35)
 											anchors.verticalCenter: parent.verticalCenter
 										}
@@ -685,19 +657,19 @@ Item {
 										anchors.centerIn: parent
 										spacing: 5
 										Text {
-											text: "🎙"; font.pixelSize: Theme.fs(12)
+											text: "🎙"; font.pixelSize: theme.fs(12)
 											anchors.verticalCenter: parent.verticalCenter
 										}
 										Text {
 											text: ScreenRecService.audioLabel
-											font.pixelSize: Theme.fs(11)
+											font.pixelSize: theme.fs(11)
 											color: ScreenRecService.openStrip === "audio"
 											? Theme.active : Qt.rgba(1,1,1,0.7)
 											anchors.verticalCenter: parent.verticalCenter
 											Behavior on color { ColorAnimation { duration: 100 } }
 										}
 										Text {
-											text: "▾"; font.pixelSize: Theme.fs(8)
+											text: "▾"; font.pixelSize: theme.fs(8)
 											color: Qt.rgba(1,1,1,0.35)
 											anchors.verticalCenter: parent.verticalCenter
 										}
@@ -745,14 +717,14 @@ Item {
 										spacing: 5
 										Rectangle {
 											width: 7; height: 7; radius: 4
-											color: "#ffffff"
+											color: Theme.fixedLight
 											anchors.verticalCenter: parent.verticalCenter
 										}
 										Text {
 											id: recBtnLabel
 											text: "Record"
-											font.pixelSize: Theme.fs(11); font.weight: Font.Medium
-											color: "#ffffff"
+											font.pixelSize: theme.fs(11); font.weight: Font.Medium
+											color: Theme.fixedLight
 											anchors.verticalCenter: parent.verticalCenter
 										}
 									}
@@ -781,6 +753,10 @@ Item {
 								spacing: 7
 
 								// Pulsing red dot
+								// KEPT deliberately. The recording-indicator red, matching the
+								// Qt.rgba(0.9,0.2,0.2,…) fills around it — a camera tally light,
+								// not a danger state. Theme.danger would move it away from the
+								// rest of the recording controls.
 								Rectangle {
 									width:  8; height: 8; radius: 4
 									color:  "#ff4444"
@@ -797,7 +773,7 @@ Item {
 								Text {
 									anchors.verticalCenter: parent.verticalCenter
 									text:           ScreenRecService.elapsedDisplay
-									font.pixelSize: Theme.fs(13); font.weight: Font.Bold
+									font.pixelSize: theme.fs(13); font.weight: Font.Bold
 									font.family:    "JetBrains Mono"
 									color:          Theme.text
 								}
@@ -862,7 +838,7 @@ Item {
 									Text {
 										anchors.centerIn: parent
 										text:           "󰩺"
-										font.pixelSize: Theme.fs(11)
+										font.pixelSize: theme.fs(11)
 										color:          recDiscardH.hovered
 										? Qt.rgba(1, 0.4, 0.4, 1.0)
 										: Qt.rgba(1, 1, 1, 0.4)
@@ -883,11 +859,91 @@ Item {
 									Text {
 										anchors.centerIn: parent
 										text:           "⏹"
-										font.pixelSize: Theme.fs(10)
+										font.pixelSize: theme.fs(10)
+										// KEPT — a LIGHT red reading on the dark red fill above. It is a
+										// fixed-contrast foreground, not the danger accent.
 										color:          "#ff9999"
 									}
 									HoverHandler { id: recStopH }
 									MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: ScreenRecService.stopRecording() }
+								}
+							}
+						}
+
+						// ── Voice / push-to-talk (roadmap P1-023, ROADMAP.md §8.2) ──────────────
+						//
+						// "Microphone indicator visible" and "target session explicit" are two of
+						// P1-023's three acceptance criteria, and they are one widget: the text is
+						// PushToTalkService.indicatorLabel, which the reducer builds as
+						// "Listening → claude · apex-shell". The destination is named in the same
+						// breath as the fact that the microphone is open, because an indicator that
+						// says "recording" without saying where is the half that matters least.
+						//
+						// Nothing here re-derives a phase. The label comes from the reducer and the
+						// dot pulses on micOpen, so this cannot disagree with the machine that
+						// owns the microphone — which is the whole reason the state lives in a
+						// reducer `node tests/push-to-talk-test.js` can drive.
+						Item {
+							anchors {
+								fill: parent
+								leftMargin: root.fw/2
+								rightMargin: root.fw/2
+							}
+							visible:      modelData === "voice"
+
+							Row {
+								anchors.centerIn: parent
+								spacing: 8
+
+								// The tally light. It pulses only while the microphone is actually
+								// open; while transcribing or explaining a refusal it holds still, so
+								// "the mic is on" is never something the user has to infer from a
+								// colour alone.
+								//
+								// Theme.danger and NOT the #ff4444 the screen recorder's dot above
+								// uses. That literal is allowlisted in check-color-tokens.sh for a
+								// reason that does not transfer: it sits among Qt.rgba(0.9,0.2,0.2)
+								// recording fills and has to match them. This dot sits on its own, so
+								// it can have the token — which follows the palette and, unlike a
+								// fixed hex, is measured to clear 4.5:1 on every surface it is drawn
+								// on (Colors.qml:93-99). A forgotten hot microphone is also the one
+								// hazard this whole feature is designed around, which is what the
+								// danger token is for.
+								Rectangle {
+									anchors.verticalCenter: parent.verticalCenter
+									width:  8; height: 8; radius: 4
+									color:  PushToTalkService.micOpen ? Theme.danger : Theme.subtext
+									SequentialAnimation on opacity {
+										running: PushToTalkService.micOpen
+										loops:   Animation.Infinite
+										NumberAnimation { to: 0.25; duration: 600; easing.type: Easing.InOutSine }
+										NumberAnimation { to: 1.0;  duration: 600; easing.type: Easing.InOutSine }
+									}
+								}
+
+								// The reducer's own sentence, including which session the words are
+								// going to. Elided rather than allowed to widen the notch without
+								// limit: a project name can be arbitrarily long.
+								Text {
+									anchors.verticalCenter: parent.verticalCenter
+									text:           PushToTalkService.indicatorLabel
+									font.pixelSize: theme.fs(12); font.weight: Font.Medium
+									color:          Theme.text
+									elide:          Text.ElideRight
+									maximumLineCount: 1
+									width:          Math.min(implicitWidth, 240)
+								}
+
+								// Seconds left before the cap closes it, and only while it is open.
+								// The cap is what makes a toggle defensible when niri cannot give us a
+								// release bind; showing it is what stops the cap being a surprise.
+								Text {
+									anchors.verticalCenter: parent.verticalCenter
+									visible:        PushToTalkService.micOpen
+									text:           Math.ceil(PushToTalkService.remainingMs / 1000) + "s"
+									font.pixelSize: theme.fs(11)
+									font.family:    "JetBrains Mono"
+									color:          Theme.subtext
 								}
 							}
 						}

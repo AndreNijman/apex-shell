@@ -91,6 +91,12 @@ Item {
                     centerText: MemService.usagePercent + "%"
                     bottomText: MemService.usedStr + " / " + MemService.totalStr
                     active: true
+                    // KEPT deliberately. These three gauges sit in one row and need
+                    // to be told apart at a glance, so RAM and iGPU carry their own
+                    // hue while CPU uses the accent. That makes them SERIES colours,
+                    // and the shell has no series palette — mapping them onto
+                    // Theme.subtext/iconFont would be a similar-looking token, not a
+                    // correct one. Needs a designed 3-colour series, not a rename.
                     accentColor: "#cba6f7"
                 }
             }
@@ -105,7 +111,7 @@ Item {
                     centerText: GpuService.igpu.usagePercent + "%"
                     bottomText: GpuService.igpu.curMhz
                     active: GpuService.available
-                    accentColor: "#89dceb"
+                    accentColor: "#89dceb"   // KEPT — series colour, see the RAM gauge above
                 }
             }
         }

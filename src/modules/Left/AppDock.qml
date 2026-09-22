@@ -10,6 +10,8 @@ import "../../"
 // way to recover, raise, minimize and close overlapping windows.
 Row {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     required property string screenName
     required property int availableWidth
@@ -99,7 +101,12 @@ Row {
                 toplevel.activate()
             }
         } else if (app.entry) {
-            app.entry.execute()
+            // Through DesktopExec, not entry.execute() — the dock launches the
+            // same entries the launcher does, and a Terminal=true entry started
+            // by execute() gets no terminal and dies. Fixing only the launcher
+            // would leave clicking nvim here broken and make the defect look
+            // intermittent.
+            DesktopExec.launch(app.entry)
             LauncherState.recordLaunch(app.entry.id)
         }
     }
@@ -156,7 +163,7 @@ Row {
                     visible: appIcon.status !== Image.Ready
                     text: "󰣆"
                     color: appButton.active ? Theme.active : Theme.icon
-                    font.pixelSize: Theme.fs(15)
+                    font.pixelSize: theme.fs(15)
                 }
 
                 Rectangle {

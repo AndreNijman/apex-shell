@@ -1,10 +1,12 @@
 pragma Singleton
 import QtQuick
 import Quickshell
+import "."
 import "../services"
+import "scaling.js" as Scaling
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Metrics — geometry & timing tokens, scaled to the display.
+// Metrics — the geometry tokens for the REFERENCE output.
 //
 // Every size in here used to be an absolute pixel literal calibrated against a
 // 1080p panel, which is why the shell looked correct on exactly one class of
@@ -14,31 +16,63 @@ import "../services"
 // small UI), so compensating for pixel density is the shell's job, not the
 // compositor's.
 //
+// ── What this file is now ───────────────────────────────────────────────────
+// The token table itself moved to theme/ThemeSet.qml, and this singleton is one
+// INSTANCE of it: the instance whose factor comes from the reference output.
+// The table is not trapped inside a singleton any more, so every output has its
+// own set without a second copy of the arithmetic. That copy is the defect this
+// item was opened for: tests/scaling-test.qml once re-implemented the
+// breakpoint table and asserted its own copy, and every breakpoint assertion
+// passed no matter what this file said.
+//
+// theme/OutputScale.qml answers what factor an output deserves; every surface
+// builds its own instance at that factor. This one is built at the REFERENCE
+// output's, which is a policy question rather than a density bucket.
+//
 // ── The scale factor ────────────────────────────────────────────────────────
-// `scale` multiplies every geometry token and, through Theme.fs(), every font
-// size. It is deliberately SUBLINEAR in resolution: a 4K panel is usually also
+// `scale` multiplies every geometry token and, through fs(), every font size.
+// It is deliberately SUBLINEAR in resolution: a 4K panel is usually also
 // physically larger, so a literal 2x would be enormous. Fixed breakpoints are
 // used rather than a continuous height/1080 ratio because a continuous factor
 // produces awkward fractional pixel values and shifts the whole UI on any mode
-// change; breakpoints are predictable and reproducible.
+// change; breakpoints are predictable and reproducible. The table is in
+// theme/scaling.js and the manual-override policy is in theme/OutputScale.qml —
+// this file chooses the OUTPUT, not the arithmetic.
 //
 // `physicalDotsPerInch` would be the principled input, but EDID physical size is
 // missing or wrong on a great many panels, and a bad DPI reading would size the
 // shell absurdly with no obvious cause. Height is boring and always right.
 //
-// ── Multi-monitor ───────────────────────────────────────────────────────────
-// This is a GLOBAL factor. Theme and Metrics are QML singletons read directly by
-// ~100 files, so one process-wide value is what the architecture can express;
-// genuinely per-monitor tokens would need the scale resolved per item (an
-// attached property, as upstream does in C++) or threaded through every
-// component. What is supported is CHOOSING which monitor sets the scale, via
-// `SettingsService.scaleScreen` — on a mixed 4K + 1080p desk you pick the one
-// you actually work on. Default is the tallest connected output.
+// ── Who still reads this, after the migration ───────────────────────────────
+// Almost nothing, and that is the point. Every surface in the shell resolves
+// its OWN output's set:
 //
-// User settings are expressed in 1080p-baseline units and scaled from there, so
-// a settings.json stays correct when moved between machines.
+//     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }     // a window
+//     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // an Item
+//
+// and reads `theme.px(...)` where it used to read `Theme.px(...)`. 1042 reads
+// across 99 files moved; tests/check-scale-tokens.sh's closure rule is what
+// keeps them moved.
+//
+// This singleton remains for three things, all of them deliberate:
+//
+//   • `Theme.<colour>` and `Theme.animDuration` still come through here,
+//     because neither is a function of an output. A palette belongs to the
+//     shell; two monitors with different accent colours would be a bug.
+//   • the REFERENCE output — which output's size the user considers the
+//     canonical one, via `SettingsService.scaleScreen`, defaulting to the
+//     tallest. Nothing lays out at it any more, but the Display page and the
+//     suites ask what it is.
+//   • `services/plugins/PluginService.qml`, the one file the closure rule
+//     exempts: its `theme` is a versioned snapshot handed to plugin code, one
+//     object for every plugin instance.
+//
+// The Display page's recommended scales are still worth applying, for the
+// reason that was always the other half of the story: the shell is the only
+// thing on the desk that magnifies itself, and every other application is drawn
+// at the compositor's scale for the output it is on.
 // ─────────────────────────────────────────────────────────────────────────────
-QtObject {
+ThemeSet {
     id: root
 
     // ── Scale ────────────────────────────────────────────────────────────────
@@ -67,90 +101,32 @@ QtObject {
 
     readonly property int referenceHeight: referenceScreen ? referenceScreen.height : baselineHeight
 
-    // Sublinear breakpoints. Below 1080p the UI shrinks a little so a 1366x768
-    // laptop does not lose half its vertical space to the bar.
+    // Sublinear breakpoints, and they live in theme/scaling.js rather than here.
     // 1200 sits in the baseline bucket deliberately: a 1920x1200 panel is 11%
     // taller than 1080p, not a density class of its own, and the shell was
     // calibrated on exactly such a panel. Putting it in the 1440p bucket would
     // enlarge the UI on the reference machine — a regression dressed up as a
     // feature.
-    readonly property real autoScale: {
-        const h = root.referenceHeight
-        if (h < 900)  return 0.85   // 1366x768 and friends
-        if (h < 1250) return 1.00   // 1080p and 1200p — the calibrated baseline
-        if (h < 1600) return 1.20   // 1440p
-        if (h < 2000) return 1.35   // 1600p / 1800p
-        return 1.50                 // 2160p and up
+    //
+    // The table moved out because it was unreachable from anything but a running
+    // quickshell, so tests/scaling-test.qml kept its own copy of it and asserted
+    // the copy. Every breakpoint assertion in that suite passed whatever this
+    // file said.
+    readonly property real autoScale: Scaling.scaleForHeight(root.referenceHeight)
+
+    /// The breakpoint table, callable. The suite drives THIS, at heights this
+    /// machine does not have, rather than a second copy of the arithmetic.
+    function scaleForHeight(h) { return Scaling.scaleForHeight(h) }
+
+    /// What this output would deserve on its own, ignoring every other screen.
+    /// The Display page needs it to say which outputs disagree; a surface that
+    /// wants to LAY OUT at it asks OutputScale, which also honours the manual
+    /// override this function deliberately ignores.
+    function scaleForScreen(screen) {
+        return screen ? Scaling.scaleForHeight(screen.height) : 1.0
     }
 
-    readonly property real scale: SettingsService.scaleMode === "manual"
-                                     ? SettingsService.scaleManual
-                                     : root.autoScale
-
-    // Round to whole pixels: fractional geometry on a layer-shell surface gives
-    // blurry borders and off-by-one masks.
-    function px(v) {
-        return Math.round(v * root.scale)
-    }
-
-    // Fonts get a floor — below about 7px text stops being legible at any DPI.
-    function fs(v) {
-        return Math.max(7, Math.round(v * root.scale))
-    }
-
-    // --Bar Toggle-- (Config → Layout & Behavior)
-    property bool barEnabled: SettingsService.barEnabled
-
-    // -- Bar Sizes -- (Config → Appearance; stored in 1080p-baseline units)
-    property int borderWidth:   px(SettingsService.borderWidth)
-    property int cornerRadius:  px(SettingsService.cornerRadius)
-    property int notchRadius:   px(SettingsService.notchRadius)
-    property int notchHeight:   px(SettingsService.notchHeight)
-    property int exclusionGap:  px(SettingsService.exclusionGap)
-    property int spacing:       px(SettingsService.spacing)
-
-    // -- Notch Content Padding --
-    // Space added around the content inside each notch
-    property int notchPadding:           px(16)   // horizontal padding each side
-    property int notchHorizontalPadding: px(20)
-    property int notchVerticalPadding:   px(10)
-    property int notchSideMargin:        px(10)
-
-    // -- Notch Width Constraints --
-    // Each notch sizes itself to its content, clamped between min and max.
-    property int lNotchMinWidth: px(180)
-    property int lNotchMaxWidth: px(360)
-
-    property int cNotchMinWidth: px(300)
-    property int cNotchMaxWidth: px(360)
-
-    property int rNotchMinWidth: px(180)
-    property int rNotchMaxWidth: px(360)
-
-    // -- Dashboard Dimensions -- (Config → Layout & Behavior)
-    // Target size the center notch expands to when the dashboard is open.
-    property int dashboardWidth:  px(SettingsService.dashboardWidth)
-    property int dashboardHeight: px(SettingsService.dashboardHeight)
-
-    // -- Notifications Popup Width -- (Config → Layout & Behavior)
-    property int notificationsWidth: px(SettingsService.notificationsWidth)
-    property int notificationToastWidth: notificationsWidth / 1.2
-    property int networkPopupWidth:  px(480)
-
-    // -- Popup Size Constraints --
-    property int popupMinWidth:   px(160)
-    property int popupMaxWidth:   px(420)
-    property int popupMinHeight:  px(80)
-    property int popupMaxHeight:  px(520)
-    property int popupPadding:    px(16)
-
-    // -- Workspace Dot Sizes --
-    property int wsDotSize:     px(10)
-    property int wsActiveWidth: px(24)
-    property int wsSpacing:     px(6)
-    property int wsPadding:     px(8)
-    property int wsRadius:      px(16)
-
-    // -- Animations -- (Config → Layout & Behavior; 0 when Reduce Motion is on)
-    property int animDuration: SettingsService.effectiveAnim
+    // The reference output's factor, through the same policy every per-output
+    // surface uses. Manual mode wins here exactly as it wins there.
+    scale: OutputScale.factorForHeight(root.referenceHeight)
 }

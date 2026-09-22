@@ -17,6 +17,8 @@ import "../"
 
 PanelWindow {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }   // P1-040: this output's sizes
+
 
     // Kept so existing instantiation sites that pass anchorWindow: … still compile.
     required property var anchorWindow
@@ -24,8 +26,8 @@ PanelWindow {
     readonly property bool open: Popups.dashboardOpen && Popups.dashboardScreen === screenName
     screen: anchorWindow.screen
 
-    readonly property int fw: Theme.notchRadius
-    readonly property int fh: Theme.notchRadius
+    readonly property int fw: theme.notchRadius
+    readonly property int fh: theme.notchRadius
     readonly property int animDuration: Theme.animDuration
 
     property string page: Popups.dashboardPage
@@ -37,21 +39,22 @@ PanelWindow {
     // visible === true.
     readonly property bool pageLive: root.windowVisible && !LockState.locked
 
-    // ── Per-page content widths ───────────────────────────────────────────────
-    readonly property var _pageWidths: ({
-        "home":     900,
-        "stats":    900,
-        "kanban":   900,
-        "launcher": 560,
-        "config":   900
-    })
-
-    function _applyPageWidth(p) {
-        var w = _pageWidths[p]
-        Popups.dashboardPageWidth = (w !== undefined) ? w : 900
+    // ── Per-page content width ────────────────────────────────────────────────
+    // The rule lives in DashboardLayout, not here: this is a PanelWindow, and a
+    // geometry test cannot build one without a compositor and a screen.
+    //
+    // A binding rather than the assignment this used to make on page change and
+    // on open. The width now depends on the scale factor and on how wide this
+    // output is, and neither of those is a page change: a monitor swapped out
+    // under an open dashboard, or a scale changed from the Config tab that is
+    // itself inside the dashboard, both used to leave the old width in place.
+    // `when` keeps the dashboards on the other screens out of it.
+    Binding {
+        target:   Popups
+        property: "dashboardPageWidth"
+        value:    DashboardLayout.widthFor(root.theme, root.page, root.width)
+        when:     root.open
     }
-
-    onPageChanged: _applyPageWidth(page)
 
     color:   "transparent"
     visible: windowVisible
@@ -80,7 +83,6 @@ PanelWindow {
         if (root.open) {
             closeTimer.stop()
             root.windowVisible = true
-            root._applyPageWidth(root.page)
             focusGrabTimer.restart() // Delay the grab slightly
         } else {
             root.wantsFocus = false // Release instantly
@@ -88,7 +90,7 @@ PanelWindow {
             closeTimer.restart()
         }
     }
-    
+
     Timer {
         id: closeTimer
         interval: root.animDuration + 20
@@ -114,12 +116,12 @@ PanelWindow {
         anchors.horizontalCenter: parent.horizontalCenter
         clip: true
 
-        width:  root.open ? Popups.dashboardPageWidth + 2 * root.fw : Theme.cNotchMinWidth + 2 * root.fw
-        height: root.open ? Theme.dashboardHeight : Theme.notchHeight / 2
+        width:  root.open ? Popups.dashboardPageWidth + 2 * root.fw : theme.cNotchMinWidth + 2 * root.fw
+        height: root.open ? theme.dashboardHeight : theme.notchHeight / 2
 
         Behavior on width  { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
         Behavior on height { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
-        
+
         MouseArea {
             anchors.fill: parent
             onClicked:    {}
@@ -130,12 +132,12 @@ PanelWindow {
             anchors.fill: parent
             attachedEdge: "top"
             color:        Theme.background
-            radius:       Theme.cornerRadius
+            radius:       theme.cornerRadius
             flareWidth:   root.fw
             flareHeight:  root.fh
             // Start the melt at the top strip's bottom edge (tangent blend —
             // no kink where the flare leaves the thin bar line).
-            edgeOffset:   Theme.borderWidth
+            edgeOffset:   theme.borderWidth
         }
 
         // ── Content ───────────────────────────────────────────────────────────
@@ -143,10 +145,10 @@ PanelWindow {
             id: content
             anchors {
                 fill:         parent
-                topMargin:    root.fh + 8
-                leftMargin:   root.fw + 8
-                rightMargin:  root.fw + 8
-                bottomMargin: 8
+                topMargin:    root.fh + DashboardLayout.contentInset(root.theme)
+                leftMargin:   root.fw + DashboardLayout.contentInset(root.theme)
+                rightMargin:  root.fw + DashboardLayout.contentInset(root.theme)
+                bottomMargin: DashboardLayout.contentInset(root.theme)
             }
 
             opacity: root.open ? 1 : 0
@@ -168,14 +170,7 @@ PanelWindow {
                     orientation: "horizontal"
                     width:       parent.width
                     currentPage: root.page
-                    model: [
-                        { key: "home",     icon: "󰋜", label: "Home"   },
-                        { key: "stats",    icon: "󰻠", label: "System" },
-                        { key: "agents",   icon: "󰚩", label: "Agents" },
-                        { key: "kanban",   icon: "󰄬", label: "Tasks"  },
-                        { key: "launcher", icon: "󱓞", label: "Apps"   },
-                        { key: "config",   icon: "󰒓", label: "Config" },
-                    ]
+                    model:       DashboardLayout.tabs
                     onPageChanged: function(key) { Popups.dashboardPage = key }
                 }
 
@@ -183,7 +178,7 @@ PanelWindow {
                 Item {
                     id: pageArea
                     focus: true
-                    
+
                     width:  parent.width
                     height: parent.height - tabBar.height
 
@@ -236,7 +231,15 @@ PanelWindow {
                         anchors.fill: parent
                         shown: root.page === "launcher"
                         sourceComponent: Component {
-                            AppLauncher { anchors.fill: parent }
+                            // The launcher is the one page that took no
+                            // `onScreen` before §15, because it consumed no
+                            // refcounted service. It does now — the search
+                            // stack and the compositor's window list are both
+                            // held only while somebody is looking at it.
+                            AppLauncher {
+                                anchors.fill: parent
+                                onScreen: root.pageLive && root.page === "launcher"
+                            }
                         }
                     }
 
@@ -250,7 +253,7 @@ PanelWindow {
                             }
                         }
                     }
-                    
+
                     Keys.onEscapePressed: Popups.dashboardOpen = false
                 }
             }

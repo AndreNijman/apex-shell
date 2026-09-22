@@ -9,12 +9,26 @@ import "../"
 
 PopupWindow {
     id: root
+    // MEASURED: a PopupWindow's own `screen` is NOT the one it is
+
+    // anchored to. On two headless outputs the popup anchored to the
+
+    // bar on the 3840x2160 output reported the 1920x1080 one and
+
+    // would have been sized at 1.0 — silently, on the monitor the
+
+    // global factor was never for. The anchor window is given its
+
+    // screen by shell.qml, so it is the one that knows.
+
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.anchorWindow ? root.anchorWindow.screen : null) }
+
 
     required property var anchorWindow
 
     // ── Config ────────────────────────────────────────────────────────────────
-    readonly property int fw: Theme.cornerRadius
-    readonly property int fh: Theme.cornerRadius
+    readonly property int fw: theme.cornerRadius
+    readonly property int fh: theme.cornerRadius
     readonly property int popupHeight: 340
     readonly property int popupWidth:  180 // Thinner than the 300px AudioPopup
 
@@ -23,10 +37,24 @@ PopupWindow {
     mask:    Region { item: maskProxy }
 
     // ── Position: Right Center ────────────────────────────────────────────────
+    //
+    // The height this centres on is the ANCHOR's output, for the same measured
+    // reason the token set above resolves from the anchor: a PopupWindow's own
+    // `screen` is not the output it is anchored to. This used to read
+    // `root.screen.height`, so on a mixed desk the panel anchored to the bar on
+    // the 2160px monitor was centred on the 1080px one's height — off by half
+    // the difference, 540px up. It survived because on a single monitor the two
+    // heights are the same number, and because P1-040 round two fixed the SIZE
+    // the six popups are drawn at and left this, the POSITION, as a named
+    // remainder on ROADMAP/state/agents/p1-040.md.
+    readonly property int anchorHeight: (root.anchorWindow && root.anchorWindow.screen)
+                                        ? root.anchorWindow.screen.height
+                                        : (root.screen ? root.screen.height : 1080)
+
     anchor.window:  anchorWindow
     anchor.rect: Qt.rect(
         anchorWindow.width - root.fw,
-        (root.screen.height + root.fh + 5)/2,
+        (root.anchorHeight + root.fh + 5)/2,
         0,
         0
     )
@@ -89,7 +117,7 @@ PopupWindow {
                 anchors.fill: parent
                 attachedEdge: "right"
                 color:        Theme.background
-                radius:       Theme.cornerRadius
+                radius:       theme.cornerRadius
                 flareWidth:   root.fw
                 flareHeight:  root.fh
             }
@@ -198,7 +226,7 @@ PopupWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           col.pctText
                 color:          col.muted ? Qt.rgba(1,1,1,0.25) : Theme.text
-                font.pixelSize: Theme.fs(13)
+                font.pixelSize: theme.fs(13)
                 font.bold:      true
                 Behavior on color { ColorAnimation { duration: 150 } }
             }
@@ -231,7 +259,7 @@ PopupWindow {
                         width:  col.thumbD
                         height: width
                         radius: width / 2
-                        color:  col.muted ? Qt.rgba(1,1,1,0.3) : "#ffffff"
+                        color:  col.muted ? Qt.rgba(1,1,1,0.3) : Theme.fixedLight
                         y: {
                             var travel = track.height - height
                             return Math.max(0, Math.min(travel, (1.0 - col.value) * travel))
@@ -239,7 +267,8 @@ PopupWindow {
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
 
-                    // Drag to change value
+                    // Drag to change value. No wheel handler: a value bar in this
+                    // shell never reads the wheel, so scrolling stays scrolling.
                     MouseArea {
                         anchors.fill: parent
                         cursorShape:  Qt.SizeVerCursor
@@ -250,16 +279,6 @@ PopupWindow {
                         onPressed:         col.volumeChanged(calc(mouseY))
                         onPositionChanged: if (pressed) col.volumeChanged(calc(mouseY))
                     }
-
-                    // Scroll wheel to change value
-                    WheelHandler {
-                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                        onWheel: function(event) {
-                            var step = 0.05
-                            var delta = event.angleDelta.y > 0 ? step : -step
-                            col.volumeChanged(Math.max(0.0, Math.min(1.0, col.value + delta)))
-                        }
-                    }
                 }
             }
 
@@ -268,7 +287,7 @@ PopupWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width:  col.barW + 16
                 height: 28
-                radius: Theme.cornerRadius
+                radius: theme.cornerRadius
                 color:  col.muted
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.2)
                             : Qt.rgba(1,1,1,0.06)
@@ -277,7 +296,7 @@ PopupWindow {
                 Text {
                     anchors.centerIn: parent
                     text:           col.icon
-                    font.pixelSize: Theme.fs(14)
+                    font.pixelSize: theme.fs(14)
                     color:          col.muted ? Theme.active : Qt.rgba(1,1,1,0.55)
                     Behavior on color { ColorAnimation { duration: 150 } }
                 }
@@ -296,7 +315,7 @@ PopupWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:            col.label
                 color:           Qt.rgba(1,1,1,0.3)
-                font.pixelSize:  Theme.fs(10)
+                font.pixelSize:  theme.fs(10)
                 font.capitalization: Font.AllUppercase
                 font.letterSpacing: 1
                 elide:           Text.ElideRight

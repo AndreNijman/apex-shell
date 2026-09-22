@@ -2,7 +2,6 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../"
 import "../nexus"
 
@@ -18,17 +17,19 @@ QtObject {
 
     // ── Dashboard Toggles ────────────────────────────────────
 
+    // Which output the user is looking at, so a dashboard toggled by a keybind
+    // opens on the monitor with focus rather than on all of them.
+    //
+    // The per-compositor answers moved into CompositorService: Hyprland has a
+    // focused monitor, niri reports the output on the focused workspace, and
+    // labwc reports the screens of the active toplevel. labwc got an answer out
+    // of that move — it used to fall through to "the first screen", which is the
+    // wrong monitor half the time on a two-monitor desk.
     function focusedScreenName() {
-        if (Compositor.isHyprland && Hyprland.focusedMonitor)
-            return Hyprland.focusedMonitor.name
+        const name = CompositorService.focusedOutput
+        if (name !== "") return name
 
-        if (Compositor.isNiri) {
-            var workspaces = NiriService.workspaces
-            for (var i = 0; i < workspaces.length; i++)
-                if (workspaces[i].id === NiriService.focusedWorkspaceId)
-                    return workspaces[i].output
-        }
-
+        // Nothing focused, or a compositor APEX has no adapter for.
         return Quickshell.screens.length > 0 ? Quickshell.screens[0].name : ""
     }
 
@@ -122,6 +123,157 @@ QtObject {
         for (const p of PageRegistry.pages)
             ids.push(p.id)
         return ids.join(" ")
+    }
+
+    // ── Display transactions ─────────────────────────────────
+    // The one settings domain that can take away the pointer you would use to
+    // fix it. The dialog is now built on every output so it survives the apply
+    // that raised it, but "every output" is still every output the compositor
+    // has left — and if that set is empty or unreadable, the only remaining way
+    // to answer is from a TTY:
+    //
+    //     apex shell display status
+    //     apex shell display revert
+    //
+    // Deliberately not a second implementation of the transaction: every verb
+    // is the same call the dialog's buttons make.
+    property var display: IpcHandler {
+        target: "display"
+
+        /// name field value — stage one change, exactly as the page does.
+        function set(name: string, field: string, value: string): string {
+            if (name === "" || field === "")
+                return "usage: display set <output> <field> <value>"
+            let v = value
+            if (value === "true")  v = true
+            else if (value === "false") v = false
+            else if (value !== "" && !isNaN(Number(value)) && field !== "transform")
+                v = Number(value)
+            DisplayService.stage(name, field, v)
+            return DisplayService.dirty ? "staged " + name + " " + field + "=" + value
+                                        : "no output called " + name
+        }
+
+        function apply(): string {
+            if (DisplayService.pending)
+                return "a display change is already waiting to be confirmed"
+            if (!DisplayService.dirty)
+                return "nothing staged"
+            DisplayService.apply()
+            return "applying"
+        }
+
+        function keep(): string {
+            if (!DisplayService.pending) return "nothing to keep"
+            DisplayService.confirm()
+            return "kept"
+        }
+
+        function revert(): string {
+            DisplayService.revertApplied()
+            return "reverted"
+        }
+
+        /// Everything a person on a TTY needs before deciding, in one line.
+        function status(): string {
+            const bits = []
+            bits.push(DisplayService.pending
+                ? "waiting " + DisplayService.confirmSeconds + "s"
+                : "idle")
+            bits.push(DisplayService.dirty ? "staged" : "clean")
+            if (DisplayService.confirmScreen !== "")
+                bits.push("dialog on " + DisplayService.confirmScreen)
+            if (DisplayService.lastError !== "")
+                bits.push("error: " + DisplayService.lastError)
+            if (DisplayService.lastNotice !== "")
+                bits.push("note: " + DisplayService.lastNotice)
+            return bits.join(" | ")
+        }
+
+        function refresh(): string {
+            DisplayService.refresh()
+            return "re-reading the outputs"
+        }
+    }
+
+    // ── Agents & Workspaces help (§43) ───────────────────────
+    // The guide's own "Keys and commands" section prints these lines, so a user
+    // who dismissed the first-run card has a documented way to get it back and
+    // a keybind target for the guide itself.
+    //
+    // `toggle` takes nothing and `open` takes a section, because quickshell
+    // requires every declared argument at the call site: `ipc call agent-help
+    // open` with no argument is refused, not defaulted. One verb per arity is
+    // the only shape that gives a keybind a bare command AND gives the guide a
+    // way to jump to a page.
+    //
+    // Both pull the Agents tab up with them. A guide floating over the Home
+    // page would explain a list the user cannot see.
+    property var agentHelp: IpcHandler {
+        target: "agent-help"
+
+        function toggle(): string {
+            if (AgentHelp.panelOpen) {
+                AgentHelp.close()
+                return "agent help closed"
+            }
+            return root.openAgentHelp(AgentHelp.section)
+        }
+
+        function open(section: string): string {
+            return root.openAgentHelp(section)
+        }
+
+        function close(): string {
+            AgentHelp.close()
+            return "agent help closed"
+        }
+
+        // Permanent, and the one call the first-run card's button makes.
+        function dismiss(): string {
+            AgentHelp.dismissOnboarding()
+            return "first-run card dismissed"
+        }
+
+        function reset(): string {
+            AgentHelp.resetOnboarding()
+            return "first-run card restored"
+        }
+
+        function state(): string {
+            return (AgentHelp.panelOpen ? "guide open at " + AgentHelp.section : "guide closed")
+                 + ", first-run card "
+                 + (AgentHelp.showOnboarding ? "shown" : "dismissed")
+        }
+
+        function sections(): string {
+            return root.agentHelpSections()
+        }
+    }
+
+    function openAgentHelp(section) {
+        const id = (section === undefined || section === null) ? "" : String(section)
+        if (id !== "" && !agentHelpHas(id))
+            return "unknown section: " + id + " (try: " + agentHelpSections() + ")"
+        if (!Popups.dashboardOpen || Popups.dashboardPage !== "agents")
+            toggleDashboard("agents")
+        AgentHelp.open(id)
+        return "agent help open at " + AgentHelp.section
+    }
+
+    // Asked of the content singleton rather than listed here, so the ids the
+    // IPC accepts cannot drift from the sections the guide draws.
+    function agentHelpSections() {
+        const ids = []
+        for (const s of AgentHelpContent.sections)
+            ids.push(s.id)
+        return ids.join(" ")
+    }
+
+    function agentHelpHas(id) {
+        for (const s of AgentHelpContent.sections)
+            if (s.id === id) return true
+        return false
     }
 
     // ── Audio Toggles ────────────────────────────────────────
@@ -293,6 +445,52 @@ QtObject {
         onTriggered: { Popups.closeAll(); Popups.contextMenuOpen = true }
     }
 
+    // ── ALT+Tab window switcher ──────────────────────────────────────────────
+    //
+    // Four functions on one target, because they are four operations on one
+    // piece of state and the shell has to see them in the order the keyboard
+    // produced them.
+    //
+    // `commit` and `cancel` arrive from a keybind on the ALT *release*, which
+    // the compositor fires every time anybody lets go of ALT — see
+    // WindowSwitcherService for why the release is a compositor binding and not
+    // a keyboard grab. /usr/libexec/apex-switcher filters the closed case out
+    // before this is reached, so a call getting here is nearly always real; the
+    // service still returns quietly when nothing is open, because "nearly
+    // always" is not "always" and a stale flag file must not produce an error.
+    //
+    // Each returns a string so `apex shell switcher …` has something to print
+    // and, more usefully, so a test can drive the switcher over IPC and read
+    // back what it did.
+    property var windowSwitcher: IpcHandler {
+        target: "window-switcher"
+
+        function next(): string {
+            WindowSwitcherService.next()
+            return root._switcherState()
+        }
+        function prev(): string {
+            WindowSwitcherService.prev()
+            return root._switcherState()
+        }
+        function commit(): string {
+            const was = WindowSwitcherService.labelFor(WindowSwitcherService.selected)
+            WindowSwitcherService.commit()
+            return was === "" ? "closed" : "activated " + was
+        }
+        function cancel(): string {
+            WindowSwitcherService.cancel()
+            return "closed"
+        }
+    }
+
+    function _switcherState() {
+        if (!WindowSwitcherService.open) return "closed"
+        return "open " + (WindowSwitcherService.index + 1)
+            + "/" + WindowSwitcherService.entries.length
+            + " " + WindowSwitcherService.labelFor(WindowSwitcherService.selected)
+    }
+
     property var clipboard: IpcHandler {
         target: "clipboard-toggle"
         function toggle() {
@@ -338,6 +536,36 @@ QtObject {
         target: "focus-toggle"
         function toggle() {
             root.focusToggleRequested()
+        }
+    }
+
+    // ── Push-to-talk (roadmap P1-023, ROADMAP.md §8.2) ───────────────────────
+    //
+    // This handler IS the "compositor-neutral global route". The three
+    // compositors APEX ships have three different keybind formats and no
+    // common input path — NiriBackend.qml:69 records that niri has no runtime
+    // keybind capture at all, so a shell-side grab was never an option — but
+    // all three can run a command, and every shell-side action already reaches
+    // the running shell this way. So the neutrality is here, at the far end of
+    // one `qs ipc call`, rather than in three input adapters.
+    //
+    // A toggle rather than hold-to-talk, and that is a compositor fact:
+    // Hyprland has `bindr` and labwc has `onRelease="yes"`, niri 26.04 has no
+    // release bind of any kind. Hold would have worked on two of the three the
+    // acceptance criterion names. The cost of toggle is a microphone left open
+    // by accident, which is why pushtotalk.js has a hard cap and why the
+    // indicator names its target.
+    //
+    // `state()` exists for the same reason caffeine's does: so the route can be
+    // driven and inspected without opening a dashboard.
+    property var voicePtt: IpcHandler {
+        target: "voice-ptt"
+        function toggle(): string {
+            PushToTalkService.toggle()
+            return PushToTalkService.indicatorLabel
+        }
+        function state(): string {
+            return PushToTalkService.phase
         }
     }
 

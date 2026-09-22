@@ -1,0 +1,8 @@
+{
+  "policy": "absent",
+  "always_allowed": "established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh",
+  "hotspot_links": null,
+  "exceptions": [
+    {"name": "mdns", "proto": "udp", "port": "5353", "rejected": false, "detail": ""}
+  ]
+}

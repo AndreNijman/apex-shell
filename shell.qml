@@ -7,6 +7,28 @@ import "./src/services"
 import "./src/"
 
 ShellRoot {
+    id: shellRoot
+
+    // ── Translations ─────────────────────────────────────────────────────
+    // The QTranslator every qsTr() in this tree needs is installed by the
+    // Apex.I18n QML module, whose plugin runs C++ while the import is being
+    // resolved. src/i18n/I18nBootstrap.qml is the only file that names it, and
+    // it is loaded through createComponent rather than imported here because a
+    // failed import at THIS level is a desktop with no user interface — see
+    // that file's header. A missing module leaves the shell in English and
+    // says so by name.
+    property var _i18n: null
+
+    Component.onCompleted: {
+        const c = Qt.createComponent("./src/i18n/I18nBootstrap.qml");
+        if (c.status === Component.Error) {
+            console.warn("APEX i18n: the Apex.I18n module did not load, so the shell stays in English —",
+                         c.errorString().trim());
+        } else {
+            _i18n = c.createObject(shellRoot);
+        }
+    }
+
     // Force-instantiate lazy singletons that need startup behavior.
     //
     // Note what is deliberately NOT here: the telemetry services (Cpu, Mem,
@@ -22,6 +44,13 @@ ShellRoot {
     // Must exist without anything referencing it: it is what raises the
     // low-battery warning, and nothing on screen "uses" it.
     property var _batteryAlert: BatteryAlert
+
+    // Must exist at startup for the same kind of reason: a display transaction
+    // the previous shell left open has to be settled whether or not anybody
+    // opens the Display page. Enumeration stays on demand — this costs one
+    // `apex-display-guard.sh reconcile`, which exits immediately when there is
+    // no transaction directory.
+    property var _display: DisplayService
 
     Variants {
         model: Quickshell.screens
@@ -39,7 +68,7 @@ ShellRoot {
 
                 // ── Overlays ─────────────────────────────────────
                 // Dismisses all popups on click-outside or Escape
-                PopupDismiss { screen: modelData; screenName: modelData.name }
+                PopupDismiss { screen: modelData; screenName: modelData.name; topBar: topBar }
 
                 // GPU mode change confirmation modal
                 ConfirmDialog { screen: modelData }
@@ -59,10 +88,25 @@ ShellRoot {
                 // Volume / brightness / mic OSD — transient top-centre pill
                 Osd { screen: modelData }
 
+                // ALT+Tab. One per output, and only the one on the focused
+                // output draws; it takes no keyboard focus, so it cannot steal
+                // focus from the window it is about to activate.
+                WindowSwitcher { screen: modelData; screenName: modelData.name }
+
                 // Standalone settings window. Not part of PopupLayer on
                 // purpose: it is a window you leave open, so it must not be
                 // subject to the popup fleet's click-outside dismissal.
                 Nexus { screen: modelData; screenName: modelData.name }
+
+                // Keep / Put it back, after a temporary display apply.
+                //
+                // Built for every output, like ConfirmDialog, because the apply
+                // it is asking about can destroy the output the settings window
+                // is on — which is why the question used to disappear instead of
+                // being asked (P0-018). Last in the delegate so it stacks above
+                // Nexus: both are Overlay surfaces, and a modal you cannot see
+                // is the bug, not the fix.
+                DisplayConfirm { screen: modelData; screenName: modelData.name }
             }
         }
     }

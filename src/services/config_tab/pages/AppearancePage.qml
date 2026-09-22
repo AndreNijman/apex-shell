@@ -10,6 +10,14 @@ import "../../../components/config"
 //   • Shape sliders — corner radius / border / notch — reflow the shell live
 CfgScroll {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
+
+    // Criterion 1. Everything on this page writes as you touch it and is
+    // persisted; the one line at the top says so, in the same words the other
+    // five live pages use.
+    lifecycle: "live"
+    lifecycleError: SettingsService.lastError
 
     // ── Palette ───────────────────────────────────────────────────────────────
     CfgSection {
@@ -55,12 +63,16 @@ CfgScroll {
             }
         }
 
+        // Reset, and it is really Reset: the shipped default for this key is
+        // the empty string, which means "follow the desktop wallpaper". The row
+        // said Reset and the button said Clear, which are two words for one act
+        // and neither of them was the one every other page uses.
         CfgRow {
-            label:       "Reset"
-            description: "Use the desktop wallpaper on the lock screen"
+            label:       "Lock background"
+            description: "Return to the shipped default: the desktop wallpaper"
             CfgButton {
-                label: "Clear"
-                icon:  "󰆴"
+                label: "Reset"
+                icon:  "↺"
                 onClicked: SettingsService.set("lockBackground", "")
             }
         }
@@ -93,7 +105,7 @@ CfgScroll {
                 anchors.centerIn: parent
                 visible: WallpaperService.wallpapers.length === 0
                 text:    WallpaperService.applying ? "Applying…" : "No wallpapers in " + WallpaperService.wallpaperDir
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 color:   Qt.rgba(1,1,1,0.3)
             }
 
@@ -118,7 +130,7 @@ CfgScroll {
 
                     Rectangle {
                         anchors.fill: parent
-                        radius:       9
+                        radius:       10
                         color:        Qt.rgba(1,1,1,0.04)
                         clip:         true
 
@@ -133,12 +145,20 @@ CfgScroll {
                         }
                         Rectangle {
                             anchors.fill: parent
-                            radius:       9
+                            radius:       10
                             color:        "transparent"
                             border.width: parent.parent.active ? 2 : (wh.hovered ? 1 : 0)
                             border.color: parent.parent.active
                                 ? Theme.active
                                 : Qt.rgba(1,1,1,0.4)
+
+                            // The same selection ring as WallpaperPopup's thumbnail
+                            // grid, which is the other place this control exists.
+                            // That one eases; this one snapped its border on and off,
+                            // so the two wallpaper pickers felt like different
+                            // widgets. Same properties, same 120ms.
+                            Behavior on border.color { ColorAnimation  { duration: 120 } }
+                            Behavior on border.width { NumberAnimation { duration: 120 } }
                         }
                     }
                     HoverHandler { id: wh; cursorShape: Qt.PointingHandCursor }
@@ -152,6 +172,13 @@ CfgScroll {
         }
     }
 
+    // There is deliberately no Light/Dark control here. matugen renders both
+    // halves and WallpaperService can ask for either, but 212 `color:` bindings
+    // across src/ are a hardcoded translucent white, which is a foreground on a
+    // dark surface and nothing at all on a light one. A switch that turns the
+    // settings pages blank is worse than no switch. Colors.qml carries the
+    // count, the reason and the way to reach light mode while working on it.
+
     // ── Colour scheme ─────────────────────────────────────────────────────────
     CfgSection {
         title: "Colour scheme"
@@ -162,7 +189,7 @@ CfgScroll {
             width:          parent.width
             leftPadding:    10
             text:           "How matugen derives the palette from your wallpaper."
-            font.pixelSize: Theme.fs(10)
+            font.pixelSize: theme.fs(10)
             color:          Qt.rgba(1,1,1,0.4)
             wrapMode:       Text.WordWrap
         }
@@ -183,6 +210,49 @@ CfgScroll {
                     if (WallpaperService.currentWall !== "")
                         WallpaperService.apply(WallpaperService.currentWall)
                 }
+            }
+        }
+    }
+
+    // ── Night light ───────────────────────────────────────────────────────────
+    //
+    // The dashboard tile is a switch and nothing else; this is where the
+    // temperature lives, because it is a preference and not a thing you reach
+    // for twice an evening. Both surfaces read and write the same two values, so
+    // there is one night light and not two.
+    CfgSection {
+        title: "Night light"
+
+        CfgRow {
+            label: "Night light"
+            description: CompositorService.nightLightSupported
+                ? "Warms the screen using " + CompositorService.nightLightMechanism
+                  + " on " + Compositor.name
+                : "This session is not a compositor APEX Shell has a "
+                  + "colour-temperature mechanism for, so there is nothing to warm "
+                  + "the screen with."
+            disabledReason: CompositorService.nightLightSupported
+                ? "" : "No mechanism on this compositor"
+            status:      CompositorService.nightLightError
+            statusWarns: CompositorService.nightLightError !== ""
+
+            CfgSwitch {
+                checked: CompositorService.nightLightActive
+                onToggled: function(v) { CompositorService.setNightLight(v) }
+            }
+        }
+
+        CfgRow {
+            label:       "Temperature"
+            description: "Lower is warmer. 6500K is neutral — the screen is left alone."
+            disabledReason: CompositorService.nightLightSupported
+                ? "" : "No mechanism on this compositor"
+
+            CfgSlider {
+                from: 1000; to: 6500; step: 100; suffix: "K"
+                readoutWidth: 56
+                value: SettingsService.nightLightTemp
+                onMoved: function(v) { CompositorService.setNightLightTemperature(v) }
             }
         }
     }
@@ -226,13 +296,14 @@ CfgScroll {
             }
         }
 
-        Item { width: parent.width; height: 6 }
-        Item {
-            width:  parent.width
-            height: 30
+        // A CfgRow rather than a bare button in a spacer, so it says what it
+        // resets and reads like the Layout page's, which resets the same way.
+        CfgRow {
+            label:       "Shape"
+            description: "Return the corner radius, border, notch radius and " +
+                         "notch height to the shipped defaults"
             CfgButton {
-                x: 10
-                label:   "Reset shape to defaults"
+                label:   "Reset"
                 icon:    "↺"
                 onClicked: {
                     SettingsService.set("cornerRadius", 17)

@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import "../../components"
@@ -30,7 +31,7 @@ IconBtn {
     // ── APEX logo ─────────────────────────────────────
     // APEX-OS override (apex-logs 15-apex-logo.md): upstream renders the
     // per-distro nerd-font glyph from the map above. On APEX-OS the brand is
-    // APEX regardless of the Fedora base, so show the APEX chartreuse "spark"
+    // APEX regardless of the Fedora base, so show the APEX "spark"
     // (src/assets/apex-logo.png). The glyph map stays as the fallback for
     // non-APEX hosts and when the asset is missing.
     readonly property string apexLogo: Quickshell.shellDir + "/src/assets/apex-logo.png"
@@ -41,6 +42,10 @@ IconBtn {
               : (distroGlyphs[distroId] !== undefined ? distroGlyphs[distroId] : "")
     textColor: Theme.active
 
+    // The asset is a fixed chartreuse spark. Drawn raw it stayed green while the
+    // rest of the bar followed the wallpaper, so it is recoloured to the live
+    // accent rather than shipped in several colourways. The Image is the texture
+    // provider only — MultiEffect does the drawing, so it is itself invisible.
     Image {
         id: logo
         anchors.centerIn: parent
@@ -53,7 +58,17 @@ IconBtn {
         sourceSize.height: 36
         smooth: true
         mipmap: true
-        visible: status === Image.Ready
+        visible: false
+    }
+
+    MultiEffect {
+        source: logo
+        anchors.fill: logo
+        // colorization 1.0 replaces the hue outright and keeps the spark's own
+        // luminance, so the shape survives on both light and dark accents.
+        colorization: 1.0
+        colorizationColor: Theme.active
+        visible: logo.status === Image.Ready
     }
 
     property var osRelease: FileView {

@@ -18,11 +18,19 @@ StatCard {
     property bool onScreen: false
 
     // ── Compositor gating ─────────────────────────────────────────────────────
-    // hyprsunset (Night Light) and the hl.config screen_shader (Filter) are
-    // Hyprland-only; those tiles hide on niri. Focus Mode keeps the bar-shrink
-    // (ShellState.focusMode) but skips the hyprctl gap calls on niri.
-    readonly property bool isHyprland: Compositor.isHyprland
-    readonly property bool isNiri:     Compositor.isNiri
+    // Three tiles here only work on some compositors, and every one of them now
+    // asks CompositorService what the running one can do rather than what it is
+    // called:
+    //
+    //   Night Light  can.nightLight    hyprsunset, Hyprland's CTM protocol
+    //   Filter       can.screenShader  decoration:screen_shader
+    //   Focus Mode   can.gaps          keeps the bar-shrink either way
+    //
+    // This card was the last consumer in the shell that spawned hyprctl itself
+    // — two dialects of `hl.config`, a DPMS damage cycle and a `pgrep` — and
+    // all of it is in HyprlandBackend.qml now. What is left here is the tile,
+    // and the one genuinely compositor-neutral part: finding shader files on
+    // the user's disk, which is a directory question and not an IPC one.
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Brightness
@@ -105,28 +113,92 @@ StatCard {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  Night Light  (hyprsunset)
+    //  Night Light
     // ─────────────────────────────────────────────────────────────────────────
-    property bool nightLightOn: false
+    // The tool, the process that adopts an already-running one, the kill and the
+    // temperature all live in CompositorService, once, for every compositor.
+    // This tile owns no processes at all.
+    readonly property bool nightLightOn: CompositorService.nightLightActive
 
-    Process { id: nlCheck; command: ["bash", "-c", "pgrep -x hyprsunset"]; running: false
-        stdout: SplitParser { onRead: function(l) { if (l.trim() !== "") root.nightLightOn = true } } }
-    Process { id: nlProc; command: ["hyprsunset", "-t", "5600"]; running: false }
-    Process { id: nlKill; command: ["bash", "-c", "pkill hyprsunset"]; running: false }
+    // What the tile says under its label. In order: the failure the mechanism
+    // reported, the temperature while it is on, and — when the compositor has
+    // no mechanism at all — the reason, rather than nothing.
+    readonly property string nightLightSub: {
+        if (CompositorService.nightLightError !== "") return "Failed"
+        if (!CompositorService.nightLightSupported) return "Unsupported here"
+        if (root.nightLightOn) return CompositorService.nightLightTemperature + "K"
+        return ""
+    }
+
     function _nightLightToggle() {
-        if (root.nightLightOn) {
-            nlProc.running = false; nlKill.running = false; nlKill.running = true
-            root.nightLightOn = false
-        } else { nlProc.running = true; root.nightLightOn = true }
+        CompositorService.setNightLight(!root.nightLightOn)
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  Caffeine  (Wayland idle-inhibit — inhibitors live in the TopBar windows)
+    //  Caffeine
+    //
+    //  A plain bool. The mechanisms hang off it elsewhere — a logind `idle`
+    //  block inhibitor in ShellState (the one that works everywhere) and a
+    //  Wayland surface inhibitor per TopBar window — and BOTH are held on every
+    //  compositor, so this tile is never conditional on the session. Unlike
+    //  Night Light and Filter above, it therefore has no capability gate and no
+    //  `visible:`: a tile that can disappear is how a feature quietly stops
+    //  existing on the compositor nobody tested.
     // ─────────────────────────────────────────────────────────────────────────
     readonly property bool caffeineOn: ShellState.caffeine
 
     function _caffeineToggle() {
         ShellState.caffeine = !ShellState.caffeine
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Lid stays awake  (roadmap P1-063)
+    //
+    //  NOT the same thing as Caffeine, and the two are next to each other on
+    //  purpose so the difference is visible. Caffeine takes an `idle` block
+    //  inhibitor: it stops the screen dimming, blanking and locking, and it
+    //  does NOTHING about the lid — logind acts on a lid switch whether or not
+    //  idle is inhibited. This tile is the pin behind a `handle-lid-switch`
+    //  inhibitor, which is the only thing that stops a close suspending the
+    //  machine.
+    //
+    //  ── What a tap does, and what it deliberately cannot do ────────────────
+    //
+    //  on <-> auto, and never `off`. `off` means "suspend on a close whatever
+    //  is running", which kills an agent mid-build; it is a deliberate choice
+    //  with a real consequence and it belongs next to the sentence that
+    //  explains it, on Config -> Closing the Lid, not under a fingertip on a
+    //  two-state tile. lid.js's `tileToggle` is what enforces that, and
+    //  tests/lid-test.js asserts no input to it can return `off`.
+    //
+    //  The tile is lit by the PIN, not by the decision. One lit because an
+    //  agent happens to be running would go dark when the agent finished, and
+    //  its owner would read that as their setting having been forgotten.
+    //
+    //  ── It says when it is not the thing deciding ──────────────────────────
+    //
+    //  logind consults `HandleLidSwitchDocked` (default `ignore`) BEFORE any
+    //  inhibitor, so a machine with an external display already ignores its lid
+    //  and APEX is not why. The sublabel says so, because the tile is where
+    //  somebody looks before they trust it. A guard that is about to suspend
+    //  the machine outranks even that — it is APEX calling `systemctl suspend`
+    //  itself, so it happens docked or not.
+    //
+    //  No privilege anywhere: `apex lid pin` writes the owner's own
+    //  ~/.config/apex/lid.toml and the inhibitor is `allow_active=yes` for an
+    //  ordinary session. A polkit prompt from this tile would be a defect.
+    // ─────────────────────────────────────────────────────────────────────────
+    readonly property var lidTile: LidService.tile
+
+    function _lidToggle() {
+        LidService.toggle()
+    }
+
+    // The service polls two short-lived `apex` processes per sweep, so it runs
+    // while this card is genuinely in front of somebody and not otherwise.
+    ServiceRef {
+        service: LidService
+        active:  root.onScreen
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -402,41 +474,61 @@ StatCard {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  Focus Mode  (hyprctl gaps)
+    //  Focus Mode
+    //
+    //  Shrinks the bar, and on a compositor that has runtime gaps, closes those
+    //  too. The gaps half used to be four chained Processes here — two python
+    //  one-liners to read two integers, one to apply, one to restore, sequenced
+    //  through onRunningChanged. All of it is now two calls on the adapter, and
+    //  a compositor without runtime gaps refuses them and just flips the bar,
+    //  which is what the old `!isHyprland` early return did by hand.
     // ─────────────────────────────────────────────────────────────────────────
-    property int _savedGapsIn: 5; property int _savedGapsOut: 10
+    property int _savedGapsIn:  5
+    property int _savedGapsOut: 10
 
-    Process { id: readGapsIn
-        command: ["bash", "-c",
-            "hyprctl getoption general:gaps_in -j | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('int',5))\""]
-        running: false
-        stdout: SplitParser { onRead: function(l) { var v=parseInt(l.trim()); if(!isNaN(v)) root._savedGapsIn=v } }
-        onRunningChanged: if (!running) readGapsOut.running = true }
-    Process { id: readGapsOut
-        command: ["bash", "-c",
-            "hyprctl getoption general:gaps_out -j | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('int',10))\""]
-        running: false
-        stdout: SplitParser { onRead: function(l) { var v=parseInt(l.trim()); if(!isNaN(v)) root._savedGapsOut=v } }
-        onRunningChanged: if (!running) applyFocusGaps.running = true }
-    Process { id: applyFocusGaps
-        command: ["bash", "-c",
-            "hyprctl keyword general:gaps_in 0 && hyprctl keyword general:gaps_out 6"]
-        running: false; onRunningChanged: if (!running) ShellState.focusMode = true }
-    Process { id: restoreGaps; command: []; running: false
-        onRunningChanged: if (!running) ShellState.focusMode = false }
+    // Guards a double-toggle from racing its own restore. The old code flipped
+    // focusMode from restoreGaps.onRunningChanged — i.e. only once the restore
+    // subprocess had exited — and that sequencing is what made this impossible.
+    // Flipping immediately let a second toggle inside the window take the READ
+    // branch while `hyprctl keyword general:gaps_in 5 && …` was still running:
+    // if the read won, the saved gaps were overwritten with the shrunken 0/6 and
+    // the user's real gaps were gone for the rest of the session. A fast
+    // double-press of SUPER+B is enough.
+    property bool _gapsBusy: false
+
+    property Timer _gapsSettled: Timer {
+        interval: 250
+        repeat:   false
+        onTriggered: root._gapsBusy = false
+    }
+
     function _focusToggle() {
-        // Only Hyprland exposes gaps via hyprctl; everything else just flips
-        // the bar-shrink state (positive guard, so sway/KDE take this path too).
-        if (!root.isHyprland) {
-            ShellState.focusMode = !ShellState.focusMode
+        if (root._gapsBusy) return
+
+        if (ShellState.focusMode) {
+            if (CompositorService.setGaps(root._savedGapsIn, root._savedGapsOut)) {
+                root._gapsBusy = true
+                root._gapsSettled.restart()
+            }
+            ShellState.focusMode = false
             return
         }
-        if (ShellState.focusMode) {
-            restoreGaps.command = ["bash", "-c",
-                "hyprctl keyword general:gaps_in "  + root._savedGapsIn  +
-                " && hyprctl keyword general:gaps_out " + root._savedGapsOut]
-            restoreGaps.running = false; restoreGaps.running = true
-        } else { readGapsIn.running = false; readGapsIn.running = true }
+
+        // Read before shrinking, so what gets restored is what the user had and
+        // not the 5/10 default. If the read fails — or gaps are not a runtime
+        // concept here — fall through to flipping the bar alone rather than
+        // applying a shrink we could never undo.
+        CompositorService.readGaps(function (ok, g) {
+            if (ok) {
+                root._savedGapsIn  = g.inner
+                root._savedGapsOut = g.outer
+                if (CompositorService.setGaps(0, 6)) {
+                    root._gapsBusy = true
+                    root._gapsSettled.restart()
+                }
+            }
+            ShellState.focusMode = true
+        })
     }
     
     Connections {
@@ -446,97 +538,64 @@ StatCard {
         }
     }
 
-// ─────────────────────────────────────────────────────────────────────────
-    //  Filter  (Native Hyprland Lua)
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Filter  (screen shader)
     //
     //  Tile click: runs bash `find`, opens picker popup above the tile.
     //  Picker has "Off" at top + all available shaders.
-    //  Selecting a shader: resolves absolute path and uses `hyprctl eval hl.config()`
-    //  Selecting the active shader or "Off": clears the shader in Hyprland.
+    //  Selecting a shader hands its ABSOLUTE PATH to the adapter; selecting the
+    //  active one or "Off" hands it "".
+    //
+    //  What used to be here: two dialects of `hyprctl`, a DPMS damage cycle and
+    //  a `python3 -c` JSON reader. All of that is HyprlandBackend's now. The
+    //  split is deliberate — *which file* is a question about the user's shader
+    //  directories, and *how to apply it* is a question about the compositor.
     // ─────────────────────────────────────────────────────────────────────────
-    property string currentFilter:    ""
+    readonly property string currentFilter: CompositorService.screenShader
     property var    filterList:       []
     property bool   filterPickerOpen: false
-    
+
+    // name → absolute path, built from the same `find` that fills filterList.
+    //
+    // The old code re-ran `find` at apply time with the chosen name spliced
+    // into a `-name` pattern, which meant the shader name reached a shell as
+    // code. Resolving once at list time and passing the path as an argument
+    // removes that entirely, and it removes the silent failure mode where the
+    // second `find` came back empty and the apply did nothing.
+    property var _filterPaths: ({})
+
     // Add your standard shader directories here (space-separated)
     // Shell-owned shaders are resolved from Quickshell.shellDir so they are found
     // wherever the shell is checked out, not only at ~/.local/src/apex-shell.
     property string shaderPaths: "~/.config/hypr/shaders ~/.local/share/hypr/shaders /usr/share/hyprshade/shaders "
                                  + "'" + Quickshell.shellDir + "/src/config/shaders'"
 
-    // Check process stays exactly the same — it already reads cleanly from Hyprland!
-    Process {
-        id: filterCheckProc
-        command: ["bash", "-c",
-            "hyprctl getoption decoration:screen_shader -j 2>/dev/null" +
-            " | python3 -c \"" +
-            "import sys,json,os;" +
-            "d=json.load(sys.stdin);" +
-            "s=d.get('str','').strip();" +
-            "print('' if s in ('','[[EMPTY]]') else os.path.splitext(os.path.basename(s))[0])\""]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                root.currentFilter = text.trim()
-            }
-        }
-    }
-
-    Process {
-        id: filterApplyProc
-        command: []
-        running: false
-        onRunningChanged: if (!running) {
-            filterCheckProc.running = false
-            filterCheckProc.running = true
-        }
-    }
-
     function _filterApply(name) {
-        // screen_shader is Hyprland-only and this function had no guard at all,
-        // so it fired hyprctl on niri and on any third compositor.
-        if (!root.isHyprland) return
-
+        // No compositor guard needed: setScreenShader refuses on a backend
+        // without the capability and spawns nothing. This function used to have
+        // no guard at all and fired hyprctl on niri and on any third compositor.
         var turningOff = (name === "" || name === root.currentFilter)
-        root.currentFilter = turningOff ? "" : name
-
-        var isLua = ShellState.configProvider === "lua"
-
-        // Handle DPMS toggling based on provider
-        var damageCmd = isLua 
-            ? ` && hyprctl dispatch 'hl.dsp.dpms({ action = "disable" })' && hyprctl dispatch 'hl.dsp.dpms({ action = "enable" })'`
-            : ` && hyprctl dispatch dpms off && hyprctl dispatch dpms on`
-
         if (turningOff) {
-            var offCmd = isLua 
-                ? "hyprctl eval \"hl.config({ decoration = { screen_shader = '' } })\""
-                : "hyprctl keyword decoration:screen_shader '[[EMPTY]]'"
-                
-            filterApplyProc.command = ["bash", "-c", offCmd + damageCmd]
+            CompositorService.setScreenShader("")
         } else {
-            var resolveCmd =
-                "TARGET=$(find " + root.shaderPaths +
-                " -maxdepth 1 -type f \\( -name '" + name + ".glsl' -o -name '" + name + ".frag' \\)" +
-                " 2>/dev/null | head -n 1); "
-                
-            var onCmd = isLua
-                ? "if [ -n \"$TARGET\" ]; then hyprctl eval \"hl.config({ decoration = { screen_shader = '$TARGET' } })\"" + damageCmd + "; fi"
-                : "if [ -n \"$TARGET\" ]; then hyprctl keyword decoration:screen_shader \"$TARGET\"" + damageCmd + "; fi"
-
-            filterApplyProc.command = ["bash", "-c", resolveCmd + onCmd]
+            var path = root._filterPaths[name]
+            // An entry with no resolved path cannot be applied. Nothing is
+            // handed to the adapter, because "" means OFF and turning the
+            // filter off is not what the user asked for.
+            if (path === undefined || path === "") { root.filterPickerOpen = false; return }
+            CompositorService.setScreenShader(path)
         }
-
-        filterApplyProc.running = false
-        filterApplyProc.running = true
         root.filterPickerOpen = false
     }
 
     Connections {
         target: WallpaperService
-        enabled: root.isHyprland   // screen_shader lives in Hyprland only
+        // A wallpaper apply can reload the compositor's config, which resets
+        // the shader to whatever the config file says. Re-read rather than keep
+        // showing the value from before the reload.
+        enabled: CompositorService.can.screenShader
         function onWallpaperApplied(path) {
-            filterCheckProc.running = false
-            filterCheckProc.running = true
+            CompositorService.refreshScreenShader()
         }
     }
 
@@ -549,19 +608,30 @@ StatCard {
 
     Process {
         id: filterListProc
-        // Replaces `hyprshade ls` by searching your directories and stripping the file extensions
-        command: ["bash", "-c", "find " + root.shaderPaths + " -maxdepth 1 -type f \\( -name '*.glsl' -o -name '*.frag' \\) 2>/dev/null | rev | cut -d/ -f1 | rev | sed 's/\\.[^.]*$//' | sort -u"]
+        // Replaces `hyprshade ls` by searching your directories. Full paths
+        // now, not basenames: the picker needs a label AND something to apply.
+        command: ["bash", "-c", "find " + root.shaderPaths + " -maxdepth 1 -type f \\( -name '*.glsl' -o -name '*.frag' \\) 2>/dev/null | sort"]
         running: false
         stdout: SplitParser {
             onRead: function(l) {
-                var n = l.trim()
-                if (n !== "") root.filterList = root.filterList.concat([n])
+                var p = l.trim()
+                if (p === "") return
+                var n = p.replace(/^.*\//, "").replace(/\.[^.]*$/, "")
+                if (n === "") return
+                // First path wins, which is what the old `sort -u | head -n 1`
+                // pair did: a shader in ~/.config shadows one in /usr/share.
+                if (root._filterPaths[n] !== undefined) return
+                var m = root._filterPaths
+                m[n] = p
+                root._filterPaths = m
+                root.filterList = root.filterList.concat([n])
             }
         }
     }
 
     function _filterOpen() {
-        root.filterList = []
+        root.filterList  = []
+        root._filterPaths = ({})
         filterListProc.running = false
         filterListProc.running = true
         root.filterPickerOpen  = true
@@ -589,15 +659,24 @@ StatCard {
     }
 
     Component.onCompleted: {
+        // Night-light and screen-shader state are no longer probed here: the
+        // backend owns both and reads them once at startup, so the tiles are
+        // correct the first time the dashboard opens instead of a fork later.
         _wifiPoll(); _btPoll()
-        if (root.isHyprland) nlCheck.running = true   // hyprsunset — Hyprland only
         hotspotCheck.running    = true
         airplaneCheck.running   = true
-        if (root.isHyprland) filterCheckProc.running = true   // screen_shader — Hyprland only
         hsCfgLoadProc.running   = true
         hsIfaceProc.running     = true
         hsActiveCheckProc.running = true
     }
+
+    // ── The quick-settings-tile extension point (roadmap §16) ─────────────────
+    // Non-visual: it hosts one Loader per granted tile plugin and exposes the
+    // sanitised descriptors the Repeater at the end of the grid draws. A plugin
+    // tile cannot flip a system switch — that would be the `system` permission,
+    // which is refused at load — so it surfaces information and acts inside
+    // whatever it was granted. See PluginTiles.qml.
+    PluginTiles { id: pluginTiles }
 
     // ─────────────────────────────────────────────────────────────────────────
     //  UI
@@ -614,13 +693,13 @@ StatCard {
             Text {
                 id: brightLbl
                 anchors { left: parent.left; top: parent.top }
-                text: "BRIGHTNESS"; font.pixelSize: Theme.fs(9); font.weight: Font.Bold
+                text: "BRIGHTNESS"; font.pixelSize: theme.fs(9); font.weight: Font.Bold
                 color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
             }
             Text {
                 anchors { right: parent.right; top: parent.top }
                 text: Math.round(root._brightVal * 100) + "%"
-                font.pixelSize: Theme.fs(9); font.family: "JetBrains Mono"; font.weight: Font.Bold
+                font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"; font.weight: Font.Bold
                 color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7)
             }
 
@@ -630,7 +709,7 @@ StatCard {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "󰃞"; font.pixelSize: Theme.fs(13)
+                    text: "󰃞"; font.pixelSize: theme.fs(13)
                     color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.35)
                 }
 
@@ -652,6 +731,8 @@ StatCard {
                             radius: parent.radius; color: Theme.active
                             Behavior on width { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
                         }
+                        // Drag or click to set brightness. No wheel handler: a
+                        // value bar in this shell never reads the wheel.
                         MouseArea {
                             anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                             function _c(mx) {
@@ -661,17 +742,11 @@ StatCard {
                             onPressed:         root._setBright(_c(mouseX))
                             onPositionChanged: if (pressed) root._setBright(_c(mouseX))
                         }
-                        }
-
-                     WheelHandler {
-                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                        onWheel: function(e) {
-                            root._setBright(root._brightVal + (e.angleDelta.y > 0 ? 0.05 : -0.05))
-                        }
                     }
+
                     Rectangle {
                         width: btw.thumbD; height: btw.thumbD; radius: btw.thumbD / 2
-                        color: "#ffffff"; anchors.verticalCenter: parent.verticalCenter
+                        color: Theme.fixedLight; anchors.verticalCenter: parent.verticalCenter
                         x: Math.max(0, Math.min(btw.width - width, root._brightVal * (btw.width - width)))
                         Behavior on x { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
                     }
@@ -679,7 +754,7 @@ StatCard {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "󰃠"; font.pixelSize: Theme.fs(13)
+                    text: "󰃠"; font.pixelSize: theme.fs(13)
                     color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.75)
                 }
             }
@@ -693,7 +768,7 @@ StatCard {
 
         Text {
             id: qsLbl; width: parent.width
-            text: "QUICK SETTINGS"; font.pixelSize: Theme.fs(9); font.weight: Font.Bold
+            text: "QUICK SETTINGS"; font.pixelSize: theme.fs(9); font.weight: Font.Bold
             color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
         }
         Item { width: parent.width; height: 8 }
@@ -743,19 +818,19 @@ StatCard {
                         anchors { left: parent.left; bottom: parent.bottom; margins: 9 }
                         spacing: 2
                         Text {
-                            text: btn.icon; font.pixelSize: Theme.fs(17)
+                            text: btn.icon; font.pixelSize: theme.fs(17)
                             color: btn.on ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.40)
                             Behavior on color { ColorAnimation { duration: 130 } }
                         }
                         Text {
-                            text: btn.label; font.pixelSize: Theme.fs(9); font.weight: Font.Medium
+                            text: btn.label; font.pixelSize: theme.fs(9); font.weight: Font.Medium
                             color: btn.on ? Theme.text : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.45)
                             Behavior on color { ColorAnimation { duration: 130 } }
                         }
                         Text {
                             visible: btn.sublabel !== ""
                             text:    btn.sublabel
-                            font.pixelSize: Theme.fs(8); font.family: "JetBrains Mono"
+                            font.pixelSize: theme.fs(8); font.family: "JetBrains Mono"
                             color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.65)
                             width: btn.width - 18; elide: Text.ElideRight
                         }
@@ -799,11 +874,18 @@ StatCard {
                         onToggled: root._hotspotToggle()
                     }
                     TglBtn {
-                        // hyprsunset is Hyprland-specific — hide on niri (wlsunset
-                        // would be the niri-world tool; not wired up here).
-                        visible: root.isHyprland
+                        // NOT hidden on a capability any more. Every compositor
+                        // this shell detects has a mechanism — hyprsunset on
+                        // Hyprland, gammastep on labwc and niri — so the only
+                        // way to reach `false` is a session the shell does not
+                        // recognise, and on that one the tile says "Unsupported
+                        // here" instead of disappearing. A control that vanishes
+                        // is how a feature quietly stops existing on the
+                        // compositor nobody tested; Caffeine next to it made the
+                        // same argument first.
                         width: tileGrid.btnW; height: tileGrid.btnH
                         on: root.nightLightOn; icon: "󰖐"; label: "Night Light"
+                        sublabel: root.nightLightSub
                         onToggled: root._nightLightToggle()
                     }
                     TglBtn {
@@ -840,15 +922,57 @@ StatCard {
                         }
                     }
                     // Filter tile — opens picker, does not toggle directly.
-                    // Uses hyprctl screen_shader (hl.config) — Hyprland only.
+                    // Only Hyprland has a fullscreen-shader hook, which is what
+                    // can.screenShader answers.
                     TglBtn {
-                        visible: root.isHyprland
+                        visible: CompositorService.can.screenShader
                         width: tileGrid.btnW; height: tileGrid.btnH
                         on:       root.currentFilter !== ""
                         icon:     "󱡓"
                         label:    "Filter"
                         sublabel: root.currentFilter !== "" ? root.currentFilter : ""
                         onToggled: root._filterOpen()
+                    }
+
+                    // Next to Caffeine deliberately: see the note above for
+                    // why they are not the same inhibitor. Never `visible:`-d
+                    // away — a machine that reports no lid says so on the tile
+                    // rather than losing it, for the same reason Caffeine and
+                    // Night Light are unconditional.
+                    TglBtn {
+                        width: tileGrid.btnW; height: tileGrid.btnH
+                        on:       root.lidTile.on
+                        icon:     root.lidTile.icon
+                        label:    root.lidTile.label
+                        sublabel: root.lidTile.sublabel
+                        onToggled: root._lidToggle()
+                    }
+
+                    // ── Plugin tiles (roadmap §16) ────────────────────────
+                    // LAST, unconditionally, so the shell's own tiles keep the
+                    // positions users have muscle memory for. A plugin
+                    // appearing must not move Wi-Fi.
+                    //
+                    // The delegate is the same TglBtn every tile above uses,
+                    // which is the point of the extension point: the plugin
+                    // supplies four values and the shell draws its own tile.
+                    // A plugin cannot paint here, so it cannot draw something
+                    // that looks like the Airplane Mode switch. Every value
+                    // below has been through Manifest.quickTile(); see
+                    // PluginTiles.qml.
+                    Repeater {
+                        model: pluginTiles.tiles
+
+                        delegate: TglBtn {
+                            required property var modelData
+
+                            width: tileGrid.btnW; height: tileGrid.btnH
+                            on:       modelData.on
+                            icon:     modelData.icon
+                            label:    modelData.label
+                            sublabel: modelData.sublabel
+                            onToggled: pluginTiles.toggle(modelData.pluginId)
+                        }
                     }
                 }
             }
@@ -886,7 +1010,7 @@ StatCard {
         width:  180
         // Height fits "Off" row + all shader rows, capped at 280
         height: Math.min(280, pickerCol.implicitHeight + 16)
-        radius: Theme.cornerRadius
+        radius: theme.cornerRadius
 
         color: Qt.rgba(
             Math.min(1, Theme.background.r + 0.05),
@@ -926,7 +1050,7 @@ StatCard {
                 Text {
                     width: parent.width
                     text: "SHADER"
-                    font.pixelSize: Theme.fs(9); font.weight: Font.Bold
+                    font.pixelSize: theme.fs(9); font.weight: Font.Bold
                     color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
                     leftPadding: 4
                     bottomPadding: 4
@@ -948,14 +1072,14 @@ StatCard {
                         spacing: 8
                         Text {
                             text:           parent.parent.isActive ? "●" : "○"
-                            font.pixelSize: Theme.fs(9)
+                            font.pixelSize: theme.fs(9)
                             color: parent.parent.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.30)
                             anchors.verticalCenter: parent.verticalCenter
                             Behavior on color { ColorAnimation { duration: 100 } }
                         }
                         Text {
                             text:           "Off"
-                            font.pixelSize: Theme.fs(12)
+                            font.pixelSize: theme.fs(12)
                             color: parent.parent.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.65)
                             anchors.verticalCenter: parent.verticalCenter
                             Behavior on color { ColorAnimation { duration: 100 } }
@@ -991,14 +1115,14 @@ StatCard {
                             spacing: 8
                             Text {
                                 text:           parent.parent.isActive ? "●" : "○"
-                                font.pixelSize: Theme.fs(9)
+                                font.pixelSize: theme.fs(9)
                                 color: parent.parent.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.30)
                                 anchors.verticalCenter: parent.verticalCenter
                                 Behavior on color { ColorAnimation { duration: 100 } }
                             }
                             Text {
                                 text:           modelData
-                                font.pixelSize: Theme.fs(12)
+                                font.pixelSize: theme.fs(12)
                                 color: parent.parent.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.65)
                                 anchors.verticalCenter: parent.verticalCenter
                                 elide: Text.ElideRight
@@ -1016,7 +1140,7 @@ StatCard {
                     width:   parent.width
                     visible: root.filterList.length === 0
                     text:    "Loading…"
-                    font.pixelSize: Theme.fs(11)
+                    font.pixelSize: theme.fs(11)
                     color:   Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.25)
                     horizontalAlignment: Text.AlignHCenter
                     topPadding: 4

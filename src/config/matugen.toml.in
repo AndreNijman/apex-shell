@@ -38,6 +38,16 @@ output_path = '@SRCDIR@/src/config/colors.conf'
 input_path = '@SRCDIR@/src/config/ghostty-colors.template'
 output_path = '@HOME@/.config/ghostty/apex-shell-colors'
 
+# -- Terminal greeting accent -> ~/.cache/apex-shell/accent-ansi --------------
+# The fastfetch greeting (/usr/share/apex/shell/greeting.sh) reads this file and
+# passes it to `fastfetch --color`, so the keys, the title and the box rule all
+# follow the wallpaper instead of the static chartreuse brand colour. Rendered
+# as a complete SGR parameter string (38;2;R;G;B) rather than a hex value,
+# because the greeting is POSIX sh and must not do hex arithmetic to use it.
+[templates.shell_accent]
+input_path = '@SRCDIR@/src/config/shell-accent.template'
+output_path = '@HOME@/.cache/apex-shell/accent-ansi'
+
 # -- labwc window chrome -> ~/.config/labwc/themerc-override ------------------
 # APEX Floating (the labwc session) themed from the same Material You source as
 # the shell, so one wallpaper change moves the QML surfaces, the Hyprland

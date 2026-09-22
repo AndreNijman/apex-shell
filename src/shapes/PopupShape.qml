@@ -4,6 +4,8 @@ import "../"
 // Draws a popup background that "melts" into whichever edge(s) it's attached to.
 Canvas {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     // Multisample so the "melt" curves render crisp, not stair-stepped.
     layer.enabled: true
@@ -14,12 +16,12 @@ Canvas {
     property color color: Theme.background
 
     // Normal corner radius for the edges away from the notch
-    property int radius: Theme.cornerRadius
+    property int radius: theme.cornerRadius
 
     // Custom dimensions for the outward "melt" (concave corners)
     // Increase flareHeight to make the corners "higher" / stretch further
-    property int flareWidth: Theme.cornerRadius
-    property int flareHeight: Theme.cornerRadius
+    property int flareWidth: theme.cornerRadius
+    property int flareHeight: theme.cornerRadius
 
     // Inset of the flare start from the attached edge. Set this to the border
     // strip thickness (Theme.borderWidth) when the popup melts into one of the

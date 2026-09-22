@@ -10,6 +10,7 @@ singleton GpuService 1.0 ./system/GpuService.qml
 singleton CpuService 1.0 ./system/CpuService.qml
 singleton CpuFreqService 1.0 ./system/CpuFreqService.qml
 singleton PowerProfileService 1.0 ./system/PowerProfileService.qml
+singleton LockedHintService 1.0 ./system/LockedHintService.qml
 singleton DiskService 1.0 ./system/DiskService.qml
 singleton BrightnessService 1.0 ./system/BrightnessService.qml
 DashHome home/DashHome.qml
@@ -17,10 +18,23 @@ singleton NotificationService 1.0 ./notifications/NotificationService.qml
 NotificationList ./notifications/NotificationList.qml
 singleton WallpaperService 1.0 WallpaperService.qml
 singleton ScreenRecService 1.0 ScreenRecService.qml
+# The ALT+Tab switcher's state. A singleton because the overlay is built per
+# output and all of them show one selection.
+singleton WindowSwitcherService 1.0 WindowSwitcherService.qml
 singleton SettingsService 1.0 SettingsService.qml
 KanbanBoard KanbanBoard.qml
 AppLauncher AppLauncher.qml
 singleton LauncherState 1.0 LauncherState.qml
+# How a desktop entry gets launched, for every caller. Both the launcher
+# popup and the dock used to call entry.execute() directly, which does not
+# honour Terminal= — so nvim, and every other terminal application, could be
+# clicked and did nothing.
+singleton DesktopExec 1.0 DesktopExec.qml
+# The launcher-provider extension point's host (roadmap §16). Declared here for
+# the same reason the Agent Center's parts below are: AppLauncher is loaded
+# THROUGH this qmldir, so this directory is not on the import path and relying
+# on implicit sibling resolution gets `PluginLauncher is not a type`.
+PluginLauncher PluginLauncher.qml
 ShellConfig ./config_tab/ShellConfig.qml
 KeybindsPage ./config_tab/KeybindsPage.qml
 AppearancePage ./config_tab/pages/AppearancePage.qml
@@ -29,7 +43,41 @@ DataPage ./config_tab/pages/DataPage.qml
 MiscPage ./config_tab/pages/MiscPage.qml
 InputPage ./config_tab/pages/InputPage.qml
 DisplayPage ./config_tab/pages/DisplayPage.qml
+BlueprintPage ./config_tab/pages/BlueprintPage.qml
+GamingPage ./config_tab/pages/GamingPage.qml
+# §19's recovery surface, and the half of §25 that says rollback must not be
+# CLI-only. The service is a singleton for the same reason the others are:
+# ServiceRef refcounts it, and two instances would each hold their own count.
+singleton RecoveryService 1.0 RecoveryService.qml
+RecoveryPage ./config_tab/pages/RecoveryPage.qml
+
+# P1-061's privacy surface. Same shape as the row above: the service is polled
+# only while the page is on screen, and the page is reached through this qmldir
+# rather than by directory import.
+singleton PermissionsService 1.0 PermissionsService.qml
+PrivacyPage ./config_tab/pages/PrivacyPage.qml
+singleton FirewallService 1.0 FirewallService.qml
+FirewallPage ./config_tab/pages/FirewallPage.qml
+# P1-063's lid surface. Same shape as the two rows above: the service polls only
+# while the page or the Quick Settings card is on screen, and both are reached
+# through this qmldir rather than by directory import. A missing line here is
+# not a broken page — it is `LidPage is not a type` and the whole shell refuses
+# to start.
+singleton LidService 1.0 LidService.qml
+LidPage ./config_tab/pages/LidPage.qml
+# P1-051's two APEX Remote pages and the service behind them. Registered here
+# for the reason the whole file exists: a missing line is not a broken page,
+# it is "RemotePairPage is not a type" and the entire shell fails to start.
+singleton RemotePairingService 1.0 RemotePairingService.qml
+RemotePairPage ./config_tab/pages/RemotePairPage.qml
+RemoteDevicesPage ./config_tab/pages/RemoteDevicesPage.qml
 singleton AgentService 1.0 AgentService.qml
+# §42.1's sandbox default. A singleton because the Agents settings page, the
+# Agent Center's banner and the session rows all have to agree about what a new
+# session would get, and two instances would each hold their own FileView and
+# their own answer.
+singleton AgentPolicyService 1.0 AgentPolicyService.qml
+AgentsPage ./config_tab/pages/AgentsPage.qml
 AgentCenter agents/AgentCenter.qml
 # The Agent Center's own parts. Declared here rather than relying on implicit
 # sibling resolution: AgentCenter is loaded THROUGH this qmldir, so its
@@ -37,5 +85,27 @@ AgentCenter agents/AgentCenter.qml
 # you get instead.
 RequestRow agents/RequestRow.qml
 SessionRow agents/SessionRow.qml
+# P1-020's second layer: what a session started. Registered here for exactly
+# the reason the note above gives — SessionRow is reached through this file, so
+# `SubagentRow is not a type` is what a sibling import would produce.
+SubagentRow agents/SubagentRow.qml
+# P1-021's account-wide rate-limit strip. Same rule again: it is reached
+# through AgentCenter, which is reached through this file.
+TelemetryStrip agents/TelemetryStrip.qml
+UnrestrictedBanner agents/UnrestrictedBanner.qml
 SectionHeading agents/SectionHeading.qml
 SmallIconButton agents/SmallIconButton.qml
+StateBadge agents/StateBadge.qml
+# §20's remote agent status. Same rule as the rows above: registered here
+# because AgentCenter is loaded THROUGH this qmldir.
+singleton RemoteAgentService 1.0 RemoteAgentService.qml
+RemoteHostRow agents/RemoteHostRow.qml
+RemoteSessionRow agents/RemoteSessionRow.qml
+# §43's help surfaces. Same rule as the rows above: AgentCenter is loaded
+# THROUGH this qmldir, so its directory is not on the import path. The two
+# AgentHelp singletons are in src/qmldir instead, deliberately — see the note
+# there.
+AgentHelpEntry agents/AgentHelpEntry.qml
+AgentHelpCard agents/AgentHelpCard.qml
+AgentHelpPanel agents/AgentHelpPanel.qml
+AgentHelpBlock agents/AgentHelpBlock.qml

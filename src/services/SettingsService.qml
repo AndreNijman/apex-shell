@@ -44,6 +44,14 @@ QtObject {
     // the current desktop wallpaper", which is the historical behaviour.
     property string lockBackground:  ""
 
+    // ── Night light ──────────────────────────────────────────────────────────
+    // Kelvin. 6500 is neutral on both mechanisms, so the slider's top end is
+    // "no shift at all" rather than a warmer white. 5600 is what the tile has
+    // always used — it was a literal inside the hyprsunset invocation and there
+    // was no way to change it — so the default is that, and a user who never
+    // touches the slider sees exactly the shift they saw before.
+    property int nightLightTemp: 5600
+
     property int  dashboardWidth:    900
     property int  dashboardHeight:   520
     property int  notificationsWidth: 400
@@ -58,7 +66,8 @@ QtObject {
         "cornerRadius", "borderWidth", "notchRadius", "notchHeight",
         "barEnabled", "spacing", "exclusionGap", "animDuration", "reduceMotion",
         "dashboardWidth", "dashboardHeight", "notificationsWidth",
-        "lockBackground", "scaleMode", "scaleManual", "scaleScreen"
+        "lockBackground", "scaleMode", "scaleManual", "scaleScreen",
+        "nightLightTemp"
     ]
     readonly property var _defaults: ({
         cornerRadius: 17, borderWidth: 6, notchRadius: 15, notchHeight: 40,
@@ -66,7 +75,8 @@ QtObject {
         reduceMotion: false, dashboardWidth: 900, dashboardHeight: 520,
         notificationsWidth: 400,
         lockBackground: "",
-        scaleMode: "auto", scaleManual: 1.0, scaleScreen: ""
+        scaleMode: "auto", scaleManual: 1.0, scaleScreen: "",
+        nightLightTemp: 5600
     })
 
     // Bounds used by the UI sliders AND clamped on load so a hand-edited file
@@ -81,7 +91,11 @@ QtObject {
         // A scale below 0.5 makes the shell unreadable and above 3.0 makes it
         // unusable; either way the user would have to hand-edit the file to
         // recover, so clamp on load as well as in the UI.
-        scaleManual:       [0.5, 3.0]
+        scaleManual:       [0.5, 3.0],
+        // 1000K is the warmest either tool will take and 6500K is neutral.
+        // Above neutral both start ADDING blue, which is the opposite of what
+        // a control called Night Light is for.
+        nightLightTemp:    [1000, 6500]
     })
 
     readonly property bool isDefault: {
@@ -143,6 +157,7 @@ QtObject {
     onScaleModeChanged:         _scheduleSave()
     onScaleManualChanged:       _scheduleSave()
     onScaleScreenChanged:       _scheduleSave()
+    onNightLightTempChanged:    _scheduleSave()
 
     function _scheduleSave() { if (_loaded) _saveTimer.restart() }
 
@@ -182,15 +197,42 @@ QtObject {
     }
 
     // ── Save ──────────────────────────────────────────────────────────────────
-    property var _saveProc: Process { command: []; running: false }
+    //
+    // Non-empty when the last write was refused. Six settings pages write
+    // through this service and every one of them wrote as you dragged, so a
+    // home directory the shell could not write to looked exactly like one it
+    // could: the slider moved, the shell reflowed, and the value was gone at
+    // the next login. The pages show this on their CfgLifecycle line
+    // (roadmap P0-023, criterion 4).
+    property string lastError: ""
+
+    property var _saveProc: Process {
+        command: []
+        running: false
+        onExited: function(code, status) {
+            root.lastError = code === 0
+                ? ""
+                : "Could not write " + root._cfgPath + " (exit " + code
+                  + "). Settings changed here will be gone at the next login."
+        }
+    }
 
     function _save() {
         var o = {}
         for (var i = 0; i < _keys.length; i++) o[_keys[i]] = root[_keys[i]]
         var json = JSON.stringify(o)
+        // JSON and path go in as positional arguments rather than spliced into
+        // the script, the rule KeybindService and Compositor already follow.
+        //
+        // Not a bug fix, and the commit that introduced it said it was: the
+        // form this replaced escaped apostrophes correctly ('\'' for each one)
+        // and `lockBackground` with a quote in it round-tripped. What it
+        // removes is the need to hold that argument in your head — and the
+        // path, which was spliced unescaped, so a $HOME with a quote in it
+        // really did break it.
         _saveProc.command = ["bash", "-c",
-            "mkdir -p \"$(dirname '" + _cfgPath + "')\" && " +
-            "printf '%s' '" + json.replace(/'/g, "'\\''") + "' > '" + _cfgPath + "'"]
+            "mkdir -p \"$(dirname \"$2\")\" && printf '%s' \"$1\" > \"$2\"",
+            "--", json, root._cfgPath]
         _saveProc.running = false
         _saveProc.running = true
     }

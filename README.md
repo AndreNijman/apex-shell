@@ -33,6 +33,9 @@ The standard desktop shell of APEX-OS — a dynamic, highly modular Wayland shel
 - **Kanban/Tasks** — To Do, Ongoing and Completed lists with Priority and Deadlines
 - **App Launcher** — App search, plus inline answers for queries typed with a leading `?`
 - **Keybinds** — Set your own keybinds for each popup
+- **Recovery** — Config → Recovery reads `apex recover status` and `apex doctor`
+  and shows what is wrong, how to roll back, and what a factory reset would
+  actually delete (APEX-OS only; read-only until you press something)
 - **Theming Engine** — Live wallpaper-synced color updates
 - **Network Manager** — WiFi (incl. WPA2-Enterprise/802.1X), Bluetooth, VPN integration
 - **Notifications** — DBus Notifications via libnotify
@@ -75,6 +78,7 @@ The installer automatically:
 - ✓ Renders a portable matugen config (no hardcoded paths) into `~/.config/apex-shell/matugen.toml`
 - ✓ Creates configuration directories
 - ✓ Installs a tightly scoped polkit rule for passwordless sing-box VPN toggling (only when sing-box is present)
+- ✓ Registers the polkit action behind the Always Unrestricted agent toggle
 
 **After installation, restart Hyprland for changes to take effect.**
 
@@ -112,6 +116,44 @@ installed **disabled** (it never autostarts) with its config at
 ---
 
 <h2>
+  Agent sandbox default (Always Unrestricted)
+</h2>
+
+**Config → Agents** carries one toggle. On, an agent session started from
+then on runs with no APEX sandbox: it reads and writes any file you can, the
+same as a program you launch yourself. Off is the normal default, where the
+project is writable and the rest of `$HOME` is masked.
+
+Switching it **on** takes your password at the desktop's polkit authentication
+prompt. Switching it **off** takes effect at once and asks for nothing.
+
+The toggle writes `sandbox` in `~/.config/apex/agent.json` — the agent
+runtime's own configuration file, the one `apex agent run` reads, so the
+setting survives a reboot and applies to `a` from a terminal as much as to
+anything started from the shell. It moves that one key and no other, so a
+Claude profile set to `bypassPermissions` survives either direction.
+
+It grants **no root** and hands over **no secrets**. Sessions keep the kernel's
+`no_new_privs` flag whichever sandbox they have, so `sudo` fails inside one,
+and the secret broker performs a granted operation without ever returning the
+credential.
+
+The password prompt needs a polkit **action** registered — an action, not a
+rule; it grants nothing and only declares that the id exists and is answered
+with your own password (`auth_self`, not `auth_admin`, and not cached):
+
+```bash
+sudo install -Dm644 dots-extra/polkit/org.apexos.shell.agent.policy \
+     /usr/share/polkit-1/actions/org.apexos.shell.agent.policy
+```
+
+The Arch installer does this for you. Without it the toggle cannot be switched
+on and says so: `pkcheck` exits 127 with *is not registered*. Image builds ship
+it read-only at the same path.
+
+---
+
+<h2>
   Requirements
 </h2>
 
@@ -124,7 +166,12 @@ installed **disabled** (it never autostarts) with its config at
 <summary><b>Runtime & Rendering</b></summary>
 
 - **Hyprland** v0.55+ – Wayland compositor (niri and labwc also supported)
-- **Quickshell** – QML shell framework
+- **Quickshell** – QML shell framework. Needs a build **newer than the 0.3.1
+  release**: 0.3.1 publishes a single node to the accessibility bus with
+  nothing under it, so a screen reader reaches none of the shell. Upstream
+  fixed it in `916a0dd` seven commits after that tag, and no release carries
+  it yet. APEX-OS installs `quickshell-git` for this reason and the image
+  build refuses a quickshell that reports no git revision.
 - **Qt6** – Qt6 libraries and QML engine
 - **qt6ct** – Qt6 theme configuration
 
@@ -220,7 +267,8 @@ installed **disabled** (it never autostarts) with its config at
 ### Upcoming (Post-v0.1.0)
 
 - [ ] Scaling on Different Screen-Sizes
-- [x] Config Pages for Shell Customization — Appearance / Layout / Data / Keybinds / Misc
+- [x] Config Pages for Shell Customization — Appearance / Layout / Data / Input /
+      Display / Blueprint / Recovery / Keybinds / Misc
 - [ ] Multi-Monitor Support — *partial:* per-screen bars, borders and dashboard
       focus work; global scaling and per-monitor brightness do not
 - [ ] Additional theme options
@@ -271,11 +319,27 @@ Auto-detected; a manual override lives in Config → Misc.
 | Active window / fullscreen unmap | yes | yes | yes |
 | Idle inhibit (caffeine) | yes | yes | yes |
 | Screenshots, recording | yes | yes | yes |
-| Keybind editor writes live binds | yes | no | no |
+| Keybind editor writes live binds | yes | yes¹ | yes² |
 | Keybind capture (passthrough) | yes | no | no |
 | Layout indicator, gaps, blur tiles | yes | no | no |
 | Night light | `hyprsunset` | no | no |
 | Special/scratchpad workspace | yes | no | no |
+
+¹ **niri.** Every save writes `~/.config/apex-shell/ApexShellKeybinds.kdl`, and
+niri live-reloads its config and any file that config `include`s. Add the
+`include` line to the top level of your `~/.config/niri/config.kdl` once — the
+generated file's own header gives it verbatim — and edits apply immediately
+after that, with no restart. It is not rewritten for you, because `include`
+needs niri **v25.11 or newer** and rewriting `config.kdl` would break an older
+one; on a pre-v25.11 niri, paste the generated block in instead.
+
+² **labwc.** Every save runs `/usr/libexec/apex-labwc-keybinds apply`, which
+splices the bindings into the marked region of `~/.config/labwc/rc.xml` — an
+XML-aware edit that leaves the rest of a file you also own alone — and then
+runs `labwc --reconfigure`. The helper ships in the APEX-OS image. If you are
+running this shell from a `$HOME` checkout on a machine without it, the save
+still writes the shell's own files and skips this step (there is a `test -x`
+guard for exactly that), so labwc keeps whatever is already in its `rc.xml`.
 
 **labwc** is a stacking compositor and is deliberately IPC-free — no D-Bus
 interface, no sway/i3 socket, no `hyprctl`. Everything the shell needs from it
@@ -285,11 +349,11 @@ matter: `ext-workspace-v1`, `ext-session-lock-v1`, `wlr-layer-shell`,
 `wlr-gamma-control`. So workspaces are fully functional there rather than
 degraded, including click-to-switch.
 
-What labwc cannot do is accept live keybind edits from the shell's keybind
-editor, because there is nothing to send them to; its bindings live in
-`~/.config/labwc/rc.xml` and are reloaded with `labwc --reconfigure`
-(bound to `Super+Shift+R`). The tiling-specific tiles and the layout indicator
-hide themselves, as they already do on niri.
+What is still Hyprland-only is keybind CAPTURE — recording a shortcut by
+pressing it inside the editor. That needs the compositor to stop swallowing
+its own bindings for the duration, and the mechanism used is `hyprctl dispatch
+submap, clean`. The tiling-specific tiles and the layout indicator hide
+themselves on both niri and labwc, as the table says.
 
 To verify shell behaviour under labwc without rebooting:
 

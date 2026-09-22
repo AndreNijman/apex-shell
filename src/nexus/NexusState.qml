@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import Quickshell
 import "../"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -22,6 +23,21 @@ QtObject {
     // Which output the window is showing on. Set at open time from the focused
     // screen so it appears where the user is looking.
     property string screenName: ""
+
+    // …and where it actually shows, once the output it was opened on may have
+    // gone. Applying a display layout can disable the very monitor the settings
+    // window is on; the window for that output is destroyed with it, and a
+    // screenName naming an output that no longer exists matched nothing, so
+    // Settings vanished for the rest of the session with no way to reopen it on
+    // the same page. Falling back to the first live output keeps the window —
+    // and the display confirmation that was inside it — reachable.
+    readonly property string effectiveScreen: {
+        const want = root.screenName
+        const live = Quickshell.screens
+        for (let i = 0; i < live.length; i++)
+            if (live[i].name === want) return want
+        return live.length > 0 ? live[0].name : want
+    }
 
     property string page: "appearance"
 

@@ -1,18 +1,49 @@
 singleton Theme      theme/Theme.qml
+# The token table itself (P1-040). NOT a singleton — that is the whole point:
+# Metrics is the instance built at the reference output's factor, and a surface
+# that sizes itself from its OWN output builds another. Registered here as well
+# as in theme/qmldir because a per-output surface lives outside theme/ and
+# already imports this module; a plain component in two modules is two type
+# registrations of one file, not two instances of one object, so the hazard the
+# comments below describe for singletons does not apply.
+ThemeSet   theme/ThemeSet.qml
 singleton Popups     state/Popups.qml
+singleton DashboardLayout state/DashboardLayout.qml
 singleton IpcManager state/IpcManager.qml
 singleton ShellState state/ShellState.qml
 singleton ClockState state/ClockState.qml
 singleton Time       state/Time.qml
 singleton LockState  state/LockState.qml
 singleton Compositor state/Compositor.qml
+singleton CompositorService 1.0 services/compositor/CompositorService.qml
+singleton PluginService 1.0 services/plugins/PluginService.qml
 singleton ScreenRecService 1.0 services/ScreenRecService.qml
 singleton CavaService 1.0 services/CavaService.qml
 singleton ClipboardService 1.0 services/ClipboardService.qml
 singleton KeybindService 1.0 services/config_tab/KeybindService.qml
 singleton InputService 1.0 services/config_tab/InputService.qml
 singleton DisplayService 1.0 services/config_tab/DisplayService.qml
+singleton BlueprintService 1.0 services/config_tab/BlueprintService.qml
+singleton GamingService 1.0 services/config_tab/GamingService.qml
 singleton NiriService 1.0 services/system/NiriService.qml
 singleton UpdateService 1.0 services/UpdateService.qml
 singleton SettingsService 1.0 services/SettingsService.qml
 singleton WolframService 1.0 services/WolframService.qml
+singleton SearchService 1.0 services/SearchService.qml
+# §43's Agents & Workspaces guide. Registered HERE and not in services/qmldir,
+# even though the files live under services/agents/: a singleton declared in two
+# modules is instantiated twice, one per module, and the two copies would
+# disagree about whether the first-run card is dismissed. src/ is the module
+# every consumer already imports — AgentCenter through `import "../../"`,
+# IpcManager through `import "../"`.
+singleton AgentHelp 1.0 services/agents/AgentHelp.qml
+singleton AgentHelpContent 1.0 services/agents/AgentHelpContent.qml
+# P1-023's push-to-talk route. Registered HERE and deliberately NOT also in
+# services/qmldir, for the reason spelled out above AgentHelp — a singleton
+# declared in two modules is instantiated twice, one per module. Two of these
+# would each hold their own recorder and their own idea of whether the
+# microphone is currently open, and the indicator would be bound to whichever
+# copy the topbar happened to resolve. src/ is the module its two consumers
+# already import: IpcManager through `import "../"` and the topbar indicator
+# through `import "../.."`.
+singleton PushToTalkService 1.0 services/PushToTalkService.qml

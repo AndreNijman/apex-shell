@@ -28,6 +28,8 @@ import "../services"
 
 PanelWindow {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }   // P1-040: this output's sizes
+
 
     // ── Layer / geometry ──────────────────────────────────────
     // Overlay layer, no focus, click-through (empty input mask), no
@@ -36,7 +38,7 @@ PanelWindow {
     color: "transparent"
     anchors { top: true; left: true; right: true }
     exclusionMode: ExclusionMode.Ignore
-    margins.top:   Theme.notchHeight + 14
+    margins.top:   theme.notchHeight + 14
 
     WlrLayershell.layer:         WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
@@ -242,7 +244,7 @@ PanelWindow {
         Rectangle {
             id: bg
             anchors.fill: parent
-            radius:       Theme.cornerRadius
+            radius:       theme.cornerRadius
             color:        Theme.background
             border.width: 1
             border.color: Qt.rgba(1, 1, 1, 0.06)
@@ -255,7 +257,7 @@ PanelWindow {
             anchors.leftMargin:     16
             anchors.verticalCenter: parent.verticalCenter
             text:           root.glyph
-            font.pixelSize: Theme.fs(18)
+            font.pixelSize: theme.fs(18)
             color:          root.muted ? Theme.subtext : Theme.text
             Behavior on color { ColorAnimation { duration: 150 } }
         }
@@ -269,7 +271,7 @@ PanelWindow {
             width:                  46
             horizontalAlignment:    Text.AlignRight
             text:           root.label
-            font.pixelSize: Theme.fs(13)
+            font.pixelSize: theme.fs(13)
             font.bold:      true
             color:          root.muted ? Theme.subtext : Theme.text
             Behavior on color { ColorAnimation { duration: 150 } }

@@ -14,6 +14,15 @@ import "../../../components/config"
 //   • Quick "open folder" shortcuts (xdg-open)
 CfgScroll {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
+
+    // Criterion 1. Live, but NOT through SettingsService — the toggles here
+    // write to ScreenRecService and ShellState and the buttons act on the
+    // clipboard and notification stores. There is no shared error to report, so
+    // the page declares the state and nothing else rather than borrowing
+    // another service's failure.
+    lifecycle: "live"
 
     // Set by ShellConfig: "the Data & Storage page is genuinely on screen".
     // These two services used to be instantiated here with `active: true`
@@ -48,7 +57,7 @@ CfgScroll {
             visible:        DiskService.disks.length === 0
             text:           "Reading disks…"
             color:          Qt.rgba(1,1,1,0.3)
-            font.pixelSize: Theme.fs(11)
+            font.pixelSize: theme.fs(11)
         }
 
         Column {
@@ -82,7 +91,7 @@ CfgScroll {
             Text {
                 text:           MemService.usedStr + " / " + MemService.totalStr
                 font.family:    "JetBrains Mono"
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 color:          Theme.active
             }
         }
@@ -165,11 +174,17 @@ CfgScroll {
     CfgSection {
         title: "Open folders"
 
+        // A Flow, not a Row. Three buttons whose widths come from Theme.fs()
+        // text fit across the dashboard's narrow Config pane at scale 1.0 and
+        // pushed the third one out of it from 1.5x upward.
         Item {
             width:  parent.width
-            height: 34
-            Row {
+            height: folders.implicitHeight + 8
+            Flow {
+                id: folders
                 x:       10
+                y:       4
+                width:   parent.width - 20
                 spacing: 8
                 CfgButton { label: "Config";     icon: "󰉋"; onClicked: root.openPath("~/.config/apex-shell") }
                 CfgButton { label: "Cache";      icon: "󰉋"; onClicked: root.openPath("~/.cache/apex-shell") }

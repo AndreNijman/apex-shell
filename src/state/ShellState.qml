@@ -10,7 +10,9 @@ import "../."
 //
 // WiFi              — owned by QuickSettings (nmcli)
 // Night Light       — owned by QuickSettings (hyprsunset)
-// Caffeine          — Wayland inhibitor normally; logind inhibitor on labwc
+// Caffeine          — logind `idle` block inhibitor AND a Wayland surface
+//                     inhibitor, both unconditionally; see below for why both
+//                     and why neither is keyed on the compositor
 // Hotspot           — owned by QuickSettings (nmcli hotspot)
 // Airplane Mode     — owned by QuickSettings (rfkill)
 // Focus Mode        — owned by QuickSettings; TopBar reacts to hide + zero gaps
@@ -20,26 +22,62 @@ import "../."
 QtObject {
     id: root
 
-    property int topBarLWidth: 0
-    property int topBarCWidth: 0
-    property int topBarRWidth: 0
-    
-    
+    // The three notch widths used to live here, one field each, written by
+    // every TopBar and read by PopupDismiss. They are gone (P1-040): a bar per
+    // output all binding into one field is last-writer-wins, and it only looked
+    // correct while every bar computed the same number. shell.qml hands each
+    // PopupDismiss the bar from its own per-screen Scope instead.
+
     property bool focusMode:    false
     property bool dnd:          false
     property bool screenRecord: false
     property bool hotspot:      false
     property bool airplane:     false
 
-    // Caffeine — while true, IdleInhibitors in each TopBar window keep the
-    // compositor's idle timers (hypridle: dim/lock/dpms/suspend) from firing.
+    // Caffeine — while true, nothing may dim, lock, blank or suspend the
+    // machine. Two independent inhibitors enforce that; see below.
     property bool caffeine:     false
 
-    // labwc forwards idle through ext-idle-notify, but the surface-scoped
-    // Wayland inhibitor is not consistently reflected into hypridle there.
-    // hypridle explicitly honours logind's `idle` block inhibitor, so hold one
-    // for exactly as long as Caffeine is enabled. Keep this labwc-only: the
-    // existing Wayland path remains unchanged on Hyprland and niri.
+    // ── Caffeine's logind inhibitor ───────────────────────────────────────────
+    // This is the one that actually works, and it is held on EVERY compositor.
+    //
+    // ── What this replaced, and why it was wrong ──────────────────────────────
+    // This Process used to be gated `root.caffeine && Compositor.isLabwc`, on
+    // the belief that the Wayland surface inhibitor in each TopBar covered
+    // Hyprland and niri and only labwc needed a logind lock. That was the last
+    // place in the shell where real behaviour was keyed on a compositor NAME,
+    // and it turned out to be keyed on it backwards.
+    //
+    // Measured by tests/measure-idle-inhibit.sh — one arm per fresh nested
+    // compositor, each treated arm paired with a control that had to fire
+    // before it counted, verdict taken from a marker file the idle rule itself
+    // creates rather than from a grep of the daemon's log:
+    //
+    //   Hyprland 0.56.2 + hypridle 0.1.8
+    //     Wayland inhibitor on a LAYER SURFACE  -> idle FIRED. No effect.
+    //     Wayland inhibitor on a toplevel       -> suppressed.
+    //     logind --what=idle --mode=block       -> suppressed.
+    //   labwc 0.9.6 + hypridle 0.1.8
+    //     Wayland inhibitor on a layer surface  -> suppressed.
+    //     logind --what=idle --mode=block       -> suppressed.
+    //
+    // Hyprland ignores idle inhibitors on layer-shell surfaces, and the bar IS
+    // a layer surface. So Caffeine did nothing at all on the primary
+    // compositor: the tile lit up and the screen locked anyway. The labwc
+    // branch was aiming the one mechanism that works at the one compositor that
+    // did not need it.
+    //
+    // ── Why there is no capability for this ───────────────────────────────────
+    // Because nothing here varies by compositor. A logind `idle` block
+    // inhibitor is not a compositor feature; it is a logind lock that hypridle
+    // consults (measured: held -> no listener fires, released -> they fire).
+    // An `idleInhibit` capability would therefore be declared true by all four
+    // backends and would select the same mechanism in every one — a key
+    // carrying no information, whose only real effect would be to offer a
+    // future backend author somewhere to write `false` and silently kill a
+    // feature Andre uses. The §17 debt here is discharged by DELETING the
+    // compositor branch, not by abstracting it: there was never a compositor
+    // question to ask.
     readonly property Process caffeineInhibitor: Process {
         command: [
             "setpriv", "--pdeathsig", "TERM",
@@ -52,7 +90,10 @@ QtObject {
             // parent-death guarantee so neither side survives a shell crash.
             "setpriv", "--pdeathsig", "TERM", "sleep", "infinity"
         ]
-        running: root.caffeine && Compositor.isLabwc
+        // Caffeine and nothing else. No compositor name, no capability: a
+        // second condition here is a way for the feature to be dead on some
+        // session nobody tested, which is exactly what happened last time.
+        running: root.caffeine
     }
 
     // VPN state must be alive with the bar, not owned by VPNTab: that tab is
@@ -180,43 +221,35 @@ QtObject {
         }
     }
 
-    // ── Keybind Interception / Hyprland Submap Controller ─────────────────────
-    
-    property Process submapProcess: Process {}
-
+    // ── Keybind interception ──────────────────────────────────────────────────
+    //
+    // While the user is recording a new shortcut, every key has to reach the
+    // shell rather than firing whatever it is currently bound to. On Hyprland
+    // that is a submap with no binds in it; nothing else APEX ships has an
+    // equivalent, so the adapter reports no capability and refuses — which is
+    // what the `!Compositor.isHyprland` early return here did by hand, along
+    // with the two-dialect hyprctl split that now lives in HyprlandBackend.
     property Connections keybindListener: Connections {
-        target: KeybindService 
-        
-        function onIsCapturingChanged() {
-            // Submaps are a Hyprland concept; niri has no passthrough mode and
-            // key capture is disabled there. Positive guard, so this also stays
-            // off on compositors that are neither Hyprland nor niri.
-            if (!Compositor.isHyprland) return
+        target: KeybindService
 
-            if (KeybindService.isCapturing) {
-                // Enter passthrough mode (disables Hyprland binds)
-                if (configProvider === "lua") {
-                    submapProcess.command = ["hyprctl", "dispatch", "hl.dsp.submap('ApexShell_clean')"]
-                } else {
-                    submapProcess.command = ["hyprctl", "dispatch", "submap", "ApexShell_clean"]
-                }
-            } else {
-                // Exit passthrough mode (re-enables Hyprland binds)
-                if (configProvider === "lua") {
-                    submapProcess.command = ["hyprctl", "dispatch", "hl.dsp.submap('reset')"]
-                } else {
-                    submapProcess.command = ["hyprctl", "dispatch", "submap", "reset"]
-                }
-            }
-            
-            submapProcess.running = true
+        function onIsCapturingChanged() {
+            CompositorService.setKeyboardInterception(KeybindService.isCapturing)
         }
     }
     
-    // Which Hyprland config dialect the shell writes and dispatches.
+    // Which Hyprland config dialect the shell DISPATCHES in. It no longer
+    // decides what the shell writes: since P0-025 KeybindService writes the Lua
+    // module and nothing else, because Hyprland 0.56.2 loads hyprland.lua and
+    // never mentions a .conf beside it.
     //
-    // Defaults to "conf" — Hyprland's own default format. This used to default
-    // to "lua", which silently broke everyone who did not run install-arch.sh:
+    // "conf" is no longer Hyprland's own default format either — 0.56.2
+    // auto-generates a hyprland.LUA when it finds no config. It stays the
+    // pre-probe default because it is the safer guess for the seconds before
+    // the probe below answers, and because the regression it was chosen for is
+    // still live:
+    //
+    // this used to default to "lua", which silently broke everyone who did not
+    // run install-arch.sh:
     // config_Provider.json is written ONLY by that script, so a manual clone, a
     // non-Arch install, or a wiped ~/.config left the value at "lua" while the
     // user's config was stock text. KeybindService._ensureInclude() then took

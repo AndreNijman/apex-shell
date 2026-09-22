@@ -5,6 +5,8 @@ import "../"
 
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     readonly property var sink:   Pipewire.defaultAudioSink
     readonly property var source: Pipewire.defaultAudioSource
@@ -132,7 +134,7 @@ Item {
                     visible:        root.sinkNodes.length === 0
                     text:           "No output devices"
                     color:          Qt.rgba(1,1,1,0.2)
-                    font.pixelSize: Theme.fs(11)
+                    font.pixelSize: theme.fs(11)
                     leftPadding:    10
                 }
 
@@ -157,7 +159,7 @@ Item {
                     visible:        root.sourceNodes.length === 0
                     text:           "No input devices"
                     color:          Qt.rgba(1,1,1,0.2)
-                    font.pixelSize: Theme.fs(11)
+                    font.pixelSize: theme.fs(11)
                     leftPadding:    10
                 }
             }
@@ -218,7 +220,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           col.pctText
                 color:          col.muted ? Qt.rgba(1,1,1,0.25) : Theme.text
-                font.pixelSize: Theme.fs(13)
+                font.pixelSize: theme.fs(13)
                 font.bold:      true
                 Behavior on color { ColorAnimation { duration: 150 } }
             }
@@ -251,7 +253,7 @@ Item {
                         width:  col.thumbD
                         height: width
                         radius: width / 2
-                        color:  col.muted ? Qt.rgba(1,1,1,0.3) : "#ffffff"
+                        color:  col.muted ? Qt.rgba(1,1,1,0.3) : Theme.fixedLight
                         y: {
                             var travel = track.height - height
                             return Math.max(0, Math.min(travel, (1.0 - col.value) * travel))
@@ -259,7 +261,9 @@ Item {
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
 
-                    // Drag to change volume
+                    // Drag to change volume. No wheel handler: these columns sit
+                    // inside a PopupPage that scrolls, so a wheel here belongs
+                    // to the page.
                     MouseArea {
                         anchors.fill: parent
                         cursorShape:  Qt.SizeVerCursor
@@ -271,16 +275,6 @@ Item {
                         onPressed:         col.volumeChanged(calc(mouseY))
                         onPositionChanged: if (pressed) col.volumeChanged(calc(mouseY))
                     }
-
-                    // Scroll wheel to change volume
-                    WheelHandler {
-                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                        onWheel: function(event) {
-                            var step = 0.05
-                            var delta = event.angleDelta.y > 0 ? step : -step
-                            col.volumeChanged(Math.max(0.0, Math.min(1.0, col.value + delta)))
-                        }
-                    }
                 }
             }
 
@@ -289,7 +283,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width:  col.barW + 32
                 height: 28
-                radius: Theme.cornerRadius
+                radius: theme.cornerRadius
                 color:  col.muted
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.2)
                             : Qt.rgba(1,1,1,0.06)
@@ -300,14 +294,14 @@ Item {
                     spacing: 5
                     Text {
                         text:           col.icon
-                        font.pixelSize: Theme.fs(13)
+                        font.pixelSize: theme.fs(13)
                         color:          col.muted ? Theme.active : Qt.rgba(1,1,1,0.55)
                         anchors.verticalCenter: parent.verticalCenter
                         Behavior on color { ColorAnimation { duration: 150 } }
                     }
                     Text {
                         text:           col.muted ? "Muted" : "Mute"
-                        font.pixelSize: Theme.fs(11)
+                        font.pixelSize: theme.fs(11)
                         color:          col.muted ? Theme.active : Qt.rgba(1,1,1,0.4)
                         anchors.verticalCenter: parent.verticalCenter
                         Behavior on color { ColorAnimation { duration: 150 } }
@@ -327,7 +321,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:            col.label
                 color:           Qt.rgba(1,1,1,0.3)
-                font.pixelSize:  Theme.fs(10)
+                font.pixelSize:  theme.fs(10)
                 font.capitalization: Font.AllUppercase
                 font.letterSpacing: 1
                 elide:           Text.ElideRight
@@ -340,7 +334,7 @@ Item {
     // ── SectionLabel ──────────────────────────────────────────────────────────
     component SectionLabel: Text {
         color:           Qt.rgba(1, 1, 1, 0.35)
-        font.pixelSize:  Theme.fs(10)
+        font.pixelSize:  theme.fs(10)
         font.capitalization: Font.AllUppercase
         font.letterSpacing: 0.8
         leftPadding: 4
@@ -358,7 +352,7 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            radius: Theme.cornerRadius - 4
+            radius: theme.cornerRadius - 4
             color:  row.isDefault
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12)
                         : (rowHov.hovered ? Qt.rgba(1,1,1,0.05) : "transparent")
@@ -379,7 +373,7 @@ Item {
             Text {
                 text:           row.label
                 color:          row.isDefault ? Theme.text : Qt.rgba(1,1,1,0.5)
-                font.pixelSize: Theme.fs(11)
+                font.pixelSize: theme.fs(11)
                 elide:          Text.ElideRight
                 width:          parent.width - 14 - parent.spacing
                 anchors.verticalCenter: parent.verticalCenter

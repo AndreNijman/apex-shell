@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+# Run the plugin platform (§16) behavioural test.
+#
+# Quickshell refuses to import QML modules from outside the directory holding
+# the entry point, so the test cannot live in tests/ and import ../src. It is
+# staged into the repo root for the duration of the run and removed afterwards —
+# the same arrangement run-compositor-facade-test.sh uses.
+#
+# It brings its own headless labwc from tests/lib/headless.sh rather than using
+# the session's, and skips cleanly with status 0 when there is no compositor to
+# host one, so CI without a display does not fail the build. THE STATIC HALF IS
+# NOT OPTIONAL BECAUSE OF THIS: tests/check-plugin-platform.sh and
+# tests/plugin-manifest-test.js both run headless and carry the coverage that
+# this file cannot, because no CI runner has a compositor and a suite that skips
+# proves nothing.
+#
+# ── This test never touches the real plugin directory ────────────────────────
+# Everything below happens in a fixture tree under XDG_RUNTIME_DIR, and the QML
+# points PluginService.pluginDir at it. The developer's own
+# ~/.config/apex-shell/plugins is read once at singleton construction (a
+# directory listing, nothing more) and never written. An earlier suite in this
+# repo reconfigured the developer's live desktop; that is not happening again —
+# and under the private HOME the library sets up, that read now lands in the
+# sandbox as well.
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root="$(cd "$here/.." && pwd)"
+. "$here/lib/headless.sh"
+
+headless_require quickshell
+
+staged="$root/.plugin-host-test.qml"
+cleanup() { rm -f "$staged"; headless_cleanup; }
+trap cleanup EXIT INT TERM
+
+headless_begin
+headless_start || exit 0
+
+# Inside the private runtime dir, so the fixtures go away with it.
+fixtures="$XDG_RUNTIME_DIR/apex-plugin-test"
+
+# ── The fixture tree ─────────────────────────────────────────────────────────
+# One directory per case. The names are asserted by id in the QML, so adding a
+# case here means adding an assertion there — a fixture nobody checks is worse
+# than no fixture.
+rm -rf "$fixtures"
+mkdir -p "$fixtures/plugins"
+p="$fixtures/plugins"
+
+manifest() { # manifest <dir> <json>
+    mkdir -p "$p/$1"
+    printf '%s\n' "$2" > "$p/$1/plugin.json"
+}
+widget() {  # widget <dir> <file> <qml>
+    mkdir -p "$p/$1"
+    printf '%s\n' "$3" > "$p/$1/$2"
+}
+
+ok_widget='import QtQuick
+Item { property var api: null; implicitWidth: 10; implicitHeight: 10 }'
+
+# 1. Valid, holds `files`, and has a config file to read.
+manifest good '{"id":"good","name":"Good","version":"1.0.0","apiVersion":"1.0","entry":"Widget.qml","extensionPoint":"bar-widget","permissions":["files"]}'
+widget good Widget.qml "$ok_widget"
+printf '%s\n' '{"hello":"world"}' > "$p/good/config.json"
+
+# 2. Valid, asks for nothing. The control for every permission assertion.
+manifest quiet '{"id":"quiet","name":"Quiet","version":"1.0.0","apiVersion":"1.0","entry":"Widget.qml","extensionPoint":"bar-widget"}'
+widget quiet Widget.qml "$ok_widget"
+
+# 3. Valid, holds `network` scoped to one host.
+manifest netty '{"id":"netty","name":"Netty","version":"1.0.0","apiVersion":"1.0","entry":"Widget.qml","extensionPoint":"bar-widget","permissions":["network"],"network":["api.github.com"]}'
+widget netty Widget.qml "$ok_widget"
+
+# 4. Built against a future API.
+manifest oldapi '{"id":"oldapi","name":"Future","version":"1.0.0","apiVersion":"2.0","entry":"Widget.qml","extensionPoint":"bar-widget"}'
+widget oldapi Widget.qml "$ok_widget"
+
+# 5. Reaches past the API for raw capability.
+manifest sneaky '{"id":"sneaky","name":"Sneaky","version":"1.0.0","apiVersion":"1.0","entry":"Widget.qml","extensionPoint":"bar-widget"}'
+widget sneaky Widget.qml 'import QtQuick
+import Quickshell.Io
+Item { property var api: null }'
+
+# 6. Asks for a permission this shell will not grant.
+manifest secretive '{"id":"secretive","name":"Secretive","version":"1.0.0","apiVersion":"1.0","entry":"Widget.qml","extensionPoint":"bar-widget","permissions":["secrets"]}'
+widget secretive Widget.qml "$ok_widget"
+
+# 7. More than one .qml — apiVersion 1 allows exactly one.
+manifest twofiles '{"id":"twofiles","name":"Two","version":"1.0.0","apiVersion":"1.0","entry":"Widget.qml","extensionPoint":"bar-widget"}'
+widget twofiles Widget.qml "$ok_widget"
+widget twofiles Helper.qml "$ok_widget"
+
+# 8. Manifest id does not match the directory it sits in.
+manifest mismatch '{"id":"somethingelse","name":"Mismatch","version":"1.0.0","apiVersion":"1.0","entry":"Widget.qml","extensionPoint":"bar-widget"}'
+widget mismatch Widget.qml "$ok_widget"
+
+# 9. Passes every static check and then fails to load. This is the crash
+#    isolation case: NotARealType is not a forbidden construct, so the scan
+#    lets it through and the QML engine rejects it at load.
+manifest broken '{"id":"broken","name":"Broken","version":"1.0.0","apiVersion":"1.0","entry":"Widget.qml","extensionPoint":"bar-widget"}'
+widget broken Widget.qml 'import QtQuick
+Item { property var api: null; NotARealType { } }'
+
+# 10. Valid in every textual respect, and ships a symlinked subdirectory.
+#     This is the case permitsPath() CANNOT catch: reading "data/secret.txt"
+#     has no "..", no absolute path and no dot-component, so every textual rule
+#     approves it — and the path resolves outside the plugin. Only the
+#     filesystem knows, which is why discovery counts symlinks.
+manifest linky '{"id":"linky","name":"Linky","version":"1.0.0","apiVersion":"1.0","entry":"Widget.qml","extensionPoint":"bar-widget","permissions":["files"]}'
+widget linky Widget.qml "$ok_widget"
+mkdir -p "$fixtures/outside"
+printf '%s\n' 'this is not inside the plugin' > "$fixtures/outside/secret.txt"
+ln -s "$fixtures/outside" "$p/linky/data"
+
+# 11. A directory with no manifest is not a plugin and must not be enumerated.
+mkdir -p "$p/nomanifest"
+widget nomanifest Widget.qml "$ok_widget"
+
+# ── The two extension points where the SHELL draws ───────────────────────────
+# Everything above is the bar-widget point, where a plugin paints its own
+# rectangle. These are the other shape: the plugin hands back data and the shell
+# renders it in its own chrome. The fixtures below exercise that through the
+# real hosts — a real Loader, a real property written by the host, a real array
+# read back — rather than by calling the sanitiser directly, which the node
+# suite already does.
+
+# 12. A launcher provider that answers a query.
+manifest provider '{"id":"provider","name":"Provider","version":"1.0.0","apiVersion":"1.1","entry":"Provider.qml","extensionPoint":"launcher-provider"}'
+widget provider Provider.qml 'import QtQuick
+Item {
+    id: p
+    property var api: null
+    property string query: ""
+    property int activated: -1
+    readonly property var results: p.query === "" ? [] : [
+        { "title": (p.activated >= 0 ? "used " : "hit for ") + p.query,
+          "subtitle": "sub", "icon": "firefox" },
+        { "title": "second" }
+    ]
+    function activate(i) { p.activated = i }
+}'
+
+# 13. A launcher provider that passes every static check and then hands back
+#     rows carrying the fields AppLauncher.activate() dispatches on. This is
+#     THE case the allowlist exists for: `exec` would reach
+#     `bash -c "setsid " + exec`, which is arbitrary command execution granted
+#     to a plugin that declared no permissions. The node suite asserts the
+#     sanitiser drops them; this asserts nothing puts them back on the way
+#     through the real host.
+manifest nasty '{"id":"nasty","name":"Nasty","version":"1.0.0","apiVersion":"1.1","entry":"Provider.qml","extensionPoint":"launcher-provider"}'
+widget nasty Provider.qml 'import QtQuick
+Item {
+    id: p
+    property var api: null
+    property string query: ""
+    readonly property var results: p.query === "" ? [] : [
+        { "title": "innocent", "exec": "touch /tmp/apex-plugin-breach",
+          "entry": 1, "command": ["sh", "-c", "boom"], "kind": "app",
+          "id": "firefox", "value": "hidden", "icon": "/etc/passwd" },
+        { "title": "two\nlines", "subtitle": "System Settings" }
+    ]
+}'
+
+# 14. A quick-settings tile that toggles its own state.
+manifest tiler '{"id":"tiler","name":"Tiler","version":"1.0.0","apiVersion":"1.1","entry":"Tile.qml","extensionPoint":"quick-settings-tile"}'
+widget tiler Tile.qml 'import QtQuick
+Item {
+    id: t
+    property var api: null
+    property bool on: false
+    property string icon: "X"
+    property string label: "Fixture"
+    property string sublabel: t.on ? "running" : ""
+    function toggle() { t.on = !t.on }
+}'
+
+# 15. A tile plugin with no toggle() and a garbage `on`. The host must not throw
+#     when the tile is clicked, and a non-boolean must not light it up.
+manifest inert '{"id":"inert","name":"Inert","version":"1.0.0","apiVersion":"1.1","entry":"Tile.qml","extensionPoint":"quick-settings-tile"}'
+widget inert Tile.qml 'import QtQuick
+Item {
+    property var api: null
+    property var on: "true"
+    property string label: ""
+}'
+
+cp "$here/plugin-host-test.qml" "$staged"
+
+# APEX_PLUGIN_REPO points at the plugins this repo ships, so the last phases
+# exercise apex-worldclock itself and not another fixture.
+out="$(APEX_PLUGIN_FIXTURES="$p" APEX_PLUGIN_REPO="$root/plugins" \
+        QT_LOGGING_RULES="qml=true" \
+        timeout 90 quickshell -p "$staged" 2>&1 || true)"
+echo "$out" | grep -E "PASS|FAIL|^\[|passed=" || true
+
+if grep -q "Failed to load configuration" <<<"$out"; then
+    echo "$out" | tail -30
+    echo "RESULT: the test config failed to load"
+    exit 1
+fi
+
+if ! grep -q "passed=" <<<"$out"; then
+    echo "$out" | tail -30
+    echo "RESULT: the test never reached its summary"
+    exit 1
+fi
+
+summary="$(echo "$out" | grep -o "passed=[0-9]* failed=[0-9]*" | tail -1)"
+failed="${summary##*failed=}"
+
+echo "RESULT: $summary"
+[[ "$failed" == "0" ]]

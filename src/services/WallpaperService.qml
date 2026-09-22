@@ -38,6 +38,21 @@ QtObject {
         "content", "tonal-spot", "fidelity", "fruit-salad", "neutral", "monochrome"
     ]
 
+    // ── Light or dark ─────────────────────────────────────────────────────────
+    // matugen derives BOTH schemes from every wallpaper and `-m` picks which one
+    // the templates render; `{{ colors.x.default.hex }}` resolves to the chosen
+    // mode. Without this the flag was never passed, matugen defaulted to dark,
+    // and the light half of every palette in the tree — including the light
+    // status colours Theme.Colors selects on a light surface — was unreachable.
+    //
+    // APEX-OS seeds `color-scheme='prefer-dark'` as a dconf DEFAULT rather than
+    // a lock (files/system/dconf/00-apex-dark), so the GTK apps beside the shell
+    // follow the same switch a user is free to throw. `dark` here matches that
+    // default, so nothing moves on an existing install until it is changed.
+    property string mode: "dark"
+
+    readonly property var modes: ["dark", "light"]
+
     // Emitted when the full apply pipeline exits cleanly (exitCode === 0).
     signal wallpaperApplied(string path)
 
@@ -82,6 +97,7 @@ QtObject {
                     if (obj.currentWall  && obj.currentWall  !== "") root.currentWall  = obj.currentWall
                     if (obj.wallpaperDir && obj.wallpaperDir !== "") root.wallpaperDir = obj.wallpaperDir
                     if (obj.scheme       && obj.scheme       !== "") root.scheme       = obj.scheme
+                    if (obj.mode === "light" || obj.mode === "dark") root.mode         = obj.mode
                 } catch(e) {}
             }
             if (root.currentWall === "") {
@@ -97,7 +113,8 @@ QtObject {
         var json = JSON.stringify({
             currentWall:  root.currentWall,
             wallpaperDir: root.wallpaperDir,
-            scheme:       root.scheme
+            scheme:       root.scheme,
+            mode:         root.mode
         })
         // JSON and path go in as positional args, never spliced into the script.
         saveConfigProc.command = [
@@ -109,6 +126,17 @@ QtObject {
     }
 
     property var saveConfigProc: Process {}   // silent — no stdout/stderr needed
+
+    // Switch the palette between matugen's two modes and re-derive it from the
+    // wallpaper that is already up. saveConfig() runs either way, so the choice
+    // survives a session that has no wallpaper to re-render yet.
+    function setMode(m) {
+        if (m !== "light" && m !== "dark") return
+        if (m === root.mode) return
+        root.mode = m
+        if (root.currentWall !== "") root.apply(root.currentWall)
+        else                         root.saveConfig()
+    }
 
     // ── Apply pipeline ────────────────────────────────────────────────────────
     function apply(path) {
@@ -139,9 +167,13 @@ QtObject {
             "elif command -v convert >/dev/null 2>&1; then convert \"$1[0]\" ~/.curr_wall_static.jpg || true; fi; " +
             "else ln -sf \"$1\" ~/.curr_wall_static.jpg; fi; " +
             "STATIC=\"$(readlink -f ~/.curr_wall_static.jpg)\"; " +
+            // -m is what makes the light half of the palette reachable. Passed
+            // to BOTH invocations: the second one renders whatever templates the
+            // user has in their own matugen config, and a shell in light mode
+            // beside a terminal still in dark is worse than either.
             "if command -v matugen >/dev/null 2>&1; then " +
-            "matugen image \"$STATIC\" -c \"$CFG\" --source-color-index 0 --type \"scheme-$3\" || true; " +
-            "matugen image \"$STATIC\" --source-color-index 0 --type \"scheme-$3\" || true; " +
+            "matugen image \"$STATIC\" -c \"$CFG\" --source-color-index 0 --type \"scheme-$3\" -m \"$4\" || true; " +
+            "matugen image \"$STATIC\" --source-color-index 0 --type \"scheme-$3\" -m \"$4\" || true; " +
             "fi; " +
             // Repaint the labwc session. matugen has just rewritten
             // ~/.config/labwc/themerc-override, but labwc only reads it on
@@ -166,7 +198,7 @@ QtObject {
             "if [ -x /usr/libexec/apex-greet-wallpaper ]; then " +
             "sudo -n /usr/libexec/apex-greet-wallpaper >/dev/null 2>&1 || true; " +
             "fi; exit 0",
-            "--", path, Quickshell.shellDir, root.scheme
+            "--", path, Quickshell.shellDir, root.scheme, root.mode
         ]
         applyProc.running = true
     }
@@ -184,38 +216,30 @@ QtObject {
         }
     }
 
-    // New function to update borders based on config provider
+    // Retint the active-window border to match the wallpaper.
+    //
+    // Only some compositors can be told this at runtime. niri and labwc keep the
+    // colour in config.kdl and themerc-override, which are files with other
+    // writers — matugen generates the labwc one — so a live override there would
+    // be a second writer racing the generator. CompositorService reports that as
+    // `can.accentBorder` and refuses silently; the two-dialect Hyprland split
+    // this used to carry lives in HyprlandBackend now.
     function updateBorders() {
-        // niri manages its own borders (config.kdl) and has no hyprctl. Positive
-        // guard, so anything that is not Hyprland (niri, sway, river, KDE...)
-        // skips the border re-theme instead of spawning a doomed hyprctl on
-        // every wallpaper apply.
-        if (!Compositor.isHyprland) return
-
-        // Strip '#' from the colors (assuming QML hex format #RRGGBB)
-        let primary = String(Theme.active).replace('#', '')
-        
-
-        // Build command based on config provider
-        if (ShellState.configProvider === "lua") {
-            // Using hl.config with RGB strings in Lua
-            borderUpdateProc.command = [
-                "bash", "-c",
-                "hyprctl eval 'hl.config({ general = { [\"col.active_border\"] = { colors = { \"rgb(" + primary + ")\" } } } })'"
-            ]
-        } else {
-            // Using hyprctl keyword for .conf
-            borderUpdateProc.command = [
-                "bash", "-c",
-                "hyprctl keyword general:col.active_border \"rgb(" + primary + ")\""
-            ]
-        }
-        
-        borderUpdateProc.running = true
+        CompositorService.setAccentBorder(String(Theme.active).replace('#', ''))
     }
 
-    property Process borderUpdateProc: Process {
-        command: []
+    // Theme.active arrives asynchronously: ColorLoader watches matugen's
+    // colors.json, so at Component.onCompleted it is usually still the built-in
+    // default rather than the wallpaper's accent. Retinting only there set the
+    // border once from a palette that had not loaded and never again until the
+    // user next changed wallpaper — which is why a freshly booted session sat on
+    // the stock chartreuse while the rest of the bar was warm. Following the
+    // property covers both the first load and every later matugen run.
+    // Wrapped in a property because the root is a QtObject, which has no default
+    // property — a bare child here is silently dropped rather than rejected.
+    property var _accentWatch: Connections {
+        target: Theme
+        function onActiveChanged() { root.updateBorders() }
     }
 
     Component.onCompleted: {

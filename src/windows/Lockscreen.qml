@@ -33,9 +33,50 @@ WlSessionLock {
     // the compositor lock.
     locked: LockState.locked
 
+    // Mirror the compositor-ACKNOWLEDGED lock state to logind, so
+    // `loginctl show-session -p LockedHint` means something — P0-015's
+    // lock-state policy for autonomous sessions keys off exactly that
+    // property, and until now nothing ever set it. Bound to `secure`, not to
+    // `locked` above: `secure` only flips once ext-session-lock has actually
+    // engaged (or been released), so a lock that fails to engage is never
+    // reported to logind as engaged. See LockedHintService for why this has
+    // to be the shell's job and not apexd's.
+    onSecureStateChanged: LockedHintService.setLocked(sessionLock.secure)
+
+    // The initial sync, and the reason it cannot live in the service itself.
+    //
+    // `onSecureStateChanged` only fires on a CHANGE, so a shell that starts up
+    // while logind still believes the session locked — a crash, a restart, a
+    // `quickshell` reload mid-lock — would leave the hint reading `yes` until
+    // somebody locked and unlocked the screen by hand. apex-agentd polls that
+    // property, so the stale value is not cosmetic: it holds Remote Control
+    // sessions and revokes root grants while the owner is sitting in front of
+    // the machine.
+    //
+    // A fresh shell has no lock surface up, so `secure` is false here by
+    // construction — ext-session-lock only sets it once the compositor has
+    // acknowledged THIS client's lock. Pushing it anyway is what clears a
+    // stale `yes`, and `_confirmed` starts undefined so the first call always
+    // reaches logind rather than being suppressed as a no-op.
+    //
+    // This is also the only thing that brings the singleton into existence at
+    // startup: Quickshell creates a Singleton on first reference, not when the
+    // configuration loads — measured, not assumed, in
+    // tests/run-locked-hint-test.sh. A `Component.onCompleted` inside
+    // LockedHintService would therefore not run until something else had
+    // already used it, which on this path is the lock it exists to report.
+    Component.onCompleted: LockedHintService.setLocked(sessionLock.secure)
+
     // ── Per-output lock surface ──────────────────────────────────────
     WlSessionLockSurface {
         id: surface
+
+        // One surface per output, so the sizes are that output's (P1-040). The
+        // declaration is here rather than on the WlSessionLock above because
+        // the lock object is not a window and has no screen; the surface is and
+        // does. A lock screen is the one surface where a mixed-DPI desk is
+        // guaranteed to be showing all of them at once.
+        readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(surface.screen) }
 
         // Opaque base so there is never a transparent flash before the
         // wallpaper/gradient paints.
@@ -108,7 +149,38 @@ WlSessionLock {
             surface.hasError  = true
             surface.errorText = msg
             shakeAnim.restart()
+            // Last, deliberately: see say() below.
+            surface.say(msg)
         }
+
+        // Say it out loud, rather than merely publishing it.
+        //
+        // `Accessible.description` on the field puts the live state in the
+        // accessibility tree. It does not make a screen reader SPEAK it: a
+        // reader does not generally announce a description change on the object
+        // that already holds focus, so a blind user who typed a wrong password
+        // got the red border, the shake, a line of red text — and silence. Qt
+        // 6.8 added Accessible.announce() for exactly this case; the image
+        // ships Qt 6.10.3, measured by the probe in
+        // tests/check-lockscreen-a11y.sh rather than assumed.
+        //
+        // Guarded with a typeof, and called LAST in fail(), because this is the
+        // lock screen: if a future Qt renames or drops the method, a user must
+        // still get the border, the shake and the text. It is a no-op while
+        // accessibility is not running — QAccessible::updateAccessibility
+        // returns early — so it costs a sighted user nothing.
+        function say(msg) {
+            if (msg === "")
+                return
+            if (typeof passwordInput.Accessible.announce === "function")
+                passwordInput.Accessible.announce(msg)
+        }
+
+        // Caps Lock is the single most common reason a correct password is
+        // refused, and this screen reported it with a glyph and a colour — both
+        // invisible to a reader. Announced on the TRANSITION, so it is said
+        // once rather than on every keystroke.
+        onCapsOnChanged: if (surface.capsOn) surface.say("Caps Lock is on")
 
         // ── Resolve username for display (best-effort, non-fatal) ─────
         Process {
@@ -216,7 +288,7 @@ WlSessionLock {
                     text:           surface.timeText
                     color:          Theme.text
                     font.family:    "JetBrainsMono Nerd Font"
-                    font.pixelSize: Theme.fs(120)
+                    font.pixelSize: theme.fs(120)
                     font.bold:      true
                 }
                 Text {
@@ -224,7 +296,7 @@ WlSessionLock {
                     text:           surface.dateText
                     color:          Theme.subtext
                     font.family:    "JetBrainsMono Nerd Font"
-                    font.pixelSize: Theme.fs(22)
+                    font.pixelSize: theme.fs(22)
                 }
             }
 
@@ -242,7 +314,7 @@ WlSessionLock {
                     text:           surface.username !== "" ? surface.username : "Locked"
                     color:          Theme.text
                     font.family:    "JetBrainsMono Nerd Font"
-                    font.pixelSize: Theme.fs(20)
+                    font.pixelSize: theme.fs(20)
                     font.bold:      true
                 }
 
@@ -256,7 +328,7 @@ WlSessionLock {
                     color:  Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.55)
                     border.width: 2
                     border.color: surface.hasError
-                                      ? "#ff5c5c"
+                                      ? Theme.danger
                                       : (passwordInput.activeFocus ? Theme.active : Theme.border)
                     Behavior on border.color { ColorAnimation { duration: 140 } }
 
@@ -268,7 +340,15 @@ WlSessionLock {
                         text:  "󰌾"
                         color: Theme.subtext
                         font.family:    "JetBrainsMono Nerd Font"
-                        font.pixelSize: Theme.fs(18)
+                        font.pixelSize: theme.fs(18)
+
+                        // A drawing, not a word. This is a private-use
+                        // codepoint: a reader that reaches it says "private use
+                        // character F033E", or whatever its font calls it,
+                        // before the field it decorates. Qt Quick gives a bare
+                        // Text the StaticText role and its own text as its name,
+                        // so silence here has to be asked for.
+                        Accessible.ignored: true
                     }
 
                     TextInput {
@@ -283,11 +363,35 @@ WlSessionLock {
                         color:                   Theme.text
                         selectionColor:          Theme.active
                         font.family:             "JetBrainsMono Nerd Font"
-                        font.pixelSize:          Theme.fs(18)
+                        font.pixelSize:          theme.fs(18)
                         echoMode:                TextInput.Password
                         passwordCharacter:       "●"
                         passwordMaskDelay:       0
                         activeFocusOnPress:      true
+
+                        // ── What a screen reader is told about this field ──
+                        //
+                        // `passwordEdit` is the load-bearing one: it is what
+                        // tells an assistive technology that this box holds a
+                        // secret, so it must not echo, log or braille what is
+                        // typed into it. `echoMode` hides the text from the
+                        // screen; it says nothing to the tree.
+                        //
+                        // The description carries the LIVE state, in the order
+                        // a user needs it: in-flight first, because that is the
+                        // state in which the field refuses input; then why the
+                        // last attempt was refused; then Caps Lock, which was
+                        // reported on this screen by a red glyph alone. It is
+                        // deliberately never the field's contents — see the
+                        // "must never be told" section of
+                        // tests/check-lockscreen-a11y.sh.
+                        Accessible.role:         Accessible.EditableText
+                        Accessible.passwordEdit: true
+                        Accessible.name:         "Password"
+                        Accessible.description:  surface.checking ? "Checking your password."
+                                               : surface.hasError ? surface.errorText
+                                               : surface.capsOn   ? "Caps Lock is on."
+                                               : "Type your password and press Enter to unlock."
 
                         // Mirror the buffer into surface state (used by PAM).
                         onTextChanged: {
@@ -333,6 +437,13 @@ WlSessionLock {
                             color: Theme.subtext
                             font.family:    passwordInput.font.family
                             font.pixelSize: passwordInput.font.pixelSize
+
+                            // A hint drawn INSIDE the field, not a second label
+                            // for it. Left alone, Qt Quick would announce this
+                            // as its own StaticText immediately after the
+                            // field's own name — two labels for one box, one of
+                            // which disappears the moment a key is pressed.
+                            Accessible.ignored: true
                         }
                     }
 
@@ -374,9 +485,18 @@ WlSessionLock {
                     height:  18
                     text: surface.hasError ? surface.errorText
                         : (surface.capsOn ? "󰪛  Caps Lock is on" : "")
-                    color: surface.hasError ? "#ff5c5c" : Theme.subtext
+                    color: surface.hasError ? Theme.danger : Theme.subtext
                     font.family:    "JetBrainsMono Nerd Font"
-                    font.pixelSize: Theme.fs(14)
+                    font.pixelSize: theme.fs(14)
+
+                    // The same line, spoken. Two differences from what is drawn,
+                    // and both matter: the warning icon is a private-use
+                    // codepoint and is dropped rather than spelled out, and the
+                    // role is declared so this reaches the tree as text a reader
+                    // will read instead of an unnamed item it may skip.
+                    Accessible.role: Accessible.StaticText
+                    Accessible.name: surface.hasError ? surface.errorText
+                                   : (surface.capsOn ? "Caps Lock is on" : "")
                 }
             }
 

@@ -4,10 +4,20 @@ import "../../"
 // A single palette chip with an optional caption underneath.
 Column {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
+    // Not a design colour — an unset-property sentinel. Every caller passes a
+    // real colour; a visible black chip means someone forgot to. Do not "fix"
+    // this to a token: a token would make the mistake invisible.
     property color swatchColor: "#000000"
     property string label: ""
     property int   size:   34
     spacing: 5
+
+    // Not interactive, but the caption is the only thing that says which colour
+    // this is, and a reader given an unnamed rectangle learns nothing.
+    Accessible.role: Accessible.StaticText
+    Accessible.name: root.label
 
     Rectangle {
         width:  root.size
@@ -22,7 +32,7 @@ Column {
         width:   root.size
         horizontalAlignment: Text.AlignHCenter
         text:           root.label
-        font.pixelSize: Theme.fs(8)
+        font.pixelSize: theme.fs(8)
         color:          Qt.rgba(1,1,1,0.4)
         elide:          Text.ElideRight
     }

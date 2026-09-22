@@ -1,0 +1,9 @@
+apex-firewall: policy: incoming dropped by default, outgoing allowed
+
+always allowed, and not removable here:
+  established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh
+
+  not sharing this machine's connection on any link
+
+exceptions you have added:
+  (none)

@@ -15,6 +15,29 @@ QtObject {
     property color border:     Colors.border
     property color iconFont:   Colors.iconFont
 
+    // Status and fixed-contrast tokens. Mirrored here because every call site in
+    // the tree reads Theme.*, so exposing these on Colors alone would have left
+    // the shell reading two different singletons for its colours.
+    property color danger:    Colors.danger
+    property color warning:   Colors.warning
+    property color success:   Colors.success
+    property color info:      Colors.info
+    property color attention: Colors.attention
+
+    property color fixedLight: Colors.fixedLight
+    property color fixedDark:  Colors.fixedDark
+
+    // True while the palette's surface is dark. Read it to choose a treatment,
+    // never to choose a colour — a call site that branches on it is writing a
+    // second palette next to this one.
+    readonly property bool darkSurface: Colors.darkSurface
+
+    // The readable foreground for a glyph or label drawn ON a status fill.
+    function onStatus(fill) { return Colors.onStatus(fill) }
+
+    property color dangerFill:      Colors.dangerFill
+    property color dangerFillHover: Colors.dangerFillHover
+
     property color wsBackground: Colors.wsBackground
     property color wsActive:     Colors.wsActive
     property color wsOccupied:   Colors.wsOccupied
@@ -30,6 +53,28 @@ QtObject {
 
     function fs(v) { return Metrics.fs(v) }
     function px(v) { return Metrics.px(v) }
+
+    // ── Per-output sizing (P1-040) ────────────────────────────────────────────
+    // `scale`, `fs()` and `px()` above are the REFERENCE output's, and nothing
+    // in the shell lays out at them any more. A surface takes its own output's
+    // set:
+    //
+    //     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }
+    //     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }
+    //
+    // and reads `theme.px(...)` for sizes while still reading `Theme.<colour>`
+    // for colours, because a palette belongs to the shell rather than to a
+    // monitor — the split is visible at every call site rather than hidden.
+    // tests/check-scale-tokens.sh asserts that no file outside src/theme reads
+    // a size through this singleton, with one written-out exception.
+    //
+    // The policy — the breakpoint table, and the manual override that outranks
+    // it — lives in theme/OutputScale.qml and is the same policy that produced
+    // `scale` above, so a per-output surface and the reference set can never be
+    // answering two different questions.
+    function factorForScreen(screen) { return OutputScale.factorForScreen(screen) }
+    function factorForHeight(h)      { return OutputScale.factorForHeight(h) }
+
 
     // Metrics
     property bool barEnabled: Metrics.barEnabled

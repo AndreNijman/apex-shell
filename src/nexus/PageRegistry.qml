@@ -15,8 +15,8 @@ import "../services/config_tab/pages"
 // Component that renders it — and appears everywhere.
 //
 // `needsScreen` marks pages that consume refcounted telemetry services and must
-// therefore be told whether they are genuinely on screen (see ServiceRef). Only
-// Data & Storage does today; getting it wrong on a new page means a poller that
+// therefore be told whether they are genuinely on screen (see ServiceRef). Data
+// & Storage and Misc do; getting it wrong on a new page means a poller that
 // never stops, so it is declared rather than inferred.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -65,6 +65,104 @@ QtObject {
             "component": displayComp
         },
         {
+            "id": "blueprint",
+            "title": "Blueprint",
+            "subtitle": "What this machine should be, and what differs",
+            "icon": "󰦑",
+            "needsScreen": false,
+            "component": blueprintComp
+        },
+        {
+            "id": "gaming",
+            "title": "Gaming",
+            "subtitle": "Gaming Mode, what it needs, and the performance policy",
+            "icon": "󰊴",
+            // GamingService runs `apex gaming` and `apex mode status` when the
+            // page is opened and when the user presses Refresh, and nothing on
+            // a timer — `apex mode set --auto` is one-shot by design, so a
+            // poller here would be the shell inventing a daemon the OS declined
+            // to ship. Nothing to refcount, so nothing to tell about the screen.
+            "needsScreen": false,
+            "component": gamingComp
+        },
+        {
+            "id": "recovery",
+            "title": "Recovery",
+            "subtitle": "Health, rollback, repair, ways back in",
+            "icon": "󰑙",
+            // RecoveryService runs `apex recover status --json` and
+            // `apex doctor --json` on a sweep timer while this page is looked
+            // at, and nothing at all when it is not. Getting this wrong means
+            // two `apex` processes every 20 seconds until logout.
+            "needsScreen": true,
+            "component": recoveryComp
+        },
+        {
+            "id": "privacy",
+            "title": "Privacy & Permissions",
+            "subtitle": "Camera, microphone, capture, files, and who enforces each",
+            "icon": "󰒃",
+            // PermissionsService runs one `apex permissions list --json` per
+            // sweep, and that command runs a `flatpak info` per installed
+            // application. Getting this wrong means a burst of Flatpak
+            // processes every 30 seconds until logout.
+            "needsScreen": true,
+            "component": privacyComp
+        },
+        {
+            "id": "agents",
+            "title": "Agents",
+            "subtitle": "The sandbox new agent sessions start in",
+            "icon": "󰚩",
+            // AgentService forks `apex agent list` on a timer and is
+            // refcounted on it. The page lists what is running so it can show
+            // each session's own mode, so it holds a ref and has to be told
+            // whether anyone is looking.
+            "needsScreen": true,
+            "component": agentsComp
+        },
+        {
+            "id": "lid",
+            "title": "Closing the Lid",
+            "subtitle": "What a shut lid does while work is running, and what it cost last time",
+            "icon": "󰶐",
+            // LidService runs `apex lid status --json` and `apex lid report
+            // --json` one after the other on a sweep timer while this page is
+            // looked at, and nothing at all when it is not. Getting this wrong
+            // means two `apex` processes every 15 seconds until logout.
+            "needsScreen": true,
+            "component": lidComp
+        },
+        {
+            "id": "firewall",
+            "title": "Firewall",
+            "subtitle": "What is reachable from the network, and what you opened",
+            "icon": "󰕥",
+            // FirewallService runs three reads on a slow sweep while this page
+            // is looked at, and nothing at all when it is not.
+            "needsScreen": true,
+            "component": firewallComp
+        },
+        {
+            "id": "remote-pair",
+            "title": "Pair a device",
+            "subtitle": "Show a code for APEX Remote on your phone to scan",
+            "icon": "",
+            // Stronger than elsewhere: `apex remote pair` MINTS a one-time
+            // token, so this page must not be built for somebody who never
+            // opened it.
+            "needsScreen": true,
+            "component": remotePairComp
+        },
+        {
+            "id": "remote-devices",
+            "title": "Paired devices",
+            "subtitle": "Every phone that can reach this machine, and how to revoke one",
+            "icon": "",
+            "needsScreen": true,
+            "component": remoteDevicesComp
+        },
+        {
             "id": "keybinds",
             "title": "Keybinds",
             "subtitle": "Shortcuts for every popup",
@@ -77,7 +175,10 @@ QtObject {
             "title": "Misc",
             "subtitle": "Compositor, updates, about",
             "icon": "󰒓",
-            "needsScreen": false,
+            // SystemStats lives in the About area and shells out to collect
+            // distro/kernel/uptime/packages, so this page has to be told
+            // whether anyone is looking.
+            "needsScreen": true,
             "component": miscComp
         }
     ]
@@ -111,6 +212,33 @@ QtObject {
     }
     readonly property Component displayComp: Component {
         DisplayPage {}
+    }
+    readonly property Component blueprintComp: Component {
+        BlueprintPage {}
+    }
+    readonly property Component gamingComp: Component {
+        GamingPage {}
+    }
+    readonly property Component recoveryComp: Component {
+        RecoveryPage {}
+    }
+    readonly property Component privacyComp: Component {
+        PrivacyPage {}
+    }
+    readonly property Component agentsComp: Component {
+        AgentsPage {}
+    }
+    readonly property Component lidComp: Component {
+        LidPage {}
+    }
+    readonly property Component firewallComp: Component {
+        FirewallPage {}
+    }
+    readonly property Component remotePairComp: Component {
+        RemotePairPage {}
+    }
+    readonly property Component remoteDevicesComp: Component {
+        RemoteDevicesPage {}
     }
     readonly property Component keybindsComp: Component {
         KeybindsPage {}

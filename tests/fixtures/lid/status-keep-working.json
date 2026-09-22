@@ -1,0 +1,49 @@
+{
+    "battery_floor_pct": 20,
+    "decision": {
+        "decision": "keep-working",
+        "why": "the owner pinned lid keep-working on; the lid is open"
+    },
+    "enabled": true,
+    "holds_inhibitor": true,
+    "inhibitor_error": "logind was not queried (fixture root)",
+    "inhibitor_holders": null,
+    "inputs": {
+        "charge": {
+            "charge": "battery",
+            "percent": 80
+        },
+        "lid": {
+            "state": "open"
+        },
+        "thermal": {
+            "c": 55.0,
+            "critical_c": 100.0,
+            "sensor": "x86_pkg_temp",
+            "thermal": "celsius"
+        },
+        "work": {
+            "live": 0,
+            "work": "sessions"
+        }
+    },
+    "logind": {
+        "acts_on_lid": null,
+        "block_inhibited": null,
+        "docked": null,
+        "external_displays": 0
+    },
+    "pin": "on",
+    "policy_error": null,
+    "policy_source": "/etc/apex/lid.toml",
+    "thermal_ceiling_c": 95.0,
+    "thermal_headroom_c": 15.0,
+    "thermal_headroom_now_c": 45.0,
+    "vpn": {
+        "name": null,
+        "state": {
+            "vpn": "unreadable",
+            "why": "NetworkManager was not queried (fixture root or dry run)"
+        }
+    }
+}

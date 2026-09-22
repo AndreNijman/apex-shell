@@ -3,6 +3,8 @@ import "../"
 
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     property string label:   ""
     property string icon:    ""
@@ -41,7 +43,7 @@ Item {
         Text {
             visible:        root.icon !== ""
             text:           root.icon
-            font.pixelSize: Theme.fs(12)
+            font.pixelSize: theme.fs(12)
             color:          root.active ? Theme.background : Qt.rgba(1, 1, 1, 0.7)
             anchors.verticalCenter: parent.verticalCenter
             Behavior on color { ColorAnimation { duration: 120 } }
@@ -49,7 +51,7 @@ Item {
 
         Text {
             text:           root.label
-            font.pixelSize: Theme.fs(11)
+            font.pixelSize: theme.fs(11)
             font.weight:    root.active ? Font.Medium : Font.Normal
             color:          root.active ? Theme.background : Qt.rgba(1, 1, 1, 0.7)
             anchors.verticalCenter: parent.verticalCenter

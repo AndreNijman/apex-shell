@@ -4,6 +4,8 @@ import "../../components"
 
 Item {
     id: root
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
 
     required property var service
 
@@ -15,7 +17,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text:           "Network"
-            font.pixelSize: Theme.fs(11)
+            font.pixelSize: theme.fs(11)
             font.weight:    Font.Medium
             color:          Qt.rgba(1, 1, 1, 0.4)
         }
@@ -34,14 +36,14 @@ Item {
                 width:      parent.width
                 label:      "↑ Upload"
                 value:      root.service.upSpeed
-                valueColor: "#90ef90"
+                valueColor: Theme.success
             }
 
             StatRow {
                 width:      parent.width
                 label:      "↓ Download"
                 value:      root.service.downSpeed
-                valueColor: "#a6d0f7"
+                valueColor: Theme.active
             }
         }
     }
