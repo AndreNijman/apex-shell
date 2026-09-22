@@ -166,7 +166,12 @@ it read-only at the same path.
 <summary><b>Runtime & Rendering</b></summary>
 
 - **Hyprland** v0.55+ – Wayland compositor (niri and labwc also supported)
-- **Quickshell** – QML shell framework
+- **Quickshell** – QML shell framework. Needs a build **newer than the 0.3.1
+  release**: 0.3.1 publishes a single node to the accessibility bus with
+  nothing under it, so a screen reader reaches none of the shell. Upstream
+  fixed it in `916a0dd` seven commits after that tag, and no release carries
+  it yet. APEX-OS installs `quickshell-git` for this reason and the image
+  build refuses a quickshell that reports no git revision.
 - **Qt6** – Qt6 libraries and QML engine
 - **qt6ct** – Qt6 theme configuration
 
