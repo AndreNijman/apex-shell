@@ -681,7 +681,7 @@ section "3. what mirroring does NOT reach, pinned in both directions"
 win_total="$(grep -rlE '^\s*PanelWindow\b|^\s*FloatingWindow\b' "$root/src" 2>/dev/null | wc -l)"
 win_mirrored="$(grep -rlE '^\s*PanelWindow\b|^\s*FloatingWindow\b' "$root/src" 2>/dev/null \
                  | xargs -r grep -l 'LayoutMirroring' | wc -l)"
-WIN_TOTAL_EXPECT=14
+WIN_TOTAL_EXPECT=15
 WIN_MIRRORED_EXPECT=0
 [ "$win_total" -eq "$WIN_TOTAL_EXPECT" ] \
     && ok "the shell paints from $WIN_TOTAL_EXPECT window roots — counted $win_total" \

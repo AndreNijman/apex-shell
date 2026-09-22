@@ -112,7 +112,7 @@ PanelWindow {
                             : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
                         border.width: tile.current ? root.theme.px(2) : 0
                         border.color: Theme.active
-                        Behavior on color { ColorAnimation { duration: 120 } }
+                        Behavior on color { ColorAnimation { duration: Theme.animDuration } }
 
                         readonly property var entry:
                             DesktopEntries.byId(WindowSwitcherService.appIdFor(tile.modelData))

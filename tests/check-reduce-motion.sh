@@ -107,7 +107,14 @@ def strip(src):
 
 # Every spelling that reaches SettingsService.reduceMotion.
 HONOURS = re.compile(r'(Theme\.animDuration|Metrics\.animDuration'
-                     r'|SettingsService\.effectiveAnim|SettingsService\.reduceMotion)')
+                     r'|SettingsService\.effectiveAnim|SettingsService\.reduceMotion'
+                     # The per-output ThemeSet (P1-040) is an instance, so the
+                     # property walk below cannot follow `root.theme.animDuration`
+                     # to its source. ThemeSet.animDuration IS
+                     # SettingsService.effectiveAnim, and the mechanism section
+                     # asserts that by name — this spelling is honoured only for
+                     # as long as that assertion holds.
+                     r'|\btheme\.animDuration\b)')
 
 hon = lit = unres = 0
 for p in sorted(pathlib.Path(sys.argv[1]).rglob("*.qml")):
@@ -151,6 +158,11 @@ if grep -qE 'property\s+int\s+animDuration:\s*SettingsService\.effectiveAnim' "$
 else
     bad "Metrics.animDuration still reads effectiveAnim"
 fi
+if grep -qE 'property\s+int\s+animDuration:\s*SettingsService\.effectiveAnim' src/theme/ThemeSet.qml; then
+    ok "ThemeSet.animDuration still reads effectiveAnim — the per-output alias honours the setting"
+else
+    bad "ThemeSet.animDuration still reads effectiveAnim — the per-output alias honours the setting"
+fi
 if grep -qE 'property\s+int\s+animDuration:\s*Metrics\.animDuration' "$TH"; then
     ok "Theme.animDuration still mirrors Metrics"
 else
@@ -166,7 +178,7 @@ section "the reach, counted exactly"
 # ── THE RATCHET ──
 # Lower EXPECT_LITERAL when you convert some. Never raise it: a new
 # `duration: 120` is a new animation Reduce Motion cannot switch off.
-EXPECT_HONOUR=39
+EXPECT_HONOUR=41
 EXPECT_LITERAL=402
 EXPECT_UNRESOLVED=9
 
