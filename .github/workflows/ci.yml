@@ -242,6 +242,7 @@ jobs:
           # silent. Fourteen of the checks are documents that are NOT the
           # contract.
           node tests/firewall-test.js
+          node tests/title-test.js
 
       - name: Firewall surface invariants
         run: |
