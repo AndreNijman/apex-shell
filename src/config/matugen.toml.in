@@ -48,6 +48,15 @@ output_path = '@HOME@/.config/ghostty/apex-shell-colors'
 input_path = '@SRCDIR@/src/config/shell-accent.template'
 output_path = '@HOME@/.cache/apex-shell/accent-ansi'
 
+# -- starship prompt -> ~/.cache/apex-shell/starship.toml ----------------------
+# The prompt's accent follows the wallpaper instead of the static chartreuse the
+# per-edition seed used to bake in once. ~/.config/starship.toml is a symlink to
+# this output (apex-shell-firstrun), and starship re-reads its config for every
+# prompt, so an open terminal changes colour with the wallpaper.
+[templates.starship]
+input_path = '@SRCDIR@/src/config/starship.toml.template'
+output_path = '@HOME@/.cache/apex-shell/starship.toml'
+
 # -- labwc window chrome -> ~/.config/labwc/themerc-override ------------------
 # APEX Floating (the labwc session) themed from the same Material You source as
 # the shell, so one wallpaper change moves the QML surfaces, the Hyprland

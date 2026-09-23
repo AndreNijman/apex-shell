@@ -118,6 +118,8 @@ QtObject {
             } else if (root.currentWall === "") {
                 var defaultWall = Quickshell.shellDir + "/src/assets/wallpapers/apex-shell-default-0.png"
                 root.apply(defaultWall)
+            } else {
+                root.rethemeIfStale()
             }
             root.refresh()
         }
@@ -152,6 +154,49 @@ QtObject {
             if (exitCode !== 0)
                 console.warn("WallpaperService: could not save " + root.configPath
                     + " (exit " + exitCode + "); this wallpaper will not survive a restart")
+        }
+    }
+
+    // ── Render outputs an update added ───────────────────────────────────────
+    // matugen only runs when the wallpaper changes, so a template that arrives
+    // in an update — the prompt, the terminal greeting's accent — rendered
+    // nothing until the user next picked a wallpaper, and those surfaces sat on
+    // the static brand colour in the meantime. At startup, if any output the
+    // shipped config names is missing, re-derive the palette from the wallpaper
+    // that is already up. No wallpaper change, no transition, and nothing at all
+    // when every output exists.
+    function rethemeIfStale() {
+        if (root.applying || root._rethemeProc.running) return
+        root._rethemeProc.command = [
+            "bash", "-c",
+            "CFG=\"$HOME/.config/apex-shell/matugen.toml\"; " +
+            "TMPL=\"$2/src/config/matugen.toml.in\"; " +
+            "[ -f \"$TMPL\" ] && command -v matugen >/dev/null 2>&1 || exit 0; " +
+            "mkdir -p \"$(dirname \"$CFG\")\" && " +
+            "sed -e \"s|@SRCDIR@|$2|g\" -e \"s|@HOME@|$HOME|g\" \"$TMPL\" > \"$CFG\" || exit 1; " +
+            "missing=0; while IFS= read -r out; do " +
+            "[ -e \"$out\" ] || { missing=1; echo \"missing: $out\"; }; " +
+            "done < <(sed -n \"s/^output_path *= *'\\(.*\\)'.*/\\1/p\" \"$CFG\"); " +
+            "[ \"$missing\" = 1 ] || exit 0; " +
+            "STATIC=\"$(readlink -f ~/.curr_wall_static.jpg 2>/dev/null)\"; " +
+            "[ -f \"$STATIC\" ] || STATIC=\"$1\"; " +
+            "[ -f \"$STATIC\" ] || exit 0; " +
+            "matugen image \"$STATIC\" -c \"$CFG\" --source-color-index 0 --type \"scheme-$3\" -m \"$4\"",
+            "--", root.currentWall, Quickshell.shellDir, root.scheme, root.mode
+        ]
+        root._rethemeProc.running = true
+    }
+
+    property var _rethemeProc: Process {
+        stdout: SplitParser {
+            onRead: function(line) {
+                if (line.indexOf("missing: ") === 0)
+                    console.info("WallpaperService: re-rendering the palette, " + line)
+            }
+        }
+        onExited: function(exitCode) {
+            if (exitCode !== 0)
+                console.warn("WallpaperService: re-rendering missing theme outputs failed (exit " + exitCode + ")")
         }
     }
 
