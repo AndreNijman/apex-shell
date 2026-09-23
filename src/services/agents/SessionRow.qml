@@ -482,6 +482,14 @@ Rectangle {
                 tip: row.live ? "Open terminal" : "Show output"
                 onActivated: AgentService.focusTerminal(row.session.id)
             }
+            // Finished sessions only — a running one is stopped, not
+            // dismissed. Dismissing forgets it and deletes its transcript.
+            SmallIconButton {
+                visible: !row.live
+                icon: "󰅖"
+                tip: "Dismiss (forgets it and its transcript)"
+                onActivated: AgentService.dismiss(row.session.id)
+            }
         }
     }
     }

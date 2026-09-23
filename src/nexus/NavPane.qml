@@ -18,15 +18,44 @@ Item {
 
     implicitWidth: 240
 
+    // Scrolls, and is clipped to the window. The list is sixteen pages and
+    // growing; as a bare Column it simply ran past the bottom of the Settings
+    // window on a short screen, drawing "Pair a device" … "Misc" over whatever
+    // was underneath and leaving them half off the card.
+    Flickable {
+        id: flick
+        anchors.fill: parent
+        clip: true
+        contentWidth: width
+        contentHeight: col.height + root.theme.px(20)
+        boundsBehavior: Flickable.StopAtBounds
+        interactive: contentHeight > height
+
+        // Keep the selected page in view when something other than a click
+        // selects it — a keybind or a deep link to a page near the bottom.
+        function reveal() {
+            const list = PageRegistry.pages
+            for (let i = 0; i < list.length; i++) {
+                if (list[i].id !== root.currentPage) continue
+                const item = pages.itemAt(i)
+                if (!item) return
+                const pad = root.theme.px(10)
+                const top = col.y + item.y
+                const bottom = top + item.height
+                if (top < flick.contentY)
+                    flick.contentY = Math.max(0, top - pad)
+                else if (bottom > flick.contentY + flick.height)
+                    flick.contentY = Math.min(flick.contentHeight - flick.height, bottom - flick.height + pad)
+                return
+            }
+        }
+
     Column {
         id: col
 
-        anchors {
-            left: parent.left
-            right: parent.right
-            top: parent.top
-            margins: theme.px(10)
-        }
+        x: root.theme.px(10)
+        y: root.theme.px(10)
+        width: flick.width - root.theme.px(20)
         spacing: theme.px(2)
 
         // Header
@@ -48,6 +77,7 @@ Item {
         }
 
         Repeater {
+            id: pages
             model: PageRegistry.pages
 
             delegate: Rectangle {
@@ -118,4 +148,7 @@ Item {
             }
         }
     }
+    }
+
+    onCurrentPageChanged: Qt.callLater(flick.reveal)
 }

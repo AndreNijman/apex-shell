@@ -397,6 +397,12 @@ QtObject {
     function pause(id)  { _act(["apex", "agent", "pause",  String(id)]) }
     function resume(id) { _act(["apex", "agent", "resume", String(id)]) }
     function kill(id)   { _act(["apex", "agent", "kill",   String(id)]) }
+    // Forget a FINISHED session and delete its transcript (`apex agent rm`),
+    // or every finished one (`apex agent prune`). The runtime refuses either
+    // for a session that is still running, so a stale row cannot be used to
+    // take a live one off the list.
+    function dismiss(id)       { _act(["apex", "agent", "rm", String(id)]) }
+    function dismissFinished() { _act(["apex", "agent", "prune"]) }
     // §3.4: "revocation control always visible". Immediate and unauthenticated
     // — giving up privilege is free, the same rule the Always Unrestricted
     // toggle follows for turning itself off. The runtime ends the session
