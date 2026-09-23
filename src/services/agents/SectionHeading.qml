@@ -21,6 +21,11 @@ Item {
     // reads as two unrelated things stacked on top of each other.
     property color tone: Theme.active
 
+    // An optional action at the right-hand end, e.g. "Clear finished". Empty
+    // means none, so every existing heading is unchanged.
+    property string actionText: ""
+    signal action()
+
     width: parent ? parent.width : 0
     height: visible ? label.implicitHeight + theme.fs(14) : 0
 
@@ -35,5 +40,22 @@ Item {
         font.pixelSize: theme.fs(9)
         font.bold: true
         font.letterSpacing: theme.fs(1)
+    }
+
+    Text {
+        id: actionLabel
+        visible: heading.actionText !== ""
+        anchors.right: parent.right
+        anchors.rightMargin: heading.theme.px(6)
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: heading.theme.px(4)
+        text: heading.actionText
+        color: actionHover.hovered ? Theme.text : Theme.subtext
+        font.pixelSize: heading.theme.fs(10)
+        font.underline: actionHover.hovered
+        HoverHandler { id: actionHover; cursorShape: Qt.PointingHandCursor }
+        TapHandler { onTapped: heading.action() }
+        Accessible.role: Accessible.Button
+        Accessible.name: heading.actionText
     }
 }

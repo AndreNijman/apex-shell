@@ -273,6 +273,10 @@ Item {
                           ? "This machine"
                           : (root._needsYou.length > 0 || root._requests.length > 0)
                             ? "Other sessions" : "Sessions"
+                    readonly property int finished:
+                        root._others.filter(s => !AgentService._isLive(s)).length
+                    actionText: finished > 0 ? "Clear " + finished + " finished" : ""
+                    onAction: AgentService.dismissFinished()
                 }
                 Repeater {
                     model: root._others
