@@ -17,7 +17,7 @@ import "../"
 QtObject {
     id: root
 
-    // ── Config path — src/user_data/wallpaper.json (relative to this file) ──────
+    // ── Config path — ~/.config/apex-shell/src/user_data/wallpaper.json ─────────
 	readonly property string configPath: Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/wallpaper.json"
 
     // ── Rendered matugen config — matugen can't expand ~/env in template paths,
@@ -84,23 +84,38 @@ QtObject {
     }
 
     // ── Config read — runs on startup, then calls refresh() ──────────────────
+    //
+    // The default is applied — and, through apply(), PERSISTED — only when the
+    // file does not exist or holds no currentWall. A file that exists but cannot
+    // be read or parsed is left alone: falling back there used to overwrite the
+    // user's choice with the shipped default, turning one bad read (a truncated
+    // write, a permission slip) into a wallpaper that resets on every boot.
     property string _cfgBuf: ""
     property var readConfigProc: Process {
-        command: ["bash", "-c", "cat '" + root.configPath + "' 2>/dev/null"]
+        command: ["bash", "-c",
+            "[ -e \"$1\" ] || { echo __ABSENT__; exit 0; }; cat -- \"$1\" || exit 3",
+            "--", root.configPath]
         stdout: SplitParser {
             onRead: function(line) { root._cfgBuf += line }
         }
-        onExited: function() {
-            if (root._cfgBuf !== "") {
+        onExited: function(exitCode) {
+            var absent = root._cfgBuf === "__ABSENT__"
+            var readable = !absent && exitCode === 0
+            if (readable) {
                 try {
                     var obj = JSON.parse(root._cfgBuf)
                     if (obj.currentWall  && obj.currentWall  !== "") root.currentWall  = obj.currentWall
                     if (obj.wallpaperDir && obj.wallpaperDir !== "") root.wallpaperDir = obj.wallpaperDir
                     if (obj.scheme       && obj.scheme       !== "") root.scheme       = obj.scheme
                     if (obj.mode === "light" || obj.mode === "dark") root.mode         = obj.mode
-                } catch(e) {}
+                } catch(e) {
+                    readable = false
+                }
             }
-            if (root.currentWall === "") {
+            if (!absent && !readable) {
+                console.warn("WallpaperService: " + root.configPath
+                    + " exists but could not be read or parsed; leaving it and the current wallpaper alone")
+            } else if (root.currentWall === "") {
                 var defaultWall = Quickshell.shellDir + "/src/assets/wallpapers/apex-shell-default-0.png"
                 root.apply(defaultWall)
             }
@@ -117,15 +132,28 @@ QtObject {
             mode:         root.mode
         })
         // JSON and path go in as positional args, never spliced into the script.
+        // Written beside the target and renamed over it, so a crash or power cut
+        // mid-write leaves the previous choice instead of an empty file.
         saveConfigProc.command = [
             "bash", "-c",
-            "mkdir -p \"$(dirname \"$2\")\" && printf '%s' \"$1\" > \"$2\"",
+            "mkdir -p \"$(dirname \"$2\")\" && printf '%s\\n' \"$1\" > \"$2.tmp\" && mv -f \"$2.tmp\" \"$2\"",
             "--", json, root.configPath
         ]
         saveConfigProc.running = true
     }
 
-    property var saveConfigProc: Process {}   // silent — no stdout/stderr needed
+    // A failed save used to be silent, so a choice that never persisted only
+    // showed up as "the wallpaper resets on reboot". Say so in the shell log.
+    property var saveConfigProc: Process {
+        stderr: SplitParser {
+            onRead: function(line) { console.warn("WallpaperService: save: " + line) }
+        }
+        onExited: function(exitCode) {
+            if (exitCode !== 0)
+                console.warn("WallpaperService: could not save " + root.configPath
+                    + " (exit " + exitCode + "); this wallpaper will not survive a restart")
+        }
+    }
 
     // Switch the palette between matugen's two modes and re-derive it from the
     // wallpaper that is already up. saveConfig() runs either way, so the choice
@@ -159,13 +187,16 @@ QtObject {
             "SETTER=\"\"; for S in awww swww; do " +
             "if command -v \"$S\" >/dev/null 2>&1; then SETTER=\"$S\"; break; fi; done; " +
             "[ -n \"$SETTER\" ] && \"$SETTER\" img --transition-type grow --transition-step 200 --transition-duration 1.2 --transition-fps 60 --transition-pos bottom \"$1\"; " +
-            "ln -sf \"$1\" ~/.curr_wall || exit 1; " +
+            // -n: never follow an existing ~/.curr_wall that points at a directory —
+            // plain -sf descends into it, fails there, and `exit 1` then skipped
+            // saveConfig while the new wallpaper was already on screen.
+            "ln -sfn \"$1\" ~/.curr_wall || exit 1; " +
             "if [[ \"$1\" == *.gif ]]; then " +
             "rm -f ~/.curr_wall_static.jpg; " +
             // ImageMagick 7 ships `magick`, ImageMagick 6 only `convert`.
             "if command -v magick >/dev/null 2>&1; then magick \"$1[0]\" ~/.curr_wall_static.jpg || true; " +
             "elif command -v convert >/dev/null 2>&1; then convert \"$1[0]\" ~/.curr_wall_static.jpg || true; fi; " +
-            "else ln -sf \"$1\" ~/.curr_wall_static.jpg; fi; " +
+            "else ln -sfn \"$1\" ~/.curr_wall_static.jpg; fi; " +
             "STATIC=\"$(readlink -f ~/.curr_wall_static.jpg)\"; " +
             // -m is what makes the light half of the palette reachable. Passed
             // to BOTH invocations: the second one renders whatever templates the
@@ -206,6 +237,9 @@ QtObject {
     property Process applyProc: Process {
         onExited: function(exitCode, exitStatus) {
             root.applying = false
+            if (exitCode !== 0)
+                console.warn("WallpaperService: apply of " + root.currentWall
+                    + " failed (exit " + exitCode + "); the choice was not saved")
             if (exitCode === 0) {
                 root.wallpaperApplied(root.currentWall)
                 root.saveConfig()
