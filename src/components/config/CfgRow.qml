@@ -35,6 +35,11 @@ Item {
 
     property string label:       ""
     property string description: ""
+    // How many lines the description may use before it is elided. Two keeps a
+    // settings list scannable; 0 shows all of it, for a row whose description is
+    // the content (an explanation, not a caption), where "…" would cut off the
+    // half of the sentence that answers the question.
+    property int    descriptionLines: 2
     property bool   hoverable:   true
     // Why the running compositor cannot do this. Non-empty means the control is
     // switched off and the reason is shown in place of the description — the
@@ -196,7 +201,7 @@ Item {
             font.pixelSize: theme.fs(10)
             color:          Qt.rgba(1,1,1,0.38)
             wrapMode:       Text.WordWrap
-            maximumLineCount: 2
+            maximumLineCount: root.descriptionLines > 0 ? root.descriptionLines : 1000
             elide:          Text.ElideRight
         }
         Text {

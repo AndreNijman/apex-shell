@@ -160,16 +160,19 @@ CfgScroll {
 
         CfgRow {
             label: "This machine's public key"
+            descriptionLines: 0
             description: "The phone pins it at pairing. Every later connection proves possession of the matching secret, so a machine that is not this one cannot answer for it — including the relay, which carries bytes it cannot read."
         }
 
         CfgRow {
             label: "Where to reach this machine"
+            descriptionLines: 0
             description: "The addresses this machine has on the local network, and the relay to meet at if none of them works. None of them is authenticated and none needs to be: reaching the wrong address produces a handshake that does not complete, not a connection to the wrong machine."
         }
 
         CfgRow {
             label: "Not your files, and not a password"
+            descriptionLines: 0
             description: "The code is a public key, a one-time token and a list of addresses. It is useless to anyone who scans it after the three minutes are up, or after one device has used it."
         }
     }

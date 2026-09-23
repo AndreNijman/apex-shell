@@ -208,6 +208,10 @@ PanelWindow {
                         default:                return "⚠️"
                     }
                 }
+                // Every other Text in this dialog sets a colour; this one did
+                // not, so the glyph fell back to Qt's default black on the dark
+                // card. The accent, like the rest of the shell's chrome.
+                color:          Theme.active
                 font.pixelSize: theme.fs(32)
             }
 
