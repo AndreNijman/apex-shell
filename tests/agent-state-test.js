@@ -429,11 +429,14 @@ if (Object.keys(COLORS.pairs).length) {
     // Both invocations. The second renders whatever templates the user keeps in
     // their own matugen config; a shell in light beside a terminal still in dark
     // is a worse outcome than either mode on its own.
+    // Two in apply() (the shell's config, then the user's own), plus the
+    // startup re-render of outputs an update added — which must honour the
+    // mode exactly as apply() does, or a light session re-renders dark.
     const invocations = wall.split("\n").filter(l => /matugen image/.test(l));
-    check("both matugen invocations are still there", invocations.length === 2,
+    check("both apply() matugen invocations are still there", invocations.length >= 2,
           `found ${invocations.length}`);
     check("every matugen invocation passes -m",
-          invocations.length === 2 && invocations.every(l => /-m \\"\$4\\"/.test(l)),
+          invocations.length >= 2 && invocations.every(l => /-m \\"\$4\\"/.test(l)),
           invocations.join(" | "));
 
     // The flag has to carry the mode, not a constant. `-m dark` spelled out
