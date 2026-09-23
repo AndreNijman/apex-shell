@@ -3,6 +3,9 @@ import "../../"
 
 // Wrapping set of selectable pills. `options` accepts either an array of strings
 // or an array of { value, label }. Bind `value`; handle `selected(value)`.
+// An option may also carry `dimmed: true` and a `hint`: it is drawn greyed out
+// but stays selectable — for a choice that works but is not a good fit, where
+// the caller explains why once it is picked.
 Flow {
     id: root
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
@@ -20,6 +23,8 @@ Flow {
             readonly property var    _val: (modelData && modelData.value !== undefined) ? modelData.value : modelData
             readonly property string _lbl: (modelData && modelData.label !== undefined) ? modelData.label : modelData
             readonly property bool   active: root.value === _val
+            readonly property bool   dimmed: !!(modelData && modelData.dimmed)
+            readonly property string _hint: (modelData && modelData.hint) ? modelData.hint : ""
 
             // Each pill is its own control: it has its own words, its own
             // selected state, and a keyboard user has to be able to reach and
@@ -32,6 +37,7 @@ Flow {
             Accessible.checkable: true
             Accessible.checked:   pill.active
             Accessible.name:      String(pill._lbl)
+            Accessible.description: pill._hint
             Accessible.onPressAction: root.selected(pill._val)
 
             Keys.onPressed: function(event) {
@@ -44,6 +50,7 @@ Flow {
 
             height: 26
             width:  t.implicitWidth + 20
+            opacity: pill.dimmed ? (pill.active ? 0.7 : 0.4) : 1.0
             radius: 7
             color: active
                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)

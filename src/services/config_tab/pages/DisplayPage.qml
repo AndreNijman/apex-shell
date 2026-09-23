@@ -478,11 +478,25 @@ CfgScroll {
                     width:   parent.width - theme.px(20)
                     enabled: DisplayService.colordAvailable
                     opacity: DisplayService.colordAvailable ? 1.0 : 0.32
+                    // Greyed out, not removed: a profile the panel cannot show
+                    // still applies if chosen, and the engine then says how
+                    // much of it the panel reaches. `support` comes from the
+                    // panel's EDID primaries against each profile's; an output
+                    // with no EDID primaries greys nothing out.
                     options: {
                         const opts = []
                         const ps = DisplayService.colourProfiles
-                        for (let i = 0; i < ps.length; i++)
-                            opts.push({ value: ps[i].id, label: ps[i].title })
+                        const sup = outCol.out.support || {}
+                        for (let i = 0; i < ps.length; i++) {
+                            const s = sup[ps[i].id]
+                            const bad = !!s && s.supported === false
+                            opts.push({
+                                value: ps[i].id, label: ps[i].title, dimmed: bad,
+                                hint: bad && s.coverage !== null
+                                    ? "your panel shows about " + Math.round(s.coverage * 100)
+                                      + "% of this profile's colours" : ""
+                            })
+                        }
                         return opts
                     }
                     // The id, not the title: the engine accepts either, but the
