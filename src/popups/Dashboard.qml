@@ -285,6 +285,9 @@ PanelWindow {
                         anchors.fill: parent
                         shown: root.shownPage === "launcher"
                         direction: root.pageDir
+                        // Its field is the anchor (LENS_REVEAL): the page is
+                        // there at once and reveals its own results.
+                        anchored: true
                         sourceComponent: Component {
                             // The launcher is the one page that took no
                             // `onScreen` before §15, because it consumed no

@@ -221,7 +221,7 @@ N_UNLISTED=$(printf '%s\n' "$FIND" | awk -F'\t' '$1=="literal"' | while IFS=$'\t
 
 # ── THE RATCHETS ──
 # Lower them as call sites move to Motion. Never raise one.
-EXPECT_UNLISTED_LITERAL=8   # src/services/AppLauncher.qml, held while another branch edits it
+EXPECT_UNLISTED_LITERAL=0
 EXPECT_LEGACY=28
 EXPECT_UNRESOLVED=2
 EXPECT_EASING=23

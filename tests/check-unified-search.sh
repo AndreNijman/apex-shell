@@ -648,7 +648,7 @@ assert_changed "$MUT/m7" src/services/search.js \
 # The results list goes back to an array model, which recreates every delegate
 # on every keystroke and silently stops the Behaviours.
 fresh_copy "$MUT/m8"
-sed -i 's|^                model: root.filtered.length$|                model: root.filtered|' \
+sed -i 's|^\( *\)model: root.filtered.length$|\1model: root.filtered|' \
     "$MUT/m8/src/services/AppLauncher.qml"
 assert_changed "$MUT/m8" src/services/AppLauncher.qml \
     && expect "an array model on the result list is caught" "$MUT/m8" red

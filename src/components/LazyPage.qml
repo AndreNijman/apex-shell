@@ -29,6 +29,11 @@ import "../"
 // never from its start. Under Reduce Motion the travel is 0 and the
 // cross-fade is all that is left. The page that has just been built by its
 // first reveal simply appears: there is nothing for it to have come from.
+//
+// An `anchored` page (the launcher) does not travel at all: it is there, whole,
+// the moment it is chosen — its search field is the anchor and must take
+// typing from the first frame — and it leaves by fading where it stands. Such a
+// page reveals its own content (AppLauncher's results).
 // ─────────────────────────────────────────────────────────────────────────────
 
 Loader {
@@ -40,6 +45,9 @@ Loader {
     // +1 = the page being arrived at lies later in the owner's order. Set by
     // the owner at the moment it changes page, before `shown` flips.
     property int direction: 1
+
+    // Present at once, no travel; see the header.
+    property bool anchored: false
 
     property bool _everShown: false
     property bool _leaving: false
@@ -55,7 +63,7 @@ Loader {
             root._everShown = true
             exitAnim.stop()
             root._leaving = false
-            if (fresh) { root._offset = 0; root.opacity = 1; return }
+            if (fresh || root.anchored) { root._offset = 0; root.opacity = 1; return }
             // From wherever an interrupted exit left it, or from the side.
             enterMove.from = enterAnim.running || root.opacity < 1
                              ? root._offset : root.direction * Motion.pageTravel
@@ -64,7 +72,7 @@ Loader {
         } else if (root._everShown) {
             enterAnim.stop()
             root._leaving = true
-            exitMove.to = -root.direction * Motion.pageTravel
+            exitMove.to = root.anchored ? root._offset : -root.direction * Motion.pageTravel
             exitAnim.restart()
         }
     }

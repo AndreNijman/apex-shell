@@ -214,8 +214,20 @@ stack_seq() {
     echo "captured stack"
 }
 
+# Switching to the launcher inside an open Dashboard (LENS_REVEAL): the body
+# retargets its width, the search field is there at once, the results reveal
+# beneath it as one group.
+lens_switch() {
+    ipc dashboard-home toggle; sleep 1.2
+    t0=$(date +%s%N); ipc dashboard-launcher toggle; burst "lens-switch" "$t0"
+    sleep 0.6
+    ipc dashboard-launcher toggle; sleep 1.2
+    echo "captured lens"
+}
+
 for s in "${want[@]}"; do
     if [ "$s" = tabs ]; then tab_switch; continue; fi
+    if [ "$s" = lens ]; then lens_switch; continue; fi
     if [ "$s" = stack ]; then stack_seq; continue; fi
     if [ "$s" = switch ]; then pane_switch; continue; fi
     if [ "$s" = toast ]; then toast_seq; continue; fi
