@@ -35,6 +35,35 @@ QtObject {
     // The readable foreground for a glyph or label drawn ON a status fill.
     function onStatus(fill) { return Colors.onStatus(fill) }
 
+    // Surface and text roles (Colors.qml, roles.js). Prefer these to the raw
+    // palette colours and to any Qt.rgba(1, 1, 1, α): they follow the scheme.
+    readonly property color surfaceBase:       Colors.surfaceBase
+    readonly property color surfaceRaised:     Colors.surfaceRaised
+    readonly property color surfaceOverlay:    Colors.surfaceOverlay
+    readonly property color surfaceHigh:       Colors.surfaceHigh
+    readonly property color surfaceSelected:   Colors.surfaceSelected
+    readonly property color accentContainer:   Colors.accentContainer
+    readonly property color onAccentContainer: Colors.onAccentContainer
+    readonly property color accentText:        Colors.accentText
+    readonly property color onAccent:          Colors.onAccent
+    readonly property color outlineSoft:       Colors.outlineSoft
+    readonly property color outlineStrong:     Colors.outlineStrong
+    readonly property color hairline:          Colors.hairline
+    readonly property color textPrimary:       Colors.textPrimary
+    readonly property color textSecondary:     Colors.textSecondary
+    readonly property color textTertiary:      Colors.textTertiary
+    readonly property color iconDefault:       Colors.iconDefault
+    readonly property color iconActive:        Colors.iconActive
+    function surfaceHover(c)   { return Colors.surfaceHover(c) }
+    function surfacePressed(c) { return Colors.surfacePressed(c) }
+
+    // Font families (brief §C.4). The UI face is fontconfig's sans alias
+    // (Noto Sans on the image); icons name their font instead of relying on
+    // fallback, which is why glyph weights differed across the bar.
+    readonly property string fontUi:   "sans-serif"
+    readonly property string fontMono: "JetBrains Mono"
+    readonly property string fontIcon: "JetBrainsMono Nerd Font"
+
     property color dangerFill:      Colors.dangerFill
     property color dangerFillHover: Colors.dangerFillHover
 

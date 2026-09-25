@@ -94,6 +94,34 @@ QtObject {
     property int spaceXL:  px(24)
     property int spaceXXL: px(32)
 
+    // ── Control heights (UI/UX roadmap v3 Phase 2, brief §C.3) ──────────────
+    // Visual size and hit size are separate (ApexPressable): a 20 px glyph in
+    // the bar still has a 24 px target, a control anywhere else 32.
+    property int controlCompact:     px(28)   // bar pills, chips
+    property int controlStandard:    px(32)   // buttons, inputs, row actions
+    property int controlComfortable: px(36)   // Nexus controls, toggle rows
+    property int controlProminent:   px(40)   // primary action, search field, tab bar
+    property int rowHeight:          px(40)   // a single-line list row
+    property int rowHeightTwoLine:   px(52)
+    property int tileHeight:         px(72)   // quick-setting tile
+    property int hitMin:             px(32)   // the smallest target outside the bar
+    property int hitBar:             px(24)   // … and inside it
+
+    // ── Type roles (brief §C.4) ─────────────────────────────────────────────
+    // Sizes per output; family and weight are global (Theme.fontUi, …). Every
+    // number is drawn with tabular figures (`font.features: { "tnum": 1 }`).
+    property int typeCaption:     fs(11)   // 500 · metadata, timestamps
+    property int typeSection:     fs(11)   // 600 uppercase +0.6 · "CONNECTED"
+    property int typeBodySmall:   fs(12)   // 400 · compact rows, menu items
+    property int typeBody:        fs(13)   // 400 · the default
+    property int typeBodyStrong:  fs(13)   // 600 · values, row titles, labels
+    property int typeHeading:     fs(15)   // 600 · popup and card titles
+    property int typePageTitle:   fs(18)   // 600 · Nexus page title
+    property int typeDisplay:     fs(28)   // 600 · rare hero text
+    property int typeMono:        fs(12)   // 400 mono · technical values, paths
+    property int typeDisplayMono: fs(56)   // 500 mono · the dashboard clock
+    property int typeIcon:        fs(15)   // the bar's glyphs, in a 20 px box
+
     // -- Notch Content Padding --
     // Space added around the content inside each notch
     property int notchPadding:           px(16)   // horizontal padding each side

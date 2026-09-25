@@ -1536,6 +1536,12 @@ jobs:
       - name: The fluid surface geometry
         run: node tests/fluid-geometry-test.js
 
+      # The surface and text roles (src/theme/roles.js) against every palette
+      # the shell ships — six wallpapers, both matugen schemes — with the
+      # fallback rule applied and the fallbacks that fire pinned.
+      - name: Colour roles hold their contrast on every shipped palette
+        run: node tests/color-roles-test.js
+
       # The lock screen's (and login screen's) password shapes: one geometric
       # shape per character instead of bullet dots, and structurally unable to
       # show WHICH characters. The static half: the component's inputs are a

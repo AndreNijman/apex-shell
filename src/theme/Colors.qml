@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQuick
 import "."
+import "roles.js" as Roles
 
 QtObject {
     id: root
@@ -150,6 +151,42 @@ QtObject {
     // this became a token; a token is what stops them drifting apart.
     property color dangerFill:      "#993030"
     property color dangerFillHover: "#cc3a3a"
+
+    // ── Surface and text roles (UI/UX roadmap v3 Phase 2; roles.js) ─────────
+    // Named roles over the palette's own background, accent and text, each a
+    // mix of those three, so they follow the wallpaper AND the scheme — which
+    // the translucent whites they replace cannot. Resolved once per palette,
+    // with the fallback rule applied and reported; tests/color-roles-test.js
+    // holds every one to its contrast target on all twelve shipped palettes.
+    readonly property var _roleSet: Roles.resolve({ background: root.background,
+                                                    active: root.active, text: root.text })
+    function _c(o) { return Qt.rgba(o.r, o.g, o.b, 1) }
+    on_RoleSetChanged: if (root._roleSet.fired.length > 0)
+        console.info("APEX colour roles: this palette needed a fallback — "
+                     + root._roleSet.fired.join("; "))
+
+    readonly property color surfaceBase:       _c(_roleSet.roles.surfaceBase)
+    readonly property color surfaceRaised:     _c(_roleSet.roles.surfaceRaised)
+    readonly property color surfaceOverlay:    _c(_roleSet.roles.surfaceOverlay)
+    readonly property color surfaceHigh:       _c(_roleSet.roles.surfaceHigh)
+    readonly property color surfaceSelected:   _c(_roleSet.roles.surfaceSelected)
+    readonly property color accentContainer:   _c(_roleSet.roles.accentContainer)
+    readonly property color onAccentContainer: _c(_roleSet.roles.onAccentContainer)
+    readonly property color accentText:        _c(_roleSet.roles.accentText)
+    readonly property color outlineSoft:       _c(_roleSet.roles.outlineSoft)
+    readonly property color outlineStrong:     _c(_roleSet.roles.outlineStrong)
+    readonly property color hairline:          _c(_roleSet.roles.hairline)
+    readonly property color textPrimary:       _c(_roleSet.roles.textPrimary)
+    readonly property color textSecondary:     _c(_roleSet.roles.textSecondary)
+    readonly property color textTertiary:      _c(_roleSet.roles.textTertiary)
+    readonly property color iconDefault:       _c(_roleSet.roles.iconDefault)
+    readonly property color iconActive:        _c(_roleSet.roles.iconActive)
+    // The readable foreground on the accent itself (the existing best-of-two).
+    readonly property color onAccent:          onStatus(root.active)
+
+    // The two state layers, over whatever surface a control is on.
+    function surfaceHover(c)   { return _c(Roles.hover(c, root.text)) }
+    function surfacePressed(c) { return _c(Roles.pressed(c, root.text)) }
 
     // --- Workspace Visuals ---
     property color wsBackground: "#20000000"

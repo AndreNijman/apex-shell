@@ -1,0 +1,125 @@
+{
+ "_provenance": "matugen 4.2.0: `matugen image <wall> --source-color-index 0 --type scheme-content -m <mode> --dry-run -j hex` (WallpaperService.qml's own flags), in a throwaway HOME with no config. Fields as src/config/apex-shell-colors.json.example maps them: background=surface, active=primary, text=on_surface, subtext=on_surface_variant, border=outline_variant, iconFont=primary_container.",
+ "palettes": [
+  {
+   "wall": "apex-shell-default-0.png",
+   "mode": "dark",
+   "background": "#141311",
+   "active": "#f0e5bb",
+   "text": "#e6e2dd",
+   "subtext": "#ccc6b9",
+   "border": "#4a473c",
+   "iconFont": "#d3c9a1"
+  },
+  {
+   "wall": "apex-shell-default-0.png",
+   "mode": "light",
+   "background": "#fdf9f3",
+   "active": "#665f3e",
+   "text": "#1d1b19",
+   "subtext": "#4a473c",
+   "border": "#ccc6b9",
+   "iconFont": "#d3c9a1"
+  },
+  {
+   "wall": "apex-shell-default-1.png",
+   "mode": "dark",
+   "background": "#121316",
+   "active": "#a5caf2",
+   "text": "#e2e2e5",
+   "subtext": "#c2c7cf",
+   "border": "#42474e",
+   "iconFont": "#294f71"
+  },
+  {
+   "wall": "apex-shell-default-1.png",
+   "mode": "light",
+   "background": "#f9f9fc",
+   "active": "#0c3859",
+   "text": "#1a1c1e",
+   "subtext": "#42474e",
+   "border": "#c2c7cf",
+   "iconFont": "#294f71"
+  },
+  {
+   "wall": "apex-shell-default-2.jpg",
+   "mode": "dark",
+   "background": "#111410",
+   "active": "#abdb9e",
+   "text": "#e2e3dc",
+   "subtext": "#c2c9bc",
+   "border": "#42493f",
+   "iconFont": "#90bf84"
+  },
+  {
+   "wall": "apex-shell-default-2.jpg",
+   "mode": "light",
+   "background": "#f9faf3",
+   "active": "#3e6836",
+   "text": "#1a1c18",
+   "subtext": "#42493f",
+   "border": "#c2c9bc",
+   "iconFont": "#90bf84"
+  },
+  {
+   "wall": "apex-shell-default-3.jpg",
+   "mode": "dark",
+   "background": "#111319",
+   "active": "#a9c7ff",
+   "text": "#e1e2ea",
+   "subtext": "#c2c6d4",
+   "border": "#424752",
+   "iconFont": "#0a5db5"
+  },
+  {
+   "wall": "apex-shell-default-3.jpg",
+   "mode": "light",
+   "background": "#f9f9ff",
+   "active": "#00468c",
+   "text": "#191c21",
+   "subtext": "#424752",
+   "border": "#c2c6d4",
+   "iconFont": "#0a5db5"
+  },
+  {
+   "wall": "apex-shell-default-4.jpg",
+   "mode": "dark",
+   "background": "#121414",
+   "active": "#a3ced6",
+   "text": "#e2e2e2",
+   "subtext": "#c0c8c9",
+   "border": "#414849",
+   "iconFont": "#436c73"
+  },
+  {
+   "wall": "apex-shell-default-4.jpg",
+   "mode": "light",
+   "background": "#f9f9f9",
+   "active": "#2a545a",
+   "text": "#1a1c1c",
+   "subtext": "#414849",
+   "border": "#c0c8c9",
+   "iconFont": "#436c73"
+  },
+  {
+   "wall": "apex-shell-default-5.jpg",
+   "mode": "dark",
+   "background": "#121318",
+   "active": "#b9c3ff",
+   "text": "#e3e1e9",
+   "subtext": "#c5c5d3",
+   "border": "#454651",
+   "iconFont": "#7a8be1"
+  },
+  {
+   "wall": "apex-shell-default-5.jpg",
+   "mode": "light",
+   "background": "#fbf8ff",
+   "active": "#4456a8",
+   "text": "#1b1b21",
+   "subtext": "#454651",
+   "border": "#c5c5d3",
+   "iconFont": "#5e6fc2"
+  }
+ ]
+}
