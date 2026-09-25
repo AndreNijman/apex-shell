@@ -1,37 +1,12 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  run-settings-controls-test.sh — press the shared settings controls, for real
-#  (roadmap P0-024, criteria 1 and 2).
-#
-#  ── Why not the quickshell harness ──────────────────────────────────────────
-#  tests/run-settings-pages-test.sh builds the ten real pages under quickshell
-#  and asks each one what it is. It cannot press anything: quickshell offers no
-#  way to post an input event. qmltestrunner does — QtTest's mouseClick and
-#  keyClick post real QMouseEvent and QKeyEvent into the QQuickWindow,
-#  hit-tested by position, which is the same delivery path a compositor's input
-#  takes — and cannot load a page, because every page reaches a singleton that
-#  needs Quickshell.
-#
-#  So this is the same recipe run-slider-wheel-test.sh established for P0-020,
-#  pointed at the commit bar, the lifecycle line and the ordinary controls
-#  instead of at the wheel.
-#
-#  It is Qt's own test module rather than a new framework, and the interface
-#  here is the one every other check in this directory has: skip cleanly when a
-#  dependency is missing, print PASS/FAIL lines, end with `passed=N failed=M`.
-#
-#  ── Why the staging dance ───────────────────────────────────────────────────
-#  Every Cfg component says `import "../../"` to reach the Theme singleton, and
-#  Theme reaches Metrics and ColorLoader, which need Quickshell — a screen list
-#  and a FileView that plain qmltestrunner has no way to provide. So this script
-#  copies the real src/components/config next to a Theme stub answering the
-#  members those components read. The components under test are the shipped
-#  files, byte for byte; only the palette they paint with is fake, and no
-#  assertion here looks at a colour.
-#
-#  Headless: -platform offscreen, so this opens nothing on anybody's desktop.
-#
-#  Run from anywhere: ./tests/run-settings-controls-test.sh
+#  run-controls-primitives-test.sh — ApexPressable, ApexFocusRing and
+#  ApexIconButton (UI/UX roadmap v3 Phase 3) under qmltestrunner on the
+#  offscreen platform: the press dip and its return, keyboard activation that
+#  replays it, a ring for keyboard focus and none for a pointer's, a disabled
+#  control that does nothing, the state layer at rest, and a hit target larger
+#  than the glyph. Staged like run-a11y-controls-test.sh: the real controls,
+#  the real motion system and roles, a stub palette.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
@@ -55,22 +30,22 @@ stage="$(mktemp -d)"
 cleanup() { rm -rf "$stage"; }
 trap cleanup EXIT INT TERM
 
-cp -r "$root/src/components/config" "$stage/components-config-tmp"
 mkdir -p "$stage/components"
-mv "$stage/components-config-tmp" "$stage/components/config"
 # The controls the config components are built on (ApexPressable & co.,
 # UI/UX roadmap Phase 3), at the same relative path.
 cp -r "$root/src/components/controls" "$stage/components/controls"
-cp "$here/settings-controls-test.qml" "$stage/settings-controls-test.qml"
+cp "$here/controls-primitives-test.qml" "$stage/controls-primitives-test.qml"
 
-# The stub. Every Theme.* the config components read — grep them if this list
-# ever looks short. `warning`, `subtext` and `info` joined it with P0-023: the
-# commit bar is painted in the warning tone, the lifecycle line's sentence in
-# subtext, and a deferred row's caption in info.
+# The staged tree must BE the shipped one. A copy that silently lost a file
+# would make every assertion below a statement about something this repository
+# does not ship.
+
 cat > "$stage/qmldir" <<'QMLDIR'
 singleton Theme Theme.qml
 QMLDIR
 
+# Every Theme.* the config components read. `attention` is here because
+# CfgRow's status readout is painted in it when the readback disagrees.
 cat > "$stage/Theme.qml" <<'THEME'
 pragma Singleton
 import QtQuick
@@ -82,6 +57,7 @@ QtObject {
     property color danger:     "#f7768e"
     property color warning:    "#e0af68"
     property color info:       "#7dcfff"
+    property color attention:  "#ff9e64"
     property color subtext:    "#9aa5ce"
     property color fixedLight: "#eceff4"
 
@@ -107,8 +83,12 @@ stage_theme_set "$stage" "$root" "$stage/components" || {
 stage_motion "$stage" "$root" || {
     echo "RESULT: the staged motion system could not be built"; exit 1; }
 
-out="$(QT_QPA_PLATFORM=offscreen QT_LOGGING_RULES="qt.qml.binding.removal.info=false" \
-       timeout 120 "$runner" -platform offscreen -input "$stage/settings-controls-test.qml" 2>&1)"
+# WAYLAND_DISPLAY is removed from the environment rather than merely unused.
+# The offscreen platform does not need it, but a plugin that ever decides to
+# probe for a compositor must not find the one somebody is working in.
+out="$(env -u WAYLAND_DISPLAY -u DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
+       QT_QPA_PLATFORM=offscreen QT_LOGGING_RULES="qt.qml.binding.removal.info=false" \
+       timeout 120 "$runner" -platform offscreen -input "$stage/controls-primitives-test.qml" 2>&1)"
 status=$?
 
 printf '%s\n' "$out" | grep -E "^(PASS|FAIL!|SKIP|XFAIL|QWARN|Totals)" || true
@@ -131,17 +111,21 @@ n_fail="$(sed -E 's/.*, ([0-9]+) failed.*/\1/' <<<"$totals")"
 echo ""
 echo "passed=$n_pass failed=$n_fail"
 
-# A suite that runs but asserts nothing is the failure this line exists to catch.
-if [[ "$n_pass" -lt 12 ]]; then
-    echo "RESULT: only $n_pass assertions ran; nothing is exercising the fixture"
+# An exact count, not a floor. The fixture finds its controls by objectName and
+# reads names CfgRow supplies; a fixture that found none would simply be quiet,
+# and a floor would let a dropped test function hide behind an added one.
+# QtTest's total is initTestCase + the test functions + cleanupTestCase.
+EXPECT_TESTS=10  # 8 + initTestCase/cleanupTestCase
+n_ran=$(( n_pass + n_fail ))
+if [[ "$n_ran" -ne "$EXPECT_TESTS" ]]; then
+    echo "RESULT: $n_ran test functions ran, expected $EXPECT_TESTS"
     exit 1
 fi
 
 if [[ "$n_fail" -ne 0 || "$status" -ne 0 ]]; then
-    printf '%s\n' "$out" | grep -A3 "^FAIL!" | head -40
+    printf '%s\n' "$out" | grep -A3 "^FAIL!" | head -60
     echo "RESULT: failing assertions"
     exit 1
 fi
 
-echo "RESULT: one button per act, a busy bar that emits nothing, a refusal that
-        keeps the draft, and every ordinary control applying its input"
+echo "RESULT: one press, hover and focus language: dips on press, replays for keys, rings only for the keyboard, ignores everything when disabled"

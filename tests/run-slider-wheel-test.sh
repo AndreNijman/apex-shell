@@ -52,6 +52,9 @@ trap cleanup EXIT INT TERM
 cp -r "$root/src/components/config" "$stage/components-config-tmp"
 mkdir -p "$stage/components"
 mv "$stage/components-config-tmp" "$stage/components/config"
+# The controls the config components are built on (ApexPressable & co.,
+# UI/UX roadmap Phase 3), at the same relative path.
+cp -r "$root/src/components/controls" "$stage/components/controls"
 cp "$here/slider-wheel-test.qml" "$stage/slider-wheel-test.qml"
 
 # The stub. Six members, because that is every Theme.* the config components

@@ -1,34 +1,33 @@
 import QtQuick
 import "../"
+import "controls"
 
-Item {
+// A power-profile pill. Built on ApexPressable (UI/UX roadmap v3 Phase 3): it
+// dips when pressed, by pointer or keyboard, and its hover is a state layer.
+ApexPressable {
     id: root
-    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
-
 
     property string label:   ""
     property string icon:    ""
     property bool   active:  false
-    // `enabled` is inherited from Item — no redeclaration needed
 
     signal clicked()
 
     implicitWidth:  row.implicitWidth + 24
-    implicitHeight: 28
-
-    opacity: root.enabled ? 1 : 0.35
-    Behavior on opacity { MotionFade {} }
+    implicitHeight: theme.controlCompact
+    radius: height / 2
+    interactive: root.enabled
+    Accessible.name: root.label
+    Accessible.checkable: true
+    Accessible.checked: root.active
+    onActivated: root.clicked()
 
     Rectangle {
         anchors.fill: parent
-        radius:       height / 2
+        radius:       root.radius
 
-        color: root.active
-                   ? Theme.active
-                   : (hov.hovered && root.enabled ? Qt.rgba(1,1,1,0.08) : "transparent")
-        border.color: root.active
-                          ? Theme.active
-                          : Qt.rgba(1, 1, 1, 0.18)
+        color: root.active ? Theme.active : root.stateLayer()
+        border.color: root.active ? Theme.active : Theme.outlineStrong
         border.width: 1
 
         Behavior on color        { MotionColor { role: "state" } }
@@ -44,7 +43,7 @@ Item {
             visible:        root.icon !== ""
             text:           root.icon
             font.pixelSize: theme.fs(12)
-            color:          root.active ? Theme.background : Qt.rgba(1, 1, 1, 0.7)
+            color:          root.active ? Theme.onAccent : Theme.textPrimary
             anchors.verticalCenter: parent.verticalCenter
             Behavior on color { MotionColor { role: "state" } }
         }
@@ -53,16 +52,10 @@ Item {
             text:           root.label
             font.pixelSize: theme.fs(11)
             font.weight:    root.active ? Font.Medium : Font.Normal
-            color:          root.active ? Theme.background : Qt.rgba(1, 1, 1, 0.7)
+            color:          root.active ? Theme.onAccent : Theme.textPrimary
             anchors.verticalCenter: parent.verticalCenter
             Behavior on color { MotionColor { role: "state" } }
         }
     }
-
-    HoverHandler { id: hov; cursorShape: root.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor }
-    MouseArea {
-        anchors.fill: parent
-        enabled:      root.enabled
-        onClicked:    root.clicked()
-    }
+    ApexFocusRing { target: root }
 }

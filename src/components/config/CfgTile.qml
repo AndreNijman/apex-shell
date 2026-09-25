@@ -1,10 +1,15 @@
 import QtQuick
 import "../../"
+import "../controls"
 
 // Compact toggle/action tile (mirrors the QuickSettings tiles). Use in a Grid.
-Rectangle {
+//
+// Built on ApexPressable (UI/UX roadmap v3 Phase 3): the tile dips when
+// pressed, by pointer or Space/Return, hovers and presses as a state layer
+// over its own surface, and shows a focus ring only for keyboard focus. On,
+// it fills with the accent container and its glyph turns to the accent.
+ApexPressable {
     id: root
-    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
     property bool   on:       false
     property string icon:     ""
@@ -12,40 +17,36 @@ Rectangle {
     property string sublabel: ""
     signal toggled()
 
+    radius: theme.radiusM
+    // Through a function: emitting `toggled` straight from the inherited
+    // `activated` handler failed in this Qt ("Unknown method return type").
+    function toggle() { root.toggled() }
+    onActivated: root.toggle()
+
     // A tile is a labelled on/off control, so it names itself and reports its
     // state. The sublabel is the live readout ("Wi-Fi: MyNetwork"); it belongs
     // in the description, where a reader gives it after the name and the state.
-    activeFocusOnTab:     true
-    Accessible.role:      Accessible.Button
     Accessible.checkable: true
     Accessible.checked:   root.on
     Accessible.name:      root.label
     Accessible.description: root.sublabel
-    Accessible.onPressAction: root.toggled()
 
-    Keys.onPressed: function(event) {
-        if (event.key === Qt.Key_Space || event.key === Qt.Key_Return
-            || event.key === Qt.Key_Enter) {
-            root.toggled()
-            event.accepted = true
-        }
+    Rectangle {
+        anchors.fill: parent
+        radius: root.radius
+        color: root.tint(root.on ? Theme.accentContainer : Theme.surfaceRaised)
+        border.width: 1
+        border.color: root.on
+            ? Qt.rgba(Theme.accentText.r, Theme.accentText.g, Theme.accentText.b, 0.30)
+            : Theme.outlineSoft
+        Behavior on color        { MotionColor { role: "state" } }
+        Behavior on border.color { MotionColor { role: "state" } }
     }
-
-    radius: 10
-    color: on
-        ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
-        : (bH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04))
-    border.width: 1
-    border.color: on
-        ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30)
-        : Qt.rgba(1,1,1,0.10)
-    Behavior on color        { MotionColor { role: "state" } }
-    Behavior on border.color { MotionColor { role: "state" } }
 
     Rectangle {
         anchors { top: parent.top; right: parent.right; margins: 8 }
         width: 6; height: 6; radius: 3
-        color: root.on ? Theme.active : Qt.rgba(1,1,1,0.18)
+        color: root.on ? Theme.accentText : Theme.outlineStrong
         Behavior on color { MotionColor { role: "state" } }
     }
     Column {
@@ -53,32 +54,22 @@ Rectangle {
         spacing: 2
         Text {
             text: root.icon; font.pixelSize: theme.fs(17)
-            color: root.on ? Theme.active : Qt.rgba(1,1,1,0.40)
+            color: root.on ? Theme.accentText : Theme.iconDefault
+            Behavior on color { MotionColor { role: "state" } }
         }
         Text {
             text: root.label; font.pixelSize: theme.fs(9); font.weight: Font.Medium
-            color: root.on ? Theme.text : Qt.rgba(1,1,1,0.45)
+            color: root.on ? Theme.textPrimary : Theme.textSecondary
+            Behavior on color { MotionColor { role: "state" } }
         }
         Text {
             visible: root.sublabel !== ""
             text:    root.sublabel
-            font.pixelSize: theme.fs(8); font.family: "JetBrains Mono"
-            color:   Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.65)
+            font.pixelSize: theme.fs(8); font.family: Theme.fontMono
+            color:   Theme.accentText
+            opacity: 0.8
             width:   root.width - 18; elide: Text.ElideRight
         }
     }
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: -2
-        radius: 12
-        color: "transparent"
-        border.width: 2
-        border.color: Theme.active
-        visible: root.activeFocus
-    }
-    HoverHandler { id: bH; cursorShape: Qt.PointingHandCursor }
-    MouseArea {
-        anchors.fill: parent
-        onClicked: { root.forceActiveFocus(); root.toggled() }
-    }
+    ApexFocusRing { target: root }
 }

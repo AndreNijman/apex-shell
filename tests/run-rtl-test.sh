@@ -531,6 +531,9 @@ trap 'rm -rf "$probe" "$stage"' EXIT INT TERM
 cp -r "$root/src/components/config" "$stage/components-config-tmp"
 mkdir -p "$stage/components"
 mv "$stage/components-config-tmp" "$stage/components/config"
+# The controls the config components are built on (ApexPressable & co.,
+# UI/UX roadmap Phase 3), at the same relative path.
+cp -r "$root/src/components/controls" "$stage/components/controls"
 cp "$here/rtl-test.qml" "$stage/rtl-test.qml"
 
 # The staged tree must BE the shipped one. A copy that silently lost a file

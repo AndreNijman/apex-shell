@@ -337,7 +337,12 @@ fi
 # from KeybindsPage.qml, for a net -1. The ratchet is doing exactly what it was
 # written to do — the debt went down and somebody had to say so here — and light
 # mode is not reachable at 211 either.
-EXPECT_WHITE_FG=211
+#
+# 211 -> 204 with the UI/UX roadmap's Phase 3: CfgButton, CfgTile and
+# ProfileButton draw with the palette's roles (src/theme/roles.js, checked on
+# all twelve shipped palettes) instead of translucent whites. Still not light-
+# mode ready at 204.
+EXPECT_WHITE_FG=204
 n_white=$(grep -rnE '^[[:space:]]*color:.*Qt\.rgba\([[:space:]]*1[[:space:]]*,[[:space:]]*1[[:space:]]*,[[:space:]]*1' "$SRC" \
           | wc -l | tr -d ' ')
 if [ "$n_white" -eq "$EXPECT_WHITE_FG" ]; then

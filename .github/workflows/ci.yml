@@ -1528,6 +1528,13 @@ jobs:
       - name: The surface lifecycle
         run: ./tests/run-surface-lifecycle-test.sh
 
+      # ApexPressable & co. (UI/UX roadmap Phase 3): the press dip and its
+      # return, keyboard activation that replays it, a ring for keyboard focus
+      # and none for a pointer's, a disabled control that does nothing, and a
+      # hit target larger than the glyph.
+      - name: The shared press, hover and focus primitives
+        run: ./tests/run-controls-primitives-test.sh
+
       # The fluid surface geometry (Phases 4-5): every family swept over
       # progress at three output scales — tangent-continuous joins, no
       # self-intersection, no collapse mid-morph, attached to its origin

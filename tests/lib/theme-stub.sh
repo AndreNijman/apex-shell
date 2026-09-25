@@ -151,4 +151,55 @@ for line in ("singleton Motion theme/Motion.qml",
 open(qmldir, "a").write(add)
 print("stage_motion: Motion staged at the shipped defaults")
 PY
+    [ -f "$stage/Theme.qml" ] && { stage_roles "$stage" "$root" || return 1; }
+    return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  stage_roles — the surface and text roles, on a staged Theme stub.
+#
+#  Since the UI/UX roadmap's Phase 2 the shared controls draw with Theme's
+#  roles (surfaceRaised, textSecondary, accentText, …), which the real Theme
+#  mirrors from Colors.qml → src/theme/roles.js. A stage's Theme is a stub with
+#  a fixed palette, so the REAL roles.js is copied in and the stub gains the
+#  same role properties, resolved from its own background/active/text — the
+#  stage runs the shipped arithmetic, not a second copy of it. Called by
+#  stage_motion whenever the stage has a Theme.qml.
+#
+#  Usage:  stage_roles <stage_dir> <repo_root>
+# ─────────────────────────────────────────────────────────────────────────────
+stage_roles() {
+    local stage="$1" root="$2"
+    cp "$root/src/theme/roles.js" "$stage/roles.js"
+    python3 - "$stage" "$root" <<'PY'
+import os, re, sys
+stage, root = sys.argv[1], sys.argv[2]
+p = os.path.join(stage, "Theme.qml")
+s = open(p).read()
+if "_roleSet" in s:
+    sys.exit(0)
+# The role names are read from the real Colors.qml, so a role added there is a
+# role the stage has.
+colors = open(os.path.join(root, "src", "theme", "Colors.qml")).read()
+names = re.findall(r'^\s*readonly property color (\w+):\s*_c\(_roleSet\.roles\.\w+\)', colors, re.M)
+if not names:
+    sys.stderr.write("stage_roles: no roles found in Colors.qml\n"); sys.exit(2)
+theme = open(os.path.join(root, "src", "theme", "Theme.qml")).read()
+fonts = re.findall(r'^\s*(readonly property string font\w+:\s*"[^"]*")', theme, re.M)
+block = ["    // ── staged by tests/lib/theme-stub.sh stage_roles ──",
+         "    readonly property var _roleSet: Roles.resolve({ background: background, active: active, text: text })",
+         "    function _c(o) { return Qt.rgba(o.r, o.g, o.b, 1) }"]
+for n in names:
+    block.append("    readonly property color %s: _c(_roleSet.roles.%s)" % (n, n))
+block.append("    function surfaceHover(c)   { return _c(Roles.hover(c, text)) }")
+block.append("    function surfacePressed(c) { return _c(Roles.pressed(c, text)) }")
+if "onAccent" not in names:
+    block.append("    readonly property color onAccent: \"#1e1e2e\"")
+block += ["    " + f for f in fonts]
+i = s.rindex("}")
+s = s[:i] + "\n".join(block) + "\n" + s[i:]
+s = s.replace("import QtQuick\n", "import QtQuick\nimport \"roles.js\" as Roles\n", 1)
+open(p, "w").write(s)
+print("stage_roles: %d roles staged from roles.js" % len(names))
+PY
 }
