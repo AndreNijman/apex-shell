@@ -19,8 +19,8 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
 |---|---|---|
 | D1 | Fluid geometry renders with `QtQuick.Shapes` + CurveRenderer from a path built each frame out of named parameters; no MSAA layer. | Measured: Shape +0.17 ms/frame vs Canvas +1.65 ms/frame (`tests/visual/bench-renderer.sh`, BASELINE §3). |
 | D2 | The geometry itself is a plain-JS module (family, progress, params → path + bounds + content clip), unit-tested with node like `agentstate.js`. | Continuity, no self-intersection and monotone bounds become assertions a CI runner without a compositor can check. |
-| D3 | Bar and popup stay separate layer surfaces. One lifecycle object per surface per screen owns `progress`; the bar's notch geometry is a pure function of that same value, the popup body another. No `Behavior` on either side. | Drawing the notch inside the popup window would hide `CenterContent`/`RightContent` or duplicate them; two independent Behaviors on one visual edge is the drift the roadmap complains about. |
-| D4 | `SeamlessBarShape` (the bar) stays Canvas for this milestone and is migrated in its own change once the popup families are proven. | Roadmap §27.2 — do not replace every Canvas at once. |
+| D3 | Bar and popup stay separate layer surfaces. One lifecycle object per surface per screen owns `progress`. **Revised in Phase 9:** no moving edge is shared between two windows — the surface draws every part of the notch that moves (band, shoulder, a cover over the bar's own corner) and the bar draws only what never moves. At progress 0 the surface's shape over the notch is the bar's own, so map/unmap is invisible. | Measured: with the bar widening in step from the same integer function, the two layer surfaces presented their frames independently and the notch sat one frame off the body (35-42 px ledges on close/cold open). With the band in the popup window, every frame of every sequence measured seam-exact. The Dashboard already covered its notch the same way. |
+| D4 | `SeamlessBarShape` moved off Canvas in Phase 9 (earlier than planned) onto `geometry.js barSilhouette` + CurveRenderer, same corners and rounding. | Measured: the Canvas (8x MSAA layer) repainted a frame or more behind its inputs — up to 77 px of notch lag mid-pour — at 2.28 vs 0.80 ms/frame. Only one Canvas changed, per §27.2's intent. |
 | D5 | Motion is its own singleton (`Motion`, registered once in `src/qmldir`), not tokens inside `ThemeSet`. | `tests/lib/theme-stub.sh` regex-parses ThemeSet property declarations; motion is not a per-output quantity. |
 | D6 | Roadmaps copied into `roadmaps/` in apex-shell. | `ROADMAP/` above the repos is not under version control. |
 
@@ -33,11 +33,11 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
 | 2 Visual tokens | IN PROGRESS | `ThemeSet`: radius roles XS–Full, `notchShoulder`/`notchBottom`, spacing scale | 0 | check-scale-tokens 49/0 | control heights, typography roles, surface roles (Colors) still to add — brief §C.3–C.5 |
 | 3 Interaction primitives | NOT STARTED | `src/components/controls/Apex*.qml` | 1, 2 | qmltestrunner press/keyboard tests | a11y adoption in `CfgRow` must keep working |
 | 4 Parametric shape engine | IMPLEMENTED | `src/shapes/fluid/{geometry.js,FluidShape.qml}`, `tests/fluid-geometry-test.js`, `tests/visual/fluid-harness.{sh,qml}` | 1 | geometry suite 129/0; harness sheets reviewed, joins zoomed | GPU cost of CurveRenderer unmeasured |
-| 5 Shape families | IN PROGRESS | CENTER_BLOOM, RIGHT_POUR (+ `rightPourWidth`), LEFT_SPILL, EDGE_SPILL (right) built from the design brief; `barNotch` | 4 | per-family sweeps + character checks in the geometry suite; harness sheets | CAPSULE, PIVOT_POP, QUIET_SHEET, LENS_REVEAL, STACK_REFLOW are motion-only families, built with their surfaces |
-| 6 Surface lifecycle | IN PROGRESS | `SurfaceLifecycle.qml` (linear progress on open, fastDecel on close, content delay 40/in 130/out 70); Dashboard migrated | 1 | lifecycle suite 13/0 | remaining popups migrate with their redesign; CI step asserting applyOpenState to be replaced once they do |
+| 5 Shape families | IN PROGRESS | CENTER_BLOOM, RIGHT_POUR (+ `rightPourWidth`; now draws the notch band, shoulder and corner cover), LEFT_SPILL, EDGE_SPILL (right); `barNotch`, `barSilhouette` | 4 | geometry suite 147/0: per-family sweeps, character checks, pour-at-0 equals the bar notch pixel for pixel, corner cover, cover clear of the icons (mutants caught) | CAPSULE, PIVOT_POP, QUIET_SHEET, LENS_REVEAL, STACK_REFLOW are motion-only families, built with their surfaces |
+| 6 Surface lifecycle | IN PROGRESS | `SurfaceLifecycle.qml` (linear progress on open, fastDecel on close, content delay 40/in 130/out 70); under Reduce Motion a close holds the finished shape while it fades (brief B.10); a close+reopen in one tick is a no-op. Dashboard and the right panel migrated | 1 | lifecycle suite 15/0 | remaining popups migrate with their redesign; the CI applyOpenState step now asserts the right panel's clock waits for the panel |
 | 7 Connected navigation | IN PROGRESS | `TabSwitcher.qml`: one pill per switcher travels to the chosen tab (selection token, emphasizedDecel; armed after first placement); tabs draw hover only. `LazyPage.qml`: directional enter/exit (pageTravel, page token), interruption-safe. Dashboard derives direction from tab order via `shownPage` | 1, 3 | nav-geometry 4398/16 (pre-existing), wheel 16/0, settings-controls 16/0, a11y 26/0, rtl 37/0, popup smoke clean; `capture-surfaces.sh … tabs` sheets fwd/back | Nexus `NavPane` still pending (Phase 13) |
 | 8 Dashboard v2 | IMPLEMENTED (motion) | `Dashboard.qml` on CENTER_BLOOM + SurfaceLifecycle, content at final layout under the bloom clip; `TopBar.cWidth` no longer widens for it; `SeamlessBarShape` on the notch tokens, whole-pixel positions | 4–7 | captures cold/warm at 2.5x (`tests/visual/capture-surfaces.sh`), shoulder zoom; popup/nexus smoke, scaling 88/0 | page redesign is Phase 17 |
-| 9 Right quick surfaces | NOT STARTED | `NetworkPopup`, `NotificationsPopup` container, toast, `AudioPopup`, `QuickControl` | 4–7 | captures | multi-monitor: network popup has no `screen:` |
+| 9 Right quick surfaces | IN PROGRESS (9a IMPLEMENTED) | 9a: `RightPanel.qml` — Network, the notification centre and the toast as panes of ONE RIGHT_POUR surface per screen (`NetworkPane`, `NotificationsPane`, `NotificationToast` now Items); clock `TopBar.rightLife`, starting only once the panel is built; pane switch keeps the body open and retargets W/D over `page`, panes cross-fade (incoming waits `contentDelay`); `OpenPill` on the owning glyph, no ▾, icons stay; network tabs arrive directionally; panel bound to its screen. 9b: Audio under the right notch, QuickControl EDGE_SPILL | 4–7 | captures cold/warm/switch/toast (private bus)/Reduce Motion, per-frame seam measurement; service-tier 88/0, popup smoke, scaling, lint ratchets lowered (legacy 32, easing 27, unresolved 2) | Network depth still fixed at 648 (content-sized is Phase 17) |
 | 10 Left surfaces | NOT STARTED | `ArchMenu`, `PowerMenu` | 4–6 | captures | labwc: PopupDismiss unmapped for ArchMenu |
 | 11 Notifications stack | NOT STARTED | `NotificationList`, toast | 1, 6 | stack harness | no notification source headless (use notify-send stub path) |
 | 12 Launcher | NOT STARTED | `AppLauncher.qml` | 1–3 | first-keypress test | the launcher agent's fix landed (PR #25, 99c5ab7) and main is merged here (6ce1653); the 8 unlisted literals are its ratchet |
@@ -66,6 +66,9 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
 
 | Where | Roadmap says | Implemented | Why |
 |---|---|---|---|
+| Right notch while a panel is open | brief A.2: the bar widens its notch, `rWidth = W(p)` | the bar's notch stays at its natural width; the panel draws the widened band over it | a moving edge split across two layer surfaces is a frame off itself (measured, D3) |
+| Toast while a panel is open | — | not shown; a toast on screen is dismissed when Network or the centre opens; opening the centre drops the queue; a toast arriving while the centre is open is not queued | the body belongs to the open panel; the centre already lists every one of them |
+| Toast state | a global `Popups.notificationToastOpen` read by every bar | each screen's panel pushes its own toast state to its own bar | one screen's dismiss used to close every bar's notch |
 | Audio popup | RIGHT_POUR | Moves to hang under the right notch as a RIGHT_POUR (its trigger lives in the notch); QuickControl, which is edge-triggered, becomes EDGE_SPILL | The design brief found a pour has no source at mid-edge; the user's instructions and both roadmaps name Audio as RIGHT_POUR. Moving it under its own trigger satisfies both. |
 | Dashboard height | — | The finished body's bottom is `notchHeight + dashboardHeight` (was `dashboardHeight` from the screen top) | Pages gain the 40 px the bar used to take, which fixes Home clipping its last tile row (brief §F.1); the setting now means "height below the bar". |
 | notchRadius default | brief: 15 → 12 | kept at 15; the bottom corner is now a derived token (14) | A default change is a product call for Andre. |
@@ -74,10 +77,15 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
 
 ## Resume notes (kept current)
 
-- Committed through Phase 7 (`4043edf`); the worktree is clean at each phase
-  commit. Next: Phase 9 (RIGHT_POUR right-side surfaces, the bar's right notch
-  width from `rightPourWidth`), then 10, 11, 12.
-- Before each phase commit: `tests/check-reduce-motion.sh`,
+- Committed through Phase 9a. Next: 9b (Audio as a RIGHT_POUR pane under the
+  right notch; QuickControl on EDGE_SPILL), then 10, 11, 12.
+- The toast capture needs a notification and must never send one to the desk:
+  `env -u WAYLAND_DISPLAY -u DISPLAY dbus-run-session -- env APEX_CAPTURE_BUS=private
+  tests/visual/capture-surfaces.sh OUT toast` (gdbus Notify — this host's
+  notify-send does not deliver to the private bus).
+- Before each phase commit: EVERY `tests/check-*.sh` (Phase 7 broke two that a
+  narrower list missed: agent-center's lazy-page grep and the white-foreground
+  ratchet), `tests/check-reduce-motion.sh`,
   `check-wheel-value.sh`, `node tests/{motion,fluid-geometry}-test.js`, the
   qmltestrunner suites (settings-controls, a11y-controls, rtl, lifecycle,
   password-shapes), `run-nav-geometry-test.sh` (16 pre-existing),
@@ -95,6 +103,7 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
 
 ## Verification log
 
+- 2026-09-26 — Phase 9a: one right panel; seam measured per frame on cold/warm open and close and both pane switches — exact after moving the band into the panel (was 35-77 px off with a Canvas bar, then one-frame ledges with a Shape bar); toast captured on a private bus; Reduce Motion close fades the finished shape. All `check-*.sh` green, node suites green, headless suites green except nav-geometry's 16 pre-existing. Fixed two Phase 7 regressions found by the full sweep.
 - 2026-09-26 — Phase 7: shared tab pill + directional pages on the Dashboard; forward/back tab sheets reviewed (pill lands ~290 ms, no pop); suites as in the phase row.
 - 2026-09-26 — Phase 8a: Dashboard on CENTER_BLOOM; cold open no longer squeezes the page; lint 22/0 (legacy 40, easing 35, unresolved 4); popup smoke, nexus smoke, scaling 88/0; nav-geometry 16 (pre-existing).
 - 2026-09-25 — password shapes (both screens), tokens, four shape families (geometry 129/0), Phase 1 motion + migration, lifecycle.

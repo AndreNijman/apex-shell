@@ -9,6 +9,9 @@ IconBtn {
     text: ShellState.dnd
           ? "󰂛"
           : NotificationService.count > 0 ? "󰂚" : "󰂜"
+    textColor: Popups.notificationsOpen ? Theme.active : Theme.text
+
+    OpenPill { shown: Popups.notificationsOpen }
 
     onClicked: {
         var next = !Popups.notificationsOpen

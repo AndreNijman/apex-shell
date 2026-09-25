@@ -170,10 +170,44 @@ TestCase {
         verify(l.alpha < 1, "but it does not pop in either: alpha " + l.alpha)
         tryCompare(l, "alpha", 1, 1000)
         l.open = false
-        compare(l.progress, 0, "nor out")
+        compare(l.progress, 1, "nor out: it leaves as its finished shape")
         compare(l.mapped, true, "and the window stays until the fade is done")
+        tryCompare(l, "alpha", 0, 1000)
         tryCompare(l, "mapped", false, 1000)
-        compare(l.alpha, 0)
+        compare(l.progress, 0, "and only then drops its shape")
+    }
+
+    function test_reduced_reopen_during_the_fade_keeps_the_shape() {
+        var l = make({ enterDuration: 0, exitDuration: 0 })
+        l.open = true
+        tryCompare(l, "alpha", 1, 1000)
+        l.open = false
+        wait(20)
+        verify(l.alpha > 0 && l.alpha < 1, "caught mid-fade: " + l.alpha)
+        l.open = true
+        compare(l.progress, 1)
+        tryCompare(l, "alpha", 1, 1000)
+        compare(l.phase, "Open")
+    }
+
+    function test_close_and_reopen_in_one_tick_is_a_no_op() {
+        // One lifecycle serving several panes (the right notch): switching pane
+        // runs closeAll() and then the next flag, synchronously. The surface
+        // must not notice.
+        var l = make()
+        l.open = true
+        tryCompare(l, "phase", "Open", 2000)
+        tryCompare(l, "content", 1, 2000)
+        l.open = false
+        l.open = true
+        compare(l.progress, 1, "the body did not move")
+        compare(l.content, 1, "the content did not dip")
+        compare(l.phase, "Open")
+        wait(120)
+        compare(l.progress, 1); compare(l.content, 1); compare(l.alpha, 1)
+        compare(l.phase, "Open", "and nothing is left settling underneath")
+        l.open = false
+        tryCompare(l, "mapped", false, 2000)
     }
 
     function test_no_motion_at_all_still_maps_and_unmaps() {

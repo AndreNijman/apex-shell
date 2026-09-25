@@ -75,25 +75,18 @@ Scope {
         }
     }
 
-    // Right notch
-    LazyPopup {
-        wanted: Popups.notificationsOpen
-        NotificationsPopup {
-            anchorWindow: root.topBar
-        }
-    }
-
-    // Standardised pill-popup: anchored to the top bar like NotificationsPopup,
-    // so the card's flush top lands exactly at the pill's bottom edge.
+    // Right notch — the network panel, the notification centre and the toast,
+    // as panes of one surface that pours out of the notch (RightPanel.qml).
     //
-    // NOT gated on Popups.notificationToastOpen: that flag is written ONLY by
-    // the toast itself, so gating construction on it deadlocked — the window
-    // was never built, so it never listened for a notification, so nothing ever
-    // set the flag, so toasts never appeared at all. The service's own record of
-    // the last announced notification is the real trigger.
+    // The toast's trigger is NOT Popups.notificationToastOpen: that flag is
+    // written ONLY by the toast itself, so gating construction on it alone was
+    // a deadlock — no window, so no listener, so nothing ever set the flag, so
+    // toasts never appeared at all. The service's own record of the last
+    // announced notification is the real trigger.
     LazyPopup {
-        wanted: Popups.notificationToastOpen || NotificationService.lastToast !== null
-        NotificationToast {
+        wanted: Popups.networkOpen || Popups.notificationsOpen
+                || Popups.notificationToastOpen || NotificationService.lastToast !== null
+        RightPanel {
             anchorWindow: root.topBar
         }
     }
@@ -105,11 +98,6 @@ Scope {
         ScreenRecOptionsPopup {
             anchorWindow: root.topBar
         }
-    }
-
-    LazyPopup {
-        wanted: Popups.networkOpen
-        NetworkPopup {}
     }
 
     // Desktop right-click menu. Full-screen overlay rather than an anchored

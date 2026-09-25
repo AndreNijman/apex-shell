@@ -173,7 +173,8 @@ for (const scale of [0.85, 1.0, 1.5]) {
 
     // ── RIGHT_POUR ──────────────────────────────────────────────────────────
     section("RIGHT_POUR at scale " + scale);
-    const rg = { winW: px(495), strip: px(6), notchW: px(213), w: px(495), h: px(648), r: px(17) };
+    const rg = { winW: px(495) + px(15), strip: px(6), seam: px(40), shoulder: px(15), notchBottom: px(14),
+                 notchW: px(213), w: px(495), h: px(648), r: px(17) };
     sweep("pour", G.rightPour, rg,
           (r, g) => r.bounds.y === 0 && near(r.bounds.x + r.bounds.w, g.winW),
           ["W", "Dr"]);
@@ -189,13 +190,53 @@ for (const scale of [0.85, 1.0, 1.5]) {
     check("pour mid-way: the bottom-left trails the right edge", m.Dl < m.Dr - 1, m.Dl.toFixed(1) + " < " + m.Dr.toFixed(1));
     let same = true;
     for (let i = 0; i <= 100; i++) {
-        const p = i / 100;
-        if (G.rightPour(p, rg).bar.notchW !== G.rightPourWidth(p, rg.notchW, rg.w)) same = false;
-        if (!Number.isInteger(G.rightPourWidth(p, rg.notchW, rg.w))) same = false;
+        const p = i / 100, W = G.rightPour(p, rg).params.W;
+        if (W !== G.rightPourWidth(p, rg.notchW, rg.w) || !Number.isInteger(W)) same = false;
     }
-    check("pour and the bar read one integer width function", same);
-    check("pour squares the bar's notch corner the moment it starts, restores it at 0",
-          G.rightPour(0.001, rg).bar.notchBottomLeft === 0 && G.rightPour(0, rg).bar.notchBottomLeft === -1);
+    check("pour's width is one integer function of p (its left edge is a whole pixel)", same);
+
+    // ── The bar, and what the surfaces draw over it ────────────────────────
+    section("BAR silhouette at scale " + scale);
+    const bw = px(1920), bg = { w: bw, strip: px(6), h: px(40), shoulder: px(15), bottom: px(14),
+                                leftW: px(200), centerW: px(300), rightW: rg.notchW, rightBottomL: px(14) };
+    const bar = G.barSilhouette(bg), barPts = polyline(bar.segs, 32);
+    const bk = [];
+    for (let k = 1; k < bar.segs.length; k++) {
+        if (bar.segs[k - 1].sharp || bar.segs[k].sharp) continue;
+        const a = tangentEnd(bar.segs[k - 1]), b = tangentStart(bar.segs[k]);
+        if (a && b && a[0] * b[0] + a[1] * b[1] < 0.9995) bk.push(k);
+    }
+    check("bar: no kinks at any join", bk.length === 0, bk.join(","));
+    check("bar: the outline never crosses itself", !selfIntersects(barPts));
+    const b0c = G.centerBloom(0, Object.assign({}, cg, { cx: bw / 2, notchW: bg.centerW })).params;
+    check("bar: the centre notch's edges are the bloom's at progress 0",
+          bar.params.cS === b0c.L && bar.params.cE === b0c.R,
+          bar.params.cS + "," + bar.params.cE + " vs " + b0c.L + "," + b0c.R);
+    const oddBar = G.barSilhouette(Object.assign({}, bg, { centerW: bg.centerW + 1 })).params;
+    check("bar: whole-pixel centre edges for an odd width", Number.isInteger(oddBar.cS) && Number.isInteger(oddBar.cE));
+
+    // The pour over the bar's right notch. Window x → screen x is + (bw - winW).
+    const off = bw - rg.winW, rS = bar.params.rS, rbN = bar.params.rbR;
+    const pourPts = p => polyline(G.rightPour(p, rg).segs, 32);
+    const p0 = pourPts(0);
+    let differ = [];
+    for (let y = 0.41; y < bg.h; y += 1)
+        for (let x = rS - bg.shoulder + 0.37; x < rS + rbN - 0.5; x += 1)
+            if (inside(p0, x - off, y) !== inside(barPts, x, y)) differ.push(x.toFixed(0) + "," + y.toFixed(0));
+    check("pour at p=0 is the bar's own notch where it draws (shoulder, side, corner)",
+          differ.length === 0, differ.length + " px differ, e.g. " + differ.slice(0, 4).join(" "));
+    let bites = [];
+    for (let i = 5; i <= 100; i++) {
+        const p = i / 100, pts = pourPts(p);
+        for (let y = bg.h - rbN + 0.41; y < bg.h; y += 1)
+            for (let x = rS + 0.37; x < rS + rbN; x += 1)
+                if (!inside(pts, x - off, y)) { bites.push(p.toFixed(2)); y = bg.h; break; }
+    }
+    check("pour covers the bar's rounded corner once the body has depth (no wallpaper bite)",
+          bites.length === 0, bites.slice(0, 6).join(","));
+    const cov = G.rightPour(0.5, rg).params.cover + off;
+    check("pour's cover stays left of the notch's padding (never over the status icons)",
+          cov <= rS + px(16), cov + " vs " + (rS + px(16)));
 
     // ── LEFT_SPILL ──────────────────────────────────────────────────────────
     section("LEFT_SPILL at scale " + scale);

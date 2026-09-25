@@ -74,7 +74,19 @@ Item {
         if (!_ethernet && _signal <= 0) return Qt.rgba(1,1,1,0.28)
         if (_offline)                   return Theme.danger
         if (_limited)                   return Theme.warning
-        return hov.hovered ? Theme.active : Theme.text
+        return hov.hovered || root._openOn("wifi") ? Theme.active : Theme.text
+    }
+
+    // Whether the network panel is up on this tab — the glyph that opened it
+    // wears the open pill. A hidden glyph (Bluetooth with nothing connected)
+    // hands its pill to the transport icon, so the open state is never lost.
+    function _openOn(page) {
+        if (!Popups.networkOpen) return false
+        var p = Popups.networkPage !== "" ? Popups.networkPage : "wifi"
+        if (p === "bluetooth" && !root._bluetoothConnected) p = "wifi"
+        if (p === "vpn" && !ShellState.vpnActive) p = "wifi"
+        if (p === "hotspot" && !ShellState.hotspot) p = "wifi"
+        return p === page
     }
 
     // BlueZ is already exposed as a live Quickshell model. Deriving this here
@@ -109,8 +121,9 @@ Item {
             text:           "󰦝"
             font.pixelSize: theme.fs(16)
             anchors.verticalCenter: parent.verticalCenter
-            color:          hov.hovered ? Theme.active : Theme.text
+            color:          hov.hovered || root._openOn("vpn") ? Theme.active : Theme.text
             Behavior on color { MotionColor {} }
+            OpenPill { shown: root._openOn("vpn") }
             MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
@@ -130,6 +143,7 @@ Item {
             font.pixelSize: theme.fs(16)
             anchors.verticalCenter: parent.verticalCenter
             Behavior on color { MotionColor { role: "state" } }
+            OpenPill { shown: root._openOn("wifi") }
             MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
@@ -147,8 +161,9 @@ Item {
             text:           "󰂱"
             font.pixelSize: theme.fs(16)
             anchors.verticalCenter: parent.verticalCenter
-            color:          hov.hovered ? Theme.active : Theme.text
+            color:          hov.hovered || root._openOn("bluetooth") ? Theme.active : Theme.text
             Behavior on color { MotionColor {} }
+            OpenPill { shown: root._openOn("bluetooth") }
             MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
@@ -168,6 +183,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             color:          Theme.active
             Behavior on color { MotionColor { role: "state" } }
+            OpenPill { shown: root._openOn("hotspot") }
             MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor

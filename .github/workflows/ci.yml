@@ -861,10 +861,22 @@ jobs:
 
           # Every popup wrapped in a LazyPopup that gates itself on a
           # windowVisible flag has to expose that entry point.
-          for f in NetworkPopup NotificationsPopup ClipboardPopup WallpaperPopup; do
+          for f in ClipboardPopup WallpaperPopup; do
             grep -q 'function applyOpenState' "src/popups/$f.qml" \
               || { echo "✗ src/popups/$f.qml cannot receive its first open"; fail=1; }
           done
+
+          # The right notch's panel (network, centre, toast) needs no entry
+          # point for its FLAGS: its clock is TopBar.rightLife, which reads the
+          # flags itself and starts once the panel reports it exists. The
+          # toast's trigger is not a flag, so the panel must still hand the
+          # build-time notification to its toast pane.
+          grep -q 'rightHostReady = true' src/popups/RightPanel.qml \
+            && grep -qE 'open: +root\.rightWanted !== "" && root\.rightHostReady' src/windows/TopBar.qml \
+            || { echo "✗ the right panel's clock no longer waits for the panel it drives"; fail=1; }
+          grep -q 'function applyOpenState() { toast.applyOpenState() }' src/popups/RightPanel.qml \
+            && grep -q 'function applyOpenState' src/popups/NotificationToast.qml \
+            || { echo "✗ the toast pane cannot claim the notification that built its panel"; fail=1; }
 
           # The toast's own flag is written ONLY by the toast, so gating its
           # construction on that flag alone is a deadlock: no window, so no

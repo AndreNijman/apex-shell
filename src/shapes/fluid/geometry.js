@@ -165,6 +165,65 @@ function barNotch(g) {
     return { path: P.toString(), segs: P.segs };
 }
 
+// ── The whole bar ───────────────────────────────────────────────────────────
+// The top strip and its three notches as ONE silhouette — what
+// SeamlessBarShape draws. It used to be a Canvas (arcTo corners, an 8x MSAA
+// layer): measured, it repainted a frame or more behind the value it was
+// given, so under RIGHT_POUR the notch trailed the body hanging from it by up
+// to 77 px mid-pour, and it cost 2.28 ms a frame against a Shape's 0.80
+// (BASELINE §3). This is the same geometry, corner for corner, for the same
+// renderer the surfaces use, so the two now change in the same frame.
+//
+//   g.w                      the bar's width (the output's)
+//   g.strip, g.h             strip bottom edge and notch height (the seam)
+//   g.shoulder, g.bottom     the two notch radii (ThemeSet notchShoulder/Bottom)
+//   g.leftW, g.centerW, g.rightW   the notches' widths; left and right sit on
+//                            the screen edges, the centre is centred
+//   g.rightBottomL           the right notch's bottom-left radius (0 while a
+//                            pane hangs below it)
+//
+// Whole-pixel positions: the centre notch's edges round exactly as
+// CENTER_BLOOM's do, so the Dashboard and the bar agree at progress 0.
+function barSilhouette(g) {
+    var w = g.w, b = g.strip, h = g.h, r = g.shoulder;
+    var side = Math.max(0, h - b - r);                 // room on a notch's side
+    function rb(v, notchW) { return Math.max(0, Math.min(v, side, notchW / 2)); }
+    var lW = Math.round(g.leftW), rW = Math.round(g.rightW);
+    var cS = Math.round(w / 2) - Math.round(g.centerW / 2);
+    var cE = cS + Math.round(g.centerW);
+    var rS = w - rW;
+    var rbL = rb(g.bottom, lW), rbC = rb(g.bottom, cE - cS), rbR = rb(g.rightBottomL, rW);
+
+    var P = new Path();
+    P.move(0, h);
+    // Left notch: along its bottom, up its right side, out along the strip.
+    P.line(lW - rbL, h);
+    P.corner(lW, h - rbL, "h");
+    P.line(lW, b + r);
+    P.corner(lW + r, b, "v");
+    // Centre notch.
+    P.line(cS - r, b);
+    P.corner(cS, b + r, "h");
+    P.line(cS, h - rbC);
+    P.corner(cS + rbC, h, "v");
+    P.line(cE - rbC, h);
+    P.corner(cE, h - rbC, "h");
+    P.line(cE, b + r);
+    P.corner(cE + r, b, "v");
+    // Right notch: down its left side, along its bottom to the screen edge.
+    P.line(rS - r, b);
+    P.corner(rS, b + r, "h");
+    P.line(rS, h - rbR);
+    if (rbR > 0) P.corner(rS + rbR, h, "v");
+    else P.step(rS, h);
+    P.line(w, h, true);
+    P.step(w, 0);
+    P.step(0, 0);
+    P.close();
+    return { path: P.toString(), segs: P.segs,
+             params: { lW: lW, cS: cS, cE: cE, rS: rS, rbL: rbL, rbC: rbC, rbR: rbR } };
+}
+
 // ── CENTER_BLOOM ────────────────────────────────────────────────────────────
 // The Dashboard: the centre notch BECOMES the surface. Drawn in the fullscreen
 // Dashboard window, from y = 0, over the bar's own notch — at p = 0 it is that
@@ -227,14 +286,26 @@ function centerBloom(p, g) {
 }
 
 // ── RIGHT_POUR ──────────────────────────────────────────────────────────────
-// Network, Notifications and the toast, under the right notch. Drawn in the
-// popup window, whose y = 0 is the seam (the notch's bottom edge) and whose
-// right edge is the screen's. The BAR widens its notch to the same width in
-// step — rightPourWidth() below is the one function both sides call — so there
-// is one neck (the bar's own strip → notch shoulder) and one straight left edge.
+// Network, the notification centre and the toast, out of the right notch.
+// Drawn in the panel window, whose y = 0 is the SCREEN top and whose right
+// edge is the screen's; the seam (the notch's bottom edge) is at y = g.seam.
 //
-//   g.winW        the popup window's width (its right edge is the screen's)
-//   g.strip       the right strip's width (border width)
+// The panel draws everything that moves — the widened band of the notch, its
+// shoulder out of the strip, and a cover over the bar's own bottom-left corner
+// — and the bar draws only its natural notch, which never moves. The first
+// version had the bar widen its notch in step, from the same width function;
+// measured on the headless compositor, two layer surfaces present their frames
+// independently, and the notch sat a frame off the body — a 35-42 px ledge —
+// on a close and on a cold open. An edge drawn in one window cannot be a
+// frame off itself. At p = 0 this silhouette over the bar's notch is exactly
+// the bar's own (same shoulder, same corner), so mapping and unmapping it are
+// invisible; the Dashboard covers the centre notch the same way.
+//
+//   g.winW        the panel window's width (its right edge is the screen's)
+//   g.strip       the top/right strip's width (border width)
+//   g.seam        the notch height (the seam's y)
+//   g.shoulder    the notch shoulder radius (ThemeSet.notchShoulder)
+//   g.notchBottom the notch's bottom corner radius (ThemeSet.notchBottom)
 //   g.notchW      the notch's natural width right now (live; W0)
 //   g.w           finished width (panel width + notch radius; W1)
 //   g.h           finished depth below the seam (D1)
@@ -254,34 +325,45 @@ function rightPourWidth(p, w0, w1) {
 }
 function rightPour(p, g) {
     p = clamp01(p);
-    var b = g.strip;
+    var b = g.strip, H = g.seam, rs = g.shoulder;
     var W  = rightPourWidth(p, g.notchW, g.w);
     var Dr = g.h * standard(p);
     var lagMax = Math.max(6, Math.min(28, 0.045 * g.h));
     var Dl = Math.max(0, Dr - lagMax * Math.sin(Math.PI * p));
     var f  = Math.min(g.r, Dr / 2);                     // the melt into the strip
-    var rbl = Math.min(g.r + 18 * Math.sin(Math.PI * p), Dl / 2, W / 2);
 
     var X0 = g.winW - W, X1 = g.winW;
-    var P = new Path();
-    P.move(X0, 0);
-    P.step(X1, 0);                                       // the seam, square
-    P.step(X1, Dr + f);                                  // down the screen edge
-    P.step(X1 - b, Dr + f);                              // (over the strip)
-    P.corner(X1 - b - f, Dr, "v");                       // melt into the strip
-    P.sHorz(X0 + rbl, Dl, 0.45);                         // bottom edge, sagging
-    P.corner(X0, Dl - rbl, "h");                         // bottom-left
-    P.close();                                           // up the left edge
+    // The band reaches over the bar's own notch by its corner radius, so the
+    // bar's rounded bottom-left corner is covered from below the moment the
+    // body has depth; the bar needs no state for it. notchPadding >= that
+    // radius, so the cover never reaches the status icons.
+    var cover = g.winW - g.notchW + g.notchBottom;
+    // Bottom-left: the notch's own corner at p = 0, the body's (bulging
+    // 17 → 35 → 17) once it has depth; never more than its sides allow.
+    var bodyR = g.r + 18 * Math.sin(Math.PI * p);
+    var rbl = lerp(g.notchBottom, bodyR, smooth(span(p, 0, 0.12)));
+    rbl = Math.max(0, Math.min(rbl, H + Dl - b - rs, W / 2));
 
-    var inset = 0;
+    var P = new Path();
+    P.move(X0 - rs, 0);
+    P.step(cover, 0);                                    // over the strip
+    P.step(cover, H);                                    // (inside the bar's notch)
+    P.step(X1, H);                                       // the seam, under it
+    P.step(X1, H + Dr + f);                              // down the screen edge
+    P.step(X1 - b, H + Dr + f);                          // (over the strip)
+    P.corner(X1 - b - f, H + Dr, "v");                   // melt into the strip
+    P.sHorz(X0 + rbl, H + Dl, 0.45);                     // bottom edge, sagging
+    P.corner(X0, H + Dl - rbl, "h");                     // bottom-left
+    P.line(X0, b + rs);                                  // up the left edge
+    P.corner(X0 - rs, b, "v");                           // the shoulder
+    P.close();                                           // up into the strip
+
     return {
         path: P.toString(), segs: P.segs,
-        bounds: { x: X0, y: 0, w: W, h: Dr + f },
-        clip: { x: X0 + inset, y: 0, w: Math.max(0, W - b), h: Math.max(0, Math.min(Dl, Dr)) },
-        params: { W: W, Dr: Dr, Dl: Dl, f: f, rbl: rbl },
-        // What the bar draws in the same frame: its notch at this width, and
-        // its bottom-left corner square while anything is attached below.
-        bar: { notchW: W, notchBottomLeft: p > 0 ? 0 : -1 }
+        bounds: { x: X0 - rs, y: 0, w: X1 - X0 + rs, h: H + Dr + f },
+        clip: { x: X0, y: H, w: Math.max(0, W - b), h: Math.max(0, Math.min(Dl, Dr)) },
+        params: { W: W, Dr: Dr, Dl: Dl, f: f, rbl: rbl, X0: X0, cover: cover },
+        bar: {}
     };
 }
 
@@ -389,7 +471,7 @@ if (typeof module !== "undefined" && module.exports)
         clamp01: clamp01, lerp: lerp, span: span, smooth: smooth, decel: decel, accel: accel,
         curve: curve, fastDecel: fastDecel, standard: standard,
         standardDecel: standardDecel, emphasizedDecel: emphasizedDecel,
-        barNotch: barNotch,
+        barNotch: barNotch, barSilhouette: barSilhouette,
         centerBloom: centerBloom,
         rightPourWidth: rightPourWidth, rightPour: rightPour,
         leftSpill: leftSpill, edgeSpillRight: edgeSpillRight

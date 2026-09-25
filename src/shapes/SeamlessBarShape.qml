@@ -1,16 +1,23 @@
 import QtQuick
+import QtQuick.Shapes
 import "../"
+import "fluid/geometry.js" as Geo
 
-Canvas {
+// ─────────────────────────────────────────────────────────────────────────────
+// SeamlessBarShape — the top strip and its three notches, one silhouette.
+//
+// Drawn by the same renderer as every fluid surface (QtQuick.Shapes
+// CurveRenderer, path from geometry.js barSilhouette). It was a Canvas with an
+// 8x multisampled layer; measured under the first RIGHT_POUR, that repainted a
+// frame or more behind its inputs, so the notch visibly trailed the body
+// hanging from it — up to 77 px mid-pour — and cost almost three times as much
+// a frame. Same geometry, same corners, same whole-pixel rounding.
+// ─────────────────────────────────────────────────────────────────────────────
+Shape {
     id: root
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
     anchors.fill: parent
-
-    // Multisample the canvas so the notch curves are crisp, not stair-stepped.
-    layer.enabled: true
-    layer.samples:  8
-    layer.smooth:   true
 
     // These are set by TopBar.qml with the real clamped widths.
     // They default to the Theme constraints so the shape is never empty.
@@ -28,89 +35,30 @@ Canvas {
     property int topBorderWidth:  theme.borderWidth
     property color color:         Theme.background
 
-    // Right notch bottom-left corner radius. TopBar animates this to 0 while a
-    // pill-popup hangs under the right notch, so the pill's left edge runs
-    // straight into the popup's square top-left corner — one merged shape.
+    // Right notch bottom-left corner radius. The right panel covers this
+    // corner itself while it is attached (geometry.js rightPour), so TopBar
+    // leaves it at the notch's own; it stays a property for a surface that
+    // cannot.
     property real rightBottomRadius: bottomRadius
 
-    onWidthChanged:             requestPaint()
-    onHeightChanged:            requestPaint()
-    onLeftWidthChanged:         requestPaint()
-    onCenterWidthChanged:       requestPaint()
-    onRightWidthChanged:        requestPaint()
-    onColorChanged:             requestPaint()
-    onRightBottomRadiusChanged: requestPaint()
+    readonly property var result: Geo.barSilhouette({
+        w:            root.width,
+        strip:        root.topBorderWidth,
+        h:            root.notchHeight,
+        shoulder:     root.radius,
+        bottom:       root.bottomRadius,
+        leftW:        root.leftWidth,
+        centerW:      root.centerWidth,
+        rightW:       root.rightWidth,
+        rightBottomL: root.rightBottomRadius
+    })
 
-    onPaint: {
-        var ctx = getContext("2d");
-        ctx.reset();
+    preferredRendererType: Shape.CurveRenderer
 
-        var leftW   = root.leftWidth
-        var centerW = root.centerWidth
-        var rightW  = root.rightWidth
-
-        var r  = root.radius         // shoulders (concave, out of the strip)
-        var rb = root.bottomRadius   // bottom corners (convex)
-        var h = root.notchHeight
-        var b = root.topBorderWidth
-        var w = width
-
-        // Calculated positions — whole pixels, the same rounding CENTER_BLOOM
-        // applies, so an odd width never leaves a half-pixel seam between the
-        // bar's notch and the surface drawn over it.
-        var centerStart = Math.round(w / 2) - Math.round(centerW / 2)
-        var centerEnd   = centerStart + Math.round(centerW)
-        var rightStart  = w - rightW
-
-        ctx.beginPath();
-        ctx.fillStyle = root.color;
-
-        // ============================
-        // 1. LEFT NOTCH
-        // ============================
-        ctx.moveTo(0, h);
-        ctx.lineTo(leftW - rb, h);
-        ctx.arcTo(leftW, h, leftW, h - rb, rb);
-        ctx.lineTo(leftW, b + r);
-        ctx.arcTo(leftW, b, leftW + r, b, r);
-
-        // ============================
-        // 2. GAP 1 (Left → Center)
-        // ============================
-        ctx.lineTo(centerStart - r, b);
-
-        // ============================
-        // 3. CENTER NOTCH
-        // ============================
-        ctx.arcTo(centerStart, b, centerStart, b + r, r);
-        ctx.lineTo(centerStart, h - rb);
-        ctx.arcTo(centerStart, h, centerStart + rb, h, rb);
-        ctx.lineTo(centerEnd - rb, h);
-        ctx.arcTo(centerEnd, h, centerEnd, h - rb, rb);
-        ctx.lineTo(centerEnd, b + r);
-        ctx.arcTo(centerEnd, b, centerEnd + r, b, r);
-
-        // ============================
-        // 4. GAP 2 (Center → Right)
-        // ============================
-        ctx.lineTo(rightStart - r, b);
-
-        // ============================
-        // 5. RIGHT NOTCH
-        // ============================
-        var rb = root.rightBottomRadius
-        ctx.arcTo(rightStart, b, rightStart, b + r, r);
-        ctx.lineTo(rightStart, h - rb);
-        ctx.arcTo(rightStart, h, rightStart + rb, h, rb);
-        ctx.lineTo(w, h);
-
-        // ============================
-        // 6. CLOSE LOOP
-        // ============================
-        ctx.lineTo(w, 0);
-        ctx.lineTo(0, 0);
-        ctx.lineTo(0, h);
-
-        ctx.fill();
+    ShapePath {
+        fillColor:   root.color
+        strokeWidth: -1
+        strokeColor: "transparent"
+        PathSvg { path: root.result.path }
     }
 }

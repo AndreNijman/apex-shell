@@ -17,7 +17,10 @@ import "../"
 //   progress   0..1, SPATIAL. Shape geometry is a pure function of it. It
 //              animates from wherever it is, so reversing half-way through an
 //              open or a close continues from the current shape with no jump.
-//              Under Reduce Motion it jumps (its durations are spatial tokens).
+//              Under Reduce Motion it jumps (its durations are spatial tokens):
+//              to 1 on open, and to 0 on close only once `alpha` has faded —
+//              the surface leaves as its finished shape, not as whatever its
+//              progress-0 geometry is (for a pour, nothing at all).
 //   content    0..1, the content inside the surface. It arrives a beat after
 //              the body starts moving and leaves ahead of it, on effect tokens,
 //              so it survives Reduce Motion as a short fade.
@@ -134,19 +137,28 @@ QtObject {
 
     function _drive() {
         var to = life.open ? 1 : 0
-        if (!life.open) life._settling = true
+        // A close and a reopen in the same tick — `closeAll()` followed by the
+        // next surface's flag, with one lifecycle shared by both — must be a
+        // no-op, not a close that is still "settling" underneath an open one.
+        life._settling = !life.open
         life._announced = false
+        var spatial = (life.open ? life.enterDuration : life.exitDuration) > 0
 
-        // Body.
+        // Body. With no spatial motion a close HOLDS the shape: it fades out
+        // whole and drops to 0 in _check once alpha has gone (brief B.10:
+        // "exits opacity … then unmap").
         life._pAnim.easing.bezierCurve = life.open ? life.enterCurve : life.exitCurve
-        life._run(life._pAnim, life.progress, to,
-                  life._dur(life.open ? life.enterDuration : life.exitDuration, life.progress, to))
+        if (spatial || life.open)
+            life._run(life._pAnim, life.progress, to,
+                      life._dur(life.open ? life.enterDuration : life.exitDuration, life.progress, to))
+        else
+            life._pAnim.stop()
 
         // Surface opacity. While spatial motion is on, the body is opaque for
         // its whole life — it arrives and leaves by changing shape, and closed()
         // drops alpha only once it has finished. With no spatial motion (Reduce
         // Motion) the shape is simply there, and a short fade is how it arrives.
-        if ((life.open ? life.enterDuration : life.exitDuration) > 0) {
+        if (spatial) {
             life._aAnim.stop()
             life.alpha = 1
         } else {
@@ -184,6 +196,9 @@ QtObject {
         // Closing and nothing left moving: make sure every value is at rest
         // (a zero-duration run sets it directly), then release the window.
         if (life._settling) {
+            // A shape held through a Reduce Motion fade goes once it is unseen.
+            if (life.progress > 0 && life.alpha <= 0 && life.exitDuration <= 0)
+                life.progress = 0
             if (life.progress <= 0 && life.content <= 0) {
                 life.alpha = 0
                 life._settling = false

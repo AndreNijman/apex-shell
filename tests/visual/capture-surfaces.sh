@@ -21,6 +21,7 @@
 #                      (default 1200 — the slider's maximum — so a 70 ms grim
 #                      cadence lands ~15 frames inside one open)
 #   CAPTURE_MODE       output mode, default 1920x1080
+#   CAPTURE_REDUCED    true to capture with Reduce Motion on (default false)
 #   CAPTURE_FRAMES     frames grabbed per open / per close burst (default 14)
 #   CAPTURE_PALETTE    colors.json to seed (default: the shipped example is a
 #                      template, so a fixed dark palette is written instead)
@@ -67,7 +68,7 @@ headless_start labwc "$mode" || exit 0
 ud="$HOME/.config/apex-shell/src/user_data"
 mkdir -p "$ud" "$HOME/.cache/apex-shell"
 cat > "$ud/settings.json" <<JSON
-{"cornerRadius":17,"borderWidth":6,"notchRadius":15,"notchHeight":40,"barEnabled":false,"spacing":10,"exclusionGap":34,"animDuration":${anim},"reduceMotion":false,"dashboardWidth":900,"dashboardHeight":520,"notificationsWidth":400,"lockBackground":"","scaleMode":"auto","scaleManual":1,"scaleScreen":"","nightLightTemp":5600,"motionSpeed":"balanced","motionScale":$(python3 -c "print(round(${anim}/320, 3))")}
+{"cornerRadius":17,"borderWidth":6,"notchRadius":15,"notchHeight":40,"barEnabled":false,"spacing":10,"exclusionGap":34,"animDuration":${anim},"reduceMotion":${CAPTURE_REDUCED:-false},"dashboardWidth":900,"dashboardHeight":520,"notificationsWidth":400,"lockBackground":"","scaleMode":"auto","scaleManual":1,"scaleScreen":"","nightLightTemp":5600,"motionSpeed":"balanced","motionScale":$(python3 -c "print(round(${anim}/320, 3))")}
 JSON
 if [ -n "${CAPTURE_PALETTE:-}" ] && [ -f "$CAPTURE_PALETTE" ]; then
     cp "$CAPTURE_PALETTE" "$HOME/.cache/apex-shell/colors.json"
@@ -149,8 +150,44 @@ tab_switch() {
     echo "captured tabs"
 }
 
+# Changing pane under the right notch while it is open: Network → the
+# notification centre → Network. One body, retargeting; it must not close.
+pane_switch() {
+    ipc wifi-toggle toggle; sleep 1.2
+    t0=$(date +%s%N); ipc notification-toggle toggle; burst "switch-to-centre" "$t0"
+    sleep 0.6
+    t0=$(date +%s%N); ipc wifi-toggle toggle; burst "switch-to-network" "$t0"
+    sleep 0.6
+    ipc wifi-toggle toggle; sleep 1.2
+    echo "captured switch"
+}
+
+# A notification toast. It needs a notification to arrive, and this harness
+# must never send one to the user's own desktop, so it runs only on a PRIVATE
+# session bus: dbus-run-session -- env APEX_CAPTURE_BUS=private <this script>.
+toast_seq() {
+    if [ "${APEX_CAPTURE_BUS:-}" != private ]; then
+        echo "toast: skipped — needs a private session bus (APEX_CAPTURE_BUS=private under dbus-run-session)"
+        return
+    fi
+    # gdbus, not notify-send: this host's notify-send never delivered to the
+    # private bus (measured: the server answered, onNotification never ran).
+    t0=$(date +%s%N)
+    gdbus call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications \
+        --method org.freedesktop.Notifications.Notify "Capture" 0 "" \
+        "A toast from the capture harness" "Two lines of body text, so the card has some depth to pour to." \
+        "[]" "{}" 5000 >/dev/null 2>&1 || echo "toast: the notification was not delivered"
+    burst "toast-open" "$t0"
+    # It dismisses itself 5000 ms after it shows; stamp the close from there.
+    burst "toast-close" "$(( t0 + 5000000000 ))"
+    sleep 1
+    echo "captured toast"
+}
+
 for s in "${want[@]}"; do
     if [ "$s" = tabs ]; then tab_switch; continue; fi
+    if [ "$s" = switch ]; then pane_switch; continue; fi
+    if [ "$s" = toast ]; then toast_seq; continue; fi
     [ -n "${OPEN[$s]+x}" ] || { echo "unknown surface: $s"; continue; }
     if [ -z "${OPEN[$s]}" ]; then
         grab "$s-static"

@@ -133,11 +133,67 @@ PanelWindow {
           )
     Behavior on cWidth { MotionMove { role: "page"; curve: Motion.standard } }
 
-    // Width matches sizer open width: popupWidth + notchRadius (fw) in both popups
-    property int rWidth: Math.max(
+    // ── The right notch, and the clock of what pours out of it ──────────────
+    // (UI/UX roadmap v3 Phase 9, RIGHT_POUR)
+    // Network, the notification centre and the toast are panes of ONE surface
+    // under this notch (popups/RightPanel.qml). Its lifecycle lives HERE, in the
+    // bar, because the bar is the one party always present — the panel is built
+    // lazily and cannot be referenced from here, but it can read this.
+    //
+    // The notch itself does not move. The panel draws the part that does — the
+    // band the notch widens into, its shoulder, a cover over this notch's own
+    // bottom-left corner — in the same window and frame as the body under it.
+    // The first cut had this notch widen in step from the same width function;
+    // measured, the two layer surfaces present their frames independently and
+    // the notch sat a frame off the body (a 35-42 px ledge on a close). It
+    // replaces three `states` and a Transition that tweened rWidth on its own
+    // InOutCubic while each popup tweened a sizer on another.
+
+    // The notch's own width: its content's, clamped (the pour's W0).
+    readonly property int rNaturalWidth: Math.max(
         theme.rNotchMinWidth,
         Math.min(theme.rNotchMaxWidth, rightContent.implicitWidth + theme.notchPadding * 2)
     )
+    readonly property int rWidth: root.rNaturalWidth
+
+    // Which pane the flags ask for. The centre and the network panel are
+    // mutually exclusive (every trigger runs closeAll() first); the toast
+    // shows only when neither is up.
+    readonly property string rightWanted: Popups.notificationsOpen ? "notifications"
+                                        : Popups.networkOpen       ? "network"
+                                        : root.rightToastShowing   ? "toast" : ""
+    // Pushed by RightPanel: whether its toast pane has something to show (per
+    // screen — the old global flag let one screen's dismiss close every bar),
+    // and that the panel exists at all. The clock does not start before the
+    // panel is built: its first build blocks the thread, and an animation
+    // started before it would be most of the way through on its first frame.
+    property bool rightToastShowing: false
+    property bool rightHostReady:    false
+
+    // The pane on screen. Held through a close, so the body shrinks back from
+    // the shape it had rather than from the natural notch.
+    property string rightPane: ""
+    onRightWantedChanged: if (root.rightWanted !== "") root.rightPane = root.rightWanted
+
+    readonly property SurfaceLifecycle rightLife: SurfaceLifecycle {
+        open:          root.rightWanted !== "" && root.rightHostReady
+        enterDuration: Motion.surfaceEnterSmall
+        exitDuration:  Motion.surfaceExitSmall
+    }
+
+    // The finished width of the pane (W1): never narrower than the notch it
+    // hangs from, so a wide status cluster is not clipped by its own panel.
+    readonly property int rightPaneWidth: root.rightPane === "network"       ? theme.networkPopupWidth + theme.notchRadius
+                                        : root.rightPane === "notifications" ? theme.notificationsWidth + theme.notchRadius
+                                        : root.rightPane === "toast"         ? theme.notificationToastWidth + theme.notchRadius
+                                        : root.rNaturalWidth
+    property real rightTargetW: Math.max(root.rightPaneWidth, root.rNaturalWidth)
+    // Switching pane while the panel is up retargets the width over a page
+    // beat (progress stays 1); from closed it is simply the new pane's.
+    Behavior on rightTargetW {
+        enabled: root.rightLife.progress > 0
+        MotionMove { role: "page"; curve: Motion.standard }
+    }
 
     // ── Border strip (focus mode) ────────────────────────────────────────────
     // Painted behind the notch content layer. Visible only when focus mode
@@ -160,32 +216,6 @@ PanelWindow {
             NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
         }
         
-        states: [
-        State {
-            name: "notifications"
-            when: Popups.notificationsOpen
-            PropertyChanges { target: root; rWidth: theme.notificationsWidth + theme.notchRadius }
-        },
-        State {
-            name: "network"
-            when: Popups.networkOpen && !Popups.notificationsOpen
-            PropertyChanges { target: root; rWidth: theme.networkPopupWidth + theme.notchRadius }
-        },
-        State {
-            name: "toast"
-            when: Popups.notificationToastOpen && !Popups.notificationsOpen && !Popups.networkOpen
-            // Matches the toast card width exactly (standardised pill-popup)
-            PropertyChanges { target: root; rWidth: theme.notificationToastWidth + theme.notchRadius }
-        }
-    ]
-
-    transitions: [
-        Transition {
-            // This animation ONLY runs when switching between popups (and toasts) and the base state.
-            NumberAnimation { property: "rWidth"; duration: Theme.animDuration; easing.type: Easing.InOutCubic }
-        }
-    ]
-
         SeamlessBarShape {
             id: barShape
             anchors.fill: parent
@@ -193,14 +223,6 @@ PanelWindow {
             centerWidth: root.cWidth
             rightWidth:  root.rWidth
 
-            // Un-round the right notch's bottom-left corner while a pill-popup
-            // hangs under it, so pill + popup merge into one straight edge.
-            rightBottomRadius: (Popups.notificationsOpen || Popups.networkOpen
-                                || Popups.notificationToastOpen)
-                ? 0 : theme.notchBottom
-            Behavior on rightBottomRadius {
-                NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
-            }
         }
 
         Item {

@@ -87,12 +87,6 @@ ShellRoot {
     // The toast window can be built BY the notification it is meant to show, so
     // the service's signal is then a SECOND delivery of the same object. That
     // showed the same notification twice, five seconds apart.
-    PanelWindow {
-        id: toastAnchor
-        visible: false
-        implicitWidth:  420
-        implicitHeight: 40
-    }
 
     component FakeNote: QtObject {
         property bool tracked: true
@@ -107,9 +101,10 @@ ShellRoot {
     readonly property FakeNote noteA: FakeNote {}
     readonly property FakeNote noteB: FakeNote {}
 
+    // The toast is a pane of RightPanel now, an Item; its queue logic is what
+    // is probed here, and it needs no window.
     NotificationToast {
         id: toastProbe
-        anchorWindow: toastAnchor
     }
 
     // A ref we destroy outright, to prove Component.onDestruction releases.
