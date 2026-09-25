@@ -264,7 +264,8 @@ Item {
 					clip:   true
 
 					// Hover only; the selection is the shared pill behind.
-					color: !hTab.isActive && hHov.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
+					// A tint of the palette's own text colour, so it reads on a light palette too.
+					color: !hTab.isActive && hHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) : "transparent"
 
 					Behavior on color { MotionColor { role: "state" } }
 
@@ -423,7 +424,7 @@ Item {
 					radius: theme.cornerRadius * 2
 					clip:   true
 
-					color: !vTab.isActive && vHov.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+					color: !vTab.isActive && vHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : "transparent"
 
 					Behavior on color { MotionColor { role: "state" } }
 
