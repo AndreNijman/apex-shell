@@ -38,6 +38,9 @@ Item {
     property real radius: theme.radiusS
     property real pressedScale: Motion.pressScale
     property real hitMargin: 0
+    // Whether a pointer press takes keyboard focus. Off for a button that sits
+    // beside a field the user is typing in (it must not take the keys away).
+    property bool focusOnPress: true
 
     readonly property bool hovered: hov.hovered && root.interactive
     readonly property bool pressed: root._pressed
@@ -112,8 +115,10 @@ Item {
         anchors.margins: -root.hitMargin
         enabled: root.interactive
         onPressed: {
-            root._pointerFocus = true
-            root.forceActiveFocus()
+            if (root.focusOnPress) {
+                root._pointerFocus = true
+                root.forceActiveFocus()
+            }
             root._pressed = true
         }
         onReleased: root._pressed = false

@@ -1,50 +1,26 @@
 import QtQuick
 import QtQuick.Controls
 import "../../"
+import "../../components/controls"
 
-// A compact icon button for a session row.
+// A small glyph button with a tooltip (the Agent Center's row actions).
 //
-// Its own component rather than components/IconBtn.qml because these sit inside
-// a row that is itself tappable: the button has to CONSUME the tap, or clicking
-// Stop would also focus the terminal. `gesturePolicy: TapHandler.ReleaseWithinBounds`
-// on the row is not enough — the handlers are siblings in the same item tree, so
-// the inner one has to claim the point.
-
-Rectangle {
+// ApexIconButton (UI/UX roadmap v3 Phase 16): transparent at rest, the state
+// layer on hover and press, a .96 dip, a ring for keyboard focus only, and
+// reachable with Tab and operable with Space/Return — it was pointer-only. A
+// press does not take focus, so it never takes the keys from a field beside it.
+ApexIconButton {
     id: btn
-    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
-
 
     property string icon: ""
     property string tip: ""
-    signal activated()
 
-    width: theme.px(26)
-    height: theme.px(26)
-    radius: theme.px(5)
-    color: hover.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.14)
-                         : "transparent"
+    glyph: btn.icon
+    size: theme.px(26)
+    glyphSize: theme.fs(12)
+    focusOnPress: false
+    Accessible.name: btn.tip !== "" ? btn.tip : btn.icon
 
-    Behavior on color { MotionColor {} }
-
-    Text {
-        anchors.centerIn: parent
-        text: btn.icon
-        font.pixelSize: theme.fs(12)
-        color: hover.hovered ? Theme.text : Theme.subtext
-    }
-
-    HoverHandler { id: hover }
-
-    TapHandler {
-        // Claiming the grab is what stops the tap reaching the row underneath.
-        gesturePolicy: TapHandler.WithinBounds
-        onTapped: function(point) {
-            btn.activated()
-        }
-    }
-
-    ToolTip.visible: hover.hovered && btn.tip !== ""
+    ToolTip.visible: btn.hovered && btn.tip !== ""
     ToolTip.text: btn.tip
-    ToolTip.delay: 400
 }

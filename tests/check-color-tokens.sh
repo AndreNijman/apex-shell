@@ -342,7 +342,9 @@ fi
 # ProfileButton draw with the palette's roles (src/theme/roles.js, checked on
 # all twelve shipped palettes) instead of translucent whites. Still not light-
 # mode ready at 204.
-EXPECT_WHITE_FG=204
+#
+# 204 -> 199 with Phase 16: CfgSwitch, CfgSegmented, CfgSlider, CfgTextField.
+EXPECT_WHITE_FG=199
 n_white=$(grep -rnE '^[[:space:]]*color:.*Qt\.rgba\([[:space:]]*1[[:space:]]*,[[:space:]]*1[[:space:]]*,[[:space:]]*1' "$SRC" \
           | wc -l | tr -d ' ')
 if [ "$n_white" -eq "$EXPECT_WHITE_FG" ]; then

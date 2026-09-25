@@ -1,11 +1,19 @@
 import QtQuick
 import "../../"
+import "../controls"
 
 // Wrapping set of selectable pills. `options` accepts either an array of strings
 // or an array of { value, label }. Bind `value`; handle `selected(value)`.
 // An option may also carry `dimmed: true` and a `hint`: it is drawn greyed out
 // but stays selectable — for a choice that works but is not a good fit, where
 // the caller explains why once it is picked.
+//
+// Each pill is an ApexPressable (UI/UX roadmap v3 Phase 16): it dips when
+// pressed, hovers as a state layer, rings only for keyboard focus, and draws
+// with the palette's roles. The chosen one is surfaceSelected with its label
+// in the accent at once. Unlike the tabs, the selection does not travel
+// between pills: this is a Flow that wraps, and a pill sliding across rows
+// reads worse than a cross-fade on the state beat.
 Flow {
     id: root
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
@@ -17,7 +25,7 @@ Flow {
 
     Repeater {
         model: root.options
-        delegate: Rectangle {
+        delegate: ApexPressable {
             id: pill
             required property var modelData
             readonly property var    _val: (modelData && modelData.value !== undefined) ? modelData.value : modelData
@@ -32,35 +40,29 @@ Flow {
             // the CfgRow around it; what a pill must say for itself is which
             // option it is and whether it is the chosen one.
             objectName: "cfgSegmentedPill"
-            activeFocusOnTab:     true
             Accessible.role:      Accessible.RadioButton
             Accessible.checkable: true
             Accessible.checked:   pill.active
             Accessible.name:      String(pill._lbl)
             Accessible.description: pill._hint
-            Accessible.onPressAction: root.selected(pill._val)
-
-            Keys.onPressed: function(event) {
-                if (event.key === Qt.Key_Space || event.key === Qt.Key_Return
-                    || event.key === Qt.Key_Enter) {
-                    root.selected(pill._val)
-                    event.accepted = true
-                }
-            }
+            function choose() { root.selected(pill._val) }
+            onActivated: pill.choose()
 
             height: 26
             width:  t.implicitWidth + 20
-            opacity: pill.dimmed ? (pill.active ? 0.7 : 0.4) : 1.0
-            radius: 7
-            color: active
-                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
-                : (h.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04))
-            border.width: 1
-            border.color: active
-                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.42)
-                : Qt.rgba(1,1,1,0.10)
-            Behavior on color        { MotionColor { role: "state" } }
-            Behavior on border.color { MotionColor { role: "state" } }
+            radius: theme.radiusS
+            Rectangle {
+                anchors.fill: parent
+                radius: pill.radius
+                opacity: pill.dimmed ? (pill.active ? 0.7 : 0.4) : 1.0
+                color: pill.tint(pill.active ? Theme.surfaceSelected : Theme.surfaceRaised)
+                border.width: 1
+                border.color: pill.active
+                    ? Qt.rgba(Theme.accentText.r, Theme.accentText.g, Theme.accentText.b, 0.42)
+                    : Theme.outlineSoft
+                Behavior on color        { MotionColor { role: "state" } }
+                Behavior on border.color { MotionColor { role: "state" } }
+            }
 
             Text {
                 id: t
@@ -68,22 +70,11 @@ Flow {
                 text:           pill._lbl
                 font.pixelSize: theme.fs(11)
                 font.weight:    pill.active ? Font.Medium : Font.Normal
-                color:          pill.active ? Theme.active : Qt.rgba(1,1,1,0.62)
+                // At once, so the choice reads before anything else moves.
+                color:          pill.active ? Theme.accentText : Theme.textSecondary
+                opacity:        pill.dimmed ? (pill.active ? 0.7 : 0.55) : 1.0
             }
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: -2
-                radius: 9
-                color: "transparent"
-                border.width: 2
-                border.color: Theme.active
-                visible: pill.activeFocus
-            }
-            HoverHandler { id: h; cursorShape: Qt.PointingHandCursor }
-            MouseArea {
-                anchors.fill: parent
-                onClicked: { pill.forceActiveFocus(); root.selected(pill._val) }
-            }
+            ApexFocusRing { target: pill }
         }
     }
 }
