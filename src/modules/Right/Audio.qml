@@ -41,8 +41,10 @@ Item {
         Text {
             id: iconText
             text:           root.icon
-            color:          hov.hovered || Popups.audioOpen ? Theme.active : Theme.text
-            font.pixelSize: theme.fs(18)
+            color:          Popups.audioOpen ? Theme.accentText
+                          : hov.hovered ? Theme.textPrimary : Theme.iconDefault
+            font.pixelSize: theme.typeIcon
+            font.family:    Theme.fontIcon
             anchors.verticalCenter: parent.verticalCenter
             Behavior on color { MotionColor {} }
             OpenPill { shown: Popups.audioOpen }
@@ -55,13 +57,14 @@ Item {
             implicitHeight: pctText.implicitHeight
             clip: true
             anchors.verticalCenter: parent.verticalCenter
-            Behavior on implicitWidth { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
+            Behavior on implicitWidth { MotionMove { curve: Motion.standard } }
         
             Text {
                 id: pctText
                 text:           root.pct + "%"
-                color:          hov.hovered ? Theme.active : Theme.text
-                font.pixelSize: theme.fs(12)
+                color:          hov.hovered ? Theme.textPrimary : Theme.textSecondary
+                font.pixelSize: theme.typeBodySmall
+                font.features:  { "tnum": 1 }
                 anchors.verticalCenter: parent.verticalCenter
                 Behavior on color { MotionColor {} }
             }

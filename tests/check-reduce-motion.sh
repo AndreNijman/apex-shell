@@ -222,9 +222,9 @@ N_UNLISTED=$(printf '%s\n' "$FIND" | awk -F'\t' '$1=="literal"' | while IFS=$'\t
 # ── THE RATCHETS ──
 # Lower them as call sites move to Motion. Never raise one.
 EXPECT_UNLISTED_LITERAL=0
-EXPECT_LEGACY=16
+EXPECT_LEGACY=14
 EXPECT_UNRESOLVED=2
-EXPECT_EASING=12
+EXPECT_EASING=10
 EXPECT_LOOP_UNGATED=0
 
 if [ "$N_UNLISTED" -eq "$EXPECT_UNLISTED_LITERAL" ]; then

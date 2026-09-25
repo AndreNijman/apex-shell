@@ -9,7 +9,7 @@ IconBtn {
     text: ShellState.dnd
           ? "󰂛"
           : NotificationService.count > 0 ? "󰂚" : "󰂜"
-    textColor: Popups.notificationsOpen ? Theme.active : Theme.text
+    textColor: Popups.notificationsOpen ? Theme.accentText : Theme.iconDefault
 
     OpenPill { shown: Popups.notificationsOpen }
 

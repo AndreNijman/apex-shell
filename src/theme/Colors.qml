@@ -189,10 +189,13 @@ QtObject {
     function surfacePressed(c) { return _c(Roles.pressed(c, root.text)) }
 
     // --- Workspace Visuals ---
-    property color wsBackground: "#20000000"
-    property color wsActive:     "#FFFFFF"
-    property color wsOccupied:   "#80FFFFFF"
-    property color wsEmpty:      "#30FFFFFF"
+    // On the palette's roles (brief §C.5): the active workspace was the one
+    // pure white in the shell, the others translucent whites that only ever
+    // read on a dark surface.
+    property color wsBackground: root.surfaceHigh
+    property color wsActive:     root.textPrimary
+    property color wsOccupied:   root.textSecondary
+    property color wsEmpty:      root.outlineStrong
     property color wsOverlay:    "#CC1e1e2e"
     property color wsUrgent:     "#fa6b94"
 }

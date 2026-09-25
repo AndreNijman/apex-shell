@@ -29,7 +29,7 @@ Item {
         //anchors.centerIn: parent
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 6
+        spacing: theme.spaceS   // 8 within the cluster (brief §D.4)
 
         // Third-party bar widgets (roadmap §16). Leftmost in the cluster so the
         // shell's own indicators keep the positions users have muscle memory

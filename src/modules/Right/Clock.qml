@@ -30,11 +30,18 @@ Text {
             return Time.format("hh:mm")
         }
     }
-    color: clockHov.hovered ? Theme.active : Theme.text
-    Behavior on color { MotionColor {} }
-    font.bold: true
+    // 14 / 600 / tabular figures in the UI face (brief §C.4, §D.4): the bar's
+    // anchor, calm — not mono (mono is for telemetry inside panels), and no
+    // accent on hover (the accent in the bar means "open").
+    color: Theme.textPrimary
+    font.family: Theme.fontUi
+    font.weight: Font.DemiBold
+    font.features: { "tnum": 1 }
     anchors.verticalCenter: parent.verticalCenter
-    font.pixelSize: theme.fs(16)
+    font.pixelSize: theme.fs(14)
+    // The gap between groups is 12 (cluster | clock | bell); the row's is 8.
+    leftPadding: theme.px(2)
+    rightPadding: theme.px(2)
 
     property int formatMode: 0
 

@@ -71,10 +71,14 @@ Item {
     }
 
     readonly property color _netColor: {
-        if (!_ethernet && _signal <= 0) return Qt.rgba(1,1,1,0.28)
+        // The bar's colour rule (brief §D.3): passive at rest, primary on
+        // hover, the accent only for a state — here, its panel being open.
+        // Disconnected reads as off, not as an error.
+        if (!_ethernet && _signal <= 0) return Theme.textTertiary
         if (_offline)                   return Theme.danger
         if (_limited)                   return Theme.warning
-        return hov.hovered || root._openOn("wifi") ? Theme.active : Theme.text
+        if (root._openOn("wifi"))       return Theme.accentText
+        return hov.hovered ? Theme.textPrimary : Theme.iconDefault
     }
 
     // Whether the network panel is up on this tab — the glyph that opened it
@@ -119,9 +123,10 @@ Item {
         Text {
             visible:        ShellState.vpnActive
             text:           "󰦝"
-            font.pixelSize: theme.fs(16)
+            font.pixelSize: theme.typeIcon
+            font.family:    Theme.fontIcon
             anchors.verticalCenter: parent.verticalCenter
-            color:          hov.hovered || root._openOn("vpn") ? Theme.active : Theme.text
+            color:          root._openOn("vpn") ? Theme.accentText : hov.hovered ? Theme.textPrimary : Theme.iconDefault
             Behavior on color { MotionColor {} }
             OpenPill { shown: root._openOn("vpn") }
             MouseArea {
@@ -140,7 +145,8 @@ Item {
             id: netIcon
             text:           root._netIcon
             color:          root._netColor
-            font.pixelSize: theme.fs(16)
+            font.pixelSize: theme.typeIcon
+            font.family:    Theme.fontIcon
             anchors.verticalCenter: parent.verticalCenter
             Behavior on color { MotionColor { role: "state" } }
             OpenPill { shown: root._openOn("wifi") }
@@ -159,9 +165,10 @@ Item {
         Text {
             visible:        root._bluetoothConnected
             text:           "󰂱"
-            font.pixelSize: theme.fs(16)
+            font.pixelSize: theme.typeIcon
+            font.family:    Theme.fontIcon
             anchors.verticalCenter: parent.verticalCenter
-            color:          hov.hovered || root._openOn("bluetooth") ? Theme.active : Theme.text
+            color:          root._openOn("bluetooth") ? Theme.accentText : hov.hovered ? Theme.textPrimary : Theme.iconDefault
             Behavior on color { MotionColor {} }
             OpenPill { shown: root._openOn("bluetooth") }
             MouseArea {
@@ -179,9 +186,11 @@ Item {
         Text {
             visible:        ShellState.hotspot
             text:           "󰀂"
-            font.pixelSize: theme.fs(14)
+            font.pixelSize: theme.typeIcon
+            font.family:    Theme.fontIcon
             anchors.verticalCenter: parent.verticalCenter
-            color:          Theme.active
+            // A hotspot running is a state, so the accent.
+            color:          Theme.accentText
             Behavior on color { MotionColor { role: "state" } }
             OpenPill { shown: root._openOn("hotspot") }
             MouseArea {

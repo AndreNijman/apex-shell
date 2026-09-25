@@ -40,7 +40,8 @@ IconBtn {
     text: logo.status === Image.Ready
               ? ""
               : (distroGlyphs[distroId] !== undefined ? distroGlyphs[distroId] : "")
-    textColor: Theme.active
+    // The APEX mark is accent-coloured by design (brief §D.3's one exception).
+    textColor: Theme.accentText
 
     // The asset is a fixed chartreuse spark. Drawn raw it stayed green while the
     // rest of the bar followed the wallpaper, so it is recoloured to the live
