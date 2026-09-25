@@ -19,14 +19,19 @@ Canvas {
     property int rightWidth:  theme.rNotchMinWidth
 
     property int notchHeight:     theme.notchHeight
-    property int radius:          theme.notchRadius
+    // The two radii of a notch are two tokens (ThemeSet): the concave
+    // SHOULDER out of the strip and the convex BOTTOM corner. Surfaces that
+    // grow out of a notch read the same pair, so at progress 0 they are this
+    // shape exactly.
+    property int radius:          theme.notchShoulder
+    property int bottomRadius:    theme.notchBottom
     property int topBorderWidth:  theme.borderWidth
     property color color:         Theme.background
 
     // Right notch bottom-left corner radius. TopBar animates this to 0 while a
     // pill-popup hangs under the right notch, so the pill's left edge runs
     // straight into the popup's square top-left corner — one merged shape.
-    property real rightBottomRadius: radius
+    property real rightBottomRadius: bottomRadius
 
     onWidthChanged:             requestPaint()
     onHeightChanged:            requestPaint()
@@ -44,14 +49,17 @@ Canvas {
         var centerW = root.centerWidth
         var rightW  = root.rightWidth
 
-        var r = root.radius
+        var r  = root.radius         // shoulders (concave, out of the strip)
+        var rb = root.bottomRadius   // bottom corners (convex)
         var h = root.notchHeight
         var b = root.topBorderWidth
         var w = width
 
-        // Calculated positions
-        var centerStart = (w / 2) - (centerW / 2)
-        var centerEnd   = (w / 2) + (centerW / 2)
+        // Calculated positions — whole pixels, the same rounding CENTER_BLOOM
+        // applies, so an odd width never leaves a half-pixel seam between the
+        // bar's notch and the surface drawn over it.
+        var centerStart = Math.round(w / 2) - Math.round(centerW / 2)
+        var centerEnd   = centerStart + Math.round(centerW)
         var rightStart  = w - rightW
 
         ctx.beginPath();
@@ -61,8 +69,8 @@ Canvas {
         // 1. LEFT NOTCH
         // ============================
         ctx.moveTo(0, h);
-        ctx.lineTo(leftW - r, h);
-        ctx.arcTo(leftW, h, leftW, h - r, r);
+        ctx.lineTo(leftW - rb, h);
+        ctx.arcTo(leftW, h, leftW, h - rb, rb);
         ctx.lineTo(leftW, b + r);
         ctx.arcTo(leftW, b, leftW + r, b, r);
 
@@ -75,10 +83,10 @@ Canvas {
         // 3. CENTER NOTCH
         // ============================
         ctx.arcTo(centerStart, b, centerStart, b + r, r);
-        ctx.lineTo(centerStart, h - r);
-        ctx.arcTo(centerStart, h, centerStart + r, h, r);
-        ctx.lineTo(centerEnd - r, h);
-        ctx.arcTo(centerEnd, h, centerEnd, h - r, r);
+        ctx.lineTo(centerStart, h - rb);
+        ctx.arcTo(centerStart, h, centerStart + rb, h, rb);
+        ctx.lineTo(centerEnd - rb, h);
+        ctx.arcTo(centerEnd, h, centerEnd, h - rb, rb);
         ctx.lineTo(centerEnd, b + r);
         ctx.arcTo(centerEnd, b, centerEnd + r, b, r);
 

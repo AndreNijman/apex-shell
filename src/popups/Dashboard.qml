@@ -3,41 +3,65 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import "../shapes"
+import "../shapes/fluid"
 import "../components"
 import "../modules/Center/"
 import '../services/'
 import "../"
 
-// Dashboard — PanelWindow required for TextInput keyboard focus on Wayland.
-// Uses WlrKeyboardFocus.Exclusive so TextInputs inside pages receive key events.
+// ─────────────────────────────────────────────────────────────────────────────
+// Dashboard — the centre notch, grown into the shell's workspace.
 //
-// Positioning mirrors the original PopupWindow behaviour: the sizer's top sits
-// exactly at the notch-bar bottom (topMargin: Theme.notchHeight), so there is
-// no vertical offset compared to the PopupWindow version.
-
+// PanelWindow, fullscreen on its output, Overlay layer: TextInputs inside the
+// pages need WlrKeyboardFocus.Exclusive, and a PopupWindow cannot have it.
+//
+// ── How it opens (UI/UX roadmap v3 Phase 8, CENTER_BLOOM) ───────────────────
+// The body is ONE silhouette drawn from the screen top, over the bar's own
+// centre notch: geometry.js's centerBloom at the lifecycle's progress. At
+// progress 0 it IS that notch — same width (a live binding to the bar's
+// cWidth), same shoulder and corner tokens — so the bar does not animate for
+// the Dashboard at all, and the window unmaps at 0 where the two coincide.
+// Width leads, depth follows from 18 %, the shoulders open into a wider join,
+// the corners land on radius XL. Nothing overshoots.
+//
+// The content does NOT squeeze through the morph. It is laid out once, at the
+// finished page width, in its finished place, and the bloom's clip reveals it;
+// it arrives a beat after the body starts (SurfaceLifecycle.content) and
+// leaves ahead of it. That is what fixes the two defects the baseline showed:
+// the first open laid every page out in a 300 px column, and the tab bar
+// re-measured itself at every intermediate width and popped its labels.
+//
+// The window's lifetime is the lifecycle's `mapped` — the close's completion,
+// not `animDuration + 20`.
+// ─────────────────────────────────────────────────────────────────────────────
 PanelWindow {
     id: root
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }   // P1-040: this output's sizes
 
 
-    // Kept so existing instantiation sites that pass anchorWindow: … still compile.
+    // The bar this Dashboard grows out of (shell.qml's per-screen TopBar).
     required property var anchorWindow
     readonly property string screenName: anchorWindow.screen ? anchorWindow.screen.name : ""
     readonly property bool open: Popups.dashboardOpen && Popups.dashboardScreen === screenName
     screen: anchorWindow.screen
 
-    readonly property int fw: theme.notchRadius
-    readonly property int fh: theme.notchRadius
-    readonly property int animDuration: Theme.animDuration
-
     property string page: Popups.dashboardPage
+
+    // ── Lifecycle ───────────────────────────────────────────────────────────
+    SurfaceLifecycle {
+        id: life
+        open: root.open
+        enterDuration: Motion.morphEnter
+        exitDuration:  Motion.morphExit
+        onClosed: tabBar.reset()
+    }
 
     // "A user can actually see this window right now." Pages hand this down to
     // their ServiceRefs; it is the difference between a poller that stops when
     // the dashboard closes and one that runs until logout. Item-level `visible`
     // is NOT a substitute: an Item inside an unmapped window still reports
     // visible === true.
-    readonly property bool pageLive: root.windowVisible && !LockState.locked
+    readonly property bool pageLive: life.mapped && !LockState.locked
 
     // ── Per-page content width ────────────────────────────────────────────────
     // The rule lives in DashboardLayout, not here: this is a PanelWindow, and a
@@ -56,8 +80,13 @@ PanelWindow {
         when:     root.open
     }
 
+    // The finished width the bloom is heading for. A page change while open
+    // (Home 900 → Apps 560) retargets it over a page beat; progress stays 1.
+    property real targetW: Popups.dashboardPageWidth
+    Behavior on targetW { MotionMove { role: "page"; curve: Motion.standard } }
+
     color:   "transparent"
-    visible: windowVisible
+    visible: life.mapped
 
     anchors.top:   true
     anchors.left:  true
@@ -71,94 +100,91 @@ PanelWindow {
     property bool wantsFocus: false
     WlrLayershell.keyboardFocus: wantsFocus ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
+    // A closing Dashboard must not keep eating the clicks that follow it: while
+    // it collapses, its input region is empty and the desktop is reachable.
+    mask: Region { item: root.open ? inputAll : null }
+    Item { id: inputAll; anchors.fill: parent }
+
     Timer {
         id: focusGrabTimer
         interval: 15
-        onTriggered: if (windowVisible && root.open) root.wantsFocus = true
+        onTriggered: if (life.mapped && root.open) root.wantsFocus = true
     }
-
-    property bool windowVisible: false
 
     onOpenChanged: {
         if (root.open) {
-            closeTimer.stop()
-            root.windowVisible = true
             focusGrabTimer.restart() // Delay the grab slightly
         } else {
             root.wantsFocus = false // Release instantly
             focusGrabTimer.stop()
-            closeTimer.restart()
         }
     }
+    Component.onCompleted: if (root.open) focusGrabTimer.restart()
 
-    Timer {
-        id: closeTimer
-        interval: root.animDuration + 20
-        onTriggered: {
-            root.windowVisible = false
-            tabBar.reset()
-        }
-    }
-
-    // ── Backdrop — closes popup when clicking outside the sizer ──────────────
+    // ── Backdrop — closes popup when clicking outside the body ──────────────
     MouseArea {
         anchors.fill: parent
         onClicked:    Popups.dashboardOpen = false
     }
 
-    // ── Sizer ─────────────────────────────────────────────────────────────────
-    // topMargin: Theme.notchHeight places the sizer top exactly at the notch
-    // bottom — identical to where PopupWindow put it. No fh subtraction, which
-    // was the source of the vertical offset in the text-working variant.
+    // ── Geometry ────────────────────────────────────────────────────────────
+    // What the bloom connects to, and where it ends. `notchW` is LIVE: a media
+    // title widening the notch while the Dashboard is up is what the body must
+    // shrink back into.
+    readonly property var bloomGeometry: ({
+        cx:          root.width / 2,
+        strip:       theme.borderWidth,
+        notchW:      root.anchorWindow ? root.anchorWindow.cWidth : theme.cNotchMinWidth,
+        notchH:      theme.notchHeight,
+        shoulder:    theme.notchShoulder,
+        notchBottom: theme.notchBottom,
+        w:           root.targetW,
+        h:           theme.notchHeight + theme.dashboardHeight,
+        r:           theme.radiusXL,
+        shoulderW1:  theme.px(28),
+        shoulderH1:  theme.px(22)
+    })
+
+    FluidShape {
+        id: body
+        anchors.fill: parent
+        family:   "centerBloom"
+        progress: life.progress
+        geometry: root.bloomGeometry
+        color:    Theme.background
+        opacity:  life.alpha
+
+        // Swallow clicks on the body so they do not reach the backdrop.
+        MouseArea {
+            x: body.result.bounds.x; y: body.result.bounds.y
+            width: body.result.bounds.w; height: body.result.bounds.h
+            onClicked: {}
+        }
+    }
+
+    // ── Content, at its finished layout, revealed by the bloom's clip ───────
+    readonly property int inset: DashboardLayout.contentInset(root.theme)
+    // The finished body, in window coordinates.
+    readonly property real finalLeft: Math.round(root.width / 2) - Math.round(Popups.dashboardPageWidth / 2)
+
     Item {
-        id: sizer
-        anchors.top:              parent.top
-        anchors.horizontalCenter: parent.horizontalCenter
+        id: reveal
+        x: body.result.clip.x; y: body.result.clip.y
+        width: body.result.clip.w; height: body.result.clip.h
         clip: true
 
-        width:  root.open ? Popups.dashboardPageWidth + 2 * root.fw : theme.cNotchMinWidth + 2 * root.fw
-        height: root.open ? theme.dashboardHeight : theme.notchHeight / 2
-
-        Behavior on width  { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
-        Behavior on height { NumberAnimation { duration: root.animDuration; easing.type: Easing.InOutCubic } }
-
-        MouseArea {
-            anchors.fill: parent
-            onClicked:    {}
-        }
-
-        // ── Background ────────────────────────────────────────────────────────
-        PopupShape {
-            anchors.fill: parent
-            attachedEdge: "top"
-            color:        Theme.background
-            radius:       theme.cornerRadius
-            flareWidth:   root.fw
-            flareHeight:  root.fh
-            // Start the melt at the top strip's bottom edge (tangent blend —
-            // no kink where the flare leaves the thin bar line).
-            edgeOffset:   theme.borderWidth
-        }
-
-        // ── Content ───────────────────────────────────────────────────────────
         Item {
             id: content
-            anchors {
-                fill:         parent
-                topMargin:    root.fh + DashboardLayout.contentInset(root.theme)
-                leftMargin:   root.fw + DashboardLayout.contentInset(root.theme)
-                rightMargin:  root.fw + DashboardLayout.contentInset(root.theme)
-                bottomMargin: DashboardLayout.contentInset(root.theme)
-            }
+            // Placed in WINDOW coordinates, whatever the clip is doing.
+            x: root.finalLeft + root.inset - reveal.x
+            y: theme.borderWidth + root.inset - reveal.y
+            width:  Popups.dashboardPageWidth - 2 * root.inset
+            height: theme.notchHeight + theme.dashboardHeight - theme.borderWidth - 2 * root.inset
 
-            opacity: root.open ? 1 : 0
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: root.open
-                        ? root.animDuration * 0.5
-                        : root.animDuration * 0.15
-                }
-            }
+            // Carried by the surface: it arrives a beat after the body starts,
+            // rising a little into place, and leaves first.
+            opacity: life.content
+            transform: Translate { y: (1 - life.content) * Motion.travel(theme.px(10)) }
 
             Column {
                 anchors.fill: parent

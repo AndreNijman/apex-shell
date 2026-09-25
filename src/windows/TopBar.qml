@@ -120,18 +120,18 @@ PanelWindow {
                  leftContent.implicitWidth + theme.notchPadding * 2)
     )
 
-    // cWidth uses Popups.dashboardPageWidth when the dashboard is open,
-    // so the center notch tracks the active tab's declared width.
-    property int cWidth: Popups.dashboardOpen && Popups.dashboardScreen === root.screenName
-        ? Popups.dashboardPageWidth
-        : Math.max(
+    // The centre notch's own width — its content's, clamped. It no longer
+    // widens to the Dashboard's page width while the Dashboard is open: the
+    // Dashboard draws its whole silhouette over the notch (CENTER_BLOOM) and
+    // starts from, and shrinks back into, exactly this width, read live. A
+    // notch tweening underneath a body that already covers it was motion
+    // nobody could see, and a second clock on the same edge.
+    property int cWidth: Math.max(
             theme.cNotchMinWidth,
             Math.min(theme.cNotchMaxWidth,
                      centerContent.implicitWidth + theme.notchPadding * 2)
           )
-    Behavior on cWidth {
-        NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
-    }
+    Behavior on cWidth { MotionMove { role: "page"; curve: Motion.standard } }
 
     // Width matches sizer open width: popupWidth + notchRadius (fw) in both popups
     property int rWidth: Math.max(
@@ -197,7 +197,7 @@ PanelWindow {
             // hangs under it, so pill + popup merge into one straight edge.
             rightBottomRadius: (Popups.notificationsOpen || Popups.networkOpen
                                 || Popups.notificationToastOpen)
-                ? 0 : theme.notchRadius
+                ? 0 : theme.notchBottom
             Behavior on rightBottomRadius {
                 NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
             }
