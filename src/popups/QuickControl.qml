@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.Pipewire
 import "../shapes/fluid"
+import "../shapes/fluid/geometry.js" as Geo
 import "../components"
 import "../services"
 import "../"
@@ -60,6 +61,18 @@ PanelWindow {
         if (root._wanted) { closeDelay.stop(); root._held = true }
         else closeDelay.restart()
     }
+    // Closing by the flag (the toggle, closeAll) is immediate. Only the
+    // pointer leaving gets the grace below — which is Popups.hoverCloseDelay,
+    // animDuration + 200, and made every keyboard close wait for it.
+    Connections {
+        target: Popups
+        function onQuickOpenChanged() {
+            if (!Popups.quickOpen && !Popups.quickTriggerHovered && !root._selfHovered) {
+                closeDelay.stop()
+                root._held = false
+            }
+        }
+    }
     // A moment's grace, so the pointer can cross from the strip to the panel.
     Timer {
         id: closeDelay
@@ -96,27 +109,38 @@ PanelWindow {
         BrightnessService.refresh()
 
     // ── Body ──────────────────────────────────────────────────────────────────
-    FluidShape {
-        id: body
+    Item {
+        id: bodyFade
         anchors.fill: parent
-        family:   "edgeSpillRight"
-        progress: life.progress
-        color:    Theme.background
         // The ridge a spill starts from (16 px wide, geometry.js) is already a
         // shape: it fades in over the next 24 px of width, so it neither appears
         // nor vanishes on one frame — keyed to WIDTH, because the extrusion is
         // so steep that by 8 % progress the body is already ~140 px wide, and a
         // fade over progress left a translucent box at the end of every close.
-        opacity:  life.alpha * Math.min(1, Math.max(0, (result.params.Wb - 16) / 24))
-        geometry: ({
-            x1:    root.width - theme.borderWidth,
-            edgeW: theme.borderWidth,
-            cy:    Math.round(root.height / 2),
-            w:     root.popupWidth,
-            h:     root.popupHeight,
-            r:     theme.radiusL,
-            rm:    theme.radiusM
-        })
+        // On the way out only: on the way in the first mapped frame is already
+        // far wider than the ramp. And on a wrapper, not on the shape: read
+        // from the shape's own opacity, its `result` was a binding loop (logged)
+        // that left the opacity a frame stale — a translucent first frame. It
+        // reads `closing`, not `open`, for the same reason (SurfaceLifecycle).
+        opacity:  life.alpha * (!life.closing ? 1 : Math.min(1, Math.max(0,
+                      (Geo.edgeSpillWidth(life.progress, body.geometry) - Geo.spillRidge(body.geometry)) / 24)))
+
+        FluidShape {
+            id: body
+            anchors.fill: parent
+            family:   "edgeSpillRight"
+            progress: life.progress
+            color:    Theme.background
+            geometry: ({
+                x1:    root.width - theme.borderWidth,
+                edgeW: theme.borderWidth,
+                cy:    Math.round(root.height / 2),
+                w:     root.popupWidth,
+                h:     root.popupHeight,
+                r:     theme.radiusL,
+                rm:    theme.radiusM
+            })
+        }
     }
 
     mask: Region { item: hit }

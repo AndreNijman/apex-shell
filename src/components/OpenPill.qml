@@ -21,7 +21,7 @@ Rectangle {
     z: -1
     width: pill.size; height: pill.size
     radius: height / 2
-    color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
+    color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22)
 
     visible: pill.opacity > 0
     opacity: pill.shown ? 1 : 0

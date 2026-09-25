@@ -112,24 +112,41 @@ PanelWindow {
     implicitHeight: theme.notchHeight + Math.max(root.networkDepth, theme.px(700)) + theme.radiusL
 
     // ── Body ────────────────────────────────────────────────────────────────
-    FluidShape {
-        id: body
-        anchors.fill: parent
-        family:   "rightPour"
-        progress: root.life.progress
-        color:    Theme.background
-        opacity:  root.life.alpha
-        geometry: ({
-            winW:        root.width,
-            strip:       theme.borderWidth,
-            seam:        theme.notchHeight,
-            shoulder:    theme.notchShoulder,
-            notchBottom: theme.notchBottom,
-            notchW:      root.anchorWindow.rNaturalWidth,
-            w:           root.anchorWindow.rightTargetW,
-            h:           root.targetD,
-            r:           theme.radiusL
-        })
+    // Under Reduce Motion a close holds the finished shape and fades it. The
+    // band above the seam is dropped instead of faded: fading it showed the
+    // bar's solid notch inside a translucent band for the length of the fade.
+    // So while such a close runs, everything above the seam is clipped away
+    // and the notch is the bar's own again from the first frame; only the
+    // body below fades.
+    Item {
+        id: bodyClip
+        readonly property bool bandGone: !root.life.open && root.life.exitDuration <= 0
+        y: bodyClip.bandGone ? theme.notchHeight : 0
+        width: root.width
+        height: root.height - bodyClip.y
+        clip: bodyClip.bandGone
+
+        FluidShape {
+            id: body
+            y: -bodyClip.y
+            width: root.width
+            height: root.height
+            family:   "rightPour"
+            progress: root.life.progress
+            color:    Theme.background
+            opacity:  root.life.alpha
+            geometry: ({
+                winW:        root.width,
+                strip:       theme.borderWidth,
+                seam:        theme.notchHeight,
+                shoulder:    theme.notchShoulder,
+                notchBottom: theme.notchBottom,
+                notchW:      root.anchorWindow.rNaturalWidth,
+                w:           root.anchorWindow.rightTargetW,
+                h:           root.targetD,
+                r:           theme.radiusL
+            })
+        }
     }
 
     mask: Region { item: root.life.open ? hit : null }
@@ -150,12 +167,13 @@ PanelWindow {
         // Cross-fade on a switch while the panel is up; from closed, the pane
         // is simply the one on screen and the surface's content channel
         // carries it in.
-        // The incoming pane waits a content beat, so the two are not both at
-        // half strength over each other.
+        // The incoming pane waits for the outgoing one's fade, so the two are
+        // never both at half strength over each other: out 70, then in 130 —
+        // the page beat the body's own retarget runs on.
         onCurrentChanged: {
             fade.stop()
             if (root.life.progress <= 0) { slot.opacity = slot.current ? 1 : 0; return }
-            fadeWait.duration = slot.current ? Motion.contentDelay : 0
+            fadeWait.duration = slot.current ? Motion.fadeOut : 0
             fadeMove.to = slot.current ? 1 : 0
             fadeMove.duration = slot.current ? Motion.fadeIn : Motion.fadeOut
             fade.start()

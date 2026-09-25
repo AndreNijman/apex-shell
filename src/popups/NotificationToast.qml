@@ -142,7 +142,9 @@ Item {
 				top:          parent.top
 				bottom:       parent.bottom
 				topMargin:    12
-				bottomMargin: 12
+				// Clear of the fillet the body melts into the strip with: at 12
+				// the accent and the progress bar met in an L at that corner.
+				bottomMargin: 22
 				rightMargin:  10
 			}
 			width:  3
@@ -169,7 +171,7 @@ Item {
 				id: progressBar
 				anchors {
 					right:       parent.right
-					rightMargin: 14
+					rightMargin: 26
 					bottom:      cardCol.bottom
 					bottomMargin: -10
 				}
@@ -181,7 +183,7 @@ Item {
 				property bool running: false
 
 				// Use toastWidth so the bar stays within the visible body, not the flare
-				width: running ? 0 : root.toastWidth - 10
+				width: running ? 0 : root.toastWidth - 22
 				Behavior on width {
 					enabled: progressBar.running
 					NumberAnimation { duration: 5000; easing.type: Easing.Linear }

@@ -105,19 +105,30 @@ PanelWindow {
 	readonly property var openBounds: Geo.leftSpill(1, root.spillGeometry).bounds
 
 	// ── Body ──────────────────────────────────────────────────────────────────
-	FluidShape {
-		id: body
+	Item {
+		id: bodyFade
 		anchors.fill: parent
-		family:   "leftSpill"
-		progress: life.progress
-		color:    Theme.background
 		// The ridge a spill starts from (16 px wide, geometry.js) is already a
 		// shape: it fades in over the next 24 px of width, so it neither appears
 		// nor vanishes on one frame — keyed to WIDTH, because the extrusion is
 		// so steep that by 8 % progress the body is already ~140 px wide, and a
 		// fade over progress left a translucent box at the end of every close.
-		opacity:  life.alpha * Math.min(1, Math.max(0, (result.params.Wb - 16) / 24))
-		geometry: root.spillGeometry
+		// On the way out only: on the way in the first mapped frame is already
+		// far wider than the ramp. And on a wrapper, not on the shape: read
+		// from the shape's own opacity, its `result` was a binding loop (logged)
+		// that left the opacity a frame stale — a translucent first frame. It
+		// reads `closing`, not `open`, for the same reason (SurfaceLifecycle).
+		opacity:  life.alpha * (!life.closing ? 1 : Math.min(1, Math.max(0,
+		              (Geo.leftSpillWidth(life.progress, root.spillGeometry) - Geo.spillRidge(root.spillGeometry)) / 24)))
+
+		FluidShape {
+			id: body
+			anchors.fill: parent
+			family:   "leftSpill"
+			progress: life.progress
+			color:    Theme.background
+			geometry: root.spillGeometry
+		}
 	}
 
 	mask: Region { item: hit }

@@ -81,7 +81,8 @@ Item {
         height: 44
 
         Text {
-            anchors { horizontalCenter: parent.horizontalCenter; leftMargin: 16; verticalCenter: parent.verticalCenter }
+            // Left-aligned, like every other pane's heading (it was centred).
+            anchors { left: parent.left; leftMargin: 4; verticalCenter: parent.verticalCenter }
             text:           "Notifications"
             color:          Theme.text
             font.pixelSize: theme.fs(14)

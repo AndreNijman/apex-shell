@@ -84,6 +84,13 @@ QtObject {
         return "Closing"
     }
 
+    // True from a close starting until it has finished (or been reversed).
+    // For a binding that must react to the direction: reading `open` from a
+    // binding that also reads `alpha` is a binding loop — evaluating `open`
+    // there runs _drive(), which writes `alpha` (measured on the spills'
+    // opacity). This reads a plain flag that _drive() sets, with no effects.
+    readonly property bool closing: life._settling
+
     signal opened()
     signal closed()
 

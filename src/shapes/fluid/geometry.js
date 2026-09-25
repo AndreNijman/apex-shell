@@ -383,14 +383,23 @@ function rightPour(p, g) {
 // Character: firm and horizontal first — a short full-width bar extrudes on
 // emphasizedDecel — then it unfolds vertically, symmetric about the trigger,
 // from 25 %. The leading (right) edge is the expressive one.
+// The body's width alone, for a caller that needs only that (the ridge fade)
+// and must not read a whole silhouette to get it. Never narrower than a fillet
+// plus a corner of the same size: the ridge a spill leaves on the strip at
+// p = 0 is still a rounded shape, not a slab.
+function spillRidge(g) { return 2 * Math.min(8, g.r); }
+function leftSpillWidth(p, g) {
+    return Math.max(spillRidge(g), g.w * emphasizedDecel(span(clamp01(p), 0, 0.85)));
+}
+function edgeSpillWidth(p, g) {
+    return Math.max(spillRidge(g), g.w * standardDecel(span(clamp01(p), 0, 0.85)));
+}
 function leftSpill(p, g) {
     p = clamp01(p);
     var fMin = Math.min(8, g.r);
     var eh = standardDecel(span(p, 0.25, 0.85));
     var hMin = Math.min(g.h, Math.max(2 * g.r + 24, 0.4 * g.h));
-    // Never narrower than a fillet plus a corner of the same size: the ridge a
-    // spill leaves on the strip at p = 0 is still a rounded shape, not a slab.
-    var Wb = Math.max(2 * fMin, g.w * emphasizedDecel(span(p, 0, 0.85)));
+    var Wb = leftSpillWidth(p, g);
     var Hb = hMin + (g.h - hMin) * eh;
     var f  = fMin + (g.r - fMin) * eh;
     // The leading corner and the fillet share the top edge: while the body
@@ -433,7 +442,7 @@ function leftSpill(p, g) {
 function edgeSpillRight(p, g) {
     p = clamp01(p);
     var fMin = Math.min(8, g.r);
-    var Wb = Math.max(2 * fMin, g.w * standardDecel(span(p, 0, 0.85)));
+    var Wb = edgeSpillWidth(p, g);
     var ot = 0.12 * g.h * (1 - standardDecel(span(p, 0, 0.55)));
     var ob = 0.46 * g.h * (1 - standard(span(p, 0.20, 1.0)));
     var settle = 1 - ob / (0.46 * g.h);
@@ -474,5 +483,6 @@ if (typeof module !== "undefined" && module.exports)
         barNotch: barNotch, barSilhouette: barSilhouette,
         centerBloom: centerBloom,
         rightPourWidth: rightPourWidth, rightPour: rightPour,
-        leftSpill: leftSpill, edgeSpillRight: edgeSpillRight
+        leftSpill: leftSpill, edgeSpillRight: edgeSpillRight,
+        spillRidge: spillRidge, leftSpillWidth: leftSpillWidth, edgeSpillWidth: edgeSpillWidth
     };
