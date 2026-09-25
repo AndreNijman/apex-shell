@@ -1,108 +1,149 @@
 import Quickshell
 import QtQuick
+import QtQuick.Shapes
+import "./src/services"
 import "./src"
 import "./src/shapes/fluid"
+import "./src/shapes/fluid/geometry.js" as Geo
 
 // ─────────────────────────────────────────────────────────────────────────────
-// fluid-harness.qml — renders one fluid shape family at a list of progress
-// values and saves each frame, so bad intermediate geometry is visible BEFORE a
-// family goes anywhere near a real popup (Fluid roadmap §33).
+// fluid-harness.qml — one fluid shape family at a list of progress values, with
+// the bar it grows out of drawn around it, so bad intermediate geometry — and a
+// bad JOIN — is visible before a family goes anywhere near a real popup
+// (Fluid roadmap §33). Staged at the repo root by tests/visual/fluid-harness.sh.
 //
-// Staged at the repo root by tests/visual/fluid-harness.sh (so "./src" resolves)
-// and run with `quickshell -p` inside the private headless compositor.
-//
-// Environment: HARNESS_FAMILY, HARNESS_OUT (directory), HARNESS_SCALE (the
-// output factor the geometry is built at, default 1.0), HARNESS_STEPS (default
-// 11 → 0.0, 0.1 … 1.0), HARNESS_BG (a wallpaper image, optional).
+// Env: HARNESS_FAMILY (centerBloom | rightPour | leftSpill | edgeSpillRight),
+// HARNESS_OUT, HARNESS_SCALE (output factor), HARNESS_STEPS, HARNESS_BG.
 // ─────────────────────────────────────────────────────────────────────────────
 ShellRoot {
-    id: shellRoot
+    id: h
     readonly property string family: Quickshell.env("HARNESS_FAMILY") || "centerBloom"
     readonly property string outDir: Quickshell.env("HARNESS_OUT") || "/tmp"
     readonly property real   sc: parseFloat(Quickshell.env("HARNESS_SCALE") || "1.0")
     readonly property int    steps: parseInt(Quickshell.env("HARNESS_STEPS") || "11")
     readonly property string bg: Quickshell.env("HARNESS_BG") || ""
+    property real p: 0
 
     FloatingWindow {
         id: win
-        implicitWidth: 1400; implicitHeight: 760
+        implicitWidth: 1500; implicitHeight: 800
         color: "#2a2a30"
-
-        ThemeSet { id: t; scale: shellRoot.sc }
+        ThemeSet { id: t; scale: h.sc }
 
         Item {
             id: stage
             anchors.fill: parent
+            readonly property color fill: Theme.background
 
             Image {
                 anchors.fill: parent
-                source: shellRoot.bg !== "" ? "file://" + shellRoot.bg : ""
+                source: h.bg !== "" ? "file://" + h.bg : ""
                 fillMode: Image.PreserveAspectCrop
-                visible: shellRoot.bg !== ""
+                visible: h.bg !== ""
             }
 
-            // The bar as it is drawn today: a strip across the top and the
-            // centre notch hanging from it, so the join can be judged.
-            Rectangle { x: 0; y: 0; width: parent.width; height: t.borderWidth; color: Theme.background }
-            FluidShape {
+            // ── geometry records per family ─────────────────────────────────
+            readonly property int cNotchW: t.cNotchMinWidth
+            readonly property int rNotchW: t.px(213)
+            readonly property var bloomG: ({
+                cx: stage.width / 2, strip: t.borderWidth, notchW: stage.cNotchW, notchH: t.notchHeight,
+                shoulder: t.notchShoulder, notchBottom: t.notchBottom,
+                w: t.px(900), h: t.notchHeight + t.px(520), r: t.radiusXL,
+                shoulderW1: t.px(28), shoulderH1: t.px(22)
+            })
+            readonly property int pourWinW: t.networkPopupWidth + t.notchRadius
+            readonly property var pourG: ({
+                winW: stage.pourWinW, strip: t.borderWidth, notchW: stage.rNotchW,
+                w: stage.pourWinW, h: t.px(560), r: t.radiusL
+            })
+            readonly property var spillG: ({
+                x0: t.borderWidth, cy: t.px(400), w: t.px(220), h: t.px(270), r: t.radiusL, rm: t.radiusM
+            })
+            readonly property var edgeG: ({
+                x1: t.px(200), edgeW: t.borderWidth, cy: t.px(400), w: t.px(200), h: t.px(340),
+                r: t.radiusL, rm: t.radiusM
+            })
+
+            // ── the bar: strip + notches, as the bar would draw them ────────
+            Rectangle { x: 0; y: 0; width: parent.width; height: t.borderWidth; color: stage.fill }
+            // left + right screen strips, under the bar
+            Rectangle { x: 0; y: t.notchHeight; width: t.borderWidth; height: parent.height; color: stage.fill }
+            Rectangle { x: parent.width - t.borderWidth; y: t.notchHeight; width: t.borderWidth; height: parent.height; color: stage.fill }
+
+            Shape {   // centre notch (under the bloom)
                 anchors.fill: parent
-                family: "centerBloom"
-                progress: 0
-                geometry: harnessGeo.centre
-                opacity: 1
+                preferredRendererType: Shape.CurveRenderer
+                ShapePath {
+                    fillColor: stage.fill; strokeWidth: -1
+                    PathSvg { path: Geo.barNotch({ x: Math.round(stage.width / 2) - Math.round(stage.cNotchW / 2), w: stage.cNotchW,
+                                                   strip: t.borderWidth, h: t.notchHeight, shoulder: t.notchShoulder,
+                                                   bottomL: t.notchBottom, bottomR: t.notchBottom }).path }
+                }
             }
-
-            FluidShape {
-                id: shp
+            Shape {   // right notch, widening in step with RIGHT_POUR
+                id: rNotch
                 anchors.fill: parent
-                family: shellRoot.family
-                progress: 0
-                geometry: harnessGeo[shellRoot.family] || harnessGeo.centre
+                preferredRendererType: Shape.CurveRenderer
+                readonly property int nw: h.family === "rightPour"
+                                          ? Geo.rightPourWidth(h.p, stage.rNotchW, stage.pourWinW) : stage.rNotchW
+                ShapePath {
+                    fillColor: stage.fill; strokeWidth: -1
+                    PathSvg { path: Geo.barNotch({ x: stage.width - rNotch.nw, w: rNotch.nw,
+                                                   strip: t.borderWidth, h: t.notchHeight, shoulder: t.notchShoulder,
+                                                   bottomL: (h.family === "rightPour" && h.p > 0) ? 0 : t.notchBottom,
+                                                   bottomR: 0, edgeR: true }).path }
+                }
             }
 
-            // The content clip, outlined, so a clip that runs outside the body
-            // (or lags inside it) is obvious.
-            Rectangle {
-                x: shp.result.clip.x; y: shp.result.clip.y
-                width: shp.result.clip.w; height: shp.result.clip.h
-                color: "transparent"; border.color: "#40ff66"; border.width: 1
-                opacity: 0.5
+            // ── the family ──────────────────────────────────────────────────
+            Item {
+                id: host
+                // Each family draws in its own window's coordinates; place that
+                // window where the real one sits on screen.
+                x: h.family === "rightPour" ? stage.width - stage.pourWinW
+                 : h.family === "edgeSpillRight" ? stage.width - stage.edgeG.x1 - t.borderWidth
+                 : 0
+                y: h.family === "rightPour" ? t.notchHeight : 0
+                width: stage.width; height: stage.height
+
+                FluidShape {
+                    id: shp
+                    anchors.fill: parent
+                    family: h.family
+                    progress: h.p
+                    color: stage.fill
+                    geometry: h.family === "centerBloom" ? stage.bloomG
+                            : h.family === "rightPour"   ? stage.pourG
+                            : h.family === "leftSpill"   ? stage.spillG
+                            : stage.edgeG
+                }
+                Rectangle {   // the content clip, outlined
+                    x: shp.result.clip.x; y: shp.result.clip.y
+                    width: shp.result.clip.w; height: shp.result.clip.h
+                    color: "transparent"; border.color: "#40ff66"; border.width: 1; opacity: 0.45
+                }
             }
             Text {
-                x: 12; y: parent.height - 30
-                color: "white"; font.pixelSize: 14
-                text: shellRoot.family + "  p=" + shp.progress.toFixed(2) + "  scale=" + shellRoot.sc
+                x: 12; y: parent.height - 28; color: "white"; font.pixelSize: 14
+                text: h.family + "  p=" + h.p.toFixed(2) + "  scale=" + h.sc
             }
-        }
-
-        QtObject {
-            id: harnessGeo
-            readonly property var centre: ({
-                cx: stage.width / 2, strip: t.borderWidth,
-                notchW: t.cNotchMinWidth, notchH: t.notchHeight,
-                shoulder: t.notchRadius, notchR: t.notchRadius,
-                w: t.px(900), h: t.px(520), r: t.cornerRadius + t.px(4), shoulder1: t.notchRadius
-            })
-            readonly property var centerBloom: centre
         }
 
         property int i: -1
         Timer {
-            id: step
-            interval: 250; running: true; repeat: false
+            id: step; interval: 300; running: true
             onTriggered: {
                 win.i++
-                if (win.i >= shellRoot.steps) { Qt.quit(); return }
-                shp.progress = shellRoot.steps > 1 ? win.i / (shellRoot.steps - 1) : 1
+                if (win.i >= h.steps) { Qt.quit(); return }
+                h.p = h.steps > 1 ? win.i / (h.steps - 1) : 1
                 grab.start()
             }
         }
         Timer {
-            id: grab
-            interval: 120
+            id: grab; interval: 120
             onTriggered: stage.grabToImage(function (r) {
-                var n = String(Math.round(shp.progress * 100)).padStart(3, "0")
-                r.saveToFile(shellRoot.outDir + "/" + shellRoot.family + "-s" + shellRoot.sc + "-p" + n + ".png")
+                var n = String(Math.round(h.p * 100)).padStart(3, "0")
+                r.saveToFile(h.outDir + "/" + h.family + "-s" + h.sc + "-p" + n + ".png")
                 step.start()
             })
         }

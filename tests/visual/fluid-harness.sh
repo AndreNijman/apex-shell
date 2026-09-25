@@ -30,8 +30,15 @@ for fam in "$@"; do
         HARNESS_BG="${HARNESS_BG:-$root/src/assets/wallpapers/apex-shell-default-0.png}" \
             timeout 60 quickshell -p "$staged" > "$HEADLESS_W/h-$fam-$sc.log" 2>&1
         grep -E 'TypeError|ReferenceError|is not a type|Error' "$HEADLESS_W/h-$fam-$sc.log" | head -5
-        python3 "$here/contact-sheet.py" "$out" "$fam-s$sc-" "$out/sheet-$fam-s$sc.png" \
-            --crop 150,0,1100,700 --scale 0.42 --cols 4 >/dev/null
+        case "$fam" in
+            centerBloom)    crop="250,0,1000,640" ;;
+            rightPour)      crop="900,0,600,700" ;;
+            leftSpill)      crop="0,200,420,420" ;;
+            edgeSpillRight) crop="1150,160,350,480" ;;
+            *)              crop="0,0,1500,800" ;;
+        esac
+        python3 "$here/contact-sheet.py" "$out" "$fam-s$(printf %g "$sc")-" "$out/sheet-$fam-s$sc.png" \
+            --crop "$crop" --scale 0.42 --cols 6 >/dev/null
         echo "sheet: $out/sheet-$fam-s$sc.png"
     done
 done

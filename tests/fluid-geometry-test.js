@@ -95,25 +95,15 @@ function inside(pts, x, y) {
     return c;
 }
 
-// ── CENTER_BLOOM ────────────────────────────────────────────────────────────
-function centreGeo(s) {
-    const px = v => Math.round(v * s);
-    return { cx: px(960), strip: px(6), notchW: px(300), notchH: px(40), shoulder: px(15),
-             notchR: px(15), w: px(900), h: px(520), r: px(21), shoulder1: px(15) };
-}
-for (const scale of [0.85, 1.0, 1.5]) {
-    section("CENTER_BLOOM at scale " + scale);
-    const g = centreGeo(scale);
+// ── The sweep every family must survive ────────────────────────────────────
+// `contact(r, g)` returns false if the silhouette has let go of its origin.
+function sweep(name, fn, g, contact, monotone) {
     const N = 200;
-    let prevBounds = null, prevArea = -Infinity, monoW = true, monoH = true, monoA = true;
-    let kinks = [], crosses = [], clipOut = [], contact = [];
+    let prev = null, maxArea = 0;
+    const kinks = [], crosses = [], clipOut = [], lost = [], shrink = [], collapse = [];
     for (let i = 0; i <= N; i++) {
         const p = i / N;
-        const r = G.centerBloom(p, g);
-        // Joins: every consecutive pair of segments meets tangent-continuously,
-        // EXCEPT at a segment the path marks `sharp` — the deliberate steps up
-        // into the strip, which the bar covers. Marked by the builder, so the
-        // exemption cannot drift onto a real join.
+        const r = fn(p, g);
         const segs = r.segs;
         for (let k = 1; k < segs.length; k++) {
             if (segs[k - 1].sharp || segs[k].sharp) continue;
@@ -123,56 +113,121 @@ for (const scale of [0.85, 1.0, 1.5]) {
             if (dot < 0.9995) kinks.push(p.toFixed(3) + "@" + k + ":" + dot.toFixed(4));
         }
         const pts = polyline(segs, 24);
-        const x = selfIntersects(pts);
-        if (x) crosses.push(p.toFixed(3));
-        // No collapse: the painted area may never fall back by more than a
-        // hair. Corners settling to a larger radius at the very end remove a
-        // fraction of a square pixel (measured: 0.4 px² of 463 000) and that is
-        // the settle, not a rebound; a real rebound is thousands.
+        if (selfIntersects(pts)) crosses.push(p.toFixed(3));
         const A = Math.abs(area(pts));
-        if (A < prevArea * (1 - 1e-4)) monoA = false;
-        prevArea = Math.max(prevArea, A);
-        if (prevBounds) {
-            if (r.bounds.w + 1e-6 < prevBounds.w) monoW = false;
-            if (r.bounds.h + 1e-6 < prevBounds.h) monoH = false;
-        }
-        prevBounds = r.bounds;
-        // Contact: the top of the silhouette stays on the strip line, centred.
-        if (Math.abs(r.bounds.y - (g.strip - 1)) > 1e-6
-            || Math.abs(r.bounds.x + r.bounds.w / 2 - g.cx) > 0.51) contact.push(p.toFixed(3));
-        // Clip inside body: sample the clip rectangle's corners, inset 1px.
+        if (A < maxArea * (1 - 1e-4)) collapse.push(p.toFixed(3));
+        maxArea = Math.max(maxArea, A);
+        if (!contact(r, g)) lost.push(p.toFixed(3));
+        if (prev) for (const k of monotone)
+            if (r.params[k] + 1e-6 < prev.params[k]) shrink.push(k + "@" + p.toFixed(3));
+        prev = r;
+        // The clip is a rectangle; the body's corners are round. Content
+        // is inset from the clip, so what must hold is that the clip never
+        // reaches past a corner by more than a quarter-circle's own bulge: a
+        // point d in from both sides of a radius-r corner is inside exactly
+        // when d >= r(1 - 1/sqrt 2) ~ 0.293 r.
         const c = r.clip;
-        const probes = [[c.x + 1, c.y + 2], [c.x + c.w - 1, c.y + 2],
-                        [c.x + 1, c.y + c.h - 1 - Math.min(c.h / 2, r.params.rc)],
-                        [c.x + c.w - 1, c.y + c.h - 1 - Math.min(c.h / 2, r.params.rc)]];
-        if (c.w > 2 && c.h > 4)
+        const rc = Math.max(r.params.rb || 0, r.params.rbl || 0, r.params.f || 0);
+        const d = 0.3 * rc + 1.5;
+        if (c.w > 2 * d + 2 && c.h > 2 * d + 2) {
+            const probes = [[c.x + d, c.y + d], [c.x + c.w - d, c.y + d],
+                            [c.x + d, c.y + c.h - d], [c.x + c.w - d, c.y + c.h - d]];
             for (const q of probes) if (!inside(pts, q[0], q[1])) { clipOut.push(p.toFixed(3)); break; }
+        }
     }
-    check("no kinks at any join", kinks.length === 0, kinks.slice(0, 4).join(" "));
-    check("the outline never crosses itself", crosses.length === 0, crosses.slice(0, 6).join(","));
-    check("bounds width grows monotonically", monoW);
-    check("bounds height grows monotonically", monoH);
-    check("painted area grows monotonically (no collapse mid-morph)", monoA);
-    check("stays attached to the strip, centred on the notch", contact.length === 0, contact.slice(0, 6).join(","));
-    check("content clip always inside the body", clipOut.length === 0, clipOut.slice(0, 6).join(","));
+    check(name + ": no kinks at any join", kinks.length === 0, kinks.slice(0, 4).join(" "));
+    check(name + ": the outline never crosses itself", crosses.length === 0, crosses.slice(0, 6).join(","));
+    check(name + ": no collapse mid-morph", collapse.length === 0, collapse.slice(0, 6).join(","));
+    check(name + ": stays attached to its origin", lost.length === 0, lost.slice(0, 6).join(","));
+    check(name + ": " + monotone.join("/") + " grow monotonically", shrink.length === 0, shrink.slice(0, 6).join(","));
+    check(name + ": the content clip is inside the body", clipOut.length === 0, clipOut.slice(0, 6).join(","));
+}
+const near = (a, b, eps) => Math.abs(a - b) < (eps === undefined ? 1e-6 : eps);
 
-    const r0 = G.centerBloom(0, g).params, r1 = G.centerBloom(1, g).params;
-    check("p=0 is the notch: width", Math.abs(r0.wb - g.notchW) < 1e-6 && Math.abs(r0.wn - g.notchW) < 1e-6);
-    check("p=0 is the notch: depth", Math.abs(r0.hb - g.notchH) < 1e-6);
-    check("p=0 is the notch: shoulder and corner radius",
-          Math.abs(r0.rs - g.shoulder) < 1e-6 && Math.abs(r0.rc - g.notchR) < 1e-6, r0.rs + "," + r0.rc);
-    check("p=1 is the surface: width", Math.abs(r1.wb - g.w) < 1e-6 && Math.abs(r1.wn - g.w) < 1e-6);
-    check("p=1 is the surface: depth", Math.abs(r1.hb - g.h) < 1e-6);
-    check("p=1 is the surface: shoulder and corner radius",
-          Math.abs(r1.rs - g.shoulder1) < 1e-6 && Math.abs(r1.rc - g.r) < 1e-6);
-    check("p=1 has straight sides (no neck left)", r1.neckSpan === 0 || Math.abs(r1.wb - r1.wn) < 1e-6);
+for (const scale of [0.85, 1.0, 1.5]) {
+    const px = v => Math.round(v * scale);
 
-    // Character: width leads depth early (Fluid §4.3, 0–20 %).
-    const e = G.centerBloom(0.2, g).params;
-    const wFrac = (e.wb - g.notchW) / (g.w - g.notchW), hFrac = (e.hb - g.notchH) / (g.h - g.notchH);
-    check("at 20% the body has widened more than it has deepened",
-          wFrac > hFrac + 0.1, wFrac.toFixed(2) + " vs " + hFrac.toFixed(2));
-    check("at 20% the neck is still tighter than the body", e.wn < e.wb - 1, e.wn.toFixed(1) + " vs " + e.wb.toFixed(1));
+    // ── CENTER_BLOOM ────────────────────────────────────────────────────────
+    section("CENTER_BLOOM at scale " + scale);
+    const cg = { cx: px(960), strip: px(6), notchW: px(300), notchH: px(40), shoulder: px(15),
+                 notchBottom: px(14), w: px(900), h: px(560), r: px(24),
+                 shoulderW1: px(28), shoulderH1: px(22) };
+    sweep("bloom", G.centerBloom, cg,
+          (r, g) => r.bounds.y === 0 && Math.abs(r.bounds.x + r.bounds.w / 2 - Math.round(g.cx)) <= 1,
+          ["W", "D", "sw", "sh", "rb"]);
+    const b0 = G.centerBloom(0, cg).params, b1 = G.centerBloom(1, cg).params;
+    check("bloom p=0 is the notch: width, depth", near(b0.W, cg.notchW) && near(b0.D, cg.notchH));
+    check("bloom p=0 is the notch: circular shoulder, notch corner",
+          near(b0.sw, cg.shoulder) && near(b0.sh, cg.shoulder) && near(b0.tau, G.KAPPA) && near(b0.rb, cg.notchBottom),
+          [b0.sw, b0.sh, b0.tau, b0.rb].join(","));
+    check("bloom p=1 is the surface", near(b1.W, cg.w) && near(b1.D, cg.h) && near(b1.rb, cg.r)
+          && near(b1.sw, cg.shoulderW1) && near(b1.sh, cg.shoulderH1));
+    const e = G.centerBloom(0.25, cg).params;
+    const wf = (e.W - cg.notchW) / (cg.w - cg.notchW), hf = (e.D - cg.notchH) / (cg.h - cg.notchH);
+    check("bloom at 25% has widened far more than it has deepened (a tray, then a body)",
+          wf > 0.5 && hf < 0.2, wf.toFixed(2) + " vs " + hf.toFixed(2));
+    check("bloom's shoulders end wider than tall", b1.sw > b1.sh);
+    const odd = Object.assign({}, cg, { notchW: cg.notchW + 1 });
+    const o = G.centerBloom(0.4, odd).params;
+    check("bloom edges are whole pixels even for an odd width", Number.isInteger(o.L) && Number.isInteger(o.R));
+
+    // ── RIGHT_POUR ──────────────────────────────────────────────────────────
+    section("RIGHT_POUR at scale " + scale);
+    const rg = { winW: px(495), strip: px(6), notchW: px(213), w: px(495), h: px(648), r: px(17) };
+    sweep("pour", G.rightPour, rg,
+          (r, g) => r.bounds.y === 0 && near(r.bounds.x + r.bounds.w, g.winW),
+          ["W", "Dr"]);
+    const r0 = G.rightPour(0, rg).params, r1 = G.rightPour(1, rg).params;
+    check("pour p=0 is the notch (its width, no depth)", near(r0.W, rg.notchW) && near(r0.Dr, 0));
+    check("pour p=1 is the panel, bottom edge level", near(r1.W, rg.w) && near(r1.Dr, rg.h) && near(r1.Dl, rg.h));
+    check("pour p=1 corner is back on radius L", near(r1.rbl, rg.r));
+    const q = G.rightPour(0.25, rg).params;
+    check("pour at 25% is a tall narrow stem (depth leads width)",
+          q.Dr / rg.h > 0.45 && (q.W - rg.notchW) / (rg.w - rg.notchW) < 0.3,
+          (q.Dr / rg.h).toFixed(2) + " deep, " + ((q.W - rg.notchW) / (rg.w - rg.notchW)).toFixed(2) + " wide");
+    const m = G.rightPour(0.5, rg).params;
+    check("pour mid-way: the bottom-left trails the right edge", m.Dl < m.Dr - 1, m.Dl.toFixed(1) + " < " + m.Dr.toFixed(1));
+    let same = true;
+    for (let i = 0; i <= 100; i++) {
+        const p = i / 100;
+        if (G.rightPour(p, rg).bar.notchW !== G.rightPourWidth(p, rg.notchW, rg.w)) same = false;
+        if (!Number.isInteger(G.rightPourWidth(p, rg.notchW, rg.w))) same = false;
+    }
+    check("pour and the bar read one integer width function", same);
+    check("pour squares the bar's notch corner the moment it starts, restores it at 0",
+          G.rightPour(0.001, rg).bar.notchBottomLeft === 0 && G.rightPour(0, rg).bar.notchBottomLeft === -1);
+
+    // ── LEFT_SPILL ──────────────────────────────────────────────────────────
+    section("LEFT_SPILL at scale " + scale);
+    const lg = { x0: px(6), cy: px(400), w: px(220), h: px(270), r: px(17), rm: px(12) };
+    sweep("spill", G.leftSpill, lg,
+          (r, g) => r.bounds.x === 0 && Math.abs((r.params.top + r.params.bottom) / 2 - g.cy) <= 1,
+          ["Wb", "Hb", "f"]);
+    const l1 = G.leftSpill(1, lg).params;
+    check("spill p=1 is the menu", near(l1.Wb, lg.w) && Math.abs(l1.Hb - lg.h) <= 1 && near(l1.f, lg.r));
+    const l = G.leftSpill(0.25, lg).params;
+    check("spill at 25% has pushed out most of its width before it has unfolded",
+          l.Wb / lg.w > 0.8 && (l.Hb - 0.4 * lg.h) / lg.h < 0.05, (l.Wb / lg.w).toFixed(2) + " wide");
+    const fil = G.leftSpill(0.6, lg).segs.find(s => s.t === "C");
+    check("spill's fillet leaves the strip's inner edge vertically (no kink at x0)",
+          fil && near(fil.p[0][0], lg.x0) && near(fil.p[1][0], lg.x0), fil ? fil.p[0][0] + "," + fil.p[1][0] : "none");
+
+    // ── EDGE_SPILL (right) ──────────────────────────────────────────────────
+    section("EDGE_SPILL (right) at scale " + scale);
+    const eg = { x1: px(174), edgeW: px(6), cy: px(400), w: px(174), h: px(340), r: px(17), rm: px(12) };
+    sweep("edge", G.edgeSpillRight, eg,
+          (r, g) => near(r.bounds.x + r.bounds.w, g.x1 + g.edgeW),
+          ["Wb", "Hb"]);
+    const x1 = G.edgeSpillRight(1, eg).params;
+    check("edge p=1 is the panel", near(x1.Wb, eg.w) && Math.abs(x1.Hb - eg.h) <= 1);
+    const xm = G.edgeSpillRight(0.5, eg).params;
+    const topSettled = Math.abs(xm.top - Math.round(eg.cy - eg.h / 2)) <= 1;
+    const bottomSettled = Math.abs(xm.bottom - Math.round(eg.cy + eg.h / 2)) <= 1;
+    check("edge mid-way: the top has settled and the bottom has not (it drips)",
+          topSettled && !bottomSettled, xm.top + ".." + xm.bottom);
+    const lm = G.leftSpill(0.5, lg).params;
+    check("the two spills differ in character, not only in side",
+          Math.abs((lm.top + lm.bottom) / 2 - lg.cy) <= 1 && Math.abs((xm.top + xm.bottom) / 2 - eg.cy) > 5);
 }
 
 console.log("\nfluid-geometry: passed=" + passed + " failed=" + failed);
