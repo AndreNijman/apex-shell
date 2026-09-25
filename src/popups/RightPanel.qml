@@ -238,7 +238,9 @@ PanelWindow {
 
             PaneSlot {
                 key: "audio"
-                readonly property int bodyW: root.anchorWindow.rightPaneWidth
+                // Audio's own width, not the pane on screen's: switching away,
+                // the fading audio content must not jump to the next pane's.
+                readonly property int bodyW: theme.px(Popups.audioPage === "mixer" ? 300 : 200) + theme.notchRadius
                 x: root.width - bodyW + theme.px(10)
                 y: theme.notchHeight + theme.px(12)
                 width:  bodyW - theme.px(10) - theme.borderWidth - theme.px(6)

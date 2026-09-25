@@ -96,6 +96,11 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Overlay
 
+    // The whole window takes input while it is live (the backdrop swallows
+    // clicks rather than dismissing), and none while it closes: a fullscreen
+    // Overlay surface fading out used to eat the clicks that followed it.
+    mask: Region { item: root.live ? content : null }
+
     // Exclusive focus, unlike the popups: there are text fields in here (the
     // lock-background path, the keybind capture) and they must receive keys.
     WlrLayershell.keyboardFocus: root.windowVisible && root.live

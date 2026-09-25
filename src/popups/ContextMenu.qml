@@ -119,9 +119,15 @@ PanelWindow {
         }
     }
 
+    // Input only while the menu is wanted: through its exit fade the window is
+    // still mapped, and without this the catcher below swallowed the click
+    // that followed the menu.
+    mask: Region { item: Popups.contextMenuOpen ? catcher : null }
+
     // Full-screen catcher: reports where the pointer is, and dismisses on a
     // click anywhere outside the card.
     MouseArea {
+        id: catcher
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
