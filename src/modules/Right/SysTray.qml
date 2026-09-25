@@ -43,7 +43,7 @@ RowLayout {
                     anchors.fill: parent
                     radius: 6
                     color: trayItem.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Behavior on color { MotionColor {} }
 
                     Image {
                         width: 16

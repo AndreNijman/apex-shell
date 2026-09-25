@@ -174,7 +174,7 @@ Item {
         anchors.fill: parent
         radius:       8
         color:        (root.hoverable && hov.hovered) ? Qt.rgba(1,1,1,0.03) : "transparent"
-        Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on color { MotionColor {} }
     }
     HoverHandler { id: hov; enabled: root.hoverable }
 
@@ -228,7 +228,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         width:  childrenRect.width
         height: childrenRect.height
-        Behavior on opacity { NumberAnimation { duration: 120 } }
+        Behavior on opacity { MotionFade {} }
     }
 
     // The effective value. Sits to the LEFT of the control when there is one,

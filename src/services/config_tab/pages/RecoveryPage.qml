@@ -225,7 +225,7 @@ CfgScroll {
                     anchors.fill: parent
                     radius: theme.px(8)
                     color:  compHov.hovered ? Qt.rgba(1, 1, 1, 0.03) : "transparent"
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Behavior on color { MotionColor {} }
                 }
                 HoverHandler { id: compHov }
 
@@ -237,7 +237,7 @@ CfgScroll {
                     text:           RecoveryService.stateIcon(compRow.row ? compRow.row.state : "")
                     font.pixelSize: theme.fs(13)
                     color:          root.toneColor(RecoveryService.stateTone(compRow.row ? compRow.row.state : ""))
-                    Behavior on color { ColorAnimation { duration: 160 } }
+                    Behavior on color { MotionColor { role: "state" } }
                 }
 
                 Column {
@@ -263,7 +263,7 @@ CfgScroll {
                             font.weight:    Font.Medium
                             color:          root.toneColor(RecoveryService.stateTone(compRow.row ? compRow.row.state : ""))
                             anchors.verticalCenter: parent.verticalCenter
-                            Behavior on color { ColorAnimation { duration: 160 } }
+                            Behavior on color { MotionColor { role: "state" } }
                         }
                     }
                     Text {
@@ -993,7 +993,7 @@ CfgScroll {
                             radius: theme.px(8)
                             visible: RecoveryService.commitReady
                             color:  commitHov.hovered ? Theme.dangerFillHover : Theme.dangerFill
-                            Behavior on color { ColorAnimation { duration: 120 } }
+                            Behavior on color { MotionColor {} }
 
                             readonly property string a11yLabel: {
                                 const p = lossList.plan

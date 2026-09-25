@@ -39,7 +39,7 @@ Item {
         radius:       height / 2
         color:        root.checked ? Theme.active : Qt.rgba(1,1,1,0.13)
         opacity:      hov.hovered ? 1.0 : 0.92
-        Behavior on color { ColorAnimation { duration: 150 } }
+        Behavior on color { MotionColor { role: "state" } }
     }
     Rectangle {
         width:  parent.height - 6
@@ -48,8 +48,8 @@ Item {
         y:      3
         x:      root.checked ? parent.width - width - 3 : 3
         color:  root.checked ? Theme.background : Theme.fixedLight
-        Behavior on x     { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-        Behavior on color { ColorAnimation  { duration: 150 } }
+        Behavior on x     { MotionMove { curve: Motion.fastSpatial } }
+        Behavior on color { MotionColor { role: "state" } }
     }
     Rectangle {
         anchors.fill: parent

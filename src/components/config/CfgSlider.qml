@@ -108,7 +108,7 @@ Item {
                 width:  Math.max(parent.radius * 2, parent.width * root._frac)
                 radius: parent.radius
                 color:  Theme.active
-                Behavior on width { NumberAnimation { duration: 60; easing.type: Easing.OutCubic } }
+                Behavior on width { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
             }
         }
         Rectangle {
@@ -118,7 +118,7 @@ Item {
             color:  Theme.fixedLight
             anchors.verticalCenter: parent.verticalCenter
             x: Math.max(0, Math.min(bar.width - width, root._frac * (bar.width - width)))
-            Behavior on x { NumberAnimation { duration: 60; easing.type: Easing.OutCubic } }
+            Behavior on x { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
         }
         // Focus ring. Keyboard access is worth nothing if you cannot see which
         // control has the keys.

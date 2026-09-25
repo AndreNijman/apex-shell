@@ -242,7 +242,7 @@ PanelWindow {
                     height: 38
                     radius: theme.cornerRadius
                     color:  cancelHov.hovered ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.05)
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Behavior on color { MotionColor {} }
 
                     Text {
                         anchors.centerIn: parent
@@ -260,7 +260,7 @@ PanelWindow {
                     height: 38
                     radius: theme.cornerRadius
                     color:  confirmHov.hovered ? Theme.dangerFillHover : Theme.dangerFill
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Behavior on color { MotionColor {} }
 
                     Text {
                         anchors.centerIn: parent
@@ -311,9 +311,9 @@ PanelWindow {
                     target:      spinnerCanvas
                     from:        0
                     to:          360
-                    duration:    900
+                    duration:    Motion.spinPeriod
                     loops:       Animation.Infinite
-                    running:     Popups.confirmRunning
+                    running:     Popups.confirmRunning && Motion.loops
                     easing.type: Easing.Linear
                 }
 

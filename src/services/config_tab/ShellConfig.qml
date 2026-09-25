@@ -86,14 +86,14 @@ Item {
                 height: theme.px(30)
                 radius: theme.cornerRadius
                 color:  popHov.hovered ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.03)
-                Behavior on color { ColorAnimation { duration: 120 } }
+                Behavior on color { MotionColor {} }
 
                 Text {
                     anchors.centerIn: parent
                     text:  "󰏋  Open in window"
                     color: popHov.hovered ? Theme.active : Theme.subtext
                     font.pixelSize: theme.fs(11)
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Behavior on color { MotionColor {} }
                 }
 
                 HoverHandler { id: popHov; cursorShape: Qt.PointingHandCursor }

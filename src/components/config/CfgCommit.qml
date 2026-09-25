@@ -80,7 +80,7 @@ Item {
                     : 0
     height: implicitHeight
     clip: true
-    Behavior on implicitHeight { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+    Behavior on implicitHeight { MotionMove { role: "surfaceEnterSmall" } }
 
     readonly property color _tone: root.error !== "" ? Theme.danger : Theme.warning
 
@@ -92,8 +92,8 @@ Item {
         color: Qt.rgba(root._tone.r, root._tone.g, root._tone.b, 0.07)
         border.color: Qt.rgba(root._tone.r, root._tone.g, root._tone.b, 0.20)
         border.width: 1
-        Behavior on color { ColorAnimation { duration: 140 } }
-        Behavior on border.color { ColorAnimation { duration: 140 } }
+        Behavior on color { MotionColor { role: "state" } }
+        Behavior on border.color { MotionColor { role: "state" } }
 
         Column {
             id: lines

@@ -117,7 +117,7 @@ Rectangle {
                 ? Qt.rgba(Theme.attention.r, Theme.attention.g, Theme.attention.b, 0.35)
                 : Qt.rgba(Theme.attention.r, Theme.attention.g, Theme.attention.b, 0.20)
 
-            Behavior on color { ColorAnimation { duration: 90 } }
+            Behavior on color { MotionColor {} }
 
             Text {
                 id: reviewLabel

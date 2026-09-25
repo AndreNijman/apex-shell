@@ -214,7 +214,7 @@ Column {
                         ? (modelData.danger ? "#4d2020" : Theme.active)
                         : "transparent"
 
-            Behavior on color { ColorAnimation { duration: 120 } }
+            Behavior on color { MotionColor {} }
 
             Row {
                 anchors.centerIn: parent

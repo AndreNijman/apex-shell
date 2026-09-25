@@ -345,9 +345,9 @@ Item {
                         onActivated: RemoteAgentService.refresh()
 
                         RotationAnimation on rotation {
-                            running: RemoteAgentService.busy
+                            running: RemoteAgentService.busy && Motion.loops
                             loops: Animation.Infinite
-                            from: 0; to: 360; duration: 1400
+                            from: 0; to: 360; duration: Motion.spinPeriod
                         }
                         onRotationChanged: if (!RemoteAgentService.busy) rotation = 0
                     }

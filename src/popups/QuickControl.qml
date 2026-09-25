@@ -228,7 +228,7 @@ PopupWindow {
                 color:          col.muted ? Qt.rgba(1,1,1,0.25) : Theme.text
                 font.pixelSize: theme.fs(13)
                 font.bold:      true
-                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on color { MotionColor { role: "state" } }
             }
 
             Item {
@@ -248,8 +248,8 @@ PopupWindow {
                         height: Math.max(radius * 2, parent.height * col.value)
                         radius: parent.radius
                         color:  col.muted ? Qt.rgba(1,1,1,0.15) : Theme.active
-                        Behavior on color  { ColorAnimation  { duration: 150 } }
-                        Behavior on height { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
+                        Behavior on color  { MotionColor { role: "state" } }
+                        Behavior on height { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
                     }
 
                     // Thumb
@@ -264,7 +264,7 @@ PopupWindow {
                             var travel = track.height - height
                             return Math.max(0, Math.min(travel, (1.0 - col.value) * travel))
                         }
-                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Behavior on color { MotionColor { role: "state" } }
                     }
 
                     // Drag to change value. No wheel handler: a value bar in this
@@ -291,20 +291,20 @@ PopupWindow {
                 color:  col.muted
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.2)
                             : Qt.rgba(1,1,1,0.06)
-                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on color { MotionColor { role: "state" } }
 
                 Text {
                     anchors.centerIn: parent
                     text:           col.icon
                     font.pixelSize: theme.fs(14)
                     color:          col.muted ? Theme.active : Qt.rgba(1,1,1,0.55)
-                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Behavior on color { MotionColor { role: "state" } }
                 }
 
                 Rectangle {
                     anchors.fill: parent; radius: parent.radius
                     color: muteHov.hovered ? Qt.rgba(1,1,1,0.05) : "transparent"
-                    Behavior on color { ColorAnimation { duration: 100 } }
+                    Behavior on color { MotionColor {} }
                 }
                 HoverHandler { id: muteHov; cursorShape: Qt.PointingHandCursor }
                 MouseArea { anchors.fill: parent; onClicked: col.muteToggled()}

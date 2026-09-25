@@ -68,9 +68,7 @@ Item {
             radius:         width / 2
             color:          Qt.rgba(1, 1, 1, 0.5)
             opacity:        vScroll.active ? 1.0 : 0.0
-            Behavior on opacity {
-                NumberAnimation { duration: 400; easing.type: Easing.InOutQuad }
-            }
+            Behavior on opacity { MotionFade {} }
         }
 
         background: Rectangle {

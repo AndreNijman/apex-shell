@@ -44,7 +44,7 @@ Item {
             color:          hov.hovered ? Theme.active : Theme.text
             font.pixelSize: theme.fs(18)
             anchors.verticalCenter: parent.verticalCenter
-            Behavior on color { ColorAnimation { duration: 120 } }
+            Behavior on color { MotionColor {} }
         }
 
         Item {
@@ -62,7 +62,7 @@ Item {
                 color:          hov.hovered ? Theme.active : Theme.text
                 font.pixelSize: theme.fs(12)
                 anchors.verticalCenter: parent.verticalCenter
-                Behavior on color { ColorAnimation { duration: 120 } }
+                Behavior on color { MotionColor {} }
             }
         }
     }

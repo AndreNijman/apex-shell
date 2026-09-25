@@ -201,7 +201,7 @@ Item {
 
 		opacity: Popups.dashboardOpen ? 0 : 1
 		visible: opacity > 0
-		Behavior on opacity { NumberAnimation { duration: 150 } }
+		Behavior on opacity { MotionFade {} }
 
 		WheelHandler {
 			acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
@@ -232,7 +232,7 @@ Item {
 			interactive:  false
 
 			Behavior on contentY {
-				NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+				MotionMove { role: "page" }
 			}
 
 			model: root._items
@@ -400,7 +400,7 @@ Item {
 								text:           "󰔟"
 								font.pixelSize: theme.fs(16)
 								color:          root.timerUrgent ? Theme.danger : Theme.active
-								Behavior on color { ColorAnimation { duration: 200 } }
+								Behavior on color { MotionColor { role: "state" } }
 							}
 
 							// Time display — centered in remaining space
@@ -419,15 +419,18 @@ Item {
 								font.family:    "JetBrains Mono"
 								horizontalAlignment: Text.AlignHCenter
 								color:          root.timerUrgent ? Theme.danger : Theme.text
-								Behavior on color { ColorAnimation { duration: 200 } }
+								Behavior on color { MotionColor { role: "state" } }
 
 								// Blink when urgent — opacity pulses 1 → 0.25 → 1
 								SequentialAnimation on opacity {
 									id: timerBlink
-									running:  root.timerUrgent
+									running:  root.timerUrgent && Motion.ambient
+									// Finish the current beat when gated off, so it rests at its
+									// end value instead of freezing mid-fade (Reduce Motion mid-pulse).
+									alwaysRunToEnd: true
 									loops:    Animation.Infinite
-									NumberAnimation { to: 0.25; duration: 500; easing.type: Easing.InOutSine }
-									NumberAnimation { to: 1.0;  duration: 500; easing.type: Easing.InOutSine }
+									NumberAnimation { to: 0.25; duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
+									NumberAnimation { to: 1.0;  duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
 								}
 
 								// Snap back to full opacity when blink stops
@@ -587,8 +590,8 @@ Item {
 										? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.3)
 										: Qt.rgba(1,1,1,0.1)
 										border.width: 1
-										Behavior on color        { ColorAnimation { duration: 100 } }
-										Behavior on border.color { ColorAnimation { duration: 100 } }
+										Behavior on color        { MotionColor { role: "state" } }
+										Behavior on border.color { MotionColor { role: "state" } }
 									}
 									Row {
 										id: csRow
@@ -600,7 +603,7 @@ Item {
 											color: ScreenRecService.openStrip === "capture"
 											? Theme.active : Qt.rgba(1,1,1,0.7)
 											anchors.verticalCenter: parent.verticalCenter
-											Behavior on color { ColorAnimation { duration: 100 } }
+											Behavior on color { MotionColor { role: "state" } }
 										}
 										Text {
 											text: ScreenRecService.captureLabel
@@ -608,7 +611,7 @@ Item {
 											color: ScreenRecService.openStrip === "capture"
 											? Theme.active : Qt.rgba(1,1,1,0.7)
 											anchors.verticalCenter: parent.verticalCenter
-											Behavior on color { ColorAnimation { duration: 100 } }
+											Behavior on color { MotionColor { role: "state" } }
 										}
 										Text {
 											text: "▾"; font.pixelSize: theme.fs(8)
@@ -649,8 +652,8 @@ Item {
 										? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.3)
 										: Qt.rgba(1,1,1,0.1)
 										border.width: 1
-										Behavior on color        { ColorAnimation { duration: 100 } }
-										Behavior on border.color { ColorAnimation { duration: 100 } }
+										Behavior on color        { MotionColor { role: "state" } }
+										Behavior on border.color { MotionColor { role: "state" } }
 									}
 									Row {
 										id: asRow
@@ -666,7 +669,7 @@ Item {
 											color: ScreenRecService.openStrip === "audio"
 											? Theme.active : Qt.rgba(1,1,1,0.7)
 											anchors.verticalCenter: parent.verticalCenter
-											Behavior on color { ColorAnimation { duration: 100 } }
+											Behavior on color { MotionColor { role: "state" } }
 										}
 										Text {
 											text: "▾"; font.pixelSize: theme.fs(8)
@@ -711,7 +714,7 @@ Item {
 									color:  recBtnH.hovered
 									? Qt.rgba(0.9, 0.2, 0.2, 0.85)
 									: Qt.rgba(0.8, 0.1, 0.1, 0.7)
-									Behavior on color { ColorAnimation { duration: 100 } }
+									Behavior on color { MotionColor {} }
 									Row {
 										anchors.centerIn: parent
 										spacing: 5
@@ -762,10 +765,13 @@ Item {
 									color:  "#ff4444"
 									anchors.verticalCenter: parent.verticalCenter
 									SequentialAnimation on opacity {
-										running: ScreenRecService.recording
+										running: ScreenRecService.recording && Motion.ambient
+										// Finish the current beat when gated off, so it rests at its
+										// end value instead of freezing mid-fade (Reduce Motion mid-pulse).
+										alwaysRunToEnd: true
 										loops:   Animation.Infinite
-										NumberAnimation { to: 0.25; duration: 600; easing.type: Easing.InOutSine }
-										NumberAnimation { to: 1.0;  duration: 600; easing.type: Easing.InOutSine }
+										NumberAnimation { to: 0.25; duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
+										NumberAnimation { to: 1.0;  duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
 									}
 								}
 
@@ -809,9 +815,6 @@ Item {
 												color: ScreenRecService.audioMic || ScreenRecService.audioSystem
 												? Qt.rgba(0.95, 0.3, 0.3, 0.30 + _amp * 0.70)
 												: Qt.rgba(1, 1, 1, 0.10)
-												Behavior on height {
-													NumberAnimation { duration: 50; easing.type: Easing.OutCubic }
-												}
 											}
 										}
 									}
@@ -834,7 +837,7 @@ Item {
 									color: recDiscardH.hovered
 									? Qt.rgba(1, 1, 1, 0.12)
 									: Qt.rgba(1, 1, 1, 0.05)
-									Behavior on color { ColorAnimation { duration: 100 } }
+									Behavior on color { MotionColor {} }
 									Text {
 										anchors.centerIn: parent
 										text:           "󰩺"
@@ -842,7 +845,7 @@ Item {
 										color:          recDiscardH.hovered
 										? Qt.rgba(1, 0.4, 0.4, 1.0)
 										: Qt.rgba(1, 1, 1, 0.4)
-										Behavior on color { ColorAnimation { duration: 100 } }
+										Behavior on color { MotionColor {} }
 									}
 									HoverHandler { id: recDiscardH }
 									MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: ScreenRecService.discardRecording() }
@@ -855,7 +858,7 @@ Item {
 									color: recStopH.hovered
 									? Qt.rgba(0.9, 0.2, 0.2, 0.55)
 									: Qt.rgba(0.8, 0.1, 0.1, 0.32)
-									Behavior on color { ColorAnimation { duration: 100 } }
+									Behavior on color { MotionColor {} }
 									Text {
 										anchors.centerIn: parent
 										text:           "⏹"
@@ -914,10 +917,13 @@ Item {
 									width:  8; height: 8; radius: 4
 									color:  PushToTalkService.micOpen ? Theme.danger : Theme.subtext
 									SequentialAnimation on opacity {
-										running: PushToTalkService.micOpen
+										running: PushToTalkService.micOpen && Motion.ambient
+										// Finish the current beat when gated off, so it rests at its
+										// end value instead of freezing mid-fade (Reduce Motion mid-pulse).
+										alwaysRunToEnd: true
 										loops:   Animation.Infinite
-										NumberAnimation { to: 0.25; duration: 600; easing.type: Easing.InOutSine }
-										NumberAnimation { to: 1.0;  duration: 600; easing.type: Easing.InOutSine }
+										NumberAnimation { to: 0.25; duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
+										NumberAnimation { to: 1.0;  duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
 									}
 								}
 

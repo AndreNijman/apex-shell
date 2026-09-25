@@ -27,7 +27,7 @@ Item {
 
         opacity: (Popups.notificationsOpen || Popups.networkOpen) ? 0 : 1
         visible: opacity > 0
-        Behavior on opacity { NumberAnimation { duration: 150 } }
+        Behavior on opacity { MotionFade {} }
 
         // Third-party bar widgets (roadmap §16). Leftmost in the cluster so the
         // shell's own indicators keep the positions users have muscle memory
@@ -50,6 +50,6 @@ Item {
         font.pixelSize: theme.fs(14)
         opacity:        (Popups.notificationsOpen || Popups.networkOpen) ? 1 : 0
         visible:        opacity > 0
-        Behavior on opacity { NumberAnimation { duration: 150 } }
+        Behavior on opacity { MotionFade {} }
     }
 }

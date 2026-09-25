@@ -17,7 +17,7 @@ Item {
     width:  implicitWidth
     height: implicitHeight
     opacity: enabled ? 1 : 0.4
-    Behavior on opacity { NumberAnimation { duration: 120 } }
+    Behavior on opacity { MotionFade {} }
 
     readonly property color _accent: variant === "danger" ? Theme.danger : Theme.active
 
@@ -53,7 +53,7 @@ Item {
         border.color: root.variant === "default"
             ? Qt.rgba(1,1,1,0.13)
             : Qt.rgba(root._accent.r, root._accent.g, root._accent.b, 0.42)
-        Behavior on color { ColorAnimation { duration: 110 } }
+        Behavior on color { MotionColor { role: "state" } }
     }
     Row {
         id: rowc

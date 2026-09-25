@@ -94,7 +94,7 @@ Item {
                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
                            : hov.hovered ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
 
-                Behavior on color { ColorAnimation { duration: 120 } }
+                Behavior on color { MotionColor { role: "state" } }
 
                 // Active marker: a bar rather than only a tint, so the selected
                 // page is still obvious at low contrast or with a pale accent.
@@ -107,7 +107,7 @@ Item {
                     height: row.active ? parent.height * 0.55 : 0
                     radius: width
                     color: Theme.active
-                    Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                    Behavior on height { MotionMove { curve: Motion.fastSpatial } }
                 }
 
                 Text {
@@ -120,7 +120,7 @@ Item {
                     text: row.modelData.icon
                     color: row.active ? Theme.active : Theme.icon
                     font.pixelSize: theme.fs(15)
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Behavior on color { MotionColor { role: "state" } }
                 }
 
                 Text {
@@ -136,7 +136,7 @@ Item {
                     font.pixelSize: theme.fs(12)
                     font.bold: row.active
                     elide: Text.ElideRight
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Behavior on color { MotionColor { role: "state" } }
                 }
 
                 HoverHandler { id: hov; cursorShape: Qt.PointingHandCursor }

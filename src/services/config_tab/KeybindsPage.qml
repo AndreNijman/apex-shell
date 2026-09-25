@@ -234,7 +234,7 @@ Item {
 
         height: isCapturing ? 58 : 36
         clip: true
-        Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+        Behavior on height { MotionMove { role: "surfaceEnterSmall" } }
 
         onIsCapturingChanged: {
             if (isCapturing) {
@@ -260,7 +260,7 @@ Item {
                     ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.20)
                     : "transparent"
             border.width: 1
-            Behavior on color { ColorAnimation { duration: 120 } }
+            Behavior on color { MotionColor { role: "state" } }
         }
 
         // ── Invisible focus target for key capture ────────────────────────────
@@ -320,7 +320,7 @@ Item {
                 text:           br._b ? br._b.label : br.action
                 font.pixelSize: theme.fs(12)
                 color:          br._savedDupe ? Theme.danger : (br._isUnbound ? Qt.rgba(1, 1, 1, 0.35) : Qt.rgba(1, 1, 1, 0.68))
-                Behavior on color { ColorAnimation { duration: 120 } }
+                Behavior on color { MotionColor { role: "state" } }
             }
 
             Row {
@@ -341,7 +341,7 @@ Item {
                     visible: br._pillText !== "Unbound"
                     width: 22; height: 22; radius: 6
                     color: _clrH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
-                    Behavior on color { ColorAnimation { duration: 100 } }
+                    Behavior on color { MotionColor {} }
                     Text { anchors.centerIn: parent; text: "󰩺"; font.pixelSize: theme.fs(11)
                         color: _clrH.hovered ? Theme.danger : Qt.rgba(1,1,1,0.28) }
                     HoverHandler { id: _clrH; cursorShape: Qt.PointingHandCursor }
@@ -359,7 +359,7 @@ Item {
                     visible: !br._isDefault
                     width: 22; height: 22; radius: 6
                     color: _rstH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
-                    Behavior on color { ColorAnimation { duration: 100 } }
+                    Behavior on color { MotionColor {} }
                     Text { anchors.centerIn: parent; text: "↺"; font.pixelSize: theme.fs(11)
                         color: _rstH.hovered ? Theme.active : Qt.rgba(1,1,1,0.28) }
                     HoverHandler { id: _rstH; cursorShape: Qt.PointingHandCursor }
@@ -409,9 +409,9 @@ Item {
                     
                     opacity: br._interactive ? (br._isUnbound ? 0.7 : 1.0) : 0.4
                     
-                    Behavior on color        { ColorAnimation { duration: 100 } }
-                    Behavior on border.color { ColorAnimation { duration: 150 } }
-                    Behavior on opacity      { NumberAnimation { duration: 120 } }
+                    Behavior on color        { MotionColor { role: "state" } }
+                    Behavior on border.color { MotionColor { role: "state" } }
+                    Behavior on opacity      { MotionFade {} }
 
                     Text {
                         id: _pillT
@@ -424,7 +424,7 @@ Item {
                             ? Qt.rgba(1, 1, 1, 0.45)
                             : (br._isPending ? Theme.warning : Theme.active)
                             
-                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Behavior on color { MotionColor { role: "state" } }
                     }
                     // Live key capture needs the compositor to route every key
                     // to the shell while recording — a Hyprland submap. The
@@ -488,7 +488,7 @@ Item {
                             : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,
                                       br.capturedKey !== "" ? 0.40 : 0.18)
                         border.width: 1
-                        Behavior on border.color { ColorAnimation { duration: 120 } }
+                        Behavior on border.color { MotionColor { role: "state" } }
 
                         Text {
                             id: _capT
@@ -513,7 +513,7 @@ Item {
                     Rectangle {
                         width: 28; height: 24; radius: 6
                         color: _cnH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
-                        Behavior on color { ColorAnimation { duration: 100 } }
+                        Behavior on color { MotionColor {} }
                         Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(10)
                             color: Qt.rgba(1,1,1,0.38) }
                         HoverHandler { id: _cnH; cursorShape: Qt.PointingHandCursor }
@@ -526,7 +526,7 @@ Item {
             Item {
                 width: parent.width; height: 22
                 opacity: (br.capturedKey !== "" && br._hasConflict) ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 140 } }
+                Behavior on opacity { MotionFade {} }
 
                 Text {
                     anchors { left: parent.left; leftMargin: 2; verticalCenter: parent.verticalCenter }

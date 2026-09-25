@@ -31,7 +31,7 @@ Text {
         }
     }
     color: clockHov.hovered ? Theme.active : Theme.text
-    Behavior on color { ColorAnimation { duration: 120 } }
+    Behavior on color { MotionColor {} }
     font.bold: true
     anchors.verticalCenter: parent.verticalCenter
     font.pixelSize: theme.fs(16)

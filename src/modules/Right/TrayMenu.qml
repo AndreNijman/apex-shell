@@ -189,7 +189,7 @@ PopupWindow {
         radius: root.radius - 2
         color: lit ? Theme.active : "transparent"
         opacity: enabledRow ? 1 : 0.4
-        Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on color { MotionColor { role: "state" } }
 
         readonly property real needed: content.implicitWidth + (chevron ? root.theme.px(24) : 0) + root.theme.px(20)
         onNeededChanged: root.widest = Math.max(root.widest, needed)

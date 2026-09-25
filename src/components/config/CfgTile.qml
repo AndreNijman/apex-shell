@@ -39,14 +39,14 @@ Rectangle {
     border.color: on
         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30)
         : Qt.rgba(1,1,1,0.10)
-    Behavior on color        { ColorAnimation { duration: 130 } }
-    Behavior on border.color { ColorAnimation { duration: 130 } }
+    Behavior on color        { MotionColor { role: "state" } }
+    Behavior on border.color { MotionColor { role: "state" } }
 
     Rectangle {
         anchors { top: parent.top; right: parent.right; margins: 8 }
         width: 6; height: 6; radius: 3
         color: root.on ? Theme.active : Qt.rgba(1,1,1,0.18)
-        Behavior on color { ColorAnimation { duration: 130 } }
+        Behavior on color { MotionColor { role: "state" } }
     }
     Column {
         anchors { left: parent.left; bottom: parent.bottom; margins: 9 }

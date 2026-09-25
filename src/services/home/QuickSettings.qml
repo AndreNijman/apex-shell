@@ -729,7 +729,7 @@ StatCard {
                             anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                             width: Math.max(parent.radius * 2, parent.width * root._brightVal)
                             radius: parent.radius; color: Theme.active
-                            Behavior on width { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
+                            Behavior on width { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
                         }
                         // Drag or click to set brightness. No wheel handler: a
                         // value bar in this shell never reads the wheel.
@@ -748,7 +748,7 @@ StatCard {
                         width: btw.thumbD; height: btw.thumbD; radius: btw.thumbD / 2
                         color: Theme.fixedLight; anchors.verticalCenter: parent.verticalCenter
                         x: Math.max(0, Math.min(btw.width - width, root._brightVal * (btw.width - width)))
-                        Behavior on x { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
+                        Behavior on x { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
                     }
                 }
 
@@ -804,14 +804,14 @@ StatCard {
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30)
                         : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)
                     border.width: 1
-                    Behavior on color        { ColorAnimation { duration: 130 } }
-                    Behavior on border.color { ColorAnimation { duration: 130 } }
+                    Behavior on color        { MotionColor { role: "state" } }
+                    Behavior on border.color { MotionColor { role: "state" } }
 
                     Rectangle {
                         anchors { top: parent.top; right: parent.right; margins: 8 }
                         width: 6; height: 6; radius: 3
                         color: btn.on ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.18)
-                        Behavior on color { ColorAnimation { duration: 130 } }
+                        Behavior on color { MotionColor { role: "state" } }
                     }
 
                     Column {
@@ -820,12 +820,12 @@ StatCard {
                         Text {
                             text: btn.icon; font.pixelSize: theme.fs(17)
                             color: btn.on ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.40)
-                            Behavior on color { ColorAnimation { duration: 130 } }
+                            Behavior on color { MotionColor { role: "state" } }
                         }
                         Text {
                             text: btn.label; font.pixelSize: theme.fs(9); font.weight: Font.Medium
                             color: btn.on ? Theme.text : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.45)
-                            Behavior on color { ColorAnimation { duration: 130 } }
+                            Behavior on color { MotionColor { role: "state" } }
                         }
                         Text {
                             visible: btn.sublabel !== ""
@@ -1023,8 +1023,8 @@ StatCard {
         // Subtle entrance scale + fade
         opacity: root.filterPickerOpen ? 1 : 0
         scale:   root.filterPickerOpen ? 1 : 0.95
-        Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-        Behavior on scale   { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+        Behavior on opacity { MotionFade {} }
+        Behavior on scale   { MotionMove { role: "surfaceEnterSmall"; curve: Motion.fastSpatial } }
         transformOrigin: Item.BottomRight
 
         // Dismiss when clicking outside the picker
@@ -1065,7 +1065,7 @@ StatCard {
                     color: isActive
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
                         : offH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) : "transparent"
-                    Behavior on color { ColorAnimation { duration: 100 } }
+                    Behavior on color { MotionColor { role: "state" } }
 
                     Row {
                         anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
@@ -1075,14 +1075,14 @@ StatCard {
                             font.pixelSize: theme.fs(9)
                             color: parent.parent.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.30)
                             anchors.verticalCenter: parent.verticalCenter
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            Behavior on color { MotionColor { role: "state" } }
                         }
                         Text {
                             text:           "Off"
                             font.pixelSize: theme.fs(12)
                             color: parent.parent.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.65)
                             anchors.verticalCenter: parent.verticalCenter
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            Behavior on color { MotionColor { role: "state" } }
                         }
                     }
                     HoverHandler { id: offH; cursorShape: Qt.PointingHandCursor }
@@ -1108,7 +1108,7 @@ StatCard {
                         color: isActive
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
                             : itemH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) : "transparent"
-                        Behavior on color { ColorAnimation { duration: 100 } }
+                        Behavior on color { MotionColor { role: "state" } }
 
                         Row {
                             anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
@@ -1118,7 +1118,7 @@ StatCard {
                                 font.pixelSize: theme.fs(9)
                                 color: parent.parent.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.30)
                                 anchors.verticalCenter: parent.verticalCenter
-                                Behavior on color { ColorAnimation { duration: 100 } }
+                                Behavior on color { MotionColor { role: "state" } }
                             }
                             Text {
                                 text:           modelData
@@ -1127,7 +1127,7 @@ StatCard {
                                 anchors.verticalCenter: parent.verticalCenter
                                 elide: Text.ElideRight
                                 width: pickerCol.width - 38
-                                Behavior on color { ColorAnimation { duration: 100 } }
+                                Behavior on color { MotionColor { role: "state" } }
                             }
                         }
                         HoverHandler { id: itemH; cursorShape: Qt.PointingHandCursor }

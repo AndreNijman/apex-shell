@@ -186,7 +186,7 @@ PopupWindow {
 		Item {
 			anchors.fill: parent
 			opacity: root.showing ? 1 : 0
-			Behavior on opacity { NumberAnimation { duration: 150 } }
+			Behavior on opacity { MotionFade {} }
 			Rectangle {
 				id: progressBar
 				anchors {
@@ -298,7 +298,7 @@ PopupWindow {
 							anchors.fill: parent
 							radius:       width / 2
 							color:        xHover.containsMouse ? Qt.rgba(1,1,1,0.12) : "transparent"
-							Behavior on color { ColorAnimation { duration: 100 } }
+							Behavior on color { MotionColor {} }
 						}
 						Text {
 							anchors.centerIn: parent
@@ -352,7 +352,7 @@ PopupWindow {
 								color:        actHover.containsMouse
 								? Qt.rgba(1,1,1,0.18)
 								: Qt.rgba(1,1,1,0.08)
-								Behavior on color { ColorAnimation { duration: 100 } }
+								Behavior on color { MotionColor {} }
 							}
 							Text {
 								id:               actionLbl

@@ -73,7 +73,7 @@ Rectangle {
                     ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
                     : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.20)
 
-                Behavior on color { ColorAnimation { duration: 90 } }
+                Behavior on color { MotionColor {} }
 
                 Text {
                     id: readLabel
@@ -99,7 +99,7 @@ Rectangle {
                     ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.14)
                     : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
 
-                Behavior on color { ColorAnimation { duration: 90 } }
+                Behavior on color { MotionColor {} }
 
                 Text {
                     id: gotItLabel

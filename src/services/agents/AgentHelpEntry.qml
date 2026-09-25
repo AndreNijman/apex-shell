@@ -22,7 +22,7 @@ Rectangle {
     border.width: 1
     border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28)
 
-    Behavior on color { ColorAnimation { duration: 90 } }
+    Behavior on color { MotionColor {} }
 
     // The row exists only once the Agents page has been built, so this line in
     // the log means "a user opening the tab saw the way in". §43's requirement

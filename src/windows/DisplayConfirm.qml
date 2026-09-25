@@ -190,7 +190,7 @@ PanelWindow {
                     radius: theme.cornerRadius
                     color:  revertHov.hovered ? Theme.dangerFillHover : Theme.dangerFill
 
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Behavior on color { MotionColor {} }
 
                     Text {
                         anchors.centerIn: parent
@@ -212,7 +212,7 @@ PanelWindow {
                     radius: theme.cornerRadius
                     color:  keepHov.hovered ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.09)
 
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Behavior on color { MotionColor {} }
 
                     Text {
                         anchors.centerIn: parent

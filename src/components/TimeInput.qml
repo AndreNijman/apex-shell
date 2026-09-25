@@ -52,7 +52,7 @@ Item {
                 width: parent.width; height: 22; radius: 6
                 color: hUpH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
                 border.color: Qt.rgba(1,1,1,0.08); border.width: 1
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { MotionColor {} }
                 Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: theme.fs(9); color: Qt.rgba(1,1,1,0.4) }
                 HoverHandler { id: hUpH; cursorShape: Qt.PointingHandCursor }
                 MouseArea { anchors.fill: parent; onClicked: root.incH() }
@@ -74,7 +74,7 @@ Item {
                 width: parent.width; height: 22; radius: 6
                 color: hDnH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
                 border.color: Qt.rgba(1,1,1,0.08); border.width: 1
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { MotionColor {} }
                 Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: theme.fs(9); color: Qt.rgba(1,1,1,0.4) }
                 HoverHandler { id: hDnH; cursorShape: Qt.PointingHandCursor }
                 MouseArea { anchors.fill: parent; onClicked: root.decH() }
@@ -107,7 +107,7 @@ Item {
                 width: parent.width; height: 22; radius: 6
                 color: mUpH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
                 border.color: Qt.rgba(1,1,1,0.08); border.width: 1
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { MotionColor {} }
                 Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: theme.fs(9); color: Qt.rgba(1,1,1,0.4) }
                 HoverHandler { id: mUpH; cursorShape: Qt.PointingHandCursor }
                 MouseArea { anchors.fill: parent; onClicked: root.incM() }
@@ -129,7 +129,7 @@ Item {
                 width: parent.width; height: 22; radius: 6
                 color: mDnH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
                 border.color: Qt.rgba(1,1,1,0.08); border.width: 1
-                Behavior on color { ColorAnimation { duration: 80 } }
+                Behavior on color { MotionColor {} }
                 Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: theme.fs(9); color: Qt.rgba(1,1,1,0.4) }
                 HoverHandler { id: mDnH; cursorShape: Qt.PointingHandCursor }
                 MouseArea { anchors.fill: parent; onClicked: root.decM() }

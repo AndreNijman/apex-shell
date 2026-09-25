@@ -60,8 +60,8 @@ Item {
             radius:         height / 2
             color:          root.barColor
 
-            Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
-            Behavior on color { ColorAnimation  { duration: 300 } }
+            Behavior on width { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
+            Behavior on color { MotionColor { role: "state" } }
         }
     }
 
@@ -76,7 +76,7 @@ Item {
         color:          root.barColor
         width:          28
         horizontalAlignment: Text.AlignRight
-        Behavior on color { ColorAnimation { duration: 300 } }
+        Behavior on color { MotionColor { role: "state" } }
     }
 
     // Size info — below the bar, aligned with bar

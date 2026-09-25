@@ -110,7 +110,7 @@ Item {
             font.pixelSize: theme.fs(16)
             anchors.verticalCenter: parent.verticalCenter
             color:          hov.hovered ? Theme.active : Theme.text
-            Behavior on color { ColorAnimation { duration: 200 } }
+            Behavior on color { MotionColor {} }
             MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
@@ -129,7 +129,7 @@ Item {
             color:          root._netColor
             font.pixelSize: theme.fs(16)
             anchors.verticalCenter: parent.verticalCenter
-            Behavior on color { ColorAnimation { duration: 200 } }
+            Behavior on color { MotionColor { role: "state" } }
             MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
@@ -148,7 +148,7 @@ Item {
             font.pixelSize: theme.fs(16)
             anchors.verticalCenter: parent.verticalCenter
             color:          hov.hovered ? Theme.active : Theme.text
-            Behavior on color { ColorAnimation { duration: 200 } }
+            Behavior on color { MotionColor {} }
             MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
@@ -167,7 +167,7 @@ Item {
             font.pixelSize: theme.fs(14)
             anchors.verticalCenter: parent.verticalCenter
             color:          Theme.active
-            Behavior on color { ColorAnimation { duration: 200 } }
+            Behavior on color { MotionColor { role: "state" } }
             MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor

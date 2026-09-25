@@ -88,7 +88,7 @@ StatCard {
                 anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                 text: "‹"; font.pixelSize: theme.fs(15)
                 color: pH.hovered ? Qt.rgba(1,1,1,0.7) : Qt.rgba(1,1,1,0.25)
-                Behavior on color { ColorAnimation { duration: 100 } }
+                Behavior on color { MotionColor {} }
                 HoverHandler { id: pH; cursorShape: Qt.PointingHandCursor }
                 MouseArea { anchors.fill: parent; onClicked: root._prev() }
             }
@@ -101,7 +101,7 @@ StatCard {
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                 text: "›"; font.pixelSize: theme.fs(15)
                 color: nH.hovered ? Qt.rgba(1,1,1,0.7) : Qt.rgba(1,1,1,0.25)
-                Behavior on color { ColorAnimation { duration: 100 } }
+                Behavior on color { MotionColor {} }
                 HoverHandler { id: nH; cursorShape: Qt.PointingHandCursor }
                 MouseArea { anchors.fill: parent; onClicked: root._next() }
             }
@@ -155,7 +155,7 @@ StatCard {
                                : dH.hovered && modelData.cur ? Qt.rgba(1,1,1,0.07) : "transparent"
                         border.color: isToday ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.3) : "transparent"
                         border.width: 1
-                        Behavior on color { ColorAnimation { duration: 80 } }
+                        Behavior on color { MotionColor { role: "state" } }
                         Text {
                             anchors.centerIn: parent; text: modelData.n
                             font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"

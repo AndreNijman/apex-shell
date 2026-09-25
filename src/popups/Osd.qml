@@ -259,7 +259,7 @@ PanelWindow {
             text:           root.glyph
             font.pixelSize: theme.fs(18)
             color:          root.muted ? Theme.subtext : Theme.text
-            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on color { MotionColor { role: "state" } }
         }
 
         // Value / label text (fixed width so the bar doesn't jump)
@@ -274,7 +274,7 @@ PanelWindow {
             font.pixelSize: theme.fs(13)
             font.bold:      true
             color:          root.muted ? Theme.subtext : Theme.text
-            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on color { MotionColor { role: "state" } }
         }
 
         // Filled progress bar
@@ -298,7 +298,7 @@ PanelWindow {
                     radius: parent.radius
                     color:  root.muted ? Qt.rgba(1, 1, 1, 0.20) : Theme.active
                     Behavior on width { NumberAnimation { duration: root.valAnim; easing.type: Easing.OutCubic } }
-                    Behavior on color { ColorAnimation  { duration: 150 } }
+                    Behavior on color { MotionColor { role: "state" } }
                 }
             }
         }

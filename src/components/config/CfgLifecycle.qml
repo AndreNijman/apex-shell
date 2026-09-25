@@ -57,8 +57,8 @@ Item {
         color: Qt.rgba(root._tone.r, root._tone.g, root._tone.b, 0.06)
         border.color: Qt.rgba(root._tone.r, root._tone.g, root._tone.b, 0.18)
         border.width: 1
-        Behavior on color { ColorAnimation { duration: 140 } }
-        Behavior on border.color { ColorAnimation { duration: 140 } }
+        Behavior on color { MotionColor { role: "state" } }
+        Behavior on border.color { MotionColor { role: "state" } }
 
         Row {
             anchors {

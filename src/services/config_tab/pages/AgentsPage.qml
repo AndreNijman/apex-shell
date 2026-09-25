@@ -103,7 +103,7 @@ CfgScroll {
                 checked: root._on
                 opacity: (AgentPolicyService.busy
                           || (!root._on && root._refusal !== "")) ? 0.4 : 1
-                Behavior on opacity { NumberAnimation { duration: 120 } }
+                Behavior on opacity { MotionFade {} }
                 onToggled: function(v) {
                     if (AgentPolicyService.busy) return
                     if (v && root._refusal !== "") return

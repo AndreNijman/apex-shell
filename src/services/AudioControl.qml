@@ -222,7 +222,7 @@ Item {
                 color:          col.muted ? Qt.rgba(1,1,1,0.25) : Theme.text
                 font.pixelSize: theme.fs(13)
                 font.bold:      true
-                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on color { MotionColor { role: "state" } }
             }
 
             Item {
@@ -242,8 +242,8 @@ Item {
                         height: Math.max(parent.radius * 2, parent.height * col.value)
                         radius: parent.radius
                         color:  col.muted ? Qt.rgba(1,1,1,0.15) : Theme.active
-                        Behavior on color  { ColorAnimation  { duration: 150 } }
-                        Behavior on height { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
+                        Behavior on color  { MotionColor { role: "state" } }
+                        Behavior on height { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
                     }
 
                     // Thumb
@@ -258,7 +258,7 @@ Item {
                             var travel = track.height - height
                             return Math.max(0, Math.min(travel, (1.0 - col.value) * travel))
                         }
-                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Behavior on color { MotionColor { role: "state" } }
                     }
 
                     // Drag to change volume. No wheel handler: these columns sit
@@ -287,7 +287,7 @@ Item {
                 color:  col.muted
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.2)
                             : Qt.rgba(1,1,1,0.06)
-                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on color { MotionColor { role: "state" } }
 
                 Row {
                     anchors.centerIn: parent
@@ -297,20 +297,20 @@ Item {
                         font.pixelSize: theme.fs(13)
                         color:          col.muted ? Theme.active : Qt.rgba(1,1,1,0.55)
                         anchors.verticalCenter: parent.verticalCenter
-                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Behavior on color { MotionColor { role: "state" } }
                     }
                     Text {
                         text:           col.muted ? "Muted" : "Mute"
                         font.pixelSize: theme.fs(11)
                         color:          col.muted ? Theme.active : Qt.rgba(1,1,1,0.4)
                         anchors.verticalCenter: parent.verticalCenter
-                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Behavior on color { MotionColor { role: "state" } }
                     }
                 }
                 Rectangle {
                     anchors.fill: parent; radius: parent.radius
                     color: muteHov.hovered ? Qt.rgba(1,1,1,0.05) : "transparent"
-                    Behavior on color { ColorAnimation { duration: 100 } }
+                    Behavior on color { MotionColor {} }
                 }
                 HoverHandler { id: muteHov; cursorShape: Qt.PointingHandCursor }
                 MouseArea { anchors.fill: parent; onClicked: col.muteToggled() }
@@ -356,7 +356,7 @@ Item {
             color:  row.isDefault
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12)
                         : (rowHov.hovered ? Qt.rgba(1,1,1,0.05) : "transparent")
-            Behavior on color { ColorAnimation { duration: 120 } }
+            Behavior on color { MotionColor { role: "state" } }
         }
 
         Row {
@@ -367,7 +367,7 @@ Item {
                 width: 6; height: 6; radius: 3
                 anchors.verticalCenter: parent.verticalCenter
                 color: row.isDefault ? Theme.active : Qt.rgba(1,1,1,0.2)
-                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on color { MotionColor { role: "state" } }
             }
 
             Text {
@@ -377,7 +377,7 @@ Item {
                 elide:          Text.ElideRight
                 width:          parent.width - 14 - parent.spacing
                 anchors.verticalCenter: parent.verticalCenter
-                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on color { MotionColor { role: "state" } }
             }
         }
 

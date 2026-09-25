@@ -210,7 +210,7 @@ PanelWindow {
                         height: theme.px(28)
                         radius: width / 2
                         color: closeHov.hovered ? Qt.rgba(1, 1, 1, 0.10) : "transparent"
-                        Behavior on color { ColorAnimation { duration: 120 } }
+                        Behavior on color { MotionColor {} }
 
                         Text {
                             anchors.centerIn: parent

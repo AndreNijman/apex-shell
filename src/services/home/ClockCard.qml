@@ -326,7 +326,7 @@ StatCard {
                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15)
                            : Qt.rgba(1,1,1,0.06)
                     border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.2); border.width: 1
-                    Behavior on color { ColorAnimation { duration: 100 } }
+                    Behavior on color { MotionColor {} }
                     Text {
                         anchors.centerIn: parent
                         text: root._addTimerOpen ? "x" : "+"
@@ -403,7 +403,7 @@ StatCard {
                             width: 36; height: 22; radius: 6
                             color: _pH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.1) : Qt.rgba(1,1,1,0.05)
                             border.color: Qt.rgba(1,1,1,0.1); border.width: 1
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            Behavior on color { MotionColor {} }
                             Text {
                                 anchors.centerIn: parent
                                 text: modelData < 60 ? modelData+"m" : "1h"
@@ -451,7 +451,7 @@ StatCard {
                                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.18)
                                    : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.1)
                             border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.25); border.width: 1
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            Behavior on color { MotionColor {} }
                             Text {
                                 anchors.centerIn: parent; text: "Set Timer"
                                 font.pixelSize: theme.fs(11); font.weight: Font.Medium
@@ -491,7 +491,7 @@ StatCard {
                                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.2)
                                : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.12)
                         border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.22); border.width: 1
-                        Behavior on color { ColorAnimation { duration: 100 } }
+                        Behavior on color { MotionColor {} }
                         Text {
                             anchors.centerIn: parent
                             text: root._timerRunning ? "Pause" : "Start"
@@ -517,7 +517,7 @@ StatCard {
                                ? Qt.rgba(1,1,1,0.1)
                                : Qt.rgba(1,1,1,0.05)
                         border.color: Qt.rgba(1,1,1,0.1); border.width: 1
-                        Behavior on color { ColorAnimation { duration: 100 } }
+                        Behavior on color { MotionColor {} }
                         Text {
                             anchors.centerIn: parent; text: "Reset"
                             font.pixelSize: theme.fs(10); font.weight: Font.Medium
@@ -572,7 +572,7 @@ StatCard {
                                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.15)
                                    : Qt.rgba(1,1,1,0.06)
                             border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.2); border.width: 1
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            Behavior on color { MotionColor {} }
                             Text {
                                 anchors.centerIn: parent
                                 text: root._addOpen ? "✕" : "+"
@@ -611,8 +611,8 @@ StatCard {
                     radius:  8
                     border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.1); border.width: 1
                     opacity: root._addOpen ? 1 : 0
-                    Behavior on height  { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-                    Behavior on opacity { NumberAnimation { duration: 150 } }
+                    Behavior on height  { MotionMove { role: "surfaceEnterSmall" } }
+                    Behavior on opacity { MotionFade {} }
 
                     Column {
                         anchors.centerIn: parent
@@ -631,7 +631,7 @@ StatCard {
                                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.18)
                                    : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.1)
                             border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.25); border.width: 1
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            Behavior on color { MotionColor {} }
                             Text {
                                 anchors.centerIn: parent; text: "Set Alarm"
                                 font.pixelSize: theme.fs(11); font.weight: Font.Medium
@@ -690,14 +690,14 @@ StatCard {
                             color: modelData.enabled
                                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.25)
                                    : Qt.rgba(1,1,1,0.1)
-                            Behavior on color { ColorAnimation { duration: 130 } }
+                            Behavior on color { MotionColor { role: "state" } }
                             Rectangle {
                                 width: 12; height: 12; radius: 6
                                 anchors.verticalCenter: parent.verticalCenter
                                 x: modelData.enabled ? parent.width - width - 3 : 3
                                 color: modelData.enabled ? Theme.active : Qt.rgba(1,1,1,0.3)
-                                Behavior on x     { NumberAnimation { duration: 130; easing.type: Easing.OutCubic } }
-                                Behavior on color { ColorAnimation  { duration: 130 } }
+                                Behavior on x     { MotionMove { curve: Motion.fastSpatial } }
+                                Behavior on color { MotionColor { role: "state" } }
                             }
                             MouseArea {
                                 anchors.fill: parent; cursorShape: Qt.PointingHandCursor
@@ -711,7 +711,7 @@ StatCard {
                             anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
                             width: 22; height: 22; radius: 6
                             color: _delH.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18) : "transparent"
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            Behavior on color { MotionColor {} }
                             Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(10); color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.6) }
                             HoverHandler { id: _delH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._deleteAlarm(modelData.id) }
@@ -757,7 +757,7 @@ StatCard {
                                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.2)
                                : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.12)
                         border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.22); border.width: 1
-                        Behavior on color { ColorAnimation { duration: 100 } }
+                        Behavior on color { MotionColor {} }
                         Text {
                             anchors.centerIn: parent
                             text: root._swRunning ? "Stop" : "Start"
@@ -778,7 +778,7 @@ StatCard {
                                ? Qt.rgba(1,1,1,0.1)
                                : Qt.rgba(1,1,1,0.05)
                         border.color: Qt.rgba(1,1,1,0.1); border.width: 1
-                        Behavior on color { ColorAnimation { duration: 100 } }
+                        Behavior on color { MotionColor {} }
                         Text {
                             anchors.centerIn: parent; text: "Reset"
                             font.pixelSize: theme.fs(10); font.weight: Font.Medium

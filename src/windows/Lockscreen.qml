@@ -330,7 +330,7 @@ WlSessionLock {
                     border.color: surface.hasError
                                       ? Theme.danger
                                       : (passwordInput.activeFocus ? Theme.active : Theme.border)
-                    Behavior on border.color { ColorAnimation { duration: 140 } }
+                    Behavior on border.color { MotionColor { role: "state" } }
 
                     // Lock glyph
                     Text {
@@ -470,11 +470,14 @@ WlSessionLock {
                             anchors.horizontalCenter: parent.horizontalCenter
                             y: -1
                         }
+                        // A busy spinner, not decoration: it is the only sign
+                        // the password is being checked, so it keeps turning
+                        // under Reduce Motion and stops only with motion off.
                         RotationAnimator on rotation {
-                            running: spinner.visible
+                            running: spinner.visible && Motion.loops
                             loops:   Animation.Infinite
                             from: 0; to: 360
-                            duration: 850
+                            duration: Motion.spinPeriod
                         }
                     }
                 }
@@ -503,12 +506,12 @@ WlSessionLock {
             // ── Error shake ──────────────────────────────────────────
             SequentialAnimation {
                 id: shakeAnim
-                NumberAnimation { target: surface; property: "shakeOffset"; from: 0; to:  14; duration: 45 }
-                NumberAnimation { target: surface; property: "shakeOffset"; to: -14; duration: 45 }
-                NumberAnimation { target: surface; property: "shakeOffset"; to:  10; duration: 45 }
-                NumberAnimation { target: surface; property: "shakeOffset"; to: -10; duration: 45 }
-                NumberAnimation { target: surface; property: "shakeOffset"; to:   6; duration: 45 }
-                NumberAnimation { target: surface; property: "shakeOffset"; to:   0; duration: 45 }
+                NumberAnimation { target: surface; property: "shakeOffset"; from: 0; to:  14; duration: Motion.errorShake }
+                NumberAnimation { target: surface; property: "shakeOffset"; to: -14; duration: Motion.errorShake }
+                NumberAnimation { target: surface; property: "shakeOffset"; to:  10; duration: Motion.errorShake }
+                NumberAnimation { target: surface; property: "shakeOffset"; to: -10; duration: Motion.errorShake }
+                NumberAnimation { target: surface; property: "shakeOffset"; to:   6; duration: Motion.errorShake }
+                NumberAnimation { target: surface; property: "shakeOffset"; to:   0; duration: Motion.errorShake }
             }
         }
 

@@ -515,8 +515,8 @@ Item {
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40)
                         : Qt.rgba(1,1,1,0.10)
                     border.width: 1
-                    Behavior on color        { ColorAnimation { duration: 130 } }
-                    Behavior on border.color { ColorAnimation { duration: 130 } }
+                    Behavior on color        { MotionColor { role: "state" } }
+                    Behavior on border.color { MotionColor { role: "state" } }
 
                     Row {
                         id: ksRow; anchors.centerIn: parent; spacing: 6
@@ -525,13 +525,13 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             text: "󰒃"; font.pixelSize: theme.fs(13)
                             color: root._killSwitch ? Theme.active : Qt.rgba(1,1,1,0.40)
-                            Behavior on color { ColorAnimation { duration: 130 } }
+                            Behavior on color { MotionColor { role: "state" } }
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text: "Kill Switch"; font.pixelSize: theme.fs(11); font.weight: Font.Medium
                             color: root._killSwitch ? Theme.active : Qt.rgba(1,1,1,0.45)
-                            Behavior on color { ColorAnimation { duration: 130 } }
+                            Behavior on color { MotionColor { role: "state" } }
                         }
                     }
 
@@ -545,17 +545,17 @@ Item {
                     color: rfH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15) : Qt.rgba(1,1,1,0.05)
                     border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28)
                     border.width: 1
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Behavior on color { MotionColor {} }
 
                     Text {
                         id: rfIcon; anchors.centerIn: parent; text: "󰑐"; font.pixelSize: theme.fs(15)
                         color: root._loading
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4)
                             : Theme.active
-                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Behavior on color { MotionColor { role: "state" } }
                         RotationAnimator {
-                            target: rfIcon; from: 0; to: 360; duration: 900
-                            loops: Animation.Infinite; running: root._loading
+                            target: rfIcon; from: 0; to: 360; duration: Motion.spinPeriod
+                            loops: Animation.Infinite; running: root._loading && Motion.loops
                             easing.type: Easing.Linear
                         }
                     }
@@ -603,8 +603,8 @@ Item {
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22)
                             : Qt.rgba(1,1,1,0.07)
                         border.width: 1
-                        Behavior on color        { ColorAnimation { duration: 200 } }
-                        Behavior on border.color { ColorAnimation { duration: 200 } }
+                        Behavior on color        { MotionColor { role: "state" } }
+                        Behavior on border.color { MotionColor { role: "state" } }
                     }
 
                     Row {
@@ -619,7 +619,7 @@ Item {
                                 : root._sbBusy
                                     ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
                                     : Qt.rgba(1,1,1,0.28)
-                            Behavior on color { ColorAnimation { duration: 200 } }
+                            Behavior on color { MotionColor { role: "state" } }
                         }
 
                         Column {
@@ -656,7 +656,7 @@ Item {
                                 color: root._sbBusy
                                     ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.60)
                                     : root._sbActive ? Theme.active : Qt.rgba(1,1,1,0.32)
-                                Behavior on color { ColorAnimation { duration: 200 } }
+                                Behavior on color { MotionColor { role: "state" } }
                             }
                         }
                     }
@@ -670,9 +670,9 @@ Item {
                             anchors.centerIn: parent; visible: root._sbBusy
                             text: "○"; font.pixelSize: theme.fs(16); color: Theme.active
                             SequentialAnimation on opacity {
-                                running: root._sbBusy; loops: Animation.Infinite
-                                NumberAnimation { to: 0.15; duration: 450 }
-                                NumberAnimation { to: 1.0;  duration: 450 }
+                                running: root._sbBusy && Motion.ambient; alwaysRunToEnd: true; loops: Animation.Infinite
+                                NumberAnimation { to: 0.15; duration: Motion.pulseHalf }
+                                NumberAnimation { to: 1.0;  duration: Motion.pulseHalf }
                             }
                         }
                         Rectangle {
@@ -681,7 +681,7 @@ Item {
                             color: root._sbActive
                                 ? Theme.active
                                 : sbHov.hovered ? Qt.rgba(1,1,1,0.35) : Qt.rgba(1,1,1,0.18)
-                            Behavior on color { ColorAnimation { duration: 200 } }
+                            Behavior on color { MotionColor { role: "state" } }
                         }
                     }
 
@@ -772,10 +772,13 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "○"; font.pixelSize: theme.fs(20); color: Theme.active
                             SequentialAnimation on opacity {
-                                running: root._loading && root._connections.length === 0
+                                running: (root._loading && root._connections.length === 0) && Motion.ambient
+                                // Finish the current beat when gated off, so it rests at its
+                                // end value instead of freezing mid-fade (Reduce Motion mid-pulse).
+                                alwaysRunToEnd: true
                                 loops:   Animation.Infinite
-                                NumberAnimation { to: 0.15; duration: 550 }
-                                NumberAnimation { to: 1.0;  duration: 550 }
+                                NumberAnimation { to: 0.15; duration: Motion.pulseHalf }
+                                NumberAnimation { to: 1.0;  duration: Motion.pulseHalf }
                             }
                         }
                         Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Loading…"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.25) }
@@ -809,13 +812,13 @@ Item {
                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22)
                 : Qt.rgba(1,1,1,0.07)
             border.width: 1
-            Behavior on color        { ColorAnimation { duration: 200 } }
-            Behavior on border.color { ColorAnimation { duration: 200 } }
+            Behavior on color        { MotionColor { role: "state" } }
+            Behavior on border.color { MotionColor { role: "state" } }
 
             SequentialAnimation {
                 id: pulseAnim; running: false
-                ColorAnimation { target: card; to: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30); duration: 160 }
-                ColorAnimation { target: card; to: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08); duration: 500; easing.type: Easing.OutCubic }
+                ColorAnimation { target: card; to: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30); duration: Motion.micro }
+                ColorAnimation { target: card; to: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08); duration: Motion.settle; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardDecel }
             }
         }
 
@@ -832,7 +835,7 @@ Item {
                     : vRow.con.busy
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
                         : Qt.rgba(1,1,1,0.28)
-                Behavior on color { ColorAnimation { duration: 200 } }
+                Behavior on color { MotionColor { role: "state" } }
             }
 
             Column {
@@ -852,7 +855,7 @@ Item {
                     color: vRow.con.busy
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.60)
                         : vRow.con.active ? Theme.active : Qt.rgba(1,1,1,0.32)
-                    Behavior on color { ColorAnimation { duration: 200 } }
+                    Behavior on color { MotionColor { role: "state" } }
                 }
             }
         }
@@ -866,9 +869,9 @@ Item {
                 anchors.centerIn: parent; visible: vRow.con.busy
                 text: "○"; font.pixelSize: theme.fs(16); color: Theme.active
                 SequentialAnimation on opacity {
-                    running: vRow.con.busy; loops: Animation.Infinite
-                    NumberAnimation { to: 0.15; duration: 450 }
-                    NumberAnimation { to: 1.0;  duration: 450 }
+                    running: vRow.con.busy && Motion.ambient; alwaysRunToEnd: true; loops: Animation.Infinite
+                    NumberAnimation { to: 0.15; duration: Motion.pulseHalf }
+                    NumberAnimation { to: 1.0;  duration: Motion.pulseHalf }
                 }
             }
 
@@ -878,7 +881,7 @@ Item {
                 color: vRow.con.active
                     ? Theme.active
                     : vHov.hovered ? Qt.rgba(1,1,1,0.35) : Qt.rgba(1,1,1,0.18)
-                Behavior on color { ColorAnimation { duration: 200 } }
+                Behavior on color { MotionColor { role: "state" } }
             }
         }
 

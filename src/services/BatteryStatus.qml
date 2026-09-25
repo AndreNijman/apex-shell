@@ -92,10 +92,13 @@ Item {
             // Pulse when critically low and discharging
             SequentialAnimation on opacity {
                 id: pulseAnim
-                running:  root.pct <= 10 && !root.charging
+                running:  root.pct <= 10 && !root.charging && Motion.ambient
+                // Finish the current beat when gated off, so it rests at its
+                // end value instead of freezing mid-fade (Reduce Motion mid-pulse).
+                alwaysRunToEnd: true
                 loops:    Animation.Infinite
-                NumberAnimation { to: 0.2; duration: 600; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.2; duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 1.0; duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
             }
 
             // Snap back when animation stops
@@ -122,7 +125,7 @@ Item {
                 color:          hov.hovered ? Theme.active : Theme.text
                 font.pixelSize: theme.fs(12)
                 anchors.verticalCenter: parent.verticalCenter
-                Behavior on color { ColorAnimation { duration: 120 } }
+                Behavior on color { MotionColor {} }
             }
         }
     }

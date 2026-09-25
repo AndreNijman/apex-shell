@@ -39,7 +39,7 @@ Item {
         border.color: input.activeFocus
             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
             : Qt.rgba(1,1,1,0.10)
-        Behavior on border.color { ColorAnimation { duration: 120 } }
+        Behavior on border.color { MotionColor { role: "state" } }
     }
     TextInput {
         id: input

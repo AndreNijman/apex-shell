@@ -89,7 +89,7 @@ Item {
                 anchors { left: parent.left; leftMargin: 76;
                 verticalCenter: parent.verticalCenter }
                 spacing: 6
-                Rectangle { width: 7; height: 7; radius: 4; anchors.verticalCenter: parent.verticalCenter; color: ShellState.hotspot ? Theme.active : Qt.rgba(1,1,1,0.22); Behavior on color { ColorAnimation { duration: 200 } } }
+                Rectangle { width: 7; height: 7; radius: 4; anchors.verticalCenter: parent.verticalCenter; color: ShellState.hotspot ? Theme.active : Qt.rgba(1,1,1,0.22); Behavior on color { MotionColor { role: "state" } } }
                 Text { anchors.verticalCenter: parent.verticalCenter; text: ShellState.hotspot ? "Active" : "Inactive"; font.pixelSize: theme.fs(11); color: ShellState.hotspot ? Theme.active : Qt.rgba(1,1,1,0.32) }
             }
         }
@@ -141,7 +141,7 @@ Item {
                                 height: 28; radius: 7
                                 color: ssidInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08) : Qt.rgba(1,1,1,0.05)
                                 border.color: ssidInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.45) : Qt.rgba(1,1,1,0.11); border.width: 1
-                                Behavior on border.color { ColorAnimation { duration: 120 } }
+                                Behavior on border.color { MotionColor { role: "state" } }
                                 TextInput {
                                     id: ssidInput; anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                                     verticalAlignment: TextInput.AlignVCenter; color: Theme.text; font.pixelSize: theme.fs(12)
@@ -163,7 +163,7 @@ Item {
                                 height: 28; radius: 7
                                 color: passInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08) : Qt.rgba(1,1,1,0.05)
                                 border.color: passInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.45) : Qt.rgba(1,1,1,0.11); border.width: 1
-                                Behavior on border.color { ColorAnimation { duration: 120 } }
+                                Behavior on border.color { MotionColor { role: "state" } }
                                 TextInput {
                                     id: passInput; anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                                     verticalAlignment: TextInput.AlignVCenter; color: Theme.text; font.pixelSize: theme.fs(12)
@@ -194,7 +194,7 @@ Item {
                                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28)
                                 : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
                             border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40); border.width: 1
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            Behavior on color { MotionColor {} }
                             Text { anchors.centerIn: parent; text: "Save"; font.pixelSize: theme.fs(12); font.weight: Font.Medium; color: Theme.active }
                             HoverHandler { id: saveH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._save() }

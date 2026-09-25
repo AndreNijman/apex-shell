@@ -226,7 +226,7 @@ Item {
 					? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
 					: (hHov.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent")
 
-					Behavior on color { ColorAnimation { duration: 120 } }
+					Behavior on color { MotionColor { role: "state" } }
 
 					// Icon + label, drawn INSIDE the pill so the clip above is
 					// the last word on where a glyph may land.
@@ -242,7 +242,7 @@ Item {
 							color: hTab.isActive
 							? Theme.active
 							: (hHov.hovered ? Qt.rgba(1, 1, 1, 0.75) : Qt.rgba(1, 1, 1, 0.4))
-							Behavior on color { ColorAnimation { duration: 120 } }
+							Behavior on color { MotionColor { role: "state" } }
 						}
 
 						Text {
@@ -255,7 +255,7 @@ Item {
 							color: hTab.isActive
 							? Theme.active
 							: (hHov.hovered ? Qt.rgba(1, 1, 1, 0.75) : Qt.rgba(1, 1, 1, 0.4))
-							Behavior on color { ColorAnimation { duration: 120 } }
+							Behavior on color { MotionColor { role: "state" } }
 						}
 					}
 				}
@@ -366,7 +366,7 @@ Item {
 						? Theme.active
 						: (vHov.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
 
-					Behavior on color { ColorAnimation { duration: 120 } }
+					Behavior on color { MotionColor { role: "state" } }
 
 					// Icon-only (no label)
 					Text {
@@ -375,7 +375,7 @@ Item {
 						text:             modelData.icon
 						font.pixelSize:   theme.fs(16)
 						color: vTab.isActive ? Theme.background : Theme.text
-						Behavior on color { ColorAnimation { duration: 120 } }
+						Behavior on color { MotionColor { role: "state" } }
 					}
 
 					// Icon + label row
@@ -398,7 +398,7 @@ Item {
 							color: vTab.isActive
 								? Theme.background
 								: (vHov.hovered ? Qt.rgba(1, 1, 1, 0.80) : Qt.rgba(1, 1, 1, 0.42))
-							Behavior on color { ColorAnimation { duration: 120 } }
+							Behavior on color { MotionColor { role: "state" } }
 						}
 
 						Text {
@@ -415,7 +415,7 @@ Item {
 							color: vTab.isActive
 								? Theme.background
 								: (vHov.hovered ? Qt.rgba(1, 1, 1, 0.80) : Qt.rgba(1, 1, 1, 0.42))
-							Behavior on color { ColorAnimation { duration: 120 } }
+							Behavior on color { MotionColor { role: "state" } }
 						}
 					}
 

@@ -175,7 +175,7 @@ Item {
             blur:         0.5
             blurMax:      32
             saturation:   0.2
-            Behavior on opacity { NumberAnimation { duration: 400 } }
+            Behavior on opacity { MotionFade { role: "fadeIn" } }
         }
 
         Rectangle {
@@ -232,11 +232,15 @@ Item {
                 anchors.horizontalCenter: titleMetrics.width <= parent.width ? parent.horizontalCenter : undefined
                 NumberAnimation on x {
                     id: marqueeAnim
-                    running: titleMetrics.width > titleText.parent.width && root.isPlaying
+                    running: titleMetrics.width > titleText.parent.width && root.isPlaying && Motion.ambient
                     from: titleText.parent.width
                     to: -titleMetrics.width
                     duration: Math.max(0, (titleMetrics.width + titleText.parent.width) * 20)
                     loops: Animation.Infinite
+                    // Stopped — paused, or gated off by Reduce Motion — the
+                    // title rests at its start rather than wherever the scroll
+                    // happened to be.
+                    onStopped: titleText.x = 0
                 }
                 onTextChanged: marqueeAnim.restart()
             }
@@ -286,7 +290,7 @@ Item {
                            : cH.hovered ? Qt.rgba(1,1,1,0.14) : Qt.rgba(1,1,1,0.06)
                     border.color: isPlay ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.3) : "transparent"
                     border.width: 1
-                    Behavior on color { ColorAnimation { duration: 100 } }
+                    Behavior on color { MotionColor { role: "state" } }
                     Text {
                         anchors.centerIn: parent
                         text: parent.dispIcon
@@ -338,7 +342,7 @@ Item {
                         anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                         width:  Math.max(radius * 2, parent.width * root._progress)
                         radius: parent.radius; color: Theme.active
-                        Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                        Behavior on width { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
                     }
                 }
             }
@@ -390,7 +394,7 @@ Item {
             height: root._dropdownOpen 
                     ? (_rowH * root.filteredPlayers.length) 
                     : _rowH
-            Behavior on height { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+            Behavior on height { MotionMove { role: "surfaceEnterSmall" } }
 
             radius:       _rowH / 2
             clip:         true
@@ -399,7 +403,7 @@ Item {
                           ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30)
                           : "transparent"
             border.width: 1
-            Behavior on border.color { ColorAnimation { duration: 150 } }
+            Behavior on border.color { MotionColor { role: "state" } }
 
             // Stacks downward from the top
             Column {
@@ -456,8 +460,8 @@ Item {
                         visible: !isCurrent
                         opacity: root._dropdownOpen ? 1 : 0
                         
-                        Behavior on height  { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-                        Behavior on opacity { NumberAnimation { duration: 140 } }
+                        Behavior on height  { MotionMove { role: "surfaceEnterSmall" } }
+                        Behavior on opacity { MotionFade {} }
 
                         Row {
                             anchors.centerIn: parent
@@ -468,7 +472,7 @@ Item {
                                 text:           root._playerIcon(modelData)
                                 font.pixelSize: theme.fs(11)
                                 color:          rowH.hovered ? Qt.rgba(1,1,1,0.90) : Qt.rgba(1,1,1,0.55)
-                                Behavior on color { ColorAnimation { duration: 100 } }
+                                Behavior on color { MotionColor {} }
                             }
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
@@ -477,7 +481,7 @@ Item {
                                 color:          rowH.hovered ? Qt.rgba(1,1,1,0.90) : Qt.rgba(1,1,1,0.55)
                                 width:          Math.min(implicitWidth, 120)
                                 elide:          Text.ElideRight
-                                Behavior on color { ColorAnimation { duration: 100 } }
+                                Behavior on color { MotionColor {} }
                             }
                         }
 

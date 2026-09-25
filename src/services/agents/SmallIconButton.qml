@@ -25,7 +25,7 @@ Rectangle {
     color: hover.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.14)
                          : "transparent"
 
-    Behavior on color { ColorAnimation { duration: 90 } }
+    Behavior on color { MotionColor {} }
 
     Text {
         anchors.centerIn: parent

@@ -268,7 +268,7 @@ PanelWindow {
 
                     width:  isPreview ? (130 * 1.2) : 130
                     height: isPreview ? wallGrid.height : wallGrid.height - 14
-                    Behavior on width { NumberAnimation { duration: 120; easing.type: Easing.InOutCubic } }
+                    Behavior on width { MotionMove { curve: Motion.fastSpatial } }
 
                     Item {
                         id:           cardContent
@@ -333,8 +333,8 @@ PanelWindow {
                         border.color: isPreview ? Theme.active
                             : isCurrent ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.45)
                             : Qt.rgba(1,1,1,0.15)
-                        Behavior on border.color { ColorAnimation { duration: 120 } }
-                        Behavior on border.width { NumberAnimation  { duration: 120 } }
+                        Behavior on border.color { MotionColor { role: "state" } }
+                        Behavior on border.width { MotionFade {} }
                     }
 
                     MouseArea {
@@ -403,12 +403,12 @@ PanelWindow {
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4)
                             : Qt.rgba(1,1,1,0.09)
                         border.width: 1
-                        Behavior on color        { ColorAnimation { duration: 100 } }
-                        Behavior on border.color { ColorAnimation { duration: 100 } }
+                        Behavior on color        { MotionColor { role: "state" } }
+                        Behavior on border.color { MotionColor { role: "state" } }
                         Text {
                             anchors.centerIn: parent; text: "󰉋"; font.pixelSize: theme.fs(15)
                             color: (content.folderMode || folderBtnMA.containsMouse) ? Theme.active : Qt.rgba(1,1,1,0.5)
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            Behavior on color { MotionColor { role: "state" } }
                         }
                         MouseArea {
                             id:                 folderBtnMA
@@ -439,9 +439,9 @@ PanelWindow {
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
                             : (filterBoxMA.containsMouse ? Qt.rgba(1,1,1,0.15) : Qt.rgba(1,1,1,0.1))
                         border.width: 1
-                        Behavior on color { ColorAnimation { duration: 100 } }
-                        Behavior on border.color { ColorAnimation { duration: 100 } }
-                        
+                        Behavior on color { MotionColor {} }
+                        Behavior on border.color { MotionColor { role: "state" } }
+
                         MouseArea {
                             id:                 filterBoxMA
                             anchors.fill: parent
@@ -569,8 +569,8 @@ PanelWindow {
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4)
                             : Qt.rgba(1,1,1,0.09)
                         border.width: 1
-                        Behavior on color        { ColorAnimation { duration: 100 } }
-                        Behavior on border.color { ColorAnimation { duration: 100 } }
+                        Behavior on color        { MotionColor { role: "state" } }
+                        Behavior on border.color { MotionColor { role: "state" } }
 
                         Row {
                             id:                 schemeBtnRow; anchors.centerIn: parent; spacing: 7
@@ -579,14 +579,14 @@ PanelWindow {
                                 font.pixelSize:         theme.fs(14)
                                 color:                  (content.schemePopupOpen || schemeBtnMA.containsMouse) ? Theme.active : Qt.rgba(1,1,1,0.55)
                                 anchors.verticalCenter: parent.verticalCenter
-                                Behavior on color       { ColorAnimation { duration: 100 } }
+                                Behavior on color       { MotionColor { role: "state" } }
                             }
                             Text {
                                 text:                   WallpaperService.scheme
                                 font.pixelSize:         theme.fs(12)
                                 color:                  (content.schemePopupOpen || schemeBtnMA.containsMouse) ? Theme.active : Qt.rgba(1,1,1,0.7)
                                 anchors.verticalCenter: parent.verticalCenter
-                                Behavior on color       { ColorAnimation { duration: 100 } }
+                                Behavior on color       { MotionColor { role: "state" } }
                             }
                             Text {
                                 text:                   content.schemePopupOpen ? "▴" : "▾"
@@ -623,18 +623,18 @@ PanelWindow {
                         ? Theme.active
                         : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4)
                     border.width: 1
-                    Behavior on width        { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-                    Behavior on opacity      { NumberAnimation { duration: 160 } }
-                    Behavior on color        { ColorAnimation { duration: 100 } }
-                    Behavior on border.color { ColorAnimation { duration: 100 } }
+                    Behavior on width        { MotionMove { role: "surfaceEnterSmall" } }
+                    Behavior on opacity      { MotionFade {} }
+                    Behavior on color        { MotionColor {} }
+                    Behavior on border.color { MotionColor {} }
                     Text {
                         anchors.centerIn: parent
                         text:             WallpaperService.applying ? "…" : "Apply"
                         font.pixelSize:   theme.fs(12)
-                        font.weight:      Font.Medium 
+                        font.weight:      Font.Medium
                         color:            Theme.active
                         opacity:          applyBtn.active ? 1 : 0
-                        Behavior on opacity { NumberAnimation { duration: 100 } }
+                        Behavior on opacity { MotionFade {} }
                     }
                     MouseArea {
                         id:           applyBtnMA
@@ -674,7 +674,7 @@ PanelWindow {
             border.width: 1
 
             opacity:            content.schemePopupOpen ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: 140 } }
+            Behavior on opacity { MotionFade {} }
 
             onVisibleChanged: {
                 if (visible) {
@@ -716,8 +716,8 @@ PanelWindow {
                             : "transparent"
                         border.width: 1
 
-                        Behavior on color        { ColorAnimation { duration: 100 } }
-                        Behavior on border.color { ColorAnimation { duration: 100 } }
+                        Behavior on color        { MotionColor { role: "state" } }
+                        Behavior on border.color { MotionColor { role: "state" } }
 
                         Row {
                             anchors.left: parent.left

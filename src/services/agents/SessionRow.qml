@@ -152,7 +152,7 @@ Rectangle {
         ? Math.max(1, theme.px(1)) : 0
     border.color: (row.breakGlass && row.live) ? Theme.danger : badge.toneColor
 
-    Behavior on color { ColorAnimation { duration: 90 } }
+    Behavior on color { MotionColor {} }
 
     HoverHandler { id: hover }
 
@@ -190,7 +190,7 @@ Rectangle {
         height: parent.height - theme.px(16)
         radius: width / 2
         color: (row.breakGlass && row.live) ? Theme.danger : badge.toneColor
-        Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on color { MotionColor { role: "state" } }
     }
 
     Row {

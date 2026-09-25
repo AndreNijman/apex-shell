@@ -157,8 +157,8 @@ CfgScroll {
                             // That one eases; this one snapped its border on and off,
                             // so the two wallpaper pickers felt like different
                             // widgets. Same properties, same 120ms.
-                            Behavior on border.color { ColorAnimation  { duration: 120 } }
-                            Behavior on border.width { NumberAnimation { duration: 120 } }
+                            Behavior on border.color { MotionColor { role: "state" } }
+                            Behavior on border.width { MotionFade {} }
                         }
                     }
                     HoverHandler { id: wh; cursorShape: Qt.PointingHandCursor }

@@ -78,8 +78,8 @@ Item {
                     : Qt.rgba(1, 1, 1, 0.04)
                 border.color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, clearH.hovered ? 0.38 : 0.12)
                 border.width: 1
-                Behavior on color        { ColorAnimation { duration: 150 } }
-                Behavior on border.color { ColorAnimation { duration: 150 } }
+                Behavior on color        { MotionColor {} }
+                Behavior on border.color { MotionColor {} }
 
                 Row {
                     id: clearRow
@@ -119,9 +119,9 @@ Item {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "○"; font.pixelSize: theme.fs(22); color: Theme.active
                     SequentialAnimation on opacity {
-                        running: parent.visible; loops: Animation.Infinite
-                        NumberAnimation { to: 0.15; duration: 500 }
-                        NumberAnimation { to: 1.0;  duration: 500 }
+                        running: parent.visible && Motion.ambient; alwaysRunToEnd: true; loops: Animation.Infinite
+                        NumberAnimation { to: 0.15; duration: Motion.pulseHalf }
+                        NumberAnimation { to: 1.0;  duration: Motion.pulseHalf }
                     }
                 }
                 Text {
@@ -171,7 +171,7 @@ Item {
 
                 // Smooth repositioning when items are removed
                 displaced: Transition {
-                    NumberAnimation { property: "y"; duration: 220; easing.type: Easing.OutCubic }
+                    NumberAnimation { property: "y"; duration: Motion.notificationShift; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardDecel }
                 }
 
                 delegate: ClipRow {
@@ -247,8 +247,8 @@ component ClipRow: Item {
     opacity: _removing ? 0 : 1
     clip: true
 
-    Behavior on height  { NumberAnimation { duration: 210; easing.type: Easing.InCubic } }
-    Behavior on opacity { NumberAnimation { duration: 160 } }
+    Behavior on height  { MotionMove { role: "surfaceExitSmall"; curve: Motion.standardAccel } }
+    Behavior on opacity { MotionFade {} }
 
     // ── Card ──────────────────────────────────────────────────────────────────
     Rectangle {
@@ -267,8 +267,8 @@ component ClipRow: Item {
             : rHov.hovered ? Qt.rgba(1, 1, 1, 0.13) : Qt.rgba(1, 1, 1, 0.065)
         border.width: 1
 
-        Behavior on color        { ColorAnimation { duration: 140 } }
-        Behavior on border.color { ColorAnimation { duration: 140 } }
+        Behavior on color        { MotionColor { role: "state" } }
+        Behavior on border.color { MotionColor { role: "state" } }
 
         // ── Inner layout ──────────────────────────────────────────────────────
         Row {
@@ -308,7 +308,7 @@ component ClipRow: Item {
                         smooth:   true
                         asynchronous: true
                         opacity: thumbImg.status === Image.Ready ? 1.0 : 0.0
-                        Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+                        Behavior on opacity { MotionFade { role: "fadeIn" } }
                     }
 
                     // Placeholder while loading / no path yet
@@ -364,7 +364,7 @@ component ClipRow: Item {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 2
                 opacity: rHov.hovered ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
+                Behavior on opacity { MotionFade {} }
 
                 // Copy
                 ActionBtn {
@@ -418,7 +418,7 @@ component ClipRow: Item {
             }
 
             scale: row.isPinned ? 1.0 : 0.0
-            Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack } }
+            Behavior on scale { MotionMove { curve: Motion.fastSpatial } }
         }
     }
 
@@ -434,13 +434,16 @@ component ClipRow: Item {
         }
     }
 
-    // Fires after the collapse animation completes so the list reflows smoothly
+    // Fires after the collapse animation completes so the list reflows smoothly.
+    // Bound to the collapse's own token rather than to a copy of its length, so
+    // a faster motion speed (or Reduce Motion, where the collapse is instant)
+    // does not leave the row waiting on a delete that should already be done.
     Timer {
         id: delayedAction
         property bool   isPinned:    false
         property int    pinnedIndex: -1
         property string entryId:     ""
-        interval: 220
+        interval: Motion.surfaceExitSmall
         onTriggered: {
             if (isPinned) {
                 // Remove from pin list
@@ -470,15 +473,15 @@ component ActionBtn: Rectangle {
             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22)
             : (aH.hovered ? Qt.rgba(1, 1, 1, 0.11) : "transparent")
 
-    Behavior on color { ColorAnimation { duration: 110 } }
+    Behavior on color { MotionColor { role: "state" } }
 
     // Subtle scale-up on hover
     transform: Scale {
         origin.x: 13; origin.y: 13
         xScale: aH.hovered ? 1.10 : 1.0
         yScale: aH.hovered ? 1.10 : 1.0
-        Behavior on xScale { NumberAnimation { duration: 130; easing.type: Easing.OutCubic } }
-        Behavior on yScale { NumberAnimation { duration: 130; easing.type: Easing.OutCubic } }
+        Behavior on xScale { MotionMove { role: "pressOut"; curve: Motion.fastSpatial } }
+        Behavior on yScale { MotionMove { role: "pressOut"; curve: Motion.fastSpatial } }
     }
 
     Text {
@@ -490,7 +493,7 @@ component ActionBtn: Rectangle {
             : ab.active
                 ? Theme.active
                 : (aH.hovered ? Qt.rgba(1, 1, 1, 0.88) : Qt.rgba(1, 1, 1, 0.38))
-        Behavior on color { ColorAnimation { duration: 110 } }
+        Behavior on color { MotionColor { role: "state" } }
     }
 
     HoverHandler { id: aH; cursorShape: Qt.PointingHandCursor }
