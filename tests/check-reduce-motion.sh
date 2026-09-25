@@ -114,12 +114,15 @@ def strip(src):
             out.append(c); i += 1
     return "".join(out)
 
-TOKEN  = re.compile(r'\bMotion\s*[\.\[]')
+# `MotionTable.` is theme/motion.js imported directly — the one way a file
+# that runs before any session (the login screen's password shapes) can reach
+# the table. It applies the same policy through spatial()/effect().
+TOKEN  = re.compile(r'\bMotion(?:Table)?\s*[\.\[]')
 LEGACY = re.compile(r'(Theme\.animDuration|Metrics\.animDuration'
                     r'|SettingsService\.effectiveAnim|SettingsService\.reduceMotion'
                     r'|Popups\.slideDuration|Popups\.hoverCloseDelay'
                     r'|\btheme\.animDuration\b)')
-DISGUISE = re.compile(r'\bMotion\.(?:spatial|effect)\s*\(\s*\d')
+DISGUISE = re.compile(r'\bMotion(?:Table)?\.(?:spatial|effect)\s*\(\s*\d')
 COMP = re.compile(r'\bMotion(?:Color|Fade|Move)\s*\{')
 EASE = re.compile(r'\bEasing\.(\w+)')
 EASE_OK = {"BezierSpline", "Linear", "InOutSine"}

@@ -85,6 +85,8 @@ QtObject {
     readonly property int hero:     spatial(M.BASE.hero)      // the one signature transition; also the ceiling
     readonly property int valueFollow: spatial(M.BASE.valueFollow) // an indicator catching up with its value
     readonly property int errorShake:  spatial(M.BASE.errorShake)  // one swing of a rejected-input shake
+    readonly property int staggerStep: spatial(M.BASE.staggerStep) // one step of a group arriving/leaving
+    readonly property int staggerCap:  spatial(M.BASE.staggerCap)  // the most a group's stagger may add
 
     // ── Loops ───────────────────────────────────────────────────────────────
     // A looping animation is gated, never zeroed: an infinite animation with a

@@ -42,6 +42,11 @@ var BASE = {
     // bar after a key press, a slider fill after a click, a meter). Short,
     // because the value is already true and the bar is merely late.
     valueFollow:        90,
+    // Several items leaving or arriving together (a cleared field, a paste, a
+    // cleared notification stack) stagger by one step each, never more than
+    // the cap in total, so the group reads as one gesture rather than a queue.
+    staggerStep:        20,
+    staggerCap:        100,
     // One swing of the "wrong password" shake. Spatial, so under Reduce Motion
     // the field does not move and its danger outline carries the message alone.
     errorShake:         45

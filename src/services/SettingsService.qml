@@ -174,9 +174,9 @@ QtObject {
     onBarEnabledChanged:        _scheduleSave()
     onSpacingChanged:           _scheduleSave()
     onExclusionGapChanged:      _scheduleSave()
-    onReduceMotionChanged:      _scheduleSave()
-    onMotionSpeedChanged:       _scheduleSave()
-    onMotionScaleChanged:       _scheduleSave()
+    onReduceMotionChanged:      { _scheduleSave(); _scheduleGreetPublish() }
+    onMotionSpeedChanged:       { _scheduleSave(); _scheduleGreetPublish() }
+    onMotionScaleChanged:       { _scheduleSave(); _scheduleGreetPublish() }
     onDashboardWidthChanged:    _scheduleSave()
     onDashboardHeightChanged:   _scheduleSave()
     onNotificationsWidthChanged:_scheduleSave()
@@ -187,6 +187,27 @@ QtObject {
     onNightLightTempChanged:    _scheduleSave()
 
     function _scheduleSave() { if (_loaded) _saveTimer.restart() }
+
+    // ── The login screen follows the motion settings ─────────────────────────
+    // The greeter runs before any session and cannot read this file, so the
+    // same root helper that publishes the wallpaper and accent for it
+    // (/usr/libexec/apex-greet-wallpaper, called by WallpaperService) also
+    // publishes these three, validated, to /var/lib/apex-greet/motion/<user>.
+    // Waited out well past the 350 ms save debounce, because the helper reads
+    // the file on disk. Best-effort and silent: `sudo -n` never prompts, and
+    // on a host without the helper nothing happens at all.
+    function _scheduleGreetPublish() { if (_loaded) _greetPublishTimer.restart() }
+    property var _greetPublishTimer: Timer {
+        interval: 1500; repeat: false
+        onTriggered: root._greetPublish.running = true
+    }
+    property var _greetPublish: Process {
+        command: ["sh", "-c",
+            "if [ -x /usr/libexec/apex-greet-wallpaper ]; then " +
+            "sudo -n /usr/libexec/apex-greet-wallpaper >/dev/null 2>&1 || true; " +
+            "fi; exit 0"]
+        running: false
+    }
 
     property var _saveTimer: Timer {
         interval: 350; repeat: false

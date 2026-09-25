@@ -6,6 +6,7 @@ import Quickshell.Wayland
 import Quickshell.Services.Pam
 import "../"
 import "../services/"
+import "../components/auth"
 
 // ─────────────────────────────────────────────────────────────
 // Lockscreen — native Wayland session lock, replaces hyprlock.
@@ -145,6 +146,13 @@ WlSessionLock {
         }
 
         function fail(msg) {
+            // Clear the FIELD, not only the buffer. This used to empty
+            // surface.password and leave the TextInput holding the rejected
+            // attempt: the dots stayed, Enter did nothing (the buffer was
+            // empty), and the next key appended to the wrong password. Cleared
+            // before hasError is set, because clearing runs onTextChanged,
+            // which drops hasError as soon as the user types.
+            passwordInput.text = ""
             surface.password  = ""
             surface.hasError  = true
             surface.errorText = msg
@@ -360,8 +368,21 @@ WlSessionLock {
                         clip:                    true
                         enabled:                 !surface.checking
                         focus:                   true
-                        color:                   Theme.text
-                        selectionColor:          Theme.active
+                        // The field draws nothing of its own: what it holds is
+                        // shown by PasswordShapes below, which is given its
+                        // LENGTH and nothing else. Still a masked field with no
+                        // echo delay, so no character exists on screen even for
+                        // the frame before the shapes hide it; transparent so
+                        // the mask characters, the cursor and a selection are
+                        // not painted on top of the shapes.
+                        color:                   "transparent"
+                        selectionColor:          "transparent"
+                        selectedTextColor:       "transparent"
+                        // The caret is NOT painted in `color` — it would sit
+                        // where the invisible mask characters end, a bar
+                        // floating left of the shapes. The shapes are the
+                        // position; the caret is drawn by nothing.
+                        cursorDelegate:          Item {}
                         font.family:             "JetBrainsMono Nerd Font"
                         font.pixelSize:          theme.fs(18)
                         echoMode:                TextInput.Password
@@ -428,11 +449,12 @@ WlSessionLock {
                             }
                         }
 
-                        // Placeholder
+                        // Placeholder. Waits for the shapes to have actually
+                        // gone, so it never draws over a row that is leaving.
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.left:           parent.left
-                            visible: passwordInput.text.length === 0 && !surface.checking
+                            visible: shapes.empty && !surface.checking
                             text:  "Enter password"
                             color: Theme.subtext
                             font.family:    passwordInput.font.family
@@ -445,6 +467,27 @@ WlSessionLock {
                             // which disappears the moment a key is pressed.
                             Accessible.ignored: true
                         }
+                    }
+
+                    // What the field holds, as shapes — one per character,
+                    // chosen by position, never by what was typed. Same
+                    // component the login screen loads (apex-greet).
+                    PasswordShapes {
+                        id: shapes
+                        anchors.fill:        passwordInput
+                        length:              passwordInput.length
+                        accent:              Theme.active
+                        text:                Theme.text
+                        background:          Theme.background
+                        danger:              Theme.danger
+                        error:               surface.hasError
+                        busy:                surface.checking
+                        // The raw settings, resolved inside by the motion
+                        // table — the same three the login screen is handed.
+                        speed:               SettingsService.motionSpeed
+                        motionScale:         SettingsService.motionScale
+                        reduced:             SettingsService.reduceMotion
+                        size:                15
                     }
 
                     // Spinner (shown while PAM is checking).
