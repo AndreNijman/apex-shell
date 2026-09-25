@@ -244,7 +244,7 @@ headless_start() {
         labwc)
             mkdir -p "$HEADLESS_W/cfg/labwc"
             cp "$here/labwc-test-rc.xml" "$HEADLESS_W/cfg/labwc/rc.xml" 2>/dev/null || true
-            WLR_RENDERER=pixman XDG_CONFIG_HOME="$HEADLESS_W/cfg" \
+            WLR_RENDERER="${HEADLESS_WLR_RENDERER:-pixman}" XDG_CONFIG_HOME="$HEADLESS_W/cfg" \
                 XDG_CURRENT_DESKTOP=labwc:wlroots \
                 labwc > "$HEADLESS_W/comp.log" 2>&1 &
             HEADLESS_COMP_PID=$!
@@ -253,7 +253,7 @@ headless_start() {
             : > "$HEADLESS_W/sway.cfg"
             [ -n "$mode" ] &&
                 printf 'output HEADLESS-1 mode %s\n' "$mode" > "$HEADLESS_W/sway.cfg"
-            WLR_RENDERER=pixman XDG_CURRENT_DESKTOP=sway:wlroots \
+            WLR_RENDERER="${HEADLESS_WLR_RENDERER:-pixman}" XDG_CURRENT_DESKTOP=sway:wlroots \
                 sway -c "$HEADLESS_W/sway.cfg" > "$HEADLESS_W/comp.log" 2>&1 &
             HEADLESS_COMP_PID=$!
             ;;
