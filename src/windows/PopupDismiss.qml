@@ -88,12 +88,15 @@ PanelWindow {
 
     // Only grab input when a popup is actually open
     // When false, input passes through as if this window doesn't exist
-    // labwc stacks this Top-layer surface above ArchMenu's anchored popup even
+    // labwc stacked this Top-layer surface above ArchMenu's anchored popup even
     // though PopupDismiss is instantiated first. Its fullscreen mask therefore
-    // receives every button click before the visible power menu can. Leave the
-    // dismiss surface unmapped for that one popup on labwc; the compositor's
+    // received every button click before the visible power menu could. Leave
+    // the dismiss surface unmapped for that one popup on labwc; the compositor's
     // focusMoved listener below still closes it when focus moves, and
     // the power key/button toggles it closed directly.
+    // ArchMenu is an Overlay-layer PanelWindow since UI/UX Phase 10, which no
+    // Top-layer surface can stack above, so this exception may no longer be
+    // needed; it stays until that is measured under labwc with a real pointer.
     visible: (Popups.anyOpen
               && !(Compositor.isLabwc && Popups.archMenuOpen)
               && (!Popups.dashboardOpen

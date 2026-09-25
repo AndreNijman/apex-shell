@@ -685,9 +685,10 @@ section "3. what mirroring does NOT reach, pinned in both directions"
 win_total="$(grep -rlE '^\s*PanelWindow\b|^\s*FloatingWindow\b' "$root/src" 2>/dev/null | wc -l)"
 win_mirrored="$(grep -rlE '^\s*PanelWindow\b|^\s*FloatingWindow\b' "$root/src" 2>/dev/null \
                  | xargs -r grep -l 'LayoutMirroring' | wc -l)"
-# 16 since UI/UX Phase 9b: QuickControl became a PanelWindow (it was a
-# PopupWindow placed by an anchor rectangle).
-WIN_TOTAL_EXPECT=16
+# 16 since UI/UX Phase 9b and 17 since Phase 10: QuickControl and ArchMenu
+# became PanelWindows spanning their strips (both were PopupWindows placed by
+# an anchor rectangle).
+WIN_TOTAL_EXPECT=17
 WIN_MIRRORED_EXPECT=0
 [ "$win_total" -eq "$WIN_TOTAL_EXPECT" ] \
     && ok "the shell paints from $WIN_TOTAL_EXPECT window roots — counted $win_total" \
@@ -865,8 +866,8 @@ fi
 #     MiscPage.qml          x3  x:10 width: parent.width - 20
 #     KeybindsPage.qml      x2  x:0  width: root.width  (full bleed)
 #
-#   GEOMETRY PLUMBING (1)
-#     ArchMenu.qml          x1  a mask proxy whose x feeds the popup's mask
+#   GEOMETRY PLUMBING (0) — ArchMenu's mask proxy (`x: 0`) went with UI/UX
+#   Phase 10: its input region is the spill body's bounds now.
 #
 # What is NOT on this list is the point: the three sites that were a bare left
 # inset with an intrinsic or asymmetric width — CfgScroll's lifecycle banner
@@ -874,7 +875,6 @@ fi
 # mirroring), and MiscPage's About row and Update button — are now anchored, and
 # a new one anywhere in src/ fails this.
 x_expect="$(cat <<'XEOF'
-1 src/popups/ArchMenu.qml x: 0
 1 src/services/compositor/LabwcBackend.qml x: 0, y: 0, width: 0, height: 0
 2 src/services/config_tab/KeybindsPage.qml x: 0
 1 src/services/config_tab/pages/AppearancePage.qml x: 10
