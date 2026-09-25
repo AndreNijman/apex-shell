@@ -149,8 +149,42 @@ tab_switch() {
     echo "captured tabs"
 }
 
+# Changing pane under the right notch while it is open: Network → the
+# notification centre → Network. One body, retargeting; it must not close.
+pane_switch() {
+    ipc wifi-toggle toggle; sleep 1.2
+    t0=$(date +%s%N); ipc notification-toggle toggle; burst "switch-to-centre" "$t0"
+    sleep 0.6
+    t0=$(date +%s%N); ipc wifi-toggle toggle; burst "switch-to-network" "$t0"
+    sleep 0.6
+    ipc wifi-toggle toggle; sleep 1.2
+    echo "captured switch"
+}
+
+# A notification toast. It needs a notification to arrive, and this harness
+# must never send one to the user's own desktop, so it runs only on a PRIVATE
+# session bus: dbus-run-session -- env APEX_CAPTURE_BUS=private <this script>.
+toast_seq() {
+    if [ "${APEX_CAPTURE_BUS:-}" != private ]; then
+        echo "toast: skipped — needs a private session bus (APEX_CAPTURE_BUS=private under dbus-run-session)"
+        return
+    fi
+    gdbus call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications \
+        --method org.freedesktop.Notifications.GetServerInformation 2>&1 | sed 's/^/toast: server /'
+    t0=$(date +%s%N)
+    notify-send -a "Capture" "A toast from the capture harness" "Two lines of body text, so the card has some depth to pour to." \
+        || echo "toast: notify-send failed"
+    burst "toast-open" "$t0"
+    # It dismisses itself 5000 ms after it shows; stamp the close from there.
+    burst "toast-close" "$(( t0 + 5000000000 ))"
+    sleep 1
+    echo "captured toast"
+}
+
 for s in "${want[@]}"; do
     if [ "$s" = tabs ]; then tab_switch; continue; fi
+    if [ "$s" = switch ]; then pane_switch; continue; fi
+    if [ "$s" = toast ]; then toast_seq; continue; fi
     [ -n "${OPEN[$s]+x}" ] || { echo "unknown surface: $s"; continue; }
     if [ -z "${OPEN[$s]}" ]; then
         grab "$s-static"
