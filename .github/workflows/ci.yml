@@ -1506,6 +1506,13 @@ jobs:
       - name: The surface lifecycle
         run: ./tests/run-surface-lifecycle-test.sh
 
+      # The fluid surface geometry (Phases 4-5): every family swept over
+      # progress at three output scales — tangent-continuous joins, no
+      # self-intersection, no collapse mid-morph, attached to its origin
+      # throughout, progress 0 equal to the bar's notch and 1 to the finished
+      # surface, and a content clip that never leaves the body.
+      - name: The fluid surface geometry
+        run: node tests/fluid-geometry-test.js
 
       # The LOCK screen, for a user who cannot see it (P2-003).
       #
