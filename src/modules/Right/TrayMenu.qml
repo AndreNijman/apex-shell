@@ -39,6 +39,7 @@ PopupWindow {
             stack = []
             widest = 0
             visible = true
+            popIn.restart()
         }
     }
     function close() { visible = false }
@@ -91,6 +92,27 @@ PopupWindow {
 
         focus: true
         Keys.onEscapePressed: root.close()
+
+        // PIVOT_POP's entrance (brief B.8): from the corner at the tray icon,
+        // a fade on the state beat and a scale 0.97 → 1 on emphasizedDecel.
+        // No exit: a click elsewhere is the compositor dismissing the popup,
+        // and it is gone before any fade could run.
+        transformOrigin: Item.TopLeft
+        opacity: 1
+        scale: 1
+        ParallelAnimation {
+            id: popIn
+            NumberAnimation {
+                target: card; property: "opacity"; from: 0; to: 1
+                duration: Motion.state
+                easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardDecel
+            }
+            NumberAnimation {
+                target: card; property: "scale"; from: Motion.selection > 0 ? 0.97 : 1; to: 1
+                duration: Motion.selection
+                easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.emphasizedDecel
+            }
+        }
 
         // Scrolls only when a menu is taller than maxH.
         Flickable {

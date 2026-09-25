@@ -46,8 +46,28 @@ PanelWindow {
     // typing into once it is gone.
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
 
-    property bool windowVisible: false
+    // The window maps with the flag, so the catcher below can learn where the
+    // pointer is; the menu's own entrance starts once it has been placed.
+    readonly property bool windowVisible: Popups.contextMenuOpen || life.mapped
     visible: windowVisible
+
+    // ── PIVOT_POP (UI/UX roadmap v3 Phase 14, brief B.8) ────────────────────
+    // In: a fade on the state beat and a scale 0.97 → 1 on emphasizedDecel,
+    // from the corner nearest the pointer. Out: the fade only, on the hover
+    // beat — no scale-down, which under the click reads as a missed click.
+    SurfaceLifecycle {
+        id: life
+        open:          Popups.contextMenuOpen && root.placed
+        enterDuration: Motion.selection
+        exitDuration:  Motion.hover
+        enterCurve:    Motion.emphasizedDecel
+        contentDelay:  0
+        contentIn:     Motion.state
+        contentOut:    Motion.hover
+    }
+    // The corner the menu grows from: the one nearest the pointer, which flips
+    // when the placement had to be clamped at the right or bottom edge.
+    property int origin: Item.TopLeft
 
     // Where the menu is drawn. Negative means "not placed yet".
     property real menuX: -1
@@ -55,10 +75,8 @@ PanelWindow {
     readonly property bool placed: menuX >= 0 && menuY >= 0
 
     function applyOpenState() {
-        closeTimer.stop()
         root.menuX = -1
         root.menuY = -1
-        root.windowVisible = true
         fallbackTimer.restart()
     }
 
@@ -76,6 +94,10 @@ PanelWindow {
         var maxY = Math.max(0, root.height - h - 8)
         root.menuX = Math.min(Math.max(8, px), maxX)
         root.menuY = Math.min(Math.max(8, py), maxY)
+        const right  = px > root.menuX + w / 2
+        const bottom = py > root.menuY + h / 2
+        root.origin = bottom ? (right ? Item.BottomRight : Item.BottomLeft)
+                             : (right ? Item.TopRight    : Item.TopLeft)
     }
 
     Connections {
@@ -83,24 +105,18 @@ PanelWindow {
         function onContextMenuOpenChanged() {
             if (Popups.contextMenuOpen)
                 root.applyOpenState()
-            else
-                closeTimer.restart()
         }
-    }
-
-    Timer {
-        id: closeTimer
-        interval: Theme.animDuration + 20
-        onTriggered: if (!Popups.contextMenuOpen) root.windowVisible = false
     }
 
     // Opened without a pointer (a keybind): centre it.
     Timer {
         id: fallbackTimer
         interval: 120
-        onTriggered: if (!root.placed)
+        onTriggered: if (!root.placed) {
             root.placeAt((root.width - menuCard.implicitWidth) / 2,
                          (root.height - menuCard.implicitHeight) / 2)
+            root.origin = Item.Center
+        }
     }
 
     // Full-screen catcher: reports where the pointer is, and dismisses on a
@@ -123,12 +139,9 @@ PanelWindow {
         implicitHeight: itemColumn.implicitHeight + 12
 
         visible: root.placed
-        opacity: Popups.contextMenuOpen && root.placed ? 1 : 0
-        scale: Popups.contextMenuOpen && root.placed ? 1 : 0.96
-        transformOrigin: Item.TopLeft
-
-        Behavior on opacity { NumberAnimation { duration: Theme.animDuration * 0.5; easing.type: Easing.OutCubic } }
-        Behavior on scale   { NumberAnimation { duration: Theme.animDuration * 0.5; easing.type: Easing.OutCubic } }
+        opacity: life.content * life.alpha
+        scale: life.closing ? 1 : 0.97 + 0.03 * life.progress
+        transformOrigin: root.origin
 
         Rectangle {
             anchors.fill: parent
