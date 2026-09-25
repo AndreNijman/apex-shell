@@ -96,9 +96,8 @@ PanelWindow {
     // Safe to animate on PanelWindow (anchored, no position jank).
     // PopupWindow is the one that must never have animated implicitHeight.
     implicitHeight: ShellState.focusMode ? theme.borderWidth : theme.notchHeight
-    Behavior on implicitHeight {
-        NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
-    }
+    // Focus mode collapses the bar to its strip over the page beat (brief §D.7).
+    Behavior on implicitHeight { MotionMove { role: "page"; curve: Motion.standard } }
 
     // labwc adds real server-side titlebars. Reserve the complete bar height so
     // their iconify/maximize/close buttons start below the right notch instead
@@ -108,17 +107,18 @@ PanelWindow {
             ? Math.max(theme.notchHeight, theme.exclusionGap)
             : theme.exclusionGap)
     Behavior on exclusiveZone {
-        NumberAnimation {
-            duration: Compositor.isLabwc ? 0 : Theme.animDuration
-            easing.type: Easing.InOutCubic
-        }
+        enabled: !Compositor.isLabwc
+        MotionMove { role: "page"; curve: Motion.standard }
     }
 
-    readonly property int lWidth: Math.max(
+    // The left notch grows with its content like the centre one; it used to
+    // snap while the other two animated (brief §F.10).
+    property int lWidth: Math.max(
         theme.lNotchMinWidth,
         Math.min(theme.lNotchMaxWidth,
                  leftContent.implicitWidth + theme.notchPadding * 2)
     )
+    Behavior on lWidth { MotionMove { role: "page"; curve: Motion.standard } }
 
     // The centre notch's own width — its content's, clamped. It no longer
     // widens to the Dashboard's page width while the Dashboard is open: the
@@ -205,18 +205,14 @@ PanelWindow {
         anchors.fill: parent
         color: Theme.background
         opacity: ShellState.focusMode ? 1 : 0
-        Behavior on opacity {
-            NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
-        }
+        Behavior on opacity { MotionFade {} }
     }
 
     // ── Notch content (fades out in focus mode) ──────────────────────────────
     Item {
         anchors.fill: parent
         opacity: ShellState.focusMode ? 0 : 1
-        Behavior on opacity {
-            NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
-        }
+        Behavior on opacity { MotionFade {} }
         
         SeamlessBarShape {
             id: barShape
@@ -224,6 +220,7 @@ PanelWindow {
             leftWidth:   root.lWidth
             centerWidth: root.cWidth
             rightWidth:  root.rWidth
+            rightAttached: root.rightLife.progress > 0
 
         }
 

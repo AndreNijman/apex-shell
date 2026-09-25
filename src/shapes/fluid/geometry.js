@@ -224,6 +224,53 @@ function barSilhouette(g) {
              params: { lW: lW, cS: cS, cE: cE, rS: rS, rbL: rbL, rbC: rbC, rbR: rbR } };
 }
 
+// ── The bar's hairline (brief §C.6 / §D.7) ─────────────────────────────────
+// The one depth cue the bar has: a 1 px stroke along its wallpaper-facing edge
+// — the strip's bottom and every notch's sides, shoulders and bottom — as an
+// OPEN path (the screen edges and the top are not an edge anyone sees),
+// inset half a pixel so a 1 px stroke lies wholly inside the fill and never
+// touches the wallpaper. Same corners as barSilhouette, offset: shoulders
+// (concave) at r + ½, bottom corners (convex) at rb − ½.
+//
+// Suppressed on a seam: with a pane attached under the right notch
+// (g.rightAttached) the line stops where the strip meets that notch. The pane
+// draws the notch's widened band and its side over the bar, but not the
+// notch's own bottom edge, which is the seam — a line there would sit between
+// the notch and the body hanging from it.
+function barHairline(g) {
+    var w = g.w, b = g.strip, h = g.h, r = g.shoulder, i = 0.5;
+    var side = Math.max(0, h - b - r);
+    function rb(v, notchW) { return Math.max(i, Math.min(v, side, notchW / 2)); }
+    var lW = Math.round(g.leftW), rW = Math.round(g.rightW);
+    var cS = Math.round(w / 2) - Math.round(g.centerW / 2);
+    var cE = cS + Math.round(g.centerW);
+    var rS = w - rW;
+    var rbL = rb(g.bottom, lW), rbC = rb(g.bottom, cE - cS), rbR = rb(g.rightBottomL, rW);
+
+    var P = new Path();
+    P.move(0, h - i);
+    P.line(lW - rbL, h - i);
+    P.corner(lW - i, h - rbL, "h");
+    P.line(lW - i, b + r);
+    P.corner(lW + r, b - i, "v");
+    P.line(cS - r, b - i);
+    P.corner(cS + i, b + r, "h");
+    P.line(cS + i, h - rbC);
+    P.corner(cS + rbC, h - i, "v");
+    P.line(cE - rbC, h - i);
+    P.corner(cE - i, h - rbC, "h");
+    P.line(cE - i, b + r);
+    P.corner(cE + r, b - i, "v");
+    P.line(rS - r, b - i);
+    if (!g.rightAttached) {
+        P.corner(rS + i, b + r, "h");
+        P.line(rS + i, h - rbR);
+        P.corner(rS + rbR, h - i, "v");
+        P.line(w, h - i);
+    }
+    return { path: P.toString(), segs: P.segs, params: { rS: rS, end: P.x } };
+}
+
 // ── CENTER_BLOOM ────────────────────────────────────────────────────────────
 // The Dashboard: the centre notch BECOMES the surface. Drawn in the fullscreen
 // Dashboard window, from y = 0, over the bar's own notch — at p = 0 it is that
@@ -480,7 +527,7 @@ if (typeof module !== "undefined" && module.exports)
         clamp01: clamp01, lerp: lerp, span: span, smooth: smooth, decel: decel, accel: accel,
         curve: curve, fastDecel: fastDecel, standard: standard,
         standardDecel: standardDecel, emphasizedDecel: emphasizedDecel,
-        barNotch: barNotch, barSilhouette: barSilhouette,
+        barNotch: barNotch, barSilhouette: barSilhouette, barHairline: barHairline,
         centerBloom: centerBloom,
         rightPourWidth: rightPourWidth, rightPour: rightPour,
         leftSpill: leftSpill, edgeSpillRight: edgeSpillRight,

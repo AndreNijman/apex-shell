@@ -124,20 +124,20 @@ QtObject {
 
     // -- Notch Content Padding --
     // Space added around the content inside each notch
-    property int notchPadding:           px(16)   // horizontal padding each side
+    property int notchPadding:           px(14)   // horizontal padding each side (brief §C.1: 14, was 16)
     property int notchHorizontalPadding: px(20)
     property int notchVerticalPadding:   px(10)
     property int notchSideMargin:        px(10)
 
     // -- Notch Width Constraints --
     // Each notch sizes itself to its content, clamped between min and max.
-    property int lNotchMinWidth: px(180)
+    property int lNotchMinWidth: px(140)   // brief §D.2: the content is ~120 wide (was 180)
     property int lNotchMaxWidth: px(360)
 
     property int cNotchMinWidth: px(300)
     property int cNotchMaxWidth: px(360)
 
-    property int rNotchMinWidth: px(180)
+    property int rNotchMinWidth: px(160)   // brief §D.2 (was 180)
     property int rNotchMaxWidth: px(360)
 
     // -- Dashboard Dimensions -- (Config → Layout & Behavior)

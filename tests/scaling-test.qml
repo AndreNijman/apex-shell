@@ -180,13 +180,13 @@ ShellRoot {
             root.check("Theme.px mirrors Metrics.px", Theme.px(13) === Metrics.px(13));
 
             // Geometry tokens must actually be scaled, not raw literals.
-            root.eq("notchPadding is scaled", Metrics.notchPadding, Math.round(16 * Metrics.scale));
+            root.eq("notchPadding is scaled", Metrics.notchPadding, Math.round(14 * Metrics.scale));   // 14 since UI/UX Phase 15 (brief §C.1)
             root.eq("cNotchMinWidth is scaled", Metrics.cNotchMinWidth, Math.round(300 * Metrics.scale));
 
             // On the reference panel class the token set must not move.
             if (Metrics.referenceHeight >= 1000 && Metrics.referenceHeight < 1250) {
                 root.eq("baseline panel: scale is exactly 1.0", Metrics.scale, 1.0);
-                root.eq("baseline panel: notchPadding unchanged at 16", Metrics.notchPadding, 16);
+                root.eq("baseline panel: notchPadding unchanged at 14", Metrics.notchPadding, 14);
                 root.eq("baseline panel: fs(12) unchanged at 12", Metrics.fs(12), 12);
             }
 
@@ -391,7 +391,7 @@ ShellRoot {
             SettingsService.set("scaleManual", 1.5);
             SettingsService.set("scaleMode", "manual");
             root.eq("manual mode takes the manual factor", Metrics.scale, 1.5);
-            root.eq("manual mode scales geometry", Metrics.notchPadding, 24);
+            root.eq("manual mode scales geometry", Metrics.notchPadding, 21);   // 14 × 1.5
 
             // A manual factor is an explicit instruction and it applies to the
             // whole desk, per-output surfaces included. This is the half of the

@@ -41,6 +41,10 @@ Shape {
     // cannot.
     property real rightBottomRadius: bottomRadius
 
+    // A pane hangs under the right notch (TopBar.rightLife): the hairline stops
+    // short of that notch rather than running along the seam.
+    property bool rightAttached: false
+
     readonly property var result: Geo.barSilhouette({
         w:            root.width,
         strip:        root.topBorderWidth,
@@ -60,5 +64,30 @@ Shape {
         strokeWidth: -1
         strokeColor: "transparent"
         PathSvg { path: root.result.path }
+    }
+
+    // The depth cue (brief §C.6, §D.7): one 1 px line along the edge the
+    // wallpaper meets, inset so it never touches the wallpaper — no shadow,
+    // no blur. On a light wallpaper it disappears; on a dark one it is the
+    // separation.
+    readonly property var hairline: Geo.barHairline({
+        w:             root.width,
+        strip:         root.topBorderWidth,
+        h:             root.notchHeight,
+        shoulder:      root.radius,
+        bottom:        root.bottomRadius,
+        leftW:         root.leftWidth,
+        centerW:       root.centerWidth,
+        rightW:        root.rightWidth,
+        rightBottomL:  root.rightBottomRadius,
+        rightAttached: root.rightAttached
+    })
+    ShapePath {
+        fillColor:   "transparent"
+        strokeWidth: 1
+        strokeColor: Theme.hairline
+        capStyle:    ShapePath.FlatCap
+        joinStyle:   ShapePath.RoundJoin
+        PathSvg { path: root.hairline.path }
     }
 }

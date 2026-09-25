@@ -215,6 +215,25 @@ for (const scale of [0.85, 1.0, 1.5]) {
     const oddBar = G.barSilhouette(Object.assign({}, bg, { centerW: bg.centerW + 1 })).params;
     check("bar: whole-pixel centre edges for an odd width", Number.isInteger(oddBar.cS) && Number.isInteger(oddBar.cE));
 
+    // The hairline: an open path, wholly inside the fill, joined without
+    // kinks, stopping short of the right notch while a pane hangs from it.
+    for (const attached of [false, true]) {
+        const hl = G.barHairline(Object.assign({}, bg, { rightAttached: attached }));
+        const pts = polyline(hl.segs, 32);
+        const outside = pts.filter(q => !inside(barPts, q[0] + (q[0] <= 0.01 ? 0.3 : 0), q[1]));
+        check(`bar hairline (${attached ? "attached" : "free"}): every point lies inside the bar's fill`,
+              outside.length === 0, outside.slice(0, 3).map(q => q.map(v => v.toFixed(1)).join(",")).join(" "));
+        const hk = [];
+        for (let k = 1; k < hl.segs.length; k++) {
+            const a = tangentEnd(hl.segs[k - 1]), b = tangentStart(hl.segs[k]);
+            if (a && b && a[0] * b[0] + a[1] * b[1] < 0.9995) hk.push(k);
+        }
+        check(`bar hairline (${attached ? "attached" : "free"}): no kinks`, hk.length === 0, hk.join(","));
+        check(`bar hairline (${attached ? "attached" : "free"}): ${attached ? "stops before the right notch" : "runs to the screen edge"}`,
+              attached ? hl.params.end <= hl.params.rS - bg.shoulder + 1e-6 : Math.abs(hl.params.end - bw) < 1e-6,
+              "ends at " + hl.params.end);
+    }
+
     // The pour over the bar's right notch. Window x → screen x is + (bw - winW).
     const off = bw - rg.winW, rS = bar.params.rS, rbN = bar.params.rbR;
     const pourPts = p => polyline(G.rightPour(p, rg).segs, 32);
