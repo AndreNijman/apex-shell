@@ -65,6 +65,35 @@ QtObject {
     property int exclusionGap:  px(SettingsService.exclusionGap)
     property int spacing:       px(SettingsService.spacing)
 
+    // -- Radius roles (UI/UX roadmap Phase 2) --
+    // Derived from the two radius settings rather than written as numbers, so a
+    // settings.json that changed cornerRadius or notchRadius moves every role
+    // with it. XS and S are fixed: a checkbox corner is not a setting.
+    property int radiusXS:   px(4)
+    property int radiusS:    px(8)
+    property int radiusM:    Math.round(cornerRadius * 0.7)
+    property int radiusL:    cornerRadius
+    property int radiusXL:   Math.round(cornerRadius * 1.4)
+    property int radiusFull: 9999
+
+    // -- The notch's two radii --
+    // The shoulder is the JOIN (strip → notch, concave) and the bottom corner
+    // is the OBJECT (convex). They were one number; they are two tokens now,
+    // read by the bar and by every surface that grows out of a notch, so a
+    // surface at progress 0 is the bar's own notch to the pixel. The bottom is
+    // capped so the notch's side keeps a straight run between the two curves.
+    property int notchShoulder: notchRadius
+    property int notchBottom:   Math.max(0, Math.min(notchRadius + px(2),
+                                     Math.floor((notchHeight - borderWidth - px(6)) / 2)))
+
+    // -- Spacing scale --
+    property int spaceXS:  px(4)
+    property int spaceS:   px(8)
+    property int spaceM:   px(12)
+    property int spaceL:   px(16)
+    property int spaceXL:  px(24)
+    property int spaceXXL: px(32)
+
     // -- Notch Content Padding --
     // Space added around the content inside each notch
     property int notchPadding:           px(16)   // horizontal padding each side
