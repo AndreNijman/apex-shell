@@ -297,6 +297,16 @@ jobs:
           # the terminal is a stub that gives the program a pty.
           ./tests/run-terminal-entry-test.sh
 
+      - name: A resting pointer does not pick the launcher row Enter opens
+        run: |
+          # A row took the selection on `entered`, which Qt also sends to rows
+          # that appear under a pointer that never moved: open the launcher
+          # with the mouse resting over it and Enter opened the app under the
+          # mouse, not the keyboard's pick. Pointer events are QtTest's, sent
+          # into the window, so Qt's own synthetic hover is what is exercised.
+          # Needs a compositor and skips cleanly without one.
+          ./tests/run-launcher-hover-test.sh
+
       - name: Assert telemetry services stay lazy and refcounted
         run: |
           # These invariants are the whole reason the shell no longer forks at
