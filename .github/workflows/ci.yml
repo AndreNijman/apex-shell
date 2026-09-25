@@ -1498,6 +1498,14 @@ jobs:
       - name: The motion system
         run: node tests/motion-test.js
 
+      # The transient-surface state machine (Phase 6): a surface stays mapped
+      # until its close has actually finished, reverses from wherever it is,
+      # survives open/close spam, and opens by itself when a LazyPopup builds it
+      # already open. The real component under qmltestrunner -platform
+      # offscreen; skips here without qt6-declarative's test runner.
+      - name: The surface lifecycle
+        run: ./tests/run-surface-lifecycle-test.sh
+
 
       # The LOCK screen, for a user who cannot see it (P2-003).
       #
