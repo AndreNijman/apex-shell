@@ -571,6 +571,10 @@ THEME
 . "$here/lib/theme-stub.sh"
 stage_theme_set "$stage" "$root" "$stage/components" || {
     bad "the staged token set could be built" ""; finish; exit 1; }
+# The motion system the staged controls take their timing from (Phase 1 of the
+# UI/UX roadmap): copied from src/theme at the shipped defaults.
+stage_motion "$stage" "$root" || {
+    echo "RESULT: the staged motion system could not be built"; exit 1; }
 
 # The fixture is run TWICE — scrubbed, and under the RTL locale with the image's
 # platform theme. Round 22 ran it once, in whatever direction the operator's

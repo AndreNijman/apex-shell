@@ -114,6 +114,10 @@ THEME
 . "$here/lib/theme-stub.sh"
 stage_theme_set "$stage" "$root" "$stage/components" || {
     echo "RESULT: the staged token set could not be built"; exit 1; }
+# The motion system the staged controls take their timing from (Phase 1 of the
+# UI/UX roadmap): copied from src/theme at the shipped defaults.
+stage_motion "$stage" "$root" || {
+    echo "RESULT: the staged motion system could not be built"; exit 1; }
 
 # WAYLAND_DISPLAY is removed from the environment rather than merely unused.
 # The offscreen platform does not need it, but a plugin that ever decides to

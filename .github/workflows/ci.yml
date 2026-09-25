@@ -1474,20 +1474,30 @@ jobs:
         run: |
           ./tests/run-a11y-controls-test.sh
 
-      # How far the Reduce Motion switch actually reaches. It is a real setting
-      # with real UI and it touches 39 of this tree's 450 animation durations —
-      # the other 402 are integer literals written in place, which no switch can
-      # reach. A user who turns it on because motion makes them ill still gets
-      # 89% of the animation, and nothing said so: there was no test of this
-      # setting at all.
+      # Every animation takes its timing from the motion system (UI/UX roadmap
+      # v3, Phase 1). This began as a measurement of how little Reduce Motion
+      # reached — 41 of 453 durations, the rest literals no switch could touch —
+      # and is now the lint that keeps it whole: a literal duration needs an
+      # allowlist entry with a reason, a Motion.spatial(N) with a literal is
+      # caught as a literal in disguise, named Qt easings and the legacy single
+      # duration are ratchets that only go down, and every infinite loop must
+      # be gated on Motion.loops or Motion.ambient.
       #
       # The counts are exact and ratcheted in both directions, the way
-      # check-color-tokens.sh's EXPECT_WHITE_FG is. More literals is the
-      # regression; fewer means somebody fixed some and the constant should be
-      # tightened to lock it in; a moving total means the scanner itself
-      # changed, which is how an exact count becomes a green light for nothing.
+      # check-color-tokens.sh's EXPECT_WHITE_FG is. More is the regression;
+      # fewer means the constant should be tightened to lock it in; a moving
+      # total means the scanner itself changed.
       - name: How far Reduce Motion reaches
         run: ./tests/check-reduce-motion.sh
+
+      # The motion table and its policy, in node: exits shorter than entrances,
+      # no curve overshoots, spatial tokens are 0 under Reduce Motion while
+      # effects survive capped, the legacy animDuration migrates by its ratio
+      # to 320 ms. The table lives in src/theme/motion.js so this reads the
+      # same numbers the shell does rather than a copy of them.
+      - name: The motion system
+        run: node tests/motion-test.js
+
 
       # The LOCK screen, for a user who cannot see it (P2-003).
       #

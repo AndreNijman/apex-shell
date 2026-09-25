@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "../theme/motion.js" as MotionTable
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SettingsService — single source of truth for user-tunable shell metrics &
@@ -28,8 +29,17 @@ QtObject {
     property bool barEnabled:        false
     property int  spacing:           10
     property int  exclusionGap:      34
-    property int  animDuration:      320
     property bool reduceMotion:      false
+
+    // ── Motion speed ─────────────────────────────────────────────────────────
+    // A preset — "snappy", "balanced", "relaxed" — and an advanced multiplier on
+    // top of it (0 = no motion at all, 2.5 = the slowest the page offers). They
+    // replace the old `animDuration` milliseconds, which set every large surface
+    // to the same length and could not say "hovers fast, the Dashboard slower";
+    // theme/Motion.qml turns these two into per-role durations. A settings.json
+    // that still carries animDuration is migrated on load (see _initProc).
+    property string motionSpeed:     "balanced"
+    property real   motionScale:     1.0
 
     // ── Display scaling ──────────────────────────────────────────────────────
     // "auto" derives a factor from the reference screen's height; "manual" uses
@@ -57,22 +67,26 @@ QtObject {
     property int  notificationsWidth: 400
 
     // ── Derived (not persisted) ───────────────────────────────────────────────
-    // When reduce-motion is on, every Behavior driven by Theme.animDuration
-    // collapses to an instant transition.
-    readonly property int effectiveAnim: reduceMotion ? 0 : animDuration
+    // The one duration the shell ran on before theme/Motion.qml: what 320 ms
+    // became at the user's speed, still 0 when reduce-motion is on. Kept for the
+    // callers not yet migrated to a semantic token; nothing new should read it.
+    readonly property int effectiveAnim: reduceMotion ? 0 : MotionTable.legacyDuration(
+        MotionTable.speedScale(motionSpeed, motionScale), false)
 
     // ── Ordered schema — drives (de)serialization & reset ─────────────────────
     readonly property var _keys: [
         "cornerRadius", "borderWidth", "notchRadius", "notchHeight",
-        "barEnabled", "spacing", "exclusionGap", "animDuration", "reduceMotion",
+        "barEnabled", "spacing", "exclusionGap", "reduceMotion",
+        "motionSpeed", "motionScale",
         "dashboardWidth", "dashboardHeight", "notificationsWidth",
         "lockBackground", "scaleMode", "scaleManual", "scaleScreen",
         "nightLightTemp"
     ]
     readonly property var _defaults: ({
         cornerRadius: 17, borderWidth: 6, notchRadius: 15, notchHeight: 40,
-        barEnabled: false, spacing: 10, exclusionGap: 34, animDuration: 320,
-        reduceMotion: false, dashboardWidth: 900, dashboardHeight: 520,
+        barEnabled: false, spacing: 10, exclusionGap: 34,
+        reduceMotion: false, motionSpeed: "balanced", motionScale: 1.0,
+        dashboardWidth: 900, dashboardHeight: 520,
         notificationsWidth: 400,
         lockBackground: "",
         scaleMode: "auto", scaleManual: 1.0, scaleScreen: "",
@@ -85,7 +99,7 @@ QtObject {
         cornerRadius:      [0, 40], borderWidth:  [0, 24],
         notchRadius:       [0, 30], notchHeight:  [24, 72],
         spacing:           [0, 40], exclusionGap: [0, 80],
-        animDuration:      [0, 1200],
+        motionScale:       [0, 2.5],
         dashboardWidth:    [700, 1400], dashboardHeight: [360, 900],
         notificationsWidth:[280, 640],
         // A scale below 0.5 makes the shell unreadable and above 3.0 makes it
@@ -108,7 +122,19 @@ QtObject {
 
     // Keys whose value is a real rather than a whole number. Without this
     // scaleManual would be parseInt'd and 1.25 would silently become 1.
-    readonly property var _realKeys: ["scaleManual"]
+    readonly property var _realKeys: ["scaleManual", "motionScale"]
+
+    // String settings that only take one of a fixed set. Anything else — a
+    // hand-edited typo — falls back to the default instead of reaching Motion
+    // as a preset name nobody defined.
+    readonly property var _choices: ({
+        motionSpeed: ["snappy", "balanced", "relaxed"]
+    })
+    function _choice(k, v) {
+        var c = _choices[k]
+        if (!c) return v
+        return c.indexOf(v) >= 0 ? v : _defaults[k]
+    }
 
     function _clampInt(k, v) {
         var b = _bounds[k]
@@ -130,7 +156,7 @@ QtObject {
         if (typeof _defaults[key] === "boolean")
             root[key] = !!value
         else if (typeof _defaults[key] === "string")
-            root[key] = value === undefined || value === null ? "" : String(value)
+            root[key] = _choice(key, value === undefined || value === null ? "" : String(value))
         else
             root[key] = _clampInt(key, value)
     }
@@ -148,8 +174,9 @@ QtObject {
     onBarEnabledChanged:        _scheduleSave()
     onSpacingChanged:           _scheduleSave()
     onExclusionGapChanged:      _scheduleSave()
-    onAnimDurationChanged:      _scheduleSave()
     onReduceMotionChanged:      _scheduleSave()
+    onMotionSpeedChanged:       _scheduleSave()
+    onMotionScaleChanged:       _scheduleSave()
     onDashboardWidthChanged:    _scheduleSave()
     onDashboardHeightChanged:   _scheduleSave()
     onNotificationsWidthChanged:_scheduleSave()
@@ -177,13 +204,23 @@ QtObject {
             onStreamFinished: {
                 try {
                     var o = JSON.parse(text.trim() || "{}")
+                    // A file from before the motion system carries the old
+                    // single duration instead. Its ratio to the old default is
+                    // exactly what motionScale means, so a user who had slowed
+                    // the shell to 480 ms keeps a 1.5x shell rather than being
+                    // silently reset to the default speed.
+                    if (o.motionScale === undefined && o.animDuration !== undefined) {
+                        var legacy = parseFloat(o.animDuration)
+                        if (!isNaN(legacy))
+                            o.motionScale = Math.round(legacy / 320 * 100) / 100
+                    }
                     for (var i = 0; i < root._keys.length; i++) {
                         var k = root._keys[i]
                         if (o[k] === undefined) continue
                         if (typeof root._defaults[k] === "boolean")
                             root[k] = !!o[k]
                         else if (typeof root._defaults[k] === "string")
-                            root[k] = String(o[k])
+                            root[k] = root._choice(k, String(o[k]))
                         else
                             root[k] = root._clampInt(k, o[k])
                     }

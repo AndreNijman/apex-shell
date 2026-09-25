@@ -97,19 +97,34 @@ CfgScroll {
 
         CfgRow {
             label:       "Reduce motion"
-            description: "Turn off animations across the shell"
+            description: "Removes movement, morphing and scaling everywhere in the shell. " +
+                         "Short fades stay, so a change is still visible."
             CfgSwitch {
                 checked:   SettingsService.reduceMotion
                 onToggled: function(v) { SettingsService.set("reduceMotion", v) }
             }
         }
         CfgRow {
-            label:       "Animation speed"
-            description: "Base duration for transitions"
+            label:       "Motion speed"
+            description: "How quickly surfaces open, close and move"
+            CfgSegmented {
+                options: [
+                    { value: "snappy",   label: "Snappy"   },
+                    { value: "balanced", label: "Balanced" },
+                    { value: "relaxed",  label: "Relaxed"  }
+                ]
+                value:      SettingsService.motionSpeed
+                onSelected: function(v) { SettingsService.set("motionSpeed", v) }
+            }
+        }
+        CfgRow {
+            label:       "Duration scale"
+            description: "Advanced. Multiplies every duration on top of the speed " +
+                         "above; 0% turns animation off entirely."
             CfgSlider {
-                from: 0; to: 1200; step: 20; suffix: "ms"
-                value:   SettingsService.animDuration
-                onMoved: function(v) { SettingsService.set("animDuration", v) }
+                from: 0; to: 250; step: 5; suffix: "%"
+                value:   Math.round(SettingsService.motionScale * 100)
+                onMoved: function(v) { SettingsService.set("motionScale", v / 100) }
             }
         }
     }
@@ -173,7 +188,8 @@ CfgScroll {
                 onClicked: {
                     SettingsService.set("barEnabled",         false)
                     SettingsService.set("reduceMotion",       false)
-                    SettingsService.set("animDuration",       320)
+                    SettingsService.set("motionSpeed",        "balanced")
+                    SettingsService.set("motionScale",        1.0)
                     SettingsService.set("spacing",            10)
                     SettingsService.set("exclusionGap",       34)
                     SettingsService.set("dashboardHeight",    520)

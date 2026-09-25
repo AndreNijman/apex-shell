@@ -95,3 +95,60 @@ print("theme-stub: %d tokens, covering %d read by the staged components"
       % (len(defined), len(used)))
 PY
 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  stage_motion — the real motion system, for a qmltestrunner stage.
+#
+#  Since the UI/UX roadmap's Phase 1 the controls take their timing from the
+#  Motion singleton and the MotionColor/MotionFade/MotionMove types, all in the
+#  src module. A stage is a stand-in for src/, so they are copied into it at the
+#  same relative paths — theme/Motion.qml, theme/motion.js, theme/anim/*.qml —
+#  and registered in the stage's qmldir exactly as src/qmldir registers them.
+#
+#  The one change: Motion.qml's reads of SettingsService are replaced by the
+#  shipped defaults (Balanced, 1x, Reduce Motion off), because SettingsService
+#  imports Quickshell and qmltestrunner cannot load it. The defaults are READ
+#  from SettingsService.qml rather than written here, so a changed default is a
+#  changed stage.
+#
+#  Usage:  stage_motion <stage_dir> <repo_root>
+# ─────────────────────────────────────────────────────────────────────────────
+stage_motion() {
+    local stage="$1" root="$2"
+    mkdir -p "$stage/theme/anim"
+    cp "$root/src/theme/motion.js" "$stage/theme/motion.js"
+    cp "$root"/src/theme/anim/*.qml "$stage/theme/anim/"
+    python3 - "$stage" "$root" <<'PY'
+import os, re, sys
+stage, root = sys.argv[1], sys.argv[2]
+settings = open(os.path.join(root, "src", "services", "SettingsService.qml")).read()
+motion = open(os.path.join(root, "src", "theme", "Motion.qml")).read()
+defaults = {}
+for m in re.finditer(r'^\s*property\s+\w+\s+(\w+):\s*([^\n]+?)\s*$', settings, re.M):
+    defaults[m.group(1)] = m.group(2)
+missing = []
+def sub(m):
+    v = defaults.get(m.group(1))
+    if v is None or not re.fullmatch(r'[-\d.]+|true|false|"[^"]*"', v):
+        missing.append(m.group(1)); return m.group(0)
+    return v
+out = re.sub(r'\bSettingsService\.(\w+)', sub, motion)
+out = re.sub(r'^import "\.\./services"\n', '', out, flags=re.M)
+if missing:
+    sys.stderr.write("stage_motion: no literal default for SettingsService.%s\n"
+                     % ", ".join(sorted(set(missing))))
+    sys.exit(2)
+open(os.path.join(stage, "theme", "Motion.qml"), "w").write(out)
+qmldir = os.path.join(stage, "qmldir")
+have = open(qmldir).read() if os.path.exists(qmldir) else ""
+add = ""
+for line in ("singleton Motion theme/Motion.qml",
+             "MotionColor 1.0 theme/anim/MotionColor.qml",
+             "MotionFade 1.0 theme/anim/MotionFade.qml",
+             "MotionMove 1.0 theme/anim/MotionMove.qml"):
+    if line not in have:
+        add += line + "\n"
+open(qmldir, "a").write(add)
+print("stage_motion: Motion staged at the shipped defaults")
+PY
+}

@@ -88,6 +88,10 @@ THEME
 . "$here/lib/theme-stub.sh"
 stage_theme_set "$stage" "$root" "$stage/components" || {
     echo "RESULT: the staged token set could not be built"; exit 1; }
+# The motion system the staged controls take their timing from (Phase 1 of the
+# UI/UX roadmap): copied from src/theme at the shipped defaults.
+stage_motion "$stage" "$root" || {
+    echo "RESULT: the staged motion system could not be built"; exit 1; }
 
 out="$(QT_QPA_PLATFORM=offscreen QT_LOGGING_RULES="qt.qml.binding.removal.info=false" \
        timeout 120 "$runner" -platform offscreen -input "$stage/slider-wheel-test.qml" 2>&1)"
