@@ -156,11 +156,12 @@ PanelWindow {
     )
     readonly property int rWidth: root.rNaturalWidth
 
-    // Which pane the flags ask for. The centre and the network panel are
-    // mutually exclusive (every trigger runs closeAll() first); the toast
-    // shows only when neither is up.
+    // Which pane the flags ask for. The centre, the network panel and audio
+    // are mutually exclusive (every trigger runs closeAll() first); the toast
+    // shows only when none of them is up.
     readonly property string rightWanted: Popups.notificationsOpen ? "notifications"
                                         : Popups.networkOpen       ? "network"
+                                        : Popups.audioOpen         ? "audio"
                                         : root.rightToastShowing   ? "toast" : ""
     // Pushed by RightPanel: whether its toast pane has something to show (per
     // screen — the old global flag let one screen's dismiss close every bar),
@@ -185,6 +186,7 @@ PanelWindow {
     // hangs from, so a wide status cluster is not clipped by its own panel.
     readonly property int rightPaneWidth: root.rightPane === "network"       ? theme.networkPopupWidth + theme.notchRadius
                                         : root.rightPane === "notifications" ? theme.notificationsWidth + theme.notchRadius
+                                        : root.rightPane === "audio"         ? theme.px(Popups.audioPage === "mixer" ? 300 : 200) + theme.notchRadius
                                         : root.rightPane === "toast"         ? theme.notificationToastWidth + theme.notchRadius
                                         : root.rNaturalWidth
     property real rightTargetW: Math.max(root.rightPaneWidth, root.rNaturalWidth)

@@ -408,6 +408,18 @@ QtObject {
 
     // ── Misc Toggles ─────────────────────────────────────────
 
+    // The quick controls (volume, brightness) otherwise open only on hovering
+    // the right strip — no route at all from a keyboard. This is one for a
+    // keybind, and the one the headless capture harness uses.
+    property var quick: IpcHandler {
+        target: "quick-toggle"
+        function toggle() {
+            var next = !Popups.quickOpen
+            Popups.closeAll()
+            Popups.quickOpen = next
+        }
+    }
+
     property var notification: IpcHandler {
         target: "notification-toggle"
         function toggle() {

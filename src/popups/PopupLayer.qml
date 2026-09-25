@@ -52,16 +52,11 @@ Scope {
 
     // ── TopBar-anchored popups ───────────────────────────────
 
-    // Right notch — audio
+    // Right strip — quick controls, opened by hovering the strip. The hover
+    // itself builds it: gated on `quickOpen` alone it was never built at all,
+    // because nothing sets that flag (see QuickControl.qml).
     LazyPopup {
-        wanted: Popups.audioOpen
-        AudioPopup {
-            anchorWindow: root.rightBorder
-        }
-    }
-
-    LazyPopup {
-        wanted: Popups.quickOpen
+        wanted: Popups.quickOpen || Popups.quickTriggerHovered
         QuickControl {
             anchorWindow: root.topBar
         }
@@ -75,8 +70,8 @@ Scope {
         }
     }
 
-    // Right notch — the network panel, the notification centre and the toast,
-    // as panes of one surface that pours out of the notch (RightPanel.qml).
+    // Right notch — the network panel, the notification centre, audio and the
+    // toast, as panes of one surface that pours out of the notch (RightPanel.qml).
     //
     // The toast's trigger is NOT Popups.notificationToastOpen: that flag is
     // written ONLY by the toast itself, so gating construction on it alone was
@@ -84,7 +79,7 @@ Scope {
     // toasts never appeared at all. The service's own record of the last
     // announced notification is the real trigger.
     LazyPopup {
-        wanted: Popups.networkOpen || Popups.notificationsOpen
+        wanted: Popups.networkOpen || Popups.notificationsOpen || Popups.audioOpen
                 || Popups.notificationToastOpen || NotificationService.lastToast !== null
         RightPanel {
             anchorWindow: root.topBar

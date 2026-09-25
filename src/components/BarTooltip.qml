@@ -19,7 +19,7 @@ import "../"
 PopupWindow {
     id: tip
     // Sized for the output the bar item is on. A PopupWindow's own `screen` is
-    // not the output it is anchored to (measured, see AudioPopup.qml), so the
+    // not the output it is anchored to (measured: tests/check-scale-tokens.sh), so the
     // factor comes from the anchor's window.
     readonly property ThemeSet theme: ThemeSet {
         scale: Theme.factorForScreen(tip.anchor.window ? tip.anchor.window.screen : null)

@@ -41,10 +41,11 @@ Item {
         Text {
             id: iconText
             text:           root.icon
-            color:          hov.hovered ? Theme.active : Theme.text
+            color:          hov.hovered || Popups.audioOpen ? Theme.active : Theme.text
             font.pixelSize: theme.fs(18)
             anchors.verticalCenter: parent.verticalCenter
             Behavior on color { MotionColor {} }
+            OpenPill { shown: Popups.audioOpen }
         }
 
         Item {

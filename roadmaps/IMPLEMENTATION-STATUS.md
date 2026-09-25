@@ -37,7 +37,7 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
 | 6 Surface lifecycle | IN PROGRESS | `SurfaceLifecycle.qml` (linear progress on open, fastDecel on close, content delay 40/in 130/out 70); under Reduce Motion a close holds the finished shape while it fades (brief B.10); a close+reopen in one tick is a no-op. Dashboard and the right panel migrated | 1 | lifecycle suite 15/0 | remaining popups migrate with their redesign; the CI applyOpenState step now asserts the right panel's clock waits for the panel |
 | 7 Connected navigation | IN PROGRESS | `TabSwitcher.qml`: one pill per switcher travels to the chosen tab (selection token, emphasizedDecel; armed after first placement); tabs draw hover only. `LazyPage.qml`: directional enter/exit (pageTravel, page token), interruption-safe. Dashboard derives direction from tab order via `shownPage` | 1, 3 | nav-geometry 4398/16 (pre-existing), wheel 16/0, settings-controls 16/0, a11y 26/0, rtl 37/0, popup smoke clean; `capture-surfaces.sh … tabs` sheets fwd/back | Nexus `NavPane` still pending (Phase 13) |
 | 8 Dashboard v2 | IMPLEMENTED (motion) | `Dashboard.qml` on CENTER_BLOOM + SurfaceLifecycle, content at final layout under the bloom clip; `TopBar.cWidth` no longer widens for it; `SeamlessBarShape` on the notch tokens, whole-pixel positions | 4–7 | captures cold/warm at 2.5x (`tests/visual/capture-surfaces.sh`), shoulder zoom; popup/nexus smoke, scaling 88/0 | page redesign is Phase 17 |
-| 9 Right quick surfaces | IN PROGRESS (9a IMPLEMENTED) | 9a: `RightPanel.qml` — Network, the notification centre and the toast as panes of ONE RIGHT_POUR surface per screen (`NetworkPane`, `NotificationsPane`, `NotificationToast` now Items); clock `TopBar.rightLife`, starting only once the panel is built; pane switch keeps the body open and retargets W/D over `page`, panes cross-fade (incoming waits `contentDelay`); `OpenPill` on the owning glyph, no ▾, icons stay; network tabs arrive directionally; panel bound to its screen. 9b: Audio under the right notch, QuickControl EDGE_SPILL | 4–7 | captures cold/warm/switch/toast (private bus)/Reduce Motion, per-frame seam measurement; service-tier 88/0, popup smoke, scaling, lint ratchets lowered (legacy 32, easing 27, unresolved 2) | Network depth still fixed at 648 (content-sized is Phase 17) |
+| 9 Right quick surfaces | IMPLEMENTED | 9a: `RightPanel.qml` — Network, the notification centre, audio and the toast as panes of ONE RIGHT_POUR surface per screen (`NetworkPane`, `NotificationsPane`, `AudioControl`, `NotificationToast` as Items); clock `TopBar.rightLife`, starting only once the panel is built; the bar's notch never moves (the panel draws the band); pane switch keeps the body open and retargets W/D over `page`, panes cross-fade; `OpenPill` on the owning glyph (wifi/bt/vpn/hotspot, speaker, bell), no ▾; network tabs arrive directionally. 9b: Audio moved from the right strip to a pane under its own notch trigger (`AudioPopup` removed); `QuickControl` on EDGE_SPILL as a PanelWindow spanning the right strip, built by the strip hover (it was unreachable, see below), a `quick-toggle` IPC for keyboards | 4–7 | captures cold/warm/switch/toast (private bus)/Reduce Motion/audio/quick, per-frame seam measurement; service-tier 88/0, scaling 90/0, labwc matrix 57/0 (was not running its per-output half), popup smoke incl. quick-toggle, lint ratchets lowered (legacy 30, easing 25, unresolved 2) | Network depth fixed at 648 (content-sized is Phase 17); audio pages still switch instantly (width retargets, pill travels); right panel opens on every screen, as the centre always did |
 | 10 Left surfaces | NOT STARTED | `ArchMenu`, `PowerMenu` | 4–6 | captures | labwc: PopupDismiss unmapped for ArchMenu |
 | 11 Notifications stack | NOT STARTED | `NotificationList`, toast | 1, 6 | stack harness | no notification source headless (use notify-send stub path) |
 | 12 Launcher | NOT STARTED | `AppLauncher.qml` | 1–3 | first-keypress test | the launcher agent's fix landed (PR #25, 99c5ab7) and main is merged here (6ce1653); the 8 unlisted literals are its ratchet |
@@ -77,8 +77,8 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
 
 ## Resume notes (kept current)
 
-- Committed through Phase 9a. Next: 9b (Audio as a RIGHT_POUR pane under the
-  right notch; QuickControl on EDGE_SPILL), then 10, 11, 12.
+- Committed through Phase 9b. Next: 10 (ArchMenu on LEFT_SPILL + its hover-build
+  defect), then 11, 12.
 - The toast capture needs a notification and must never send one to the desk:
   `env -u WAYLAND_DISPLAY -u DISPLAY dbus-run-session -- env APEX_CAPTURE_BUS=private
   tests/visual/capture-surfaces.sh OUT toast` (gdbus Notify — this host's
@@ -96,6 +96,14 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
 
 ## Failures that are NOT this branch's (measured on untouched main)
 
+- QuickControl could not be opened at all since the lazy-popup change
+  (`cea90b5`, #2): built only by `Popups.quickOpen`, which nothing sets. FIXED in
+  9b. ArchMenu's and the wallpaper picker's strip hovers have the same shape
+  (they work only after the first click has built the window) — for Phase 10.
+- `tests/labwc-matrix-test.qml` built `PopupDismiss` without its required
+  `topBar` (since `6b39094`), so the per-output half built no instances and
+  failed; CI skips the suite (no labwc there), which is why nobody saw it.
+  FIXED in 9b.
 - `tests/run-nav-geometry-test.sh`: 16 — the Privacy page lays out no rows at some scales (identical on `17eec38`).
 - `tests/run-lockscreen-atspi.sh`: 1 pinned assertion — this machine's Qt now publishes 8 AT-SPI nodes; the pin itself says that is an improvement.
 - apex-os `tests/test-apex-greet-sessions.sh`: 2 — a new `apex-safe-graphics` session the suite does not expect.
@@ -103,6 +111,7 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
 
 ## Verification log
 
+- 2026-09-26 — Phase 9b: audio pane and EDGE_SPILL quick controls captured; full `check-*.sh` sweep, node suites, headless suites green (nav-geometry 16 pre-existing); RTL window-root pin 15 → 16 (QuickControl is a PanelWindow).
 - 2026-09-26 — Phase 9a: one right panel; seam measured per frame on cold/warm open and close and both pane switches — exact after moving the band into the panel (was 35-77 px off with a Canvas bar, then one-frame ledges with a Shape bar); toast captured on a private bus; Reduce Motion close fades the finished shape. All `check-*.sh` green, node suites green, headless suites green except nav-geometry's 16 pre-existing. Fixed two Phase 7 regressions found by the full sweep.
 - 2026-09-26 — Phase 7: shared tab pill + directional pages on the Dashboard; forward/back tab sheets reviewed (pill lands ~290 ms, no pop); suites as in the phase row.
 - 2026-09-26 — Phase 8a: Dashboard on CENTER_BLOOM; cold open no longer squeezes the page; lint 22/0 (legacy 40, easing 35, unresolved 4); popup smoke, nexus smoke, scaling 88/0; nav-geometry 16 (pre-existing).

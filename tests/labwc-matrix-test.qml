@@ -73,7 +73,10 @@ ShellRoot {
     }
 
     ArchMenu    { id: archMenu;  anchorWindow: host }
-    AudioPopup  { id: audio;     anchorWindow: host }
+    // Audio is a pane of the right notch's panel now (RightPanel), whose input
+    // region is its body's bounds — asserted inside the window by
+    // tests/fluid-geometry-test.js. QuickControl is measured OPEN: closed, its
+    // region is empty on purpose, so a closing panel eats no clicks.
     QuickControl{ id: quick;     anchorWindow: host }
 
     // One bar and one dismiss surface per output, the way shell.qml builds them.
@@ -91,8 +94,10 @@ ShellRoot {
             readonly property var barItem: bar
             readonly property var dismissItem: dismiss
             TopBar       { id: bar;     screen: screenScope.modelData }
+            // topBar is required (6b39094): without it no instance is built
+            // at all, and every per-output assertion below measured nothing.
             PopupDismiss { id: dismiss; screen: screenScope.modelData
-                           screenName: screenScope.modelData.name }
+                           screenName: screenScope.modelData.name; topBar: bar }
         }
     }
 
@@ -191,11 +196,8 @@ ShellRoot {
 
         if (root.archIndex === root.archPages.length) {
             root._measureArch(root.archPages[root.archPages.length - 1])
-            root._rest()
             phases.running = false
-            console.log("")
-            console.log("labwc-matrix: passed=" + root.passed + " failed=" + root.failed)
-            Qt.callLater(function() { Qt.exit(root.failed === 0 ? 0 : 1) })
+            root._rest()      // it reports and exits when it is done
         }
     }
 
@@ -212,11 +214,30 @@ ShellRoot {
                    + " window=" + archMenu.implicitWidth + "x" + archMenu.implicitHeight)
     }
 
+    // The quick controls are measured OPEN, so they are opened here and given
+    // their own settle window: PopupDismiss closes every popup when the
+    // compositor's focus moves, which the filler toplevel does during the run.
+    property bool _quickMeasured: false
+    Timer {
+        id: quickSettle
+        interval: 900
+        onTriggered: {
+            // A PanelWindow anchored top and bottom: its height is the
+            // output's, not an implicit one.
+            root.maskGeometry("QuickControl", quick.mask.item, quick.width, quick.height)
+            root._quickMeasured = true
+            Popups.quickOpen = false
+            root._rest()
+        }
+    }
+
     function _rest() {
-        root.maskGeometry("AudioPopup", audio.mask.item,
-                          audio.implicitWidth, audio.implicitHeight)
-        root.maskGeometry("QuickControl", quick.mask.item,
-                          quick.implicitWidth, quick.implicitHeight)
+        if (!root._quickMeasured) {
+            Popups.closeAll()
+            Popups.quickOpen = true
+            quickSettle.start()
+            return
+        }
 
         console.log("")
         console.log("── One bar and one dismiss surface per output ────────────")
@@ -386,5 +407,9 @@ ShellRoot {
                        wide.visibleApplications.length > 0,
                        "applications=" + wide.applications.length)
         }
+
+        console.log("")
+        console.log("labwc-matrix: passed=" + root.passed + " failed=" + root.failed)
+        Qt.callLater(function() { Qt.exit(root.failed === 0 ? 0 : 1) })
     }
 }

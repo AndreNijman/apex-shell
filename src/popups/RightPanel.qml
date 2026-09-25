@@ -8,8 +8,8 @@ import "../"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RightPanel — what pours out of the right notch (UI/UX roadmap v3 Phase 9,
-// RIGHT_POUR): the network panel, the notification centre and the toast, as
-// panes of ONE surface.
+// RIGHT_POUR): the network panel, the notification centre, audio and the
+// toast, as panes of ONE surface.
 //
 // They used to be three windows, each with a sizer tweening its own width and
 // height on InOutCubic while the bar tweened the notch on another, so the
@@ -63,6 +63,13 @@ PanelWindow {
     // it was announced before the toast pane existed.
     function applyOpenState() { toast.applyOpenState() }
 
+    // Audio's page and tab pill go back to their start once the panel is gone,
+    // not on a timer's guess at when that is.
+    Connections {
+        target: root.life
+        function onClosed() { audio.reset() }
+    }
+
     // y = 0 is the screen top: the band is drawn over the bar's strip, and
     // the seam (the notch's bottom edge) is at y = notchHeight.
     anchors.top:   true
@@ -80,9 +87,11 @@ PanelWindow {
 
     // ── Finished sizes per pane ─────────────────────────────────────────────
     readonly property int networkDepth:       theme.px(648)
+    readonly property int audioDepth:         theme.px(320)
     readonly property int notificationsDepth: Math.min(theme.px(700), notifications.bodyHeight)
     readonly property int paneDepth: root.pane === "network"       ? root.networkDepth
                                    : root.pane === "notifications" ? root.notificationsDepth
+                                   : root.pane === "audio"         ? root.audioDepth
                                    : root.pane === "toast"         ? toast.bodyHeight
                                    : 0
 
@@ -206,6 +215,20 @@ PanelWindow {
                     id: notifications
                     theme: root.theme
                     width: parent.width
+                }
+            }
+
+            PaneSlot {
+                key: "audio"
+                readonly property int bodyW: root.anchorWindow.rightPaneWidth
+                x: root.width - bodyW + theme.px(10)
+                y: theme.notchHeight + theme.px(12)
+                width:  bodyW - theme.px(10) - theme.borderWidth - theme.px(6)
+                height: root.audioDepth - theme.px(24)
+
+                AudioControl {
+                    id: audio
+                    anchors.fill: parent
                 }
             }
 

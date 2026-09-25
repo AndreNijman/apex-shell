@@ -91,18 +91,26 @@ ShellRoot {
                     topBar: bar
                 }
 
-                // A PopupWindow, which is the one window kind whose `screen`
-                // nobody has checked. It is not given one: quickshell derives
-                // it from the anchor, and six of this shell's popups now size
-                // themselves from it. If that derivation does not hold, those
-                // six are silently at the reference output's factor — the
-                // "permission denied is not absence" shape, in a window.
+                // The quick controls: a PanelWindow since UI/UX Phase 9b,
+                // placed on its bar's output and spanning the right strip, so
+                // its position is the output's by construction.
                 QuickControl {
                     id: quick
                     anchorWindow: bar
+                }
+
+                // A PopupWindow, which is the one window kind whose `screen`
+                // nobody has checked. It is not given one: quickshell derives
+                // it from the anchor, and this shell's popups size themselves
+                // from it. If that derivation does not hold, they are silently
+                // at the reference output's factor — the "permission denied is
+                // not absence" shape, in a window. (This was QuickControl until
+                // it stopped being a PopupWindow.)
+                ScreenRecOptionsPopup {
+                    anchorWindow: bar
                     Component.onCompleted: root.perBar.push({
                         name: modelData.name, screen: modelData,
-                        bar: bar, dismiss: dismiss, popup: this
+                        bar: bar, dismiss: dismiss, popup: this, quick: quick
                     })
                 }
             }
@@ -508,25 +516,17 @@ ShellRoot {
                 root.eq(e.name + ": the popup is sized at the factor of the output it is ANCHORED to",
                         e.popup.theme.scale, Metrics.scaleForScreen(e.screen));
 
-                // And POSITIONED by that output too, which is a SECOND bug with
-                // the same cause and was left standing when the first was fixed.
-                // QuickControl centres its panel on half the output height; it
-                // read `root.screen.height` to get it, which on this desk is the
-                // other monitor's height. The anchor rect is what the compositor
-                // places the window by, so this is the number that decides where
-                // a user sees it — and on one monitor it is the same number
-                // either way, which is why it survived.
-                //
-                // Within a pixel, not exactly: the expression is (h + fh + 5)/2,
-                // which lands on a half pixel whenever h + fh is even, and the
-                // anchor rect is integer-valued. The defect this catches misses
-                // by half the difference between the two outputs — 540px here —
-                // so a one-pixel tolerance costs it nothing.
-                const wantY = (e.screen.height + e.popup.fh + 5) / 2;
-                root.check(e.name + ": the popup is anchored at half the height of the"
-                           + " output it is ANCHORED to (got " + e.popup.anchor.rect.y
-                           + ", want " + wantY + ")",
-                           Math.abs(e.popup.anchor.rect.y - wantY) <= 1);
+                // And POSITIONED by that output too, which was a SECOND bug with
+                // the same cause: QuickControl centred itself on
+                // `root.screen.height`, the other monitor's height on this
+                // desk. It is a PanelWindow on its bar's own output now, so
+                // what decides where a user sees it is that it is ON that
+                // output, and sized at its factor.
+                root.check(e.name + ": the quick controls are on the output of the bar they belong to (got "
+                           + (e.quick.screen ? e.quick.screen.name : "null") + ")",
+                           e.quick.screen && e.quick.screen.name === e.name);
+                root.eq(e.name + ": the quick controls are sized at that output's factor",
+                        e.quick.theme.scale, Metrics.scaleForScreen(e.screen));
             }
 
             // ── DashboardLayout answers for the set it is handed ────────────

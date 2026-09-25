@@ -133,7 +133,8 @@ OPEN[clipboard]="clipboard-toggle toggle"; CLOSE[clipboard]="clipboard-toggle to
 OPEN[wallpaper]="wallpaper-toggle toggle"; CLOSE[wallpaper]="wallpaper-toggle toggle"
 OPEN[context]="context-menu open";         CLOSE[context]="context-menu close"
 OPEN[nexus]="nexus open appearance";       CLOSE[nexus]="nexus close"
-ORDER=(bar dashboard dash-stats dash-launcher network audio notifications power clipboard wallpaper context nexus)
+OPEN[quick]="quick-toggle toggle";         CLOSE[quick]="quick-toggle toggle"
+ORDER=(bar dashboard dash-stats dash-launcher network audio notifications quick power clipboard wallpaper context nexus)
 
 want=("$@")
 [ "${#want[@]}" -gt 0 ] || want=("${ORDER[@]}")
