@@ -1547,6 +1547,15 @@ jobs:
       - name: Password shapes cannot see the password
         run: ./tests/check-password-shapes.sh
 
+      # The notification centre's cards arrive and leave (STACK_REFLOW). Four
+      # Qt behaviours each turned that into cards that pop in and vanish with
+      # nothing logged — a replaced-array model, a destroyed QObject as a model
+      # value, a content-sized ListView, untargeted nested exit animations —
+      # plus a polish-time height; each avoiding construct is asserted and
+      # mutated to prove it can fail.
+      - name: Notification cards can arrive and leave
+        run: ./tests/check-notification-stack.sh
+
       # The behavioural half under qmltestrunner -platform offscreen: one shape
       # per character, a shape's kind fixed by its position, no two identical
       # neighbours, a cleared field gone as one gesture, and Reduce Motion as a

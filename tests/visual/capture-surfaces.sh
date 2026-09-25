@@ -185,8 +185,38 @@ toast_seq() {
     echo "captured toast"
 }
 
+# The notification centre's stack: a card arriving while it is open (the
+# others make room) and one closed by its sender (the rest close up). Private
+# bus only, like the toast.
+notify_id() {   # notify_id SUMMARY BODY — prints the id the server assigned
+    gdbus call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications \
+        --method org.freedesktop.Notifications.Notify "Capture" 0 "" "$1" "$2" "[]" "{}" 0 2>/dev/null \
+        | sed -nE 's/.*uint32 ([0-9]+).*/\1/p'   # "(uint32 7,)" — not the 32 of uint32
+}
+stack_seq() {
+    if [ "${APEX_CAPTURE_BUS:-}" != private ]; then
+        echo "stack: skipped — needs a private session bus (APEX_CAPTURE_BUS=private under dbus-run-session)"
+        return
+    fi
+    notify_id "Build finished" "apex-os image 2026.09.26 is ready to stage." >/dev/null
+    id2="$(notify_id "Agent needs input" "The netinstall agent is waiting on a question.")"
+    ipc notification-toggle toggle; sleep 1.5
+    t0=$(date +%s%N)
+    notify_id "A third one arrives" "The cards below it make room as it comes in." >/dev/null
+    burst "stack-arrive" "$t0"
+    sleep 0.6
+    t0=$(date +%s%N)
+    gdbus call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications \
+        --method org.freedesktop.Notifications.CloseNotification "$id2" >/dev/null 2>&1
+    burst "stack-remove" "$t0"
+    sleep 0.6
+    ipc notification-toggle toggle; sleep 1
+    echo "captured stack"
+}
+
 for s in "${want[@]}"; do
     if [ "$s" = tabs ]; then tab_switch; continue; fi
+    if [ "$s" = stack ]; then stack_seq; continue; fi
     if [ "$s" = switch ]; then pane_switch; continue; fi
     if [ "$s" = toast ]; then toast_seq; continue; fi
     [ -n "${OPEN[$s]+x}" ] || { echo "unknown surface: $s"; continue; }
