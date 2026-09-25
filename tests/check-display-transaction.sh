@@ -90,8 +90,11 @@ want "the safe output skips one the pending model disables" \
 
 # The settings window has to come back too, or the user cannot reach the page
 # again after an apply rebuilt the screen list.
+# Its lifecycle observes `open` from construction (born-open is asserted in
+# tests/surface-lifecycle-test.qml), so what must hold here is that the window
+# is driven by one whose `open` is `live`, and mapped by it.
 want "Nexus maps itself when it is born already live" \
-    grep -q "Component.onCompleted: if (root.live) root.windowVisible = true" "$root/src/nexus/Nexus.qml"
+    bash -c 'grep -qE "^\s*open: +root\.live$" "$1" && grep -q "readonly property bool windowVisible: life.mapped" "$1"' _ "$root/src/nexus/Nexus.qml"
 want "Nexus falls back to a screen that still exists" \
     grep -q "readonly property string effectiveScreen" "$root/src/nexus/NexusState.qml"
 

@@ -225,8 +225,21 @@ lens_switch() {
     echo "captured lens"
 }
 
+# Changing page in Nexus: the nav's one selection travels, the page moves in
+# nav order.
+nexus_nav() {
+    ipc nexus open appearance; sleep 1.2
+    t0=$(date +%s%N); ipc nexus open display; burst "nexus-nav-down" "$t0"
+    sleep 0.6
+    t0=$(date +%s%N); ipc nexus open layout; burst "nexus-nav-up" "$t0"
+    sleep 0.6
+    ipc nexus close; sleep 1.2
+    echo "captured nexus-nav"
+}
+
 for s in "${want[@]}"; do
     if [ "$s" = tabs ]; then tab_switch; continue; fi
+    if [ "$s" = nexus-nav ]; then nexus_nav; continue; fi
     if [ "$s" = lens ]; then lens_switch; continue; fi
     if [ "$s" = stack ]; then stack_seq; continue; fi
     if [ "$s" = switch ]; then pane_switch; continue; fi

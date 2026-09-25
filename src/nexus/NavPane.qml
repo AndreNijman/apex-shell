@@ -7,6 +7,15 @@ import "../components"
 // Built from PageRegistry, so it never drifts from the pages that actually
 // exist. Selection is by page id, not index, so reordering the registry cannot
 // silently change which page a keybind opens.
+//
+// ── One selection, travelling (UI/UX roadmap v3 Phase 7 / 13) ───────────────
+// Each row used to own an active tint and cross-fade it, so the selection
+// vanished from one row and reappeared on another. Now one pill — tint and
+// accent bar together — travels to the chosen row on the selection beat
+// (emphasizedDecel); the rows draw only their hover, and the label colour
+// changes at once on the state beat so the choice reads before the pill
+// lands. It arms after its first placement, so a Nexus that opens does not
+// slide its pill in from the top.
 Item {
     id: root
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
@@ -50,6 +59,43 @@ Item {
             }
         }
 
+    // The shared selection. A sibling of the Column, not in it: the Column
+    // would position it as a row.
+    Rectangle {
+        id: sel
+        readonly property Item target: {
+            const list = PageRegistry.pages
+            for (let i = 0; i < list.length; i++)
+                if (list[i].id === root.currentPage) return pages.itemAt(i)
+            return null
+        }
+        property bool _placed: false
+        visible: sel.target !== null
+        x: col.x
+        y: sel.target ? col.y + sel.target.y : 0
+        width: col.width
+        height: sel.target ? sel.target.height : 0
+        radius: theme.cornerRadius
+        color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
+        Behavior on y { enabled: sel._placed; MotionMove { curve: Motion.emphasizedDecel } }
+        Behavior on height { enabled: sel._placed; MotionMove { curve: Motion.emphasizedDecel } }
+        onTargetChanged: if (sel.target && !sel._placed) armTimer.restart()
+        Timer { id: armTimer; interval: 0; onTriggered: sel._placed = true }
+
+        // Active marker: a bar rather than only a tint, so the selected page
+        // is still obvious at low contrast or with a pale accent.
+        Rectangle {
+            anchors {
+                left: parent.left
+                verticalCenter: parent.verticalCenter
+            }
+            width: theme.px(3)
+            height: parent.height * 0.55
+            radius: width
+            color: Theme.active
+        }
+    }
+
     Column {
         id: col
 
@@ -90,25 +136,11 @@ Item {
                 width: parent.width
                 height: theme.px(44)
                 radius: theme.cornerRadius
-                color: row.active
-                           ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
-                           : hov.hovered ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
+                // Hover only; the selection is the shared pill above.
+                color: !row.active && hov.hovered
+                       ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05) : "transparent"
 
-                Behavior on color { MotionColor { role: "state" } }
-
-                // Active marker: a bar rather than only a tint, so the selected
-                // page is still obvious at low contrast or with a pale accent.
-                Rectangle {
-                    anchors {
-                        left: parent.left
-                        verticalCenter: parent.verticalCenter
-                    }
-                    width: theme.px(3)
-                    height: row.active ? parent.height * 0.55 : 0
-                    radius: width
-                    color: Theme.active
-                    Behavior on height { MotionMove { curve: Motion.fastSpatial } }
-                }
+                Behavior on color { MotionColor {} }
 
                 Text {
                     id: icon
