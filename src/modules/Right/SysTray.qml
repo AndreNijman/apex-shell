@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Controls
 import Quickshell
 import Quickshell.Services.SystemTray
 import "../../components"
@@ -58,9 +57,17 @@ RowLayout {
                     }
                 }
 
-                ToolTip.visible: containsMouse && ToolTip.text !== ""
-                ToolTip.delay: 500
-                ToolTip.text: modelData.tooltipTitle || modelData.title || modelData.id || ""
+                // A press hides the label until the pointer leaves, so it is
+                // not left standing next to the menu the press opened.
+                property bool tipSuppressed: false
+                onPressed: tipSuppressed = true
+                onExited: tipSuppressed = false
+
+                BarTooltip {
+                    target: trayItem
+                    text: trayItem.modelData.tooltipTitle || trayItem.modelData.title || trayItem.modelData.id || ""
+                    shown: trayItem.containsMouse && !trayItem.tipSuppressed
+                }
 
                 onClicked: (mouse) => {
                     if (mouse.button === Qt.MiddleButton) {
