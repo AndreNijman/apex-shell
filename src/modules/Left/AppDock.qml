@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Wayland
+import "../../components"
 import "../../services"
 import "../../"
 
@@ -177,9 +178,11 @@ Row {
                 }
             }
 
-            ToolTip.visible: containsMouse
-            ToolTip.delay: 500
-            ToolTip.text: appName
+            BarTooltip {
+                target: appButton
+                text: appButton.appName
+                shown: appButton.containsMouse && !appButton.pressed
+            }
 
             onClicked: function(mouse) {
                 if (mouse.button === Qt.MiddleButton) {
