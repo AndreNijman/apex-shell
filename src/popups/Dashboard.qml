@@ -47,6 +47,26 @@ PanelWindow {
 
     property string page: Popups.dashboardPage
 
+    // ── Page direction ──────────────────────────────────────────────────────
+    // Pages travel in the direction of the tab order. The pages bind to
+    // `shownPage`, not `page`, and it is set only after `pageDir` is: two
+    // bindings on the same change have no order, and a page reading a stale
+    // direction would arrive from the wrong side.
+    property int    pageDir: 1
+    property int    _pageIdx: 0
+    property string shownPage: ""
+    function _indexOf(key) {
+        var t = DashboardLayout.tabs
+        for (var i = 0; i < t.length; i++) if (t[i].key === key) return i
+        return 0
+    }
+    onPageChanged: {
+        var i = root._indexOf(root.page)
+        root.pageDir = i >= root._pageIdx ? 1 : -1
+        root._pageIdx = i
+        root.shownPage = root.page
+    }
+
     // ── Lifecycle ───────────────────────────────────────────────────────────
     SurfaceLifecycle {
         id: life
@@ -119,7 +139,11 @@ PanelWindow {
             focusGrabTimer.stop()
         }
     }
-    Component.onCompleted: if (root.open) focusGrabTimer.restart()
+    Component.onCompleted: {
+        root._pageIdx = root._indexOf(root.page)
+        root.shownPage = root.page
+        if (root.open) focusGrabTimer.restart()
+    }
 
     // ── Backdrop — closes popup when clicking outside the body ──────────────
     MouseArea {
@@ -214,7 +238,8 @@ PanelWindow {
                     // components/LazyPage.qml and components/ServiceRef.qml.
                     LazyPage {
                         anchors.fill: parent
-                        shown: root.page === "home"
+                        shown: root.shownPage === "home"
+                        direction: root.pageDir
                         sourceComponent: Component {
                             DashHome {
                                 anchors.fill: parent
@@ -225,7 +250,8 @@ PanelWindow {
 
                     LazyPage {
                         anchors.fill: parent
-                        shown: root.page === "stats"
+                        shown: root.shownPage === "stats"
+                        direction: root.pageDir
                         sourceComponent: Component {
                             DashStats {
                                 anchors.fill: parent
@@ -236,7 +262,8 @@ PanelWindow {
 
                     LazyPage {
                         anchors.fill: parent
-                        shown: root.page === "agents"
+                        shown: root.shownPage === "agents"
+                        direction: root.pageDir
                         sourceComponent: Component {
                             AgentCenter {
                                 anchors.fill: parent
@@ -247,7 +274,8 @@ PanelWindow {
 
                     LazyPage {
                         anchors.fill: parent
-                        shown: root.page === "kanban"
+                        shown: root.shownPage === "kanban"
+                        direction: root.pageDir
                         sourceComponent: Component {
                             KanbanBoard { anchors.fill: parent }
                         }
@@ -255,7 +283,8 @@ PanelWindow {
 
                     LazyPage {
                         anchors.fill: parent
-                        shown: root.page === "launcher"
+                        shown: root.shownPage === "launcher"
+                        direction: root.pageDir
                         sourceComponent: Component {
                             // The launcher is the one page that took no
                             // `onScreen` before §15, because it consumed no
@@ -271,7 +300,8 @@ PanelWindow {
 
                     LazyPage {
                         anchors.fill: parent
-                        shown: root.page === "config"
+                        shown: root.shownPage === "config"
+                        direction: root.pageDir
                         sourceComponent: Component {
                             ShellConfig {
                                 anchors.fill: parent

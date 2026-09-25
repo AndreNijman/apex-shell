@@ -185,12 +185,50 @@ Item {
 	}
 
 	// ── HORIZONTAL layout — Row ───────────────────────────────────────────────
+	// ── The selection: ONE object that travels ─────────────────────────────
+	// Tabs used to each own an active background and cross-fade it, so the
+	// selection disappeared from one tab and reappeared on another. Now a single
+	// pill moves to the chosen tab's pill geometry (x and width, on the
+	// selection token), and the tabs draw only their hover. The label colour
+	// changes at once, on the state token, so the choice reads before the pill
+	// lands. Under Reduce Motion the pill is simply there.
+	readonly property int currentIndex: {
+		var m = root.model
+		for (var i = 0; i < m.length; i++)
+			if (m[i].key === root.currentPage) return i
+		return -1
+	}
+	// Behaviours on the pill are armed only after it has been placed once, so
+	// the first time a switcher appears the pill is where it belongs rather
+	// than sliding in from x = 0.
+	property bool _pillPlaced: false
+	Timer { id: pillArm; interval: 1; onTriggered: root._pillPlaced = true }
+
+	Rectangle {
+		id: hSel
+		readonly property Item cur: {
+			hRep.count
+			return root.currentIndex >= 0 ? hRep.itemAt(root.currentIndex) : null
+		}
+		visible: root.orientation === "horizontal" && cur !== null
+		x:      cur ? cur.x + (cur.width - cur.pillW) / 2 : 0
+		width:  cur ? cur.pillW : 0
+		height: Math.max(0, root.height - theme.px(8))
+		y:      (root.height - height) / 2
+		radius: height / 2
+		color:  Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
+		onCurChanged: if (cur && !root._pillPlaced) pillArm.restart()
+		Behavior on x     { enabled: root._pillPlaced; MotionMove { curve: Motion.emphasizedDecel } }
+		Behavior on width { enabled: root._pillPlaced; MotionMove { curve: Motion.emphasizedDecel } }
+	}
+
 	Row {
 		id: hRow
 		anchors.fill: parent
 		visible: root.orientation === "horizontal"
 
 		Repeater {
+			id: hRep
 			model: root.orientation === "horizontal" ? root.model : []
 
 			delegate: Item {
@@ -213,6 +251,9 @@ Item {
 					Math.max(0, Math.min(root.hPadMax,
 					                     (root.hSlotRoom - contentWidth) / 2))
 
+				// This tab's pill extent, which the shared selection takes.
+				readonly property real pillW: hBg.width
+
 				// Pill background
 				Rectangle {
 					id: hBg
@@ -222,9 +263,8 @@ Item {
 					radius: height / 2
 					clip:   true
 
-					color: hTab.isActive
-					? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-					: (hHov.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent")
+					// Hover only; the selection is the shared pill behind.
+					color: !hTab.isActive && hHov.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
 
 					Behavior on color { MotionColor { role: "state" } }
 
@@ -334,6 +374,26 @@ Item {
 		boundsBehavior: Flickable.StopAtBounds
 		clip: interactive
 
+		Rectangle {
+			id: vSel
+			readonly property Item cur: {
+				vRep.count
+				return root.currentIndex >= 0 ? vRep.itemAt(root.currentIndex) : null
+			}
+			visible: root.orientation === "vertical" && cur !== null
+			x:      vCol.x
+			width:  vCol.width
+			y:      cur ? vCol.y + cur.y : 0
+			height: root.vRowHeight
+			radius: theme.cornerRadius * 2
+			// A tint and an accent foreground, like every other selection in
+			// the shell — the solid accent fill this column used was the
+			// heaviest object on screen for the least important state.
+			color:  Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
+			onCurChanged: if (cur && !root._pillPlaced) pillArm.restart()
+			Behavior on y { enabled: root._pillPlaced; MotionMove { curve: Motion.emphasizedDecel } }
+		}
+
 		Column {
 			id: vCol
 			width:   vFlick.width
@@ -351,6 +411,7 @@ Item {
 				root.model[0].label !== ""
 
 			Repeater {
+				id: vRep
 				model: root.orientation === "vertical" ? root.model : []
 
 				delegate: Rectangle {
@@ -362,9 +423,7 @@ Item {
 					radius: theme.cornerRadius * 2
 					clip:   true
 
-					color: vTab.isActive
-						? Theme.active
-						: (vHov.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
+					color: !vTab.isActive && vHov.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
 
 					Behavior on color { MotionColor { role: "state" } }
 
@@ -374,7 +433,7 @@ Item {
 						anchors.centerIn: parent
 						text:             modelData.icon
 						font.pixelSize:   theme.fs(16)
-						color: vTab.isActive ? Theme.background : Theme.text
+						color: vTab.isActive ? Theme.active : Theme.text
 						Behavior on color { MotionColor { role: "state" } }
 					}
 
@@ -396,7 +455,7 @@ Item {
 							font.pixelSize: theme.fs(15)
 							anchors.verticalCenter: parent.verticalCenter
 							color: vTab.isActive
-								? Theme.background
+								? Theme.active
 								: (vHov.hovered ? Qt.rgba(1, 1, 1, 0.80) : Qt.rgba(1, 1, 1, 0.42))
 							Behavior on color { MotionColor { role: "state" } }
 						}
@@ -413,7 +472,7 @@ Item {
 							font.weight:    vTab.isActive ? Font.Medium : Font.Normal
 							anchors.verticalCenter: parent.verticalCenter
 							color: vTab.isActive
-								? Theme.background
+								? Theme.active
 								: (vHov.hovered ? Qt.rgba(1, 1, 1, 0.80) : Qt.rgba(1, 1, 1, 0.42))
 							Behavior on color { MotionColor { role: "state" } }
 						}

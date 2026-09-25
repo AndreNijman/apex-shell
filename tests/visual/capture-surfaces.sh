@@ -137,7 +137,20 @@ ORDER=(bar dashboard dash-stats dash-launcher network audio notifications power 
 want=("$@")
 [ "${#want[@]}" -gt 0 ] || want=("${ORDER[@]}")
 
+# A page change inside an open Dashboard: the shared tab pill travelling and
+# the pages crossing in the direction of the tab order.
+tab_switch() {
+    ipc dashboard-home toggle; sleep 1.2
+    t0=$(date +%s%N); ipc dashboard-stats toggle; burst "tabs-forward" "$t0"
+    sleep 0.6
+    t0=$(date +%s%N); ipc dashboard-home toggle; burst "tabs-back" "$t0"
+    sleep 0.6
+    ipc dashboard-home toggle; sleep 1.2
+    echo "captured tabs"
+}
+
 for s in "${want[@]}"; do
+    if [ "$s" = tabs ]; then tab_switch; continue; fi
     [ -n "${OPEN[$s]+x}" ] || { echo "unknown surface: $s"; continue; }
     if [ -z "${OPEN[$s]}" ]; then
         grab "$s-static"
