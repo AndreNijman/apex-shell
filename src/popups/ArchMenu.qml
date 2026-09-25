@@ -55,7 +55,12 @@ PanelWindow {
 	})
 
 	readonly property int contentWidth:  theme.px(pageWidths[page]  ?? 220)
-	readonly property int contentHeight: theme.px(pageHeights[page] ?? 220)
+	// The power page is as tall as its rows (which actions exist varies:
+	// Windows and Gaming Mode appear only where they work); the others keep
+	// their table heights.
+	readonly property int contentHeight: page === "power" && powerMenu.implicitHeight > 0
+	                                     ? powerMenu.implicitHeight + 16   // PopupPage's padV, both sides
+	                                     : theme.px(pageHeights[page] ?? 220)
 
 	property string page: "power"
 
@@ -162,6 +167,7 @@ PanelWindow {
 				visible: root.page === "power"
 
 				PowerMenu {
+					id: powerMenu
 					width: parent.width
 				}
 			}

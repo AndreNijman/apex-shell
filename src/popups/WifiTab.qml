@@ -12,6 +12,11 @@ import "../components"
 
 Item {
     id: root
+
+    // How tall this tab wants to be: the header block (title row, divider,
+    // gap: 49) and the list. The panel sizes its body to it (UI/UX Phase 17,
+    // brief §F.4) instead of a fixed 648 px with most of it empty.
+    readonly property real preferredHeight: 49 + contentCol.height
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 

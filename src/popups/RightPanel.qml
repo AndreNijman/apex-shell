@@ -86,7 +86,14 @@ PanelWindow {
     visible: root.life.mapped
 
     // ── Finished sizes per pane ─────────────────────────────────────────────
-    readonly property int networkDepth:       theme.px(648)
+    // Sized to what the network tab has to show, between 320 and 648 (brief
+    // §F.4: a fixed 648 px showed four networks and ~230 px of empty body). A
+    // tab that does not say keeps the full depth.
+    readonly property int networkDepth: {
+        const pref = netLoader.item ? netLoader.item.preferredHeight : -1
+        if (pref < 0) return theme.px(648)
+        return Math.max(theme.px(320), Math.min(theme.px(648), Math.round(pref + theme.popupPadding * 2)))
+    }
     readonly property int audioDepth:         theme.px(320)
     readonly property int notificationsDepth: Math.min(theme.px(700), notifications.bodyHeight)
     readonly property int paneDepth: root.pane === "network"       ? root.networkDepth
@@ -215,6 +222,7 @@ PanelWindow {
 
                 // Built on the first visit and kept, like the window it was.
                 Loader {
+                    id: netLoader
                     anchors.fill: parent
                     active: parent.current || item !== null
                     sourceComponent: Component { NetworkPane { theme: root.theme; focus: true } }

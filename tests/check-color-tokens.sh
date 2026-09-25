@@ -87,7 +87,6 @@ src/modules/Center/DashStats.qml|#cba6f7|RAM gauge series colour — three gauge
 src/modules/Center/DashStats.qml|#89dceb|iGPU gauge series colour — same row, same reason
 src/modules/Center/CenterContent.qml|#ff4444|recording tally light, matching the Qt.rgba(0.9,0.2,0.2) fills around it — not a danger state
 src/modules/Center/CenterContent.qml|#ff9999|a LIGHT red reading on the dark red fill above it — fixed contrast, not the danger accent
-src/services/PowerMenu.qml|#4d2020|full-width danger row TINT, deliberately far dimmer than Theme.dangerFill, which is a button fill
 src/windows/ConfirmDialog.qml|#99000000|modal scrim — has to darken every wallpaper, so it must not follow the palette
 src/windows/DisplayConfirm.qml|#99000000|modal scrim over a layout the user may not be able to read — same reason as ConfirmDialog's, and it must not follow a palette generated from the wallpaper behind it
 src/windows/Lockscreen.qml|black|opaque lock base, so there is never a transparent flash before the wallpaper paints
@@ -105,7 +104,7 @@ ALLOW_FRAC_RAW="
 src/components/TimeInput.qml|235/255, 240/255, 255/255|x2 — a blue-tinted near-white, NOT Theme.fixedLight; mapping it onto that token would be a similar-looking token rather than a correct one, which is worse than the literal because the mistake becomes invisible
 "
 
-EXPECT_TOTAL=10
+EXPECT_TOTAL=9   # 10 → 9: the PowerMenu row tint is a tint of Theme.danger (UI/UX Phase 17)
 EXPECT_FRAC=2
 
 # ── The Agent Center's own rule (roadmap P0-021) ────────────────────────────
@@ -488,8 +487,10 @@ mutate "an allowlisted literal removed" \
 
 # (c) an allowlisted literal SUBSTITUTED in place. A per-file count would pass
 #     this. It is the reason the list is (file, colour) pairs.
+# (The PowerMenu row tint this used to swap is a tint of Theme.danger since
+# UI/UX Phase 17; the RAM gauge colour is the allowlisted literal it swaps now.)
 mutate "an allowlisted literal swapped for a different one" \
-    "src/services/PowerMenu.qml" '"#4d2020"' '"#5e2828"' recheck_literals
+    "src/modules/Center/DashStats.qml" '"#cba6f7"' '"#cba6f8"' recheck_literals
 
 # (d) a named colour reintroduced on a colour property
 mutate "a named colour on a colour property" \

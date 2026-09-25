@@ -209,7 +209,7 @@ Item {
         implicitHeight: inner.implicitHeight
 
         readonly property string pctText:
-            active ? Math.round(value * 100) + "%" : "--%"
+            active ? Math.round(value * 100) + "%" : "—"   // no device: a dash (brief §F.7)
 
         Column {
             id: inner

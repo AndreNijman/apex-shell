@@ -36,6 +36,17 @@ Item {
 
     Keys.onEscapePressed: Popups.networkOpen = false
 
+    // The height the active tab asks for, with the tab bar; -1 when it does not
+    // say (the panel then keeps its full depth). The tab bar hangs 16 px into
+    // the panel's padding (its bottomMargin).
+    readonly property real preferredHeight: {
+        const tabs = [wifiTab, btTab, vpnTab, hotspotTab]
+        for (const l of tabs)
+            if (l.active && l.item && l.item.preferredHeight !== undefined)
+                return l.item.preferredHeight + tabBar.height - 16
+        return -1
+    }
+
     // ── Tab page area ─────────────────────────────────────────────────────────
     Item {
         id: tabContent
@@ -79,12 +90,14 @@ Item {
         }
 
         Loader {
+            id: wifiTab
             anchors.fill: parent
             active:       root.page === "wifi"
             source:       "WifiTab.qml"
         }
 
         Loader {
+            id: btTab
             anchors.fill: parent
             active:       root.page === "bluetooth"
             source:       "BluetoothTab.qml"
@@ -92,6 +105,7 @@ Item {
 
         // VPN — WireGuard connections
         Loader {
+            id: vpnTab
             anchors.fill: parent
             active:       root.page === "vpn"
             source:       "VPNTab.qml"
@@ -99,6 +113,7 @@ Item {
 
         // Hotspot — virtual AP interface
         Loader {
+            id: hotspotTab
             anchors.fill: parent
             active:       root.page === "hotspot"
             source:       "HotspotTab.qml"

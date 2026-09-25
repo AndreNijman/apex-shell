@@ -264,7 +264,8 @@ PanelWindow {
         implicitWidth:  inner.implicitWidth
         implicitHeight: inner.implicitHeight
 
-        readonly property string pctText: active ? Math.round(value * 100) + "%" : "--%"
+        // No device to read: a dash, not a percentage of nothing (brief §F.7).
+        readonly property string pctText: active ? Math.round(value * 100) + "%" : "—"
 
         Column {
             id: inner
