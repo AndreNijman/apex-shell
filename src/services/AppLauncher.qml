@@ -79,6 +79,34 @@ Item {
     property int  selIndex: -1
     property string query: ""
 
+    // ── The pointer only selects when it MOVES ───────────────────────────────
+    // A row used to take the selection on `entered`, and `entered` fires for a
+    // row that arrives under a pointer that never moved: the launcher opening
+    // where the mouse happens to rest, the list refiltering as you type, a
+    // keyboard scroll. Enter then opened the row under the resting pointer
+    // instead of the one the keyboard picked. So a row takes the selection only
+    // when the pointer's position IN THE WINDOW differs from the last one seen.
+    // Rows sliding under a still pointer move in the window; the pointer does not.
+    property real _ptrX: NaN
+    property real _ptrY: NaN
+
+    function _pointerAt(item, x, y, index) {
+        const p = item.mapToItem(null, x, y)
+        const moved = !isNaN(root._ptrX)
+            && (Math.abs(p.x - root._ptrX) >= 1 || Math.abs(p.y - root._ptrY) >= 1)
+        root._ptrX = p.x
+        root._ptrY = p.y
+        if (moved && root.selIndex !== index)
+            root.selIndex = index
+    }
+
+    function _forgetPointer() {
+        root._ptrX = NaN
+        root._ptrY = NaN
+    }
+
+    onOnScreenChanged: root._forgetPointer()
+
     readonly property bool   answerMode:  query.trim().charAt(0) === "?"
     readonly property string answerQuery: answerMode ? query.trim().substring(1).trim() : ""
 
@@ -305,6 +333,7 @@ Item {
             return
         root.query     = ""
         root.selIndex  = 0
+        root._forgetPointer()
         searchInput.text = ""
         focusTimer.restart()
     }
@@ -695,11 +724,13 @@ Item {
                     HoverHandler { id: rowH; cursorShape: Qt.PointingHandCursor }
 
                     MouseArea {
+                        id: rowMouse
                         anchors.fill: parent
                         hoverEnabled: true
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
                         // Sits under the pin button, which has its own MouseArea.
-                        onEntered: root.selIndex = rowItem.index
+                        onEntered: root._pointerAt(rowMouse, rowMouse.mouseX, rowMouse.mouseY, rowItem.index)
+                        onPositionChanged: function (mouse) { root._pointerAt(rowMouse, mouse.x, mouse.y, rowItem.index) }
                         onClicked: function (mouse) {
                             if (mouse.button === Qt.RightButton) {
                                 if (rowItem.modelData && rowItem.modelData.kind === "app"
