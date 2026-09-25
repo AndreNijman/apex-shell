@@ -66,14 +66,14 @@ RowLayout {
                 BarTooltip {
                     target: trayItem
                     text: trayItem.modelData.tooltipTitle || trayItem.modelData.title || trayItem.modelData.id || ""
-                    shown: trayItem.containsMouse && !trayItem.tipSuppressed
+                    shown: trayItem.containsMouse && !trayItem.tipSuppressed && !trayMenu.visible
                 }
 
                 onClicked: (mouse) => {
                     if (mouse.button === Qt.MiddleButton) {
                         modelData.secondaryActivate()
                     } else if (mouse.button === Qt.RightButton || modelData.onlyMenu) {
-                        if (modelData.hasMenu) trayMenu.open()
+                        if (modelData.hasMenu) trayMenu.toggle()
                     } else {
                         modelData.activate()
                     }
@@ -86,12 +86,10 @@ RowLayout {
                     wheel.accepted = true
                 }
 
-                QsMenuAnchor {
+                TrayMenu {
                     id: trayMenu
+                    target: trayItem
                     menu: trayItem.modelData.menu
-                    anchor.item: trayItem
-                    anchor.edges: Edges.Bottom
-                    anchor.gravity: Edges.Bottom
                 }
             }
         }
