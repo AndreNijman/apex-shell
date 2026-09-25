@@ -35,12 +35,12 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
 | 4 Parametric shape engine | IMPLEMENTED | `src/shapes/fluid/{geometry.js,FluidShape.qml}`, `tests/fluid-geometry-test.js`, `tests/visual/fluid-harness.{sh,qml}` | 1 | geometry suite 129/0; harness sheets reviewed, joins zoomed | GPU cost of CurveRenderer unmeasured |
 | 5 Shape families | IN PROGRESS | CENTER_BLOOM, RIGHT_POUR (+ `rightPourWidth`), LEFT_SPILL, EDGE_SPILL (right) built from the design brief; `barNotch` | 4 | per-family sweeps + character checks in the geometry suite; harness sheets | CAPSULE, PIVOT_POP, QUIET_SHEET, LENS_REVEAL, STACK_REFLOW are motion-only families, built with their surfaces |
 | 6 Surface lifecycle | IN PROGRESS | `SurfaceLifecycle.qml` (linear progress on open, fastDecel on close, content delay 40/in 130/out 70); Dashboard migrated | 1 | lifecycle suite 13/0 | remaining popups migrate with their redesign; CI step asserting applyOpenState to be replaced once they do |
-| 7 Connected navigation | NOT STARTED | `TabSwitcher.qml`, `NavPane.qml` | 1, 3 | `run-nav-geometry-test.sh`, `check-wheel-value.sh` | exact wheel-site counts |
-| 8 Dashboard v2 | IN PROGRESS | `Dashboard.qml` on CENTER_BLOOM + SurfaceLifecycle, content at final layout under the bloom clip; `TopBar.cWidth` no longer widens for it; `SeamlessBarShape` on the notch tokens, whole-pixel positions | 4–7 | captures cold/warm at 2.5x (`tests/visual/capture-surfaces.sh`), shoulder zoom; popup/nexus smoke, scaling 88/0 | shared tab pill + directional pages (Phase 7) and page redesign still to do |
+| 7 Connected navigation | IN PROGRESS | `TabSwitcher.qml`: one pill per switcher travels to the chosen tab (selection token, emphasizedDecel; armed after first placement); tabs draw hover only. `LazyPage.qml`: directional enter/exit (pageTravel, page token), interruption-safe. Dashboard derives direction from tab order via `shownPage` | 1, 3 | nav-geometry 4398/16 (pre-existing), wheel 16/0, settings-controls 16/0, a11y 26/0, rtl 37/0, popup smoke clean; `capture-surfaces.sh … tabs` sheets fwd/back | Nexus `NavPane` still pending (Phase 13) |
+| 8 Dashboard v2 | IMPLEMENTED (motion) | `Dashboard.qml` on CENTER_BLOOM + SurfaceLifecycle, content at final layout under the bloom clip; `TopBar.cWidth` no longer widens for it; `SeamlessBarShape` on the notch tokens, whole-pixel positions | 4–7 | captures cold/warm at 2.5x (`tests/visual/capture-surfaces.sh`), shoulder zoom; popup/nexus smoke, scaling 88/0 | page redesign is Phase 17 |
 | 9 Right quick surfaces | NOT STARTED | `NetworkPopup`, `NotificationsPopup` container, toast, `AudioPopup`, `QuickControl` | 4–7 | captures | multi-monitor: network popup has no `screen:` |
 | 10 Left surfaces | NOT STARTED | `ArchMenu`, `PowerMenu` | 4–6 | captures | labwc: PopupDismiss unmapped for ArchMenu |
 | 11 Notifications stack | NOT STARTED | `NotificationList`, toast | 1, 6 | stack harness | no notification source headless (use notify-send stub path) |
-| 12 Launcher | NOT STARTED | `AppLauncher.qml` | 1–3 | first-keypress test | the launcher agent's fix landed (PR #25, 99c5ab7) — merge main into this branch before touching it |
+| 12 Launcher | NOT STARTED | `AppLauncher.qml` | 1–3 | first-keypress test | the launcher agent's fix landed (PR #25, 99c5ab7) and main is merged here (6ce1653); the 8 unlisted literals are its ratchet |
 | 13 Nexus | NOT STARTED | `Nexus.qml`, `NavPane.qml`, config controls | 2, 3, 7 | nexus smoke, a11y suites | a11y tree assertions |
 | 14 OSD / toasts / context menus | NOT STARTED | `Osd.qml`, `ContextMenu.qml`, `TrayMenu.qml` | 1, 6 | captures | — |
 | 15 Top bar redesign | NOT STARTED | `TopBar.qml`, `SeamlessBarShape`, modules | 2, 5 | ci.yml literal greps on TopBar | CI greps literal TopBar lines |
@@ -74,14 +74,15 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
 
 ## Resume notes (kept current)
 
-- Uncommitted in the worktree at the time of writing: Phase 1 motion system + the
-  literal migration (3 Sonnet agents, disjoint file sets, spec in the session
-  scratchpad `motion-migration-spec.md`), Kanban/Lockscreen migrated by hand,
-  BarTooltip scale fix, SurfaceLifecycle + suite, fluid geometry + suite + harness.
-- Before committing Phase 1: every `tests/check-*.sh`, `node tests/*-test.js` for
-  the touched areas, the qmltestrunner suites (settings-controls, slider-wheel,
-  a11y-controls, rtl — now staged with `stage_motion`), and a headless shell load
-  (`tests/run-popup-smoke.sh`, `tests/run-nexus-smoke.sh`).
+- Committed through Phase 7 (`4043edf`); the worktree is clean at each phase
+  commit. Next: Phase 9 (RIGHT_POUR right-side surfaces, the bar's right notch
+  width from `rightPourWidth`), then 10, 11, 12.
+- Before each phase commit: `tests/check-reduce-motion.sh`,
+  `check-wheel-value.sh`, `node tests/{motion,fluid-geometry}-test.js`, the
+  qmltestrunner suites (settings-controls, a11y-controls, rtl, lifecycle,
+  password-shapes), `run-nav-geometry-test.sh` (16 pre-existing),
+  `run-popup-smoke.sh`, `run-nexus-smoke.sh`, then a capture sheet of the surface.
+- Staged quickshell harnesses import `./src/services` before `./src`.
 - Fable design brief: session scratchpad `fable-brief-1.md` (shape families, tokens,
   top bar, controls).
 
@@ -94,6 +95,7 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
 
 ## Verification log
 
+- 2026-09-26 — Phase 7: shared tab pill + directional pages on the Dashboard; forward/back tab sheets reviewed (pill lands ~290 ms, no pop); suites as in the phase row.
 - 2026-09-26 — Phase 8a: Dashboard on CENTER_BLOOM; cold open no longer squeezes the page; lint 22/0 (legacy 40, easing 35, unresolved 4); popup smoke, nexus smoke, scaling 88/0; nav-geometry 16 (pre-existing).
 - 2026-09-25 — password shapes (both screens), tokens, four shape families (geometry 129/0), Phase 1 motion + migration, lifecycle.
 - 2026-09-25 — Phase 0: baseline captured from `17eec38`; renderer bench (idle 0.63, shape 0.80, geometry 0.93, canvas 2.28, busy-control 2.37 ms/frame).
