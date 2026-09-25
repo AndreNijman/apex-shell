@@ -43,6 +43,11 @@ Item {
         // Keep the selected page in view when something other than a click
         // selects it — a keybind or a deep link to a page near the bottom.
         function reveal() {
+            // Not before the list has a height: run then, "keep the selected
+            // row in view" scrolled it to the bottom of a 0 px viewport, and
+            // the offset stuck once the list was laid out — Nexus opened with
+            // its current page (and the header) scrolled out of sight above.
+            if (flick.height <= 0) return
             const list = PageRegistry.pages
             for (let i = 0; i < list.length; i++) {
                 if (list[i].id !== root.currentPage) continue
@@ -64,6 +69,10 @@ Item {
     Rectangle {
         id: sel
         readonly property Item target: {
+            // itemAt() is null until the Repeater has built the row and does
+            // not notify when it has; `count` does, so the pill finds its row
+            // on the first open instead of only after the first page change.
+            if (pages.count === 0) return null
             const list = PageRegistry.pages
             for (let i = 0; i < list.length; i++)
                 if (list[i].id === root.currentPage) return pages.itemAt(i)
@@ -183,4 +192,9 @@ Item {
     }
 
     onCurrentPageChanged: Qt.callLater(flick.reveal)
+    Component.onCompleted: Qt.callLater(flick.reveal)
+    Connections {
+        target: flick
+        function onHeightChanged() { Qt.callLater(flick.reveal) }
+    }
 }
