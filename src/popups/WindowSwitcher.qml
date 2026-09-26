@@ -50,7 +50,7 @@ PanelWindow {
 
     // On the dialog lifecycle (UI/UX Phase 6). Its scrim had a fade-out that
     // never showed: the window was unmapped the instant the switcher closed.
-    DialogLifecycle { id: life; open: WindowSwitcherService.open && root.mine }
+    DialogLifecycle { id: life; name: "switcher"; open: WindowSwitcherService.open && root.mine }
     visible: life.mapped
 
     color: "transparent"

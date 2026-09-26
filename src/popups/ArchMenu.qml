@@ -91,6 +91,7 @@ PanelWindow {
 	}
 
 	SurfaceLifecycle {
+		name: "power"
 		id: life
 		open:          Popups.archMenuOpen
 		enterDuration: Motion.surfaceEnterSmall

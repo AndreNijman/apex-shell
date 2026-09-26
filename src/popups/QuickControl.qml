@@ -87,6 +87,7 @@ PanelWindow {
     }
 
     SurfaceLifecycle {
+        name: "quick"
         id: life
         open:          root._held
         enterDuration: Motion.surfaceEnterSmall

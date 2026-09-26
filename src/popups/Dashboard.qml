@@ -69,6 +69,7 @@ PanelWindow {
 
     // ── Lifecycle ───────────────────────────────────────────────────────────
     SurfaceLifecycle {
+        name: "dashboard"
         id: life
         open: root.open
         enterDuration: Motion.morphEnter
@@ -85,7 +86,7 @@ PanelWindow {
     // the dashboard closes and one that runs until logout. Item-level `visible`
     // is NOT a substitute: an Item inside an unmapped window still reports
     // visible === true.
-    readonly property bool pageLive: life.mapped && !LockState.locked
+    readonly property bool pageLive: life.phase === "Open" && !LockState.locked
 
     // ── Per-page content width ────────────────────────────────────────────────
     // The rule lives in DashboardLayout, not here: this is a PanelWindow, and a

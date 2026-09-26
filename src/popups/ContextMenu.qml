@@ -57,6 +57,7 @@ PanelWindow {
     // from the corner nearest the pointer. Out: the fade only, on the hover
     // beat — no scale-down, which under the click reads as a missed click.
     SurfaceLifecycle {
+        name: "context"
         id: life
         open:          Popups.contextMenuOpen && root.placed
         enterDuration: Motion.selection

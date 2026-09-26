@@ -54,6 +54,7 @@ PanelWindow {
     // lifecycle observes `open` from construction, so a Nexus born live opens
     // itself (tests/surface-lifecycle-test.qml, test_born_open_opens_itself).
     SurfaceLifecycle {
+        name: "nexus"
         id: life
         open:          root.live
         enterDuration: Motion.page

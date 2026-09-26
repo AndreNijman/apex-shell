@@ -47,6 +47,7 @@ PanelWindow {
     // Reduce Motion, so there it popped in and out with no fade at all
     // (measured); now the shape holds while alpha fades, as every surface does.
     SurfaceLifecycle {
+        name: "clipboard"
         id: life
         open:          Popups.clipboardOpen
         enterDuration: Motion.morphEnter

@@ -15,6 +15,9 @@ Item {
     // as WifiTab reports it (UI/UX Phase 17). The panel sized every other tab
     // to a fixed 648 px, most of it empty.
     readonly property real preferredHeight: 49 + devCol.height + (root._scanning ? 90 : 0)
+    // Set by NetworkPane: the panel has finished opening. Refreshes wait for it
+    // (UI/UX Phase 22 — no process starts, no list rebuilt, under the pour).
+    property bool settled: false
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
@@ -76,7 +79,6 @@ Item {
                 root._removeMac   = ""
                 root._removingMac = ""
                 root._actionMac   = ""
-                root._loadDevices()
             }
         }
     }
@@ -154,7 +156,9 @@ Item {
     Timer {
         interval: 8000
         repeat: true
-        running: Popups.networkOpen && root.visible
+        // From the moment the panel has settled (it loads the devices then,
+        // triggeredOnStart), not from the moment it starts to open.
+        running: root.settled && Popups.networkOpen && root.visible
         triggeredOnStart: true
         onTriggered: if (!root._scanning) root._loadDevices()
     }

@@ -257,7 +257,7 @@ PanelWindow {
                     id: netLoader
                     anchors.fill: parent
                     active: parent.current || item !== null
-                    sourceComponent: Component { NetworkPane { theme: root.theme; focus: true } }
+                    sourceComponent: Component { NetworkPane { theme: root.theme; focus: true; settled: root.life.phase === "Open" } }
                 }
             }
 

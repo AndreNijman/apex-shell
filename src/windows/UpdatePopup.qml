@@ -30,7 +30,7 @@ PanelWindow {
 
     // On the dialog lifecycle (UI/UX Phase 6): mapped from the flag until the
     // exit has finished — it used to unmap on a 20 ms timer, with no motion.
-    DialogLifecycle { id: life; open: UpdateService.showPopup }
+    DialogLifecycle { id: life; name: "update"; open: UpdateService.showPopup }
     readonly property bool windowVisible: life.mapped
     visible: windowVisible
 

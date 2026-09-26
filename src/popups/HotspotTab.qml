@@ -16,6 +16,9 @@ Item {
     // as WifiTab reports it (UI/UX Phase 17). The panel sized every other tab
     // to a fixed 648 px, most of it empty.
     readonly property real preferredHeight: 49 + mainCol.implicitHeight + 8
+    // Set by NetworkPane: the panel has finished opening. Refreshes wait for it
+    // (UI/UX Phase 22 — no process starts, no list rebuilt, under the pour).
+    property bool settled: false
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
@@ -66,13 +69,8 @@ Item {
     // hsCfgFile), so a save here reaches it at once (UI/UX Phase 19: it used to
     // read the file only when the Home page was built).
 
-    Connections {
-        target: Popups
-        function onNetworkOpenChanged() {
-            if (Popups.networkOpen && root.visible)
-                loadProc.running = true
-        }
-    }
+    // Re-read once the panel is up, not under its open (UI/UX Phase 22).
+    onSettledChanged: if (root.settled && Popups.networkOpen && root.visible) loadProc.running = true
 
     Component.onCompleted: loadProc.running = true
 

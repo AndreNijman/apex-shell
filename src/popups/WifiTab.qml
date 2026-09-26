@@ -18,6 +18,9 @@ Item {
     // gap: 49) and the list. The panel sizes its body to it (UI/UX Phase 17,
     // brief §F.4) instead of a fixed 648 px with most of it empty.
     readonly property real preferredHeight: 49 + contentCol.height
+    // Set by NetworkPane: the panel has finished opening. Refreshes wait for it
+    // (UI/UX Phase 22 — no process starts, no list rebuilt, under the pour).
+    property bool settled: false
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
@@ -49,11 +52,11 @@ Item {
                 root._expandSsid    = ""
                 root._connectingTo  = ""
                 root._needsPassword = ({})
-                root._checkRadio()
-                root._scan(false)
             }
         }
     }
+    // The scan once the panel is up, not as it starts to open.
+    onSettledChanged: if (root.settled && Popups.networkOpen) { root._checkRadio(); root._scan(false) }
 
     // ── Processes ─────────────────────────────────────────────────────────────
 

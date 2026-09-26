@@ -62,6 +62,7 @@ PanelWindow {
     // held key tracks a moving target instead of restarting a tween per step.
     // Under Reduce Motion nothing travels and the fade stays.
     SurfaceLifecycle {
+        name: "osd"
         id: life
         open:          root.showing
         enterDuration: Motion.selection

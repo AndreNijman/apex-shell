@@ -37,6 +37,9 @@ Item {
     // as WifiTab reports it (UI/UX Phase 17). The panel sized every other tab
     // to a fixed 648 px, most of it empty.
     readonly property real preferredHeight: 49 + conCol.height
+    // Set by NetworkPane: the panel has finished opening. Refreshes wait for it
+    // (UI/UX Phase 22 — no process starts, no list rebuilt, under the pour).
+    property bool settled: false
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
@@ -339,7 +342,8 @@ Item {
     // ── nmcli monitor — debounced refresh ─────────────────────────────────────
     Process {
         id: monitorProc
-        running: Popups.networkOpen
+        // Started once the panel has settled, not under its open (UI/UX Phase 22).
+        running: root.settled && Popups.networkOpen
         command: ["nmcli", "monitor"]
         stdout: SplitParser {
             onRead: function(data) { monitorDebounce.restart() }
@@ -354,7 +358,7 @@ Item {
 
     // Also poll every 8s while popup is open to catch external changes
     Timer {
-        interval: 8000; repeat: true; running: Popups.networkOpen
+        interval: 8000; repeat: true; running: root.settled && Popups.networkOpen
         onTriggered: root._refresh()
     }
 
@@ -509,14 +513,8 @@ Item {
         return null
     }
 
-    // Reset on popup open
-    Connections {
-        target: Popups
-        function onNetworkOpenChanged() {
-            if (Popups.networkOpen && root.visible)
-                root._refresh()
-        }
-    }
+    // The refresh once the panel is up, not as it starts to open (UI/UX Phase 22).
+    onSettledChanged: if (root.settled && Popups.networkOpen && root.visible) root._refresh()
 
     Component.onCompleted: {
         // Disable autoconnect for all WireGuard profiles silently

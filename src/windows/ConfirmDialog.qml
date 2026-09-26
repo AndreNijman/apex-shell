@@ -59,7 +59,7 @@ PanelWindow {
 
     // On the dialog lifecycle (UI/UX Phase 6): the window stays mapped until
     // the exit has finished; it used to vanish on the flag with no motion.
-    DialogLifecycle { id: life; open: Popups.confirmOpen || Popups.confirmRunning }
+    DialogLifecycle { id: life; name: "confirm"; open: Popups.confirmOpen || Popups.confirmRunning }
     visible: life.mapped
 
     WlrLayershell.layer:         WlrLayer.Overlay

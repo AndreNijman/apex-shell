@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import Quickshell
 import "../services"
 import "motion.js" as M
 
@@ -47,6 +48,12 @@ QtObject {
     // ── Policy ───────────────────────────────────────────────────────────────
     /// Reduce Motion, the accessibility mode. Spatial tokens are 0 while it is on.
     readonly property bool reduced: SettingsService.reduceMotion
+
+    // Frame pacing (UI/UX roadmap v3 Phase 22): APEX_PACING_LOG=1 in the shell's
+    // environment makes every SurfaceLifecycle log the frames it delivered while
+    // opening and closing. Read once; off, it costs nothing — no FrameAnimation
+    // runs. tests/visual/frame-pacing.sh reads the lines.
+    readonly property bool pacingLog: Quickshell.env("APEX_PACING_LOG") === "1"
 
     /// The combined speed multiplier every token is scaled by.
     readonly property real scale: M.speedScale(SettingsService.motionSpeed,

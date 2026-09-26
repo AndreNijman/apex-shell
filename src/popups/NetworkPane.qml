@@ -20,6 +20,12 @@ import "../"
 Item {
     id: root
     required property ThemeSet theme
+    // True once the panel has finished opening (RightPanel binds it to its
+    // lifecycle's Open). The tabs refresh on THIS, not on Popups.networkOpen:
+    // a refresh is nmcli / bluetoothctl processes and a list rebuilt from their
+    // answers, and started as the open began it forked and relaid out under the
+    // pour — the network pane's first ~130 ms went missing (UI/UX Phase 22).
+    property bool settled: false
 
     readonly property string page: (Popups.networkPage && Popups.networkPage !== "")
                                    ? Popups.networkPage : "wifi"
@@ -94,6 +100,7 @@ Item {
             anchors.fill: parent
             active:       root.page === "wifi"
             source:       "WifiTab.qml"
+            onLoaded: item.settled = Qt.binding(() => root.settled)
         }
 
         Loader {
@@ -101,6 +108,7 @@ Item {
             anchors.fill: parent
             active:       root.page === "bluetooth"
             source:       "BluetoothTab.qml"
+            onLoaded: item.settled = Qt.binding(() => root.settled)
         }
 
         // VPN — WireGuard connections
@@ -109,6 +117,7 @@ Item {
             anchors.fill: parent
             active:       root.page === "vpn"
             source:       "VPNTab.qml"
+            onLoaded: item.settled = Qt.binding(() => root.settled)
         }
 
         // Hotspot — virtual AP interface
@@ -117,6 +126,7 @@ Item {
             anchors.fill: parent
             active:       root.page === "hotspot"
             source:       "HotspotTab.qml"
+            onLoaded: item.settled = Qt.binding(() => root.settled)
         }
     }
 

@@ -177,6 +177,7 @@ PanelWindow {
     onRightWantedChanged: if (root.rightWanted !== "") root.rightPane = root.rightWanted
 
     readonly property SurfaceLifecycle rightLife: SurfaceLifecycle {
+        name: "right-panel"
         open:          root.rightWanted !== "" && root.rightHostReady
         enterDuration: Motion.surfaceEnterSmall
         exitDuration:  Motion.surfaceExitSmall

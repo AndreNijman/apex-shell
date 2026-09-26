@@ -45,6 +45,8 @@ QtObject {
 
     // ── Input ────────────────────────────────────────────────────────────────
     property bool open: false
+    // Names the surface in the frame-pacing log (Motion.pacingLog, Phase 22).
+    property string name: ""
 
     // ── Timing (Motion roles; override per surface family) ───────────────────
     property int enterDuration: Motion.morphEnter
@@ -100,6 +102,46 @@ QtObject {
     // and there is one frame before the animation moves it.
     property bool _settling: false
     property bool _announced: false
+
+    // ── Frame pacing (UI/UX Phase 22) ─────────────────────────────────────────
+    // Frames DELIVERED during an open or a close, not what each cost to render:
+    // a FrameAnimation ticks once per frame the animation driver advances, so
+    // its count against the wall-clock duration is the miss count, and the
+    // longest gap between ticks is the worst hitch. Logged when the phase ends:
+    //     APEX pacing: <name> <Opening|Closing> ms=<n> frames=<n> worst=<ms>
+    //                  at=<where the worst gap ended, 0..1 of the phase> first=<ms>
+    // `first` is the wait for the first frame after the phase began: a surface
+    // that builds its content or starts a process as it opens pays it there.
+    // Only while Motion.pacingLog: with it off, this never runs.
+    property FrameAnimation _pace: FrameAnimation {
+        running: Motion.pacingLog && (life.phase === "Opening" || life.phase === "Closing")
+        property real t0: 0
+        property real last: 0
+        property int n: 0
+        property real worst: 0
+        property real worstT: 0
+        property real first: -1
+        property string ph: ""
+        onRunningChanged: {
+            if (running) {
+                t0 = Date.now(); last = t0; n = 0; worst = 0; worstT = t0; first = -1; ph = life.phase
+            } else if (n > 0) {
+                const span = Math.max(1, last - t0)
+                console.info("APEX pacing: " + (life.name || "surface") + " " + ph
+                             + " ms=" + Math.round(last - t0) + " frames=" + n
+                             + " worst=" + Math.round(worst)
+                             + " at=" + ((worstT - t0) / span).toFixed(2)
+                             + " first=" + Math.round(first))
+            }
+        }
+        onTriggered: {
+            const now = Date.now()
+            if (first < 0) first = now - t0
+            if (now - last > worst) { worst = now - last; worstT = now }
+            last = now
+            n++
+        }
+    }
 
     property NumberAnimation _pAnim: NumberAnimation {
         target: life; property: "progress"

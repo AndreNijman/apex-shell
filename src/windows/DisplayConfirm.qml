@@ -77,7 +77,7 @@ PanelWindow {
 
     color: "transparent"
     // On the dialog lifecycle (UI/UX Phase 6): mapped until its exit finishes.
-    DialogLifecycle { id: life; open: DisplayService.pending }
+    DialogLifecycle { id: life; name: "display-confirm"; open: DisplayService.pending }
     visible: life.mapped
 
     anchors { top: true; left: true; right: true; bottom: true }

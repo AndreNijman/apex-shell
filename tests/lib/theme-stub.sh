@@ -134,6 +134,13 @@ def sub(m):
     return v
 out = re.sub(r'\bSettingsService\.(\w+)', sub, motion)
 out = re.sub(r'^import "\.\./services"\n', '', out, flags=re.M)
+# The frame-pacing flag reads the shell's environment through Quickshell, which
+# qmltestrunner does not have: staged, pacing is off, as it is by default.
+out = re.sub(r'Quickshell\.env\("APEX_PACING_LOG"\) === "1"', 'false', out)
+out = re.sub(r'^import Quickshell\n', '', out, flags=re.M)
+if "Quickshell" in re.sub(r'//[^\n]*', '', out):
+    sys.stderr.write("stage_motion: Motion.qml reads Quickshell in a way the stage cannot neutralise\n")
+    sys.exit(2)
 if missing:
     sys.stderr.write("stage_motion: no literal default for SettingsService.%s\n"
                      % ", ".join(sorted(set(missing))))

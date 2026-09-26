@@ -49,7 +49,7 @@ PopupWindow {
     // On the surface lifecycle (UI/UX Phase 6): mapped until its fade-out has
     // finished, instead of vanishing on the flag. A fade, not the dialogs'
     // settle — it is a dropdown under the notch, not a card over a scrim.
-    DialogLifecycle { id: life; open: ScreenRecService.openStrip !== "" }
+    DialogLifecycle { id: life; name: "screenrec-strip"; open: ScreenRecService.openStrip !== "" }
     visible: life.mapped
 
     HoverHandler {

@@ -44,6 +44,7 @@ PanelWindow {
     // On the shared lifecycle (UI/UX roadmap v3 Phase 21): see ClipboardPopup.
     // It popped in and out under Reduce Motion, on the legacy duration.
     SurfaceLifecycle {
+        name: "wallpaper"
         id: life
         open:          Popups.wallpaperOpen
         enterDuration: Motion.morphEnter
