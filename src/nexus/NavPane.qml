@@ -105,8 +105,9 @@ Item {
                 const item = pages.itemAt(i)
                 if (!item) return
                 const pad = root.theme.px(10)
+                // The slot's top, so a group's first page brings its heading.
                 const top = col.y + item.y
-                const bottom = top + item.height
+                const bottom = col.y + item.y + item.row.y + item.row.height
                 if (top < flick.contentY)
                     flick.contentY = Math.max(0, top - pad)
                 else if (bottom > flick.contentY + flick.height)
@@ -129,12 +130,14 @@ Item {
                 if (list[i].id === root.currentPage) return pages.itemAt(i)
             return null
         }
+        // The slot's row, and where it sits in the list: below its group label.
+        readonly property Item targetRow: sel.target ? sel.target.row : null
         property bool _placed: false
         visible: sel.target !== null
         x: col.x
-        y: sel.target ? col.y + sel.target.y : 0
+        y: sel.targetRow ? col.y + sel.target.y + sel.targetRow.y : 0
         width: col.width
-        height: sel.target ? sel.target.height : 0
+        height: sel.targetRow ? sel.targetRow.height : 0
         radius: theme.radiusM
         color: Theme.surfaceSelected
         Behavior on y { enabled: sel._placed; MotionMove { curve: Motion.emphasizedDecel } }
@@ -169,62 +172,93 @@ Item {
             id: pages
             model: PageRegistry.pages
 
-            delegate: Rectangle {
-                id: row
+            // A slot per page: the group's section label above the first page
+            // of each group (UI/UX Phase 19b), then the row. The pill and the
+            // keep-in-view logic target the ROW (slot.row), so the selection
+            // never covers a heading.
+            delegate: Item {
+                id: slot
 
                 required property var modelData
-
-                readonly property bool active: root.currentPage === row.modelData.id
-                Accessible.role: Accessible.PageTab
-                Accessible.name: row.modelData.title
-                Accessible.selectable: true
-                Accessible.selected: row.active
+                required property int index
+                readonly property bool firstOfGroup: slot.index === 0
+                    || PageRegistry.pages[slot.index - 1].group !== slot.modelData.group
+                readonly property Item row: row
 
                 width: parent.width
-                // 36, not 44: sixteen pages nearly fit the sheet without
-                // scrolling (brief §E "Nav rows", §F.8).
-                height: theme.controlComfortable
-                radius: theme.radiusM
-                // Hover only; the selection is the shared pill above.
-                color: !row.active && hov.hovered
-                       ? Theme.surfaceHover(Theme.background) : "transparent"
+                height: (slot.firstOfGroup ? groupLabel.height : 0) + row.height
 
-                Behavior on color { MotionColor {} }
-
-                Text {
-                    id: icon
-                    anchors {
-                        left: parent.left
-                        leftMargin: theme.px(14)
-                        verticalCenter: parent.verticalCenter
-                    }
-                    text: row.modelData.icon
-                    color: row.active ? Theme.accentText : Theme.iconDefault
-                    font.pixelSize: theme.fs(15)
-                    Behavior on color { MotionColor { role: "state" } }
+                SectionLabel {
+                    id: groupLabel
+                    visible: slot.firstOfGroup
+                    width: parent.width
+                    // CfgSection's slot: 18 for the first, 30 after, the text
+                    // 6 above the rows; inset to the rows' icon column.
+                    height: slot.firstOfGroup ? root.theme.px(slot.index === 0 ? 18 : 30) : 0
+                    verticalAlignment: Text.AlignBottom
+                    bottomPadding: root.theme.px(6)
+                    leftPadding: root.theme.px(14)
+                    text: slot.modelData.group || ""
                 }
 
-                Text {
-                    anchors {
-                        left: icon.right
-                        leftMargin: theme.px(11)
-                        right: parent.right
-                        rightMargin: theme.px(8)
-                        verticalCenter: parent.verticalCenter
+                Rectangle {
+                    id: row
+
+                    readonly property var modelData: slot.modelData
+                    y: slot.firstOfGroup ? groupLabel.height : 0
+
+                    readonly property bool active: root.currentPage === row.modelData.id
+                    Accessible.role: Accessible.PageTab
+                    Accessible.name: row.modelData.title
+                    Accessible.selectable: true
+                    Accessible.selected: row.active
+
+                    width: parent.width
+                    // 36, not 44: sixteen pages nearly fit the sheet without
+                    // scrolling (brief §E "Nav rows", §F.8).
+                    height: theme.controlComfortable
+                    radius: theme.radiusM
+                    // Hover only; the selection is the shared pill above.
+                    color: !row.active && hov.hovered
+                           ? Theme.surfaceHover(Theme.background) : "transparent"
+
+                    Behavior on color { MotionColor {} }
+
+                    Text {
+                        id: icon
+                        anchors {
+                            left: parent.left
+                            leftMargin: theme.px(14)
+                            verticalCenter: parent.verticalCenter
+                        }
+                        text: row.modelData.icon
+                        color: row.active ? Theme.accentText : Theme.iconDefault
+                        font.pixelSize: theme.fs(15)
+                        Behavior on color { MotionColor { role: "state" } }
                     }
-                    text: row.modelData.title
-                    // Selection is fill and colour, never bold (brief §C.4).
-                    color: row.active ? Theme.textPrimary : Theme.textSecondary
-                    font.pixelSize: theme.fs(12)
-                    elide: Text.ElideRight
-                    Behavior on color { MotionColor { role: "state" } }
-                }
 
-                HoverHandler { id: hov; cursorShape: Qt.PointingHandCursor }
+                    Text {
+                        anchors {
+                            left: icon.right
+                            leftMargin: theme.px(11)
+                            right: parent.right
+                            rightMargin: theme.px(8)
+                            verticalCenter: parent.verticalCenter
+                        }
+                        text: row.modelData.title
+                        // Selection is fill and colour, never bold (brief §C.4).
+                        color: row.active ? Theme.textPrimary : Theme.textSecondary
+                        font.pixelSize: theme.fs(12)
+                        elide: Text.ElideRight
+                        Behavior on color { MotionColor { role: "state" } }
+                    }
 
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: root.pageSelected(row.modelData.id)
+                    HoverHandler { id: hov; cursorShape: Qt.PointingHandCursor }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: root.pageSelected(row.modelData.id)
+                    }
                 }
             }
         }
