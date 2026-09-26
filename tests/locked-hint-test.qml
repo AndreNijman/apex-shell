@@ -431,7 +431,21 @@ ShellRoot {
                 readLog(function () {
                     rootScope.expectChain("a real compositor lock reaches logind", rootScope.fresh(), "true")
                     rootScope.keep()
-                    LockState.locked = false
+                    // The PAM-success path (2026-09-26): release() plays the lock
+                    // UI's exit and maps the unlock curtain, and the lock lets go
+                    // on a timer — unconditionally, so a correct password can
+                    // never be left holding the session locked.
+                    lock.release()
+                    rootScope.check("a correct password starts the exit: still locked, unlocking, the curtain (raised with the lock) up",
+                                    LockState.locked && LockState.unlocking && LockState.curtain)
+                    rootScope.check("the curtain was armed only by the compositor's acknowledgement",
+                                    LockState.lockSecure && LockState.curtainArmed)
+                    const t0 = Date.now()
+                    waitFor(function () { return !LockState.locked }, 200, function (unlocked) {
+                    const took = Date.now() - t0
+                    rootScope.check("and the lock releases once the exit has played, never later ("
+                                    + took + " ms)", unlocked && took < 1500)
+                    rootScope.check("unlocking is over once it has", !LockState.unlocking)
                     waitFor(function () { return !lock.secure }, 200, function (released) {
                         rootScope.check("the lock was released again", released)
                         settle(function () {
@@ -441,6 +455,7 @@ ShellRoot {
                                 finish()
                             })
                         })
+                    })
                     })
                 })
             })

@@ -42,7 +42,10 @@ WlSessionLock {
     // engaged (or been released), so a lock that fails to engage is never
     // reported to logind as engaged. See LockedHintService for why this has
     // to be the shell's job and not apexd's.
-    onSecureStateChanged: LockedHintService.setLocked(sessionLock.secure)
+    onSecureStateChanged: {
+        LockedHintService.setLocked(sessionLock.secure)
+        LockState.lockSecure = sessionLock.secure
+    }
 
     // The initial sync, and the reason it cannot live in the service itself.
     //
@@ -67,6 +70,29 @@ WlSessionLock {
     // LockedHintService would therefore not run until something else had
     // already used it, which on this path is the lock it exists to report.
     Component.onCompleted: LockedHintService.setLocked(sessionLock.secure)
+
+    // ── Release, after the exit has played ──────────────────────────────
+    // Called ONLY from a surface's PAM success. The lock UI plays its exit
+    // (clock lifting, field fading, the wallpaper sharpening back into the
+    // desktop's) over UnlockCurtain, which has held the desktop wallpaper
+    // behind the lock since it engaged; then the lock lets go and the curtain
+    // fades the desktop in. The
+    // timer IS the release, unconditionally: nothing it waits on can hold the
+    // session locked after a correct password (under Reduce Motion it is one
+    // millisecond).
+    function release() {
+        if (!LockState.locked || LockState.unlocking) return
+        LockState.unlocking = true
+        sessionLock._release.interval = Math.max(1, Motion.surfaceExitSmall)
+        sessionLock._release.restart()
+    }
+    property Timer _release: Timer {
+        repeat: false
+        onTriggered: {
+            LockState.unlocking = false
+            LockState.locked = false
+        }
+    }
 
     // ── Per-output lock surface ──────────────────────────────────────
     WlSessionLockSurface {
@@ -115,9 +141,9 @@ WlSessionLock {
             onCompleted: function(result) {
                 surface.checking = false
                 if (result === PamResult.Success) {
-                    // The one and only unlock path.
+                    // The one and only unlock path (release() is the flip).
                     surface.password = ""
-                    LockState.locked = false
+                    sessionLock.release()
                 } else if (result === PamResult.MaxTries) {
                     surface.fail("Too many attempts — wait and retry")
                 } else {
@@ -213,6 +239,32 @@ WlSessionLock {
         readonly property string timeText: Time.format("hh:mm")
         readonly property string dateText: Time.format("dddd, d MMMM")
 
+        // ── Arrival and departure (2026-09-26) ───────────────────────
+        // The lock surface is opaque from its first frame — that is the
+        // security property and nothing here touches it. What moves is on
+        // top: the wallpaper starts sharp (the desktop's own) and blurs and
+        // dims in, the clock drops into place, the field rises a beat after.
+        // On a correct password it all plays back out (`leave`) before the
+        // lock releases (sessionLock.release()).
+        property real enter: 0
+        property real leave: LockState.unlocking ? 1 : 0
+        Behavior on leave {
+            NumberAnimation {
+                duration: Motion.surfaceExitSmall
+                easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardAccel
+            }
+        }
+        NumberAnimation {
+            id: enterAnim
+            target: surface; property: "enter"; from: 0; to: 1
+            duration: Motion.reduced ? Motion.fadeIn : Motion.hero
+            easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.spring
+        }
+        // The backdrop's strength, the clock's arrival, the card's arrival.
+        readonly property real _veil:  surface.enter * (1 - surface.leave)
+        readonly property real _clock: Math.min(1, surface.enter * 1.3)
+        readonly property real _card:  Math.max(0, Math.min(1, (surface.enter - 0.18) / 0.82))
+
         // ── Content root ─────────────────────────────────────────────
         Item {
             id: content
@@ -265,16 +317,17 @@ WlSessionLock {
                 source:       wallImg
                 visible:      wallImg.status === Image.Ready
                 blurEnabled:  true
-                blur:         1.0
+                blur:         1.0 * surface._veil
                 blurMax:      48
-                brightness:  -0.30
-                saturation:  -0.10
+                brightness:  -0.30 * surface._veil
+                saturation:  -0.10 * surface._veil
             }
 
             // Extra scrim for legibility.
             Rectangle {
                 anchors.fill: parent
                 color: Qt.rgba(0, 0, 0, 0.35)
+                opacity: surface._veil
             }
 
             // Clicking anywhere re-focuses the password field.
@@ -290,6 +343,11 @@ WlSessionLock {
                 anchors.bottom:           card.top
                 anchors.bottomMargin:     56
                 spacing: 4
+                opacity: surface._clock * (1 - surface.leave)
+                transform: Translate {
+                    y: (1 - surface._clock) * -Motion.travel(theme.px(28))
+                       - surface.leave * Motion.travel(theme.px(18))
+                }
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -314,7 +372,12 @@ WlSessionLock {
                 anchors.centerIn: parent
                 anchors.verticalCenterOffset: 90
                 spacing: 14
-                transform: Translate { x: surface.shakeOffset }
+                opacity: surface._card * (1 - surface.leave)
+                scale: Motion.reduced ? 1 : 0.97 + 0.03 * surface._card - 0.02 * surface.leave
+                transform: Translate {
+                    x: surface.shakeOffset
+                    y: (1 - surface._card) * Motion.travel(theme.px(28))
+                }
 
                 // Username
                 Text {
@@ -558,8 +621,11 @@ WlSessionLock {
             }
         }
 
-        // Grab keyboard focus as soon as the surface appears.
-        Component.onCompleted: passwordInput.forceActiveFocus()
+        // Grab keyboard focus as soon as the surface appears, and arrive.
+        Component.onCompleted: {
+            passwordInput.forceActiveFocus()
+            enterAnim.start()
+        }
         onVisibleChanged: if (visible) passwordInput.forceActiveFocus()
     }
 }
