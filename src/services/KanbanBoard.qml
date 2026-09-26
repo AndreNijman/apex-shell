@@ -475,7 +475,7 @@ Item {
                                 Text {
                                     id: cntT; anchors.centerIn: parent
                                     text: colItem.cTasks.length
-                                    color: Theme.active; font.pixelSize: theme.fs(9); font.weight: Font.Bold
+                                    color: Theme.active; font.pixelSize: theme.typeCaption; font.weight: Font.Bold
                                 }
                             }
                         }
@@ -729,7 +729,7 @@ Item {
                         delegate: Text {
                             width: Math.floor(parent.parent.width / 7)
                             horizontalAlignment: Text.AlignHCenter
-                            text: modelData; font.pixelSize: theme.fs(8); font.weight: Font.Bold
+                            text: modelData; font.pixelSize: theme.typeCaption; font.weight: Font.Bold
                             color: Theme.textTertiary
                         }
                     }
@@ -829,7 +829,7 @@ Item {
                             Text {
                                 anchors.centerIn: parent
                                 text: dayBtn.modelData.n
-                                font.pixelSize: theme.fs(9); font.weight: dayBtn.isSel ? Font.Bold : Font.Normal
+                                font.pixelSize: theme.typeCaption; font.weight: dayBtn.isSel ? Font.Bold : Font.Normal
                                 color: dayBtn.isSel ? Theme.background
                                     : dayBtn.modelData.cur ? Theme.textPrimary : Theme.textTertiary
                             }
@@ -1254,7 +1254,7 @@ Item {
                     // Urgency picker
                     Row {
                         spacing: 5
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Urgency"; font.pixelSize: theme.fs(9); color: Theme.textSecondary }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Urgency"; font.pixelSize: theme.typeCaption; color: Theme.textSecondary }
                         Repeater {
                             id: urgRepeater
                             model: ["", "low", "medium", "high"]
@@ -1282,7 +1282,7 @@ Item {
                                     Behavior on color { MotionColor { role: "state" } }
                                 }
                                 Text {
-                                    id: uT; anchors.centerIn: parent; font.pixelSize: theme.fs(9)
+                                    id: uT; anchors.centerIn: parent; font.pixelSize: theme.typeCaption
                                     text: urgBtn.modelData === "" ? "None" : urgBtn.modelData.charAt(0).toUpperCase() + urgBtn.modelData.slice(1)
                                     color: (urgBtn.sel && urgBtn.modelData !== "") ? Theme.fixedDark : Theme.textSecondary
                                 }
@@ -1294,7 +1294,7 @@ Item {
                     // Due date button row
                     Row {
                         spacing: 6
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Due"; font.pixelSize: theme.fs(9); color: Theme.textSecondary }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Due"; font.pixelSize: theme.typeCaption; color: Theme.textSecondary }
 
                         ApexPressable {
                             id: dueBtn
@@ -1313,7 +1313,7 @@ Item {
                                 Behavior on color { MotionColor {} }
                             }
                             Text {
-                                id: dueLbl; anchors.centerIn: parent; font.pixelSize: theme.fs(9)
+                                id: dueLbl; anchors.centerIn: parent; font.pixelSize: theme.typeCaption
                                 text:  (card.taskData.dueDate || "") !== "" ? root._formatDue(card.taskData.dueDate) : "Set due date"
                                 color: (card.taskData.dueDate || "") !== "" ? Theme.active : Theme.textSecondary
                                 Behavior on color { MotionColor { role: "state" } }
@@ -1483,7 +1483,7 @@ Item {
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "↵ confirm · ⎋ cancel"; font.pixelSize: theme.fs(9)
+                        text: "↵ confirm · ⎋ cancel"; font.pixelSize: theme.typeCaption
                         color: Theme.textTertiary
                     }
                 }

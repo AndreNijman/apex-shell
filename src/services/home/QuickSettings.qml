@@ -880,7 +880,7 @@ StatCard {
                             Text {
                                 anchors.fill: parent
                                 text: btn.sublabel
-                                font.pixelSize: theme.fs(10); font.family: Theme.fontMono
+                                font.pixelSize: theme.typeCaption; font.family: Theme.fontMono
                                 color: btn.on ? Theme.onAccentContainer : Theme.textTertiary
                                 opacity: btn.on ? 0.8 : 1
                                 elide: Text.ElideRight
