@@ -83,6 +83,11 @@ Item {
         onMuteToggled: fixture.mutes++
     }
     ChannelColumn {
+        id: brightChan
+        x: 230; y: 700
+        active: true; value: 0.5; muteable: false; accessibleName: "Brightness"
+    }
+    ChannelColumn {
         id: deadChan
         x: 120; y: 520
         active: false; value: 0.5
@@ -239,6 +244,14 @@ Item {
             keyClick(Qt.Key_Return); compare(fixture.chosenDev, "hdmi", "Return did not choose the highlighted device")
             keyClick(Qt.Key_Up); keyClick(Qt.Key_Space)
             compare(fixture.chosenDev, "hp", "Space did not choose the highlighted device")
+        }
+
+        function test_150_a_level_that_cannot_be_muted_has_no_mute_button() {
+            const b = findChild(brightChan, "channelMuteButton"), m = findChild(chan, "channelMuteButton")
+            verify(m.activeFocusOnTab, "the volume's mute button is not a Tab stop")
+            verify(!b.activeFocusOnTab, "brightness offers a mute button that does nothing")
+            verify(b.Accessible.ignored, "brightness announces a mute button")
+            compare(b.opacity, 1, "the icon is dimmed as if disabled")
         }
 
         function test_080_a_click_chooses_without_taking_focus() {

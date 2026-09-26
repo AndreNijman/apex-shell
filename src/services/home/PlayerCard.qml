@@ -390,8 +390,10 @@ Item {
                     anchors.fill: parent; radius: height / 2
                     color: root.inkA(0.2)
                     MouseArea {
-                        // A 6 px bar with a 20 px target; x still maps 1:1.
-                        anchors.fill: parent; anchors.topMargin: -7; anchors.bottomMargin: -7
+                        // A 6 px bar with a 29 px target: up to the buttons 6 px
+                        // above, down over the timestamps (not pressable) to the
+                        // player chooser below; x still maps 1:1.
+                        anchors.fill: parent; anchors.topMargin: -6; anchors.bottomMargin: -17
                         cursorShape: Qt.PointingHandCursor
                         onClicked: function(mouse) {
                             if (root.player && root.length > 0) {

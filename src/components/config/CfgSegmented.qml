@@ -42,6 +42,9 @@ Flow {
         const it = pills.itemAt(Math.max(0, Math.min(root.options.length - 1, i)))
         if (it) it.forceActiveFocus()
     }
+    // New options rebuild the pills, and a destroyed pill never reports losing
+    // focus: a stale index past the end would leave the group no Tab stop.
+    onOptionsChanged: root._focusIdx = -1
     function _leftGroup() {
         for (var i = 0; i < pills.count; i++)
             if (pills.itemAt(i) && pills.itemAt(i).activeFocus) return

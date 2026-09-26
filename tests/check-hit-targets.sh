@@ -20,7 +20,11 @@
 #          its neighbour's clicks; each fix lowers EXPECT_BELOW_GOAL.
 #
 #  Sizes written as bindings (parent.width, an expression) are not measured and
-#  are counted as such — the runtime half is the live keyboard runners. The
+#  are counted as such — the runtime half is the live keyboard runners. Nor are
+#  raw MouseAreas: the drag targets of the sliders (ChannelColumn's track, the
+#  Home brightness bar, the player's seek bar) carry their own margins, sized
+#  by hand in Phase 21l — 32, 32 and 29 px (the seek bar sits between the
+#  player's buttons and its chooser). The
 #  scanner strips comments and strings first, so a size named in prose cannot
 #  satisfy or trip it; the self-test at the bottom proves both directions.
 #
@@ -84,7 +88,7 @@ for dp, _, fs in os.walk(root):
         rel = os.path.relpath(path, root)
         if rel.startswith("components/controls/"): continue   # the primitives themselves
         src = strip(open(path, encoding="utf-8").read())
-        in_bar = rel.startswith("modules/")
+        in_bar = rel.startswith("modules/") and not rel.endswith("Menu.qml")   # a tray menu is a popup
         for m in opener.finditer(src):
             start = m.end(); depth = 1; i = start
             while i < len(src) and depth:

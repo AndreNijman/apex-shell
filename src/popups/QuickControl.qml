@@ -219,6 +219,7 @@ PanelWindow {
                 // brightness controls that exist.
                 ChannelColumn {
                     accessibleName: "Brightness"
+                    muteable: false
                     icon:    "󰃠"
                     value:   root._bVal
                     muted:   false
@@ -242,6 +243,7 @@ PanelWindow {
 
                         icon:   "󰍹"
                         accessibleName: "External display brightness"
+                        muteable: false
                         value:  modelData.value >= 0 ? modelData.value : 0
                         muted:  false
                         // A monitor whose level has not been read yet cannot be

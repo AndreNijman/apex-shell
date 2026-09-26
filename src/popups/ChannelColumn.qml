@@ -28,6 +28,10 @@ Item {
     readonly property int barW:   22
     readonly property int thumbD: barW - 6
     property int  labelWidth:  barW + 50
+    // A level that cannot be muted (brightness) shows its icon as a label: no
+    // Tab stop, no pointer target, nothing announced as a button that does
+    // nothing — and at full strength, not dimmed as disabled.
+    property bool muteable:    true
 
     signal volumeChanged(real value)
     signal muteToggled()
@@ -117,7 +121,9 @@ Item {
                 // Drag to change value. No wheel handler: a value bar in this
                 // shell never reads the wheel, so scrolling stays scrolling.
                 MouseArea {
-                    anchors.fill: parent
+                    // 22 px wide drawn, 32 px to grab (hitMin); the value is
+                    // read off y alone, so the margins change nothing else.
+                    anchors.fill: parent; anchors.leftMargin: -5; anchors.rightMargin: -5
                     cursorShape:  Qt.SizeVerCursor
                     function calc(my) {
                         var travel = track.height - thumb.height
@@ -132,11 +138,15 @@ Item {
         // Icon & Mute Toggle — a real button (it was pointer-only).
         ApexPressable {
             id: muteBtn
+            objectName: "channelMuteButton"
             anchors.horizontalCenter: parent.horizontalCenter
             width:  col.barW + (col.muteText ? 32 : 16)
             height: 28
             radius: theme.cornerRadius
             hitMargin: 2
+            interactive: col.muteable
+            opacity: 1
+            Accessible.ignored: !col.muteable
             // A toggle: the name stays put and the state is its checked state.
             Accessible.name: "Mute " + col.accessibleName
             Accessible.checkable: true

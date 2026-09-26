@@ -760,7 +760,10 @@ StatCard {
                         // Drag or click to set brightness. No wheel handler: a
                         // value bar in this shell never reads the wheel.
                         MouseArea {
-                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                            // A 5 px bar with a 32 px target (hitMin): its row
+                            // holds nothing else to press; x still maps 1:1.
+                            anchors.fill: parent; anchors.topMargin: -13.5; anchors.bottomMargin: -13.5
+                            cursorShape: Qt.PointingHandCursor
                             function _c(mx) {
                                 return Math.max(0.0, Math.min(1.0,
                                     (mx - btw.thumbD/2) / (btrack.width - btw.thumbD)))
