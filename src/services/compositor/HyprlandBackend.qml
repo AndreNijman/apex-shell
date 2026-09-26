@@ -312,15 +312,21 @@ QtObject {
                 root.specialWorkspaceOpen = String(event.data).split(",")[0] !== ""
             else if (event.name === "destroyworkspace")
                 root.specialWorkspaceOpen = false
-            // A reload restores the config's own motion: read it again.
-            else if (event.name === "configreloaded")
+            // A reload restores the config's own motion and drops every rule
+            // declared at runtime: read the motion again, re-declare the rules.
+            else if (event.name === "configreloaded") {
                 root._motionReread()
+                root._pushLayerRules()
+            }
         }
     }
 
     Component.onCompleted: {
         root._refreshTitle()
         root._refreshWindows()
+        // The provider may already be known (config_Provider.json read before
+        // this backend was built), in which case on_LuaChanged never fires.
+        if (root._lua) root._pushLayerRules()
 
         // One one-shot probe at startup, `hyprctl getoption`. It used to run
         // from QuickSettings.Component.onCompleted instead, so the fork
@@ -358,7 +364,40 @@ QtObject {
     }
     // configProvider is probed asynchronously and reads "conf" until it
     // answers, so the first request can arrive before `_lua` is true.
-    on_LuaChanged: if (root._lua && root._mWanted) root._motionReread()
+    on_LuaChanged: {
+        if (root._lua && root._mWanted) root._motionReread()
+        if (root._lua) root._pushLayerRules()
+    }
+
+    // ── The shell's own layers are not the compositor's to animate ──────────
+    // Every shell surface animates itself — a bloom out of the notch, a pour,
+    // a spill, a toast — through SurfaceLifecycle, and at progress 0 each one
+    // coincides exactly with the bar it grows from, so mapping it is invisible.
+    // Hyprland does not know that: on the stock tree every layer that maps is
+    // run through `fadeLayersIn` (inherits `fade`, 400 ms) and its unmap through
+    // `fadeLayersOut`. Measured in a nested 0.56.2 (UI/UX Phase 20): 66–90 % of
+    // the network panel was a translucent blend 240–345 ms into its open — the
+    // body "pops in" half-transparent instead of growing out of the notch, and
+    // keeps fading after it has stopped. On Andre's L16 today the tree is stock
+    // (`hyprctl -j animations`: fade 4 ds `ease`), so every open looked like it.
+    //
+    // apex-os carries the same rule in appearance.lua (feat/hypr-motion) for
+    // the next image; the shell declares it too, at start and after every
+    // config reload (which drops runtime rules), so it holds on any Hyprland
+    // the shell runs under, whatever that config is. Named, so a user can find
+    // it (`require` cannot reach it, but `hyprctl eval` of a rule with the same
+    // name and no_anim = false turns it off). Lua configs only: a hyprlang
+    // `keyword layerrule` is the pre-0.55 path this shell no longer ships.
+    readonly property string _layerRulesLua:
+        'hl.layer_rule({ name = "apex-shell-self-animated", match = { namespace = "^quickshell$" }, no_anim = true })'
+    function _pushLayerRules() {
+        if (Quickshell.env("APEX_PACING_LOG") === "1") console.info("APEX layer rules: push, lua=" + root._lua)
+        if (root._lua) root._start(root._layerRulesProc, ["hyprctl", "eval", root._layerRulesLua])
+    }
+    property Process _layerRulesProc: Process {
+        stdout: StdioCollector { onStreamFinished: if (Quickshell.env("APEX_PACING_LOG") === "1") console.info("APEX layer rules: " + String(this.text).trim()) }
+        stderr: StdioCollector { onStreamFinished: if (String(this.text).trim() !== "") console.warn("APEX layer rules: " + String(this.text).trim()) }
+    }
 
     function _motionReread() {
         root._mBase = null

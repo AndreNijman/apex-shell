@@ -354,6 +354,190 @@ for (const scale of [0.85, 1.0, 1.5]) {
     const lm = G.leftSpill(0.5, lg).params;
     check("the two spills differ in character, not only in side",
           Math.abs((lm.top + lm.bottom) / 2 - lg.cy) <= 1 && Math.abs((xm.top + xm.bottom) / 2 - eg.cy) > 5);
+
+    // ── BOTTOM_RISE ─────────────────────────────────────────────────────────
+    section("BOTTOM_RISE at scale " + scale);
+    const bg2 = { cx: px(960), y1: px(1074), edgeH: px(6), w: px(980), h: px(420), r: px(17), rm: px(12) };
+    auditChecks("rise", G.bottomRise, bg2);
+    sweep("rise", G.bottomRise, bg2,
+          (r, g) => near(r.bounds.y + r.bounds.h, g.y1 + g.edgeH) && Math.abs(r.bounds.x + r.bounds.w / 2 - Math.round(g.cx)) <= 1,
+          ["W", "H", "f"]);
+    const u1 = G.bottomRise(1, bg2).params, u0 = G.bottomRise(0, bg2).params;
+    check("rise p=1 is the picker", near(u1.W, bg2.w) && near(u1.H, bg2.h) && near(u1.rb, bg2.r) && near(u1.f, bg2.r));
+    check("rise p=0 is a rounded ridge, not a slab", u0.H > 0 && u0.rb > 0 && u0.W < px(40));
+    const u = G.bottomRise(0.25, bg2).params;
+    check("rise at 25% has spread far more than it has risen (the strip swells, then the body rises)",
+          (u.W - u0.W) / (bg2.w - u0.W) > 0.5 && (u.H - u0.H) / (bg2.h - u0.H) < 0.3,
+          ((u.W - u0.W) / (bg2.w - u0.W)).toFixed(2) + " vs " + ((u.H - u0.H) / (bg2.h - u0.H)).toFixed(2));
+
+    // ── CORNER_RISE ─────────────────────────────────────────────────────────
+    section("CORNER_RISE at scale " + scale);
+    const kg = { x1: px(440), y1: px(580), edgeW: px(6), edgeH: px(6), w: px(420), h: px(560), r: px(17), rm: px(12) };
+    auditChecks("corner", G.cornerRise, kg);
+    sweep("corner", G.cornerRise, kg,
+          (r, g) => near(r.bounds.x + r.bounds.w, g.x1 + g.edgeW) && near(r.bounds.y + r.bounds.h, g.y1 + g.edgeH),
+          ["W", "H", "f"]);
+    const k1 = G.cornerRise(1, kg).params;
+    check("corner p=1 is the sheet", near(k1.W, kg.w) && near(k1.H, kg.h) && near(k1.rb, kg.r));
+    const k = G.cornerRise(0.25, kg).params;
+    check("corner at 25% is a tall narrow column (it rises up the right strip, then pours left)",
+          k.H / kg.h > 0.4 && k.W / kg.w < 0.35, (k.H / kg.h).toFixed(2) + " tall, " + (k.W / kg.w).toFixed(2) + " wide");
+}
+
+// ── Liquid channels: the shapes along real spring trajectories ─────────────
+// Since 2026-09-26 the surfaces drive the families with CHANNELS (g.ch) from
+// SurfaceLifecycle's three springs rather than one progress. This replays the
+// lifecycle's sequencing with spring.js — lead first, body once the lead is at
+// openRelease; on the way out the body first, the lead once the body is at
+// closeRelease; the trail a critical follower — through an open, a close and
+// both reversals, at 120 Hz, and holds every frame to what the sweep above
+// holds a single progress to, plus: the swell past the finished shape stays
+// inside its caps, the secondary motion is 0 at rest, and at rest the shape IS
+// the notch (closed) or the finished surface (open), exactly.
+const S = require(path.join(__dirname, "..", "src", "theme", "spring.js"));
+function liquidRun(script, P) {
+    // P: { enter, exit (s), leadIn, bodyIn, leadOut, bodyOut, trail, leadZ, bodyZ, openRel, closeRel }
+    const ch = { lead: { x: 0, v: 0, t: 0 }, body: { x: 0, v: 0, t: 0 }, trail: { x: 0, v: 0 } };
+    let open = false, frames = [], t = 0;
+    const dt = 1 / 120;
+    const R = () => open ? { l: P.enter * P.leadIn, b: P.enter * P.bodyIn, tr: P.enter * P.trail, lz: P.leadZ, bz: P.bodyZ }
+                         : { l: P.exit * P.leadOut, b: P.exit * P.bodyOut, tr: P.exit * P.trail, lz: 1, bz: 1 };
+    const set = o => {
+        open = o;
+        if (open) { ch.lead.t = 1; if (ch.lead.x >= P.openRel) ch.body.t = 1; }
+        else { ch.body.t = 0; if (ch.body.x <= P.closeRel) ch.lead.t = 0; }
+    };
+    for (const [at, o] of script) {
+        while (t < at - 1e-9) {
+            const r = R();
+            let q = S.step(ch.lead.x, ch.lead.v, ch.lead.t, r.l, r.lz, dt); ch.lead.x = q[0]; ch.lead.v = q[1];
+            q = S.step(ch.body.x, ch.body.v, ch.body.t, r.b, r.bz, dt); ch.body.x = q[0]; ch.body.v = q[1];
+            q = S.step(ch.trail.x, ch.trail.v, ch.body.x, r.tr, 1, dt); ch.trail.x = q[0]; ch.trail.v = q[1];
+            if (open && ch.body.t < 1 && ch.lead.x >= P.openRel) ch.body.t = 1;
+            if (!open && ch.lead.t > 0 && ch.body.x <= P.closeRel) ch.lead.t = 0;
+            frames.push({ t: t, lead: ch.lead.x, body: ch.body.x, trail: ch.trail.x,
+                          leadFlow: ch.lead.v * r.l / 2.3, bodyFlow: ch.body.v * r.b / 2.3 });
+            t += dt;
+        }
+        if (o !== null) set(o);
+    }
+    return frames;
+}
+// SurfaceLifecycle's defaults, at the Balanced morph tokens (motion.js).
+const MJ = require(path.join(__dirname, "..", "src", "theme", "motion.js"));
+const LP = { enter: MJ.BASE.morphEnter / 1000, exit: MJ.BASE.morphExit / 1000,
+             leadIn: 0.72, bodyIn: 0.92, leadOut: 0.70, bodyOut: 0.80, trail: 0.80,
+             leadZ: 0.84, bodyZ: 0.80, openRel: 0.12, closeRel: 0.35 };
+const SCRIPTS = {
+    "open, then close":        [[0, true], [1.6, false], [3.2, null]],
+    "reversed mid-open":       [[0, true], [0.12, false], [1.6, null]],
+    "reversed mid-close":      [[0, true], [1.6, false], [1.72, true], [3.2, null]]
+};
+// Which channel drives which dimension, per family (as the surfaces wire it).
+const WIRING = {
+    bloom: f => ({ w: f.lead, d: f.body, n: f.trail, fw: f.leadFlow, fd: f.bodyFlow }),
+    pour:  f => ({ d: f.lead, w: f.body, n: f.trail, fd: f.leadFlow, fw: f.bodyFlow }),
+    spill: f => ({ w: f.lead, d: f.body, n: f.trail, fw: f.leadFlow, fd: f.bodyFlow }),
+    edge:  f => ({ w: f.lead, d: f.body, n: f.trail, fw: f.leadFlow, fd: f.bodyFlow }),
+    rise:  f => ({ w: f.lead, d: f.body, n: f.trail, fw: f.leadFlow, fd: f.bodyFlow }),
+    corner: f => ({ d: f.lead, w: f.body, n: f.trail, fd: f.leadFlow, fw: f.bodyFlow })
+};
+function liquidSweep(name, fn, g, contact, caps) {
+    for (const sname of Object.keys(SCRIPTS)) {
+        const frames = liquidRun(SCRIPTS[sname], LP);
+        const kinks = [], crosses = [], clipOut = [], lost = [], over = [], jumps = [];
+        let peakSwell = {}, prev = null;
+        const fin = fn(1, g).params;
+        for (const f of frames) {
+            const r = fn(0, Object.assign({}, g, { ch: WIRING[name](f) }));
+            for (let k = 1; k < r.segs.length; k++) {
+                if (r.segs[k - 1].sharp || r.segs[k].sharp) continue;
+                const a = tangentEnd(r.segs[k - 1]), b = tangentStart(r.segs[k]);
+                if (a && b && a[0] * b[0] + a[1] * b[1] < 0.9995) kinks.push(f.t.toFixed(3) + "@" + k);
+            }
+            const pts = polyline(r.segs, 24);
+            if (selfIntersects(pts)) crosses.push(f.t.toFixed(3));
+            if (!contact(r, g)) lost.push(f.t.toFixed(3));
+            for (const k in caps) {
+                const sw = r.params[k] - fin[k];
+                peakSwell[k] = Math.max(peakSwell[k] || 0, sw);
+                if (sw > caps[k] + 1) over.push(k + "+" + sw.toFixed(1) + "@" + f.t.toFixed(3));
+            }
+            if (prev) for (const k in r.params) {
+                if (typeof r.params[k] !== "number") continue;
+                // 120 Hz: a critically damped spring peaks at 2.3/response of
+                // its travel a second — under 8 % a frame for every response
+                // here. A step over 10 % of the parameter's travel (and 12 px)
+                // is a jump, not speed.
+                const range = Math.abs(fin[k] - fn(0, g).params[k]);
+                if (Math.abs(r.params[k] - prev.params[k]) > Math.max(12, 0.1 * range)) jumps.push(k + "@" + f.t.toFixed(3));
+            }
+            prev = r;
+            const c = r.clip;
+            const rc = Math.max(r.params.rb || 0, r.params.rbl || 0, r.params.f || 0);
+            const d = 0.3 * rc + 1.5;
+            if (c.w > 2 * d + 2 && c.h > 2 * d + 2) {
+                const probes = [[c.x + d, c.y + d], [c.x + c.w - d, c.y + d],
+                                [c.x + d, c.y + c.h - d], [c.x + c.w - d, c.y + c.h - d],
+                                [c.x + c.w / 2, c.y + c.h - 1]];
+                for (const q of probes) if (!inside(pts, q[0], q[1])) { clipOut.push(f.t.toFixed(3)); break; }
+            }
+        }
+        const tag = name + " (" + sname + ")";
+        check(tag + ": no kinks", kinks.length === 0, kinks.slice(0, 4).join(" "));
+        check(tag + ": the outline never crosses itself", crosses.length === 0, crosses.slice(0, 6).join(","));
+        check(tag + ": stays attached to its origin", lost.length === 0, lost.slice(0, 6).join(","));
+        check(tag + ": the content clip is inside the body", clipOut.length === 0, clipOut.slice(0, 6).join(","));
+        check(tag + ": the swell past the finished shape stays inside its caps", over.length === 0, over.slice(0, 4).join(" "));
+        check(tag + ": no parameter jumps between frames", jumps.length === 0, jumps.slice(0, 4).join(" "));
+        if (sname === "open, then close")
+            check(tag + ": the open swells (it is a spring, not a tween), by a few px",
+                  Object.keys(caps).some(k => peakSwell[k] > 0.5),
+                  JSON.stringify(peakSwell));
+    }
+    // At rest the channels draw exactly the finished surface and the notch.
+    const at1 = fn(0, Object.assign({}, g, { ch: { w: 1, d: 1, n: 1, fw: 0, fd: 0 } }));
+    const at0 = fn(0, Object.assign({}, g, { ch: { w: 0, d: 0, n: 0, fw: 0, fd: 0 } }));
+    check(name + ": channels at rest on 1 draw the finished surface exactly", at1.path === fn(1, g).path);
+    check(name + ": channels at rest on 0 draw the notch exactly", at0.path === fn(0, g).path);
+}
+{
+    const px = v => v;
+    section("LIQUID channels (spring trajectories)");
+    const cg = { cx: 960, strip: 6, notchW: 300, notchH: 40, shoulder: 15, notchBottom: 14,
+                 w: 900, h: 560, r: 24, shoulderW1: 28, shoulderH1: 22 };
+    liquidSweep("bloom", G.centerBloom, cg,
+                (r, g) => r.bounds.y === 0 && Math.abs(r.bounds.x + r.bounds.w / 2 - Math.round(g.cx)) <= 1,
+                { W: 4, D: 6, bow: 8 });
+    const rg = { winW: 495 + 15, strip: 6, seam: 40, shoulder: 15, notchBottom: 14,
+                 notchW: 213, w: 495, h: 648, r: 17 };
+    liquidSweep("pour", G.rightPour, rg,
+                (r, g) => r.bounds.y === 0 && near(r.bounds.x + r.bounds.w, g.winW),
+                { W: 5, Dr: 6 });
+    const lg = { x0: 6, cy: 400, w: 220, h: 270, r: 17, rm: 12 };
+    liquidSweep("spill", G.leftSpill, lg,
+                (r, g) => r.bounds.x === 0 && Math.abs((r.params.top + r.params.bottom) / 2 - g.cy) <= 1,
+                { Wb: 4, Hb: 4 });
+    const eg = { x1: 174, edgeW: 6, cy: 400, w: 174, h: 340, r: 17, rm: 12 };
+    liquidSweep("edge", G.edgeSpillRight, eg,
+                (r, g) => near(r.bounds.x + r.bounds.w, g.x1 + g.edgeW),
+                { Wb: 4 });
+    liquidSweep("rise", G.bottomRise, { cx: 960, y1: 1074, edgeH: 6, w: 980, h: 420, r: 17, rm: 12 },
+                (r, g) => near(r.bounds.y + r.bounds.h, g.y1 + g.edgeH) && Math.abs(r.bounds.x + r.bounds.w / 2 - Math.round(g.cx)) <= 1,
+                { W: 4, H: 4, bow: 8 });
+    liquidSweep("corner", G.cornerRise, { x1: 440, y1: 580, edgeW: 6, edgeH: 6, w: 420, h: 560, r: 17, rm: 12 },
+                (r, g) => near(r.bounds.x + r.bounds.w, g.x1 + g.edgeW) && near(r.bounds.y + r.bounds.h, g.y1 + g.edgeH),
+                { W: 4, H: 4 });
+    // The bow is secondary motion: 0 at rest, and it bends the other way on
+    // the way back up.
+    const frames = liquidRun(SCRIPTS["open, then close"], LP);
+    let down = 0, up = 0;
+    for (const f of frames) {
+        const bw = G.centerBloom(0, Object.assign({}, cg, { ch: WIRING.bloom(f) })).params.bow;
+        down = Math.max(down, bw); up = Math.min(up, bw);
+    }
+    check("bloom: the bottom edge bows down as it drops and up as it rises", down > 2 && up < -1,
+          down.toFixed(1) + " / " + up.toFixed(1));
 }
 
 // ── Phase 23: can the parameter audit fail? ─────────────────────────────────

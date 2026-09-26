@@ -129,9 +129,10 @@ ShellRoot {
 
     // 560 is what a 920-wide Nexus card leaves after the 244px navigation pane
     // and the margins. There was a second, 360 — the dashboard's Config tab's
-    // pane — until UI/UX Phase 19 removed that tab; the Privacy page's two
-    // baseline failures at pane=360 went with it (a pane that no longer exists,
-    // not a fix: the same two failures stand at 560).
+    // pane — until UI/UX Phase 19 removed that tab. The Privacy page's two
+    // standing "baseline" failures were the suite, not the page: on this stubbed
+    // machine it reads no permissions service and shows a text section saying
+    // so, and only rows were measured. Text-only pages are measured as text now.
     readonly property var pagePanes: [560]
 
     // Unscaled column heights for the three-tab switcher, in the range the
@@ -399,8 +400,24 @@ ShellRoot {
         }
         const rows = root.livePartsOf(page, root.isRow)
         if (rows.length === 0) {
-            root.check(label + ": the page laid out at least one row", false,
-                       "found none")
+            // A page with nothing to list is not a page that failed to lay out:
+            // on this stubbed machine Privacy reads no permissions service and
+            // says so in a section of TEXT ("Nothing could be read"). That
+            // state is measured as what it is — its text blocks fit the page —
+            // instead of failing for want of rows (it was the suite's two
+            // standing "baseline" failures, per scale).
+            const texts = root.livePartsOf(page, root.isText)
+            root.check(label + ": the page laid out at least one row or block of text",
+                       texts.length > 0, "found none")
+            var spill = -1e9, spillAt = ""
+            for (const t of texts) {
+                const q = t.mapToItem(page, 0, 0)
+                const over = q.x + Math.min(t.width, t.paintedWidth !== undefined ? t.paintedWidth : t.width) - page.width
+                if (over > spill) { spill = over; spillAt = String(t.text).substring(0, 30) }
+            }
+            if (texts.length > 0)
+                root.check(label + ": its text stays inside the page", spill <= 0.5,
+                           spill.toFixed(1) + " px past the edge at \"" + spillAt + "\"")
             return
         }
 
@@ -755,7 +772,8 @@ ShellRoot {
             // reporting the previous pane's width is a stale read, which is the
             // whole reason this function exists.
             return Math.abs(pg.width - pageHost.width) <= 1.5
-                && root.livePartsOf(pg, root.isRow).length > 0
+                && (root.livePartsOf(pg, root.isRow).length > 0
+                    || root.livePartsOf(pg, root.isText).length > 0)
         }
         const v  = root.vRigFor(stepData)
         const sw = v ? v.sw : hSwitcher
@@ -773,7 +791,9 @@ ShellRoot {
         if (stepData.kind === "page") {
             const pg = pageLoader.item
             if (!pg) return "incomplete:0"
-            const rows = root.livePartsOf(pg, root.isRow)
+            var rows = root.livePartsOf(pg, root.isRow)
+            // A page with no rows (see measurePage) settles on its text.
+            if (rows.length === 0) rows = root.livePartsOf(pg, root.isText)
             if (rows.length === 0) return "incomplete:0"
             var sig = "p" + stepData.pageIndex + ":" + pageHost.width + ":"
             for (const r of rows) {

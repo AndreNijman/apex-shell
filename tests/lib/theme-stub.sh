@@ -117,6 +117,7 @@ stage_motion() {
     local stage="$1" root="$2"
     mkdir -p "$stage/theme/anim"
     cp "$root/src/theme/motion.js" "$stage/theme/motion.js"
+    cp "$root/src/theme/spring.js" "$stage/theme/spring.js"
     cp "$root"/src/theme/anim/*.qml "$stage/theme/anim/"
     python3 - "$stage" "$root" <<'PY'
 import os, re, sys
@@ -152,7 +153,8 @@ add = ""
 for line in ("singleton Motion theme/Motion.qml",
              "MotionColor 1.0 theme/anim/MotionColor.qml",
              "MotionFade 1.0 theme/anim/MotionFade.qml",
-             "MotionMove 1.0 theme/anim/MotionMove.qml"):
+             "MotionMove 1.0 theme/anim/MotionMove.qml",
+             "MotionSpring 1.0 theme/anim/MotionSpring.qml"):
     if line not in have:
         add += line + "\n"
 open(qmldir, "a").write(add)

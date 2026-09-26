@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import QtQuick.Window
 import "components"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -25,6 +26,14 @@ TestCase {
     width: 100; height: 100
 
     Component { id: lifeC; SurfaceLifecycle {} }
+    Component {
+        id: winC
+        Window {
+            width: 80; height: 60; visible: false
+            property alias item: probe
+            Rectangle { id: probe; anchors.fill: parent; color: "black" }
+        }
+    }
 
     function make(props) {
         var o = createTemporaryObject(lifeC, tc, props || {})
@@ -160,6 +169,95 @@ TestCase {
         tryCompare(l, "mapped", false, 2000)
     }
 
+    function test_open_is_perceptual_not_physics_rest() {
+        // A spring's last half-percent takes about as long again as the rest.
+        // Pages start their services on Open; they must not wait for a tail
+        // nobody can see. Open arrives within 1 % of the finished shape.
+        var l = make()
+        var t0 = Date.now(), tOpen = -1, tRest = -1
+        l.phaseChanged.connect(function () { if (l.phase === "Open" && tOpen < 0) tOpen = Date.now() - t0 })
+        l.open = true
+        tryCompare(l, "phase", "Open", 2000)
+        verify(l.progress >= 0.98, "Open means within 2 % of the shape: " + l.progress)
+        tryCompare(l, "progress", 1, 2000)
+        tRest = Date.now() - t0
+        verify(tOpen > 0 && tOpen <= tRest, "Open (" + tOpen + " ms) no later than rest (" + tRest + " ms)")
+    }
+
+    function test_a_reversal_carries_its_velocity() {
+        // The spring's point: reversed mid-open, the body keeps moving the way
+        // it was going for a moment and bends back — it does not stop dead the
+        // way a restarted curve does.
+        var l = make()
+        l.open = true
+        tryVerify(function () { return l.progress >= 0.3 }, 2000, "reached 30 %")
+        verify(l.velocity > 0.5, "moving outward at " + l.velocity + "/s")
+        var at = l.progress
+        l.open = false
+        compare(l.velocity > 0, true, "the reversal keeps the outward velocity it had")
+        wait(20)
+        verify(l.progress >= at - 0.005, "still carried outward (or at the turn) one frame on: "
+               + at + " → " + l.progress)
+        tryCompare(l, "mapped", false, 2000)
+    }
+
+    function test_the_body_waits_for_the_first_frame() {
+        // Mapping takes a while; a clock that started on the flag had the body
+        // a third grown before anything was on screen ("a big rectangle
+        // appears"). With a surface, the springs hold at 0 — the notch — until
+        // its window has swapped a frame.
+        var w = createTemporaryObject(winC, tc)
+        var l = make({ surface: w.item })
+        l.open = true
+        compare(l.mapped, true, "mapped at once, so the window can map")
+        wait(120)
+        compare(l.progress, 0, "held at the notch while the window has shown nothing")
+        compare(l.content, 0, "and so is the content")
+        w.visible = true
+        tryVerify(function () { return l.progress > 0 }, 1000, "moves once a frame is on screen")
+        tryCompare(l, "phase", "Open", 2000)
+        tryCompare(l, "content", 1, 2000)
+    }
+
+    function test_a_window_that_never_reports_frames_is_not_held_forever() {
+        var w = createTemporaryObject(winC, tc)      // never shown
+        var l = make({ surface: w.item })
+        l.open = true
+        tryCompare(l, "phase", "Open", 2000)
+    }
+
+    function test_liquid_channels_sequence_and_settle() {
+        // The lead goes first, the body follows once the lead is out, the trail
+        // follows the body; on the way out the body leaves first and the lead
+        // (the part touching the bar) last. All three come to rest exactly.
+        var l = make({ liquid: true })
+        l.open = true
+        wait(30)
+        verify(l.lead > 0, "the lead has started: " + l.lead)
+        verify(l.lead >= l.body, "the lead leads: lead " + l.lead + ", body " + l.body)
+        tryVerify(function () { return l.body > 0.3 }, 2000)
+        verify(l.trail <= l.body + 1e-6, "the trail follows: trail " + l.trail + ", body " + l.body)
+        tryCompare(l, "phase", "Open", 2000)
+        tryVerify(function () { return l.lead === 1 && l.body === 1 && l.trail === 1 }, 3000, "all at rest on 1")
+        l.open = false
+        wait(40)
+        verify(l.body < l.lead, "on the way out the body leaves first: body " + l.body + ", lead " + l.lead)
+        tryCompare(l, "mapped", false, 3000)
+        compare(l.lead, 0); compare(l.body, 0); compare(l.trail, 0)
+    }
+
+    function test_liquid_overshoot_is_a_hair() {
+        // Underdamped channels may pass 1, by about a percent — the geometry
+        // soft-caps that into a few pixels of swell. Never more.
+        var l = make({ liquid: true })
+        var peak = 0
+        l.leadChanged.connect(function () { peak = Math.max(peak, l.lead) })
+        l.open = true
+        tryVerify(function () { return l.lead === 1 && l.body === 1 }, 3000)
+        verify(peak > 1 && peak < 1.03, "peak " + peak)
+        compare(l.progress, 1)
+    }
+
     function test_no_spatial_motion_is_a_fade() {
         // Reduce Motion makes the spatial durations 0. The machine is the same;
         // the shape is simply at its end state and alpha carries the change.
@@ -182,7 +280,7 @@ TestCase {
         l.open = true
         tryCompare(l, "alpha", 1, 1000)
         l.open = false
-        wait(20)
+        wait(45)      // the effects curve eases out of rest: give it a few frames
         verify(l.alpha > 0 && l.alpha < 1, "caught mid-fade: " + l.alpha)
         l.open = true
         compare(l.progress, 1)
@@ -198,6 +296,7 @@ TestCase {
         l.open = true
         tryCompare(l, "phase", "Open", 2000)
         tryCompare(l, "content", 1, 2000)
+        tryCompare(l, "progress", 1, 2000)      // the spring's tail has landed too
         l.open = false
         l.open = true
         compare(l.progress, 1, "the body did not move")

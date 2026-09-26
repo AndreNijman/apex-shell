@@ -62,7 +62,6 @@ PanelWindow {
         open:          Popups.contextMenuOpen && root.placed
         enterDuration: Motion.selection
         exitDuration:  Motion.hover
-        enterCurve:    Motion.emphasizedDecel
         contentDelay:  0
         contentIn:     Motion.state
         contentOut:    Motion.hover

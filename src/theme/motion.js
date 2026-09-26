@@ -11,45 +11,79 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Durations, Balanced speed, in ms ─────────────────────────────────────────
-// Roadmap v3 Phase 1's starting table. The shape is the point, not any one
-// number: exits are shorter than entrances, a press is shorter than a hover
-// release, and nothing but the one signature transition reaches `hero`.
+// Retuned 2026-09-26 for Andre: "everything goes way too quick and doesn't feel
+// liquid and fluid — real Apple-level animation." The first table (Roadmap v3
+// Phase 1) was built to react hard and finish early: 65–240 ms on curves that
+// leave at full speed. It read as mechanical — every surface snapped into place
+// and stopped dead. These are PERCEIVED durations, the time until a change looks
+// finished, and they are about 1.7x the old ones for anything that moves a
+// surface, with long soft landings. What people do often (a hover, a press) stays
+// brief — Apple's HIG: "aim for brevity and precision in feedback animations …
+// avoid making people spend extra time on motion every time they interact."
+//
+// The shape is still the point: exits shorter than entrances, a press quicker
+// than its release, and nothing but the signature transition reaches `hero`.
 var BASE = {
-    micro:             100,
-    hover:              80,
-    pressIn:            65,
-    pressOut:          115,
-    state:             130,
-    selection:         160,
-    page:              200,
-    surfaceEnterSmall: 190,
-    surfaceExitSmall:  135,
-    morphEnter:        240,
-    morphExit:         175,
-    notificationShift: 200,
-    hero:              320,
+    micro:             140,
+    hover:             130,
+    pressIn:            90,
+    pressOut:          280,
+    state:             220,
+    selection:         400,
+    page:              380,
+    surfaceEnterSmall: 360,
+    surfaceExitSmall:  240,
+    morphEnter:        520,
+    morphExit:         380,
+    notificationShift: 420,
+    hero:              640,
     // Content inside a surface: it arrives after its container has begun to
     // move, and leaves before it, so its fades are short and asymmetric.
     // `contentDelay` is an offset, not a length: how long after a body starts
     // moving its content begins to arrive.
-    fadeIn:            130,
-    fadeOut:            70,
-    contentDelay:       40,
+    fadeIn:            280,
+    fadeOut:           140,
+    contentDelay:       90,
     // A feedback highlight fading back to rest (a card that flashed "connected").
     // An EFFECT, so under Reduce Motion it is short rather than gone.
-    settle:            320,
+    settle:            520,
     // An indicator catching up with a value that changed under it (a volume
     // bar after a key press, a slider fill after a click, a meter). Short,
     // because the value is already true and the bar is merely late.
-    valueFollow:        90,
+    valueFollow:       200,
     // Several items leaving or arriving together (a cleared field, a paste, a
     // cleared notification stack) stagger by one step each, never more than
     // the cap in total, so the group reads as one gesture rather than a queue.
-    staggerStep:        20,
-    staggerCap:        100,
+    staggerStep:        32,
+    staggerCap:        200,
     // One swing of the "wrong password" shake. Spatial, so under Reduce Motion
     // the field does not move and its danger outline carries the message alone.
-    errorShake:         45
+    errorShake:         62
+};
+
+// ── Springs ─────────────────────────────────────────────────────────────────
+// What moves a SURFACE is a spring, not a curve (components/Spring.qml, the
+// maths in spring.js). A curve has one shape whatever came before it: reversed
+// half-way, it restarts from rest and the motion kinks. A spring carries its
+// velocity into the new target, so an open caught by a close flows back.
+//
+// Parameterised like SwiftUI. `response` is the undamped period in seconds —
+// with critical damping a change looks finished at about that time, so it is
+// set from the matching duration above. `damping` is the damping fraction:
+// 1 lands without overshoot, below 1 lands with a whisper of it (0.86 → 0.5 %).
+// The speed setting scales `response`; Reduce Motion snaps (response 0).
+var SPRINGS = {
+    // A connected surface growing out of the bar, and folding back into it.
+    surfaceOpen:  { response: BASE.morphEnter / 1000, damping: 1.0 },
+    surfaceClose: { response: BASE.morphExit / 1000,  damping: 1.0 },
+    // A selection travelling (a tab pill, a nav highlight), a page retarget.
+    selection:    { response: BASE.selection / 1000,  damping: 0.86 },
+    page:         { response: BASE.page / 1000,       damping: 1.0 },
+    // An indicator catching up with its value.
+    valueFollow:  { response: BASE.valueFollow / 1000, damping: 1.0 },
+    // A control's knob or thumb travelling (a switch flipping): quick, with a
+    // whisper of settle so it reads as a physical part.
+    toggle:       { response: 0.30, damping: 0.82 }
 };
 
 // ── Loops ───────────────────────────────────────────────────────────────────
@@ -72,7 +106,7 @@ var SCALE_MAX = 2.5;
 // Under Reduce Motion an effect keeps happening, but never takes longer than
 // this: long enough for the eye to register a change, short enough that nothing
 // on screen is still moving when the user looks at it.
-var REDUCED_EFFECT_CAP = 150;
+var REDUCED_EFFECT_CAP = 160;
 
 // Pointer-down compression, and how far page content travels as it fades.
 var PRESS_SCALE = 0.975;
@@ -83,28 +117,37 @@ var PAGE_TRAVEL = 12;
 // segment, starting from (0,0) and ending at (1,1). Every y stays inside 0..1,
 // so no curve overshoots — tests/motion-test.js asserts that for all of them.
 //
-// standard* and emphasized* are Material 3's. The three spatial curves are
-// APEX's own: M3's expressive spatial springs overshoot, and APEX does not.
-// fast/default/slow differ in how hard they start — a selection pill should
-// leave at once, a hero surface can take a beat to gather — not in their end.
+// Retuned with the durations (2026-09-26). The old spatial curves were
+// Material 3's and APEX's "leave at full speed" family — (0, 0, 0.2, 1) and
+// (0.05, 0.7, 0.1, 1) have a near-vertical first frame, which is exactly the
+// snap Andre called robotic. Nothing physical starts at full speed. The new
+// family eases out of rest over the first frames and lands on a long tail:
+//
+//   spring          a critically damped spring from rest, fitted (1.2 % max
+//                   error) — for timed moves that should read like the springs
+//                   that drive surfaces. The default for MotionMove.
+//   standard        Core Animation's default ease (0.25, 0.1, 0.25, 1).
+//   *Decel          arrivals: a softer start than before, the same long landing.
+//   standardAccel   departures: eases in and, unlike the old curve, eases out
+//                   too — a surface that leaves at full speed stops dead.
+//   effects         fades: the same gentle ease as `standard`, so an opacity
+//                   change has no hard edge at either end.
 var CURVES = {
-    standard:        [0.2, 0, 0, 1, 1, 1],
-    standardDecel:   [0, 0, 0, 1, 1, 1],
-    standardAccel:   [0.3, 0, 1, 1, 1, 1],
-    emphasized:      [0.05, 0, 0.133333, 0.06, 0.166666, 0.4,
-                      0.208333, 0.82, 0.25, 1, 1, 1],
-    emphasizedDecel: [0.05, 0.7, 0.1, 1, 1, 1],
-    emphasizedAccel: [0.3, 0, 0.8, 0.15, 1, 1],
-    // fastDecel: leaves at full speed and lands softly. The width of a bloom
-    // or a pour, the collapse of every connected surface's progress on close.
-    fastDecel:       [0, 0, 0.2, 1, 1, 1],
-    fastSpatial:     [0, 0, 0.2, 1, 1, 1],
-    defaultSpatial:  [0.25, 0.8, 0.2, 1, 1, 1],
-    slowSpatial:     [0.3, 0, 0, 1, 1, 1],
-    effects:         [0.3, 0.7, 0.3, 1, 1, 1],
-    // A connected surface's progress on OPEN runs linearly: the curves live in
-    // the shape's own parameters (geometry.js), each on its own ramp, and an
-    // eased progress under them would ease everything twice.
+    spring:          [0.25, 0.2, 0.15, 1, 1, 1],
+    standard:        [0.25, 0.1, 0.25, 1, 1, 1],
+    standardDecel:   [0.15, 0.55, 0.25, 1, 1, 1],
+    standardAccel:   [0.4, 0, 0.65, 1, 1, 1],
+    emphasized:      [0.3, 0, 0.1, 1, 1, 1],
+    emphasizedDecel: [0.2, 0.6, 0.15, 1, 1, 1],
+    emphasizedAccel: [0.4, 0, 0.75, 0.9, 1, 1],
+    // fastDecel: quick out of rest, a long soft landing — width of a bloom.
+    fastDecel:       [0.18, 0.55, 0.2, 1, 1, 1],
+    fastSpatial:     [0.18, 0.55, 0.2, 1, 1, 1],
+    defaultSpatial:  [0.25, 0.2, 0.15, 1, 1, 1],
+    slowSpatial:     [0.35, 0.1, 0.1, 1, 1, 1],
+    effects:         [0.25, 0.1, 0.25, 1, 1, 1],
+    // A progress that some other function already shapes runs linearly: an
+    // eased progress under it would ease everything twice.
     linear:          [0, 0, 1, 1, 1, 1]
 };
 
@@ -130,6 +173,43 @@ function spatial(ms, scale, reduced) {
 function effect(ms, scale, reduced) {
     var d = Math.round(ms * scale);
     return reduced ? Math.min(d, REDUCED_EFFECT_CAP) : d;
+}
+
+/// A spring role at the user's speed: {response (s), damping}. Response 0 —
+/// snap to the target — under Reduce Motion or with motion off (scale 0).
+function spring(role, scale, reduced) {
+    var sp = SPRINGS.hasOwnProperty(role) ? SPRINGS[role] : SPRINGS.surfaceOpen;
+    if (reduced || !(scale > 0)) return { response: 0, damping: sp.damping };
+    return { response: sp.response * scale, damping: sp.damping };
+}
+
+/// Qt's SpringAnimation parameters for a spring role: {spring, damping}.
+///
+/// Measured (2026-09-26, Qt 6.10): SpringAnimation is a fixed-step integrator,
+/// 16 ms a step — v += spring·(to − x) − damping·v, then x += v·0.016 — and
+/// its peak overshoot and settle times match that model to four places. So a
+/// response/damping-fraction spring maps onto it EXACTLY by matching the step
+/// matrix's eigenvalues to the continuous spring's, sampled at 16 ms:
+///     det = 1 − damping          = e^(−2ζω0·dt)
+///     tr  = 2 − damping − 0.016·spring = λ1 + λ2
+/// Under Reduce Motion (or motion off) it is DEADBEAT — damping 1, spring
+/// 1/0.016 — which lands on the target in exactly one step. Not spring 0:
+/// with no spring and no velocity limit SpringAnimation never moves at all
+/// (measured), so the value would be stuck where it was.
+var QT_DT = 0.016;
+function qtSpring(role, scale, reduced) {
+    var sp = spring(role, scale, reduced);
+    if (!(sp.response > 0)) return { spring: 1 / QT_DT, damping: 1 };
+    var w0 = 2 * Math.PI / sp.response, z = sp.damping, dt = QT_DT;
+    var det = Math.exp(-2 * z * w0 * dt), tr;
+    if (z < 0.9999) tr = 2 * Math.exp(-z * w0 * dt) * Math.cos(w0 * Math.sqrt(1 - z * z) * dt);
+    else if (z <= 1.0001) tr = 2 * Math.exp(-w0 * dt);
+    else {
+        var r = Math.sqrt(z * z - 1);
+        tr = Math.exp((-z + r) * w0 * dt) + Math.exp((-z - r) * w0 * dt);
+    }
+    var c = 1 - det;
+    return { spring: (2 - c - tr) / dt, damping: c };
 }
 
 /// The legacy single duration, for callers not yet migrated: what 320 ms used
@@ -173,6 +253,9 @@ if (typeof module !== "undefined" && module.exports)
     module.exports = {
         BASE: BASE,
         LOOPS: LOOPS,
+        SPRINGS: SPRINGS,
+        spring: spring,
+        qtSpring: qtSpring,
         SPEEDS: SPEEDS,
         SCALE_MIN: SCALE_MIN,
         SCALE_MAX: SCALE_MAX,

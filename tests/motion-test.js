@@ -23,10 +23,10 @@ function check(name, cond, detail) {
     else { failed++; console.log("  FAIL  " + name + (detail !== undefined ? "  [" + detail + "]" : "")); }
 }
 
-console.log("── the Balanced table is the roadmap's starting table ──");
-const WANT = { hover: 80, pressIn: 65, pressOut: 115, state: 130, selection: 160, page: 200,
-               surfaceEnterSmall: 190, surfaceExitSmall: 135, morphEnter: 240, morphExit: 175,
-               notificationShift: 200, hero: 320 };
+console.log("── the Balanced table is the fluid retune (2026-09-26) ──");
+const WANT = { hover: 130, pressIn: 90, pressOut: 280, state: 220, selection: 400, page: 380,
+               surfaceEnterSmall: 360, surfaceExitSmall: 240, morphEnter: 520, morphExit: 380,
+               notificationShift: 420, hero: 640 };
 for (const k of Object.keys(WANT))
     check(k + " = " + WANT[k] + " ms", M.BASE[k] === WANT[k], M.BASE[k]);
 
@@ -38,6 +38,30 @@ check("a press is quicker than its release", M.BASE.pressIn < M.BASE.pressOut);
 check("a press is quicker than a hover", M.BASE.pressIn < M.BASE.hover);
 const longest = Math.max.apply(null, Object.keys(M.BASE).map(k => M.BASE[k]));
 check("nothing is longer than hero", longest === M.BASE.hero, longest);
+
+console.log("── what people do often stays brief (Apple HIG: feedback is brief and precise) ──");
+check("a hover is under 150 ms", M.BASE.hover < 150, M.BASE.hover);
+check("a press lands in under 100 ms", M.BASE.pressIn < 100, M.BASE.pressIn);
+check("a surface takes longer than a page change", M.BASE.morphEnter > M.BASE.page);
+
+console.log("── springs ──");
+for (const k of Object.keys(M.SPRINGS)) {
+    const sp = M.SPRINGS[k];
+    check(k + ": response is a period in seconds (0.1..1)", sp.response >= 0.1 && sp.response <= 1, sp.response);
+    check(k + ": damping 0.8..1 (a whisper of overshoot at most)", sp.damping >= 0.8 && sp.damping <= 1, sp.damping);
+}
+check("a surface folds away quicker than it grows", M.SPRINGS.surfaceClose.response < M.SPRINGS.surfaceOpen.response);
+check("surface springs land without overshoot (the geometry clamps progress)",
+      M.SPRINGS.surfaceOpen.damping === 1 && M.SPRINGS.surfaceClose.damping === 1);
+check("spring(): the speed scales the response", Math.abs(M.spring("page", 1.25, false).response - 1.25 * M.SPRINGS.page.response) < 1e-9);
+check("spring(): Reduce Motion snaps", M.spring("page", 1, true).response === 0);
+check("spring(): motion off snaps", M.spring("page", 0, false).response === 0);
+check("spring(): an unknown role is the surface spring", M.spring("warp", 1, false).response === M.SPRINGS.surfaceOpen.response);
+// No curve may leave at full speed: the first 5 % of the time covers under 20 %
+// of the travel. The old (0, 0, 0.2, 1) family covered ~30 % there — the snap.
+for (const name of Object.keys(M.CURVES))
+    check(name + " eases out of rest (under 20 % at 5 % of its time)", M.ease(M.CURVES[name], 0.05) < 0.2,
+          M.ease(M.CURVES[name], 0.05).toFixed(3));
 
 console.log("── curves never overshoot and are valid BezierSplines ──");
 for (const name of Object.keys(M.CURVES)) {
@@ -83,6 +107,7 @@ console.log("── Reduce Motion ──");
 check("spatial motion is removed", M.spatial(240, 1, true) === 0);
 check("spatial motion scales otherwise", M.spatial(240, 1.25, false) === 300);
 check("an effect survives", M.effect(80, 1, true) === 80);
+check("a hover survives Reduce Motion whole", M.effect(M.BASE.hover, 1, true) === M.BASE.hover);
 check("an effect is capped", M.effect(M.BASE.hero, 1, true) === M.REDUCED_EFFECT_CAP);
 check("a relaxed effect is still capped", M.effect(130, 2.5, true) === M.REDUCED_EFFECT_CAP);
 check("scale 0 turns effects off too", M.effect(80, 0, false) === 0);

@@ -100,7 +100,7 @@ Item {
                     radius: parent.radius
                     color:  col.muted ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.15) : Theme.active
                     Behavior on color  { MotionColor { role: "state" } }
-                    Behavior on height { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
+                    Behavior on height { MotionSpring { role: "valueFollow" } }
                 }
 
                 // Thumb

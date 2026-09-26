@@ -60,7 +60,7 @@ Item {
             radius:         height / 2
             color:          root.barColor
 
-            Behavior on width { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
+            Behavior on width { MotionSpring { role: "valueFollow" } }
             Behavior on color { MotionColor { role: "state" } }
         }
     }

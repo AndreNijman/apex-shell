@@ -92,6 +92,11 @@ PanelWindow {
         open:          root._held
         enterDuration: Motion.surfaceEnterSmall
         exitDuration:  Motion.surfaceExitSmall
+        // Liquid: the width extrudes first, the height unfolds after it and
+        // swells a hair past its mark, the fillets trail; it waits for this
+        // window's first frame, so it grows out of the strip.
+        liquid:  true
+        surface: body
     }
     visible: life.mapped
 
@@ -124,19 +129,21 @@ PanelWindow {
         // nor vanishes on one frame — keyed to WIDTH, because the extrusion is
         // so steep that by 8 % progress the body is already ~140 px wide, and a
         // fade over progress left a translucent box at the end of every close.
-        // On the way out only: on the way in the first mapped frame is already
-        // far wider than the ramp. And on a wrapper, not on the shape: read
+        // Both ways since the springs wait for the first frame: that frame IS
+        // the ridge (it used to be far wider than the ramp). And on a wrapper, not on the shape: read
         // from the shape's own opacity, its `result` was a binding loop (logged)
         // that left the opacity a frame stale — a translucent first frame. It
         // reads `closing`, not `open`, for the same reason (SurfaceLifecycle).
-        opacity:  life.alpha * (!life.closing ? 1 : Math.min(1, Math.max(0,
-                      (Geo.edgeSpillWidth(life.progress, body.geometry) - Geo.spillRidge(body.geometry)) / 24)))
+        opacity:  life.alpha * Math.min(1, Math.max(0,
+                      (Geo.edgeSpillWidth(life.progress, body.chGeometry) - Geo.spillRidge(body.geometry)) / 24))
 
         FluidShape {
             id: body
             anchors.fill: parent
             family:   "edgeSpillRight"
             progress: life.progress
+            channels: ({ w: life.lead, d: life.body, n: life.trail, fw: life.leadFlow, fd: life.bodyFlow })
+            readonly property var chGeometry: Object.assign({}, geometry, { ch: channels })
             color:    Theme.background
             geometry: ({
                 x1:    root.width - theme.borderWidth,

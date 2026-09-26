@@ -74,7 +74,9 @@ Path.prototype.cubic = function (c1x, c1y, c2x, c2y, x, y) {
 // which side is filled is decided by the direction of travel, not by a flag.
 Path.prototype.corner = function (x, y, dirIn) {
     var dx = x - this.x, dy = y - this.y;
-    if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return this;
+    // Under a thousandth of a pixel a corner is a point: a spring's last tail
+    // (1e-6 px) must not become a cubic whose tangent is rounding noise.
+    if (Math.abs(dx) < 1e-3 && Math.abs(dy) < 1e-3) return this;
     if (dirIn === "h")
         return this.cubic(this.x + dx * KAPPA, this.y, x, y - dy * KAPPA, x, y);
     return this.cubic(this.x, this.y + dy * KAPPA, x - dx * KAPPA, y, x, y);
@@ -132,11 +134,60 @@ function emphasizedDecel(t) { return curve(EMPHASIZED_DECEL, t); }
 // larger is a fuller, squarer "squircle" corner. Never above 0.8 (it kinks).
 Path.prototype.cornerT = function (x, y, dirIn, tau) {
     var dx = x - this.x, dy = y - this.y;
-    if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return this;
+    // Under a thousandth of a pixel a corner is a point: a spring's last tail
+    // (1e-6 px) must not become a cubic whose tangent is rounding noise.
+    if (Math.abs(dx) < 1e-3 && Math.abs(dy) < 1e-3) return this;
     if (dirIn === "h")
         return this.cubic(this.x + dx * tau, this.y, x, y - dy * tau, x, y);
     return this.cubic(this.x, this.y + dy * tau, x - dx * tau, y, x, y);
 };
+
+// ── Channels ────────────────────────────────────────────────────────────────
+// Since the springs (2026-09-26) a family may be driven by CHANNELS instead of
+// one progress value: `g.ch = { w, d, n, fw, fd }`, straight from
+// SurfaceLifecycle's liquid springs —
+//
+//   w, d   the width and depth channels, 0 at the notch and 1 finished. Raw
+//          spring values: an underdamped spring passes 1 by a hair, and that
+//          becomes a SWELL of a few pixels, soft-capped (size() below).
+//   n      the trail: a critically damped follower, for radii, shoulders,
+//          fillets. Never past 1 by construction.
+//   fw, fd the width and depth FLOW: speed relative to a nominal open's peak,
+//          about 1 at the fastest and exactly 0 at rest. Secondary motion — a
+//          bowing edge, a sagging front, a bulging corner — is proportional to
+//          it, so the finished shape is exact and a reversal bends the other way
+//          by itself. That is what reads as liquid rather than as a tween.
+//
+// Without `g.ch` each family derives its channels from `p` on the curves it
+// always had, so a single progress value still draws exactly what it drew
+// before (tests/fluid-geometry-test.js sweeps both).
+function softCap(x, cap) { return x <= 0 ? x : cap * Math.tanh(x / cap); }
+// A size between a0 (channel 0) and a1 (channel 1): linear up to the target —
+// the spring already supplies the easing, a curve here would ease twice — and
+// past it a swell of at most `cap` px.
+function size(a0, a1, c, cap) {
+    c = Math.max(0, c);
+    if (c <= 1) return a0 + (a1 - a0) * c;
+    return a1 + softCap((a1 - a0) * (c - 1), cap);
+}
+function flow(ch, k) { var v = ch ? ch[k] : 0; return (typeof v === "number" && isFinite(v)) ? v : 0; }
+
+// A rectangle with square top corners and round bottom ones, as SVG — the
+// notch's content window, which a bloom leaves open while the bar's own label
+// fades out underneath it (FluidShape.hole). Wound the same way as every
+// silhouette; FluidShape fills odd-even, so inside the body it is a hole.
+function notchHole(x, y, w, h, rb) {
+    rb = Math.max(0, Math.min(rb, w / 2, h));
+    var P = new Path();
+    P.move(x, y);
+    P.line(x + w, y);
+    P.line(x + w, y + h - rb);
+    if (rb > 0) P.corner(x + w - rb, y + h, "v");
+    P.line(x + rb, y + h);
+    if (rb > 0) P.corner(x, y + h - rb, "h");
+    P.close();
+    return P.toString();
+}
 
 // ── The bar's own notch ─────────────────────────────────────────────────────
 // One notch hanging from the strip, as the bar draws it: concave shoulders out
@@ -296,16 +347,25 @@ function barHairline(g) {
 // corners land on XL. Symmetric, no part overshoots.
 function centerBloom(p, g) {
     p = clamp01(p);
+    var ch = g.ch || { w: fastDecel(p), d: standard(span(p, 0.18, 1.0)),
+                       n: standard(span(p, 0.15, 0.75)), fd: 0 };
     var b = g.strip;
-    var W  = g.notchW + (g.w - g.notchW) * fastDecel(p);
-    var D  = g.notchH + (g.h - g.notchH) * standard(span(p, 0.18, 1.0));
-    var es = standard(span(p, 0.15, 0.75));
+    var W  = size(g.notchW, g.w, ch.w, 4);
+    var D  = size(g.notchH, g.h, ch.d, 6);
+    var es = clamp01(ch.n);
     var sw = g.shoulder + (g.shoulderW1 - g.shoulder) * es;
     var sh = g.shoulder + (g.shoulderH1 - g.shoulder) * es;
     var tau = KAPPA + (0.65 - KAPPA) * es;
     var rb = g.notchBottom + (g.r - g.notchBottom) * es;
     // Degenerate guard: the corner and the shoulder must share the side.
     rb = Math.min(rb, Math.max(0, D - (b + sh)), W / 2);
+    // The bottom edge bows with the depth's flow: its middle leads while the
+    // body drops (a drop is rounder at its front) and trails while it rises,
+    // up to 8 px at full speed and exactly 0 at rest. Never deeper than the
+    // side it hangs from, so a rising edge cannot fold into the shoulders.
+    var side = Math.max(0, D - (b + sh) - rb);
+    var bow = 8 * Math.tanh(flow(ch, "fd"));
+    bow = Math.max(-0.5 * side, Math.min(bow, 0.5 * (W - 2 * rb)));
 
     var xc = Math.round(g.cx);
     var L = xc - Math.round(W / 2), R = L + Math.round(W);
@@ -316,7 +376,12 @@ function centerBloom(p, g) {
     P.cornerT(R, b + sh, "h", tau);           // right shoulder (concave)
     P.line(R, D - rb);
     P.corner(R - rb, D, "v");                 // bottom-right (convex)
-    P.line(L + rb, D);
+    if (Math.abs(bow) >= 0.05 && R - L - 2 * rb > 2) {
+        P.sHorz(xc, D + bow, 0.5);            // the bow, in two halves that
+        P.sHorz(L + rb, D, 0.5);              // leave and arrive level
+    } else {
+        P.line(L + rb, D);
+    }
     P.corner(L, D - rb, "h");                 // bottom-left (convex)
     P.line(L, b + sh);
     P.cornerT(L - sw, b, "v", tau);           // left shoulder (concave)
@@ -325,9 +390,10 @@ function centerBloom(p, g) {
     var inset = Math.min(8, W / 4);
     return {
         path: P.toString(), segs: P.segs,
-        bounds: { x: L - sw, y: 0, w: (R - L) + 2 * sw, h: D },
-        clip: { x: L + inset, y: b, w: Math.max(0, (R - L) - 2 * inset), h: Math.max(0, D - b) },
-        params: { W: W, D: D, sw: sw, sh: sh, tau: tau, rb: rb, L: L, R: R },
+        bounds: { x: L - sw, y: 0, w: (R - L) + 2 * sw, h: D + Math.max(0, bow) },
+        clip: { x: L + inset, y: b, w: Math.max(0, (R - L) - 2 * inset),
+                h: Math.max(0, D - b - Math.max(0, -bow)) },
+        params: { W: W, D: D, sw: sw, sh: sh, tau: tau, rb: rb, L: L, R: R, bow: bow },
         bar: {}
     };
 }
@@ -373,10 +439,32 @@ function rightPourWidth(p, w0, w1) {
 function rightPour(p, g) {
     p = clamp01(p);
     var b = g.strip, H = g.seam, rs = g.shoulder;
-    var W  = rightPourWidth(p, g.notchW, g.w);
-    var Dr = g.h * standard(p);
     var lagMax = Math.max(6, Math.min(28, 0.045 * g.h));
-    var Dl = Math.max(0, Dr - lagMax * Math.sin(Math.PI * p));
+    var W, Dr, Dl, rbl;
+    if (g.ch) {
+        // Channels: depth leads (the right edge drops), width follows (the
+        // body pours left). The 12 px swell that holds the stem to the notch
+        // rides the depth's first third. The front of the pour is thinner the
+        // faster it travels — the bottom-left trails the right edge by up to
+        // lagMax — and its corner rounds out with the same speed; both are 0 at
+        // rest, so the finished panel is exact.
+        var ch = g.ch, cd = Math.max(0, ch.d), cw = Math.max(0, ch.w);
+        var swell = Math.min(12, Math.max(0, g.w - g.notchW));
+        var fwAbs = Math.abs(flow(ch, "fw"));
+        W  = Math.round(size(g.notchW + swell * standardDecel(Math.min(1, cd / 0.3)), g.w, cw, 4));
+        Dr = size(0, g.h, cd, 6);
+        Dl = Math.max(0, Dr - Math.min(24, lagMax) * Math.tanh(fwAbs) * smooth(Math.min(1, cd / 0.2)));
+        var bodyR1 = g.r + 14 * Math.tanh(fwAbs);
+        rbl = lerp(g.notchBottom, bodyR1, smooth(Math.min(1, cd / 0.12)));
+    } else {
+        W  = rightPourWidth(p, g.notchW, g.w);
+        Dr = g.h * standard(p);
+        Dl = Math.max(0, Dr - lagMax * Math.sin(Math.PI * p));
+        // Bottom-left: the notch's own corner at p = 0, the body's (bulging
+        // 17 → 35 → 17) once it has depth; never more than its sides allow.
+        var bodyR = g.r + 18 * Math.sin(Math.PI * p);
+        rbl = lerp(g.notchBottom, bodyR, smooth(span(p, 0, 0.12)));
+    }
     var f  = Math.min(g.r, Dr / 2);                     // the melt into the strip
 
     var X0 = g.winW - W, X1 = g.winW;
@@ -385,10 +473,6 @@ function rightPour(p, g) {
     // body has depth; the bar needs no state for it. notchPadding >= that
     // radius, so the cover never reaches the status icons.
     var cover = g.winW - g.notchW + g.notchBottom;
-    // Bottom-left: the notch's own corner at p = 0, the body's (bulging
-    // 17 → 35 → 17) once it has depth; never more than its sides allow.
-    var bodyR = g.r + 18 * Math.sin(Math.PI * p);
-    var rbl = lerp(g.notchBottom, bodyR, smooth(span(p, 0, 0.12)));
     rbl = Math.max(0, Math.min(rbl, H + Dl - b - rs, W / 2));
 
     var P = new Path();
@@ -435,24 +519,30 @@ function rightPour(p, g) {
 // plus a corner of the same size: the ridge a spill leaves on the strip at
 // p = 0 is still a rounded shape, not a slab.
 function spillRidge(g) { return 2 * Math.min(8, g.r); }
+// With channels the width is the lead channel (linear, a 4 px swell past it).
 function leftSpillWidth(p, g) {
+    if (g.ch) return Math.max(spillRidge(g), size(0, g.w, g.ch.w, 4));
     return Math.max(spillRidge(g), g.w * emphasizedDecel(span(clamp01(p), 0, 0.85)));
 }
 function edgeSpillWidth(p, g) {
+    if (g.ch) return Math.max(spillRidge(g), size(0, g.w, g.ch.w, 4));
     return Math.max(spillRidge(g), g.w * standardDecel(span(clamp01(p), 0, 0.85)));
 }
 function leftSpill(p, g) {
     p = clamp01(p);
     var fMin = Math.min(8, g.r);
-    var eh = standardDecel(span(p, 0.25, 0.85));
+    // Channels: width leads, the height unfolds on the body channel (a 4 px
+    // swell past it), the fillets and corners ride the trail.
+    var eh = g.ch ? Math.max(0, g.ch.d) : standardDecel(span(p, 0.25, 0.85));
+    var en = g.ch ? clamp01(g.ch.n) : eh;
     var hMin = Math.min(g.h, Math.max(2 * g.r + 24, 0.4 * g.h));
     var Wb = leftSpillWidth(p, g);
-    var Hb = hMin + (g.h - hMin) * eh;
-    var f  = fMin + (g.r - fMin) * eh;
+    var Hb = size(hMin, g.h, eh, 4);
+    var f  = fMin + (g.r - fMin) * en;
     // The leading corner and the fillet share the top edge: while the body
     // is still narrower than both, the corner gives way — otherwise the edge
     // between them would run backwards into a cusp.
-    var rb = Math.min(g.rm + (g.r - g.rm) * eh, Math.max(0, Wb - f), Hb / 2 - 0.01);
+    var rb = Math.min(g.rm + (g.r - g.rm) * en, Math.max(0, Wb - f), Hb / 2 - 0.01);
     var top = Math.round(g.cy - Hb / 2), bottom = Math.round(g.cy + Hb / 2);
     var x0 = g.x0, xr = g.x0 + Wb;
 
@@ -490,9 +580,19 @@ function edgeSpillRight(p, g) {
     p = clamp01(p);
     var fMin = Math.min(8, g.r);
     var Wb = edgeSpillWidth(p, g);
-    var ot = 0.12 * g.h * (1 - standardDecel(span(p, 0, 0.55)));
-    var ob = 0.46 * g.h * (1 - standard(span(p, 0.20, 1.0)));
-    var settle = 1 - ob / (0.46 * g.h);
+    var ot, ob, settle;
+    if (g.ch) {
+        // Channels: the top settles on the lead (width) channel, the bottom
+        // drips on the body channel and may overhang by a 4 px swell before it
+        // settles; the fillets and corners ride the trail.
+        ot = 0.12 * g.h * (1 - standardDecel(Math.min(1, Math.max(0, g.ch.w))));
+        ob = 0.46 * g.h - (size(0, 0.46 * g.h, g.ch.d, 4));
+        settle = clamp01(g.ch.n);
+    } else {
+        ot = 0.12 * g.h * (1 - standardDecel(span(p, 0, 0.55)));
+        ob = 0.46 * g.h * (1 - standard(span(p, 0.20, 1.0)));
+        settle = 1 - ob / (0.46 * g.h);
+    }
     var f  = fMin + (g.r - fMin) * settle;
     var top = Math.round(g.cy - g.h / 2 + ot), bottom = Math.round(g.cy + g.h / 2 - ob);
     var Hb = bottom - top;
@@ -520,16 +620,144 @@ function edgeSpillRight(p, g) {
     };
 }
 
+// ── BOTTOM_RISE ─────────────────────────────────────────────────────────────
+// The wallpaper picker, out of the BOTTOM screen strip at the centre — the
+// Dashboard's counterpart at the other edge, and built the same way: the
+// width spreads along the strip first (a swelling of the strip), then the body
+// rises; the top corners and the fillets into the strip trail, and the top
+// edge's middle leads while it rises and trails while it sinks, in proportion
+// to its speed. It replaced a rectangle scaled from the strip on a Canvas.
+//
+//   g.cx          centre x (window)
+//   g.y1          the strip's inner edge (window y; the body extends UP)
+//   g.edgeH       the strip's thickness below y1 (the path closes inside it)
+//   g.w, g.h      finished width and height above y1
+//   g.r           finished top corners and fillets (radius L)
+//   g.rm          the corners it starts from (radius M)
+//
+// At rest on 0 it is a ridge 4·f wide and 2·f tall (f = min(8, r)) — still a
+// rounded shape, not a slab; callers fade that ridge over the first 24 px of
+// height, as the spills do over their width.
+function riseRidge(g) { return 2 * Math.min(8, g.r); }
+function bottomRiseHeight(p, g) {
+    var ch = g.ch || { d: standard(span(clamp01(p), 0.2, 1.0)) };
+    return size(riseRidge(g), g.h, ch.d, 4);
+}
+function bottomRise(p, g) {
+    p = clamp01(p);
+    var ch = g.ch || { w: standardDecel(span(p, 0, 0.7)), d: standard(span(p, 0.2, 1.0)),
+                       n: standard(span(p, 0.2, 0.85)), fd: 0 };
+    var fMin = Math.min(8, g.r), en = clamp01(ch.n);
+    var W = size(2 * riseRidge(g), g.w, ch.w, 4);
+    var H = bottomRiseHeight(p, g);
+    var f = fMin + (g.r - fMin) * en;
+    var xc = Math.round(g.cx), y1 = g.y1, bot = y1 + (g.edgeH || 0);
+    var L = xc - Math.round(W / 2), R = L + Math.round(W), T = Math.round(y1 - H);
+    // Clamped against the ROUNDED edges: a corner half a pixel taller than
+    // its side runs the side backwards.
+    var rb = g.rm + (g.r - g.rm) * en;
+    rb = Math.max(0, Math.min(rb, (R - L) / 2, (y1 - T) - f));
+    var side = Math.max(0, (y1 - T) - f - rb);
+    var bow = 8 * Math.tanh(flow(ch, "fd"));
+    bow = Math.max(-0.5 * side, Math.min(bow, 0.5 * (R - L - 2 * rb)));
+
+    var P = new Path();
+    P.move(L - f, bot);
+    P.step(L - f, y1);
+    P.corner(L, y1 - f, "h");                 // left fillet out of the strip (concave)
+    P.line(L, T + rb);
+    P.corner(L + rb, T, "v");                 // top-left (convex)
+    if (Math.abs(bow) >= 0.05 && R - L - 2 * rb > 2) {
+        P.sHorz(xc, T - bow, 0.5);            // the bow, in two level halves
+        P.sHorz(R - rb, T, 0.5);
+    } else {
+        P.line(R - rb, T);
+    }
+    P.corner(R, T + rb, "h");                 // top-right (convex)
+    P.line(R, y1 - f);
+    P.corner(R + f, y1, "v");                 // right fillet into the strip (concave)
+    P.step(R + f, bot);
+    P.close();
+    var top = T - Math.max(0, bow);
+    return {
+        path: P.toString(), segs: P.segs,
+        bounds: { x: L - f, y: top, w: (R - L) + 2 * f, h: bot - top },
+        clip: { x: L, y: T + Math.max(0, -bow), w: R - L, h: Math.max(0, y1 - T - Math.max(0, -bow)) },
+        params: { W: W, H: H, f: f, rb: rb, L: L, R: R, T: T, bow: bow },
+        bar: {}
+    };
+}
+
+// ── CORNER_RISE ─────────────────────────────────────────────────────────────
+// The clipboard history, out of the BOTTOM-RIGHT corner where the right and
+// bottom strips meet — RIGHT_POUR turned upside down: the right edge rises up
+// the right strip first, then the body pours LEFT along the bottom one. The
+// front of the pour is thinner the faster it travels (its top-left sits lower
+// than the top-right by up to 20 px) and its corner rounds out with the same
+// speed; both are 0 at rest. Fillets meet both strips. It replaced a
+// rectangle scaled out of the corner on a Canvas.
+//
+//   g.x1, g.y1       the right and bottom strips' inner edges (window coords)
+//   g.edgeW, g.edgeH the strips' thicknesses (the path closes inside them)
+//   g.w, g.h         finished width (left of x1) and height (above y1)
+//   g.r, g.rm        finished corner/fillets (radius L); the starting corner
+function cornerRiseWidth(p, g) {
+    var ch = g.ch || { w: standard(span(clamp01(p), 0.2, 0.95)) };
+    return size(2 * riseRidge(g), g.w, ch.w, 4);
+}
+function cornerRiseHeight(p, g) {
+    var ch = g.ch || { d: standard(clamp01(p)) };
+    return size(riseRidge(g), g.h, ch.d, 4);
+}
+function cornerRise(p, g) {
+    p = clamp01(p);
+    var ch = g.ch || { w: standard(span(p, 0.2, 0.95)), d: standard(p),
+                       n: standard(span(p, 0.05, 0.8)), fw: 0 };
+    var fMin = Math.min(8, g.r), en = clamp01(ch.n);
+    var W = cornerRiseWidth(p, g), H = cornerRiseHeight(p, g);
+    var f = fMin + (g.r - fMin) * en;
+    var fwAbs = Math.abs(flow(ch, "fw"));
+    var lag = Math.max(0, Math.min(20, 0.045 * g.h)) * Math.tanh(fwAbs);
+    var Hl = Math.max(2 * f, H - lag);
+    var x1 = g.x1, y1 = g.y1, ew = g.edgeW || 0, eh = g.edgeH || 0;
+    var X0 = Math.round(x1 - W), T = Math.round(y1 - H), Tl = Math.round(y1 - Hl);
+    // Clamped against the rounded edges, like BOTTOM_RISE.
+    var rb = g.rm + (g.r - g.rm) * en + 10 * Math.tanh(fwAbs);
+    rb = Math.max(0, Math.min(rb, (x1 - X0) - f, (y1 - Tl) - f));
+    var P = new Path();
+    P.move(x1 + ew, T - f);
+    P.step(x1, T - f);
+    P.corner(x1 - f, T, "v");                 // top fillet into the right strip (concave)
+    P.sHorz(X0 + rb, Tl, 0.45);               // top edge: the thinner front, lower
+    P.corner(X0, Tl + rb, "h");               // top-left (convex)
+    P.line(X0, y1 - f);
+    P.corner(X0 - f, y1, "v");                // left fillet into the bottom strip (concave)
+    P.step(X0 - f, y1 + eh);
+    P.step(x1 + ew, y1 + eh);
+    P.close();
+    var top = Math.max(T, Tl);
+    return {
+        path: P.toString(), segs: P.segs,
+        bounds: { x: X0 - f, y: T - f, w: (x1 + ew) - (X0 - f), h: (y1 + eh) - (T - f) },
+        clip: { x: X0, y: top, w: Math.max(0, x1 - X0), h: Math.max(0, y1 - top) },
+        params: { W: W, H: H, Hl: Hl, f: f, rb: rb, X0: X0, T: T },
+        bar: {}
+    };
+}
+
 if (typeof module !== "undefined" && module.exports)
     module.exports = {
         KAPPA: KAPPA,
         Path: Path,
         clamp01: clamp01, lerp: lerp, span: span, smooth: smooth, decel: decel, accel: accel,
         curve: curve, fastDecel: fastDecel, standard: standard,
+        softCap: softCap, size: size, notchHole: notchHole,
         standardDecel: standardDecel, emphasizedDecel: emphasizedDecel,
         barNotch: barNotch, barSilhouette: barSilhouette, barHairline: barHairline,
         centerBloom: centerBloom,
         rightPourWidth: rightPourWidth, rightPour: rightPour,
         leftSpill: leftSpill, edgeSpillRight: edgeSpillRight,
-        spillRidge: spillRidge, leftSpillWidth: leftSpillWidth, edgeSpillWidth: edgeSpillWidth
+        spillRidge: spillRidge, leftSpillWidth: leftSpillWidth, edgeSpillWidth: edgeSpillWidth,
+        riseRidge: riseRidge, bottomRise: bottomRise, bottomRiseHeight: bottomRiseHeight,
+        cornerRise: cornerRise, cornerRiseWidth: cornerRiseWidth, cornerRiseHeight: cornerRiseHeight
     };

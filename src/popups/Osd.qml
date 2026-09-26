@@ -67,8 +67,6 @@ PanelWindow {
         open:          root.showing
         enterDuration: Motion.selection
         exitDuration:  Motion.state
-        enterCurve:    Motion.standardDecel
-        exitCurve:     Motion.standardAccel
         contentDelay:  0
         contentIn:     Motion.state
         contentOut:    Motion.state

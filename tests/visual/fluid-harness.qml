@@ -26,7 +26,9 @@ ShellRoot {
 
     FloatingWindow {
         id: win
-        implicitWidth: 1500; implicitHeight: 800
+        // Room for the largest family at the largest scale: at 1500x800 the
+        // bloom and both spills ran off the viewport past p = 0.3-0.5 at 1.5x.
+        implicitWidth: 1920; implicitHeight: 1080
         color: "#2a2a30"
         ThemeSet { id: t; scale: h.sc }
 
@@ -52,8 +54,13 @@ ShellRoot {
                 shoulderW1: t.px(28), shoulderH1: t.px(22)
             })
             readonly property int pourWinW: t.networkPopupWidth + t.notchRadius
+            // RightPanel's record, field for field: the pour reads the seam, the
+            // notch's shoulder and its bottom corner, and draws from the window's
+            // top (the band over the strip is part of it). Without those three the
+            // path was built from NaN and the body never drew (Phase 23 review).
             readonly property var pourG: ({
-                winW: stage.pourWinW, strip: t.borderWidth, notchW: stage.rNotchW,
+                winW: stage.pourWinW, strip: t.borderWidth, seam: t.notchHeight,
+                shoulder: t.notchShoulder, notchBottom: t.notchBottom, notchW: stage.rNotchW,
                 w: stage.pourWinW, h: t.px(560), r: t.radiusL
             })
             readonly property var spillG: ({
@@ -103,7 +110,7 @@ ShellRoot {
                 x: h.family === "rightPour" ? stage.width - stage.pourWinW
                  : h.family === "edgeSpillRight" ? stage.width - stage.edgeG.x1 - t.borderWidth
                  : 0
-                y: h.family === "rightPour" ? t.notchHeight : 0
+                y: 0
                 width: stage.width; height: stage.height
 
                 FluidShape {

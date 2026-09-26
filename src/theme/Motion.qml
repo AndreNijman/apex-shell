@@ -135,6 +135,13 @@ QtObject {
     readonly property var slowSpatial:     M.CURVES.slowSpatial
     readonly property var effects:         M.CURVES.effects
 
+    /// A spring role at the user's speed: {response (s), damping}; response 0
+    /// under Reduce Motion or with motion off.
+    function spring(role)   { return M.spring(role, motion.scale, motion.reduced) }
+    /// The same role as Qt SpringAnimation parameters {spring, damping} — for
+    /// MotionSpring, which keeps a Behavior's velocity through a retarget.
+    function qtSpring(role) { return M.qtSpring(role, motion.scale, motion.reduced) }
+
     /// A curve evaluated at t (0..1) — for geometry that derives several
     /// parameters from one progress value and wants each on its own curve.
     function ease(curve, t) { return M.ease(curve, t) }

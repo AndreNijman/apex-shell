@@ -770,7 +770,7 @@ StatCard {
                             anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                             width: Math.max(parent.radius * 2, parent.width * root._brightVal)
                             radius: parent.radius; color: Theme.active
-                            Behavior on width { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
+                            Behavior on width { MotionSpring { role: "valueFollow" } }
                         }
                         // Drag or click to set brightness. No wheel handler: a
                         // value bar in this shell never reads the wheel.
@@ -792,7 +792,7 @@ StatCard {
                         width: btw.thumbD; height: btw.thumbD; radius: btw.thumbD / 2
                         color: Theme.fixedLight; anchors.verticalCenter: parent.verticalCenter
                         x: Math.max(0, Math.min(btw.width - width, root._brightVal * (btw.width - width)))
-                        Behavior on x { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
+                        Behavior on x { MotionSpring { role: "valueFollow" } }
                     }
                 }
 

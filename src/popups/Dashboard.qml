@@ -7,6 +7,7 @@ import "../shapes/fluid"
 import "../components"
 import "../modules/Center/"
 import '../services/'
+import "../shapes/fluid/geometry.js" as Geo
 import "../"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -74,6 +75,12 @@ PanelWindow {
         open: root.open
         enterDuration: Motion.morphEnter
         exitDuration:  Motion.morphExit
+        // The bloom is liquid: width leads, depth follows and swells a few
+        // pixels past its mark before it settles, the shoulders and corners
+        // trail — and nothing moves until this window's first frame is on
+        // screen, so it grows out of the notch rather than appearing.
+        liquid:  true
+        surface: body
         onClosed: tabBar.reset()
         // The launcher page is the one worth building ahead: once the first
         // open has finished, build it in the background (LazyPage.prewarm).
@@ -128,7 +135,7 @@ PanelWindow {
     // The finished width the bloom is heading for. A page change while open
     // (Home 900 → Apps 560) retargets it over a page beat; progress stays 1.
     property real targetW: Popups.dashboardPageWidth
-    Behavior on targetW { MotionMove { role: "page"; curve: Motion.standard } }
+    Behavior on targetW { MotionSpring { role: "page" } }
 
     color:   "transparent"
     visible: life.mapped
@@ -200,11 +207,29 @@ PanelWindow {
         shoulderH1:  theme.px(22)
     })
 
+    // The notch's content window, left open in the body until the bloom has
+    // grown enough to take over: the bar's own label (CenterContent) fades out
+    // underneath it on the dashboard's flag, and is SEEN fading, instead of
+    // being covered by the body's first frame. Covered back in (`cover`) as
+    // the body grows; on the way out the reverse — the label is back by the
+    // time the bloom has shrunk into the notch. Same fill both sides of the
+    // hole's edge, so the edge itself is never seen.
+    readonly property real _coverK: Geo.smooth(Geo.span(life.progress, 0.22, 0.6))
+    readonly property var _hole: {
+        const g = root.bloomGeometry, inset = theme.px(2)
+        const L0 = Math.round(g.cx) - Math.round(g.notchW / 2)
+        return { x: L0 + inset, y: g.strip, w: Math.round(g.notchW) - 2 * inset,
+                 h: g.notchH - g.strip - inset, rb: Math.max(0, g.notchBottom - inset) }
+    }
+
     FluidShape {
         id: body
         anchors.fill: parent
         family:   "centerBloom"
         progress: life.progress
+        channels: ({ w: life.lead, d: life.body, n: life.trail, fw: life.leadFlow, fd: life.bodyFlow })
+        hole:     (life.alpha >= 1 && root._coverK < 1)
+                  ? Geo.notchHole(root._hole.x, root._hole.y, root._hole.w, root._hole.h, root._hole.rb) : ""
         geometry: root.bloomGeometry
         color:    Theme.background
         opacity:  life.alpha
@@ -215,6 +240,16 @@ PanelWindow {
             width: body.result.bounds.w; height: body.result.bounds.h
             onClicked: {}
         }
+    }
+
+    Rectangle {
+        id: holeCover
+        visible: body.hole !== ""
+        x: root._hole.x; y: root._hole.y
+        width: root._hole.w; height: root._hole.h
+        bottomLeftRadius: root._hole.rb; bottomRightRadius: root._hole.rb
+        color: Theme.background
+        opacity: root._coverK
     }
 
     // ── Content, at its finished layout, revealed by the bloom's clip ───────

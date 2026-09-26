@@ -48,7 +48,7 @@ ApexPressable {
         x:      root.checked ? parent.width - width - 2 : 2
         scale:  root.pressed ? 0.94 : 1
         color:  root.checked ? Theme.onAccent : Theme.textSecondary
-        Behavior on x     { MotionMove { curve: Motion.emphasizedDecel } }
+        Behavior on x     { MotionSpring { role: "toggle" } }
         Behavior on scale { MotionMove { role: "pressIn" } }
         Behavior on color { MotionColor { role: "state" } }
     }

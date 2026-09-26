@@ -140,8 +140,8 @@ Item {
         height: sel.targetRow ? sel.targetRow.height : 0
         radius: theme.radiusM
         color: Theme.surfaceSelected
-        Behavior on y { enabled: sel._placed; MotionMove { curve: Motion.emphasizedDecel } }
-        Behavior on height { enabled: sel._placed; MotionMove { curve: Motion.emphasizedDecel } }
+        Behavior on y { enabled: sel._placed; MotionSpring {} }
+        Behavior on height { enabled: sel._placed; MotionSpring {} }
         onTargetChanged: if (sel.target && !sel._placed) armTimer.restart()
         Timer { id: armTimer; interval: 0; onTriggered: sel._placed = true }
         ApexFocusRing { target: root; targetRadius: sel.radius }

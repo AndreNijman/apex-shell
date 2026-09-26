@@ -15,9 +15,9 @@ import "../"
 //
 // The Nexus sheet's timings, because these are the same kind of thing: a card
 // over a scrim that barely moves (no shape morph — they grow out of nothing):
-// in on the page duration with emphasized deceleration, out on the small-
-// surface exit with standard acceleration, the content on the scrim's beat.
-// Under Reduce Motion the spatial parts jump and the fade stays.
+// in on a page-length spring, out on the small-surface exit's, the content on
+// the scrim's beat. Under Reduce Motion the spatial parts jump and the fade
+// stays.
 //
 // A surface built on it:
 //     DialogLifecycle { id: life; open: <flag> }
@@ -31,8 +31,6 @@ import "../"
 SurfaceLifecycle {
     enterDuration: Motion.page
     exitDuration:  Motion.surfaceExitSmall
-    enterCurve:    Motion.emphasizedDecel
-    exitCurve:     Motion.standardAccel
     contentDelay:  0
     contentOut:    Motion.reduced ? Motion.fadeOut : Motion.surfaceExitSmall
 

@@ -26,7 +26,7 @@ cleanup() { rm -rf "$stage"; }
 trap cleanup EXIT INT TERM
 
 mkdir -p "$stage/components"
-cp "$root/src/components/SurfaceLifecycle.qml" "$stage/components/"
+cp "$root/src/components/SurfaceLifecycle.qml" "$root/src/components/Spring.qml" "$stage/components/"
 cp "$here/surface-lifecycle-test.qml" "$stage/"
 : > "$stage/qmldir"
 

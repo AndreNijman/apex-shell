@@ -253,8 +253,8 @@ Item {
 		color:  Theme.surfaceSelected
 		onCurChanged: if (cur && !root._pillPlaced) pillArm.restart()
 		ApexFocusRing { target: root; targetRadius: hSel.radius }
-		Behavior on x     { enabled: root._pillPlaced; MotionMove { curve: Motion.emphasizedDecel } }
-		Behavior on width { enabled: root._pillPlaced; MotionMove { curve: Motion.emphasizedDecel } }
+		Behavior on x     { enabled: root._pillPlaced; MotionSpring {} }
+		Behavior on width { enabled: root._pillPlaced; MotionSpring {} }
 	}
 
 	Row {
@@ -442,7 +442,7 @@ Item {
 						vFlick.contentY = top + cur.height - vFlick.height
 				}
 			}
-			Behavior on y { enabled: root._pillPlaced; MotionMove { curve: Motion.emphasizedDecel } }
+			Behavior on y { enabled: root._pillPlaced; MotionSpring {} }
 			ApexFocusRing { target: root; targetRadius: vSel.radius }
 		}
 

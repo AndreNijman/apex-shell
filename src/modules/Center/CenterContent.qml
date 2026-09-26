@@ -232,7 +232,7 @@ Item {
 			interactive:  false
 
 			Behavior on contentY {
-				MotionMove { role: "page" }
+				MotionSpring { role: "page" }
 			}
 
 			model: root._items

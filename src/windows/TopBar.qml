@@ -108,7 +108,7 @@ PanelWindow {
             : theme.exclusionGap)
     Behavior on exclusiveZone {
         enabled: !Compositor.isLabwc
-        MotionMove { role: "page"; curve: Motion.standard }
+        MotionSpring { role: "page" }
     }
 
     // The left notch grows with its content like the centre one; it used to
@@ -179,9 +179,17 @@ PanelWindow {
     readonly property SurfaceLifecycle rightLife: SurfaceLifecycle {
         name: "right-panel"
         open:          root.rightWanted !== "" && root.rightHostReady
-        enterDuration: Motion.surfaceEnterSmall
-        exitDuration:  Motion.surfaceExitSmall
+        // A morph out of a notch, the same class as the Dashboard's bloom. Liquid:
+        // the right edge drops first, the body pours left after it, the front
+        // thins and its corner rounds out with its speed. It waits for the
+        // panel window's first frame (RightPanel hands its body over).
+        enterDuration: Motion.morphEnter
+        exitDuration:  Motion.morphExit
+        liquid:        true
+        surface:       root.rightSurface
     }
+    // The RightPanel's body, pushed by RightPanel once it exists.
+    property Item rightSurface: null
 
     // The finished width of the pane (W1): never narrower than the notch it
     // hangs from, so a wide status cluster is not clipped by its own panel.
@@ -195,7 +203,7 @@ PanelWindow {
     // beat (progress stays 1); from closed it is simply the new pane's.
     Behavior on rightTargetW {
         enabled: root.rightLife.progress > 0
-        MotionMove { role: "page"; curve: Motion.standard }
+        MotionSpring { role: "page" }
     }
 
     // ── Border strip (focus mode) ────────────────────────────────────────────

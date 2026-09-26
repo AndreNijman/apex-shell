@@ -30,5 +30,5 @@ Rectangle {
     // The state beat. The scale is the spatial half and goes with Reduce
     // Motion; the fade stays.
     Behavior on opacity { MotionFade { role: "state" } }
-    Behavior on scale   { MotionMove { role: "selection"; curve: Motion.standardDecel } }
+    Behavior on scale   { MotionSpring { role: "toggle"; epsilon: 0.0005 } }
 }

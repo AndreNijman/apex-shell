@@ -96,14 +96,19 @@ PanelWindow {
 		open:          Popups.archMenuOpen
 		enterDuration: Motion.surfaceEnterSmall
 		exitDuration:  Motion.surfaceExitSmall
+		// Liquid: the width extrudes first, the height unfolds after it and
+		// swells a hair past its mark, the fillets trail; it waits for this
+		// window's first frame, so it grows out of the strip.
+		liquid:  true
+		surface: body
 	}
 	visible: life.mapped
 
 	// The finished body, retargeting over a page beat while it is up.
 	property real targetW: root.inL + root.contentWidth + root.pad
 	property real targetH: root.contentHeight + root.pad * 2
-	Behavior on targetW { enabled: life.progress > 0; MotionMove { role: "page"; curve: Motion.standard } }
-	Behavior on targetH { enabled: life.progress > 0; MotionMove { role: "page"; curve: Motion.standard } }
+	Behavior on targetW { enabled: life.progress > 0; MotionSpring { role: "page" } }
+	Behavior on targetH { enabled: life.progress > 0; MotionSpring { role: "page" } }
 
 	readonly property var spillGeometry: ({
 		x0: theme.borderWidth,
@@ -126,19 +131,21 @@ PanelWindow {
 		// nor vanishes on one frame — keyed to WIDTH, because the extrusion is
 		// so steep that by 8 % progress the body is already ~140 px wide, and a
 		// fade over progress left a translucent box at the end of every close.
-		// On the way out only: on the way in the first mapped frame is already
-		// far wider than the ramp. And on a wrapper, not on the shape: read
+		// Both ways since the springs wait for the first frame: that frame IS
+		// the ridge (it used to be far wider than the ramp). And on a wrapper, not on the shape: read
 		// from the shape's own opacity, its `result` was a binding loop (logged)
 		// that left the opacity a frame stale — a translucent first frame. It
 		// reads `closing`, not `open`, for the same reason (SurfaceLifecycle).
-		opacity:  life.alpha * (!life.closing ? 1 : Math.min(1, Math.max(0,
-		              (Geo.leftSpillWidth(life.progress, root.spillGeometry) - Geo.spillRidge(root.spillGeometry)) / 24)))
+		opacity:  life.alpha * Math.min(1, Math.max(0,
+		              (Geo.leftSpillWidth(life.progress, body.chGeometry) - Geo.spillRidge(body.geometry)) / 24))
 
 		FluidShape {
 			id: body
 			anchors.fill: parent
 			family:   "leftSpill"
 			progress: life.progress
+			channels: ({ w: life.lead, d: life.body, n: life.trail, fw: life.leadFlow, fd: life.bodyFlow })
+			readonly property var chGeometry: Object.assign({}, geometry, { ch: channels })
 			color:    Theme.background
 			geometry: root.spillGeometry
 		}

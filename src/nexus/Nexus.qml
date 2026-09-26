@@ -59,8 +59,6 @@ PanelWindow {
         open:          root.live
         enterDuration: Motion.page
         exitDuration:  Motion.surfaceExitSmall
-        enterCurve:    Motion.emphasizedDecel
-        exitCurve:     Motion.standardAccel
         contentDelay:  0
         // The sheet leaves on the scrim's beat. On the content beat (70 ms) it
         // was gone while the scrim still dimmed an empty desk for another

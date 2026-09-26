@@ -1534,8 +1534,13 @@ jobs:
       # effects survive capped, the legacy animDuration migrates by its ratio
       # to 320 ms. The table lives in src/theme/motion.js so this reads the
       # same numbers the shell does rather than a copy of them.
+      # And the spring behind every surface's body (src/theme/spring.js): it
+      # arrives and stays, overshoots by exactly the theory's amount, lands the
+      # same at any frame rate, and keeps its velocity through a reversal.
       - name: The motion system
-        run: node tests/motion-test.js
+        run: |
+          node tests/motion-test.js
+          node tests/spring-test.js
 
       # The transient-surface state machine (Phase 6): a surface stays mapped
       # until its close has actually finished, reverses from wherever it is,

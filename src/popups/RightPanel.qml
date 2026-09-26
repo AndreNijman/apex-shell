@@ -52,6 +52,7 @@ PanelWindow {
     // The bar's clock waits for this window to exist (see TopBar.rightHostReady).
     Component.onCompleted: {
         root.targetD = root.paneDepth
+        root.anchorWindow.rightSurface = body
         root.anchorWindow.rightHostReady = true
     }
 
@@ -167,6 +168,9 @@ PanelWindow {
             height: root.height
             family:   "rightPour"
             progress: root.life.progress
+            // Depth is the lead channel, width the body (TopBar.rightLife).
+            channels: ({ d: root.life.lead, w: root.life.body, n: root.life.trail,
+                         fd: root.life.leadFlow, fw: root.life.bodyFlow })
             color:    Theme.background
             opacity:  root.life.alpha
             geometry: ({

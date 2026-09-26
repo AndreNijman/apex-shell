@@ -158,7 +158,7 @@ Rectangle {
                     return Theme.wsEmpty
                 }
 
-                Behavior on width { MotionMove { curve: Motion.fastSpatial } }
+                Behavior on width { MotionSpring {} }
                 Behavior on color { MotionColor { role: "state" } }
 
                 // --- Urgent pulse ---
