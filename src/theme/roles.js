@@ -62,8 +62,15 @@ function resolve(p) {
         outlineStrong:   mix(B, T, 0.24),
         hairline:        mix(B, T, 0.10),
         textPrimary:     T,
-        textSecondary:   mix(T, B, 0.35),
-        textTertiary:    mix(T, B, 0.55),
+        // .30, not the brief's .35: at .35 the fallback fired on the shipped
+        // default palette itself (design review 2) — a fallback that fires on
+        // the default is the formula.
+        textSecondary:   mix(T, B, 0.30),
+        // .50, not the brief's .55, for the same reason: .55 fired the
+        // fallback on all six light schemes. At .30 / .50 no shipped palette
+        // needs a fallback at all; the rule stays for the ones that are not
+        // shipped.
+        textTertiary:    mix(T, B, 0.50),
         accent:          A,
         // The accent as a FOREGROUND (a label, a glyph). Fills keep `accent`.
         accentText:      A
