@@ -66,30 +66,10 @@ for (const z of [0.86, 1.0, 1.3]) {
     check("no frame moves more than 12 % of the travel at 60 Hz (response 0.5)", worst < 0.12, (100 * worst).toFixed(2) + "%");
 }
 
-// Qt's SpringAnimation, as measured (Qt 6.10): fixed 16 ms steps,
-// v += k·(to − x) − c·v; x += 0.016·v. motion.js qtSpring() maps a role onto
-// it by eigenvalues; replayed here, the Qt integrator must track the closed
-// form to within 2.5 % of the travel at every step, for every role. It runs
-// half a step (8 ms) AHEAD of it — the semi-implicit step moves on its first
-// tick — which is an imperceptible lead, not a different spring; compared at
-// the same instant without it the gap is 3–8 %.
-{
-    const M = require(path.join(__dirname, "..", "src", "theme", "motion.js"));
-    for (const role of Object.keys(M.SPRINGS)) {
-        const q = M.qtSpring(role, 1, false), sp = M.spring(role, 1, false);
-        let x = 0, v = 0, worst = 0;
-        for (let i = 1; i < 150; i++) {
-            v = v + q.spring * (1 - x) - q.damping * v; x += 0.016 * v;
-            const cx = S.step(0, 0, 1, sp.response, sp.damping, (i + 0.5) * 0.016)[0];
-            worst = Math.max(worst, Math.abs(x - cx));
-        }
-        check(`qtSpring(${role}) tracks the spring it names (Qt's 16 ms integrator)`, worst < 0.025, (100 * worst).toFixed(2) + "%");
-    }
-    const d = M.qtSpring("page", 1, true);
-    let x = 0, v = 0;
-    v = v + d.spring * (100 - x) - d.damping * v; x += 0.016 * v;
-    check("under Reduce Motion it lands in one step (deadbeat, never stranded)", Math.abs(x - 100) < 1e-9, x);
-}
+// (Qt's SpringAnimation was measured to be a fixed 16 ms integrator,
+// v += k·(to − x) − c·v; x += 0.016·v, and an exact mapping onto it lived here
+// with MotionSpring. Both are gone: at 16 ms a step it updated at ~62 Hz on a
+// 144 Hz panel. SpringFollower steps this closed form per frame instead.)
 
 console.log("\nspring: passed=" + pass + " failed=" + fail);
 process.exit(fail === 0 ? 0 : 1);

@@ -9,7 +9,7 @@ singleton Motion     theme/Motion.qml
 MotionColor 1.0 theme/anim/MotionColor.qml
 MotionFade  1.0 theme/anim/MotionFade.qml
 MotionMove  1.0 theme/anim/MotionMove.qml
-MotionSpring 1.0 theme/anim/MotionSpring.qml
+SpringFollower 1.0 theme/anim/SpringFollower.qml
 # The token table itself (P1-040). NOT a singleton — that is the whole point:
 # Metrics is the instance built at the reference output's factor, and a surface
 # that sizes itself from its OWN output builds another. Registered here as well

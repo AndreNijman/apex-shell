@@ -134,8 +134,8 @@ PanelWindow {
 
     // The finished width the bloom is heading for. A page change while open
     // (Home 900 → Apps 560) retargets it over a page beat; progress stays 1.
-    property real targetW: Popups.dashboardPageWidth
-    Behavior on targetW { MotionSpring { role: "page" } }
+    readonly property real targetW: _targetW.value
+    SpringFollower { id: _targetW; role: "page"; target: Popups.dashboardPageWidth }
 
     color:   "transparent"
     visible: life.mapped
