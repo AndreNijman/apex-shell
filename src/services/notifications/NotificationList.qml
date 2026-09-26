@@ -4,6 +4,7 @@ import Quickshell.Services.Notifications
 import "../"
 import "../../"
 import "../../components/controls"
+import "notiftime.js" as TimeFmt
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NotificationList — the notification centre's stack (NotificationsPane, in
@@ -41,6 +42,15 @@ import "../../components/controls"
 Item {
     id: root
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
+    // The clock the cards' timestamps read ("now", "12 min"). Ticks only while
+    // the centre is on screen with something in it — nothing polls at idle.
+    property real _now: Date.now()
+    Timer {
+        interval: 30000; repeat: true; triggeredOnStart: true
+        running: root.visible && NotificationService.count > 0
+        onTriggered: root._now = Date.now()
+    }
 
     // Clear all: every card takes its place in the bottom-up stagger from the
     // order they were in when it was asked for, BEFORE anything is dismissed —
@@ -393,6 +403,7 @@ Item {
         readonly property string tIcon:    card.live ? (card.notification.appIcon ?? "") : card.sIcon
         readonly property var    tActions: card.live ? (card.notification.actions ?? []) : card.sActions
         readonly property int    tUrgency: card.live ? (card.notification.urgency ?? NotificationUrgency.Normal) : card.sUrgency
+        readonly property real   tTime:    card.sTime   // fixed at arrival; the snapshot is the only copy
 
         property string sApp:     ""
         property string sSummary: ""
@@ -400,6 +411,7 @@ Item {
         property string sIcon:    ""
         property var    sActions: []
         property int    sUrgency: NotificationUrgency.Normal
+        property real   sTime:    0
         function _snap() {
             const n = card.notification
             if (!n) return
@@ -409,6 +421,7 @@ Item {
             card.sIcon    = n.appIcon ?? ""
             card.sActions = n.actions ?? []
             card.sUrgency = n.urgency ?? NotificationUrgency.Normal
+            card.sTime    = NotificationService.arrivedAt(n) || card.sTime
         }
         onNotificationChanged: card._snap()
         Component.onCompleted: card._snap()
@@ -590,10 +603,25 @@ Item {
                     id:             appLine
                     width:          parent.width
                     text:           card.tApp
-                    color:          Theme.subtext
-                    font.pixelSize: theme.fs(11)
+                    color:          Theme.textSecondary
+                    font.pixelSize: theme.typeCaption
                     elide:          Text.ElideRight
                     visible:        text !== ""
+                    rightPadding:   timeLine.text !== "" ? timeLine.implicitWidth + theme.spaceS : 0
+
+                    // When it arrived (UI/UX Phase 17, visual roadmap §25), on the
+                    // app line's trailing end. A child of the line rather than a
+                    // sibling, so the card's height still counts exactly the three
+                    // text lines it did (textHeight below).
+                    Text {
+                        id: timeLine
+                        anchors.right:    parent.right
+                        anchors.baseline: parent.baseline
+                        text:             TimeFmt.ago(card.tTime, root._now)
+                        color:            Theme.textSecondary
+                        font.pixelSize:   theme.typeCaption
+                        font.features:    { "tnum": 1 }
+                    }
                 }
 
                 // Summary

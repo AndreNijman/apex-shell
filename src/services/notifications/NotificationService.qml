@@ -55,23 +55,36 @@ NotificationServer {
         onTriggered: root._ready = true
     }
     
+    // When each notification arrived, by id, for the centre's timestamps (UI/UX
+    // Phase 17). The server does not keep it and a Notification is a QObject
+    // that takes no new properties from JS, so it lives here and goes with the
+    // notification.
+    property var _arrived: ({})
+    function arrivedAt(n) { return (n && root._arrived[n.id]) || 0 }
+
     onNotification: function(n) {
         n.tracked = true
 
-        if (root.list.includes(n)) return 
+        if (root.list.includes(n)) return
 
+        const id = n.id
+        root._arrived[id] = Date.now()
         root.list = [n, ...root.list]
-        
+
+        // Connected BEFORE the Do Not Disturb return. It used to come after it,
+        // so a notification that arrived during DND was never taken off the list
+        // when it closed — the centre kept a card for something already gone.
+        n.onClosed.connect(function() {
+            root.list = root.list.filter(function(x) { return x !== n })
+            delete root._arrived[id]
+        })
+
         if (ShellState.dnd) return
-        
+
         if (root._ready) {
             root.lastToast = n
             root.notificationAdded(n)
         }
-
-         n.onClosed.connect(function() {
-            root.list = root.list.filter(function(x) { return x !== n })
-        })
     }
 
     function dismissAll() {

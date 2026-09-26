@@ -109,5 +109,49 @@ mutant "an untargeted nested exit" 'target: removeTrans.ViewTransition.item
 mutant "the Column's implicitHeight" 'height:  Math.max(iconArea.height, card.textHeight)' 'height:  Math.max(iconArea.height, textCol.implicitHeight)' HEIGHT
 mutant "lines counted by effective visibility" 'if (t.text !== "")' 'if (t.visible)' SHOWN
 
+# ── the cards' timestamps (UI/UX Phase 17) ───────────────────────────────────
+# The arrival time comes from NotificationService.arrivedAt(); what a card says
+# about it is notiftime.js, pure, so node drives its boundaries (now / minutes /
+# today / yesterday / a date, and nothing for a missing or future time).
+if command -v node >/dev/null 2>&1; then
+    if node tests/notif-time-test.js >/dev/null 2>&1; then
+        ok "tests/notif-time-test.js: the arrival-time formatter"
+    else
+        bad "tests/notif-time-test.js failed — run it for the cases"
+    fi
+else
+    echo "  skip tests/notif-time-test.js: node not installed"
+fi
+# A notification that arrives under Do Not Disturb must still leave the list
+# when it closes. The close handler was connected AFTER the DND early return,
+# so those were never removed and the centre kept cards for things already
+# gone. Order is the whole rule, so it is asserted as order — and self-tested
+# on a copy with the two swapped back.
+S=src/services/notifications/NotificationService.qml
+closes_before_dnd() {
+    python3 - "$1" <<'PY2'
+import sys
+s = open(sys.argv[1]).read()
+i, j = s.find("onClosed.connect"), s.find("if (ShellState.dnd) return")
+sys.exit(0 if 0 <= i < j else 1)
+PY2
+}
+closes_before_dnd "$S" && ok "a notification's close handler is connected before the DND return" \
+    || bad "NotificationService connects onClosed after the DND return: cards that arrive under DND never leave"
+MS="$(mktemp)"; python3 - "$S" "$MS" <<'PY2'
+import sys
+s = open(sys.argv[1]).read()
+dnd = "        if (ShellState.dnd) return\n"
+s = s.replace(dnd, "", 1)
+s = s.replace("        const id = n.id\n", "        const id = n.id\n" + dnd, 1)
+open(sys.argv[2], "w").write(s)
+PY2
+if cmp -s "$S" "$MS" || ! grep -q 'if (ShellState.dnd) return' "$MS"; then bad "self-test DND-ORDER: the mutation did not apply"
+elif closes_before_dnd "$MS"; then bad "self-test DND-ORDER: the swapped copy SURVIVED"; else ok "self-test DND-ORDER: caught"; fi
+rm -f "$MS"
+grep -q 'TimeFmt.ago(card.tTime' "$F" \
+    && ok "the card says when it arrived, through the formatter" \
+    || bad "the card no longer shows its arrival time through notiftime.js"
+
 printf '\ncheck-notification-stack: passed=%d failed=%d\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
