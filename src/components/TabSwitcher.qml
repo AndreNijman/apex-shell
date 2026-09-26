@@ -244,8 +244,14 @@ Item {
 			return root.currentIndex >= 0 ? hRep.itemAt(root.currentIndex) : null
 		}
 		visible: root.orientation === "horizontal" && cur !== null
-		x:      cur ? cur.x + (cur.width - cur.pillW) / 2 : 0
-		width:  cur ? cur.pillW : 0
+		// On springs that keep their velocity when the tab is changed again
+		// mid-travel (SpringFollower: exact at any refresh rate).
+		x:      hSelX.value
+		width:  hSelW.value
+		SpringFollower { id: hSelX; live: root._pillPlaced
+		                 target: hSel.cur ? hSel.cur.x + (hSel.cur.width - hSel.cur.pillW) / 2 : 0 }
+		SpringFollower { id: hSelW; live: root._pillPlaced
+		                 target: hSel.cur ? hSel.cur.pillW : 0 }
 		height: Math.max(0, root.height - theme.px(8))
 		y:      (root.height - height) / 2
 		radius: height / 2
@@ -253,8 +259,6 @@ Item {
 		color:  Theme.surfaceSelected
 		onCurChanged: if (cur && !root._pillPlaced) pillArm.restart()
 		ApexFocusRing { target: root; targetRadius: hSel.radius }
-		Behavior on x     { enabled: root._pillPlaced; MotionSpring {} }
-		Behavior on width { enabled: root._pillPlaced; MotionSpring {} }
 	}
 
 	Row {
@@ -423,7 +427,9 @@ Item {
 			visible: root.orientation === "vertical" && cur !== null
 			x:      vCol.x
 			width:  vCol.width
-			y:      cur ? vCol.y + cur.y : 0
+			y:      vSelY.value
+			SpringFollower { id: vSelY; live: root._pillPlaced
+			                 target: vSel.cur ? vCol.y + vSel.cur.y : 0 }
 			height: root.vRowHeight
 			radius: theme.cornerRadius * 2
 			// A tint and an accent foreground, like every other selection in
@@ -442,7 +448,6 @@ Item {
 						vFlick.contentY = top + cur.height - vFlick.height
 				}
 			}
-			Behavior on y { enabled: root._pillPlaced; MotionSpring {} }
 			ApexFocusRing { target: root; targetRadius: vSel.radius }
 		}
 

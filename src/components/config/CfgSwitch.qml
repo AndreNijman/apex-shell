@@ -41,14 +41,18 @@ ApexPressable {
         Behavior on color { MotionColor { role: "state" } }
     }
     Rectangle {
+        id: knob
         width:  parent.height - 4
         height: parent.height - 4
         radius: height / 2
         y:      2
-        x:      root.checked ? parent.width - width - 2 : 2
+        // The knob travels on a spring (a whisper of settle, kept velocity when
+        // flipped back mid-travel; SpringFollower is exact at any refresh rate).
+        x:      knobX.value
+        SpringFollower { id: knobX; role: "toggle"
+                         target: root.checked ? knob.parent.width - knob.width - 2 : 2 }
         scale:  root.pressed ? 0.94 : 1
         color:  root.checked ? Theme.onAccent : Theme.textSecondary
-        Behavior on x     { MotionSpring { role: "toggle" } }
         Behavior on scale { MotionMove { role: "pressIn" } }
         Behavior on color { MotionColor { role: "state" } }
     }

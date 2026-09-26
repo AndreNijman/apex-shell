@@ -95,12 +95,14 @@ Item {
 
                 // Fill bar
                 Rectangle {
+                    id: fill
                     anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
-                    height: Math.max(radius * 2, parent.height * col.value)
+                    height: fillH.value
+                    SpringFollower { id: fillH; role: "valueFollow"
+                                     target: Math.max(fill.radius * 2, fill.parent.height * col.value) }
                     radius: parent.radius
                     color:  col.muted ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.15) : Theme.active
                     Behavior on color  { MotionColor { role: "state" } }
-                    Behavior on height { MotionSpring { role: "valueFollow" } }
                 }
 
                 // Thumb

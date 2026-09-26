@@ -116,11 +116,11 @@ Item {
         Item {
             id: pctWrapper
             property bool show: root.showPercentage || hov.hovered
-            implicitWidth: show ? pctText.implicitWidth + 2 : 0
+            implicitWidth: pctW.value
+            SpringFollower { id: pctW; role: "page"; target: pctWrapper.show ? pctText.implicitWidth + 2 : 0 }
             implicitHeight: pctText.implicitHeight
             clip: true
             anchors.verticalCenter: parent.verticalCenter
-            Behavior on implicitWidth { MotionSpring { role: "page" } }
 
             Text {
                 id: pctText

@@ -105,10 +105,12 @@ PanelWindow {
 	visible: life.mapped
 
 	// The finished body, retargeting over a page beat while it is up.
-	property real targetW: root.inL + root.contentWidth + root.pad
-	property real targetH: root.contentHeight + root.pad * 2
-	Behavior on targetW { enabled: life.progress > 0; MotionSpring { role: "page" } }
-	Behavior on targetH { enabled: life.progress > 0; MotionSpring { role: "page" } }
+	readonly property real targetW: _tW.value
+	readonly property real targetH: _tH.value
+	SpringFollower { id: _tW; role: "page"; live: life.progress > 0
+	                 target: root.inL + root.contentWidth + root.pad }
+	SpringFollower { id: _tH; role: "page"; live: life.progress > 0
+	                 target: root.contentHeight + root.pad * 2 }
 
 	readonly property var spillGeometry: ({
 		x0: theme.borderWidth,

@@ -115,12 +115,12 @@ PanelWindow {
 
     // The left notch grows with its content like the centre one; it used to
     // snap while the other two animated (brief §F.10).
-    property int lWidth: Math.max(
-        theme.lNotchMinWidth,
-        Math.min(theme.lNotchMaxWidth,
-                 leftContent.implicitWidth + theme.notchPadding * 2)
-    )
-    Behavior on lWidth { MotionSpring { role: "page" } }
+    readonly property int lWidth: Math.round(root._lW.value)
+    readonly property SpringFollower _lW: SpringFollower {
+        role: "page"
+        target: Math.max(theme.lNotchMinWidth,
+                         Math.min(theme.lNotchMaxWidth, leftContent.implicitWidth + theme.notchPadding * 2))
+    }
 
     // The centre notch's own width — its content's, clamped. It no longer
     // widens to the Dashboard's page width while the Dashboard is open: the
@@ -128,14 +128,15 @@ PanelWindow {
     // starts from, and shrinks back into, exactly this width, read live. A
     // notch tweening underneath a body that already covers it was motion
     // nobody could see, and a second clock on the same edge.
-    property int cWidth: Math.max(
-            theme.cNotchMinWidth,
-            Math.min(theme.cNotchMaxWidth,
-                     centerContent.implicitWidth + theme.notchPadding * 2)
-          )
     // A spring: a title changing twice in a row bends the notch toward the
-    // second width instead of stopping it dead and starting over.
-    Behavior on cWidth { MotionSpring { role: "page" } }
+    // second width instead of stopping it dead and starting over
+    // (SpringFollower: exact at any refresh rate).
+    readonly property int cWidth: Math.round(root._cW.value)
+    readonly property SpringFollower _cW: SpringFollower {
+        role: "page"
+        target: Math.max(theme.cNotchMinWidth,
+                         Math.min(theme.cNotchMaxWidth, centerContent.implicitWidth + theme.notchPadding * 2))
+    }
 
     // ── The right notch, and the clock of what pours out of it ──────────────
     // (UI/UX roadmap v3 Phase 9, RIGHT_POUR)
@@ -202,12 +203,13 @@ PanelWindow {
                                         : root.rightPane === "audio"         ? theme.px(Popups.audioPage === "mixer" ? 300 : 200) + theme.notchRadius
                                         : root.rightPane === "toast"         ? theme.notificationToastWidth + theme.notchRadius
                                         : root.rNaturalWidth
-    property real rightTargetW: Math.max(root.rightPaneWidth, root.rNaturalWidth)
-    // Switching pane while the panel is up retargets the width over a page
-    // beat (progress stays 1); from closed it is simply the new pane's.
-    Behavior on rightTargetW {
-        enabled: root.rightLife.progress > 0
-        MotionSpring { role: "page" }
+    // Switching pane while the panel is up retargets the width on the page
+    // spring (progress stays 1); from closed it is simply the new pane's.
+    readonly property real rightTargetW: root._rTW.value
+    readonly property SpringFollower _rTW: SpringFollower {
+        role: "page"
+        live: root.rightLife.progress > 0
+        target: Math.max(root.rightPaneWidth, root.rNaturalWidth)
     }
 
     // ── Border strip (focus mode) ────────────────────────────────────────────

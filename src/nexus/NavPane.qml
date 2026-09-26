@@ -135,13 +135,17 @@ Item {
         property bool _placed: false
         visible: sel.target !== null
         x: col.x
-        y: sel.targetRow ? col.y + sel.target.y + sel.targetRow.y : 0
+        // On springs that keep their velocity through a second page change
+        // mid-travel (SpringFollower: exact at any refresh rate).
+        y: selY.value
         width: col.width
-        height: sel.targetRow ? sel.targetRow.height : 0
+        height: selH.value
+        SpringFollower { id: selY; live: sel._placed
+                         target: sel.targetRow ? col.y + sel.target.y + sel.targetRow.y : 0 }
+        SpringFollower { id: selH; live: sel._placed
+                         target: sel.targetRow ? sel.targetRow.height : 0 }
         radius: theme.radiusM
         color: Theme.surfaceSelected
-        Behavior on y { enabled: sel._placed; MotionSpring {} }
-        Behavior on height { enabled: sel._placed; MotionSpring {} }
         onTargetChanged: if (sel.target && !sel._placed) armTimer.restart()
         Timer { id: armTimer; interval: 0; onTriggered: sel._placed = true }
         ApexFocusRing { target: root; targetRadius: sel.radius }

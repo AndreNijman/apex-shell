@@ -26,9 +26,9 @@ Rectangle {
 
     visible: pill.opacity > 0
     opacity: pill.shown ? 1 : 0
-    scale:   pill.shown ? 1 : 0.9
+    scale:   pillScale.value
     // The state beat. The scale is the spatial half and goes with Reduce
-    // Motion; the fade stays.
+    // Motion (the follower jumps); the fade stays.
     Behavior on opacity { MotionFade { role: "state" } }
-    Behavior on scale   { MotionSpring { role: "toggle"; epsilon: 0.0005 } }
+    SpringFollower { id: pillScale; role: "toggle"; epsilon: 0.0005; target: pill.shown ? 1 : 0.9 }
 }

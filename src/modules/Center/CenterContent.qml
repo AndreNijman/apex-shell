@@ -114,7 +114,7 @@ Item {
 		}
 
 		root._carouselIndex = idx
-		statusList.contentY = idx * root._itemStride
+		carouselY.target = idx * root._itemStride
 	}
 
 	// Force-scroll to a specific type regardless of where the user is
@@ -122,7 +122,7 @@ Item {
 		var idx = root._items.indexOf(type)
 		if (idx < 0) return
 		root._carouselIndex = idx
-		statusList.contentY = idx * root._itemStride
+		carouselY.target = idx * root._itemStride
 	}
 
 	onPlayerChanged: _rebuildItems(player !== null ? "music" : null)
@@ -218,7 +218,7 @@ Item {
 				else
 				root._carouselIndex = Math.max(0, root._carouselIndex - 1)
 
-				statusList.contentY = root._carouselIndex * root._itemStride
+				carouselY.target = root._carouselIndex * root._itemStride
 			}
 		}
 
@@ -231,9 +231,11 @@ Item {
 			snapMode:     ListView.SnapOneItem
 			interactive:  false
 
-			Behavior on contentY {
-				MotionSpring { role: "page" }
-			}
+			// The carousel scrolls on a spring: a second scroll mid-travel bends
+			// toward the next item instead of restarting (SpringFollower). Written
+			// imperatively, not bound: a ListView writes its own contentY (a model
+			// change, a snap), and a binding it overwrote would stop following.
+			SpringFollower { id: carouselY; role: "page"; onValueChanged: statusList.contentY = value }
 
 			model: root._items
 

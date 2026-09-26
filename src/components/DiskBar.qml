@@ -53,14 +53,16 @@ Item {
         }
 
         Rectangle {
+            id: diskFill
             anchors.left:   parent.left
             anchors.top:    parent.top
             anchors.bottom: parent.bottom
-            width:          parent.width * Math.max(0, Math.min(1, root.usedPct / 100))
+            width:          diskW.value
             radius:         height / 2
             color:          root.barColor
 
-            Behavior on width { MotionSpring { role: "valueFollow" } }
+            SpringFollower { id: diskW; role: "valueFollow"
+                             target: diskFill.parent.width * Math.max(0, Math.min(1, root.usedPct / 100)) }
             Behavior on color { MotionColor { role: "state" } }
         }
     }

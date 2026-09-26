@@ -154,7 +154,7 @@ for line in ("singleton Motion theme/Motion.qml",
              "MotionColor 1.0 theme/anim/MotionColor.qml",
              "MotionFade 1.0 theme/anim/MotionFade.qml",
              "MotionMove 1.0 theme/anim/MotionMove.qml",
-             "MotionSpring 1.0 theme/anim/MotionSpring.qml"):
+             "SpringFollower 1.0 theme/anim/SpringFollower.qml"):
     if line not in have:
         add += line + "\n"
 open(qmldir, "a").write(add)

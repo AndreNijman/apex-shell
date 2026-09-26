@@ -1550,6 +1550,13 @@ jobs:
       - name: The surface lifecycle
         run: ./tests/run-surface-lifecycle-test.sh
 
+      # A value on the closed-form spring, stepped per frame (tab pills, the
+      # Nexus highlight, switch knobs, page widths, notch widths): born on its
+      # target, lands exactly, keeps its velocity through a retarget, jumps when
+      # not live. Replaced Qt's SpringAnimation, which steps at a fixed 16 ms.
+      - name: The spring follower
+        run: ./tests/run-spring-follower-test.sh
+
       # ApexPressable & co. (UI/UX roadmap Phase 3): the press dip and its
       # return, keyboard activation that replays it, a ring for keyboard focus
       # and none for a pointer's, a disabled control that does nothing, and a

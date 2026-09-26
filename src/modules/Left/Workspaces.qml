@@ -149,7 +149,10 @@ Rectangle {
 
                 height: theme.wsDotSize
                 radius: height / 2
-                width:  isFocused ? theme.wsActiveWidth : theme.wsDotSize
+                // The focused dot's width on a spring that bends toward a second
+                // workspace change mid-travel (SpringFollower).
+                width:  dotW.value
+                SpringFollower { id: dotW; target: dot.isFocused ? theme.wsActiveWidth : theme.wsDotSize }
 
                 color: {
                     if (dot.isFocused)  return Theme.wsActive
@@ -158,7 +161,6 @@ Rectangle {
                     return Theme.wsEmpty
                 }
 
-                Behavior on width { MotionSpring {} }
                 Behavior on color { MotionColor { role: "state" } }
 
                 // --- Urgent pulse ---

@@ -183,35 +183,6 @@ function spring(role, scale, reduced) {
     return { response: sp.response * scale, damping: sp.damping };
 }
 
-/// Qt's SpringAnimation parameters for a spring role: {spring, damping}.
-///
-/// Measured (2026-09-26, Qt 6.10): SpringAnimation is a fixed-step integrator,
-/// 16 ms a step — v += spring·(to − x) − damping·v, then x += v·0.016 — and
-/// its peak overshoot and settle times match that model to four places. So a
-/// response/damping-fraction spring maps onto it EXACTLY by matching the step
-/// matrix's eigenvalues to the continuous spring's, sampled at 16 ms:
-///     det = 1 − damping          = e^(−2ζω0·dt)
-///     tr  = 2 − damping − 0.016·spring = λ1 + λ2
-/// Under Reduce Motion (or motion off) it is DEADBEAT — damping 1, spring
-/// 1/0.016 — which lands on the target in exactly one step. Not spring 0:
-/// with no spring and no velocity limit SpringAnimation never moves at all
-/// (measured), so the value would be stuck where it was.
-var QT_DT = 0.016;
-function qtSpring(role, scale, reduced) {
-    var sp = spring(role, scale, reduced);
-    if (!(sp.response > 0)) return { spring: 1 / QT_DT, damping: 1 };
-    var w0 = 2 * Math.PI / sp.response, z = sp.damping, dt = QT_DT;
-    var det = Math.exp(-2 * z * w0 * dt), tr;
-    if (z < 0.9999) tr = 2 * Math.exp(-z * w0 * dt) * Math.cos(w0 * Math.sqrt(1 - z * z) * dt);
-    else if (z <= 1.0001) tr = 2 * Math.exp(-w0 * dt);
-    else {
-        var r = Math.sqrt(z * z - 1);
-        tr = Math.exp((-z + r) * w0 * dt) + Math.exp((-z - r) * w0 * dt);
-    }
-    var c = 1 - det;
-    return { spring: (2 - c - tr) / dt, damping: c };
-}
-
 /// The legacy single duration, for callers not yet migrated: what 320 ms used
 /// to be, at the user's speed. 0 under Reduce Motion, as it always was.
 function legacyDuration(scale, reduced) {
@@ -255,7 +226,6 @@ if (typeof module !== "undefined" && module.exports)
         LOOPS: LOOPS,
         SPRINGS: SPRINGS,
         spring: spring,
-        qtSpring: qtSpring,
         SPEEDS: SPEEDS,
         SCALE_MIN: SCALE_MIN,
         SCALE_MAX: SCALE_MAX,
