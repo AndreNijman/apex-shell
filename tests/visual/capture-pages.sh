@@ -16,6 +16,7 @@
 #  default wallpaper), dark and light.
 #
 #  Writes OUTDIR/<scheme>/<page>.png — one settled 1920x1080 frame per page.
+#  CAPTURE_PAGES="home tasks" captures only those pages (default: all).
 #  CAPTURE_UNRESTRICTED=1 turns Always Unrestricted on (the harness's own
 #  ~/.config/apex/agent.json), so the Agents panel shows its indicator.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -81,6 +82,7 @@ PY
     sleep 3
     ipc() { quickshell -p "$root/shell.qml" ipc call "$@" >/dev/null 2>&1; }
     shot() { grim "$out/$scheme/$1.png"; }
+    want() { [ -z "${CAPTURE_PAGES:-}" ] || [[ " $CAPTURE_PAGES " == *" $1 "* ]]; }
     mkdir -p "$out/$scheme"
 
     local n
@@ -97,16 +99,17 @@ PY
     local pair page cmd
     for pair in "home|dashboard-home" "system|dashboard-stats" "agents|dashboard-agents" "tasks|dashboard-kanban" \
                 "launcher|dashboard-launcher" "config|dashboard-config"; do
-        page="${pair%%|*}"; cmd="${pair#*|}"
+        page="${pair%%|*}"; cmd="${pair#*|}"; want "$page" || continue
         ipc "$cmd" toggle; sleep 2.2; shot "$page"; ipc "$cmd" toggle; sleep 1.2
     done
     for pair in "network-wifi|wifi-toggle" "network-bluetooth|bluetooth-toggle" "network-vpn|vpn-toggle" \
                 "notifications|notification-toggle"; do
-        page="${pair%%|*}"; cmd="${pair#*|}"
+        page="${pair%%|*}"; cmd="${pair#*|}"; want "$page" || continue
         ipc "$cmd" toggle; sleep 2; shot "$page"; ipc "$cmd" toggle; sleep 1.2
     done
     local p
     for p in $(quickshell -p "$root/shell.qml" ipc call nexus pages 2>/dev/null | tr ',' ' '); do
+        want "nexus-$p" || continue
         ipc nexus open "$p"; sleep 1.6; shot "nexus-$p"
     done
     ipc nexus close; sleep 1

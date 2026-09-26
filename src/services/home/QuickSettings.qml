@@ -835,7 +835,14 @@ StatCard {
                     property  string sublabel: ""
                     signal toggled()
 
-                    radius: 10
+                    // The tile (UI/UX Phase 17): one surface and one label say
+                    // on or off. It said it four ways — the fill, a status dot,
+                    // the icon's colour and the label's weight — and drew a
+                    // border round each of ten tiles inside a bordered card. Off
+                    // is the card's second surface level, on is the accent
+                    // container; the sublabel line is always reserved, so every
+                    // label in a row sits on one baseline.
+                    radius: theme.radiusM
                     Accessible.checkable: true
                     Accessible.checked: btn.on
                     Accessible.name: btn.label + (btn.sublabel !== "" ? ", " + btn.sublabel : "")
@@ -844,45 +851,40 @@ StatCard {
 
                     Rectangle {
                         anchors.fill: parent; radius: parent.radius
-                        color: btn.on
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
-                            : btn.hovered
-                                ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
-                                : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
-                        border.color: btn.on
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30)
-                            : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)
-                        border.width: 1
-                        Behavior on color        { MotionColor { role: "state" } }
-                        Behavior on border.color { MotionColor { role: "state" } }
-                    }
-
-                    Rectangle {
-                        anchors { top: parent.top; right: parent.right; margins: 8 }
-                        width: 6; height: 6; radius: 3
-                        color: btn.on ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.18)
+                        color: btn.tint(btn.on ? Theme.accentContainer : Theme.surfaceOverlay)
                         Behavior on color { MotionColor { role: "state" } }
                     }
 
+                    Text {
+                        anchors { top: parent.top; left: parent.left; margins: theme.px(9) }
+                        text: btn.icon; font.pixelSize: theme.fs(17)
+                        color: btn.on ? Theme.onAccentContainer : Theme.iconDefault
+                        Behavior on color { MotionColor { role: "state" } }
+                    }
                     Column {
-                        anchors { left: parent.left; bottom: parent.bottom; margins: 9 }
-                        spacing: 2
+                        anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: theme.px(8) }
+                        spacing: theme.px(1)
+                        // The caption size, shrinking to fit a narrow tile rather than
+                        // eliding "Do Not Disturb" to "Do Not Dist…" — never under 9.
                         Text {
-                            text: btn.icon; font.pixelSize: theme.fs(17)
-                            color: btn.on ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.40)
+                            width: parent.width
+                            text: btn.label
+                            font.pixelSize: theme.typeCaption; font.weight: Font.Medium
+                            fontSizeMode: Text.HorizontalFit; minimumPixelSize: theme.fs(9)
+                            color: btn.on ? Theme.onAccentContainer : Theme.textSecondary
+                            elide: Text.ElideRight
                             Behavior on color { MotionColor { role: "state" } }
                         }
-                        Text {
-                            text: btn.label; font.pixelSize: theme.fs(9); font.weight: Font.Medium
-                            color: btn.on ? Theme.text : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.45)
-                            Behavior on color { MotionColor { role: "state" } }
-                        }
-                        Text {
-                            visible: btn.sublabel !== ""
-                            text:    btn.sublabel
-                            font.pixelSize: theme.fs(8); font.family: "JetBrains Mono"
-                            color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.65)
-                            width: btn.width - 18; elide: Text.ElideRight
+                        Item {
+                            width: parent.width; height: theme.px(13)
+                            Text {
+                                anchors.fill: parent
+                                text: btn.sublabel
+                                font.pixelSize: theme.fs(10); font.family: Theme.fontMono
+                                color: btn.on ? Theme.onAccentContainer : Theme.textTertiary
+                                opacity: btn.on ? 0.8 : 1
+                                elide: Text.ElideRight
+                            }
                         }
                     }
                     ApexFocusRing { target: btn }
@@ -895,7 +897,9 @@ StatCard {
                     columns: 2; spacing: 6
 
                     readonly property real btnW: (width - spacing) / 2
-                    readonly property real btnH: btnW * 0.85
+                    // The token's height (72), not 85 % of the width (76): five
+                    // rows of the latter ran through the card's clip mid-label.
+                    readonly property real btnH: theme.tileHeight
 
                     TglBtn {
                         width: tileGrid.btnW; height: tileGrid.btnH
