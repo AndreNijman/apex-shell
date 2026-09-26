@@ -650,6 +650,17 @@ jobs:
           # does not fail the build.
           ./tests/run-labwc-matrix-test.sh
 
+      - name: Hyprland follows the shell's motion settings, live
+        run: |
+          # The real shell in a Hyprland nested in a headless labwc: a slower
+          # shell makes a slower compositor, a shell restart does not scale its
+          # own push again, Reduce Motion switches the spatial classes off, and
+          # a hyprctl reload is followed by a fresh push. Needs labwc, Hyprland
+          # and a GPU render node; skips cleanly without them, which on this
+          # runner it does — the planning it relies on is asserted above by
+          # tests/hypr-motion-test.js.
+          ./tests/run-hypr-motion-sync-test.sh
+
       - name: Display transaction behavioural test
         run: |
           # Needs labwc, wlr-randr and the installed display engine, and skips
@@ -1548,6 +1559,14 @@ jobs:
       # fallback rule applied and the fallbacks that fire pinned.
       - name: Colour roles hold their contrast on every shipped palette
         run: node tests/color-roles-test.js
+
+      # The compositor on the shell's Motion (UI/UX roadmap v3 Phase 21): the
+      # base read back from Hyprland, every declared class scaled by the
+      # shell's speed, Reduce Motion's spatial-off / effects-capped split, and
+      # a restart that must not scale its own push again. The live half is
+      # tests/run-hypr-motion-sync-test.sh, which needs a nested Hyprland.
+      - name: Hyprland follows the shell's motion settings
+        run: node tests/hypr-motion-test.js
 
       # The lock screen's (and login screen's) password shapes: one geometric
       # shape per character instead of bullet dots, and structurally unable to
