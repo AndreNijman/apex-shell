@@ -27,10 +27,9 @@ mkdir -p "$HOME/.cache/apex-shell"
 if [ -n "${CAPTURE_PALETTE:-}" ] && [ -f "$CAPTURE_PALETTE" ]; then
     cp "$CAPTURE_PALETTE" "$HOME/.cache/apex-shell/colors.json"
 else
-    printf '%s' '{"background":"#171210","active":"#fab898","text":"#ece0dc","subtext":"#d6c2ba","border":"#52443e","iconFont":"#be8366"}' \
-        > "$HOME/.cache/apex-shell/colors.json"
+    headless_apex_palette dark   # the APEX-OS default look (tests/lib/headless.sh)
 fi
-command -v swaybg >/dev/null && swaybg -m fill -i "$root/src/assets/wallpapers/apex-shell-default-0.png" >/dev/null 2>&1 &
+command -v swaybg >/dev/null && swaybg -m fill -i "$HEADLESS_WALLPAPER" >/dev/null 2>&1 &
 
 log="$HEADLESS_W/osd.log"
 timeout 30 quickshell -p "$staged" > "$log" 2>&1 &

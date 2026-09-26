@@ -187,6 +187,30 @@ FAKE
     fi
 }
 
+# ── The APEX-OS default look, for every test and capture ─────────────────────
+# Andre, 2026-09-26: "use the apex default wallpaper in all tests from now on,
+# not the old brain shell wallpaper." The APEX default is apex-os
+# files/branding/wallpapers/apex-wallpaper-default.jpg (the image the first run
+# selects and the greeter shows), carried here as a fixture so CI has it; its
+# palettes are in tests/fixtures/palettes-matugen-4.2.0.json under the same
+# name. src/assets/wallpapers/apex-shell-default-0.png is upstream's "BRAIN
+# SHELL" image — not a backdrop or palette for any test.
+HEADLESS_WALLPAPER="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/fixtures/wallpapers/apex-wallpaper-default.jpg"
+
+# headless_apex_palette [dark|light] [file] — seed that palette as the shell's
+# colors.json (default: dark, $HOME/.cache/apex-shell/colors.json).
+headless_apex_palette() {
+    local mode="${1:-dark}" dest="${2:-$HOME/.cache/apex-shell/colors.json}"
+    mkdir -p "$(dirname "$dest")"
+    python3 - "$(dirname "$HEADLESS_WALLPAPER")/../palettes-matugen-4.2.0.json" "$mode" "$dest" <<'PY'
+import json, sys
+p = next(x for x in json.load(open(sys.argv[1]))["palettes"]
+         if x["wall"] == "apex-wallpaper-default.jpg" and x["mode"] == sys.argv[2])
+json.dump({k: p[k] for k in ("background", "active", "text", "subtext", "border", "iconFont")},
+          open(sys.argv[3], "w"))
+PY
+}
+
 # Give a tool back its real binary. The stubs exist so a settings page cannot
 # interrogate or reconfigure the live machine, but a suite whose whole point is
 # to run `niri validate` needs the real niri. Named one at a time, so removing a

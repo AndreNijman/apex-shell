@@ -63,12 +63,15 @@ function resolve(p) {
         outlineStrong:   mix(B, T, 0.24),
         hairline:        mix(B, T, 0.10),
         textPrimary:     T,
-        // .30, not the brief's .35: at .35 the fallback fired on the shipped
+        // .28, not the brief's .35: at .35 the fallback fired on the shipped
         // default palette itself (design review 2) — a fallback that fires on
-        // the default is the formula.
-        textSecondary:   mix(T, B, 0.30),
+        // the default is the formula. It was .30 until the APEX-OS default
+        // wallpaper became the default look (2026-09-26): its light palette's
+        // near-black accent darkens surfaceSelected, and .30 read 4.28:1 there;
+        // .28 reads 4.58 with no fallback, and only strengthens every other one.
+        textSecondary:   mix(T, B, 0.28),
         // .50, not the brief's .55, for the same reason: .55 fired the
-        // fallback on all six light schemes. At .30 / .50 no shipped palette
+        // fallback on all six light schemes. At .28 / .50 no shipped palette
         // needs a fallback at all; the rule stays for the ones that are not
         // shipped.
         textTertiary:    mix(T, B, 0.50),

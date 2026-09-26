@@ -12,8 +12,8 @@
 #  tests/lib/fake-nmcli and fake-bluetoothctl for the network panes,
 #  fake-mpris.py for the player, fake-brightnessctl, a tasks.json with cards in
 #  every column, and notifications sent to the shell on the private bus. The
-#  palette is the fixture's (tests/fixtures/palettes-matugen-4.2.0.json, the
-#  default wallpaper), dark and light.
+#  palette is the fixture's (tests/fixtures/palettes-matugen-4.2.0.json) for the
+#  APEX-OS default wallpaper (tests/fixtures/wallpapers/), dark and light.
 #
 #  Writes OUTDIR/<scheme>/<page>.png — one settled 1920x1080 frame per page.
 #  CAPTURE_PAGES="home tasks" captures only those pages (default: all). The
@@ -47,19 +47,17 @@ capture_scheme() {   # capture_scheme <dark|light> — one shell, every page
     # The wallpaper the palette came from, behind the shell, as a user sees it.
     local wallpid=""
     if command -v swaybg >/dev/null 2>&1; then
-        swaybg -m fill -i "$root/src/assets/wallpapers/apex-shell-default-0.png" >/dev/null 2>&1 & wallpid=$!
+        swaybg -m fill -i "$HEADLESS_WALLPAPER" >/dev/null 2>&1 & wallpid=$!
     fi
 
     local ud="$HOME/.config/apex-shell/src/user_data"
     mkdir -p "$ud" "$HOME/.cache/apex-shell"
     printf '{"barEnabled":true,"animDuration":320,"motionScale":1,"dashboardWidth":900,"dashboardHeight":520}' > "$ud/settings.json"
-    python3 - "$root/tests/fixtures/palettes-matugen-4.2.0.json" "$scheme" "$HOME/.cache/apex-shell/colors.json" <<'PY'
-import json, sys
-p = next(x for x in json.load(open(sys.argv[1]))["palettes"]
-         if x["wall"] == "apex-shell-default-0.png" and x["mode"] == sys.argv[2])
-json.dump({k: p[k] for k in ("background", "active", "text", "subtext", "border", "iconFont")},
-          open(sys.argv[3], "w"))
-PY
+    headless_apex_palette "$scheme"
+    # ...and that wallpaper is the current one, as the first run makes it, so the
+    # Appearance page and the lock screen show it too.
+    printf '{"currentWall":"%s","wallpaperDir":"~/Pictures/Wallpapers","scheme":"content"}' \
+        "$HEADLESS_WALLPAPER" > "$ud/wallpaper.json"
     if [ "${CAPTURE_UNRESTRICTED:-0}" = 1 ]; then
         mkdir -p "$HOME/.config/apex"; printf '{"sandbox":"unrestricted"}' > "$HOME/.config/apex/agent.json"
     fi

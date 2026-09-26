@@ -170,6 +170,10 @@ const THEME_QML = fs.readFileSync(path.join(SRC, "theme", "Theme.qml"), "utf8");
 // ── the palettes, from matugen 4.2.0 ────────────────────────────────────────
 // wallpaper, mode, and the two fields a status colour is drawn against.
 const PALETTES = [
+    // The APEX-OS default wallpaper (tests/fixtures/wallpapers/), the look every
+    // harness uses; then the six shipped apex-shell-default-* wallpapers.
+    ["apex-wallpaper-default.jpg", "dark",  "#121315", "#e3e2e5", "#c4c6ce"],
+    ["apex-wallpaper-default.jpg", "light", "#faf9fb", "#1b1c1e", "#44474d"],
     ["apex-shell-default-0.png", "dark",  "#141311", "#e6e2dd", "#ccc6b9"],
     ["apex-shell-default-0.png", "light", "#fdf9f3", "#1d1b19", "#4a473c"],
     ["apex-shell-default-1.png", "dark",  "#121316", "#e2e2e5", "#c2c7cf"],

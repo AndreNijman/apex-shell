@@ -21,12 +21,14 @@ mkdir -p "$HOME/.cache/apex-shell"
 if [ -n "${CAPTURE_PALETTE:-}" ] && [ -f "$CAPTURE_PALETTE" ]; then
     cp "$CAPTURE_PALETTE" "$HOME/.cache/apex-shell/colors.json"
 else
-    printf '%s' '{"background":"#171210","active":"#fab898","text":"#ece0dc","subtext":"#d6c2ba","border":"#52443e","iconFont":"#be8366"}' \
-        > "$HOME/.cache/apex-shell/colors.json"
+    headless_apex_palette dark   # the APEX-OS default look (tests/lib/headless.sh)
 fi
 if [ -n "${CAPTURE_REDUCED:-}" ]; then
     mkdir -p "$HOME/.config/apex-shell/src/user_data"
     printf '%s' '{"reduceMotion":true}' > "$HOME/.config/apex-shell/src/user_data/settings.json"
+    # The APEX-OS default wallpaper is the current one, as the first run makes it,
+    # so the lock screen's blurred backdrop is APEX's, not upstream's.
+    printf '{"currentWall":"%s","wallpaperDir":"~/Pictures/Wallpapers","scheme":"content"}' "$HEADLESS_WALLPAPER" > "$HOME/.config/apex-shell/src/user_data/wallpaper.json"
 fi
 log="$HEADLESS_W/shell.log"
 quickshell -p "$root/shell.qml" > "$log" 2>&1 &

@@ -660,8 +660,11 @@ want "mutant D differs from the original" \
 bus_orphans() {   # bus_orphans <file>... — prints each runner on neither bus
     local f
     for f in "$@"; do
-        grep -vE '^[[:space:]]*#' "$f" \
-            | grep -qE '^[[:space:]]*(\.|source)[[:space:]].*lib/(headless|private-bus)\.sh' \
+        # grep -c, not grep -q: under pipefail a -q that matches early exits,
+        # the writer takes SIGPIPE and the pipeline reads 141 — a runner that
+        # sources the library near the top of a long file read as an orphan.
+        [ "$(grep -vE '^[[:space:]]*#' "$f" \
+             | grep -cE '^[[:space:]]*(\.|source)[[:space:]].*lib/(headless|private-bus)\.sh')" -gt 0 ] \
             || echo "$f"
     done
 }

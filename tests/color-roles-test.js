@@ -29,11 +29,13 @@ const near = (c, h) => { const d = hex(h); return Math.abs(c.r - d.r) * 255 <= 1
     const { roles: r, fired } = R.resolve({ background: hex("#171210"), active: hex("#fab898"), text: hex("#ece0dc") });
     const table = { surfaceRaised: "#221c1a", surfaceOverlay: "#282220", surfaceHigh: "#312b28",
                     surfaceSelected: "#3b2d26", accentContainer: "#523d33", outlineStrong: "#4a4341",
-                    // textSecondary .30 and textTertiary .50 (roles.js); the brief's
-                    // table has .35 → #a19895 and .55 → #776f6c
-                    hairline: "#2c2724", textSecondary: "#aca29f", textTertiary: "#827976" };
+                    // textSecondary .28 and textTertiary .50 (roles.js); the brief's
+                    // table has .35 → #a19895 and .55 → #776f6c. .28 since the APEX-OS
+                    // default wallpaper became the default look (roles.js says why);
+                    // it was .30 → #aca29f.
+                    hairline: "#2c2724", textSecondary: "#b0a6a3", textTertiary: "#827976" };
     const off = Object.keys(table).filter(k => !near(r[k], table[k])).map(k => k + "=" + toHex(r[k]) + "≠" + table[k]);
-    check("the brief's default palette gives the role table, text at .30 / .50 (±1 per channel)", off.length === 0, off.join(" "));
+    check("the brief's default palette gives the role table, text at .28 / .50 (±1 per channel)", off.length === 0, off.join(" "));
     check("…with no fallback needed", fired.length === 0, fired.join("; "));
     check("hover and pressed on the base surface are the brief's", near(R.hover(r.surfaceBase, r.textPrimary), "#241e1c")
           && near(R.pressed(r.surfaceBase, r.textPrimary), "#2c2724"),
@@ -93,13 +95,18 @@ for (const [k, min] of Object.entries(req)) {
     const w = worst[k];
     check(`${k}: ≥ ${min} on all ${FIX.palettes.length} palettes (worst ${w.v.toFixed(2)}, ${w.where})`, w.v >= min);
 }
-check("twelve palettes were checked", FIX.palettes.length === 12, String(FIX.palettes.length));
+// Fourteen: the APEX-OS default wallpaper's two (the look every harness uses)
+// and the six shipped apex-shell-default-* wallpapers' twelve.
+check("fourteen palettes were checked, the APEX default's among them",
+      FIX.palettes.length === 14 && FIX.palettes.some(p => p.wall === "apex-wallpaper-default.jpg"),
+      String(FIX.palettes.length));
 console.log("\n  fallbacks fired: " + (fallbacks.length ? "\n    " + fallbacks.join("\n    ") : "none"));
 // The fallbacks are the rule working, not a failure: what matters is that
 // every palette meets every target AFTER them (above), and that which ones
 // fired is known. Pinned, so a palette or formula change that moves them is
 // looked at rather than absorbed.
-// 0 on the shipped palettes since the text mixes moved to .30 / .50 (it was
+// 0 on the shipped palettes (the APEX default's included) since the text mixes
+// moved to .28 / .50 (.30 fired once, on the APEX light palette; it was
 // 13 at the brief's .35 / .55, including the default dark palette itself).
 const EXPECT_FALLBACKS = 0;
 check(`the fallbacks that fire are the known ${EXPECT_FALLBACKS}`, fallbacks.reduce((n, f) => n + f.split(";").length, 0) === EXPECT_FALLBACKS,

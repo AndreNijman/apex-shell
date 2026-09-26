@@ -93,8 +93,7 @@ printf '{"barEnabled":false,"animDuration":320,"motionScale":1,"reduceMotion":%s
 if [ -n "${DASH_KEYS_COLORS:-}" ]; then
     cp "$DASH_KEYS_COLORS" "$HOME/.cache/apex-shell/colors.json"
 else
-    printf '%s' '{"background":"#171210","active":"#fab898","text":"#ece0dc","subtext":"#d6c2ba","border":"#52443e","iconFont":"#be8366"}' \
-        > "$HOME/.cache/apex-shell/colors.json"
+    headless_apex_palette dark   # the APEX-OS default look (tests/lib/headless.sh)
 fi
 # Two applications for the launcher, told apart by the first key: "kqv" is
 # Kqvkeytest's; lose the k and "qv" is Qvkeytest's prefix.

@@ -26,7 +26,7 @@
 #   CAPTURE_PALETTE    colors.json to seed (default: the shipped example is a
 #                      template, so a fixed dark palette is written instead)
 #   CAPTURE_WALLPAPER  image drawn behind the shell with swaybg, so contrast
-#                      against a real wallpaper is visible (default: shipped 0)
+#                      against a real wallpaper is visible (default: the APEX-OS default)
 #
 # Rendering is on the GPU (HEADLESS_WLR_RENDERER=gles2) when a render node is
 # available, because pixman makes Qt fall back to software rasterising and the
@@ -50,7 +50,7 @@ headless_require quickshell grim labwc
 anim="${CAPTURE_ANIM_MS:-1200}"
 frames="${CAPTURE_FRAMES:-14}"
 mode="${CAPTURE_MODE:-1920x1080}"
-wall="${CAPTURE_WALLPAPER:-$root/src/assets/wallpapers/apex-shell-default-0.png}"
+wall="${CAPTURE_WALLPAPER:-$HEADLESS_WALLPAPER}"
 
 headless_begin
 qs_pid=""; bg_pid=""
@@ -66,6 +66,9 @@ headless_start labwc "$mode" || exit 0
 
 # ── seed the sandbox HOME ────────────────────────────────────────────────────
 ud="$HOME/.config/apex-shell/src/user_data"
+mkdir -p "$ud"
+# The APEX-OS default wallpaper is the current one, as the first run makes it.
+printf '{"currentWall":"%s","wallpaperDir":"~/Pictures/Wallpapers","scheme":"content"}' "$HEADLESS_WALLPAPER" > "$ud/wallpaper.json"
 mkdir -p "$ud" "$HOME/.cache/apex-shell"
 cat > "$ud/settings.json" <<JSON
 {"cornerRadius":17,"borderWidth":6,"notchRadius":15,"notchHeight":40,"barEnabled":false,"spacing":10,"exclusionGap":34,"animDuration":${anim},"reduceMotion":${CAPTURE_REDUCED:-false},"dashboardWidth":900,"dashboardHeight":520,"notificationsWidth":400,"lockBackground":"","scaleMode":"auto","scaleManual":1,"scaleScreen":"","nightLightTemp":5600,"motionSpeed":"balanced","motionScale":$(python3 -c "print(round(${anim}/320, 3))")}
@@ -73,9 +76,7 @@ JSON
 if [ -n "${CAPTURE_PALETTE:-}" ] && [ -f "$CAPTURE_PALETTE" ]; then
     cp "$CAPTURE_PALETTE" "$HOME/.cache/apex-shell/colors.json"
 else
-    cat > "$HOME/.cache/apex-shell/colors.json" <<'JSON'
-{"background":"#171210","active":"#fab898","text":"#ece0dc","subtext":"#d6c2ba","border":"#52443e","iconFont":"#be8366"}
-JSON
+    headless_apex_palette dark   # the APEX-OS default look (tests/lib/headless.sh)
 fi
 
 if command -v swaybg >/dev/null 2>&1 && [ -f "$wall" ]; then

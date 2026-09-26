@@ -52,8 +52,7 @@ ln -sf "$HEADLESS_W/bin/_stub" "$HEADLESS_W/bin/labwc"   # the apply pipeline's 
 
 ud="$HOME/.config/apex-shell/src/user_data"; mkdir -p "$ud" "$HOME/.cache/apex-shell"
 printf '{"barEnabled":false,"animDuration":320,"motionScale":1,"dashboardWidth":900,"dashboardHeight":520}' > "$ud/settings.json"
-printf '%s' '{"background":"#171210","active":"#fab898","text":"#ece0dc","subtext":"#d6c2ba","border":"#52443e","iconFont":"#be8366"}' \
-    > "$HOME/.cache/apex-shell/colors.json"
+headless_apex_palette dark   # the APEX-OS default look (tests/lib/headless.sh)
 python3 - "$HOME/Pictures/Wallpapers" <<'PY'
 import sys
 from PIL import Image

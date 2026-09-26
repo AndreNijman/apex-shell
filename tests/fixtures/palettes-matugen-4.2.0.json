@@ -1,6 +1,26 @@
 {
- "_provenance": "matugen 4.2.0: `matugen image <wall> --source-color-index 0 --type scheme-content -m <mode> --dry-run -j hex` (WallpaperService.qml's own flags), in a throwaway HOME with no config. Fields as src/config/apex-shell-colors.json.example maps them: background=surface, active=primary, text=on_surface, subtext=on_surface_variant, border=outline_variant, iconFont=primary_container.",
+ "_provenance": "matugen 4.2.0: `matugen image <wall> --source-color-index 0 --type scheme-content -m <mode> --dry-run -j hex` (WallpaperService.qml's own flags), in a throwaway HOME with no config. Fields as src/config/apex-shell-colors.json.example maps them: background=surface, active=primary, text=on_surface, subtext=on_surface_variant, border=outline_variant, iconFont=primary_container. apex-wallpaper-default.jpg is apex-os files/branding/wallpapers/apex-wallpaper-default.jpg (installed as /usr/share/backgrounds/apex/default.jpg, the APEX-OS default the shell's first run selects), carried as tests/fixtures/wallpapers/apex-wallpaper-default.jpg; generated 2026-09-26 with the same command, which reproduces the apex-shell-default-0 entries byte for byte. It is the palette every harness uses by default; the six apex-shell-default-* palettes stay for contrast coverage.",
  "palettes": [
+  {
+   "wall": "apex-wallpaper-default.jpg",
+   "mode": "dark",
+   "background": "#121315",
+   "active": "#b2c8ec",
+   "text": "#e3e2e5",
+   "subtext": "#c4c6ce",
+   "border": "#44474d",
+   "iconFont": "#061f3b"
+  },
+  {
+   "wall": "apex-wallpaper-default.jpg",
+   "mode": "light",
+   "background": "#faf9fb",
+   "active": "#000613",
+   "text": "#1b1c1e",
+   "subtext": "#44474d",
+   "border": "#c4c6ce",
+   "iconFont": "#061f3b"
+  },
   {
    "wall": "apex-shell-default-0.png",
    "mode": "dark",

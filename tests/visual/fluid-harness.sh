@@ -22,12 +22,11 @@ trap cleanup EXIT INT TERM
 headless_start labwc 1920x1080 || exit 0
 cp "$here/fluid-harness.qml" "$staged"
 mkdir -p "$HOME/.cache/apex-shell"
-printf '%s' '{"background":"#171210","active":"#fab898","text":"#ece0dc","subtext":"#d6c2ba","border":"#52443e","iconFont":"#be8366"}' \
-    > "$HOME/.cache/apex-shell/colors.json"
+headless_apex_palette dark   # the APEX-OS default look (tests/lib/headless.sh)
 for fam in "$@"; do
     for sc in ${HARNESS_SCALES:-0.85 1.0 1.5}; do
         HARNESS_FAMILY="$fam" HARNESS_OUT="$out" HARNESS_SCALE="$sc" \
-        HARNESS_BG="${HARNESS_BG:-$root/src/assets/wallpapers/apex-shell-default-0.png}" \
+        HARNESS_BG="${HARNESS_BG:-$HEADLESS_WALLPAPER}" \
             timeout 60 quickshell -p "$staged" > "$HEADLESS_W/h-$fam-$sc.log" 2>&1
         grep -E 'TypeError|ReferenceError|is not a type|Error' "$HEADLESS_W/h-$fam-$sc.log" | head -5
         case "$fam" in
