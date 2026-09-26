@@ -236,14 +236,29 @@ StatCard {
             "cat '" + root._hsCfgPath + "'"]
         running: false
         stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    var o = JSON.parse(text.trim())
-                    if (o.ssid)     root._hsSSID     = o.ssid
-                    if (o.password) root._hsPassword = o.password
-                } catch(e) {}
-            }
+            onStreamFinished: { root._hsParse(text); hsCfgFile.reload() }
         }
+    }
+
+    // Kept current, not read once (UI/UX Phase 19): the Hotspot pane saves the
+    // name and password to this file, and the tile read it only at startup — a
+    // changed password did not reach the hotspot until the Home page was rebuilt
+    // (HotspotTab's header claimed a re-read "on next hotspot start" that never
+    // happened). The process above only creates the file on first run.
+    FileView {
+        id: hsCfgFile
+        path: root._hsCfgPath
+        watchChanges: true
+        printErrors: false
+        onFileChanged: hsCfgFile.reload()
+        onLoaded: root._hsParse(hsCfgFile.text())
+    }
+    function _hsParse(t) {
+        try {
+            var o = JSON.parse(t.trim())
+            if (o.ssid)     root._hsSSID     = o.ssid
+            if (o.password) root._hsPassword = o.password
+        } catch (e) {}
     }
 
     // Detect WiFi interface name

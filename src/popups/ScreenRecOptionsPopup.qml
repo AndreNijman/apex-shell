@@ -85,7 +85,10 @@ PopupWindow {
                 _icon:     ScreenRecService._captureIcons[modelData]  ?? ""
                 _label:    ScreenRecService._captureLabels[modelData] ?? ""
                 _selected: ScreenRecService.captureTarget === modelData
-                onClicked: ScreenRecService.captureTarget = modelData
+                // Saved on change, as the Data page's switches are (UI/UX Phase
+                // 19): this popup's choices were written only when a recording
+                // started, so changing them and closing the strip lost them.
+                onClicked: { ScreenRecService.captureTarget = modelData; ScreenRecService.saveConfig() }
             }
         }
 
@@ -117,6 +120,7 @@ PopupWindow {
                     } else {
                         ScreenRecService.audioSystem = !ScreenRecService.audioSystem
                     }
+                    ScreenRecService.saveConfig()
                 }
             }
         }

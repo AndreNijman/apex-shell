@@ -62,11 +62,9 @@ Item {
         saveProc.running = false; saveProc.running = true
     }
 
-    // Also update QuickSettings in-memory values so the tile uses new creds immediately
-    function _applyToQuickSettings() {
-        // Walk to the parent DashHome → QuickSettings sibling is not accessible,
-        // so we just save to disk; QS reads from disk on next hotspot start.
-    }
+    // The Home tile that starts the hotspot watches this file (QuickSettings'
+    // hsCfgFile), so a save here reaches it at once (UI/UX Phase 19: it used to
+    // read the file only when the Home page was built).
 
     Connections {
         target: Popups
