@@ -23,13 +23,10 @@ Item {
         implicitHeight: headerLabel.implicitHeight
         height:         implicitHeight
 
-        Text {
+        SectionLabel {
             id: headerLabel
-            anchors.horizontalCenter: parent.horizontalCenter
-            text:           "Disks"
-            font.pixelSize: theme.fs(11)
-            font.weight:    Font.Medium
-            color:          Theme.textSecondary
+            anchors.left: parent.left
+            text: "Disks"
         }
 
         Text {
@@ -40,7 +37,7 @@ Item {
                 verticalCenter: parent.verticalCenter
             }
             text:           root.service.disks.length
-            font.pixelSize: theme.fs(9)
+            font.pixelSize: theme.typeCaption
             font.weight:    Font.Medium
             color:          Theme.textTertiary
         }

@@ -12,7 +12,7 @@ Item {
 
     property string label:      ""
     property string value:      ""
-    property color  valueColor: Theme.text
+    property color  valueColor: Theme.textPrimary
 
     implicitHeight: 20
 
@@ -20,7 +20,7 @@ Item {
         anchors.left:           parent.left
         anchors.verticalCenter: parent.verticalCenter
         text:           root.label
-        font.pixelSize: theme.fs(11)
+        font.pixelSize: theme.typeBodySmall
         color:          Theme.textSecondary
     }
 
@@ -28,7 +28,9 @@ Item {
         anchors.right:          parent.right
         anchors.verticalCenter: parent.verticalCenter
         text:           root.value
-        font.pixelSize: theme.fs(11)
+        font.pixelSize: theme.typeBodySmall
+        font.weight:    Font.DemiBold
+        font.features:  { "tnum": 1 }
         color:          root.valueColor
     }
 }

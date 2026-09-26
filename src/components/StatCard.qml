@@ -18,12 +18,13 @@ Item {
     default property alias content: inner.data
     property int padding: 12
 
+    // A card is a surface, not a bordered box (UI/UX Phase 17, visual roadmap
+    // §13/§22): the raised surface level, no border — what sits inside it
+    // takes the next level down rather than another outline.
     Rectangle {
         anchors.fill: parent
-        radius:       theme.cornerRadius
-        color:        Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
-        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
-        border.width: 1
+        radius:       theme.radiusL
+        color:        Theme.surfaceRaised
     }
 
     Item {
