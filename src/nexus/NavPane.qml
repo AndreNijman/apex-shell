@@ -61,9 +61,30 @@ Item {
     // growing; as a bare Column it simply ran past the bottom of the Settings
     // window on a short screen, drawing "Pair a device" … "Misc" over whatever
     // was underneath and leaving them half off the card.
+    // The heading stays put (UI/UX Phase 17): it was the first item in the
+    // scrolled column, so a long page list scrolled it away (Keybinds) or out
+    // of sight entirely (Misc). The page title's role, as the page's own title.
+    Item {
+        id: navHeader
+        anchors { top: parent.top; left: parent.left; right: parent.right }
+        height: root.theme.px(56)
+        Text {
+            anchors {
+                left: parent.left
+                leftMargin: root.theme.px(20)
+                verticalCenter: parent.verticalCenter
+                verticalCenterOffset: root.theme.px(5)
+            }
+            text: "Settings"
+            color: Theme.textPrimary
+            font.pixelSize: root.theme.typePageTitle
+            font.weight: Font.DemiBold
+        }
+    }
+
     Flickable {
         id: flick
-        anchors.fill: parent
+        anchors { top: navHeader.bottom; left: parent.left; right: parent.right; bottom: parent.bottom }
         clip: true
         contentWidth: width
         contentHeight: col.height + root.theme.px(20)
@@ -140,27 +161,9 @@ Item {
         id: col
 
         x: root.theme.px(10)
-        y: root.theme.px(10)
+        y: root.theme.px(2)
         width: flick.width - root.theme.px(20)
         spacing: theme.px(2)
-
-        // Header
-        Item {
-            width: parent.width
-            height: theme.px(46)
-
-            Text {
-                anchors {
-                    left: parent.left
-                    leftMargin: theme.px(10)
-                    verticalCenter: parent.verticalCenter
-                }
-                text: "Settings"
-                color: Theme.text
-                font.pixelSize: theme.fs(17)
-                font.bold: true
-            }
-        }
 
         Repeater {
             id: pages

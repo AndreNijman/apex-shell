@@ -58,12 +58,15 @@ Item {
     // right edge), so the inset follows the reading direction; the width stays
     // a single rule, which is what the old comment here was protecting.
     // tests/run-rtl-test.sh measures the banner's x in both directions.
+    // On the content's left edge (12, where the rows' text starts) and out to
+    // the scroll lane (4 from the right): asymmetric on purpose, so a mirrored
+    // layout moves it and tests/run-rtl-test.sh can see that it did.
     CfgLifecycle {
         id: banner
         anchors.left:       root.left
-        anchors.leftMargin: 2
+        anchors.leftMargin: 12
         y:     banner.visible ? 8 : 0
-        width: root.width - 14
+        width: root.width - 16
     }
 
     Flickable {
@@ -73,8 +76,11 @@ Item {
         anchors.left:        parent.left
         anchors.right:       parent.right
         anchors.bottom:      parent.bottom
-        anchors.leftMargin:  12
-        anchors.rightMargin: 12
+        // 4 in from the page, the column 8 further: the rows' hover layer
+        // bleeds 8 past their text into that room, and the scrollbar keeps a
+        // lane of its own at the right instead of running over the content.
+        anchors.leftMargin:  4
+        anchors.rightMargin: 4
         anchors.bottomMargin: 12
         contentWidth:  width
         contentHeight: col.implicitHeight + 16
@@ -89,7 +95,9 @@ Item {
 
         Column {
             id: col
-            width:   flick.width - 12
+            anchors.left:       parent.left
+            anchors.leftMargin: 8
+            width:   flick.width - 16
             spacing: root.contentSpacing
         }
     }

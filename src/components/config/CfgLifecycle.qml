@@ -44,61 +44,69 @@ Item {
 
     width: parent ? parent.width : 0
     visible: root._shown
-    implicitHeight: root._shown ? Math.max(theme.px(30), text.implicitHeight + theme.px(14)) : 0
+    implicitHeight: !root._shown ? 0
+                  : root.error !== "" ? errText.implicitHeight + theme.px(14)
+                  : Math.max(chip.height, text.implicitHeight) + theme.px(4)
     height: implicitHeight
 
-    readonly property color _tone: root.error !== "" ? Theme.danger : Theme.active
-
+    // ── The promise: a chip and one line, no box (UI/UX Phase 17) ────────────
+    // It was a bordered box on every page, 50 px tall, repeating one sentence
+    // above the first section — the heaviest thing on pages with nothing to
+    // change. P0-023 pins the promise where the reader sees it; it does not ask
+    // for a box. The state's name is a chip in the accent container, the
+    // vocabulary's sentence beside it in the caption role, on the page's
+    // content edge.
     Rectangle {
+        id: chip
+        visible: root.error === "" && root.lifecycle !== ""
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.topMargin: theme.px(1)
+        width: chipText.implicitWidth + theme.px(12)
+        height: theme.px(18)
+        radius: theme.radiusXS
+        color: Theme.accentContainer
+        Text {
+            id: chipText
+            anchors.centerIn: parent
+            text: Semantics.stateLabel(root.lifecycle)
+            font.pixelSize: theme.typeCaption
+            font.weight: Font.DemiBold
+            color: Theme.onAccentContainer
+        }
+    }
+    Text {
+        id: text
+        visible: root.error === ""
+        anchors.left: chip.right
+        anchors.leftMargin: theme.px(8)
+        anchors.right: parent.right
+        anchors.verticalCenter: chip.verticalCenter
+        text: root.error === "" ? root._blurb : ""   // never beside the failure it no longer keeps
+        font.pixelSize: theme.typeCaption
+        color: Theme.textSecondary
+        wrapMode: Text.WordWrap
+    }
+
+    // ── A failed write keeps a box: it is the one thing here that is wrong ───
+    Rectangle {
+        visible: root.error !== ""
         anchors.fill: parent
-        anchors.leftMargin: 10
-        anchors.rightMargin: 2
-        radius: 8
-        color: Qt.rgba(root._tone.r, root._tone.g, root._tone.b, 0.06)
-        border.color: Qt.rgba(root._tone.r, root._tone.g, root._tone.b, 0.18)
+        radius: theme.radiusS
+        color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.06)
+        border.color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.18)
         border.width: 1
-        Behavior on color { MotionColor { role: "state" } }
-        Behavior on border.color { MotionColor { role: "state" } }
-
-        Row {
-            anchors {
-                left: parent.left
-                right: parent.right
-                verticalCenter: parent.verticalCenter
-                leftMargin: 10
-                rightMargin: 10
-            }
-            spacing: 8
-
-            // The state's own name, so the reader learns the word and can carry
-            // it to the next page.
-            Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
-                width: chip.implicitWidth + theme.px(12)
-                height: theme.px(17)
-                radius: 5
-                visible: root.error === "" && root.lifecycle !== ""
-                color: Qt.rgba(root._tone.r, root._tone.g, root._tone.b, 0.14)
-                Text {
-                    id: chip
-                    anchors.centerIn: parent
-                    text: Semantics.stateLabel(root.lifecycle)
-                    font.pixelSize: theme.fs(9)
-                    font.weight: Font.Bold
-                    color: root._tone
-                }
-            }
-
-            Text {
-                id: text
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width - (root.error === "" && root.lifecycle !== ""
-                                       ? chip.implicitWidth + theme.px(20) : 0)
-                text: root.error !== "" ? root.error : root._blurb
-                font.pixelSize: theme.fs(10)
-                color: root.error !== "" ? Theme.danger : Theme.subtext
-                wrapMode: Text.WordWrap
-            }
+        Text {
+            id: errText
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.leftMargin: theme.px(10)
+            anchors.rightMargin: theme.px(10)
+            text: root.error
+            font.pixelSize: theme.typeCaption
+            color: Theme.danger
+            wrapMode: Text.WordWrap
         }
     }
 }

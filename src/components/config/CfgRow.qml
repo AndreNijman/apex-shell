@@ -40,7 +40,9 @@ Item {
     // the content (an explanation, not a caption), where "…" would cut off the
     // half of the sentence that answers the question.
     property int    descriptionLines: 2
-    property bool   hoverable:   true
+    // A row lights on hover only when it holds a control (UI/UX Phase 17):
+    // prose rows — a heading's explanation, a readout — lit up and did nothing.
+    property bool   hoverable:   slot.children.length > 0
     // Why the running compositor cannot do this. Non-empty means the control is
     // switched off and the reason is shown in place of the description — the
     // honest alternative to a switch that moves and changes nothing, which is
@@ -170,9 +172,15 @@ Item {
                              slot.height + 12, readout.height + 12)
     height:         implicitHeight
 
+    // The row's text sits on the page's one left edge — the page title's, the
+    // section labels' (UI/UX Phase 17; it hung 10 px inside them) — and its
+    // control on the right edge; the hover layer bleeds 8 px past both, into
+    // the room CfgScroll leaves for it.
     Rectangle {
-        anchors.fill: parent
-        radius:       8
+        anchors.fill:        parent
+        anchors.leftMargin:  -8
+        anchors.rightMargin: -8
+        radius:       theme.radiusS
         color:        (root.hoverable && hov.hovered) ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03) : "transparent"
         Behavior on color { MotionColor {} }
     }
@@ -181,7 +189,6 @@ Item {
     Column {
         id: texts
         anchors.left:           parent.left
-        anchors.leftMargin:     10
         anchors.right:          readout.visible ? readout.left : slot.left
         anchors.rightMargin:    12
         anchors.verticalCenter: parent.verticalCenter
@@ -224,7 +231,6 @@ Item {
         enabled:                !root.unavailable
         opacity:                root.unavailable ? 0.32 : 1.0
         anchors.right:          parent.right
-        anchors.rightMargin:    8
         anchors.verticalCenter: parent.verticalCenter
         width:  childrenRect.width
         height: childrenRect.height
@@ -241,7 +247,7 @@ Item {
         visible:                root.status !== "" && !root.unavailable
         text:                   root.status
         anchors.right:          slot.children.length > 0 ? slot.left : parent.right
-        anchors.rightMargin:    slot.children.length > 0 ? 10 : 8
+        anchors.rightMargin:    slot.children.length > 0 ? 10 : 0
         anchors.verticalCenter: parent.verticalCenter
         font.pixelSize:         theme.typeMono
         font.family:            Theme.fontMono
