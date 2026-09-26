@@ -42,7 +42,8 @@ var TARGETS = {
     textTertiary:  3.0,     // placeholders and disabled only — never information
     icon:          3.0,     // glyphs (non-text contrast)
     accentOnBase:  3.0,     // the accent used as a label or icon colour
-    containerStep: 1.3      // accentContainer distinguishable from the base surface
+    containerStep: 1.3,     // accentContainer distinguishable from the base surface
+    onSelectedStep: 1.2     // a control's fill distinguishable from the selected surface under it
 };
 
 // The two state layers, over whatever surface a control is on.
@@ -73,9 +74,29 @@ function resolve(p) {
         textTertiary:    mix(T, B, 0.50),
         accent:          A,
         // The accent as a FOREGROUND (a label, a glyph). Fills keep `accent`.
-        accentText:      A
+        accentText:      A,
+        // A control's fill ON a selected surface (a Disconnect button in the
+        // connected row). Not surfaceHigh: the two differ by hue alone — 1.01 to
+        // 1.13 in luminance on the twelve shipped palettes — so under a
+        // low-chroma accent the button vanished into its own row (UI/UX Phase
+        // 17d, light). A floor between surfaceHigh and surfaceSelected was
+        // measured and rejected: reaching 1.15 takes the accent mix to .21–.27
+        // on the light palettes, where accentContainer / surfaceSelected falls to
+        // 1.00–1.04 — the Home tiles' "on" would vanish instead. Stepping the
+        // selected surface toward the text (the way surfaceHigh steps the base)
+        // was measured too: it separates better under hover but costs the label
+        // — textPrimary 6.93 at rest and 5.45 pressed, under the 7.0 target. The
+        // sheet colour keeps the label at full contrast: 1.25 worst at rest,
+        // 1.11 hovered (the state layer moves it toward the row), a transient
+        // 1.03 while pressed.
+        surfaceOnSelected: B
     };
     var fired = [];
+    // Checked first, so the text checks below see the final selected surface.
+    if (contrast(r.surfaceOnSelected, r.surfaceSelected) < TARGETS.onSelectedStep) {
+        r.surfaceSelected = mix(B, A, 0.22);
+        fired.push("surfaceSelected: mix(B, A, .22)");
+    }
     // Secondary text is checked on the two most demanding surfaces it is drawn
     // on, not only the highest: measured, the default wallpaper's pale accent
     // lifts surfaceSelected enough that .35 reads 4.38:1 there (the brief's own

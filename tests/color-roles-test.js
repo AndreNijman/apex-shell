@@ -72,13 +72,23 @@ for (const p of FIX.palettes) {
     // The selected fill is a step, not the whole cue — a selected control also
     // turns its label and glyph to the accent — but the step must not vanish.
     track("selectedStep", R.contrast(r.surfaceSelected, r.surfaceBase), tag);
+    // A control ON a selected surface (roles.js, surfaceOnSelected): its fill
+    // must separate from the row at rest and still while hovered — the state
+    // layer moves it toward the row. And the floor that role replaced must not
+    // come back by another route: accentContainer stays apart from selected.
+    track("onSelectedStep", R.contrast(r.surfaceOnSelected, r.surfaceSelected), tag);
+    track("onSelectedHover", R.contrast(R.hover(r.surfaceOnSelected, r.textPrimary), r.surfaceSelected), tag);
+    track("containerOverSelected", R.contrast(r.accentContainer, r.surfaceSelected), tag);
+    track("textPrimaryOnSelectedControl", R.contrast(r.textPrimary, R.pressed(r.surfaceOnSelected, r.textPrimary)), tag);
     const lift = [r.surfaceRaised, r.surfaceOverlay, r.surfaceHigh].map(c => R.contrast(c, r.surfaceBase));
     track("elevationOrdered", lift[0] < lift[1] && lift[1] < lift[2] ? 1 : 0, tag);
 }
 const req = { textPrimary: T.textPrimary, textSecondary: T.textSecondary, textTertiary: T.textTertiary,
               accentText: T.accentOnBase, iconDefault: T.icon, onAccentContainer: T.textSecondary,
               containerStep: T.containerStep, elevationOrdered: 1,
-              focusRing: 3.0, selectedStep: 1.2 };
+              focusRing: 3.0, selectedStep: 1.2,
+              onSelectedStep: T.onSelectedStep, onSelectedHover: 1.1, containerOverSelected: 1.1,
+              textPrimaryOnSelectedControl: T.textPrimary };
 for (const [k, min] of Object.entries(req)) {
     const w = worst[k];
     check(`${k}: ≥ ${min} on all ${FIX.palettes.length} palettes (worst ${w.v.toFixed(2)}, ${w.where})`, w.v >= min);
@@ -105,6 +115,11 @@ check(`the fallbacks that fire are the known ${EXPECT_FALLBACKS}`, fallbacks.red
           bad.fired.join("; "));
     check("the repaired accent clears 3:1 where the raw one did not",
           R.contrast(bad.roles.accentText, bad.roles.surfaceBase) > R.contrast(hex("#303030"), hex("#202020")));
+    check("a selected surface a control would vanish on is pushed further from the base",
+          bad.fired.some(f => f.startsWith("surfaceSelected"))
+          && R.contrast(bad.roles.surfaceOnSelected, bad.roles.surfaceSelected)
+             > R.contrast(hex("#202020"), R.mix(hex("#202020"), hex("#303030"), 0.16)),
+          bad.fired.join("; "));
 }
 
 console.log("\ncolor-roles: passed=" + passed + " failed=" + failed);

@@ -173,9 +173,12 @@ want "the element that shows the reason wraps it and never clips it" \
 # Both spellings of the scaler: `Theme.` is the shell-wide set and `theme.` is
 # this output's (P1-040). A rule that knew only one would stop checking the file
 # the moment it was migrated — silently, which is how a guard retires itself.
+# The inset is optional: UI/UX Phase 17 put the pills on the content edge
+# (`width: parent.width`), and the rule is about the width coming from the
+# parent at all, not about the 10 px it used to leave on each side.
 want "the profile control is given a width to wrap against" \
     bash -c 'sed -n "/CfgSegmented {/,/^                }/p" "$1" \
-             | grep -qE "width:[[:space:]]+parent\.width - (Theme|theme)\.px\(20\)"' _ "$page"
+             | grep -qE "width:[[:space:]]+parent\.width([[:space:]]+-[[:space:]]+(Theme|theme)\.px\([0-9]+\))?[[:space:]]*$"' _ "$page"
 
 # ── The suite may never touch the real colour daemon ─────────────────────────
 #

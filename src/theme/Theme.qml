@@ -42,6 +42,7 @@ QtObject {
     readonly property color surfaceOverlay:    Colors.surfaceOverlay
     readonly property color surfaceHigh:       Colors.surfaceHigh
     readonly property color surfaceSelected:   Colors.surfaceSelected
+    readonly property color surfaceOnSelected: Colors.surfaceOnSelected   // a control's fill on a selected surface
     readonly property color accentContainer:   Colors.accentContainer
     readonly property color onAccentContainer: Colors.onAccentContainer
     readonly property color accentText:        Colors.accentText

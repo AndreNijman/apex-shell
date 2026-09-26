@@ -963,8 +963,8 @@ Item {
     // 17, one action style). The whole row still toggles on a click and on
     // Return in the list; this says what that click does — with the status dot
     // gone, nothing on an idle row did. The busy spinner takes its place while
-    // the tunnel moves. On the connected (selected) row it sits on the sheet
-    // colour: in light, surfaceHigh and surfaceSelected converge.
+    // the tunnel moves. On the connected (selected) row its fill is
+    // Theme.surfaceOnSelected (roles.js says why).
     component RowAction: ApexPressable {
         id: act
         property bool   connected: false
@@ -977,7 +977,7 @@ Item {
         activeFocusOnTab: act.keyed
         Accessible.name: (act.connected ? "Disconnect " : "Connect ") + act.target
         onActivated: { act.go(); flick.forceActiveFocus() }
-        Rectangle { anchors.fill: parent; radius: parent.radius; color: act.tint(act.connected ? Theme.surfaceBase : Theme.surfaceHigh); Behavior on color { MotionColor {} } }
+        Rectangle { anchors.fill: parent; radius: parent.radius; color: act.tint(act.connected ? Theme.surfaceOnSelected : Theme.surfaceHigh); Behavior on color { MotionColor {} } }
         Text { id: actLbl; anchors.centerIn: parent; text: act.connected ? "Disconnect" : "Connect"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
         ApexFocusRing { target: act }
     }

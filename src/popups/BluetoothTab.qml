@@ -446,9 +446,8 @@ Item {
                     Accessible.name: (dRow.isConnected ? "Disconnect " : "Connect ") + dRow.device.name
                     // The button hides while the action runs; the keys go back to the list.
                     onActivated: { dRow.isConnected ? root._disconnect(dRow.device.mac) : root._connect(dRow.device.mac); devFlick.forceActiveFocus() }
-                    // On the selected row the sheet colour, not surfaceHigh: in light the
-                    // two roles converge and the button vanished into its own row.
-                    Rectangle { anchors.fill: parent; radius: parent.radius; color: togBtn.tint(dRow.isConnected ? Theme.surfaceBase : Theme.surfaceHigh); Behavior on color { MotionColor { role: "state" } } }
+                    // On the selected row: Theme.surfaceOnSelected (roles.js says why).
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: togBtn.tint(dRow.isConnected ? Theme.surfaceOnSelected : Theme.surfaceHigh); Behavior on color { MotionColor { role: "state" } } }
                     Text { id: togLbl; anchors.centerIn: parent; text: dRow.isConnected ? "Disconnect" : "Connect"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
                     ApexFocusRing { target: togBtn }
                 }
@@ -465,7 +464,7 @@ Item {
                     activeFocusOnTab: dRow.keyed || dRow.open
                     Accessible.name: "Remove " + dRow.device.name
                     onActivated: { root._pairingMac = ""; root._removeMac = dRow.isRemovePending ? "" : dRow.device.mac }
-                    Rectangle { anchors.fill: parent; radius: parent.radius; color: rmBtn.tint(dRow.isConnected ? Theme.surfaceBase : Theme.surfaceHigh); Behavior on color { MotionColor { role: "state" } } }
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: rmBtn.tint(dRow.isConnected ? Theme.surfaceOnSelected : Theme.surfaceHigh); Behavior on color { MotionColor { role: "state" } } }
                     Text { id: rmLbl; anchors.centerIn: parent; text: "Remove"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
                     ApexFocusRing { target: rmBtn }
                 }

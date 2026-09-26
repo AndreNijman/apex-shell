@@ -494,9 +494,8 @@ Item {
                     Accessible.name: "Disconnect from " + netRow.net.ssid
                     // The row goes when it disconnects; the keys go back to the list.
                     onActivated: { root._disconnect(); flick.forceActiveFocus() }
-                    // On the selected row the sheet colour, not surfaceHigh: in light the
-                    // two roles converge and the button vanished into its own row.
-                    Rectangle { anchors.fill: parent; radius: parent.radius; color: disBtn.tint(Theme.surfaceBase); Behavior on color { MotionColor {} } }
+                    // On the selected row: Theme.surfaceOnSelected (roles.js says why).
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: disBtn.tint(Theme.surfaceOnSelected); Behavior on color { MotionColor {} } }
                     Text { id: disLbl; anchors.centerIn: parent; text: "Disconnect"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
                     ApexFocusRing { target: disBtn }
                 }
@@ -511,7 +510,7 @@ Item {
                     activeFocusOnTab: netRow.keyed || netRow.open
                     Accessible.name: "Forget " + netRow.net.ssid
                     onActivated: root._forgetSsid = netRow.isForgetPending ? "" : netRow.net.ssid
-                    Rectangle { anchors.fill: parent; radius: parent.radius; color: forBtn.tint(Theme.surfaceBase); Behavior on color { MotionColor { role: "state" } } }
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: forBtn.tint(Theme.surfaceOnSelected); Behavior on color { MotionColor { role: "state" } } }
                     Text { id: forLbl; anchors.centerIn: parent; text: "Forget"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
                     ApexFocusRing { target: forBtn }
                 }

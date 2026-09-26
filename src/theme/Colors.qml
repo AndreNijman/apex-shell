@@ -163,6 +163,7 @@ QtObject {
     readonly property color surfaceOverlay:    _c(_roleSet.roles.surfaceOverlay)
     readonly property color surfaceHigh:       _c(_roleSet.roles.surfaceHigh)
     readonly property color surfaceSelected:   _c(_roleSet.roles.surfaceSelected)
+    readonly property color surfaceOnSelected: _c(_roleSet.roles.surfaceOnSelected)
     readonly property color accentContainer:   _c(_roleSet.roles.accentContainer)
     readonly property color onAccentContainer: _c(_roleSet.roles.onAccentContainer)
     readonly property color accentText:        _c(_roleSet.roles.accentText)
