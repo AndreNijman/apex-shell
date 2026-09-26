@@ -58,6 +58,7 @@ CfgScroll {
         first: true
 
         Rectangle {
+            id: fwHero
             x:      theme.px(10)
             width:  parent.width - theme.px(20)
             height: theme.px(66)
@@ -81,8 +82,12 @@ CfgScroll {
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: theme.px(3)
+                    // Bounded by the button (UI/UX Phase 17): the mono line ran to
+                    // within 0–4 px of Re-check, and a longer unit state overlapped it.
+                    width: fwHero.width - theme.px(12 + 20 + 10) - fwRecheck.width - theme.px(16)
 
                     Text {
+                        width: parent.width; elide: Text.ElideRight
                         text: FirewallService.checked
                             ? FirewallService.statusLine
                             : "Reading this machine…"
@@ -96,6 +101,7 @@ CfgScroll {
                         // as "is the ruleset loaded" — someone with root can
                         // flush the table behind a running unit — and the page
                         // must not pretend it is.
+                        width: parent.width; elide: Text.ElideRight
                         text: "apex-firewall.service: " + FirewallService.unit
                             + "  ·  to read the live ruleset: " + FirewallService.readCommand
                         font.pixelSize: theme.fs(10)
@@ -106,6 +112,7 @@ CfgScroll {
             }
 
             CfgButton {
+                id: fwRecheck
                 anchors.right:          parent.right
                 anchors.rightMargin:    theme.px(8)
                 anchors.verticalCenter: parent.verticalCenter

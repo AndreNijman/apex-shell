@@ -187,7 +187,9 @@ CfgScroll {
     // rather than dropping it.
     CfgSection {
         title: "Components"
-        visible: RecoveryService.available
+        // No heading over nothing (UI/UX Phase 17): with zero rows it drew
+        // "Components" above an empty space.
+        visible: RecoveryService.available && RecoveryService.status.rows.length > 0
 
         Repeater {
             // A COUNT, not the array. `model: <JS array>` recreates every
@@ -456,7 +458,7 @@ CfgScroll {
     // are hardest to get into.
     CfgSection {
         title: "Ways back into this machine"
-        visible: RecoveryService.available
+        visible: RecoveryService.available && RecoveryService.status.routes.length > 0
 
         Repeater {
             model: RecoveryService.status.routes.length

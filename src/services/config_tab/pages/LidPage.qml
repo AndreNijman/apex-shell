@@ -194,6 +194,9 @@ CfgScroll {
 
                 Text {
                     width:          parent.width
+                    // Not when it is the hero's sentence word for word (UI/UX
+                    // Phase 17): the page said it twice, 60 px apart.
+                    visible:        LidService.logind.headline !== LidService.headline
                     text:           LidService.logind.headline
                     font.pixelSize: theme.fs(12)
                     color:          root.toneColor(LidService.logind.tone)
