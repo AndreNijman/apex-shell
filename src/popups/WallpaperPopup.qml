@@ -41,8 +41,18 @@ PanelWindow {
     readonly property int fw:          theme.notchRadius
     readonly property int fh:          theme.notchRadius
 
-    property bool windowVisible: false
-    visible: windowVisible
+    // On the shared lifecycle (UI/UX roadmap v3 Phase 21): see ClipboardPopup.
+    // It popped in and out under Reduce Motion, on the legacy duration.
+    SurfaceLifecycle {
+        id: life
+        open:          Popups.wallpaperOpen
+        enterDuration: Motion.morphEnter
+        exitDuration:  Motion.morphExit
+        enterCurve:    Motion.emphasizedDecel
+        exitCurve:     Motion.standardAccel
+    }
+    readonly property bool windowVisible: life.mapped
+    visible: life.mapped
 
     // ── Self-hover tracking ───────────────────────────────────────────────────
     property bool selfHovered: true
@@ -77,9 +87,7 @@ PanelWindow {
     // right after building the window — the popup does not exist for the signal
     // that opens it the first time.
     function applyOpenState() {
-        closeTimer.stop()
         hoverCloseTimer.stop()
-        root.windowVisible           = true
         WallpaperService.refresh()
         WallpaperService.previewWall = ""
         content.schemePopupOpen      = false
@@ -112,16 +120,10 @@ PanelWindow {
             } else {
                 root.wantsFocus = false
                 focusGrabTimer.stop()
-                closeTimer.restart()
             }
         }
     }
 
-    Timer {
-        id: closeTimer
-        interval: Theme.animDuration + 20
-        onTriggered: { if (!Popups.wallpaperOpen) root.windowVisible = false }
-    }
 
     Connections {
         target: WallpaperService
@@ -161,11 +163,9 @@ PanelWindow {
         anchors.bottomMargin:     theme.borderWidth
         clip: true
 
-        width:  Popups.wallpaperOpen ? root.panelWidth + 2 * root.fw : theme.cNotchMinWidth + 2 * root.fw
-        height: Popups.wallpaperOpen ? root.panelHeight : 0
-
-        Behavior on width  { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
-        Behavior on height { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
+        width:  theme.cNotchMinWidth + 2 * root.fw + (root.panelWidth - theme.cNotchMinWidth) * life.progress
+        height: root.panelHeight * life.progress
+        opacity: life.alpha
 
         HoverHandler {
             onHoveredChanged: root.selfHovered = hovered
@@ -214,16 +214,8 @@ PanelWindow {
                 (WallpaperService.currentWall !== "" &&
                  WallpaperService.scheme !== content.appliedScheme)
 
-            opacity: Popups.wallpaperOpen ? 1 : 0
-            transform: Translate {
-                y: Popups.wallpaperOpen ? 0 : 40
-                Behavior on y { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.OutExpo } }
-            }
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: Popups.wallpaperOpen ? Theme.animDuration * 0.5 : Theme.animDuration * 0.15
-                }
-            }
+            opacity: life.content
+            transform: Translate { y: (1 - life.content) * Motion.travel(theme.px(24)) }
 
             ListView {
                 id: wallGrid

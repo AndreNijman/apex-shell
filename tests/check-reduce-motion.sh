@@ -222,9 +222,9 @@ N_UNLISTED=$(printf '%s\n' "$FIND" | awk -F'\t' '$1=="literal"' | while IFS=$'\t
 # ── THE RATCHETS ──
 # Lower them as call sites move to Motion. Never raise one.
 EXPECT_UNLISTED_LITERAL=0
-EXPECT_LEGACY=12      # 14 → 12: SysTray (UI/UX design review 2)
+EXPECT_LEGACY=5       # 14 → 12: SysTray (UI/UX design review 2); 12 → 5: the clipboard and wallpaper sheets onto SurfaceLifecycle (Phase 21d)
 EXPECT_UNRESOLVED=2
-EXPECT_EASING=8       # 10 → 8: the same two
+EXPECT_EASING=3       # 10 → 8: SysTray; 8 → 3: the clipboard and wallpaper sheets
 EXPECT_LOOP_UNGATED=0
 
 if [ "$N_UNLISTED" -eq "$EXPECT_UNLISTED_LITERAL" ]; then

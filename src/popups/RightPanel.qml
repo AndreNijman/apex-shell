@@ -229,6 +229,11 @@ PanelWindow {
         x: body.result.clip.x; y: body.result.clip.y
         width: body.result.clip.w; height: body.result.clip.h
         clip: true
+        // Keys travel up from whatever has focus, so Escape lives on an
+        // ancestor of every pane too: the catcher above loses focus the moment
+        // anything inside a pane takes it (measured on ArchMenu). A pane that
+        // handles Escape itself (the network pane's sub-pages) still does first.
+        Keys.onEscapePressed: Popups.closeAll()
 
         Item {
             id: content

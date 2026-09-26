@@ -37,36 +37,26 @@ PanelWindow {
         height: sizer.height
     }
 
-    property bool windowVisible: false
-    visible: windowVisible
-
-    // Shared by the open signal and by LazyPopup, which calls this right after
-    // building the window — the popup does not exist for the signal that opens
-    // it the first time.
-    function applyOpenState() {
-        closeTimer.stop()
-        root.windowVisible = true
+    // On the shared lifecycle (UI/UX roadmap v3 Phase 21): the sheet grows out
+    // of its corner on the progress, its content arrives on its own channel,
+    // and the window is mapped until the close has finished — not for a guessed
+    // `animDuration + 20`. It ran on the legacy duration, which is 0 under
+    // Reduce Motion, so there it popped in and out with no fade at all
+    // (measured); now the shape holds while alpha fades, as every surface does.
+    SurfaceLifecycle {
+        id: life
+        open:          Popups.clipboardOpen
+        enterDuration: Motion.morphEnter
+        exitDuration:  Motion.morphExit
+        enterCurve:    Motion.emphasizedDecel
+        exitCurve:     Motion.standardAccel
     }
+    readonly property bool windowVisible: life.mapped
+    visible: life.mapped
 
-    Connections {
-        target: Popups
-        function onClipboardOpenChanged() {
-            if (Popups.clipboardOpen) {
-                root.applyOpenState()
-            } else {
-                closeTimer.restart()
-            }
-        }
-    }
-
-    Timer {
-        id: closeTimer
-        interval: Theme.animDuration + 20
-        onTriggered: {
-            if (!Popups.clipboardOpen)
-                root.windowVisible = false
-        }
-    }
+    // LazyPopup calls this right after building the window; the lifecycle is
+    // born open and opens itself, so there is nothing left to apply.
+    function applyOpenState() {}
     
     Item {
         id: sizer
@@ -76,11 +66,9 @@ PanelWindow {
         anchors.bottomMargin: theme.borderWidth
         clip: true
 
-        width:  Popups.clipboardOpen ? root.popupWidth  + root.fw : 0
-        height: Popups.clipboardOpen ? root.popupHeight + root.fh : 0
-
-        Behavior on width  { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
-        Behavior on height { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
+        width:  (root.popupWidth  + root.fw) * life.progress
+        height: (root.popupHeight + root.fh) * life.progress
+        opacity: life.alpha
 
         PopupShape {
             anchors.fill: parent
@@ -100,12 +88,7 @@ PanelWindow {
                 bottomMargin: 8
             }
 
-            opacity: Popups.clipboardOpen ? 1 : 0
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: Popups.clipboardOpen ? Theme.animDuration * 0.5 : Theme.animDuration * 0.15
-                }
-            }
+            opacity: life.content
 
             HistoryTab { anchors.fill: parent }
         }
