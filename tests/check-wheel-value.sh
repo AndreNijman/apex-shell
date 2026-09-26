@@ -84,7 +84,7 @@ src/popups/WallpaperPopup.qml|turns a vertical wheel into horizontal scroll|the 
 DENY_RAW="
 src/components/config/CfgSlider.qml|root._apply(|the shared settings slider, on every settings page inside a CfgScroll — where UI-004 was reported
 src/services/AudioControl.qml|col.volumeChanged(|output, input and mixer volume columns, inside a PopupPage that scrolls
-src/popups/QuickControl.qml|col.volumeChanged(|volume, internal brightness and one column per DDC monitor
+src/popups/ChannelColumn.qml|col.volumeChanged(|the quick controls: volume, internal brightness and one column per DDC monitor (ChannelColumn, out of QuickControl.qml since UI/UX Phase 21)
 src/services/home/QuickSettings.qml|root._setBright(|the dashboard brightness bar
 src/components/TimeInput.qml|root.incH()|the HH:MM spinners behind the sleep timer and the alarm
 "

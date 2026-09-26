@@ -5,6 +5,7 @@ import Quickshell.Services.Pipewire
 import "../shapes/fluid"
 import "../shapes/fluid/geometry.js" as Geo
 import "../components"
+import "../components/controls"
 import "../services"
 import "../"
 
@@ -55,10 +56,6 @@ PanelWindow {
     // by the pointer resting on the edge it must never take the keys from the
     // window being typed into (UI/UX Phase 21).
     WlrLayershell.keyboardFocus: Popups.quickOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    Item {
-        focus: Popups.quickOpen
-        Keys.onEscapePressed: Popups.quickOpen = false
-    }
 
     // ── Open state: the flag, or the pointer on the strip or on the panel ────
     property bool _selfHovered: false
@@ -74,6 +71,8 @@ PanelWindow {
     Connections {
         target: Popups
         function onQuickOpenChanged() {
+            // Opened by its keybind, the arrows adjust the volume at once.
+            if (Popups.quickOpen) Qt.callLater(function () { volCol.focusSlider() })
             if (!Popups.quickOpen && !Popups.quickTriggerHovered && !root._selfHovered) {
                 closeDelay.stop()
                 root._held = false
@@ -166,6 +165,8 @@ PanelWindow {
         x: body.result.clip.x; y: body.result.clip.y
         width: body.result.clip.w; height: body.result.clip.h
         clip: true
+        // An ancestor of every slider, so Escape reaches it from whichever has focus.
+        Keys.onEscapePressed: Popups.quickOpen = false
 
         Item {
             id: sizer
@@ -191,6 +192,9 @@ PanelWindow {
 
                 // Audio Slider
                 ChannelColumn {
+                    id: volCol
+                    label: ""
+                    accessibleName: "Volume"
                     icon: {
                         if (!root.sink?.ready)            return "󰕾"
                         if (root.sink.audio.muted)        return "󰖁"
@@ -214,6 +218,7 @@ PanelWindow {
                 // with no backlight, where the DDC columns below are the only
                 // brightness controls that exist.
                 ChannelColumn {
+                    accessibleName: "Brightness"
                     icon:    "󰃠"
                     value:   root._bVal
                     muted:   false
@@ -236,6 +241,7 @@ PanelWindow {
                         required property var modelData
 
                         icon:   "󰍹"
+                        accessibleName: "External display brightness"
                         value:  modelData.value >= 0 ? modelData.value : 0
                         muted:  false
                         // A monitor whose level has not been read yet cannot be
@@ -251,134 +257,4 @@ PanelWindow {
         }
     }
 
-    // ── Reusable ChannelColumn Component ──────────────────────────────────────
-    component ChannelColumn: Item {
-        id: col
-
-        property string label:  ""
-        property string icon:   ""
-        property real   value:  0.0
-        property bool   muted:  false
-        property bool   active: false
-
-        readonly property int trackHeight: 180
-        readonly property int barW:        22
-        readonly property int thumbD:      barW - 6
-
-        signal volumeChanged(real value)
-        signal muteToggled()
-
-        implicitWidth:  inner.implicitWidth
-        implicitHeight: inner.implicitHeight
-
-        // No device to read: a dash, not a percentage of nothing (brief §F.7).
-        readonly property string pctText: active ? Math.round(value * 100) + "%" : "—"
-
-        Column {
-            id: inner
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 12
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text:           col.pctText
-                color:          col.muted ? Theme.textTertiary : Theme.text
-                font.pixelSize: theme.fs(13)
-                font.bold:      true
-                Behavior on color { MotionColor { role: "state" } }
-            }
-
-            Item {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width:  col.barW
-                height: col.trackHeight
-
-                Rectangle {
-                    id: track
-                    anchors.fill: parent
-                    radius: width / 2
-                    color:  Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
-
-                    // Fill bar
-                    Rectangle {
-                        anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
-                        height: Math.max(radius * 2, parent.height * col.value)
-                        radius: parent.radius
-                        color:  col.muted ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.15) : Theme.active
-                        Behavior on color  { MotionColor { role: "state" } }
-                        Behavior on height { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
-                    }
-
-                    // Thumb
-                    Rectangle {
-                        id: thumb
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width:  col.thumbD
-                        height: width
-                        radius: width / 2
-                        color:  col.muted ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.3) : Theme.fixedLight
-                        y: {
-                            var travel = track.height - height
-                            return Math.max(0, Math.min(travel, (1.0 - col.value) * travel))
-                        }
-                        Behavior on color { MotionColor { role: "state" } }
-                    }
-
-                    // Drag to change value. No wheel handler: a value bar in this
-                    // shell never reads the wheel, so scrolling stays scrolling.
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape:  Qt.SizeVerCursor
-                        function calc(my) {
-                            var travel = track.height - thumb.height
-                            return Math.max(0.0, Math.min(1.0, 1.0 - (my - thumb.height / 2) / travel))
-                        }
-                        onPressed:         col.volumeChanged(calc(mouseY))
-                        onPositionChanged: if (pressed) col.volumeChanged(calc(mouseY))
-                    }
-                }
-            }
-
-            // Icon & Mute Toggle
-            Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width:  col.barW + 16
-                height: 28
-                radius: theme.cornerRadius
-                color:  col.muted
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.2)
-                            : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
-                Behavior on color { MotionColor { role: "state" } }
-
-                Text {
-                    anchors.centerIn: parent
-                    text:           col.icon
-                    font.pixelSize: theme.fs(14)
-                    color:          col.muted ? Theme.active : Theme.textSecondary
-                    Behavior on color { MotionColor { role: "state" } }
-                }
-
-                Rectangle {
-                    anchors.fill: parent; radius: parent.radius
-                    color: muteHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05) : "transparent"
-                    Behavior on color { MotionColor {} }
-                }
-                HoverHandler { id: muteHov; cursorShape: Qt.PointingHandCursor }
-                MouseArea { anchors.fill: parent; onClicked: col.muteToggled()}
-            }
-
-            // Label
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text:            col.label
-                color:           Theme.textTertiary
-                font.pixelSize:  theme.fs(10)
-                font.capitalization: Font.AllUppercase
-                font.letterSpacing: 1
-                elide:           Text.ElideRight
-                width:           col.barW + 50
-                horizontalAlignment: Text.AlignHCenter
-            }
-        }
-    }
 }

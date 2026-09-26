@@ -2,6 +2,7 @@ import QtQuick
 import QtTest
 import "components"
 import "components/controls"
+import "popups"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TabSwitcher on the keyboard (UI/UX roadmap v3 Phase 21). Run by
@@ -14,7 +15,7 @@ import "components/controls"
 // ─────────────────────────────────────────────────────────────────────────────
 Item {
     id: fixture
-    width: 600; height: 520
+    width: 600; height: 820
 
     readonly property var fourPages: [
         { key: "a", label: "Alpha", icon: "" }, { key: "b", label: "Bravo", icon: "" },
@@ -70,6 +71,22 @@ Item {
         x: 10; y: 180; width: 200; height: 40
         model: [{ key: "only", label: "Only", icon: "" }]
         currentPage: "only"
+    }
+
+    // The quick controls' level (UI/UX Phase 21): a slider on the keyboard.
+    property int mutes: 0
+    ChannelColumn {
+        id: chan
+        x: 10; y: 520
+        active: true; value: 0.5; accessibleName: "Volume"
+        onVolumeChanged: function (v) { chan.value = v }
+        onMuteToggled: fixture.mutes++
+    }
+    ChannelColumn {
+        id: deadChan
+        x: 120; y: 520
+        active: false; value: 0.5
+        onVolumeChanged: function (v) { deadChan.value = v }
     }
 
     TestCase {
@@ -147,6 +164,34 @@ Item {
             tryVerify(function () { return f.contentY > 0 }, 1000, "End chose the last row but left it out of view")
             keyClick(Qt.Key_Home)
             tryCompare(f, "contentY", 0, 1000, "Home chose the first row but left it out of view")
+        }
+
+        function test_100_a_level_steps_on_the_arrows_and_reaches_its_ends() {
+            chan.value = 0.5
+            chan.focusSlider()
+            keyClick(Qt.Key_Up);       fuzzyCompare(chan.value, 0.55, 0.001)
+            keyClick(Qt.Key_Right);    fuzzyCompare(chan.value, 0.60, 0.001)
+            keyClick(Qt.Key_Down);     fuzzyCompare(chan.value, 0.55, 0.001)
+            keyClick(Qt.Key_PageDown); fuzzyCompare(chan.value, 0.35, 0.001)
+            keyClick(Qt.Key_Home);     compare(chan.value, 0)
+            keyClick(Qt.Key_Down);     compare(chan.value, 0, "stepped below the bottom")
+            keyClick(Qt.Key_End);      compare(chan.value, 1)
+            keyClick(Qt.Key_PageUp);   compare(chan.value, 1, "stepped past the top")
+        }
+
+        function test_110_a_level_with_no_device_ignores_the_keys() {
+            deadChan.value = 0.5
+            deadChan.focusSlider()
+            keyClick(Qt.Key_Up); keyClick(Qt.Key_End)
+            compare(deadChan.value, 0.5, "a column with nothing to drive moved")
+        }
+
+        function test_120_the_mute_button_is_a_real_button() {
+            const before = fixture.mutes
+            chan.focusSlider()
+            keyClick(Qt.Key_Tab)                 // from the track to its mute button
+            keyClick(Qt.Key_Space)
+            compare(fixture.mutes, before + 1, "Tab then Space did not toggle mute")
         }
 
         function test_080_a_click_chooses_without_taking_focus() {
