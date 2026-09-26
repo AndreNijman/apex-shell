@@ -540,6 +540,85 @@ function liquidSweep(name, fn, g, contact, caps) {
           down.toFixed(1) + " / " + up.toFixed(1));
 }
 
+// ── NOTCH_DROP (Nexus): a drip, not a bloom ────────────────────────────────
+// Two sub-paths (the drop/card and the neck — or, once pinched, its two
+// halves), filled non-zero. Held to: nothing at rest on 0 (the notch is the
+// bar's own), exactly the card at rest on 1 (the neck gone), every point on the
+// screen, the neck's footprint on the notch's flat bottom, each sub-path free
+// of self-intersection, the content clip inside both the drop and the finished
+// window — along the derived progress and along replayed spring trajectories.
+{
+    section("NOTCH_DROP (Nexus)");
+    const W = 1920, H = 1080;
+    const dg = { cx: 960, notchW: 300, notchH: 40, notchBottom: 14,
+                 card: { x: 500, y: 230, w: 920, h: 620 }, r: 28 };
+    const flat = dg.notchW - 2 * dg.notchBottom;
+    function splitSegs(segs) {
+        const parts = [[]];
+        for (const sg of segs) { if (sg.brk && parts[parts.length - 1].length) parts.push([]); parts[parts.length - 1].push(sg); }
+        return parts.filter(p => p.length);
+    }
+    function dropChecks(tag, r) {
+        const bad = [];
+        if (/NaN|Infinity/.test(r.path)) bad.push("non-finite path");
+        const card = r.segs.length ? polyline(r.segs, 16) : [];
+        if (card.length && selfIntersects(card)) bad.push("card crosses itself");
+        for (const part of splitSegs(r.neckSegs || [])) {
+            const pts = polyline(part, 16);
+            if (pts.length > 3 && selfIntersects(pts)) bad.push("neck crosses itself");
+            if (pts.some(q => q[0] < -0.5 || q[0] > W + 0.5 || q[1] < -0.5 || q[1] > H + 0.5)) bad.push("neck off screen");
+        }
+        if (card.some(q => q[0] < -0.5 || q[0] > W + 0.5 || q[1] < -0.5 || q[1] > H + 0.5)) bad.push("card off screen");
+        const pr = r.params;
+        if (pr.nTop > flat + 1e-6) bad.push("footprint wider than the notch's flat bottom (" + pr.nTop.toFixed(1) + ")");
+        const c = r.clip;
+        if (c.w > 0 && c.h > 0) {
+            const cd = dg.card;
+            if (c.x < cd.x - 0.5 || c.y < cd.y - 0.5 || c.x + c.w > cd.x + cd.w + 0.5 || c.y + c.h > cd.y + cd.h + 0.5)
+                bad.push("clip outside the finished window");
+            if (card.length && (!inside(card, c.x + 2, c.y + 2) || !inside(card, c.x + c.w - 2, c.y + c.h - 2)))
+                bad.push("clip outside the drop");
+        }
+        return bad.map(b => tag + ": " + b);
+    }
+    let bad = [];
+    for (let i = 0; i <= 400; i++) bad = bad.concat(dropChecks("p=" + (i / 400).toFixed(4), G.notchDrop(i / 400, dg)));
+    check("drop along progress: finite, on screen, no crossings, footprint on the notch, clip inside",
+          bad.length === 0, bad.slice(0, 4).join("; "));
+    const r0 = G.notchDrop(0, dg), r1 = G.notchDrop(1, dg);
+    check("drop at rest on 0 draws nothing (the notch is the bar's own)", r0.path === "");
+    check("drop at rest on 1 is exactly the window, the neck gone",
+          r1.neckSegs.length === 0 && r1.params.wB === dg.card.w && r1.params.hB === dg.card.h
+          && r1.params.yb === dg.card.y && r1.params.X0 === dg.card.x);
+    let sawDrop = false, sawNeck = false, sawHalves = false, pinchAt = -1;
+    for (let i = 0; i <= 400; i++) {
+        const pr = G.notchDrop(i / 400, dg).params;
+        if (pr.wB > 0 && pr.B === 0) sawDrop = true;
+        if (pr.necked) sawNeck = true;
+        if (pr.halves) { sawHalves = true; if (pinchAt < 0) pinchAt = i / 400; }
+    }
+    check("it is a drip: a drop before the window, a neck, then two halves after the pinch",
+          sawDrop && sawNeck && sawHalves, [sawDrop, sawNeck, sawHalves].join(","));
+    // The spring trajectories: the drip leads, the inflation follows once the
+    // drop is 55 % down, the thread trails; closing, the card drains first and
+    // the drop rises once it is under 25 %.
+    const DP = Object.assign({}, LP, { openRel: 0.55, closeRel: 0.25 });
+    for (const sname of Object.keys(SCRIPTS)) {
+        let fb = [], halvesOnClose = false;
+        const frames = liquidRun(SCRIPTS[sname], DP);
+        frames.forEach(f => {
+            const r = G.notchDrop(0, Object.assign({}, dg, { ch: { w: f.lead, d: f.body, n: f.trail } }));
+            fb = fb.concat(dropChecks(sname + " t=" + f.t.toFixed(3), r));
+        });
+        check("drop (" + sname + "): every frame finite, on screen, uncrossed, clipped inside",
+              fb.length === 0, fb.slice(0, 3).join("; "));
+    }
+    const back = G.notchDrop(0, Object.assign({}, dg, { ch: { w: 1, d: 1, n: 1 } }));
+    check("drop channels at rest on 1 draw the finished window exactly", back.path === r1.path);
+    check("drop channels at rest on 0 draw nothing",
+          G.notchDrop(0, Object.assign({}, dg, { ch: { w: 0, d: 0, n: 0 } })).path === "");
+}
+
 // ── Phase 23: can the parameter audit fail? ─────────────────────────────────
 // A family with a radius that snaps at p = 0.5, and one whose width swells 40 px
 // past its end, must both be caught — or the two checks above assert nothing.

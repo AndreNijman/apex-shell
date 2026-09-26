@@ -96,7 +96,7 @@ ShellRoot {
                 // Standalone settings window. Not part of PopupLayer on
                 // purpose: it is a window you leave open, so it must not be
                 // subject to the popup fleet's click-outside dismissal.
-                Nexus { screen: modelData; screenName: modelData.name }
+                Nexus { screen: modelData; screenName: modelData.name; topBar: topBar }
 
                 // Keep / Put it back, after a temporary display apply.
                 //

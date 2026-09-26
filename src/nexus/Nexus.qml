@@ -1,9 +1,11 @@
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
+import QtQuick.Shapes
 import "../"
 import "../components"
 import "../components/controls"
+import "../shapes/fluid"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Nexus — the standalone settings window.
@@ -27,13 +29,21 @@ import "../components/controls"
 // screenName decides which one is live, so the window opens on the output the
 // user is actually looking at instead of always the primary.
 //
-// ── QUIET_SHEET (UI/UX roadmap v3 Phase 13, brief B.5) ──────────────────────
-// A long-lived work surface, so it barely moves: no shape morph. The scrim
-// comes up with the lifecycle's progress; the sheet fades in on the content
-// channel and scales 0.985 → 1 on emphasizedDecel over the page beat; it
-// leaves quicker (surfaceExitSmall, standardAccel), scaling only to 0.99.
-// Under Reduce Motion the scale is gone and both fade. Its window's lifetime is
-// the lifecycle's `mapped` — completion, not `animDuration + 20`.
+// ── NOTCH_DROP (2026-09-27, replacing QUIET_SHEET) ──────────────────────────
+// Andre: "make the nexus actually flow in / liquid in from the top notch,
+// becoming the window it is now, instead of just appearing." It floats in the
+// middle of the screen, not under the bar, so it cannot bloom out of the notch
+// and stay attached the way the Dashboard does. It DRIPS (geometry.js
+// notchDrop): a drop swells out of the centre notch and falls on a liquid neck,
+// inflates at the window's place into the card, and the neck thins, pinches
+// and pulls back — half into the notch, half into the card, which settles
+// flat. Closing plays it backwards: the card drains into a drop and is drawn
+// up into the notch. Three springs (SurfaceLifecycle, liquid): the drip leads,
+// the inflation follows it, the thread trails. The card's rim and its shadow
+// arrive once the neck has let go — a shadow under a shape that is still
+// pouring would be the wrong shape. Under Reduce Motion the card is simply
+// there and fades, as before. Its window's lifetime is the lifecycle's
+// `mapped` — completion, not a timer.
 // ─────────────────────────────────────────────────────────────────────────────
 
 PanelWindow {
@@ -42,6 +52,9 @@ PanelWindow {
 
 
     required property string screenName
+    // The bar on this output: the drop comes out of its centre notch, whose
+    // width is live (a media title can widen it).
+    property var topBar: null
 
     readonly property bool live: NexusState.open
                                  && NexusState.effectiveScreen === root.screenName
@@ -57,9 +70,15 @@ PanelWindow {
         name: "nexus"
         id: life
         open:          root.live
-        enterDuration: Motion.page
-        exitDuration:  Motion.surfaceExitSmall
-        contentDelay:  0
+        // A morph, the same class as the Dashboard's bloom.
+        enterDuration: Motion.morphEnter
+        exitDuration:  Motion.morphExit
+        liquid:        true
+        surface:       body
+        // The inflation starts as the drop nears the window's place; on the
+        // way out the drop is drawn back up once the card has drained into it.
+        openRelease:   0.55
+        closeRelease:  0.25
         // The sheet leaves on the scrim's beat. On the content beat (70 ms) it
         // was gone while the scrim still dimmed an empty desk for another
         // 65 ms (design review 2). Under Reduce Motion that beat is 0 and the
@@ -106,6 +125,23 @@ PanelWindow {
         opacity: 0.35 * (life.closing ? life.content : life.progress) * life.alpha
     }
 
+    // ── The window's finished place, and what the drop connects to ──────────
+    readonly property real cardW: Math.min(root.width - theme.px(80), theme.px(920))
+    readonly property real cardH: Math.min(root.height - theme.px(80), theme.px(620))
+    readonly property real cardX: Math.round((root.width - root.cardW) / 2)
+    readonly property real cardY: Math.round((root.height - root.cardH) / 2)
+    readonly property var dropGeometry: ({
+        cx:          root.width / 2,
+        notchW:      root.topBar ? root.topBar.cWidth : theme.cNotchMinWidth,
+        notchH:      theme.notchHeight,
+        notchBottom: theme.notchBottom,
+        card:        { x: root.cardX, y: root.cardY, w: root.cardW, h: root.cardH },
+        r:           theme.radiusXL
+    })
+    // The rim and the shadow: once the neck has let go, gone the moment a
+    // close begins (on a short fade, not a cut).
+    readonly property bool _settled: life.open && !life.closing && life.trail >= 0.9
+
     Item {
         id: content
         anchors.fill: parent
@@ -118,37 +154,60 @@ PanelWindow {
         // 3.6:1 over the scrimmed desk with only its hairline for an edge.
         Elevation { target: card; level: "modal" }
 
+        // The drop, the neck and the card: one liquid body.
+        FluidShape {
+            id: body
+            anchors.fill: parent
+            family:   "notchDrop"
+            progress: life.progress
+            channels: ({ w: life.lead, d: life.body, n: life.trail })
+            geometry: root.dropGeometry
+            fillRule: ShapePath.WindingFill
+            color:    Theme.background
+            opacity:  life.alpha
+        }
+
+        // The finished card's rim (and the shadow's target), over the body.
         Rectangle {
             id: card
-
-            anchors.centerIn: parent
-
-            width: Math.min(parent.width - theme.px(80), theme.px(920))
-            height: Math.min(parent.height - theme.px(80), theme.px(620))
-
+            x: root.cardX; y: root.cardY
+            width: root.cardW; height: root.cardH
             radius: theme.radiusXL
-            color: Theme.background
+            color: "transparent"
             border.color: Theme.outlineSoft   // the surface rim, as a role (UI/UX Phase 18b)
             border.width: 1
+            opacity: root._settled ? life.alpha : 0
+            Behavior on opacity { MotionFade { role: "state" } }
+        }
 
-            opacity: life.content * life.alpha
-            // Barely: 0.985 → 1 in, 1 → 0.99 out. `closing`, not `open` — see
-            // SurfaceLifecycle on reading `open` beside the lifecycle's values.
-            scale: life.closing ? 0.99 + 0.01 * life.progress
-                                : 0.985 + 0.015 * life.progress
+        // Content at its finished layout, revealed where the drop already
+        // covers the finished window.
+        Item {
+            id: reveal
+            x: body.result.clip.x; y: body.result.clip.y
+            width: body.result.clip.w; height: body.result.clip.h
+            clip: true
 
-            // Swallow clicks so they do not reach the backdrop.
-            MouseArea {
-                anchors.fill: parent
-            }
+            Item {
+                x: root.cardX - reveal.x
+                y: root.cardY - reveal.y
+                width: root.cardW; height: root.cardH
+                opacity: life.content * life.alpha
+                transform: Translate { y: (1 - life.content) * Motion.travel(theme.px(8)) }
 
-            SettingsHost {
-                anchors.fill: parent
-                theme: root.theme
-                page: NexusState.page
-                live: root.windowVisible && root.live
-                onPageSelected: function (id) { NexusState.page = id }
-                onCloseRequested: NexusState.close()
+                // Swallow clicks so they do not reach the backdrop.
+                MouseArea {
+                    anchors.fill: parent
+                }
+
+                SettingsHost {
+                    anchors.fill: parent
+                    theme: root.theme
+                    page: NexusState.page
+                    live: root.windowVisible && root.live
+                    onPageSelected: function (id) { NexusState.page = id }
+                    onCloseRequested: NexusState.close()
+                }
             }
         }
     }

@@ -745,6 +745,173 @@ function cornerRise(p, g) {
     };
 }
 
+// ── NOTCH_DROP ──────────────────────────────────────────────────────────────
+// The settings window (Nexus), which floats in the middle of the screen, not
+// under the bar — so it cannot bloom out of the notch and stay attached the way
+// the Dashboard does. It DRIPS instead (Andre, 2026-09-27: "flow in / liquid in
+// from the top notch becoming the window"): a drop swells out of the centre
+// notch's flat bottom and falls on a liquid neck; at the window's place it
+// inflates into the card; the neck thins, pinches, and its two halves pull back
+// — one into the notch, one into the card, which settles flat. Closing plays it
+// backwards: the card drains into a drop and is drawn up into the notch.
+//
+// Two sub-paths, both wound clockwise, so the window fills them with the
+// NON-ZERO rule (FluidShape.fillRule) and the neck overlapping the notch and
+// the card by `ov` px unions with them instead of cancelling.
+//
+//   g.cx, g.notchW, g.notchH, g.notchBottom   the centre notch (its flat
+//                bottom is the drop's footprint); g.notchH is the seam's y
+//   g.card {x, y, w, h}, g.r                  the finished window and its corners
+//
+// Channels (SurfaceLifecycle, liquid): w = the DRIP (lead: the drop forming and
+// falling), d = the INFLATION (body: drop → card), n = the THREAD (trail:
+// thinning over 0.3–0.75, then the halves retracting). Without them, derived
+// from p.
+function notchDropDerived(p) {
+    return { w: standardDecel(span(p, 0.0, 0.45)), d: standard(span(p, 0.3, 0.9)),
+             n: span(p, 0.35, 1.0) };
+}
+function notchDrop(p, g) {
+    p = clamp01(p);
+    var ch = g.ch || notchDropDerived(p);
+    var L = clamp01(ch.w), B = Math.max(0, ch.d), N = clamp01(ch.n);
+    var ov = 2;
+    var y0 = g.notchH;
+    var flat = Math.max(4, g.notchW - 2 * g.notchBottom);
+    var w0 = Math.min(flat, Math.max(40, 0.32 * g.notchW));
+    var cardCX = g.card.x + g.card.w / 2;
+    var form = smooth(Math.min(1, L / 0.35));             // the drop forming
+    var yb = y0 + (g.card.y - y0) * L;                    // the drop's top edge
+    var wB = size(w0 * form, g.card.w, B, 6);
+    var hB = size(1.12 * w0 * form, g.card.h, B, 6);      // a falling drop is a little long
+    var xC = lerp(g.cx, cardCX, Math.min(1, B));
+    // The neck's footprints: on the notch's flat bottom, and on the drop.
+    // Wide at the notch — the liquid clings to it like honey to a spout — and
+    // never past the flat of its bottom (its rounded corners stay the bar's).
+    var nTop = 0.8 * flat * form;
+    var nBot = Math.min(0.9 * w0, 0.5 * wB) * form;
+    // Corners: fully round while it is a drop, the window's own once it is one.
+    var rB = lerp(Math.min(wB, hB) / 2, g.r, smooth(Math.min(1, B)));
+    rB = Math.max(0, Math.min(rB, wB / 2, hB / 2));
+    var thin = smooth(span(N, 0.3, 0.75));
+    var retract = smooth(span(N, 0.75, 1.0));
+    var ym = (y0 + yb) / 2;
+
+    // ── the drop / card ──
+    var X0 = Math.round(xC - wB / 2), X1 = X0 + Math.round(wB), Yt = yb, Yb2 = yb + hB;
+    // Clamped against the ROUNDED edges: a 1 px drop's corners must not cross.
+    rB = Math.max(0, Math.min(rB, (X1 - X0) / 2, hB / 2));
+    var C = new Path();
+    var hasBody = (X1 - X0) >= 2 && hB >= 2;
+    if (hasBody) {
+        C.move(X0 + rB, Yt);
+        C.line(X1 - rB, Yt);
+        C.corner(X1, Yt + rB, "h");
+        C.line(X1, Yb2 - rB);
+        C.corner(X1 - rB, Yb2, "v");
+        C.line(X0 + rB, Yb2);
+        C.corner(X0, Yb2 - rB, "h");
+        C.line(X0, Yt + rB);
+        C.corner(X0 + rB, Yt, "v");
+        C.close();
+    }
+
+    // ── the neck (or, once pinched, its two retracting halves) ──
+    var K = new Path();
+    var len = yb - y0;
+    var xaL = g.cx - nTop / 2, xaR = g.cx + nTop / 2;
+    var necked = false, halves = false;
+    // Where the neck meets the drop: on its flat top when the footprint fits
+    // there, else ON the corner's arc, arriving along the arc's own tangent — a
+    // round drop's neck flares into its shoulder instead of standing on it.
+    var halfFlat = Math.max(0, wB / 2 - rB);
+    var dx = nBot / 2, landY = yb, tx = 1, ty = 0;
+    if (dx > halfFlat && rB > 0.5) {
+        var ux = Math.min(dx - halfFlat, 0.92 * rB);
+        var root = Math.sqrt(rB * rB - ux * ux);
+        dx = halfFlat + ux;
+        landY = yb + rB - root;
+        var tl = Math.sqrt(1 + (ux / root) * (ux / root));
+        tx = 1 / tl; ty = (ux / root) / tl;
+    }
+    var xbL = xC - dx, xbR = xC + dx;
+    // The waist, from where the neck actually lands: never wider than either
+    // end, or a side would run back on itself.
+    var nW = 0.55 * Math.min(nTop, 2 * dx) * (1 - thin);
+    // No neck until there is room for one (a few pixels of fall and of drop).
+    if (len > 3 && nTop > 1 && nBot > 1 && hasBody && (X1 - X0) >= 4) {
+        if (thin < 1) {
+            necked = true;
+            var xwC = (g.cx + xC) / 2, xwL = xwC - nW / 2, xwR = xwC + nW / 2;
+            var yTail = landY - ym, k2 = 0.55 * Math.max(1, Math.hypot(xbR - xwR, yTail));
+            // The landing handle follows the drop's tangent, but never reaches
+            // back past the waist (a tiny footprint under a long fall would
+            // otherwise cross the centre line).
+            var hB2 = Math.min(0.7 * k2, 0.95 * Math.max(0, xbR - xwR) / Math.max(1e-3, tx));
+            var inY = Math.max(landY, yb) + ov + 1;           // a step inside the drop
+            K.move(xaL, y0 - ov);
+            K.step(xaR, y0 - ov);
+            K.step(xaR, y0);
+            // right side: out of the notch level, in to the waist, out to the drop
+            K.cubic(xaR - 0.55 * (xaR - xwR), y0, xwR, y0 + 0.45 * (ym - y0), xwR, ym);
+            K.cubic(xwR, ym + 0.45 * yTail, xbR - tx * hB2, landY - ty * hB2, xbR, landY);
+            K.step(xC + 0.6 * dx, inY);
+            K.step(xC - 0.6 * dx, inY);
+            K.step(xbL, landY);
+            // left side, back up
+            K.cubic(xbL + tx * hB2, landY - ty * hB2, xwL, ym + 0.45 * yTail, xwL, ym);
+            K.cubic(xwL, y0 + 0.45 * (ym - y0), xaL + 0.55 * (xwL - xaL), y0, xaL, y0);
+            K.close();
+        } else if (retract < 1) {
+            halves = true;
+            // The thread has snapped: a drop hangs from the notch and one stands
+            // on the card, each pulling back into its side.
+            var fT = nTop * (1 - retract), fB = nBot * (1 - retract);
+            var tipT = lerp(ym, y0, retract), tipB = lerp(ym, yb, retract);
+            if (fT > 0.5 && tipT - y0 > 0.5) {
+                var aL = g.cx - fT / 2, aR = g.cx + fT / 2;
+                K.move(aL, y0 - ov);
+                K.step(aR, y0 - ov);
+                K.step(aR, y0);
+                // A hanging drop: leaves the notch level (concave), meets
+                // itself level at the tip (convex) — one S per side.
+                K.cubic(aR - 0.5 * (aR - g.cx), y0, g.cx + 0.35 * (aR - g.cx), tipT, g.cx, tipT);
+                K.cubic(g.cx - 0.35 * (g.cx - aL), tipT, aL + 0.5 * (g.cx - aL), y0, aL, y0);
+                K.close();
+            }
+            if (fB > 0.5 && yb - tipB > 0.5) {
+                var bL = xC - fB / 2, bR = xC + fB / 2;
+                var M = new Path();
+                M.move(xC, tipB);
+                M.cubic(xC + 0.35 * (bR - xC), tipB, bR - 0.5 * (bR - xC), yb, bR, yb);
+                M.step(bR, yb + ov);
+                M.step(bL, yb + ov);
+                M.step(bL, yb);
+                M.cubic(bL + 0.5 * (xC - bL), yb, xC - 0.35 * (xC - bL), tipB, xC, tipB);
+                M.close();
+                K.d = K.d.concat(M.d);
+                K.segs = K.segs.concat(M.segs.map(function (sg, i) { return i === 0 ? Object.assign({ brk: true }, sg) : sg; }));
+            }
+        }
+    }
+
+    var path = [C.toString(), K.toString()].filter(function (x) { return x !== ""; }).join(" ");
+    var top = Math.min(y0 - ov, Yt), bottom = hasBody ? Yb2 : y0;
+    var left = Math.min(hasBody ? X0 : g.cx, g.cx - nTop / 2), right = Math.max(hasBody ? X1 : g.cx, g.cx + nTop / 2);
+    // Content keeps its finished layout; it shows through where the drop
+    // already covers the finished window.
+    var cx0 = Math.max(X0 + rB * 0.3, g.card.x), cy0 = Math.max(Yt + rB * 0.3, g.card.y);
+    var cx1 = Math.min(X1 - rB * 0.3, g.card.x + g.card.w), cy1 = Math.min(Yb2 - rB * 0.3, g.card.y + g.card.h);
+    return {
+        path: path, segs: C.segs, neckSegs: K.segs,
+        bounds: { x: left, y: top, w: Math.max(0, right - left), h: Math.max(0, bottom - top) },
+        clip: { x: cx0, y: cy0, w: hasBody ? Math.max(0, cx1 - cx0) : 0, h: hasBody ? Math.max(0, cy1 - cy0) : 0 },
+        params: { L: L, B: B, N: N, wB: wB, hB: hB, yb: yb, rB: rB, nTop: nTop, nBot: nBot, nW: nW,
+                  thin: thin, retract: retract, necked: necked, halves: halves, X0: X0 },
+        bar: {}
+    };
+}
+
 if (typeof module !== "undefined" && module.exports)
     module.exports = {
         KAPPA: KAPPA,
@@ -759,5 +926,6 @@ if (typeof module !== "undefined" && module.exports)
         leftSpill: leftSpill, edgeSpillRight: edgeSpillRight,
         spillRidge: spillRidge, leftSpillWidth: leftSpillWidth, edgeSpillWidth: edgeSpillWidth,
         riseRidge: riseRidge, bottomRise: bottomRise, bottomRiseHeight: bottomRiseHeight,
-        cornerRise: cornerRise, cornerRiseWidth: cornerRiseWidth, cornerRiseHeight: cornerRiseHeight
+        cornerRise: cornerRise, cornerRiseWidth: cornerRiseWidth, cornerRiseHeight: cornerRiseHeight,
+        notchDrop: notchDrop, notchDropDerived: notchDropDerived
     };

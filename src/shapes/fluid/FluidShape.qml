@@ -30,6 +30,10 @@ Shape {
     property var    geometry: ({})
     property var    channels: null
     property string hole: ""
+    // Odd-even by default (it is what cuts `hole` out). NOTCH_DROP draws the
+    // neck and the card as overlapping sub-paths wound the same way and takes
+    // the non-zero rule, so they union instead of cancelling.
+    property int    fillRule: ShapePath.OddEvenFill
     property color  color: Theme.background
 
     /// The family's full result: path, bounds, clip, bar (see geometry.js).
@@ -40,7 +44,7 @@ Shape {
 
     ShapePath {
         fillColor:   shape.color
-        fillRule:    ShapePath.OddEvenFill
+        fillRule:    shape.fillRule
         strokeWidth: -1
         strokeColor: "transparent"
         PathSvg { path: shape.hole !== "" ? shape.result.path + " " + shape.hole : shape.result.path }
