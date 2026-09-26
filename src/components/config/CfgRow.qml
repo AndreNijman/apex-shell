@@ -173,7 +173,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius:       8
-        color:        (root.hoverable && hov.hovered) ? Qt.rgba(1,1,1,0.03) : "transparent"
+        color:        (root.hoverable && hov.hovered) ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03) : "transparent"
         Behavior on color { MotionColor {} }
     }
     HoverHandler { id: hov; enabled: root.hoverable }
@@ -191,7 +191,7 @@ Item {
             width:          parent.width
             text:           root.label
             font.pixelSize: theme.fs(12)
-            color:          root.unavailable ? Qt.rgba(1,1,1,0.42) : Qt.rgba(1,1,1,0.75)
+            color:          root.unavailable ? Theme.textSecondary : Theme.textPrimary
             elide:          Text.ElideRight
         }
         Text {
@@ -199,7 +199,7 @@ Item {
             visible:        text !== ""
             text:           root.unavailable ? root.disabledReason : root.description
             font.pixelSize: theme.fs(10)
-            color:          Qt.rgba(1,1,1,0.38)
+            color:          Theme.textSecondary
             wrapMode:       Text.WordWrap
             maximumLineCount: root.descriptionLines > 0 ? root.descriptionLines : 1000
             elide:          Text.ElideRight
@@ -245,6 +245,6 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         font.pixelSize:         theme.fs(10)
         font.family:            "JetBrains Mono"
-        color:                  root.statusWarns ? Theme.attention : Qt.rgba(1,1,1,0.38)
+        color:                  root.statusWarns ? Theme.attention : Theme.textSecondary
     }
 }

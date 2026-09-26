@@ -59,34 +59,27 @@ QtObject {
     // the difference between a status family that works on both and one that
     // only ever got looked at on the maintainer's own wallpaper.
     //
-    // ── LIGHT MODE IS NOT SUPPORTED YET, AND THIS IS WHERE THAT IS RECORDED ──
+    // ── LIGHT MODE ───────────────────────────────────────────────────────────
     //
     // The light values below are measured, not guessed: tests/agent-state-test.js
     // checks all twelve palettes — six shipped wallpapers, both matugen modes —
     // and tests/run-agent-state-render-test.sh drives both through the real
-    // Theme in a headless compositor, worst light contrast 4.81:1. They are
-    // correct. They are also not something a user should be able to switch on
-    // today, and the reason is not in this file:
+    // Theme in a headless compositor, worst light contrast 4.81:1.
     //
-    //   212 `color:` bindings across src/ are Qt.rgba(1, 1, 1, α)
+    // For a long time they could not be offered: 212 `color:` bindings across
+    // src/ were Qt.rgba(1, 1, 1, α), a translucent white foreground that reads
+    // on the dark surface and is invisible on matugen's light one (#fdf9f3 on
+    // the default wallpaper) — a Light/Dark toggle would have handed the user a
+    // blank Settings window. UI/UX Phase 18 took that count to zero: every one
+    // is a palette role now, or a fixed colour on a surface that really is
+    // fixed. Every surface tests/visual can open — the bar, each panel and
+    // pane, every Dashboard tab and Nexus page, the toast, the stack, the OSD
+    // and the lock screen — was captured in both schemes of the default
+    // wallpaper; the Clock card's Timer and Alarm tabs were not.
     //
-    // — a translucent white foreground, which reads on the dark surface that has
-    // always been the only reachable one and is invisible on matugen's light
-    // surface (#fdf9f3 on the default wallpaper). 20 of them are in the settings
-    // pages, including the description text under every section heading. A
-    // Light/Dark toggle would hand the user a blank Settings window. So APEX
-    // Shell is a dark shell, on purpose, until those are tokens.
-    //
-    // It is REACHABLE, so the palette above is not dead code and can be worked
-    // on: WallpaperService passes matugen `-m <mode>` and takes the mode from
-    // ~/.config/apex-shell/src/user_data/wallpaper.json. Set `"mode": "light"`
-    // there and re-apply a wallpaper. There is no control in Settings, by the
-    // paragraph above.
-    //
-    // tests/check-color-tokens.sh counts those 212 sites and fails if the number
-    // goes UP, so this comment cannot quietly stop being true and the debt can
-    // only be paid down. When it reaches zero, wire the toggle back into
-    // AppearancePage — WallpaperService.setMode() is already there.
+    // WallpaperService passes matugen `-m <mode>` and takes the mode from
+    // ~/.config/apex-shell/src/user_data/wallpaper.json (setMode()).
+    // tests/check-color-tokens.sh bans the translucent white from coming back.
     //
     // The dark values are byte-identical to the ones already dominant in the
     // tree, so nothing moves on an existing install: `danger` was #f87171 at 12

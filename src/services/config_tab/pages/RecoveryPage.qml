@@ -224,7 +224,7 @@ CfgScroll {
                 Rectangle {
                     anchors.fill: parent
                     radius: theme.px(8)
-                    color:  compHov.hovered ? Qt.rgba(1, 1, 1, 0.03) : "transparent"
+                    color:  compHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03) : "transparent"
                     Behavior on color { MotionColor {} }
                 }
                 HoverHandler { id: compHov }

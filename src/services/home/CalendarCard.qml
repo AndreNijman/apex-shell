@@ -87,7 +87,7 @@ StatCard {
             Text {
                 anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                 text: "‹"; font.pixelSize: theme.fs(15)
-                color: pH.hovered ? Qt.rgba(1,1,1,0.7) : Qt.rgba(1,1,1,0.25)
+                color: pH.hovered ? Theme.textPrimary : Theme.textTertiary
                 Behavior on color { MotionColor {} }
                 HoverHandler { id: pH; cursorShape: Qt.PointingHandCursor }
                 MouseArea { anchors.fill: parent; onClicked: root._prev() }
@@ -100,7 +100,7 @@ StatCard {
             Text {
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                 text: "›"; font.pixelSize: theme.fs(15)
-                color: nH.hovered ? Qt.rgba(1,1,1,0.7) : Qt.rgba(1,1,1,0.25)
+                color: nH.hovered ? Theme.textPrimary : Theme.textTertiary
                 Behavior on color { MotionColor {} }
                 HoverHandler { id: nH; cursorShape: Qt.PointingHandCursor }
                 MouseArea { anchors.fill: parent; onClicked: root._next() }
@@ -120,7 +120,7 @@ StatCard {
                         width: Math.floor(dow.width / 7)
                         horizontalAlignment: Text.AlignHCenter
                         text: modelData; font.pixelSize: theme.fs(8); font.weight: Font.Bold
-                        color: Qt.rgba(1,1,1,0.2)
+                        color: Theme.textTertiary
                     }
                 }
             }
@@ -152,7 +152,7 @@ StatCard {
                         width: Math.min(parent.width, parent.height) - 4
                         height: width; radius: width / 2
                         color: isToday ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.15)
-                               : dH.hovered && modelData.cur ? Qt.rgba(1,1,1,0.07) : "transparent"
+                               : dH.hovered && modelData.cur ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) : "transparent"
                         border.color: isToday ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.3) : "transparent"
                         border.width: 1
                         Behavior on color { MotionColor { role: "state" } }
@@ -161,8 +161,8 @@ StatCard {
                             font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"
                             font.weight: isToday ? Font.Bold : Font.Normal
                             color: isToday ? Theme.active
-                                   : modelData.cur ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b,0.55)
-                                                   : Qt.rgba(1,1,1,0.13)
+                                   : modelData.cur ? Theme.textSecondary
+                                                   : Theme.textTertiary
                         }
                     }
                     HoverHandler { id: dH; enabled: modelData.cur; cursorShape: Qt.PointingHandCursor }

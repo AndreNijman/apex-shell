@@ -860,11 +860,11 @@ fi
 #     LabwcBackend.qml      x1  a JavaScript object literal, a geometry record
 #     NiriService.qml       x1  the same literal, in the niri backend
 #
-#   WIDTH-COMPENSATED (8) — an arithmetic no-op, not luck. Mirrored, x becomes
+#   WIDTH-COMPENSATED (9) — an arithmetic no-op, not luck. Mirrored, x becomes
 #   `parent.width - x - width`; with `x: N, width: parent.width - 2N` that is N
 #   again, and with `x: 0, width: root.width` it is 0. Identical geometry both
 #   ways, so converting them to anchors would change nothing a reader sees.
-#     AppearancePage.qml    x1  x:10 width: parent.width - 20
+#     AppearancePage.qml    x2  x:10 width: parent.width - 20 (scheme; light or dark)
 #     DataPage.qml          x2  x:10 width: parent.width - 20
 #     MiscPage.qml          x3  x:10 width: parent.width - 20
 #     KeybindsPage.qml      x2  x:0  width: root.width  (full bleed)
@@ -880,7 +880,7 @@ fi
 x_expect="$(cat <<'XEOF'
 1 src/services/compositor/LabwcBackend.qml x: 0, y: 0, width: 0, height: 0
 2 src/services/config_tab/KeybindsPage.qml x: 0
-1 src/services/config_tab/pages/AppearancePage.qml x: 10
+2 src/services/config_tab/pages/AppearancePage.qml x: 10
 2 src/services/config_tab/pages/DataPage.qml x: 10
 3 src/services/config_tab/pages/MiscPage.qml x: 10
 1 src/services/system/NiriService.qml x: 0, y: 0, width: 0, height: 0

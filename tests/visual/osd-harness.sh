@@ -24,8 +24,12 @@ trap cleanup EXIT INT TERM
 headless_start labwc 1920x1080 || exit 0
 cp "$here/osd-harness.qml" "$staged"
 mkdir -p "$HOME/.cache/apex-shell"
-printf '%s' '{"background":"#171210","active":"#fab898","text":"#ece0dc","subtext":"#d6c2ba","border":"#52443e","iconFont":"#be8366"}' \
-    > "$HOME/.cache/apex-shell/colors.json"
+if [ -n "${CAPTURE_PALETTE:-}" ] && [ -f "$CAPTURE_PALETTE" ]; then
+    cp "$CAPTURE_PALETTE" "$HOME/.cache/apex-shell/colors.json"
+else
+    printf '%s' '{"background":"#171210","active":"#fab898","text":"#ece0dc","subtext":"#d6c2ba","border":"#52443e","iconFont":"#be8366"}' \
+        > "$HOME/.cache/apex-shell/colors.json"
+fi
 command -v swaybg >/dev/null && swaybg -m fill -i "$root/src/assets/wallpapers/apex-shell-default-0.png" >/dev/null 2>&1 &
 
 log="$HEADLESS_W/osd.log"

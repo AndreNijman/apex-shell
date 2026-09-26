@@ -18,8 +18,12 @@ trap cleanup EXIT INT TERM
 [ -e /dev/dri/renderD128 ] && export HEADLESS_WLR_RENDERER=gles2
 headless_start labwc 1920x1080 || exit 0
 mkdir -p "$HOME/.cache/apex-shell"
-printf '%s' '{"background":"#171210","active":"#fab898","text":"#ece0dc","subtext":"#d6c2ba","border":"#52443e","iconFont":"#be8366"}' \
-    > "$HOME/.cache/apex-shell/colors.json"
+if [ -n "${CAPTURE_PALETTE:-}" ] && [ -f "$CAPTURE_PALETTE" ]; then
+    cp "$CAPTURE_PALETTE" "$HOME/.cache/apex-shell/colors.json"
+else
+    printf '%s' '{"background":"#171210","active":"#fab898","text":"#ece0dc","subtext":"#d6c2ba","border":"#52443e","iconFont":"#be8366"}' \
+        > "$HOME/.cache/apex-shell/colors.json"
+fi
 if [ -n "${CAPTURE_REDUCED:-}" ]; then
     mkdir -p "$HOME/.config/apex-shell/src/user_data"
     printf '%s' '{"reduceMotion":true}' > "$HOME/.config/apex-shell/src/user_data/settings.json"

@@ -254,7 +254,7 @@ PanelWindow {
                     anchors.centerIn: parent
                     visible:          wallGrid.count === 0
                     text:             "No wallpapers found in " + WallpaperService.wallpaperDir
-                    color:            Qt.rgba(1,1,1,0.25)
+                    color:            Theme.textTertiary
                     font.pixelSize:   theme.fs(13)
                 }
 
@@ -293,13 +293,13 @@ PanelWindow {
                             height: cardDelegate.labelH
                             color: isPreview
                                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22)
-                                : Qt.rgba(1,1,1,0.09)
+                                : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09)
 
                             Text {
                                 anchors.centerIn: parent
                                 width:               parent.width - 10
                                 text:                modelData.split("/").pop().replace(/\.[^/.]+$/, "")
-                                color:               isPreview ? Theme.active : Qt.rgba(1,1,1,0.65)
+                                color:               isPreview ? Theme.active : Theme.textSecondary
                                 font.pixelSize:      theme.fs(10)
                                 font.weight:         isPreview ? Font.Medium : Font.Normal
                                 elide:               Text.ElideRight
@@ -332,7 +332,7 @@ PanelWindow {
                         border.width: isPreview ? 2 : 1
                         border.color: isPreview ? Theme.active
                             : isCurrent ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.45)
-                            : Qt.rgba(1,1,1,0.15)
+                            : Qt.rgba(Theme.fixedLight.r, Theme.fixedLight.g, Theme.fixedLight.b, 0.15) // on a fixed surface
                         Behavior on border.color { MotionColor { role: "state" } }
                         Behavior on border.width { MotionFade {} }
                     }
@@ -376,7 +376,7 @@ PanelWindow {
                 anchors.left:         parent.left
                 anchors.right:        parent.right
                 height: 1
-                color: Qt.rgba(1,1,1,0.07)
+                color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
             }
 
             Item {
@@ -396,18 +396,18 @@ PanelWindow {
                         width:              32
                         height:             32
                         radius:             8
-                        color: folderBtnMA.containsMouse 
-                               ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14) 
-                               : (content.folderMode ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18) : Qt.rgba(1,1,1,0.04))
+                        color: folderBtnMA.containsMouse
+                               ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
+                               : (content.folderMode ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04))
                         border.color: (content.folderMode || folderBtnMA.containsMouse)
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4)
-                            : Qt.rgba(1,1,1,0.09)
+                            : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09)
                         border.width: 1
                         Behavior on color        { MotionColor { role: "state" } }
                         Behavior on border.color { MotionColor { role: "state" } }
                         Text {
                             anchors.centerIn: parent; text: "󰉋"; font.pixelSize: theme.fs(15)
-                            color: (content.folderMode || folderBtnMA.containsMouse) ? Theme.active : Qt.rgba(1,1,1,0.5)
+                            color: (content.folderMode || folderBtnMA.containsMouse) ? Theme.active : Theme.textSecondary
                             Behavior on color { MotionColor { role: "state" } }
                         }
                         MouseArea {
@@ -434,10 +434,10 @@ PanelWindow {
                         width:              300
                         height:             32
                         radius:             8
-                        color: filterBoxMA.containsMouse ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.06)
+                        color: filterBoxMA.containsMouse ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
                         border.color: (searchInput.activeFocus || dirInput.activeFocus)
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
-                            : (filterBoxMA.containsMouse ? Qt.rgba(1,1,1,0.15) : Qt.rgba(1,1,1,0.1))
+                            : (filterBoxMA.containsMouse ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.15) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1))
                         border.width: 1
                         Behavior on color { MotionColor {} }
                         Behavior on border.color { MotionColor { role: "state" } }
@@ -458,7 +458,7 @@ PanelWindow {
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "Search wallpapers…"
-                                color: (searchInput.activeFocus || filterBoxMA.containsMouse) ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7) : Qt.rgba(1,1,1,0.28)
+                                color: (searchInput.activeFocus || filterBoxMA.containsMouse) ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7) : Theme.textTertiary
                                 font.pixelSize: theme.fs(12); visible: searchInput.text === ""
                             }
 
@@ -562,12 +562,12 @@ PanelWindow {
                         width:              schemeBtnRow.implicitWidth + 20
                         height:             32
                         radius:             8
-                        color: schemeBtnMA.containsMouse 
-                               ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14) 
-                               : (content.schemePopupOpen ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18) : Qt.rgba(1,1,1,0.04))
+                        color: schemeBtnMA.containsMouse
+                               ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
+                               : (content.schemePopupOpen ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04))
                         border.color: (content.schemePopupOpen || schemeBtnMA.containsMouse)
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4)
-                            : Qt.rgba(1,1,1,0.09)
+                            : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09)
                         border.width: 1
                         Behavior on color        { MotionColor { role: "state" } }
                         Behavior on border.color { MotionColor { role: "state" } }
@@ -577,21 +577,21 @@ PanelWindow {
                             Text {
                                 text:                   "󰏘"
                                 font.pixelSize:         theme.fs(14)
-                                color:                  (content.schemePopupOpen || schemeBtnMA.containsMouse) ? Theme.active : Qt.rgba(1,1,1,0.55)
+                                color:                  (content.schemePopupOpen || schemeBtnMA.containsMouse) ? Theme.active : Theme.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                                 Behavior on color       { MotionColor { role: "state" } }
                             }
                             Text {
                                 text:                   WallpaperService.scheme
                                 font.pixelSize:         theme.fs(12)
-                                color:                  (content.schemePopupOpen || schemeBtnMA.containsMouse) ? Theme.active : Qt.rgba(1,1,1,0.7)
+                                color:                  (content.schemePopupOpen || schemeBtnMA.containsMouse) ? Theme.active : Theme.textPrimary
                                 anchors.verticalCenter: parent.verticalCenter
                                 Behavior on color       { MotionColor { role: "state" } }
                             }
                             Text {
                                 text:                   content.schemePopupOpen ? "▴" : "▾"
                                 font.pixelSize:         theme.fs(8)
-                                color:                  (content.schemePopupOpen || schemeBtnMA.containsMouse) ? Theme.active : Qt.rgba(1,1,1,0.35)
+                                color:                  (content.schemePopupOpen || schemeBtnMA.containsMouse) ? Theme.active : Theme.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }
@@ -728,14 +728,14 @@ PanelWindow {
                             Text {
                                 text:                   sel ? "●" : "○"
                                 font.pixelSize:         theme.fs(10)
-                                color:                  (sel || schemeItemMA.containsMouse) ? Theme.active : Qt.rgba(1,1,1,0.3)
+                                color:                  (sel || schemeItemMA.containsMouse) ? Theme.active : Theme.textTertiary
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
                                 id:                     schemeItemText
                                 text:                   modelData
                                 font.pixelSize:         theme.fs(13)
-                                color:                  (sel || schemeItemMA.containsMouse) ? Theme.text : Qt.rgba(1,1,1,0.65)
+                                color:                  (sel || schemeItemMA.containsMouse) ? Theme.text : Theme.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }

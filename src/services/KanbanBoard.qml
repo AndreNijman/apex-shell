@@ -327,8 +327,8 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent; radius: theme.cornerRadius
-                    color:        Qt.rgba(1, 1, 1, 0.03)
-                    border.color: Qt.rgba(1, 1, 1, 0.07); border.width: 1
+                    color:        Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
+                    border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07); border.width: 1
                 }
 
                 Column {
@@ -365,7 +365,7 @@ Item {
                             width: 22; height: 22; radius: 6
                             color: addH.hovered
                                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                                : Qt.rgba(1, 1, 1, 0.05)
+                                : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
                             border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.20)
                             border.width: 1
                             Behavior on color { MotionColor { role: "state" } }
@@ -378,7 +378,7 @@ Item {
                         }
                     }
 
-                    Rectangle { width: parent.width; height: 1; color: Qt.rgba(1,1,1,0.07) }
+                    Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) }
 
                     Timer {
                         id: draftTimer; interval: 50
@@ -412,7 +412,7 @@ Item {
                                 Text {
                                     anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
                                     visible: draftInput.text === ""
-                                    text: "Task title…"; color: Qt.rgba(1,1,1,0.25); font.pixelSize: theme.fs(12)
+                                    text: "Task title…"; color: Theme.textTertiary; font.pixelSize: theme.fs(12)
                                 }
 
                                 TextInput {
@@ -491,7 +491,7 @@ Item {
             Math.min(1, Theme.background.r + 0.06),
             Math.min(1, Theme.background.g + 0.06),
             Math.min(1, Theme.background.b + 0.06), 0.98)
-        border.color: Qt.rgba(1,1,1,0.15); border.width: 1
+        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.15); border.width: 1
 
         // Swallow clicks so they don't reach the dim overlay below
         MouseArea { anchors.fill: parent; onClicked: {} }
@@ -507,7 +507,7 @@ Item {
                 Text {
                     anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                     text: "‹"; font.pixelSize: theme.fs(17)
-                    color: pmH.hovered ? Qt.rgba(1,1,1,0.85) : Qt.rgba(1,1,1,0.30)
+                    color: pmH.hovered ? Theme.textPrimary : Theme.textTertiary
                     Behavior on color { MotionColor {} }
                     HoverHandler { id: pmH; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
@@ -526,7 +526,7 @@ Item {
                 Text {
                     anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                     text: "›"; font.pixelSize: theme.fs(17)
-                    color: nmH.hovered ? Qt.rgba(1,1,1,0.85) : Qt.rgba(1,1,1,0.30)
+                    color: nmH.hovered ? Theme.textPrimary : Theme.textTertiary
                     Behavior on color { MotionColor {} }
                     HoverHandler { id: nmH; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
@@ -550,7 +550,7 @@ Item {
                             width: Math.floor(parent.parent.width / 7)
                             horizontalAlignment: Text.AlignHCenter
                             text: modelData; font.pixelSize: theme.fs(8); font.weight: Font.Bold
-                            color: Qt.rgba(1,1,1,0.18)
+                            color: Theme.textTertiary
                         }
                     }
                 }
@@ -585,7 +585,7 @@ Item {
                             color: isSel
                                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.82)
                                 : isNow ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12)
-                                        : dayH.hovered && modelData.cur ? Qt.rgba(1,1,1,0.08) : "transparent"
+                                        : dayH.hovered && modelData.cur ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : "transparent"
                             border.color: isNow && !isSel ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35) : "transparent"
                             border.width: 1
                             Behavior on color { MotionColor { role: "state" } }
@@ -595,7 +595,7 @@ Item {
                                 text: modelData.n
                                 font.pixelSize: theme.fs(9); font.weight: isSel ? Font.Bold : Font.Normal
                                 color: isSel ? Theme.background
-                                    : modelData.cur ? Qt.rgba(1,1,1,0.78) : Qt.rgba(1,1,1,0.14)
+                                    : modelData.cur ? Theme.textPrimary : Theme.textTertiary
                             }
                         }
                         HoverHandler { id: dayH; enabled: modelData.cur; cursorShape: Qt.PointingHandCursor }
@@ -604,7 +604,7 @@ Item {
                 }
             }
 
-            Rectangle { width: parent.width; height: 1; color: Qt.rgba(1,1,1,0.08) }
+            Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) }
 
             // ── Time row ──────────────────────────────────────────────────────
             Item {
@@ -630,16 +630,16 @@ Item {
                             spacing: 2; anchors.verticalCenter: parent.verticalCenter
                             Rectangle {
                                 width: 26; height: 18; radius: 4
-                                color: hUpH.hovered ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.05)
-                                border.color: Qt.rgba(1,1,1,0.10); border.width: 1
+                                color: hUpH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                                border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10); border.width: 1
                                 Behavior on color { MotionColor {} }
-                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: theme.fs(7); color: Qt.rgba(1,1,1,0.50) }
+                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: theme.fs(7); color: Theme.textSecondary }
                                 HoverHandler { id: hUpH; cursorShape: Qt.PointingHandCursor }
                                 MouseArea { anchors.fill: parent; onClicked: root.pickerTimeH = (root.pickerTimeH + 1) % 24 }
                             }
                             Rectangle {
                                 width: 26; height: 24; radius: 4
-                                color: Qt.rgba(1,1,1,0.07); border.color: Qt.rgba(1,1,1,0.10); border.width: 1
+                                color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07); border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10); border.width: 1
                                 Text {
                                     anchors.centerIn: parent
                                     text: root._zp2(root.pickerTimeH)
@@ -649,10 +649,10 @@ Item {
                             }
                             Rectangle {
                                 width: 26; height: 18; radius: 4
-                                color: hDnH.hovered ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.05)
-                                border.color: Qt.rgba(1,1,1,0.10); border.width: 1
+                                color: hDnH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                                border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10); border.width: 1
                                 Behavior on color { MotionColor {} }
-                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: theme.fs(7); color: Qt.rgba(1,1,1,0.50) }
+                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: theme.fs(7); color: Theme.textSecondary }
                                 HoverHandler { id: hDnH; cursorShape: Qt.PointingHandCursor }
                                 MouseArea { anchors.fill: parent; onClicked: root.pickerTimeH = (root.pickerTimeH + 23) % 24 }
                             }
@@ -665,16 +665,16 @@ Item {
                             spacing: 2; anchors.verticalCenter: parent.verticalCenter
                             Rectangle {
                                 width: 26; height: 18; radius: 4
-                                color: mUpH.hovered ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.05)
-                                border.color: Qt.rgba(1,1,1,0.10); border.width: 1
+                                color: mUpH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                                border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10); border.width: 1
                                 Behavior on color { MotionColor {} }
-                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: theme.fs(7); color: Qt.rgba(1,1,1,0.50) }
+                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: theme.fs(7); color: Theme.textSecondary }
                                 HoverHandler { id: mUpH; cursorShape: Qt.PointingHandCursor }
                                 MouseArea { anchors.fill: parent; onClicked: root.pickerTimeM = (root.pickerTimeM + 5) % 60 }
                             }
                             Rectangle {
                                 width: 26; height: 24; radius: 4
-                                color: Qt.rgba(1,1,1,0.07); border.color: Qt.rgba(1,1,1,0.10); border.width: 1
+                                color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07); border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10); border.width: 1
                                 Text {
                                     anchors.centerIn: parent
                                     text: root._zp2(root.pickerTimeM)
@@ -684,10 +684,10 @@ Item {
                             }
                             Rectangle {
                                 width: 26; height: 18; radius: 4
-                                color: mDnH.hovered ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.05)
-                                border.color: Qt.rgba(1,1,1,0.10); border.width: 1
+                                color: mDnH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                                border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10); border.width: 1
                                 Behavior on color { MotionColor {} }
-                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: theme.fs(7); color: Qt.rgba(1,1,1,0.50) }
+                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: theme.fs(7); color: Theme.textSecondary }
                                 HoverHandler { id: mDnH; cursorShape: Qt.PointingHandCursor }
                                 MouseArea { anchors.fill: parent; onClicked: root.pickerTimeM = (root.pickerTimeM + 55) % 60 }
                             }
@@ -697,9 +697,9 @@ Item {
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
                             width: 18; height: 18; radius: 9
-                            color: clrTH.hovered ? Qt.rgba(1,1,1,0.14) : Qt.rgba(1,1,1,0.05)
+                            color: clrTH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.14) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
                             Behavior on color { MotionColor {} }
-                            Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(8); color: Qt.rgba(1,1,1,0.40) }
+                            Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(8); color: Theme.textSecondary }
                             HoverHandler { id: clrTH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root.pickerHasTime = false }
                         }
@@ -712,13 +712,13 @@ Item {
                         width: addTL.implicitWidth + 18; height: 24; radius: 12
                         color: addTH.hovered
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15)
-                            : Qt.rgba(1,1,1,0.06)
-                        border.color: Qt.rgba(1,1,1,0.10); border.width: 1
+                            : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
+                        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10); border.width: 1
                         Behavior on color { MotionColor {} }
                         Text {
                             id: addTL; anchors.centerIn: parent
                             text: "Add time"; font.pixelSize: theme.fs(10)
-                            color: addTH.hovered ? Theme.active : Qt.rgba(1,1,1,0.45)
+                            color: addTH.hovered ? Theme.active : Theme.textSecondary
                             Behavior on color { MotionColor {} }
                         }
                         HoverHandler { id: addTH; cursorShape: Qt.PointingHandCursor }
@@ -730,7 +730,7 @@ Item {
                 }
             }
 
-            Rectangle { width: parent.width; height: 1; color: Qt.rgba(1,1,1,0.08) }
+            Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) }
 
             // ── Clear / Done ───────────────────────────────────────────────────
             Row {
@@ -739,10 +739,10 @@ Item {
 
                 Rectangle {
                     width: 86; height: 28; radius: 8
-                    color: clrH.hovered ? Qt.rgba(1,1,1,0.10) : Qt.rgba(1,1,1,0.05)
-                    border.color: Qt.rgba(1,1,1,0.10); border.width: 1
+                    color: clrH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                    border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10); border.width: 1
                     Behavior on color { MotionColor {} }
-                    Text { anchors.centerIn: parent; text: "Clear"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.50) }
+                    Text { anchors.centerIn: parent; text: "Clear"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
                     HoverHandler { id: clrH; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
                         anchors.fill: parent
@@ -876,13 +876,13 @@ Item {
         Rectangle {
             id: cardBg
             width: parent.width; radius: 8
-            color: Qt.rgba(1, 1, 1, 0.05)
+            color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
             border.color: {
                 var u = card.taskData.urgency
                 if (u === "high")   return Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.45)
                 if (u === "medium") return Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.35)
                 if (u === "low")    return Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.35)
-                return Qt.rgba(1, 1, 1, 0.10)
+                return Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)
             }
             border.width: 1
             Behavior on border.color { MotionColor { role: "state" } }
@@ -924,7 +924,7 @@ Item {
                         visible: (card.taskData.dueDate || "") !== ""
                         anchors.verticalCenter: parent.verticalCenter; spacing: 3
                         Text { text: "📅"; font.pixelSize: theme.fs(9) }
-                        Text { text: root._formatDue(card.taskData.dueDate || ""); font.pixelSize: theme.fs(9); color: Qt.rgba(1,1,1,0.50) }
+                        Text { text: root._formatDue(card.taskData.dueDate || ""); font.pixelSize: theme.fs(9); color: Theme.textSecondary }
                     }
                 }
 
@@ -935,21 +935,21 @@ Item {
                     // Urgency picker
                     Row {
                         spacing: 5
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Urgency"; font.pixelSize: theme.fs(9); color: Qt.rgba(1,1,1,0.35) }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Urgency"; font.pixelSize: theme.fs(9); color: Theme.textSecondary }
                         Repeater {
                             model: ["", "low", "medium", "high"]
                             delegate: Rectangle {
                                 required property string modelData
                                 property bool sel: card.taskData.urgency === modelData
                                 width: uT.implicitWidth + 12; height: 17; radius: 9
-                                color: sel ? (modelData === "" ? Qt.rgba(1,1,1,0.15) : root._urgColor(modelData))
-                                           : (uH.hovered ? Qt.rgba(1,1,1,0.10) : Qt.rgba(1,1,1,0.05))
-                                border.color: Qt.rgba(1,1,1, sel ? 0.20 : 0.08); border.width: 1
+                                color: sel ? (modelData === "" ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.15) : root._urgColor(modelData))
+                                           : (uH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05))
+                                border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, sel ? 0.20 : 0.08); border.width: 1
                                 Behavior on color { MotionColor { role: "state" } }
                                 Text {
                                     id: uT; anchors.centerIn: parent; font.pixelSize: theme.fs(9)
                                     text: modelData === "" ? "None" : modelData.charAt(0).toUpperCase() + modelData.slice(1)
-                                    color: (sel && modelData !== "") ? Theme.fixedDark : Qt.rgba(1,1,1,0.65)
+                                    color: (sel && modelData !== "") ? Theme.fixedDark : Theme.textSecondary
                                 }
                                 HoverHandler { id: uH; cursorShape: Qt.PointingHandCursor }
                                 MouseArea { anchors.fill: parent; onClicked: root._patchTask(card.taskData.id, "urgency", modelData) }
@@ -960,20 +960,20 @@ Item {
                     // Due date button row
                     Row {
                         spacing: 6
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Due"; font.pixelSize: theme.fs(9); color: Qt.rgba(1,1,1,0.35) }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Due"; font.pixelSize: theme.fs(9); color: Theme.textSecondary }
 
                         Rectangle {
                             anchors.verticalCenter: parent.verticalCenter
                             width:  dueLbl.implicitWidth + 20; height: 20; radius: 10
                             color: dueBH.hovered
                                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15)
-                                : Qt.rgba(1,1,1,0.07)
-                            border.color: Qt.rgba(1,1,1,0.12); border.width: 1
+                                : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
+                            border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12); border.width: 1
                             Behavior on color { MotionColor {} }
                             Text {
                                 id: dueLbl; anchors.centerIn: parent; font.pixelSize: theme.fs(9)
                                 text:  (card.taskData.dueDate || "") !== "" ? root._formatDue(card.taskData.dueDate) : "Set due date"
-                                color: (card.taskData.dueDate || "") !== "" ? Theme.active : Qt.rgba(1,1,1,0.40)
+                                color: (card.taskData.dueDate || "") !== "" ? Theme.active : Theme.textSecondary
                                 Behavior on color { MotionColor { role: "state" } }
                             }
                             HoverHandler { id: dueBH; cursorShape: Qt.PointingHandCursor }
@@ -985,9 +985,9 @@ Item {
                             visible: (card.taskData.dueDate || "") !== ""
                             anchors.verticalCenter: parent.verticalCenter
                             width: 16; height: 16; radius: 8
-                            color: clrDH.hovered ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.05)
+                            color: clrDH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
                             Behavior on color { MotionColor { role: "state" } }
-                            Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(8); color: Qt.rgba(1,1,1,0.35) }
+                            Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(8); color: Theme.textSecondary }
                             HoverHandler { id: clrDH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._patchTask(card.taskData.id, "dueDate", "") }
                         }
@@ -1002,9 +1002,9 @@ Item {
                     Rectangle {
                         anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                         width: 20; height: 20; radius: 5
-                        color: optH.hovered ? Qt.rgba(1,1,1,0.10) : Qt.rgba(1,1,1,0.04)
+                        color: optH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
                         Behavior on color { MotionColor {} }
-                        Text { anchors.centerIn: parent; text: card.showExtra ? "▴" : "▾"; font.pixelSize: theme.fs(9); color: Qt.rgba(1,1,1, optH.hovered ? 0.70 : 0.30) }
+                        Text { anchors.centerIn: parent; text: card.showExtra ? "▴" : "▾"; font.pixelSize: theme.fs(9); color: optH.hovered ? Theme.textPrimary : Theme.textTertiary }
                         HoverHandler { id: optH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: card.showExtra = !card.showExtra }
                     }
@@ -1017,9 +1017,9 @@ Item {
                         Rectangle {
                             visible: card.colIdx > 0
                             width: 20; height: 20; radius: 5
-                            color: lH.hovered ? Qt.rgba(1,1,1,0.10) : Qt.rgba(1,1,1,0.04)
+                            color: lH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
                             Behavior on color { MotionColor {} }
-                            Text { anchors.centerIn: parent; text: "←"; font.pixelSize: theme.fs(10); color: Qt.rgba(1,1,1, lH.hovered ? 0.80 : 0.40) }
+                            Text { anchors.centerIn: parent; text: "←"; font.pixelSize: theme.fs(10); color: lH.hovered ? Theme.textPrimary : Theme.textSecondary }
                             HoverHandler { id: lH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._moveTask(card.taskData.id, -1) }
                         }
@@ -1028,9 +1028,9 @@ Item {
                         Rectangle {
                             visible: card.colIdx < 2
                             width: 20; height: 20; radius: 5
-                            color: rH.hovered ? Qt.rgba(1,1,1,0.10) : Qt.rgba(1,1,1,0.04)
+                            color: rH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
                             Behavior on color { MotionColor {} }
-                            Text { anchors.centerIn: parent; text: "→"; font.pixelSize: theme.fs(10); color: Qt.rgba(1,1,1, rH.hovered ? 0.80 : 0.40) }
+                            Text { anchors.centerIn: parent; text: "→"; font.pixelSize: theme.fs(10); color: rH.hovered ? Theme.textPrimary : Theme.textSecondary }
                             HoverHandler { id: rH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root._moveTask(card.taskData.id, 1) }
                         }
@@ -1038,7 +1038,7 @@ Item {
                         // ✕ delete
                         Rectangle {
                             width: 20; height: 20; radius: 5
-                            color: dH.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.20) : Qt.rgba(1,1,1,0.04)
+                            color: dH.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.20) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
                             Behavior on color { MotionColor {} }
                             Text {
                                 anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(10)
@@ -1071,10 +1071,10 @@ Item {
                         anchors.horizontalCenter: parent.horizontalCenter; spacing: 8
                         Rectangle {
                             width: 64; height: 24; radius: 6
-                            color: cnH.hovered ? Qt.rgba(1,1,1,0.10) : Qt.rgba(1,1,1,0.05)
-                            border.color: Qt.rgba(1,1,1,0.10); border.width: 1
+                            color: cnH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                            border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10); border.width: 1
                             Behavior on color { MotionColor {} }
-                            Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.60) }
+                            Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
                             HoverHandler { id: cnH; cursorShape: Qt.PointingHandCursor }
                             MouseArea { anchors.fill: parent; onClicked: root.delConfirmId = -1 }
                         }
@@ -1090,7 +1090,7 @@ Item {
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "↵ confirm · ⎋ cancel"; font.pixelSize: theme.fs(9)
-                        color: Qt.rgba(1,1,1,0.20)
+                        color: Theme.textTertiary
                     }
                 }
             }

@@ -282,7 +282,7 @@ Item {
 							anchors.verticalCenter: parent.verticalCenter
 							color: hTab.isActive
 							? Theme.active
-							: (hHov.hovered ? Qt.rgba(1, 1, 1, 0.75) : Qt.rgba(1, 1, 1, 0.4))
+							: (hHov.hovered ? Theme.textPrimary : Theme.textSecondary)
 							Behavior on color { MotionColor { role: "state" } }
 						}
 
@@ -295,7 +295,7 @@ Item {
 							anchors.verticalCenter: parent.verticalCenter
 							color: hTab.isActive
 							? Theme.active
-							: (hHov.hovered ? Qt.rgba(1, 1, 1, 0.75) : Qt.rgba(1, 1, 1, 0.4))
+							: (hHov.hovered ? Theme.textPrimary : Theme.textSecondary)
 							Behavior on color { MotionColor { role: "state" } }
 						}
 					}
@@ -319,7 +319,7 @@ Item {
 		anchors.left:   parent.left
 		anchors.right:  parent.right
 		height:         1
-		color:          Qt.rgba(1, 1, 1, 0.07)
+		color:          Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
 	}
 
 	// ── VERTICAL metrics ──────────────────────────────────────────────────────
@@ -457,7 +457,7 @@ Item {
 							anchors.verticalCenter: parent.verticalCenter
 							color: vTab.isActive
 								? Theme.active
-								: (vHov.hovered ? Qt.rgba(1, 1, 1, 0.80) : Qt.rgba(1, 1, 1, 0.42))
+								: (vHov.hovered ? Theme.textPrimary : Theme.textSecondary)
 							Behavior on color { MotionColor { role: "state" } }
 						}
 
@@ -474,7 +474,7 @@ Item {
 							anchors.verticalCenter: parent.verticalCenter
 							color: vTab.isActive
 								? Theme.active
-								: (vHov.hovered ? Qt.rgba(1, 1, 1, 0.80) : Qt.rgba(1, 1, 1, 0.42))
+								: (vHov.hovered ? Theme.textPrimary : Theme.textSecondary)
 							Behavior on color { MotionColor { role: "state" } }
 						}
 					}

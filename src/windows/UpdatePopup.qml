@@ -73,7 +73,7 @@ PanelWindow {
         width:  380
         radius: theme.notchRadius
         color:  Theme.background
-        border.color: Qt.rgba(1, 1, 1, 0.08)
+        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
         border.width: 1
 
         // Size to content
@@ -105,13 +105,13 @@ PanelWindow {
         
             Rectangle {
                 anchors.fill: parent; radius: 6
-                color: xHov.hovered ? Qt.rgba(1,1,1,0.10) : "transparent"
+                color: xHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : "transparent"
                 Behavior on color { MotionColor {} }
             }
             Text {
                 anchors.centerIn: parent
                 text: "✕"; font.pixelSize: theme.fs(11)
-                color: Qt.rgba(1,1,1,0.35)
+                color: Theme.textSecondary
             }
             HoverHandler { id: xHov; cursorShape: Qt.PointingHandCursor }
             MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
@@ -173,7 +173,7 @@ PanelWindow {
 
             Rectangle {
                 width: parent.width; height: 1
-                color: Qt.rgba(1, 1, 1, 0.07)
+                color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
             }
 
             // ── Stranded stash warning (shown in any state) ───────────────────
@@ -268,10 +268,10 @@ PanelWindow {
                     // Skip (dismiss this check)
                     Rectangle {
                         width: 58; height: 30; radius: 8
-                        color:        skH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
-                        border.color: Qt.rgba(1,1,1,0.09); border.width: 1
+                        color:        skH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09); border.width: 1
                         Behavior on color { MotionColor {} }
-                        Text { anchors.centerIn: parent; text: "Skip"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
+                        Text { anchors.centerIn: parent; text: "Skip"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
                         HoverHandler { id: skH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
                     }
@@ -279,10 +279,10 @@ PanelWindow {
                     // Disable auto-update
                     Rectangle {
                         width: 82; height: 30; radius: 8
-                        color:        disH.hovered ? Qt.rgba(1,1,1,0.06) : "transparent"
-                        border.color: Qt.rgba(1,1,1,0.07); border.width: 1
+                        color:        disH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06) : "transparent"
+                        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07); border.width: 1
                         Behavior on color { MotionColor {} }
-                        Text { anchors.centerIn: parent; text: "Disable"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.28) }
+                        Text { anchors.centerIn: parent; text: "Disable"; font.pixelSize: theme.fs(11); color: Theme.textTertiary }
                         HoverHandler { id: disH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: UpdateService.disableAutoUpdate() }
                     }
@@ -305,7 +305,7 @@ PanelWindow {
                 Text {
                     text:           "Do not close the shell."
                     font.pixelSize: theme.fs(10)
-                    color:          Qt.rgba(1, 1, 1, 0.25)
+                    color:          Theme.textTertiary
                 }
             }
 
@@ -349,10 +349,10 @@ PanelWindow {
                     // Cancel
                     Rectangle {
                         width: 72; height: 30; radius: 8
-                        color:        cxH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
-                        border.color: Qt.rgba(1,1,1,0.09); border.width: 1
+                        color:        cxH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09); border.width: 1
                         Behavior on color { MotionColor {} }
-                        Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
+                        Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
                         HoverHandler { id: cxH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
                     }
@@ -377,10 +377,10 @@ PanelWindow {
                 // Dismiss
                 Rectangle {
                     width: 72; height: 30; radius: 8
-                    color:        dmH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
-                    border.color: Qt.rgba(1,1,1,0.09); border.width: 1
+                    color:        dmH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                    border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09); border.width: 1
                     Behavior on color { MotionColor {} }
-                    Text { anchors.centerIn: parent; text: "Dismiss"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
+                    Text { anchors.centerIn: parent; text: "Dismiss"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
                     HoverHandler { id: dmH; cursorShape: Qt.PointingHandCursor }
                     MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
                 }
@@ -389,7 +389,7 @@ PanelWindow {
                 Text {
                     text:           "Auto-dismissing in a few seconds…"
                     font.pixelSize: theme.fs(10)
-                    color:          Qt.rgba(1, 1, 1, 0.22)
+                    color:          Theme.textTertiary
                 }
             }
 
@@ -429,10 +429,10 @@ PanelWindow {
                     // Close
                     Rectangle {
                         width: 72; height: 30; radius: 8
-                        color:        clH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
-                        border.color: Qt.rgba(1,1,1,0.09); border.width: 1
+                        color:        clH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09); border.width: 1
                         Behavior on color { MotionColor {} }
-                        Text { anchors.centerIn: parent; text: "Close"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
+                        Text { anchors.centerIn: parent; text: "Close"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
                         HoverHandler { id: clH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
                     }

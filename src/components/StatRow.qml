@@ -21,7 +21,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         text:           root.label
         font.pixelSize: theme.fs(11)
-        color:          Qt.rgba(1, 1, 1, 0.4)
+        color:          Theme.textSecondary
     }
 
     Text {

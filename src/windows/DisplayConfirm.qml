@@ -111,7 +111,7 @@ PanelWindow {
         height: col.implicitHeight + theme.px(48)
         radius: theme.notchRadius
         color:  Theme.background
-        border.color: Qt.rgba(1, 1, 1, 0.08)
+        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
         border.width: 1
 
         MouseArea { anchors.fill: parent }
@@ -166,7 +166,7 @@ PanelWindow {
                 width:  parent.width
                 height: theme.px(4)
                 radius: height / 2
-                color:  Qt.rgba(1, 1, 1, 0.08)
+                color:  Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
 
                 Rectangle {
                     height: parent.height
@@ -210,7 +210,7 @@ PanelWindow {
                     width:  theme.px(160)
                     height: theme.px(38)
                     radius: theme.cornerRadius
-                    color:  keepHov.hovered ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.09)
+                    color:  keepHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.16) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09)
 
                     Behavior on color { MotionColor {} }
 
@@ -233,7 +233,7 @@ PanelWindow {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Enter keeps it. Escape puts it back."
-                color: Qt.rgba(1, 1, 1, 0.3)
+                color: Theme.textTertiary
                 font.pixelSize: theme.fs(11)
             }
         }

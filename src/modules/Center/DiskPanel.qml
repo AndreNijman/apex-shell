@@ -29,7 +29,7 @@ Item {
             text:           "Disks"
             font.pixelSize: theme.fs(11)
             font.weight:    Font.Medium
-            color:          Qt.rgba(1, 1, 1, 0.4)
+            color:          Theme.textSecondary
         }
 
         Text {
@@ -42,7 +42,7 @@ Item {
             text:           root.service.disks.length
             font.pixelSize: theme.fs(9)
             font.weight:    Font.Medium
-            color:          Qt.rgba(1, 1, 1, 0.25)
+            color:          Theme.textTertiary
         }
     }
 
@@ -66,7 +66,7 @@ Item {
             implicitWidth:  2
             implicitHeight: 20
             radius:         width / 2
-            color:          Qt.rgba(1, 1, 1, 0.5)
+            color:          Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.5)
             opacity:        vScroll.active ? 1.0 : 0.0
             Behavior on opacity { MotionFade {} }
         }
@@ -74,7 +74,7 @@ Item {
         background: Rectangle {
             implicitWidth: 2
             radius:        width / 2
-            color:         Qt.rgba(1, 1, 1, 0.08)
+            color:         Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
         }
     }
 

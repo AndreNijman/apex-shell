@@ -49,8 +49,8 @@ Item {
             width:  Math.floor((parent.width - parent.spacing) * 0.30)
             height: parent.height
             radius: theme.cornerRadius
-            color:  Qt.rgba(1, 1, 1, 0.04)
-            border.color: Qt.rgba(1, 1, 1, 0.07)
+            color:  Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+            border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
             border.width: 1
 
             TabSwitcher {
@@ -85,7 +85,7 @@ Item {
                 }
                 height: theme.px(30)
                 radius: theme.cornerRadius
-                color:  popHov.hovered ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.03)
+                color:  popHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
                 Behavior on color { MotionColor {} }
 
                 Text {

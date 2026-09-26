@@ -275,7 +275,7 @@ PanelWindow {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           col.pctText
-                color:          col.muted ? Qt.rgba(1,1,1,0.25) : Theme.text
+                color:          col.muted ? Theme.textTertiary : Theme.text
                 font.pixelSize: theme.fs(13)
                 font.bold:      true
                 Behavior on color { MotionColor { role: "state" } }
@@ -290,14 +290,14 @@ PanelWindow {
                     id: track
                     anchors.fill: parent
                     radius: width / 2
-                    color:  Qt.rgba(1,1,1,0.08)
+                    color:  Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
 
                     // Fill bar
                     Rectangle {
                         anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
                         height: Math.max(radius * 2, parent.height * col.value)
                         radius: parent.radius
-                        color:  col.muted ? Qt.rgba(1,1,1,0.15) : Theme.active
+                        color:  col.muted ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.15) : Theme.active
                         Behavior on color  { MotionColor { role: "state" } }
                         Behavior on height { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
                     }
@@ -309,7 +309,7 @@ PanelWindow {
                         width:  col.thumbD
                         height: width
                         radius: width / 2
-                        color:  col.muted ? Qt.rgba(1,1,1,0.3) : Theme.fixedLight
+                        color:  col.muted ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.3) : Theme.fixedLight
                         y: {
                             var travel = track.height - height
                             return Math.max(0, Math.min(travel, (1.0 - col.value) * travel))
@@ -340,20 +340,20 @@ PanelWindow {
                 radius: theme.cornerRadius
                 color:  col.muted
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.2)
-                            : Qt.rgba(1,1,1,0.06)
+                            : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
                 Behavior on color { MotionColor { role: "state" } }
 
                 Text {
                     anchors.centerIn: parent
                     text:           col.icon
                     font.pixelSize: theme.fs(14)
-                    color:          col.muted ? Theme.active : Qt.rgba(1,1,1,0.55)
+                    color:          col.muted ? Theme.active : Theme.textSecondary
                     Behavior on color { MotionColor { role: "state" } }
                 }
 
                 Rectangle {
                     anchors.fill: parent; radius: parent.radius
-                    color: muteHov.hovered ? Qt.rgba(1,1,1,0.05) : "transparent"
+                    color: muteHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05) : "transparent"
                     Behavior on color { MotionColor {} }
                 }
                 HoverHandler { id: muteHov; cursorShape: Qt.PointingHandCursor }
@@ -364,7 +364,7 @@ PanelWindow {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:            col.label
-                color:           Qt.rgba(1,1,1,0.3)
+                color:           Theme.textTertiary
                 font.pixelSize:  theme.fs(10)
                 font.capitalization: Font.AllUppercase
                 font.letterSpacing: 1

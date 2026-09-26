@@ -107,7 +107,7 @@ CfgScroll {
                     Text {
                         text:        root.version + "  ·  APEX-OS"
                         font.pixelSize: theme.fs(10)
-                        color:       Qt.rgba(1,1,1,0.4)
+                        color:       Theme.textSecondary
                         font.family: "JetBrains Mono"
                     }
                 }
@@ -226,7 +226,7 @@ CfgScroll {
             // true on all three, so it is deliberately NOT listed as degrading.
             text:     "Auto follows what APEX detects at login; pick one to pin it instead. Tiling is the only one the shell can give window gaps, an accent border, a layout indicator, a shader filter and a special workspace. Scrolling has an overview the other two do not. On Floating the shell cannot move a window to another workspace."
             font.pixelSize: theme.fs(10)
-            color:    Qt.rgba(1,1,1,0.4)
+            color:    Theme.textSecondary
             wrapMode: Text.WordWrap
         }
         Item { width: parent.width; height: 8 }

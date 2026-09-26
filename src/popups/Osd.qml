@@ -259,7 +259,7 @@ PanelWindow {
             radius:       height / 2
             color:        Theme.background
             border.width: 1
-            border.color: Qt.rgba(1, 1, 1, 0.06)
+            border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
         }
 
         // Icon
@@ -302,13 +302,13 @@ PanelWindow {
                 id: track
                 anchors.fill: parent
                 radius:       height / 2
-                color:        Qt.rgba(1, 1, 1, 0.10)
+                color:        Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)
 
                 Rectangle {
                     anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                     width:  Math.max(parent.height, parent.width * root.value)
                     radius: parent.radius
-                    color:  root.muted ? Qt.rgba(1, 1, 1, 0.20) : Theme.active
+                    color:  root.muted ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.20) : Theme.active
                     // About three track-widths a second: fast enough to keep up
                     // with a held key, smooth enough not to jump per step. Only
                     // while the capsule is up — arriving, it shows the value it

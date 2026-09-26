@@ -324,7 +324,7 @@ StatCard {
                     anchors.fill: parent; radius: 7
                     color: _addTimerHov.hovered
                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15)
-                           : Qt.rgba(1,1,1,0.06)
+                           : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
                     border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.2); border.width: 1
                     Behavior on color { MotionColor {} }
                     Text {
@@ -357,7 +357,7 @@ StatCard {
                             ctx.clearRect(0, 0, width, height)
                             var cx = width/2, cy = height/2, r = 44
                             ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2)
-                            ctx.strokeStyle = Qt.rgba(1,1,1,0.08)
+                            ctx.strokeStyle = Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
                             ctx.lineWidth = 5; ctx.stroke()
                             var p = root._timerProgress()
                             if (p > 0) {
@@ -385,7 +385,7 @@ StatCard {
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "remaining"; font.pixelSize: theme.fs(8)
-                            color: Qt.rgba(1,1,1,0.25)
+                            color: Theme.textTertiary
                         }
                     }
                 }
@@ -401,14 +401,14 @@ StatCard {
                             required property int modelData
                             required property int index
                             width: 36; height: 22; radius: 6
-                            color: _pH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.1) : Qt.rgba(1,1,1,0.05)
-                            border.color: Qt.rgba(1,1,1,0.1); border.width: 1
+                            color: _pH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.1) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                            border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1); border.width: 1
                             Behavior on color { MotionColor {} }
                             Text {
                                 anchors.centerIn: parent
                                 text: modelData < 60 ? modelData+"m" : "1h"
                                 font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"; font.weight: Font.Bold
-                                color: Qt.rgba(1,1,1,0.45)
+                                color: Theme.textSecondary
                             }
                             HoverHandler { id: _pH; cursorShape: Qt.PointingHandCursor }
                             MouseArea {
@@ -514,14 +514,14 @@ StatCard {
                     Rectangle {
                         width: 58; height: 26; radius: 8
                         color: _resetHov.hovered
-                               ? Qt.rgba(1,1,1,0.1)
-                               : Qt.rgba(1,1,1,0.05)
-                        border.color: Qt.rgba(1,1,1,0.1); border.width: 1
+                               ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
+                               : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1); border.width: 1
                         Behavior on color { MotionColor {} }
                         Text {
                             anchors.centerIn: parent; text: "Reset"
                             font.pixelSize: theme.fs(10); font.weight: Font.Medium
-                            color: Qt.rgba(1,1,1,0.4)
+                            color: Theme.textSecondary
                         }
                         HoverHandler { id: _resetHov; cursorShape: Qt.PointingHandCursor }
                         MouseArea {
@@ -570,7 +570,7 @@ StatCard {
                             anchors.fill: parent; radius: 7
                             color: _addHov.hovered
                                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.15)
-                                   : Qt.rgba(1,1,1,0.06)
+                                   : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
                             border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.2); border.width: 1
                             Behavior on color { MotionColor {} }
                             Text {
@@ -666,10 +666,10 @@ StatCard {
                         required property var modelData
                         required property int index
                         width: alarmList.width; height: 36; radius: 8
-                        color: Qt.rgba(1,1,1,0.04)
+                        color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
                         border.color: modelData.enabled
                                       ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.15)
-                                      : Qt.rgba(1,1,1,0.07)
+                                      : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
                         border.width: 1
 
                         // Time label
@@ -679,7 +679,7 @@ StatCard {
                             font.pixelSize: theme.fs(15); font.weight: Font.Bold; font.family: "JetBrains Mono"
                             color: modelData.enabled
                                    ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.9)
-                                   : Qt.rgba(1,1,1,0.3)
+                                   : Theme.textTertiary
                         }
 
                         // Toggle
@@ -689,13 +689,13 @@ StatCard {
                             width: 28; height: 18; radius: 9
                             color: modelData.enabled
                                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.25)
-                                   : Qt.rgba(1,1,1,0.1)
+                                   : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
                             Behavior on color { MotionColor { role: "state" } }
                             Rectangle {
                                 width: 12; height: 12; radius: 6
                                 anchors.verticalCenter: parent.verticalCenter
                                 x: modelData.enabled ? parent.width - width - 3 : 3
-                                color: modelData.enabled ? Theme.active : Qt.rgba(1,1,1,0.3)
+                                color: modelData.enabled ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.3)
                                 Behavior on x     { MotionMove { curve: Motion.fastSpatial } }
                                 Behavior on color { MotionColor { role: "state" } }
                             }
@@ -723,7 +723,7 @@ StatCard {
                         visible: root._alarms.length === 0 && !root._addOpen
                         text: "No alarms set\nTap + to add one"
                         horizontalAlignment: Text.AlignHCenter
-                        font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.2)
+                        font.pixelSize: theme.fs(11); color: Theme.textTertiary
                         lineHeight: 1.5
                     }
                 }
@@ -775,14 +775,14 @@ StatCard {
                     Rectangle {
                         width: 58; height: 26; radius: 8
                         color: _swResetHov.hovered
-                               ? Qt.rgba(1,1,1,0.1)
-                               : Qt.rgba(1,1,1,0.05)
-                        border.color: Qt.rgba(1,1,1,0.1); border.width: 1
+                               ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
+                               : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1); border.width: 1
                         Behavior on color { MotionColor {} }
                         Text {
                             anchors.centerIn: parent; text: "Reset"
                             font.pixelSize: theme.fs(10); font.weight: Font.Medium
-                            color: Qt.rgba(1,1,1,0.4)
+                            color: Theme.textSecondary
                         }
                         HoverHandler { id: _swResetHov; cursorShape: Qt.PointingHandCursor }
                         MouseArea {

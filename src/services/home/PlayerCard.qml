@@ -72,6 +72,14 @@ Item {
     readonly property bool   isPlaying: root.player?.playbackState === MprisPlaybackState.Playing ?? false
     readonly property string artUrl:    root.player?.trackArtUrl ?? ""
 
+    // The card's ink. Over album art it sits on a fixed dark scrim, so it is
+    // white; with no art there is no scrim and the card is an ordinary palette
+    // surface, so it is the palette's text (UI/UX Phase 18: a scrim over
+    // nothing was a dark slab in a light Dashboard).
+    readonly property bool  onArt: root.artUrl !== ""
+    readonly property color ink:   root.onArt ? Theme.fixedLight : Theme.textPrimary
+    function inkA(a) { return Qt.rgba(root.ink.r, root.ink.g, root.ink.b, a) }
+
     readonly property string title: {
         var t = root.player?.trackTitle
         return (t && t !== "") ? t : "Nothing Playing"
@@ -148,6 +156,14 @@ Item {
     }
 
     // ── Background visuals ────────────────────────────────────────────────────
+    // With no art, the card is filled like every other Home card (StatCard).
+    Rectangle {
+        anchors.fill: parent
+        radius:       theme.cornerRadius
+        visible:      !root.onArt
+        color:        Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+    }
+
     Item {
         id: bgSource
         anchors.fill:  parent
@@ -180,6 +196,7 @@ Item {
 
         Rectangle {
             anchors.fill: parent
+            visible: root.onArt
             gradient: Gradient {
                 GradientStop { position: 0.0; color: Qt.rgba(0,0,0,0.38) }
                 GradientStop { position: 0.4; color: Qt.rgba(0,0,0,0.50) }
@@ -228,7 +245,7 @@ Item {
                 id: titleText
                 text: root.title
                 font.pixelSize: theme.fs(18); font.weight: Font.Bold
-                color: Theme.fixedLight
+                color: root.ink
                 anchors.horizontalCenter: titleMetrics.width <= parent.width ? parent.horizontalCenter : undefined
                 NumberAnimation on x {
                     id: marqueeAnim
@@ -250,8 +267,8 @@ Item {
             text:    root.artist
             visible: root.artist !== ""
             font.pixelSize: theme.fs(13)
-            color: Qt.rgba(1,1,1,0.55) 
-            
+            color: root.inkA(0.55)
+
             maximumLineCount: 1
             elide: Text.ElideRight
             
@@ -287,7 +304,7 @@ Item {
                     radius: height / 2
                     color: isPlay
                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                           : cH.hovered ? Qt.rgba(1,1,1,0.14) : Qt.rgba(1,1,1,0.06)
+                           : cH.hovered ? root.inkA(0.14) : root.inkA(0.06)
                     border.color: isPlay ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.3) : "transparent"
                     border.width: 1
                     Behavior on color { MotionColor { role: "state" } }
@@ -295,7 +312,7 @@ Item {
                         anchors.centerIn: parent
                         text: parent.dispIcon
                         font.pixelSize: isPlay ? 18 : 14
-                        color: isPlay ? Theme.active : Qt.rgba(1,1,1,0.7)
+                        color: isPlay ? (root.onArt ? Theme.fixedLight : Theme.accentText) : root.inkA(0.7)
                     }
                     HoverHandler { id: cH; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
@@ -327,7 +344,7 @@ Item {
                 width: parent.width; height: 6
                 Rectangle {
                     anchors.fill: parent; radius: height / 2
-                    color: Qt.rgba(1,1,1,0.2)
+                    color: root.inkA(0.2)
                     MouseArea {
                         anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                         onClicked: function(mouse) {
@@ -353,14 +370,14 @@ Item {
                     anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                     text: root._fmt(root._pos)
                     font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"
-                    color: Qt.rgba(1,1,1,0.4)
+                    color: root.inkA(0.4)
                 }
 
                 Text {
                     anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                     text: root._fmt(root.length)
                     font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"
-                    color: Qt.rgba(1,1,1,0.4)
+                    color: root.inkA(0.4)
                 }
             }
         }
@@ -433,7 +450,7 @@ Item {
                             text:           root.player ? root._playerLabel(root.player) : "Player"
                             font.pixelSize: theme.fs(11)
                             font.weight:    Font.Medium
-                            color:          Qt.rgba(1,1,1,0.92)
+                            color:          root.inkA(0.92)
                             // Cap width so crazy browser identities don't stretch the pill
                             width:          Math.min(implicitWidth, 120) 
                             elide:          Text.ElideRight
@@ -471,14 +488,14 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text:           root._playerIcon(modelData)
                                 font.pixelSize: theme.fs(11)
-                                color:          rowH.hovered ? Qt.rgba(1,1,1,0.90) : Qt.rgba(1,1,1,0.55)
+                                color:          rowH.hovered ? root.inkA(0.90) : root.inkA(0.55)
                                 Behavior on color { MotionColor {} }
                             }
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text:           root._playerLabel(modelData)
                                 font.pixelSize: theme.fs(11)
-                                color:          rowH.hovered ? Qt.rgba(1,1,1,0.90) : Qt.rgba(1,1,1,0.55)
+                                color:          rowH.hovered ? root.inkA(0.90) : root.inkA(0.55)
                                 width:          Math.min(implicitWidth, 120)
                                 elide:          Text.ElideRight
                                 Behavior on color { MotionColor {} }
@@ -540,7 +557,7 @@ Item {
         anchors.fill: parent
         radius:       theme.cornerRadius
         color:        "transparent"
-        border.color: Qt.rgba(1,1,1,0.08)
+        border.color: root.inkA(0.08)
         border.width: 1
     }
 

@@ -585,10 +585,10 @@ Item {
 										radius:       height / 2
 										color: ScreenRecService.openStrip === "capture"
 										? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15)
-										: csH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
+										: csH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
 										border.color: ScreenRecService.openStrip === "capture"
 										? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.3)
-										: Qt.rgba(1,1,1,0.1)
+										: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
 										border.width: 1
 										Behavior on color        { MotionColor { role: "state" } }
 										Behavior on border.color { MotionColor { role: "state" } }
@@ -601,7 +601,7 @@ Item {
 											text: ScreenRecService.captureIcon
 											font.pixelSize: theme.fs(13)
 											color: ScreenRecService.openStrip === "capture"
-											? Theme.active : Qt.rgba(1,1,1,0.7)
+											? Theme.active : Theme.textPrimary
 											anchors.verticalCenter: parent.verticalCenter
 											Behavior on color { MotionColor { role: "state" } }
 										}
@@ -609,13 +609,13 @@ Item {
 											text: ScreenRecService.captureLabel
 											font.pixelSize: theme.fs(11)
 											color: ScreenRecService.openStrip === "capture"
-											? Theme.active : Qt.rgba(1,1,1,0.7)
+											? Theme.active : Theme.textPrimary
 											anchors.verticalCenter: parent.verticalCenter
 											Behavior on color { MotionColor { role: "state" } }
 										}
 										Text {
 											text: "▾"; font.pixelSize: theme.fs(8)
-											color: Qt.rgba(1,1,1,0.35)
+											color: Theme.textSecondary
 											anchors.verticalCenter: parent.verticalCenter
 										}
 									}
@@ -647,10 +647,10 @@ Item {
 										radius:       height / 2
 										color: ScreenRecService.openStrip === "audio"
 										? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15)
-										: asH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
+										: asH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
 										border.color: ScreenRecService.openStrip === "audio"
 										? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.3)
-										: Qt.rgba(1,1,1,0.1)
+										: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
 										border.width: 1
 										Behavior on color        { MotionColor { role: "state" } }
 										Behavior on border.color { MotionColor { role: "state" } }
@@ -667,13 +667,13 @@ Item {
 											text: ScreenRecService.audioLabel
 											font.pixelSize: theme.fs(11)
 											color: ScreenRecService.openStrip === "audio"
-											? Theme.active : Qt.rgba(1,1,1,0.7)
+											? Theme.active : Theme.textPrimary
 											anchors.verticalCenter: parent.verticalCenter
 											Behavior on color { MotionColor { role: "state" } }
 										}
 										Text {
 											text: "▾"; font.pixelSize: theme.fs(8)
-											color: Qt.rgba(1,1,1,0.35)
+											color: Theme.textSecondary
 											anchors.verticalCenter: parent.verticalCenter
 										}
 									}
@@ -814,7 +814,7 @@ Item {
 												radius: width / 2
 												color: ScreenRecService.audioMic || ScreenRecService.audioSystem
 												? Qt.rgba(0.95, 0.3, 0.3, 0.30 + _amp * 0.70)
-												: Qt.rgba(1, 1, 1, 0.10)
+												: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)
 											}
 										}
 									}
@@ -835,8 +835,8 @@ Item {
 									anchors.verticalCenter: parent.verticalCenter
 									width: 22; height: 22; radius: 5
 									color: recDiscardH.hovered
-									? Qt.rgba(1, 1, 1, 0.12)
-									: Qt.rgba(1, 1, 1, 0.05)
+									? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12)
+									: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
 									Behavior on color { MotionColor {} }
 									Text {
 										anchors.centerIn: parent
@@ -844,7 +844,7 @@ Item {
 										font.pixelSize: theme.fs(11)
 										color:          recDiscardH.hovered
 										? Qt.rgba(1, 0.4, 0.4, 1.0)
-										: Qt.rgba(1, 1, 1, 0.4)
+										: Theme.textSecondary
 										Behavior on color { MotionColor {} }
 									}
 									HoverHandler { id: recDiscardH }

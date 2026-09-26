@@ -226,7 +226,7 @@ PanelWindow {
             Text {
                 width:          parent.width
                 text:           Popups.confirmMessage
-                color:          Qt.rgba(1, 1, 1, 0.65)
+                color:          Theme.textSecondary
                 font.pixelSize: theme.fs(12)
                 wrapMode:       Text.WordWrap
                 textFormat:     Text.RichText
@@ -241,7 +241,7 @@ PanelWindow {
                     width:  130
                     height: 38
                     radius: theme.cornerRadius
-                    color:  cancelHov.hovered ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.05)
+                    color:  cancelHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
                     Behavior on color { MotionColor {} }
 
                     Text {
@@ -323,18 +323,22 @@ PanelWindow {
                     var cx = width / 2, cy = height / 2, r = 16
                     ctx.beginPath()
                     ctx.arc(cx, cy, r, 0, 2 * Math.PI)
-                    ctx.strokeStyle = "rgba(255,255,255,0.1)"
+                    // Palette roles, not white: the card is Theme.background,
+                    // which a light scheme makes light.
+                    ctx.strokeStyle = Theme.outlineSoft
                     ctx.lineWidth   = 3
                     ctx.stroke()
                     ctx.beginPath()
                     ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI)
-                    ctx.strokeStyle = "white"
+                    ctx.strokeStyle = Theme.textPrimary
                     ctx.lineWidth   = 3
                     ctx.lineCap     = "round"
                     ctx.stroke()
                 }
 
                 Component.onCompleted: requestPaint()
+                readonly property color _ink: Theme.textPrimary
+                on_InkChanged: requestPaint()
             }
 
             Text {
@@ -350,7 +354,7 @@ PanelWindow {
                 width:          parent.width
                 text:           "Switching to <b>" + Popups.confirmGfxMode + "</b> graphics mode.<br>"
                                 + "Your system will reboot when finished."
-                color:          Qt.rgba(1, 1, 1, 0.55)
+                color:          Theme.textSecondary
                 font.pixelSize: theme.fs(12)
                 wrapMode:       Text.WordWrap
                 textFormat:     Text.RichText
@@ -362,13 +366,13 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width:  parent.width
                 height: 1
-                color:  Qt.rgba(1, 1, 1, 0.07)
+                color:  Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
             }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           "Do not turn off your computer."
-                color:          Qt.rgba(1, 1, 1, 0.3)
+                color:          Theme.textTertiary
                 font.pixelSize: theme.fs(11)
                 horizontalAlignment: Text.AlignHCenter
             }

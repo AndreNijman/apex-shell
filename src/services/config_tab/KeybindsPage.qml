@@ -120,7 +120,7 @@ Item {
             policy: ScrollBar.AsNeeded
             contentItem: Rectangle {
                 implicitWidth: 3; implicitHeight: 40; radius: 1.5
-                color: Qt.rgba(1, 1, 1, 0.22)
+                color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.22)
             }
             background: Item {}
         }
@@ -253,7 +253,7 @@ Item {
             radius: 8
             color: br.isCapturing
                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.07)
-                : _rH.hovered ? Qt.rgba(1, 1, 1, 0.04) : "transparent"
+                : _rH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04) : "transparent"
             border.color: br._savedDupe
                 ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.35)
                 : br.isCapturing
@@ -319,7 +319,7 @@ Item {
                 anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                 text:           br._b ? br._b.label : br.action
                 font.pixelSize: theme.fs(12)
-                color:          br._savedDupe ? Theme.danger : (br._isUnbound ? Qt.rgba(1, 1, 1, 0.35) : Qt.rgba(1, 1, 1, 0.68))
+                color:          br._savedDupe ? Theme.danger : (br._isUnbound ? Theme.textTertiary : Theme.textSecondary)
                 Behavior on color { MotionColor { role: "state" } }
             }
 
@@ -340,10 +340,10 @@ Item {
                 Rectangle {
                     visible: br._pillText !== "Unbound"
                     width: 22; height: 22; radius: 6
-                    color: _clrH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
+                    color: _clrH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : "transparent"
                     Behavior on color { MotionColor {} }
                     Text { anchors.centerIn: parent; text: "󰩺"; font.pixelSize: theme.fs(11)
-                        color: _clrH.hovered ? Theme.danger : Qt.rgba(1,1,1,0.28) }
+                        color: _clrH.hovered ? Theme.danger : Theme.textTertiary }
                     HoverHandler { id: _clrH; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
                         anchors.fill: parent
@@ -358,10 +358,10 @@ Item {
                 Rectangle {
                     visible: !br._isDefault
                     width: 22; height: 22; radius: 6
-                    color: _rstH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
+                    color: _rstH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : "transparent"
                     Behavior on color { MotionColor {} }
                     Text { anchors.centerIn: parent; text: "↺"; font.pixelSize: theme.fs(11)
-                        color: _rstH.hovered ? Theme.active : Qt.rgba(1,1,1,0.28) }
+                        color: _rstH.hovered ? Theme.active : Theme.textTertiary }
                     HoverHandler { id: _rstH; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
                         anchors.fill: parent
@@ -388,7 +388,7 @@ Item {
                     width:  _pillT.implicitWidth + 18
                     
                     color: br._isUnbound
-                        ? Qt.rgba(1, 1, 1, 0.04)
+                        ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
                         : ((_pillH.hovered && br._interactive)
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
                             : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08))
@@ -400,7 +400,7 @@ Item {
                     // check-color-tokens.sh does not bound, because it does not
                     // look at plain decimals, and so it drifted alone.
                     border.color: br._isUnbound
-                        ? Qt.rgba(1, 1, 1, 0.1)
+                        ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
                         : (br._isPending
                             ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.55)
                             : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.24))
@@ -421,7 +421,7 @@ Item {
                         font.italic:    br._isUnbound 
                         
                         color: br._isUnbound
-                            ? Qt.rgba(1, 1, 1, 0.45)
+                            ? Theme.textSecondary
                             : (br._isPending ? Theme.warning : Theme.active)
                             
                         Behavior on color { MotionColor { role: "state" } }
@@ -471,7 +471,7 @@ Item {
                     anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                     text:           br._b ? br._b.label : br.action
                     font.pixelSize: theme.fs(12)
-                    color:          Qt.rgba(1, 1, 1, 0.68)
+                    color:          Theme.textSecondary
                 }
 
                 Row {
@@ -512,10 +512,10 @@ Item {
                     // Cancel — Escape also cancels
                     Rectangle {
                         width: 28; height: 24; radius: 6
-                        color: _cnH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
+                        color: _cnH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : "transparent"
                         Behavior on color { MotionColor {} }
                         Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(10)
-                            color: Qt.rgba(1,1,1,0.38) }
+                            color: Theme.textSecondary }
                         HoverHandler { id: _cnH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: br.releaseCapture() }
                     }

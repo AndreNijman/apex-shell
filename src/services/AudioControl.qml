@@ -133,14 +133,14 @@ Item {
                 Text {
                     visible:        root.sinkNodes.length === 0
                     text:           "No output devices"
-                    color:          Qt.rgba(1,1,1,0.2)
+                    color:          Theme.textTertiary
                     font.pixelSize: theme.fs(11)
                     leftPadding:    10
                 }
 
                 Rectangle {
                     width: parent.width; height: 1
-                    color: Qt.rgba(1, 1, 1, 0.06)
+                    color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
                 }
 
                 SectionLabel { text: "Input Devices" }
@@ -158,7 +158,7 @@ Item {
                 Text {
                     visible:        root.sourceNodes.length === 0
                     text:           "No input devices"
-                    color:          Qt.rgba(1,1,1,0.2)
+                    color:          Theme.textTertiary
                     font.pixelSize: theme.fs(11)
                     leftPadding:    10
                 }
@@ -168,7 +168,7 @@ Item {
         // Divider
         Rectangle {
             width: 1; height: parent.height
-            color: Qt.rgba(1, 1, 1, 0.1)
+            color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
         }
 
         // Tab switcher — right side
@@ -219,7 +219,7 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           col.pctText
-                color:          col.muted ? Qt.rgba(1,1,1,0.25) : Theme.text
+                color:          col.muted ? Theme.textTertiary : Theme.text
                 font.pixelSize: theme.fs(13)
                 font.bold:      true
                 Behavior on color { MotionColor { role: "state" } }
@@ -234,14 +234,14 @@ Item {
                     id: track
                     anchors.fill: parent
                     radius: width / 2
-                    color:  Qt.rgba(1,1,1,0.08)
+                    color:  Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
 
                     // Fill bar
                     Rectangle {
                         anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
                         height: Math.max(parent.radius * 2, parent.height * col.value)
                         radius: parent.radius
-                        color:  col.muted ? Qt.rgba(1,1,1,0.15) : Theme.active
+                        color:  col.muted ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.15) : Theme.active
                         Behavior on color  { MotionColor { role: "state" } }
                         Behavior on height { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
                     }
@@ -253,7 +253,7 @@ Item {
                         width:  col.thumbD
                         height: width
                         radius: width / 2
-                        color:  col.muted ? Qt.rgba(1,1,1,0.3) : Theme.fixedLight
+                        color:  col.muted ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.3) : Theme.fixedLight
                         y: {
                             var travel = track.height - height
                             return Math.max(0, Math.min(travel, (1.0 - col.value) * travel))
@@ -286,7 +286,7 @@ Item {
                 radius: theme.cornerRadius
                 color:  col.muted
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.2)
-                            : Qt.rgba(1,1,1,0.06)
+                            : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
                 Behavior on color { MotionColor { role: "state" } }
 
                 Row {
@@ -295,21 +295,21 @@ Item {
                     Text {
                         text:           col.icon
                         font.pixelSize: theme.fs(13)
-                        color:          col.muted ? Theme.active : Qt.rgba(1,1,1,0.55)
+                        color:          col.muted ? Theme.active : Theme.textSecondary
                         anchors.verticalCenter: parent.verticalCenter
                         Behavior on color { MotionColor { role: "state" } }
                     }
                     Text {
                         text:           col.muted ? "Muted" : "Mute"
                         font.pixelSize: theme.fs(11)
-                        color:          col.muted ? Theme.active : Qt.rgba(1,1,1,0.4)
+                        color:          col.muted ? Theme.active : Theme.textSecondary
                         anchors.verticalCenter: parent.verticalCenter
                         Behavior on color { MotionColor { role: "state" } }
                     }
                 }
                 Rectangle {
                     anchors.fill: parent; radius: parent.radius
-                    color: muteHov.hovered ? Qt.rgba(1,1,1,0.05) : "transparent"
+                    color: muteHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05) : "transparent"
                     Behavior on color { MotionColor {} }
                 }
                 HoverHandler { id: muteHov; cursorShape: Qt.PointingHandCursor }
@@ -320,7 +320,7 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:            col.label
-                color:           Qt.rgba(1,1,1,0.3)
+                color:           Theme.textTertiary
                 font.pixelSize:  theme.fs(10)
                 font.capitalization: Font.AllUppercase
                 font.letterSpacing: 1
@@ -333,7 +333,7 @@ Item {
 
     // ── SectionLabel ──────────────────────────────────────────────────────────
     component SectionLabel: Text {
-        color:           Qt.rgba(1, 1, 1, 0.35)
+        color:           Theme.textSecondary
         font.pixelSize:  theme.fs(10)
         font.capitalization: Font.AllUppercase
         font.letterSpacing: 0.8
@@ -355,7 +355,7 @@ Item {
             radius: theme.cornerRadius - 4
             color:  row.isDefault
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12)
-                        : (rowHov.hovered ? Qt.rgba(1,1,1,0.05) : "transparent")
+                        : (rowHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05) : "transparent")
             Behavior on color { MotionColor { role: "state" } }
         }
 
@@ -366,13 +366,13 @@ Item {
             Rectangle {
                 width: 6; height: 6; radius: 3
                 anchors.verticalCenter: parent.verticalCenter
-                color: row.isDefault ? Theme.active : Qt.rgba(1,1,1,0.2)
+                color: row.isDefault ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.2)
                 Behavior on color { MotionColor { role: "state" } }
             }
 
             Text {
                 text:           row.label
-                color:          row.isDefault ? Theme.text : Qt.rgba(1,1,1,0.5)
+                color:          row.isDefault ? Theme.text : Theme.textSecondary
                 font.pixelSize: theme.fs(11)
                 elide:          Text.ElideRight
                 width:          parent.width - 14 - parent.spacing

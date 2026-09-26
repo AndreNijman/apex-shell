@@ -89,12 +89,12 @@ Item {
                 anchors { left: parent.left; leftMargin: 76;
                 verticalCenter: parent.verticalCenter }
                 spacing: 6
-                Rectangle { width: 7; height: 7; radius: 4; anchors.verticalCenter: parent.verticalCenter; color: ShellState.hotspot ? Theme.active : Qt.rgba(1,1,1,0.22); Behavior on color { MotionColor { role: "state" } } }
-                Text { anchors.verticalCenter: parent.verticalCenter; text: ShellState.hotspot ? "Active" : "Inactive"; font.pixelSize: theme.fs(11); color: ShellState.hotspot ? Theme.active : Qt.rgba(1,1,1,0.32) }
+                Rectangle { width: 7; height: 7; radius: 4; anchors.verticalCenter: parent.verticalCenter; color: ShellState.hotspot ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.22); Behavior on color { MotionColor { role: "state" } } }
+                Text { anchors.verticalCenter: parent.verticalCenter; text: ShellState.hotspot ? "Active" : "Inactive"; font.pixelSize: theme.fs(11); color: ShellState.hotspot ? Theme.active : Theme.textTertiary }
             }
         }
 
-        Rectangle { width: parent.width; height: 1; color: Qt.rgba(1,1,1,0.07) }
+        Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) }
         Item { width: parent.width; height: 8 }
 
         Flickable {
@@ -116,14 +116,14 @@ Item {
                         anchors { left: parent.left; right: parent.right; top: parent.top; margins: 12 }
                         spacing: 4
                         Text { width: parent.width; text: "󰀃  Toggle hotspot from the Quick Settings panel."; font.pixelSize: theme.fs(11); color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7); wrapMode: Text.WordWrap }
-                        Text { width: parent.width; text: "Requires an ethernet connection. Shares the same WiFi channel as your current connection."; font.pixelSize: theme.fs(10); color: Qt.rgba(1,1,1,0.30); wrapMode: Text.WordWrap; lineHeight: 1.4 }
+                        Text { width: parent.width; text: "Requires an ethernet connection. Shares the same WiFi channel as your current connection."; font.pixelSize: theme.fs(10); color: Theme.textTertiary; wrapMode: Text.WordWrap; lineHeight: 1.4 }
                     }
                 }
 
                 // Config card
                 Rectangle {
                     width: parent.width; height: cfgCol.implicitHeight + 20; radius: theme.cornerRadius
-                    color: Qt.rgba(1,1,1,0.04); border.color: Qt.rgba(1,1,1,0.07); border.width: 1
+                    color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04); border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07); border.width: 1
 
                     Column {
                         id: cfgCol; anchors { left: parent.left; right: parent.right; top: parent.top; margins: 12 }
@@ -135,12 +135,12 @@ Item {
                         Item {
                             width: parent.width; height: 32
                             Text { anchors { left: parent.left; verticalCenter: parent.verticalCenter }
-                            text: "SSID"; font.pixelSize: theme.fs(11); font.weight: Font.Medium; color: Qt.rgba(1,1,1,0.45); width: 72 }
+                            text: "SSID"; font.pixelSize: theme.fs(11); font.weight: Font.Medium; color: Theme.textSecondary; width: 72 }
                             Rectangle {
                                 anchors { left: parent.left; leftMargin: 76; right: parent.right; verticalCenter: parent.verticalCenter }
                                 height: 28; radius: 7
-                                color: ssidInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08) : Qt.rgba(1,1,1,0.05)
-                                border.color: ssidInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.45) : Qt.rgba(1,1,1,0.11); border.width: 1
+                                color: ssidInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                                border.color: ssidInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.45) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.11); border.width: 1
                                 Behavior on border.color { MotionColor { role: "state" } }
                                 TextInput {
                                     id: ssidInput; anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
@@ -157,12 +157,12 @@ Item {
                         Item {
                             width: parent.width; height: 32
                             Text { anchors { left: parent.left; verticalCenter: parent.verticalCenter }
-                            text: "Password"; font.pixelSize: theme.fs(11); font.weight: Font.Medium; color: Qt.rgba(1,1,1,0.45); width: 72 }
+                            text: "Password"; font.pixelSize: theme.fs(11); font.weight: Font.Medium; color: Theme.textSecondary; width: 72 }
                             Rectangle {
                                 anchors { left: parent.left; leftMargin: 76; right: eyeBtn.left; rightMargin: 6; verticalCenter: parent.verticalCenter }
                                 height: 28; radius: 7
-                                color: passInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08) : Qt.rgba(1,1,1,0.05)
-                                border.color: passInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.45) : Qt.rgba(1,1,1,0.11); border.width: 1
+                                color: passInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                                border.color: passInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.45) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.11); border.width: 1
                                 Behavior on border.color { MotionColor { role: "state" } }
                                 TextInput {
                                     id: passInput; anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
@@ -178,8 +178,8 @@ Item {
                                 id: eyeBtn; anchors { right: parent.right;
                                 verticalCenter: parent.verticalCenter }
                                 width: 28; height: 28
-                                Rectangle { anchors.fill: parent; radius: 6; color: eyeH.hovered ? Qt.rgba(1,1,1,0.08) : "transparent" }
-                                Text { anchors.centerIn: parent; text: root._showPass ? "" : ""; font.pixelSize: theme.fs(13); color: root._showPass ? Theme.active : Qt.rgba(1,1,1,0.28) }
+                                Rectangle { anchors.fill: parent; radius: 6; color: eyeH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : "transparent" }
+                                Text { anchors.centerIn: parent; text: root._showPass ? "" : ""; font.pixelSize: theme.fs(13); color: root._showPass ? Theme.active : Theme.textTertiary }
                                 HoverHandler { id: eyeH; cursorShape: Qt.PointingHandCursor }
                                 MouseArea { anchors.fill: parent; onClicked: root._showPass = !root._showPass }
                             }

@@ -158,7 +158,7 @@ Item {
 				if (!root.current) return Theme.active
 				switch (root.current.urgency) {
 					case NotificationUrgency.Critical: return Theme.danger
-					case NotificationUrgency.Low:      return Qt.rgba(1,1,1,0.25)
+					case NotificationUrgency.Low:      return Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.25)
 					default:                           return Theme.active
 				}
 			}
@@ -249,7 +249,7 @@ Item {
 						Rectangle {
 							anchors.fill: parent
 							radius:       width / 2
-							color:        Qt.rgba(1,1,1,0.1)
+							color:        Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
 							visible:      toastIcon.status !== Image.Ready
 							Text {
 								anchors.centerIn: parent
@@ -277,7 +277,7 @@ Item {
 						Rectangle {
 							anchors.fill: parent
 							radius:       width / 2
-							color:        xHover.containsMouse ? Qt.rgba(1,1,1,0.12) : "transparent"
+							color:        xHover.containsMouse ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12) : "transparent"
 							Behavior on color { MotionColor {} }
 						}
 						Text {
@@ -330,8 +330,8 @@ Item {
 								anchors.fill: parent
 								radius:       4
 								color:        actHover.containsMouse
-								? Qt.rgba(1,1,1,0.18)
-								: Qt.rgba(1,1,1,0.08)
+								? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.18)
+								: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
 								Behavior on color { MotionColor {} }
 							}
 							Text {

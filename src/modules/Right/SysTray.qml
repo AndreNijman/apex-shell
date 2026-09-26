@@ -42,7 +42,7 @@ RowLayout {
                 Rectangle {
                     anchors.fill: parent
                     radius: 6
-                    color: trayItem.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
+                    color: trayItem.containsMouse ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1) : "transparent"
                     Behavior on color { MotionColor {} }
 
                     Image {

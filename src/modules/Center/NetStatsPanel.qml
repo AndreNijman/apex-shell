@@ -19,7 +19,7 @@ Item {
             text:           "Network"
             font.pixelSize: theme.fs(11)
             font.weight:    Font.Medium
-            color:          Qt.rgba(1, 1, 1, 0.4)
+            color:          Theme.textSecondary
         }
 
         Column {

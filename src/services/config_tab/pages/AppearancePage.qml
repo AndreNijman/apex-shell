@@ -106,7 +106,7 @@ CfgScroll {
                 visible: WallpaperService.wallpapers.length === 0
                 text:    WallpaperService.applying ? "Applying…" : "No wallpapers in " + WallpaperService.wallpaperDir
                 font.pixelSize: theme.fs(11)
-                color:   Qt.rgba(1,1,1,0.3)
+                color:   Theme.textTertiary
             }
 
             ListView {
@@ -131,7 +131,7 @@ CfgScroll {
                     Rectangle {
                         anchors.fill: parent
                         radius:       10
-                        color:        Qt.rgba(1,1,1,0.04)
+                        color:        Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
                         clip:         true
 
                         Image {
@@ -150,7 +150,7 @@ CfgScroll {
                             border.width: parent.parent.active ? 2 : (wh.hovered ? 1 : 0)
                             border.color: parent.parent.active
                                 ? Theme.active
-                                : Qt.rgba(1,1,1,0.4)
+                                : Qt.rgba(Theme.fixedLight.r, Theme.fixedLight.g, Theme.fixedLight.b, 0.4) // on a fixed surface
 
                             // The same selection ring as WallpaperPopup's thumbnail
                             // grid, which is the other place this control exists.
@@ -172,12 +172,40 @@ CfgScroll {
         }
     }
 
-    // There is deliberately no Light/Dark control here. matugen renders both
-    // halves and WallpaperService can ask for either, but 212 `color:` bindings
-    // across src/ are a hardcoded translucent white, which is a foreground on a
-    // dark surface and nothing at all on a light one. A switch that turns the
-    // settings pages blank is worse than no switch. Colors.qml carries the
-    // count, the reason and the way to reach light mode while working on it.
+    // ── Light or dark ─────────────────────────────────────────────────────────
+    // Withheld until every foreground in the shell followed the palette (the
+    // translucent whites, UI/UX Phase 18); tests/agent-state-test.js keeps this
+    // control tied to tests/check-color-tokens.sh's ban on them.
+    CfgSection {
+        title: "Light or dark"
+
+        Item { width: parent.width; height: 4 }
+
+        Text {
+            width:          parent.width
+            leftPadding:    10
+            text:           "Which half of the wallpaper's palette the shell paints with. "
+                          + "Changing this re-derives the colours from the wallpaper you are on."
+            font.pixelSize: theme.fs(10)
+            color:          Theme.textSecondary
+            wrapMode:       Text.WordWrap
+        }
+        Item { width: parent.width; height: 8 }
+
+        Item {
+            width:  parent.width
+            height: modeSeg.implicitHeight
+
+            CfgSegmented {
+                id: modeSeg
+                x:     10
+                width: parent.width - 20
+                options: WallpaperService.modes
+                value:   WallpaperService.mode
+                onSelected: function(v) { WallpaperService.setMode(v) }
+            }
+        }
+    }
 
     // ── Colour scheme ─────────────────────────────────────────────────────────
     CfgSection {
@@ -190,7 +218,7 @@ CfgScroll {
             leftPadding:    10
             text:           "How matugen derives the palette from your wallpaper."
             font.pixelSize: theme.fs(10)
-            color:          Qt.rgba(1,1,1,0.4)
+            color:          Theme.textSecondary
             wrapMode:       Text.WordWrap
         }
         Item { width: parent.width; height: 8 }

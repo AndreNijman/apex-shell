@@ -510,10 +510,10 @@ Item {
                     width: ksRow.implicitWidth + 18
                     color: root._killSwitch
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                        : ksH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
+                        : ksH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
                     border.color: root._killSwitch
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40)
-                        : Qt.rgba(1,1,1,0.10)
+                        : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)
                     border.width: 1
                     Behavior on color        { MotionColor { role: "state" } }
                     Behavior on border.color { MotionColor { role: "state" } }
@@ -524,13 +524,13 @@ Item {
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text: "󰒃"; font.pixelSize: theme.fs(13)
-                            color: root._killSwitch ? Theme.active : Qt.rgba(1,1,1,0.40)
+                            color: root._killSwitch ? Theme.active : Theme.textSecondary
                             Behavior on color { MotionColor { role: "state" } }
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text: "Kill Switch"; font.pixelSize: theme.fs(11); font.weight: Font.Medium
-                            color: root._killSwitch ? Theme.active : Qt.rgba(1,1,1,0.45)
+                            color: root._killSwitch ? Theme.active : Theme.textSecondary
                             Behavior on color { MotionColor { role: "state" } }
                         }
                     }
@@ -542,7 +542,7 @@ Item {
                 // Refresh
                 Rectangle {
                     width: 32; height: 32; radius: 8
-                    color: rfH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15) : Qt.rgba(1,1,1,0.05)
+                    color: rfH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
                     border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28)
                     border.width: 1
                     Behavior on color { MotionColor {} }
@@ -565,7 +565,7 @@ Item {
             }
         }
 
-        Rectangle { width: parent.width; height: 1; color: Qt.rgba(1,1,1,0.07) }
+        Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) }
         Item      { width: parent.width; height: 8 }
 
         // Connection list
@@ -585,7 +585,7 @@ Item {
                         font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2
                         color: root._sbActive
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
-                            : Qt.rgba(1,1,1,0.25)
+                            : Theme.textTertiary
                     }
                 }
 
@@ -598,10 +598,10 @@ Item {
                         id: sbCard; anchors.fill: parent; radius: theme.cornerRadius
                         color: root._sbActive
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08)
-                            : sbHov.hovered ? Qt.rgba(1,1,1,0.04) : "transparent"
+                            : sbHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04) : "transparent"
                         border.color: root._sbActive
                             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22)
-                            : Qt.rgba(1,1,1,0.07)
+                            : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
                         border.width: 1
                         Behavior on color        { MotionColor { role: "state" } }
                         Behavior on border.color { MotionColor { role: "state" } }
@@ -618,7 +618,7 @@ Item {
                                 ? Theme.active
                                 : root._sbBusy
                                     ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
-                                    : Qt.rgba(1,1,1,0.28)
+                                    : Theme.textTertiary
                             Behavior on color { MotionColor { role: "state" } }
                         }
 
@@ -630,7 +630,7 @@ Item {
                                 Text {
                                     text: "sing-box"; font.pixelSize: theme.fs(13)
                                     font.weight: root._sbActive ? Font.Medium : Font.Normal
-                                    color: root._sbActive ? Theme.text : Qt.rgba(1,1,1,0.65)
+                                    color: root._sbActive ? Theme.text : Theme.textSecondary
                                 }
                                 Rectangle {
                                     anchors.verticalCenter: parent.verticalCenter
@@ -655,7 +655,7 @@ Item {
                                         : "Disconnected"
                                 color: root._sbBusy
                                     ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.60)
-                                    : root._sbActive ? Theme.active : Qt.rgba(1,1,1,0.32)
+                                    : root._sbActive ? Theme.active : Theme.textTertiary
                                 Behavior on color { MotionColor { role: "state" } }
                             }
                         }
@@ -680,7 +680,7 @@ Item {
                             width: 10; height: 10; radius: 5
                             color: root._sbActive
                                 ? Theme.active
-                                : sbHov.hovered ? Qt.rgba(1,1,1,0.35) : Qt.rgba(1,1,1,0.18)
+                                : sbHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.35) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.18)
                             Behavior on color { MotionColor { role: "state" } }
                         }
                     }
@@ -727,7 +727,7 @@ Item {
                     Text {
                         id: iLbl; text: "AVAILABLE"
                         font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2
-                        color: Qt.rgba(1,1,1,0.25)
+                        color: Theme.textTertiary
                     }
                 }
 
@@ -745,13 +745,13 @@ Item {
                     visible: !root._loading && root._connections.length === 0
                     Column {
                         anchors.centerIn: parent; spacing: 12
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰦝"; font.pixelSize: theme.fs(36); color: Qt.rgba(1,1,1,0.08) }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "No WireGuard connections"; font.pixelSize: theme.fs(13); color: Qt.rgba(1,1,1,0.2) }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Import a config to get started:"; font.pixelSize: theme.fs(10); color: Qt.rgba(1,1,1,0.14); horizontalAlignment: Text.AlignHCenter }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰦝"; font.pixelSize: theme.fs(36); color: Theme.outlineStrong }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "No WireGuard connections"; font.pixelSize: theme.fs(13); color: Theme.textTertiary }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Import a config to get started:"; font.pixelSize: theme.fs(10); color: Theme.textTertiary; horizontalAlignment: Text.AlignHCenter }
                         Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: codeText.implicitWidth + 24; height: 26; radius: 6
-                            color: Qt.rgba(1,1,1,0.05); border.color: Qt.rgba(1,1,1,0.10); border.width: 1
+                            color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05); border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10); border.width: 1
                             Text {
                                 id: codeText; anchors.centerIn: parent
                                 text: "nmcli con import type wireguard file <conf>"
@@ -781,7 +781,7 @@ Item {
                                 NumberAnimation { to: 1.0;  duration: Motion.pulseHalf }
                             }
                         }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Loading…"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.25) }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Loading…"; font.pixelSize: theme.fs(11); color: Theme.textTertiary }
                     }
                 }
 
@@ -807,10 +807,10 @@ Item {
             id: card; anchors.fill: parent; radius: theme.cornerRadius
             color: vRow.con.active
                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08)
-                : vHov.hovered ? Qt.rgba(1,1,1,0.04) : "transparent"
+                : vHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04) : "transparent"
             border.color: vRow.con.active
                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22)
-                : Qt.rgba(1,1,1,0.07)
+                : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
             border.width: 1
             Behavior on color        { MotionColor { role: "state" } }
             Behavior on border.color { MotionColor { role: "state" } }
@@ -834,7 +834,7 @@ Item {
                     ? Theme.active
                     : vRow.con.busy
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
-                        : Qt.rgba(1,1,1,0.28)
+                        : Theme.textTertiary
                 Behavior on color { MotionColor { role: "state" } }
             }
 
@@ -844,7 +844,7 @@ Item {
                 Text {
                     text: vRow.con.name; font.pixelSize: theme.fs(13)
                     font.weight: vRow.con.active ? Font.Medium : Font.Normal
-                    color: vRow.con.active ? Theme.text : Qt.rgba(1,1,1,0.65)
+                    color: vRow.con.active ? Theme.text : Theme.textSecondary
                     width: 160; elide: Text.ElideRight
                 }
                 Text {
@@ -854,7 +854,7 @@ Item {
                         : vRow.con.active ? "Connected" : "Disconnected"
                     color: vRow.con.busy
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.60)
-                        : vRow.con.active ? Theme.active : Qt.rgba(1,1,1,0.32)
+                        : vRow.con.active ? Theme.active : Theme.textTertiary
                     Behavior on color { MotionColor { role: "state" } }
                 }
             }
@@ -880,7 +880,7 @@ Item {
                 width: 10; height: 10; radius: 5
                 color: vRow.con.active
                     ? Theme.active
-                    : vHov.hovered ? Qt.rgba(1,1,1,0.35) : Qt.rgba(1,1,1,0.18)
+                    : vHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.35) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.18)
                 Behavior on color { MotionColor { role: "state" } }
             }
         }

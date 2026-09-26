@@ -539,12 +539,12 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text:           root.query !== "" ? "󰩄" : "󱗃"
                             font.pixelSize: theme.fs(28)
-                            color:          Qt.rgba(1,1,1,0.18)
+                            color:          Theme.outlineStrong   // decorative, not text
                         }
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text:           root.query !== "" ? "No results" : "No apps found"
-                            color:          Qt.rgba(1,1,1,0.25)
+                            color:          Theme.textTertiary
                             font.pixelSize: theme.fs(13)
                         }
                     }
@@ -581,7 +581,7 @@ Item {
                                 implicitWidth:  3
                                 implicitHeight: 40
                                 radius:         1.5
-                                color:          Qt.rgba(1, 1, 1, 0.22)
+                                color:          Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.22)
                             }
                             background: Item {}
                         }
@@ -613,11 +613,11 @@ Item {
                             color: isSel
                                    ? (isDestructive ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.16)
                                                     : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14))
-                                   : rowH.hovered ? Qt.rgba(1,1,1,0.06) : "transparent"
+                                   : rowH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06) : "transparent"
                             border.color: isSel
                                           ? (isDestructive ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.50)
                                                            : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28))
-                                          : rowH.hovered ? Qt.rgba(1,1,1,0.08) : "transparent"
+                                          : rowH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : "transparent"
                             border.width: 1
 
                             // The selection changing is the one thing in the list that
@@ -714,7 +714,7 @@ Item {
                                                         && (rowItem.modelData.detail ?? "") !== ""
                                         text:           rowItem.modelData ? (rowItem.modelData.detail ?? "") : ""
                                         font.pixelSize: theme.fs(10)
-                                        color:          Qt.rgba(1, 1, 1, 0.32)
+                                        color:          Theme.textTertiary
                                         elide:          Text.ElideRight
                                         maximumLineCount: 1
                                     }
@@ -758,7 +758,7 @@ Item {
                                     font.pixelSize: theme.fs(13)
                                     color: rowItem.modelData && LauncherState.isPinned(rowItem.modelData.payload)
                                                 ? Theme.active
-                                                : Qt.rgba(1, 1, 1, pinArea.containsMouse ? 0.75 : 0.30)
+                                                : pinArea.containsMouse ? Theme.textPrimary : Theme.textTertiary
                                     Behavior on color { MotionColor {} }
 
                                     MouseArea {
@@ -846,7 +846,7 @@ Item {
                     width: parent.width
                     text: root.previewInfo ? root.previewInfo.what : ""
                     font.pixelSize: theme.fs(11)
-                    color: Qt.rgba(1, 1, 1, 0.72)
+                    color: Theme.textPrimary
                     wrapMode: Text.WordWrap
                 }
 
@@ -856,7 +856,7 @@ Item {
                     width: parent.width
                     text: root.previewInfo ? "Runs as: " + root.previewInfo.permission : ""
                     font.pixelSize: theme.fs(10)
-                    color: Qt.rgba(1, 1, 1, 0.45)
+                    color: Theme.textSecondary
                     wrapMode: Text.WordWrap
                 }
 
@@ -869,7 +869,7 @@ Item {
                           : ""
                     font.pixelSize: theme.fs(10)
                     color: root.previewInfo && root.previewInfo.undoes === ""
-                               ? Theme.danger : Qt.rgba(1, 1, 1, 0.45)
+                               ? Theme.danger : Theme.textSecondary
                     wrapMode: Text.WordWrap
                 }
 
@@ -888,7 +888,7 @@ Item {
                         text: root.previewInfo ? root.previewInfo.commandLine : ""
                         font.family: "monospace"
                         font.pixelSize: theme.fs(10)
-                        color: Qt.rgba(1, 1, 1, 0.7)
+                        color: Theme.textPrimary
                         wrapMode: Text.WrapAnywhere
                     }
                 }
@@ -905,7 +905,7 @@ Item {
                                  : SearchService.resolveText)
                     font.family: "monospace"
                     font.pixelSize: theme.fs(10)
-                    color: Qt.rgba(1, 1, 1, 0.55)
+                    color: Theme.textSecondary
                     wrapMode: Text.WrapAnywhere
                     maximumLineCount: 8
                     elide: Text.ElideRight
@@ -944,7 +944,7 @@ Item {
                         width: cancelText.implicitWidth + 26
                         height: 28
                         radius: 8
-                        color: cancelHov.hovered ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.06)
+                        color: cancelHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
                         Behavior on color { MotionColor {} }
                         Text {
                             id: cancelText
@@ -968,10 +968,10 @@ Item {
             id: searchBar
             anchors { top: parent.top; left: parent.left; right: parent.right }
             height: 44; radius: 12
-            color: Qt.rgba(1,1,1,0.06)
+            color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
             border.color: searchInput.activeFocus
                           ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.50)
-                          : Qt.rgba(1,1,1,0.12)
+                          : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12)
             border.width: 1
             Behavior on border.color { MotionColor { role: "state" } }
 
@@ -984,7 +984,7 @@ Item {
                     text: "󰍉"; font.pixelSize: theme.fs(16)
                     color: searchInput.activeFocus
                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7)
-                           : Qt.rgba(1,1,1,0.35)
+                           : Theme.textSecondary
                     Behavior on color { MotionColor { role: "state" } }
                 }
 
@@ -996,7 +996,7 @@ Item {
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text:    "Search  ·  install …  ·  ssh …  ·  ~/  ·  > commands  ·  ? asks"
-                        color:   Qt.rgba(1,1,1,0.22)
+                        color:   Theme.textTertiary
                         font.pixelSize: theme.fs(13)
                         visible: searchInput.text === ""
                     }

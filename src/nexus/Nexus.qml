@@ -135,7 +135,7 @@ PanelWindow {
 
             radius: theme.cornerRadius + theme.px(4)
             color: Theme.background
-            border.color: Qt.rgba(1, 1, 1, 0.08)
+            border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
             border.width: 1
 
             opacity: life.content * life.alpha
@@ -170,7 +170,7 @@ PanelWindow {
                     bottomMargin: theme.px(10)
                 }
                 width: 1
-                color: Qt.rgba(1, 1, 1, 0.07)
+                color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
             }
 
             // ── Right: header + page ────────────────────────────────────────
@@ -236,7 +236,7 @@ PanelWindow {
                         width: theme.px(28)
                         height: theme.px(28)
                         radius: width / 2
-                        color: closeHov.hovered ? Qt.rgba(1, 1, 1, 0.10) : "transparent"
+                        color: closeHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : "transparent"
                         Behavior on color { MotionColor {} }
 
                         Text {

@@ -134,6 +134,16 @@ OPEN[wallpaper]="wallpaper-toggle toggle"; CLOSE[wallpaper]="wallpaper-toggle to
 OPEN[context]="context-menu open";         CLOSE[context]="context-menu close"
 OPEN[nexus]="nexus open appearance";       CLOSE[nexus]="nexus close"
 OPEN[quick]="quick-toggle toggle";         CLOSE[quick]="quick-toggle toggle"
+# Not in the default ORDER — name them to capture them (Phase 18 captured every
+# one in both matugen schemes).
+OPEN[dash-agents]="dashboard-agents toggle"; CLOSE[dash-agents]="dashboard-agents toggle"
+OPEN[dash-kanban]="dashboard-kanban toggle"; CLOSE[dash-kanban]="dashboard-kanban toggle"
+OPEN[dash-config]="dashboard-config toggle"; CLOSE[dash-config]="dashboard-config toggle"
+OPEN[bluetooth]="bluetooth-toggle toggle";  CLOSE[bluetooth]="bluetooth-toggle toggle"
+OPEN[vpn]="vpn-toggle toggle";              CLOSE[vpn]="vpn-toggle toggle"
+OPEN[hotspot]="hotspot-toggle toggle";      CLOSE[hotspot]="hotspot-toggle toggle"
+OPEN[audio-mix]="audioMix-toggle toggle";   CLOSE[audio-mix]="audioMix-toggle toggle"
+OPEN[audio-in]="audioIn-toggle toggle";     CLOSE[audio-in]="audioIn-toggle toggle"
 ORDER=(bar dashboard dash-stats dash-launcher network audio notifications quick power clipboard wallpaper context nexus)
 
 want=("$@")
@@ -227,6 +237,18 @@ lens_switch() {
 
 # Changing page in Nexus: the nav's one selection travels, the page moves in
 # nav order.
+# Every Nexus page, settled: one frame each (nexus-pages).
+nexus_pages() {
+    local p
+    for p in appearance layout data input display blueprint gaming recovery privacy \
+             agents lid firewall remote-pair remote-devices keybinds misc; do
+        ipc nexus open "$p"; sleep 1.2
+        grab "nexus-page-$p"
+    done
+    ipc nexus close; sleep 1.2
+    echo "captured nexus-pages"
+}
+
 nexus_nav() {
     ipc nexus open appearance; sleep 1.2
     t0=$(date +%s%N); ipc nexus open display; burst "nexus-nav-down" "$t0"
@@ -240,6 +262,7 @@ nexus_nav() {
 for s in "${want[@]}"; do
     if [ "$s" = tabs ]; then tab_switch; continue; fi
     if [ "$s" = nexus-nav ]; then nexus_nav; continue; fi
+    if [ "$s" = nexus-pages ]; then nexus_pages; continue; fi
     if [ "$s" = lens ]; then lens_switch; continue; fi
     if [ "$s" = stack ]; then stack_seq; continue; fi
     if [ "$s" = switch ]; then pane_switch; continue; fi

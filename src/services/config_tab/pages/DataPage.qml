@@ -56,7 +56,7 @@ CfgScroll {
             leftPadding:    10
             visible:        DiskService.disks.length === 0
             text:           "Reading disks…"
-            color:          Qt.rgba(1,1,1,0.3)
+            color:          Theme.textTertiary
             font.pixelSize: theme.fs(11)
         }
 

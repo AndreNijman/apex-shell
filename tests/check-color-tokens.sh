@@ -343,7 +343,15 @@ fi
 # mode ready at 204.
 #
 # 204 -> 199 with Phase 16: CfgSwitch, CfgSegmented, CfgSlider, CfgTextField.
-EXPECT_WHITE_FG=199
+#
+# 199 -> 0 with Phase 18: every remaining site is a palette role (text on its
+# three roles, fills and borders as the palette's text at the same alpha), or,
+# where the surface underneath is fixed rather than the palette's (a scrim over
+# album art, a wallpaper thumbnail, an accent chip), an explicit fixed colour
+# commented as such. Every surface tests/visual can open was captured in both
+# matugen schemes of the default wallpaper. At 0 this is a ban: one new
+# translucent white fails.
+EXPECT_WHITE_FG=0
 n_white=$(grep -rnE '^[[:space:]]*color:.*Qt\.rgba\([[:space:]]*1[[:space:]]*,[[:space:]]*1[[:space:]]*,[[:space:]]*1' "$SRC" \
           | wc -l | tr -d ' ')
 if [ "$n_white" -eq "$EXPECT_WHITE_FG" ]; then
