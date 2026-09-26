@@ -85,14 +85,6 @@ Item {
         }
     }
 
-    // ── Right column — QuickSettings fills full height ────────────────────────
-    QuickSettings {
-        id: rightCard
-        anchors { right: parent.right; top: parent.top; bottom: parent.bottom; topMargin: root.gap }
-        width: root.colW
-        onScreen: root.onScreen
-    }
-
     // ── Center column ─────────────────────────────────────────────────────────
     Item {
         id: centerCol
@@ -117,5 +109,15 @@ Item {
                 bottom: parent.bottom
             }
         }
+    }
+
+    // ── Right column — QuickSettings fills full height ────────────────────────
+    // Declared last: Tab follows declaration order, and reading order is left,
+    // centre, right (the centre column anchors to this one by id either way).
+    QuickSettings {
+        id: rightCard
+        anchors { right: parent.right; top: parent.top; bottom: parent.bottom; topMargin: root.gap }
+        width: root.colW
+        onScreen: root.onScreen
     }
 }

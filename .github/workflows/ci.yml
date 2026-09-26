@@ -1584,6 +1584,17 @@ jobs:
       - name: The notification centre and clipboard history answer the keyboard
         run: ./tests/run-lists-keys-test.sh
 
+      # The Dashboard's Home and Tasks tabs on the keyboard, against a fake
+      # MPRIS player (tests/lib/fake-mpris.py, on headless.sh's private bus),
+      # fake-brightnessctl and fake-nmcli: Tab in reading order, play and
+      # seek, the brightness slider's steps and floor, a tile toggled; three
+      # seeded Kanban cards moved, deleted, given an urgency and a due date
+      # through the picker's day grid, read back from tasks.json — and nothing
+      # else asked of the player, the backlight, NetworkManager or BlueZ.
+      # Needs labwc, wtype and python3-gobject; skips cleanly without them.
+      - name: The Dashboard's Home and Tasks tabs answer the keyboard
+        run: ./tests/run-dashboard-keys-test.sh
+
       # The fluid surface geometry (Phases 4-5): every family swept over
       # progress at three output scales — tangent-continuous joins, no
       # self-intersection, no collapse mid-morph, attached to its origin

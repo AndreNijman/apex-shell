@@ -89,6 +89,9 @@ Item {
         onVolumeChanged: function (v) { deadChan.value = v }
     }
 
+    // The clock's HH:MM (UI/UX Phase 21): two spin boxes on the keyboard.
+    TimeInput { id: ti; x: 250; y: 520; minuteStep: 5 }
+
     TestCase {
         name: "KeyboardNav"
         when: windowShown
@@ -192,6 +195,23 @@ Item {
             keyClick(Qt.Key_Tab)                 // from the track to its mute button
             keyClick(Qt.Key_Space)
             compare(fixture.mutes, before + 1, "Tab then Space did not toggle mute")
+        }
+
+        function test_130_a_time_is_two_spin_boxes() {
+            ti.initialize(23, 55)
+            const hf = findChild(ti, "hoursField"), mf = findChild(ti, "minutesField")
+            verify(hf.activeFocusOnTab && mf.activeFocusOnTab, "the fields are not Tab stops")
+            hf.forceActiveFocus()
+            keyClick(Qt.Key_Up);   compare(ti.hours, 0, "23 + 1 did not wrap to 0")
+            keyClick(Qt.Key_Down); compare(ti.hours, 23)
+            keyClick(Qt.Key_Home); compare(ti.hours, 0)
+            keyClick(Qt.Key_End);  compare(ti.hours, 23)
+            keyClick(Qt.Key_Tab)
+            verify(mf.activeFocus, "Tab from the hours did not reach the minutes")
+            keyClick(Qt.Key_Up);   compare(ti.minutes, 0, "55 + 5 did not wrap to 0")
+            keyClick(Qt.Key_Down); compare(ti.minutes, 55)
+            keyClick(Qt.Key_Home); compare(ti.minutes, 0)
+            keyClick(Qt.Key_End);  compare(ti.minutes, 55, "End is not the last step")
         }
 
         function test_080_a_click_chooses_without_taking_focus() {

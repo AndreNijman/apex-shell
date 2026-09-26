@@ -1,6 +1,7 @@
 import QtQuick
 import "../../"
 import "../../components"
+import "../../components/controls"
 
 // Calendar card — month grid with prev/next navigation.
 // Self-contained: owns all calendar state.
@@ -84,26 +85,38 @@ StatCard {
             anchors { left: parent.left; right: parent.right; top: parent.top }
             height: 22
 
-            Text {
+            ApexPressable {
+                id: prevMonthBtn
                 anchors { left: parent.left; verticalCenter: parent.verticalCenter }
-                text: "‹"; font.pixelSize: theme.fs(15)
-                color: pH.hovered ? Theme.textPrimary : Theme.textTertiary
-                Behavior on color { MotionColor {} }
-                HoverHandler { id: pH; cursorShape: Qt.PointingHandCursor }
-                MouseArea { anchors.fill: parent; onClicked: root._prev() }
+                width: 22; height: 22; radius: 6; hitMargin: 5
+                Accessible.name: "Previous month"
+                onActivated: root._prev()
+                Text {
+                    anchors.centerIn: parent
+                    text: "‹"; font.pixelSize: theme.fs(15)
+                    color: prevMonthBtn.hovered ? Theme.textPrimary : Theme.textTertiary
+                    Behavior on color { MotionColor {} }
+                }
+                ApexFocusRing { target: prevMonthBtn }
             }
             Text {
                 anchors.centerIn: parent
                 text: root._label; font.pixelSize: theme.fs(10); font.weight: Font.Bold
                 color: Theme.text
             }
-            Text {
+            ApexPressable {
+                id: nextMonthBtn
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                text: "›"; font.pixelSize: theme.fs(15)
-                color: nH.hovered ? Theme.textPrimary : Theme.textTertiary
-                Behavior on color { MotionColor {} }
-                HoverHandler { id: nH; cursorShape: Qt.PointingHandCursor }
-                MouseArea { anchors.fill: parent; onClicked: root._next() }
+                width: 22; height: 22; radius: 6; hitMargin: 5
+                Accessible.name: "Next month"
+                onActivated: root._next()
+                Text {
+                    anchors.centerIn: parent
+                    text: "›"; font.pixelSize: theme.fs(15)
+                    color: nextMonthBtn.hovered ? Theme.textPrimary : Theme.textTertiary
+                    Behavior on color { MotionColor {} }
+                }
+                ApexFocusRing { target: nextMonthBtn }
             }
         }
 

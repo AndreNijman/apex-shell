@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Services.Mpris
 import "../../"
 import "../../components"
+import "../../components/controls"
 
 Item {
     id: root
@@ -291,7 +292,8 @@ Item {
             spacing: 28
             Repeater {
                 model: [ { key: "prev" }, { key: "play" }, { key: "next" } ]
-                delegate: Rectangle {
+                delegate: ApexPressable {
+                    id: ctrlBtn
                     required property var  modelData
                     required property int  index
                     readonly property bool isPlay: modelData.key === "play"
@@ -300,39 +302,50 @@ Item {
                         if (modelData.key === "next") return "󰒬"
                         return !root.isPlaying ? "󰐊" : "󰏤"
                     }
-                    width: 36; height: 36 
+                    width: 36; height: 36
                     radius: height / 2
-                    color: isPlay
-                           ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                           : cH.hovered ? root.inkA(0.14) : root.inkA(0.06)
-                    border.color: isPlay ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.3) : "transparent"
-                    border.width: 1
-                    Behavior on color { MotionColor { role: "state" } }
-                    Text {
-                        anchors.centerIn: parent
-                        text: parent.dispIcon
-                        font.pixelSize: isPlay ? 18 : 14
-                        color: isPlay ? (root.onArt ? Theme.fixedLight : Theme.accentText) : root.inkA(0.7)
+                    // Disabled (dimmed, no Tab stop) for what this player cannot
+                    // do — and all three with no player at all.
+                    interactive: {
+                        if (!root.player) return false
+                        if (modelData.key === "prev") return root.player.canGoPrevious
+                        if (modelData.key === "next") return root.player.canGoNext
+                        return root.player.canTogglePlaying
                     }
-                    HoverHandler { id: cH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            if (!root.player) return
-                            switch (modelData.key) {
-                                case "play":
-                                    if (root.player.canTogglePlaying)
-                                        root.player.isPlaying = !root.player.isPlaying
-                                    break
-                                case "prev":
-                                    if (root.player.canGoPrevious) root.player.previous()
-                                    break
-                                case "next":
-                                    if (root.player.canGoNext) root.player.next()
-                                    break
-                            }
+                    Accessible.name: modelData.key === "prev" ? "Previous track"
+                                     : modelData.key === "next" ? "Next track"
+                                     : (root.isPlaying ? "Pause" : "Play")
+                    onActivated: {
+                        if (!root.player) return
+                        switch (modelData.key) {
+                            case "play":
+                                if (root.player.canTogglePlaying)
+                                    root.player.isPlaying = !root.player.isPlaying
+                                break
+                            case "prev":
+                                if (root.player.canGoPrevious) root.player.previous()
+                                break
+                            case "next":
+                                if (root.player.canGoNext) root.player.next()
+                                break
                         }
                     }
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color: ctrlBtn.isPlay
+                               ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
+                               : ctrlBtn.hovered ? root.inkA(0.14) : root.inkA(0.06)
+                        border.color: ctrlBtn.isPlay ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.3) : "transparent"
+                        border.width: 1
+                        Behavior on color { MotionColor { role: "state" } }
+                    }
+                    Text {
+                        anchors.centerIn: parent
+                        text: ctrlBtn.dispIcon
+                        font.pixelSize: ctrlBtn.isPlay ? 18 : 14
+                        color: ctrlBtn.isPlay ? (root.onArt ? Theme.fixedLight : Theme.accentText) : root.inkA(0.7)
+                    }
+                    ApexFocusRing { target: ctrlBtn }
                 }
             }
         }
@@ -341,12 +354,45 @@ Item {
         Column {
             width: parent.width; spacing: 3
             Item {
+                id: seekBar
                 width: parent.width; height: 6
+
+                // On the keyboard: a Tab stop while the player can seek;
+                // Left/Right 5 s, Page Up/Down 30 s, Home the start.
+                readonly property bool seekable: !!root.player && root.player.canSeek && root.length > 0
+                activeFocusOnTab: seekBar.seekable
+                Accessible.role: Accessible.Slider
+                Accessible.name: "Seek"
+                Accessible.description: root._fmt(root._pos) + " of " + root._fmt(root.length)
+                function _seekTo(s) {
+                    const t = Math.max(0, Math.min(root.length, s))
+                    root.player.position = t
+                    root._pos = t
+                }
+                Keys.onPressed: function (event) {
+                    if (!seekBar.seekable) return
+                    if      (event.key === Qt.Key_Right)    seekBar._seekTo(root._pos + 5)
+                    else if (event.key === Qt.Key_Left)     seekBar._seekTo(root._pos - 5)
+                    else if (event.key === Qt.Key_PageUp)   seekBar._seekTo(root._pos + 30)
+                    else if (event.key === Qt.Key_PageDown) seekBar._seekTo(root._pos - 30)
+                    else if (event.key === Qt.Key_Home)     seekBar._seekTo(0)
+                    else return
+                    event.accepted = true
+                }
+                Rectangle {
+                    anchors.fill: parent; anchors.margins: -4
+                    radius: height / 2
+                    color: "transparent"; border.width: 2; border.color: Theme.accentText
+                    visible: seekBar.activeFocus
+                }
+
                 Rectangle {
                     anchors.fill: parent; radius: height / 2
                     color: root.inkA(0.2)
                     MouseArea {
-                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        // A 6 px bar with a 20 px target; x still maps 1:1.
+                        anchors.fill: parent; anchors.topMargin: -7; anchors.bottomMargin: -7
+                        cursorShape: Qt.PointingHandCursor
                         onClicked: function(mouse) {
                             if (root.player && root.length > 0) {
                                 var f = mouse.x / width
@@ -430,9 +476,15 @@ Item {
                 spacing: 0
 
                 // ── Active player row (Always at the top) ─────────────
-                Item {
+                ApexPressable {
+                    id: activeRowBtn
                     height: pill._rowH
                     width:  parent.width
+                    Accessible.checkable: true
+                    Accessible.checked: root._dropdownOpen
+                    Accessible.name: "Player: " + (root.player ? root._playerLabel(root.player) : "Player")
+                                     + ", choose player"
+                    onActivated: root._dropdownOpen = !root._dropdownOpen
 
                     Row {
                         id: activeRow
@@ -452,22 +504,19 @@ Item {
                             font.weight:    Font.Medium
                             color:          root.inkA(0.92)
                             // Cap width so crazy browser identities don't stretch the pill
-                            width:          Math.min(implicitWidth, 120) 
+                            width:          Math.min(implicitWidth, 120)
                             elide:          Text.ElideRight
                         }
                     }
 
-                    HoverHandler { cursorShape: Qt.PointingHandCursor }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked:    root._dropdownOpen = !root._dropdownOpen
-                    }
+                    ApexFocusRing { target: activeRowBtn }
                 }
 
                 // ── Other player rows (Drop down below active) ─────────
                 Repeater {
                     model: root.filteredPlayers
-                    delegate: Item {
+                    delegate: ApexPressable {
+                        id: dropBtn
                         required property var modelData
                         required property int index
                         readonly property bool isCurrent: index === root.selectedPlayerIndex
@@ -475,10 +524,19 @@ Item {
                         width:  parent.width
                         height: isCurrent ? 0 : (root._dropdownOpen ? pill._rowH : 0)
                         visible: !isCurrent
+                        interactive: root._dropdownOpen && !isCurrent
                         opacity: root._dropdownOpen ? 1 : 0
-                        
+                        Accessible.name: "Switch to " + root._playerLabel(modelData)
+
                         Behavior on height  { MotionMove { role: "surfaceEnterSmall" } }
                         Behavior on opacity { MotionFade {} }
+
+                        onActivated: {
+                            const byKey = dropBtn.focusVisible
+                            root.selectedPlayerIndex = index
+                            root._dropdownOpen = false
+                            if (byKey) activeRowBtn.forceActiveFocus()   // this row just hid itself
+                        }
 
                         Row {
                             anchors.centerIn: parent
@@ -488,28 +546,21 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text:           root._playerIcon(modelData)
                                 font.pixelSize: theme.fs(11)
-                                color:          rowH.hovered ? root.inkA(0.90) : root.inkA(0.55)
+                                color:          dropBtn.hovered ? root.inkA(0.90) : root.inkA(0.55)
                                 Behavior on color { MotionColor {} }
                             }
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text:           root._playerLabel(modelData)
                                 font.pixelSize: theme.fs(11)
-                                color:          rowH.hovered ? root.inkA(0.90) : root.inkA(0.55)
+                                color:          dropBtn.hovered ? root.inkA(0.90) : root.inkA(0.55)
                                 width:          Math.min(implicitWidth, 120)
                                 elide:          Text.ElideRight
                                 Behavior on color { MotionColor {} }
                             }
                         }
 
-                        HoverHandler { id: rowH; cursorShape: Qt.PointingHandCursor }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                root.selectedPlayerIndex = index
-                                root._dropdownOpen = false
-                            }
-                        }
+                        ApexFocusRing { target: dropBtn }
                     }
                 }
             }

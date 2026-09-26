@@ -100,12 +100,14 @@ src/nexus/Nexus.qml|black|desktop dim behind the settings window; the opacity do
 # which to delete when one of them goes away, which is list rot in the check
 # whose job is preventing list rot. Membership is asserted from these rows and
 # the OCCURRENCE count is asserted separately, below.
+# (TimeInput's blue-tinted near-white digits were the last row: they were
+# foreground text, so the right token was neither the literal nor fixedLight
+# but the palette's text — Theme.textPrimary, UI/UX Phase 21.)
 ALLOW_FRAC_RAW="
-src/components/TimeInput.qml|235/255, 240/255, 255/255|x2 — a blue-tinted near-white, NOT Theme.fixedLight; mapping it onto that token would be a similar-looking token rather than a correct one, which is worse than the literal because the mistake becomes invisible
 "
 
 EXPECT_TOTAL=9   # 10 → 9: the PowerMenu row tint is a tint of Theme.danger (UI/UX Phase 17)
-EXPECT_FRAC=2
+EXPECT_FRAC=0   # 2 → 0: TimeInput's digits are the palette's text (UI/UX Phase 21)
 
 # ── The Agent Center's own rule (roadmap P0-021) ────────────────────────────
 # The colour half of this file's problem had a second shape in src/services/

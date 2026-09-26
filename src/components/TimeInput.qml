@@ -5,9 +5,14 @@ import "../"
 // Props : hours (int, readonly), minutes (int, readonly), minuteStep (int, default 1)
 // Call  : initialize(h, m) to push values from outside
 //
-// The ▲▼ buttons are the only way the digits move. The wheel used to drive them
+// The ▲▼ buttons move the digits for the pointer. The wheel used to drive them
 // too, and accepted the event on the way, so scrolling past an alarm both reset
 // its time and left the page under it standing still.
+//
+// On the keyboard (UI/UX roadmap v3 Phase 21) each field is a spin box — one Tab
+// stop, Up/Down a step, Home/End the ends — and the arrows are pointer targets
+// only, as a spin box's are. The digits were a blue-tinted near-white, which a
+// light palette turns invisible; they are the palette's text.
 
 Item {
     id: root
@@ -59,14 +64,33 @@ Item {
             }
 
             Item {
+                id: hField
+                objectName: "hoursField"
                 width: parent.width; height: 30
+                activeFocusOnTab: true
+                Accessible.role: Accessible.SpinBox
+                Accessible.name: "Hours"
+                Accessible.description: root.zp(root.hVal)
+                Keys.onPressed: function (event) {
+                    if      (event.key === Qt.Key_Up)   root.incH()
+                    else if (event.key === Qt.Key_Down) root.decH()
+                    else if (event.key === Qt.Key_Home) root.hVal = 0
+                    else if (event.key === Qt.Key_End)  root.hVal = 23
+                    else return
+                    event.accepted = true
+                }
 
                 Text {
                     anchors.centerIn: parent
                     text: root.zp(root.hVal)
                     font.pixelSize: theme.fs(20); font.weight: Font.Bold
                     font.family: "JetBrains Mono"
-                    color: Qt.rgba(235/255, 240/255, 255/255, 0.9)
+                    color: Theme.textPrimary
+                }
+                Rectangle {
+                    anchors.fill: parent; radius: 6
+                    color: "transparent"; border.width: 2; border.color: Theme.accentText
+                    visible: hField.activeFocus
                 }
             }
 
@@ -114,14 +138,33 @@ Item {
             }
 
             Item {
+                id: mField
+                objectName: "minutesField"
                 width: parent.width; height: 30
+                activeFocusOnTab: true
+                Accessible.role: Accessible.SpinBox
+                Accessible.name: "Minutes"
+                Accessible.description: root.zp(root.mVal)
+                Keys.onPressed: function (event) {
+                    if      (event.key === Qt.Key_Up)   root.incM()
+                    else if (event.key === Qt.Key_Down) root.decM()
+                    else if (event.key === Qt.Key_Home) root.mVal = 0
+                    else if (event.key === Qt.Key_End)  root.mVal = Math.floor(59 / root.minuteStep) * root.minuteStep
+                    else return
+                    event.accepted = true
+                }
 
                 Text {
                     anchors.centerIn: parent
                     text: root.zp(root.mVal)
                     font.pixelSize: theme.fs(20); font.weight: Font.Bold
                     font.family: "JetBrains Mono"
-                    color: Qt.rgba(235/255, 240/255, 255/255, 0.9)
+                    color: Theme.textPrimary
+                }
+                Rectangle {
+                    anchors.fill: parent; radius: 6
+                    color: "transparent"; border.width: 2; border.color: Theme.accentText
+                    visible: mField.activeFocus
                 }
             }
 

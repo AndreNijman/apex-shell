@@ -36,6 +36,7 @@ mkdir -p "$stage/components"
 # UI/UX roadmap Phase 3), at the same relative path.
 cp -r "$root/src/components/controls" "$stage/components/controls"
 cp "$root/src/components/TabSwitcher.qml" "$stage/components/TabSwitcher.qml"
+cp "$root/src/components/TimeInput.qml" "$stage/components/TimeInput.qml"
 mkdir -p "$stage/popups"
 cp "$root/src/popups/ChannelColumn.qml" "$stage/popups/ChannelColumn.qml"
 cp "$here/keyboard-nav-test.qml" "$stage/keyboard-nav-test.qml"
@@ -119,7 +120,7 @@ echo "passed=$n_pass failed=$n_fail"
 # reads names CfgRow supplies; a fixture that found none would simply be quiet,
 # and a floor would let a dropped test function hide behind an added one.
 # QtTest's total is initTestCase + the test functions + cleanupTestCase.
-EXPECT_TESTS=14  # 12 + initTestCase/cleanupTestCase
+EXPECT_TESTS=15  # 13 + initTestCase/cleanupTestCase
 n_ran=$(( n_pass + n_fail ))
 if [[ "$n_ran" -ne "$EXPECT_TESTS" ]]; then
     echo "RESULT: $n_ran test functions ran, expected $EXPECT_TESTS"
@@ -132,4 +133,4 @@ if [[ "$n_fail" -ne 0 || "$status" -ne 0 ]]; then
     exit 1
 fi
 
-echo "RESULT: the tab lists and the quick-control sliders answer the keyboard: one Tab stop, arrows along the axis, Home/End, the mirror respected, a ring only for keyboard focus; a level steps 5 %/20 % and reaches its ends"
+echo "RESULT: the tab lists and the quick-control sliders answer the keyboard: one Tab stop, arrows along the axis, Home/End, the mirror respected, a ring only for keyboard focus; a level steps 5 %/20 % and reaches its ends; the clock's HH:MM are two spin boxes"

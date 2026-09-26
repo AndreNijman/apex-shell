@@ -100,7 +100,8 @@ headless_begin() {
     # `apex recover status`, hyprctl, wlr-randr, a wallpaper scan — and a suite
     # measuring rectangles has no business interrogating, or applying to, the
     # desktop somebody is using. The pages under test are the shipped files;
-    # only the machine they interrogate is a stub.
+    # only the machine they interrogate is a stub. ddcutil too: with no
+    # backlight, a brightness key drives the first external monitor over DDC.
     mkdir -p "$HEADLESS_W/bin"
     cat > "$HEADLESS_W/bin/_stub" <<'FAKE'
 #!/usr/bin/env bash
@@ -113,7 +114,7 @@ FAKE
     chmod +x "$HEADLESS_W/bin/_stub"
     local n
     for n in apex hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
-             brightnessctl pkcheck notify-send swww systemctl loginctl; do
+             brightnessctl ddcutil pkcheck notify-send swww systemctl loginctl; do
         ln -sf "$HEADLESS_W/bin/_stub" "$HEADLESS_W/bin/$n"
     done
     cat > "$HEADLESS_W/bin/git" <<'FAKE'
@@ -162,6 +163,28 @@ FAKE
     export WLR_HEADLESS_OUTPUTS=1
     export XDG_SESSION_TYPE=wayland
     export QT_QPA_PLATFORM=wayland
+
+    # A private session bus. A private XDG_RUNTIME_DIR does not move the bus:
+    # DBUS_SESSION_BUS_ADDRESS still named the desktop's, so every shell under
+    # test saw the user's own media players, tray icons and notification name —
+    # a Tab count on the Dashboard changed with whether music was open, and a
+    # Space on the player's button would have paused it. Started after the
+    # display variables are gone, so nothing it activates can find a display.
+    # A runner already on one (APEX_CAPTURE_BUS=private, via dbus-run-session)
+    # keeps it; atspi.sh replaces this one with its own in atspi_start.
+    HEADLESS_BUS_PID=""
+    if [ "${APEX_CAPTURE_BUS:-}" != private ]; then
+        local bus
+        bus="$(dbus-daemon --session --address="unix:path=$HEADLESS_RUNTIME/bus" \
+                   --fork --nopidfile --print-address=1 --print-pid=1 2>/dev/null)"
+        if [ -n "$bus" ]; then
+            export DBUS_SESSION_BUS_ADDRESS="$(printf '%s\n' "$bus" | sed -n 1p)"
+            HEADLESS_BUS_PID="$(printf '%s\n' "$bus" | sed -n 2p)"
+        else
+            # No daemon: an address nothing listens on, never the desktop's.
+            export DBUS_SESSION_BUS_ADDRESS="unix:path=$HEADLESS_RUNTIME/no-bus"
+        fi
+    fi
 }
 
 # Give a tool back its real binary. The stubs exist so a settings page cannot
@@ -516,6 +539,7 @@ headless_cleanup() {
     for pid in "$HEADLESS_FILLER_PID" "$HEADLESS_NESTED_PID" "$HEADLESS_COMP_PID"; do
         [ -n "$pid" ] && kill -9 "$pid" 2>/dev/null || :
     done
+    [ -n "${HEADLESS_BUS_PID:-}" ] && kill "$HEADLESS_BUS_PID" 2>/dev/null || :
     [ -n "$HEADLESS_W" ] && rm -rf "$HEADLESS_W" || :
     return 0
 }
