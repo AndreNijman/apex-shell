@@ -104,7 +104,7 @@ PY
 
     local pair page cmd
     for pair in "home|dashboard-home" "system|dashboard-stats" "agents|dashboard-agents" "tasks|dashboard-kanban" \
-                "launcher|dashboard-launcher" "config|dashboard-config"; do
+                "launcher|dashboard-launcher"; do
         page="${pair%%|*}"; cmd="${pair#*|}"; want "$page" || continue
         ipc "$cmd" toggle; sleep 2.2; shot "$page"; ipc "$cmd" toggle; sleep 1.2
     done

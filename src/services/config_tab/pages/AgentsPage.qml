@@ -52,7 +52,7 @@ CfgScroll {
     // password belongs next to the switch that asked for it.
     lifecycle: "live"
 
-    // Set by ShellConfig and Nexus. AgentService is refcounted and forks
+    // Set by SettingsHost (Nexus). AgentService is refcounted and forks
     // `apex agent list` on a timer, so the session section below has to be told
     // whether anyone is looking.
     property bool onScreen: false

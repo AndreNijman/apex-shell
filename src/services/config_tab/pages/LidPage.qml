@@ -62,7 +62,7 @@ CfgScroll {
     lifecycle: "live"
     lifecycleError: LidService.lastError
 
-    // Set by ShellConfig and Nexus: "this page is genuinely on screen".
+    // Set by SettingsHost (Nexus): "this page is genuinely on screen".
     // Declared because LidService spawns two `apex` processes per sweep and is
     // refcounted on it; PageRegistry marks this page needsScreen: true so both
     // hosts bind it. NOT `visible` — an Item inside a hidden window still

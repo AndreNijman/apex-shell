@@ -77,9 +77,18 @@ QtObject {
         function toggle() { root.toggleDashboard("launcher") }
     }
 
+    // A compatibility name, kept on purpose (UI/UX Phase 19). It opened the
+    // Dashboard's Config tab, a second host of the whole settings app; that tab
+    // is gone and settings have one home. SUPER+C and apex-os's keybind helper
+    // (files/system/libexec/apex-labwc-keybinds maps this action to "settings")
+    // still call this target, and user keybinds.json files name it, so it stays
+    // and opens Nexus.
     property var dashboardConfig: IpcHandler {
         target: "dashboard-config"
-        function toggle() { root.toggleDashboard("config") }
+        function toggle() {
+            Popups.dashboardOpen = false
+            NexusState.toggle("", root.focusedScreenName())
+        }
     }
 
     // ── Nexus (standalone settings window) ───────────────────

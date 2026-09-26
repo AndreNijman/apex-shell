@@ -6,13 +6,12 @@ import "../services/config_tab/pages"
 // ─────────────────────────────────────────────────────────────────────────────
 // PageRegistry — the single definition of the shell's settings pages.
 //
-// There are two places settings are presented: the dashboard's Config tab, and
-// the standalone Nexus window. Before this, the dashboard tab hardcoded its own
-// tab list AND its own five Loaders, so adding a page meant editing two lists in
-// the same file and any new surface would have needed a third copy.
-//
-// Now both read from here. A page is declared once — id, title, icon, and the
-// Component that renders it — and appears everywhere.
+// Settings are presented in one place: Nexus, through SettingsHost (UI/UX
+// Phase 19). There used to be two — the dashboard's Config tab as well — and
+// before this registry the dashboard tab hardcoded its own tab list AND its own
+// five Loaders, so adding a page meant editing two lists. A page is declared
+// once — id, title, icon, and the Component that renders it — and the host and
+// the suites (settings-staged, nav-geometry) all read it from here.
 //
 // `needsScreen` marks pages that consume refcounted telemetry services and must
 // therefore be told whether they are genuinely on screen (see ServiceRef). Data

@@ -51,7 +51,7 @@ CfgScroll {
     // own row.
     lifecycle: "live"
 
-    // Set by ShellConfig and Nexus: "the Recovery page is genuinely on screen".
+    // Set by SettingsHost (Nexus): "the Recovery page is genuinely on screen".
     // Declared because RecoveryService costs a subprocess per sweep and is
     // refcounted on it; PageRegistry marks this page needsScreen: true so both
     // hosts bind it. NOT `visible` — an Item inside a hidden window still

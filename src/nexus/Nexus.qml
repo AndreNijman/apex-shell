@@ -19,8 +19,9 @@ import "../components/controls"
 //
 //     apex shell nexus            (or: nexus <page>)
 //
-// It shares its page set with the dashboard tab through PageRegistry — one
-// declaration, two presentations — so neither can drift from the other.
+// Its body — navigation, header and page stack — is SettingsHost, the one host
+// of the PageRegistry pages since UI/UX Phase 19 removed the dashboard's Config
+// tab (a second host of every page, with its own staged state).
 //
 // One instance per screen, following the dashboard's pattern; NexusState.
 // screenName decides which one is live, so the window opens on the output the
@@ -69,27 +70,6 @@ PanelWindow {
 
     // The window stays mapped for the duration of the close animation.
     readonly property bool windowVisible: life.mapped
-
-    // Pages move in the direction of the nav order (Phase 7): the pages bind
-    // to `shownPage`, set only after `pageDir` is.
-    property int    pageDir: 1
-    property int    _pageIdx: 0
-    property string shownPage: NexusState.page
-    function _indexOf(id) {
-        const list = PageRegistry.pages
-        for (let i = 0; i < list.length; i++) if (list[i].id === id) return i
-        return 0
-    }
-    Connections {
-        target: NexusState
-        function onPageChanged() {
-            const i = root._indexOf(NexusState.page)
-            root.pageDir = i >= root._pageIdx ? 1 : -1
-            root._pageIdx = i
-            root.shownPage = NexusState.page
-        }
-    }
-    Component.onCompleted: root._pageIdx = root._indexOf(NexusState.page)
 
     color: "transparent"
     visible: root.windowVisible
@@ -163,130 +143,13 @@ PanelWindow {
                 anchors.fill: parent
             }
 
-            // ── Left: navigation ────────────────────────────────────────────
-            NavPane {
-                id: nav
-                anchors {
-                    left: parent.left
-                    top: parent.top
-                    bottom: parent.bottom
-                }
-                currentPage: NexusState.page
+            SettingsHost {
+                anchors.fill: parent
+                theme: root.theme
+                page: NexusState.page
+                live: root.windowVisible && root.live
                 onPageSelected: function (id) { NexusState.page = id }
-            }
-
-            Rectangle {
-                anchors {
-                    left: nav.right
-                    top: parent.top
-                    bottom: parent.bottom
-                    topMargin: theme.px(10)
-                    bottomMargin: theme.px(10)
-                }
-                width: 1
-                color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
-            }
-
-            // ── Right: header + page ────────────────────────────────────────
-            Item {
-                id: pane
-
-                anchors {
-                    left: nav.right
-                    right: parent.right
-                    top: parent.top
-                    bottom: parent.bottom
-                    leftMargin: theme.px(1)
-                }
-
-                readonly property var current: PageRegistry.pageFor(NexusState.page)
-
-                Item {
-                    id: header
-                    anchors {
-                        left: parent.left
-                        right: parent.right
-                        top: parent.top
-                    }
-                    height: theme.px(58)
-
-                    Text {
-                        id: title
-                        anchors {
-                            left: parent.left
-                            leftMargin: theme.px(18)
-                            top: parent.top
-                            topMargin: theme.px(12)
-                        }
-                        text: pane.current ? pane.current.title : ""
-                        color: Theme.textPrimary
-                        font.pixelSize: theme.typePageTitle
-                        font.weight: Font.DemiBold
-                    }
-
-                    Text {
-                        anchors {
-                            left: parent.left
-                            leftMargin: theme.px(18)
-                            top: title.bottom
-                            topMargin: theme.px(2)
-                            right: closeBtn.left
-                            rightMargin: theme.px(8)
-                        }
-                        text: pane.current ? pane.current.subtitle : ""
-                        color: Theme.textSecondary
-                        font.pixelSize: theme.typeCaption
-                        elide: Text.ElideRight
-                    }
-
-                    ApexIconButton {
-                        id: closeBtn
-                        anchors {
-                            right: parent.right
-                            rightMargin: theme.px(12)
-                            top: parent.top
-                            topMargin: theme.px(12)
-                        }
-                        glyph: "󰅖"
-                        label: "Close settings"
-                        radius: height / 2
-                        onActivated: NexusState.close()
-                    }
-                }
-
-                // One LazyPage per registered page: built on first visit, kept
-                // afterwards so scroll position and sub-page state survive
-                // switching away and back.
-                Repeater {
-                    model: PageRegistry.pages
-
-                    delegate: LazyPage {
-                        required property var modelData
-
-                        anchors {
-                            left: parent.left
-                            right: parent.right
-                            top: header.bottom
-                            bottom: parent.bottom
-                            leftMargin: theme.px(8)
-                            rightMargin: theme.px(8)
-                            bottomMargin: theme.px(8)
-                        }
-
-                        shown: root.shownPage === modelData.id
-                        direction: root.pageDir
-                        sourceComponent: modelData.component
-
-                        // Pages that consume refcounted telemetry need to know
-                        // whether a user can actually see them; without this a
-                        // poller started here would run until logout.
-                        onLoaded: if (modelData.needsScreen && item)
-                            item.onScreen = Qt.binding(() => root.windowVisible
-                                                             && root.live
-                                                             && NexusState.page === modelData.id
-                                                             && !LockState.locked)
-                    }
-                }
+                onCloseRequested: NexusState.close()
             }
         }
     }

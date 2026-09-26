@@ -8,7 +8,7 @@ import "../"
 //
 // Both were literals inside popups/Dashboard.qml, which is a PanelWindow. A
 // window cannot be instantiated by a geometry test without a compositor, a
-// layer shell and a screen, so neither the six tabs nor the width rule could be
+// layer shell and a screen, so neither the tabs nor the width rule could be
 // measured without standing up the entire shell. They are the two inputs every
 // piece of the tab bar's arithmetic depends on, so they live here and the window
 // reads them.
@@ -21,14 +21,15 @@ QtObject {
 
     // ── The tabs ─────────────────────────────────────────────────────────────
     // Order is the order they are drawn in, and the first is where the dashboard
-    // returns when it closes.
+    // returns when it closes. There is no Config tab (UI/UX Phase 19): the
+    // Dashboard is operational, and settings have one home, Nexus — the tab was
+    // a second host of every settings page, with its own staged state.
     readonly property var tabs: [
         { key: "home",     icon: "󰋜", label: "Home"   },
         { key: "stats",    icon: "󰻠", label: "System" },
         { key: "agents",   icon: "󰚩", label: "Agents" },
         { key: "kanban",   icon: "󰄬", label: "Tasks"  },
-        { key: "launcher", icon: "󱓞", label: "Apps"   },
-        { key: "config",   icon: "󰒓", label: "Config" }
+        { key: "launcher", icon: "󱓞", label: "Apps"   }
     ]
 
     // ── Per-page content width ───────────────────────────────────────────────
@@ -39,8 +40,7 @@ QtObject {
         "home":     900,
         "stats":    900,
         "kanban":   900,
-        "launcher": 560,
-        "config":   900
+        "launcher": 560
     })
     readonly property int fallbackBaseWidth: 900
 
@@ -61,7 +61,7 @@ QtObject {
     // already has one: popups/Dashboard.qml is a PanelWindow and resolves its
     // own screen's set; tests hand in whichever set they are driving.
     //
-    // The tab list above is NOT a function of anything — six tabs are six tabs
+    // The tab list above is NOT a function of anything — five tabs are five tabs
     // on any monitor.
 
     // Padding between the sizer's edge and the page inside it, on all four
@@ -95,7 +95,7 @@ QtObject {
     // so a container that stayed at 900 was a container the content grew out
     // of. And it yields: on an output too narrow to hold the wanted width
     // between the notches, the width that fits wins.
-    // Six icon-only tabs and some air. Below this there is no dashboard, only a
+    // Five icon-only tabs and some air. Below this there is no dashboard, only a
     // sliver, so this is where yielding stops.
     function minWidth(theme) { return theme.px(280) }
 

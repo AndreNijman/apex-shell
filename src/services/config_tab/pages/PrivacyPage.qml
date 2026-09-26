@@ -55,7 +55,7 @@ CfgScroll {
     lifecycle: "live"
     lifecycleError: PermissionsService.lastError
 
-    // Set by ShellConfig and Nexus: "this page is genuinely on screen".
+    // Set by SettingsHost (Nexus): "this page is genuinely on screen".
     // Declared because PermissionsService costs a `flatpak info` per installed
     // application per sweep and is refcounted on it; PageRegistry marks this
     // page needsScreen: true so both hosts bind it. NOT `visible` — an Item

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  run-config-agents-keys-test.sh — the Dashboard's Agents and Config tabs on
-#  the keyboard (UI/UX roadmap v3 Phase 21j).
+#  run-config-agents-keys-test.sh — the Dashboard's Agents tab and the
+#  settings window on the keyboard (UI/UX roadmap v3 Phase 21j; the settings
+#  half moved from the Dashboard's Config tab to Nexus when Phase 19 removed
+#  that tab).
 #
 #  The real shell in a headless labwc, on headless.sh's private session bus,
 #  typed into with wtype. Nothing a key does can reach the machine: HOME is
@@ -14,11 +16,11 @@
 #            list takes the keys (Down moves the section); Escape closes the
 #            guide ONLY (the Dashboard stays) and hands the keys back to the
 #            entry: Return opens the guide again.
-#    Config  Appearance: Tab to the wallpaper strip, Right, Return applies the
+#    Nexus   Appearance: Tab to the wallpaper strip, Right, Return applies the
 #            second wallpaper — the fake setter is told that file, and
 #            ~/.curr_wall points at it.
 #
-#  PROBE=agents|config grabs a frame after every Tab instead, to re-derive the
+#  PROBE=agents|nexus grabs a frame after every Tab instead, to re-derive the
 #  stop counts. Skips (status 0) without quickshell, labwc, wtype, grim or
 #  python3 with PIL.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -81,10 +83,12 @@ wtype -k Shift_L; sleep 0.3          # the first wtype key of a session is lost
 
 if [ -n "${PROBE:-}" ]; then
     out="${PROBE_OUT:-/var/lab-scratch/uiux/probe-$PROBE}"; mkdir -p "$out"
-    ipc "dashboard-$PROBE" toggle; sleep 1.5
+    region="480,0 960x600"
+    if [ "$PROBE" = nexus ]; then ipc nexus open appearance; region=""; else ipc "dashboard-$PROBE" toggle; fi
+    sleep 1.5
     for k in ${PROBE_PRE:-}; do wtype -k "$k"; sleep 0.5; done   # keys before the Tab walk
     for i in $(seq 1 "${PROBE_TABS:-14}"); do
-        wtype -k Tab; sleep 0.45; grim -g "480,0 960x600" "$out/tab-$(printf %02d "$i").png"
+        wtype -k Tab; sleep 0.45; grim ${region:+-g "$region"} "$out/tab-$(printf %02d "$i").png"
     done
     echo "PROBE: frames in $out"; exit 0
 fi
@@ -118,18 +122,31 @@ awk -v d="$d" 'BEGIN { exit !(d > 8) }' && ok "and the keys went back to the ent
 keys Escape; sleep 0.6
 ipc dashboard-agents toggle; sleep 1.2
 
-# ── Config: Appearance ──────────────────────────────────────────────────────
-# Stops (PROBE=config): the tab bar, the page list, Open in window, the lock
-# background field, its Reset, Rescan, then the wallpaper strip.
-ipc dashboard-config toggle; sleep 1.5
-keys Tab Tab Tab Tab Tab Tab Tab Right Return
+# ── Settings (Nexus): Appearance ────────────────────────────────────────────
+# Stops (PROBE=nexus): the page list, Close, the lock background field, its
+# Reset, Rescan, then the wallpaper strip. (In the Dashboard's Config tab it
+# was seven: its tab bar and "Open in window" came first; Phase 19 removed it.)
+ipc nexus open appearance; sleep 1.5
+keys Tab Tab Tab Tab Tab Tab Right Return
 for _ in $(seq 1 20); do grep -q 'bbb-second.png' "$SETTER_LOG" && break; sleep 0.25; done
 grep -q 'img .*bbb-second.png' "$SETTER_LOG" \
-    && ok "Tab ×7 to the wallpaper strip, Right, Return: the setter was told the second wallpaper" \
+    && ok "Tab ×6 to the wallpaper strip, Right, Return: the setter was told the second wallpaper" \
     || bad "the wallpaper strip by keyboard — the setter was told: $(tr '\n' '|' < "$SETTER_LOG")"
 [ "$(readlink "$HOME/.curr_wall" 2>/dev/null)" = "$HOME/Pictures/Wallpapers/bbb-second.png" ] \
     && ok "and ~/.curr_wall points at it" || bad "~/.curr_wall is $(readlink "$HOME/.curr_wall" 2>/dev/null || echo unset)"
-ipc dashboard-config toggle; sleep 1
+ipc nexus close; sleep 1
+
+# SUPER+C and apex-os's keybind helper still call `dashboard-config`; since
+# Phase 19 it is a compatibility name that opens Nexus, not a Dashboard tab.
+# Asked with `nexus toggle`, which says "nexus closed" only if the window WAS
+# open — `nexus open` would report open whatever the alias had done.
+ipc dashboard-config toggle; sleep 1.5
+nx="$(quickshell -p "$root/shell.qml" ipc call nexus toggle "" 2>&1)"
+case "$nx" in
+    *"nexus closed"*) ok "dashboard-config opened the settings window (nexus toggle then closed it)" ;;
+    *) bad "dashboard-config did not open Nexus (nexus toggle answered: $nx)" ;;
+esac
+sleep 1
 
 grep -E 'TypeError|ReferenceError|is not a type|Cannot assign' "$log" | head -5
 printf '\nrun-config-agents-keys-test: %d passed, %d failed\n' "$pass" "$fail"

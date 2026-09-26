@@ -33,7 +33,7 @@ CfgScroll {
 
     lifecycle: "live"
 
-    // Set by ShellConfig: "the Firewall page is genuinely on screen". Without
+    // Set by SettingsHost (Nexus): "the Firewall page is genuinely on screen". Without
     // it the service sweeps three processes every 30 seconds from shell startup
     // to logout, for a page most users open once.
     property bool onScreen: false

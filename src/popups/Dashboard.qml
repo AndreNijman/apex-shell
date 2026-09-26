@@ -312,18 +312,6 @@ PanelWindow {
                         }
                     }
 
-                    LazyPage {
-                        anchors.fill: parent
-                        shown: root.shownPage === "config"
-                        direction: root.pageDir
-                        sourceComponent: Component {
-                            ShellConfig {
-                                anchors.fill: parent
-                                onScreen: root.pageLive && root.page === "config"
-                            }
-                        }
-                    }
-
                     Keys.onEscapePressed: Popups.dashboardOpen = false
                 }
             }

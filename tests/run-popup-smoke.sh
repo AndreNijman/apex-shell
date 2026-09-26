@@ -57,11 +57,13 @@ targets=(
     context-menu
 )
 
-# The Config tab's own sub-pages are lazily built as well, and toggling the tab
-# only ever builds its FIRST page. Nexus addresses each by id, so every settings
-# page gets instantiated — which is the only way a broken binding inside one is
-# caught before a user finds it.
-nexus_pages=(appearance layout input display keybinds data privacy misc)
+# Settings pages are lazily built, and opening the window only ever builds the
+# page it opens on. Nexus addresses each by id, so every settings page gets
+# instantiated — the only way a broken binding inside one is caught before a
+# user finds it. The list comes from the shell (`nexus pages`, PageRegistry),
+# not from here: it was eight hand-written ids of sixteen pages.
+read -r -a nexus_pages <<<"$(quickshell -p "$root/shell.qml" ipc call nexus pages 2>/dev/null | tr ',' ' ')"
+[[ ${#nexus_pages[@]} -ge 16 ]] || { echo "FAIL: nexus pages listed ${#nexus_pages[@]} pages: ${nexus_pages[*]}"; exit 1; }
 for p in "${nexus_pages[@]}"; do
     out="$(quickshell -p "$root/shell.qml" ipc call nexus open "$p" 2>&1)"
     rc=$?

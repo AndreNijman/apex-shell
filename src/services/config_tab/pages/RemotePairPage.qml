@@ -47,7 +47,7 @@ CfgScroll {
 
     lifecycle: "live"
 
-    // Set by ShellConfig: "this page is genuinely on screen". Without it the
+    // Set by SettingsHost (Nexus): "this page is genuinely on screen". Without it the
     // service sweeps for the whole life of the shell, and — worse here than
     // elsewhere — the page would mint a pairing code for somebody who never
     // opened it.

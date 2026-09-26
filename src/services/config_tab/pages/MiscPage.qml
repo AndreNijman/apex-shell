@@ -25,7 +25,7 @@ CfgScroll {
     lifecycle: "live"
     lifecycleError: SettingsService.lastError
 
-    // Set by ShellConfig and Nexus: "the Misc page is genuinely on screen".
+    // Set by SettingsHost (Nexus): "the Misc page is genuinely on screen".
     // Declared because SystemStats costs a subprocess and is refcounted on it;
     // PageRegistry marks this page needsScreen: true so both hosts bind it.
     property bool onScreen: false
@@ -152,8 +152,8 @@ CfgScroll {
         // The subprocess runs only while this page is genuinely on screen.
         // NOT `active: sysStats.visible` — an Item inside a hidden window
         // reports visible: true, so that would mean "always". `onScreen` is
-        // bound by ShellConfig and Nexus to window visibility AND page
-        // selection AND, in Nexus, not-locked.
+        // bound by SettingsHost (Nexus) to window visibility AND page
+        // selection AND not-locked.
         ServiceRef {
             service: sysStats
             active:  root.onScreen
