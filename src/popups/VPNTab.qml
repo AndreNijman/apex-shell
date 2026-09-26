@@ -643,13 +643,7 @@ Item {
                 // ── Tunnel section — sing-box ─────────────────────────────
                 Item {
                     width: parent.width; height: tLbl.implicitHeight + 4
-                    Text {
-                        id: tLbl; text: "TUNNEL"
-                        font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2
-                        color: root._sbActive
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
-                            : Theme.textTertiary
-                    }
+                    SectionLabel { id: tLbl; text: "TUNNEL" }
                 }
 
                 // sing-box row
@@ -780,11 +774,7 @@ Item {
                 Item {
                     width: parent.width; height: visible ? aLbl.implicitHeight + 4 : 0
                     visible: root._connections.some(function(c) { return c.active })
-                    Text {
-                        id: aLbl; text: "ACTIVE"
-                        font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2
-                        color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
-                    }
+                    SectionLabel { id: aLbl; text: "ACTIVE" }
                 }
 
                 Repeater {
@@ -806,11 +796,7 @@ Item {
                 Item {
                     width: parent.width; height: visible ? iLbl.implicitHeight + 4 : 0
                     visible: root._connections.some(function(c) { return !c.active })
-                    Text {
-                        id: iLbl; text: "AVAILABLE"
-                        font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2
-                        color: Theme.textTertiary
-                    }
+                    SectionLabel { id: iLbl; text: "AVAILABLE" }
                 }
 
                 Repeater {

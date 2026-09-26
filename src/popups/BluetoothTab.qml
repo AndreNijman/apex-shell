@@ -738,7 +738,7 @@ Item {
                 id: devCol; width: parent.width; height: implicitHeight; spacing: 4
 
                 Item { width: parent.width; height: visible ? pLbl.implicitHeight + 4 : 0; visible: root._paired.length > 0
-                    Text { id: pLbl; text: "PAIRED"; font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2; color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5) } }
+                    SectionLabel { id: pLbl; text: "PAIRED" } }
 
                 Repeater {
                     id: pairedRows
@@ -749,7 +749,7 @@ Item {
                 Item { width: parent.width; height: 10; visible: root._paired.length > 0 && root._available.length > 0 }
 
                 Item { width: parent.width; height: visible ? aLbl.implicitHeight + 4 : 0; visible: root._available.length > 0
-                    Text { id: aLbl; text: root._scanning ? "DISCOVERED" : "AVAILABLE"; font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2; color: Theme.textTertiary } }
+                    SectionLabel { id: aLbl; text: root._scanning ? "DISCOVERED" : "AVAILABLE" } }
 
                 Repeater {
                     id: availRows

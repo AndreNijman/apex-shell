@@ -534,6 +534,7 @@ mv "$stage/components-config-tmp" "$stage/components/config"
 # The controls the config components are built on (ApexPressable & co.,
 # UI/UX roadmap Phase 3), at the same relative path.
 cp -r "$root/src/components/controls" "$stage/components/controls"
+cp "$root/src/components/SectionLabel.qml" "$stage/components/SectionLabel.qml"   # CfgSection's heading (UI/UX Phase 17)
 cp "$here/rtl-test.qml" "$stage/rtl-test.qml"
 
 # The staged tree must BE the shipped one. A copy that silently lost a file

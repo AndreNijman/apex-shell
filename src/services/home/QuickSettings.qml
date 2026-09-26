@@ -691,11 +691,10 @@ StatCard {
             width: parent.width
             height: 52
 
-            Text {
+            SectionLabel {
                 id: brightLbl
                 anchors { left: parent.left; top: parent.top }
-                text: "BRIGHTNESS"; font.pixelSize: theme.fs(9); font.weight: Font.Bold
-                color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
+                text: "Brightness"
             }
             Text {
                 anchors { right: parent.right; top: parent.top }
@@ -795,10 +794,9 @@ StatCard {
         }
         Item { width: parent.width; height: 8 }
 
-        Text {
+        SectionLabel {
             id: qsLbl; width: parent.width
-            text: "QUICK SETTINGS"; font.pixelSize: theme.fs(9); font.weight: Font.Bold
-            color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
+            text: "Quick settings"
         }
         Item { width: parent.width; height: 8 }
 

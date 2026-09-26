@@ -190,7 +190,7 @@ Item {
         Text {
             width:          parent.width
             text:           root.label
-            font.pixelSize: theme.fs(12)
+            font.pixelSize: theme.typeBody
             color:          root.unavailable ? Theme.textSecondary : Theme.textPrimary
             elide:          Text.ElideRight
         }
@@ -198,7 +198,7 @@ Item {
             width:          parent.width
             visible:        text !== ""
             text:           root.unavailable ? root.disabledReason : root.description
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:          Theme.textSecondary
             wrapMode:       Text.WordWrap
             maximumLineCount: root.descriptionLines > 0 ? root.descriptionLines : 1000
@@ -208,7 +208,7 @@ Item {
             width:          parent.width
             visible:        root._effectNote !== ""
             text:           root._effectNote
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:          Theme.info
             wrapMode:       Text.WordWrap
             maximumLineCount: 2
@@ -243,8 +243,8 @@ Item {
         anchors.right:          slot.children.length > 0 ? slot.left : parent.right
         anchors.rightMargin:    slot.children.length > 0 ? 10 : 8
         anchors.verticalCenter: parent.verticalCenter
-        font.pixelSize:         theme.fs(10)
-        font.family:            "JetBrains Mono"
+        font.pixelSize:         theme.typeMono
+        font.family:            Theme.fontMono
         color:                  root.statusWarns ? Theme.attention : Theme.textSecondary
     }
 }

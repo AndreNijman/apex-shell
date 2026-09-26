@@ -130,7 +130,7 @@ Item {
                         id: cfgCol; anchors { left: parent.left; right: parent.right; top: parent.top; margins: 12 }
                         spacing: 12
 
-                        Text { text: "CREDENTIALS"; font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2; color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5) }
+                        SectionLabel { text: "CREDENTIALS" }
 
                         // SSID
                         Item {

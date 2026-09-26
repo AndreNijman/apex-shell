@@ -188,14 +188,4 @@ Item {
             onPageChanged: function(key) { Popups.audioPage = key }
         }
     }
-
-    // ── SectionLabel ──────────────────────────────────────────────────────────
-    component SectionLabel: Text {
-        color:           Theme.textSecondary
-        font.pixelSize:  theme.fs(10)
-        font.capitalization: Font.AllUppercase
-        font.letterSpacing: 0.8
-        leftPadding: 4
-        topPadding:  2
-    }
 }

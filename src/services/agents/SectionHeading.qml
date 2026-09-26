@@ -1,5 +1,6 @@
 import QtQuick
 import "../../"
+import "../../components"
 import "../../components/controls"
 
 // A heading between groups in the Agent Center.
@@ -30,17 +31,16 @@ Item {
     width: parent ? parent.width : 0
     height: visible ? label.implicitHeight + theme.fs(14) : 0
 
-    Text {
+    // The shared section label (UI/UX Phase 17); an accent heading keeps its
+    // tone, which says something ("needs you"), where the plain colour does not.
+    SectionLabel {
         id: label
         anchors.left: parent.left
         anchors.leftMargin: theme.px(4)
         anchors.bottom: parent.bottom
         anchors.bottomMargin: theme.px(4)
-        text: heading.text.toUpperCase()
-        color: heading.accent ? heading.tone : Theme.subtext
-        font.pixelSize: theme.fs(9)
-        font.bold: true
-        font.letterSpacing: theme.fs(1)
+        text: heading.text
+        color: heading.accent ? heading.tone : Theme.textSecondary
     }
 
     // ApexPressable (UI/UX roadmap v3 Phase 21): was a Text with a

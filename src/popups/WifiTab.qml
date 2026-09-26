@@ -770,14 +770,14 @@ Item {
                 id: contentCol; width: flick.width; height: implicitHeight; spacing: 4
 
                 Item { width: parent.width; height: visible ? sLbl1.implicitHeight + 4 : 0; visible: root._current !== null
-                    Text { id: sLbl1; text: "CONNECTED"; font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2; color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5) } }
+                    SectionLabel { id: sLbl1; text: "CONNECTED" } }
 
                 NetworkRow { id: currentRow; visible: root._current !== null; width: parent.width - 2; x: 1; net: root._current ?? { ssid: "", signal: 0, secured: false, inUse: true }; isCurrent: true }
 
                 Item { width: parent.width; height: 10; visible: root._current !== null && root._available.length > 0 }
 
                 Item { width: parent.width; height: visible ? sLbl2.implicitHeight + 4 : 0; visible: root._available.length > 0
-                    Text { id: sLbl2; text: "AVAILABLE"; font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2; color: Theme.textTertiary } }
+                    SectionLabel { id: sLbl2; text: "AVAILABLE" } }
 
                 Repeater {
                     id: availRows
