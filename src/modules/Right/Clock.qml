@@ -40,8 +40,8 @@ Text {
     anchors.verticalCenter: parent.verticalCenter
     font.pixelSize: theme.fs(14)
     // The gap between groups is 12 (cluster | clock | bell); the row's is 8.
-    leftPadding: theme.px(2)
-    rightPadding: theme.px(2)
+    leftPadding: theme.px(4)
+    rightPadding: 0
 
     property int formatMode: 0
 

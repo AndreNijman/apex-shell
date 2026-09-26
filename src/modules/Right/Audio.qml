@@ -10,7 +10,7 @@ Item {
 
     property bool showPercentage: false
 
-    implicitWidth:  row.implicitWidth + 6
+    implicitWidth:  row.implicitWidth
     implicitHeight: row.implicitHeight
 
     readonly property var sink: Pipewire.defaultAudioSink

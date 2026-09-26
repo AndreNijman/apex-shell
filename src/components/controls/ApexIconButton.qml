@@ -15,6 +15,10 @@ ApexPressable {
     id: root
 
     property string glyph: ""
+    // What a screen reader says. Never the glyph: every icon here is a
+    // private-use codepoint, which reads as nothing or as noise
+    // (tests/run-lockscreen-atspi-shim.sh fails on one reaching the bus).
+    property string label: ""
     property bool   selected: false
     property bool   bar: false
     property real   size: root.bar ? theme.px(20) : theme.hitMin
@@ -27,7 +31,7 @@ ApexPressable {
     radius: root.bar ? height / 2 : theme.radiusM
     pressedScale: 0.96
     hitMargin: root.bar ? Math.max(0, (theme.hitBar - root.size) / 2) : 0
-    Accessible.name: root.glyph
+    Accessible.name: root.label
 
     Rectangle {
         anchors.fill: parent

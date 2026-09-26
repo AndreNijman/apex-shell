@@ -67,7 +67,7 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
 | Where | Roadmap says | Implemented | Why |
 |---|---|---|---|
 | Segmented control | brief §E: one shared pill travelling between segments | the selection cross-fades per pill on the state beat | CfgSegmented is a Flow that wraps (21 call sites); a pill sliding across wrapped rows reads worse, and a shared pill inside a Flow needs a layout hack or a structural change to every caller |
-| Colour fallback rule | brief §C.5: textSecondary checked on surfaceHigh only; no tertiary fallback | textSecondary checked on surfaceHigh AND surfaceSelected; a tertiary fallback mix(T, B, .45) | measured on the real palettes: the default wallpaper's pale accent puts .35 at 4.38:1 on surfaceSelected (the brief's sample gave 4.7), and default-1's light scheme puts tertiary at 2.83:1. 13 fallbacks fire across the twelve palettes, pinned in the test |
+| Colour roles | brief §C.5: textSecondary mix(T, B, .35), textTertiary .55; fallback checks surfaceHigh only; no tertiary fallback | textSecondary .30, textTertiary .50; the fallback checks surfaceHigh AND surfaceSelected and has a tertiary branch | measured on the twelve real palettes: at .35 the default wallpaper's pale accent put secondary text at 4.38:1 on surfaceSelected, and .55 put tertiary at 2.83:1 on a light scheme — 13 fallbacks fired, one on the shipped default itself (design review 2: a fallback that fires on the default is the formula). At .30 / .50 none fires; the rule stays for unshipped palettes |
 | Right notch while a panel is open | brief A.2: the bar widens its notch, `rWidth = W(p)` | the bar's notch stays at its natural width; the panel draws the widened band over it | a moving edge split across two layer surfaces is a frame off itself (measured, D3) |
 | Toast while a panel is open | — | not shown; a toast on screen is dismissed when Network or the centre opens; opening the centre drops the queue; a toast arriving while the centre is open is not queued | the body belongs to the open panel; the centre already lists every one of them |
 | Toast state | a global `Popups.notificationToastOpen` read by every bar | each screen's panel pushes its own toast state to its own bar | one screen's dismiss used to close every bar's notch |
@@ -75,13 +75,15 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
 | Dashboard height | — | The finished body's bottom is `notchHeight + dashboardHeight` (was `dashboardHeight` from the screen top) | Pages gain the 40 px the bar used to take, which fixes Home clipping its last tile row (brief §F.1); the setting now means "height below the bar". |
 | notchRadius default | brief: 15 → 12 | kept at 15; the bottom corner is now a derived token (14) | A default change is a product call for Andre. |
 | Right panel title in the bar's notch | brief §D.5 (optional) | not done; the band's left stays empty | Product call; the brief's own fallback. |
+| Launcher page | lazy: built on first visit (the performance baseline) | built in the background, asynchronously, once the Dashboard has finished its first open (`LazyPage.prewarm`) | the first Home → Apps switch spent ~390 ms building the page before anything moved (measured per frame); with the prewarm the switch starts by ~150 ms. The cost is one page kept built after the first Dashboard open, on the page the Dashboard exists to host; every other page stays lazy |
 | Phase 0 | "Record videos … frame timing at 60 Hz and one high-refresh target" | Timestamped frame bursts at 3.75x slow motion + CPU/frame bench; no high-refresh capture | Headless outputs are 60 Hz; no high-refresh hardware reachable without opening windows on the user's desk. |
 
 ## Resume notes (kept current)
 
-- Committed through Phase 16. Next: fold in the second Fable review (running),
-  then 17 (page-level redesign: Home clipping, Network height, power menu rows,
-  audio tabs, the band title) and 18 (the 199 translucent whites).
+- Committed through 17a and the first half of visual review 2. In flight: the
+  Phase 18 translucent-white migration (three Sonnet agents, sets A/B/C, no git);
+  then the review-2 items in their files (stack pauses and rest overlap, Nexus
+  scrim/radius/title, SysTray), then the rest of 17 (band title, Home tiles).
 - The toast capture needs a notification and must never send one to the desk:
   `env -u WAYLAND_DISPLAY -u DISPLAY dbus-run-session -- env APEX_CAPTURE_BUS=private
   tests/visual/capture-surfaces.sh OUT toast` (gdbus Notify — this host's
@@ -115,6 +117,7 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
 
 ## Verification log
 
+- 2026-09-26 — Visual review 2 (Fable, over every family's capture sheet): each surface reads as its intended family. Applied here: the context menu's frame was the strip's 6 px border (now a 1 px outlineSoft hairline) and its rows, like the tray menu's, flooded with the accent on hover (now the state layer, textPrimary label); the open pill and the Nexus nav pill share surfaceSelected; Nexus nav rows 36 px on radiusM, selection by fill and colour only (no bold); bar cluster gaps even (Audio's trailing 6 px, the clock's padding); the text-role mixes moved to .30 / .50, so no shipped palette needs a fallback (was 13, including the default); the launcher page prewarmed (see Deviations). Waiting on the Phase 18 migration's files: the stack's add/remove pause and its rest overlap, Nexus's scrim outliving its sheet, SysTray's legacy animation. Full sweep green on an isolated tree (nav-geometry 16 pre-existing).
 - 2026-09-26 — Phases 2-3: roles over twelve palettes (13 fallbacks, pinned); primitives suite 10/0; migrated controls captured in Nexus. Found in passing: NavPane opened scrolled past its current page (reveal before layout, pre-existing) and its new pill was missing on first open — both fixed. Two Qt traps recorded in the code: a function named `layer` is shadowed by Item's `layer` group; emitting a derived signal straight from an inherited signal's handler threw.
 - 2026-09-26 — Phase 14: OSD captured at 1x through a new harness (entrance, held key tracking without replay, exit); fixed the bar growing from 0 on first show; context menu captured (keybind open, centred). Sweep green.
 - 2026-09-26 — Phase 12: launcher tab switch captured (pill, body 900→560, field at once, results group reveal). A suspected first-frame lag on Dashboard opens was measured (bloom width per frame, with and without a first-frame gate): the bloom is visible from ~120 ms either way — the gate was reverted; the earlier "nothing for 300 ms" read was depth-only measurement plus IPC latency. Full sweep green (nav-geometry 16 pre-existing).

@@ -49,11 +49,19 @@ Loader {
     // Present at once, no travel; see the header.
     property bool anchored: false
 
+    // Build ahead of the first visit, in the background: an asynchronous load
+    // that does not block the thread, so the visit that would have paid for
+    // the build (the launcher's was ~300 ms at capture scale) finds the page
+    // ready. A page chosen before the background build has finished is built
+    // at once, as it always was.
+    property bool prewarm: false
+
     property bool _everShown: false
     property bool _leaving: false
     property real _offset: 0
 
-    active: root._everShown
+    active: root._everShown || root.prewarm
+    asynchronous: root.prewarm && !root._everShown
     visible: root.shown || root._leaving
     transform: Translate { x: root._offset }
 

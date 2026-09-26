@@ -40,6 +40,7 @@ IconBtn {
     text: logo.status === Image.Ready
               ? ""
               : (distroGlyphs[distroId] !== undefined ? distroGlyphs[distroId] : "")
+    label: "APEX menu"
     // The APEX mark is accent-coloured by design (brief §D.3's one exception).
     textColor: Theme.accentText
 
