@@ -88,7 +88,7 @@ CfgScroll {
             hoverable: false
             Text {
                 text:           MemService.usedStr + " / " + MemService.totalStr
-                font.family:    "JetBrains Mono"
+                font.family:    Theme.fontMono
                 font.pixelSize: theme.fs(11)
                 color:          Theme.active
             }

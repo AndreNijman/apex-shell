@@ -26,10 +26,11 @@ Rectangle {
     // a height of zero. Same trap as the notes in AgentCenter.
     visible: AgentHelp.showOnboarding
     height: visible ? column.implicitHeight + theme.px(24) : 0
-    radius: theme.px(8)
-    color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
-    border.width: 1
-    border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09)
+    // A card is a surface, not a box (UI/UX Phase 17, StatCard's rule): the
+    // raised surface, no border. It was a .05 fill inside a .09 border, 10 px
+    // body text, and a primary button flooded with the accent.
+    radius: theme.radiusL
+    color: Theme.surfaceRaised
 
     // Announced when it becomes visible, not when it is constructed. The card
     // exists as soon as the page is built and is invisible until AgentHelp has
@@ -51,17 +52,19 @@ Rectangle {
 
         Text {
             text: AgentHelpContent.cardTitle
-            color: Theme.text
-            font.pixelSize: theme.fs(12)
-            font.bold: true
+            color: Theme.textPrimary
+            font.family: Theme.fontUi
+            font.pixelSize: theme.typeBodyStrong
+            font.weight: Font.DemiBold
         }
 
         Text {
             width: parent.width
             text: AgentHelpContent.cardBody
-            color: Theme.subtext
-            font.pixelSize: theme.fs(10)
-            lineHeight: 1.35
+            color: Theme.textSecondary
+            font.family: Theme.fontUi
+            font.pixelSize: theme.typeBodySmall
+            lineHeight: 1.3
             wrapMode: Text.WordWrap
         }
 
@@ -74,18 +77,17 @@ Rectangle {
             // Rectangle/HoverHandler/TapHandler pair with no keyboard path.
             ApexPressable {
                 id: readBtn
-                width: readLabel.implicitWidth + theme.px(20)
-                height: theme.px(26)
-                radius: theme.px(6)
+                // The one action style (UI/UX Phase 17), on the card's raised
+                // surface one step up.
+                width: readLabel.implicitWidth + theme.px(24)
+                height: theme.controlCompact
+                radius: theme.radiusS
                 Accessible.name: AgentHelpContent.cardRead
                 onActivated: AgentHelp.open("start")
 
                 Rectangle {
                     anchors.fill: parent; radius: parent.radius
-                    color: readBtn.hovered
-                        ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
-                        : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.20)
-
+                    color: readBtn.tint(Theme.surfaceHigh)
                     Behavior on color { MotionColor {} }
                 }
 
@@ -93,8 +95,9 @@ Rectangle {
                     id: readLabel
                     anchors.centerIn: parent
                     text: AgentHelpContent.cardRead
-                    color: Theme.text
-                    font.pixelSize: theme.fs(10)
+                    color: Theme.textPrimary
+                    font.pixelSize: theme.typeCaption
+                    font.weight: Font.Medium
                 }
 
                 ApexFocusRing { target: readBtn }
@@ -105,9 +108,10 @@ Rectangle {
             // "Keys and commands" section, so the worst case is recoverable.
             ApexPressable {
                 id: gotItBtn
-                width: gotItLabel.implicitWidth + theme.px(20)
-                height: theme.px(26)
-                radius: theme.px(6)
+                // The quieter of the two: a text button, the state layer only.
+                width: gotItLabel.implicitWidth + theme.px(24)
+                height: theme.controlCompact
+                radius: theme.radiusS
                 Accessible.name: AgentHelpContent.cardDismiss
                 // The card (and this button with it) disappears the instant
                 // this runs, so the keys go to wherever the caller decides —
@@ -120,10 +124,7 @@ Rectangle {
 
                 Rectangle {
                     anchors.fill: parent; radius: parent.radius
-                    color: gotItBtn.hovered
-                        ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.14)
-                        : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
-
+                    color: gotItBtn.stateLayer()
                     Behavior on color { MotionColor {} }
                 }
 
@@ -131,8 +132,9 @@ Rectangle {
                     id: gotItLabel
                     anchors.centerIn: parent
                     text: AgentHelpContent.cardDismiss
-                    color: Theme.subtext
-                    font.pixelSize: theme.fs(10)
+                    color: gotItBtn.hovered ? Theme.textPrimary : Theme.textSecondary
+                    font.pixelSize: theme.typeCaption
+                    font.weight: Font.Medium
                 }
 
                 ApexFocusRing { target: gotItBtn }

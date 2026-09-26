@@ -94,10 +94,12 @@ CfgScroll {
                          && FirewallService.unit !== "unknown"
                          && FirewallService.unit !== "absent"
             Text {
+                // A command to copy: the mono role, in the text-safe accent
+                // (UI/UX Phase 17 — every command in a row's slot reads alike).
                 text:           FirewallService.startCommand
-                font.pixelSize: theme.fs(11)
-                font.family:    "JetBrains Mono"
-                color:          Theme.active
+                font.pixelSize: theme.typeMono
+                font.family:    Theme.fontMono
+                color:          Theme.accentText
             }
         }
     }
@@ -181,7 +183,7 @@ CfgScroll {
                 Text {
                     text:           FirewallService.allowCommand(modelData.name)
                     font.pixelSize: theme.typeCaption
-                    font.family:    "JetBrains Mono"
+                    font.family:    Theme.fontMono
                     color:          Theme.active
                 }
             }

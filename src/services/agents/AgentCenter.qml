@@ -223,64 +223,30 @@ Item {
         // runtime and a desktop full of agents is a real configuration, and a
         // full-page "the agent runtime is not running" would hide the answer the
         // user came for. The list says the same thing in one line instead.
-        Column {
+        EmptyState {
             anchors.centerIn: parent
             width: parent.width * 0.8
-            spacing: theme.px(10)
             visible: AgentService.everChecked && !AgentService.daemonUp
                      && !root._hasRemote
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "󰒲"
-                font.pixelSize: theme.fs(42)
-                color: Theme.subtext
-            }
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "The agent runtime is not running"
-                color: Theme.text
-                font.pixelSize: theme.fs(14)
-            }
-            Text {
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-                text: "apex agent enable\n\n" +
-                      "It is opt-in. Running claude, opencode or codex directly " +
-                      "works exactly as it always did."
-                color: Theme.subtext
-                font.pixelSize: theme.fs(11)
-            }
+            glyph: "󰒲"
+            title: "The agent runtime is not running"
+            hint: "It is opt-in. Running claude, opencode or codex directly "
+                + "works exactly as it always did. To turn it on:"
+            command: "apex agent enable"
         }
 
         // ── Nothing to show ──────────────────────────────────────────────────────
-        Column {
+        // The shared empty state (UI/UX Phase 17): both of these were a 42 px
+        // glyph in subtext over a 14 px line and an 11 px hint, with the
+        // command run into the hint's prose.
+        EmptyState {
             anchors.centerIn: parent
             width: parent.width * 0.8
-            spacing: theme.px(8)
             visible: AgentService.daemonUp && root._empty && !root._hasRemote
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "󰚩"
-                font.pixelSize: theme.fs(42)
-                color: Theme.subtext
-            }
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "No agent sessions"
-                color: Theme.text
-                font.pixelSize: theme.fs(14)
-            }
-            Text {
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-                text: "Start one with  a  or  apex agent run"
-                color: Theme.subtext
-                font.pixelSize: theme.fs(11)
-            }
+            glyph: "󰚩"
+            title: "No agent sessions"
+            hint: "Start one from a terminal with the a command, or:"
+            command: "apex agent run"
         }
 
         // ── The list ─────────────────────────────────────────────────────────────

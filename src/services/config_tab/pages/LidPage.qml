@@ -420,7 +420,7 @@ CfgScroll {
                         required property int index
                         width:          downCol.width
                         text:           "· " + LidService.report.period.poweredDown[index]
-                        font.family:    "JetBrains Mono"
+                        font.family:    Theme.fontMono
                         font.pixelSize: theme.typeCaption
                         color:          Theme.active
                         wrapMode:       Text.WordWrap
@@ -455,7 +455,7 @@ CfgScroll {
                         readonly property var skip: LidService.report.period.skipped[index]
                         width:          skipCol.width
                         text:           "· " + skip.what + " — " + skip.why
-                        font.family:    "JetBrains Mono"
+                        font.family:    Theme.fontMono
                         font.pixelSize: theme.typeCaption
                         color:          Theme.subtext
                         wrapMode:       Text.WordWrap

@@ -780,9 +780,13 @@ Item {
                 Item {
                     width: parent.width; height: 160
                     visible: !root._scanning && root._networks.length === 0 && root._wifiEnabled
-                    Column { anchors.centerIn: parent; spacing: 10
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰤭"; font.pixelSize: theme.fs(34); color: Theme.outlineStrong }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "No networks found"; font.pixelSize: theme.fs(12); color: Theme.textTertiary } }
+                    // The shared empty state (UI/UX Phase 17).
+                    EmptyState {
+                        anchors.centerIn: parent; width: parent.width * 0.8
+                        glyph: "󰤭"
+                        title: "No networks found"
+                        hint: "Nothing in range. Scan again from the header."
+                    }
                 }
 
                 Item {

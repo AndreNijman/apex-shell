@@ -861,14 +861,11 @@ fi
 #     LabwcBackend.qml      x1  a JavaScript object literal, a geometry record
 #     NiriService.qml       x1  the same literal, in the niri backend
 #
-#   WIDTH-COMPENSATED (2) — an arithmetic no-op, not luck. Mirrored, x becomes
-#   `parent.width - x - width`; with `x: 0, width: root.width` that is 0 again.
-#   Identical geometry both ways, so converting them to anchors would change
-#   nothing a reader sees.
-#     KeybindsPage.qml      x2  x:0  width: root.width  (full bleed)
-#   Appearance's, Data's and Misc's six `x: 10; width: parent.width - 20`
-#   blocks were here too (also no-ops mirrored); UI/UX Phase 17 put them on the
-#   content edge with the rows around them, so they are plain full-width now.
+#   WIDTH-COMPENSATED (0) — an arithmetic no-op when mirrored. Appearance's,
+#   Data's and Misc's six `x: 10; width: parent.width - 20` blocks and
+#   KeybindsPage's two full-bleed `x: 0; width: root.width` were here; UI/UX
+#   Phase 17 put the first on the content edge (plain full width) and anchored
+#   the second on CfgScroll's banner line, so the bucket is empty.
 #
 #   GEOMETRY PLUMBING (0) — ArchMenu's mask proxy (`x: 0`) went with UI/UX
 #   Phase 10: its input region is the spill body's bounds now.
@@ -880,7 +877,6 @@ fi
 # a new one anywhere in src/ fails this.
 x_expect="$(cat <<'XEOF'
 1 src/services/compositor/LabwcBackend.qml x: 0, y: 0, width: 0, height: 0
-2 src/services/config_tab/KeybindsPage.qml x: 0
 1 src/services/system/NiriService.qml x: 0, y: 0, width: 0, height: 0
 2 src/windows/TopBar.qml x: 0; y: 0
 XEOF

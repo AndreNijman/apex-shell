@@ -678,22 +678,13 @@ Item {
                 Item {
                     width: parent.width; height: 180
                     visible: !root._loading && root._connections.length === 0
-                    Column {
-                        anchors.centerIn: parent; spacing: 12
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰦝"; font.pixelSize: theme.fs(36); color: Theme.outlineStrong }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "No WireGuard connections"; font.pixelSize: theme.fs(13); color: Theme.textTertiary }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Import a config to get started:"; font.pixelSize: theme.fs(10); color: Theme.textTertiary; horizontalAlignment: Text.AlignHCenter }
-                        Rectangle {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: codeText.implicitWidth + 24; height: 26; radius: 6
-                            color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05); border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10); border.width: 1
-                            Text {
-                                id: codeText; anchors.centerIn: parent
-                                text: "nmcli con import type wireguard file <conf>"
-                                font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"
-                                color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
-                            }
-                        }
+                    // The shared empty state (UI/UX Phase 17).
+                    EmptyState {
+                        anchors.centerIn: parent; width: parent.width * 0.8
+                        glyph: "󰦝"
+                        title: "No WireGuard connections"
+                        hint: "Import a config to get started:"
+                        command: "nmcli con import type wireguard file <conf>"
                     }
                 }
 

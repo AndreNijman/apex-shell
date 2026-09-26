@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import "../"
 import "../../"
+import "../../components"
 import "../../components/config"
 import "../../components/controls"
 import "../../components/config/settings-semantics.js" as Semantics
@@ -126,11 +127,15 @@ Item {
     // is hand-drawn here any more — the old banner had its own geometry, its
     // own hardcoded colours and its own words ("Discard", "Save"), none of
     // which any other page used.
+    // On CfgScroll's banner line (UI/UX Phase 17): 12 px in, like every other
+    // page's lifecycle line and the list below it. At x: 0 it sat 12 px left of
+    // the page's own content.
     CfgLifecycle {
         id: _lifecycle
-        x: 0
-        y: 0
-        width: root.width
+        anchors.left: parent.left
+        anchors.leftMargin: 12
+        y: 8
+        width: root.width - 16
         lifecycle: "staged"
 
         // One place at a time, the rule the Display page follows: while there
@@ -144,9 +149,10 @@ Item {
 
     CfgCommit {
         id: _commit
-        x: 0
-        y: _lifecycle.height + (_commit.visible ? 6 : 0)
-        width: root.width
+        anchors.left: parent.left
+        anchors.leftMargin: 12
+        y: _lifecycle.y + _lifecycle.height + (_commit.visible ? 6 : 0)
+        width: root.width - 16
 
         count: Object.keys(root._pending).length
         noun:  "shortcut"
@@ -171,8 +177,11 @@ Item {
             left:        parent.left
             right:       parent.right
             bottom:      parent.bottom
-            leftMargin:  12
-            rightMargin: 12
+            // CfgScroll's geometry (UI/UX Phase 17): the flick 4 in from the page,
+            // so a row's surface reaches 8 past its text, which sits on the same
+            // 12 px edge as the lifecycle line and every other page's rows.
+            leftMargin:  4
+            rightMargin: 4
             bottomMargin: 12
             topMargin:   6
         }
@@ -212,7 +221,7 @@ Item {
 
         Column {
             id: _col
-            width:   parent.width - 12
+            width:   parent.width - 8   // the scrollbar's lane
             spacing: 2
 
             Repeater {
@@ -229,16 +238,18 @@ Item {
                     width:   _col.width
                     spacing: 2
 
+                    // The shared section label (UI/UX Phase 17) — this was the last
+                    // copy of the old 9 px accent-at-.55 heading, 2.37:1 on the light
+                    // sheet — in CfgSection's slot (18 first, 30 after), on the edge.
                     Item {
                         width:  parent.width
-                        height: index > 0 ? 30 : 16
-                        Text {
+                        height: index > 0 ? 30 : 18
+                        SectionLabel {
+                            anchors.left:         parent.left
+                            anchors.leftMargin:   8
                             anchors.bottom:       parent.bottom
-                            anchors.bottomMargin: 4
-                            text:           modelData.name
-                            font.pixelSize: theme.fs(9)
-                            font.weight:    Font.Bold
-                            color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
+                            anchors.bottomMargin: 6
+                            text:                 modelData.name
                         }
                     }
 
@@ -461,7 +472,7 @@ Item {
         // ── Normal display ────────────────────────────────────────────────────
         Item {
             anchors { top: parent.top; left: parent.left; right: parent.right
-                      leftMargin: 10; rightMargin: 8 }
+                      leftMargin: 8; rightMargin: 8 }
             height: 36
             visible: !br.isCapturing
 
@@ -639,7 +650,7 @@ Item {
         // ── Capture display ───────────────────────────────────────────────────
         Column {
             anchors { top: parent.top; left: parent.left; right: parent.right
-                      leftMargin: 10; rightMargin: 8 }
+                      leftMargin: 8; rightMargin: 8 }
             spacing: 0
             visible: br.isCapturing
 

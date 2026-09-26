@@ -145,7 +145,7 @@ CfgScroll {
             Text {
                 width: theme.px(230)
                 text: PermissionsService.session.brokered.join(", ")
-                font.family:    "JetBrains Mono"
+                font.family:    Theme.fontMono
                 font.pixelSize: theme.typeCaption
                 color:          Theme.active
                 wrapMode:       Text.WordWrap
@@ -223,7 +223,7 @@ CfgScroll {
                             }
                             Text {
                                 text:           "· enforced by " + rowItem.row.enforcerLabel
-                                font.family:    "JetBrains Mono"
+                                font.family:    Theme.fontMono
                                 font.pixelSize: theme.typeCaption
                                 color:          Theme.subtext
                                 anchors.verticalCenter: parent.verticalCenter

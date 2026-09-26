@@ -107,7 +107,7 @@ CfgScroll {
                         text:        root.version + "  ·  APEX-OS"
                         font.pixelSize: theme.typeCaption
                         color:       Theme.textSecondary
-                        font.family: "JetBrains Mono"
+                        font.family: Theme.fontMono
                     }
                 }
             }
@@ -127,10 +127,11 @@ CfgScroll {
             label:     "Config provider"
             hoverable: false
             Text {
+                // A value, not a command: CfgRow's readout treatment (UI/UX Phase 17).
                 text:        ShellState.configProvider
-                font.family: "JetBrains Mono"
-                font.pixelSize: theme.fs(11)
-                color:       Theme.active
+                font.family: Theme.fontMono
+                font.pixelSize: theme.typeMono
+                color:       Theme.textSecondary
             }
         }
     }
@@ -203,7 +204,7 @@ CfgScroll {
                 text:        (Compositor.modeName !== "" ? Compositor.modeName
                                                          : "Not a compositor APEX supports")
                              + (Compositor.overrideName === "" ? "  ·  auto" : "  ·  override")
-                font.family: "JetBrains Mono"
+                font.family: Theme.fontMono
                 font.pixelSize: theme.fs(11)
                 color:       Theme.active
             }

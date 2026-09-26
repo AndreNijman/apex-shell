@@ -1,6 +1,7 @@
 import QtQuick
 import "../../../"
 import "../../"
+import "../../../components"
 import "../../../components/config"
 import "../../../components/controls"
 
@@ -116,12 +117,15 @@ CfgScroll {
             width:  parent.width
             height: 78
 
-            Text {
-                anchors.centerIn: parent
+            // The shared empty state, inline (UI/UX Phase 17): on the content
+            // edge like the rows, not a centred tertiary line in the strip's slot.
+            EmptyState {
+                anchors.left: parent.left; anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                inline:  true
                 visible: WallpaperService.wallpapers.length === 0
-                text:    WallpaperService.applying ? "Applying…" : "No wallpapers in " + WallpaperService.wallpaperDir
-                font.pixelSize: theme.fs(11)
-                color:   Theme.textTertiary
+                title:   WallpaperService.applying ? "Applying…" : "No wallpapers in " + WallpaperService.wallpaperDir
+                hint:    WallpaperService.applying ? "" : "Add images there, then Rescan."
             }
 
             ListView {

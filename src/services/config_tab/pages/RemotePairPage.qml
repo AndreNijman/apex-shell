@@ -113,8 +113,8 @@ CfgScroll {
 
             Text {
                 text: RemotePairingService.countdown
-                font.pixelSize: theme.fs(13)
-                font.family: "JetBrains Mono"
+                font.pixelSize: theme.typeMono
+                font.family: Theme.fontMono
                 // The countdown is a fact, not a warning. It does not turn red
                 // near zero: an expiring code is replaced by asking for a new
                 // one, which is a button, not an emergency.

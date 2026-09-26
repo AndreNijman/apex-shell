@@ -754,10 +754,12 @@ Item {
                 Item {
                     width: parent.width; height: 120
                     visible: !root._scanning && root._allDevices.length === 0 && root._btPowered
-                    Column { anchors.centerIn: parent; spacing: 10
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰂯"; font.pixelSize: theme.fs(32); color: Theme.outlineStrong }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "No devices found"; font.pixelSize: theme.fs(12); color: Theme.textTertiary }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Tap Scan to discover nearby devices"; font.pixelSize: theme.fs(10); color: Theme.textTertiary }
+                    // The shared empty state (UI/UX Phase 17).
+                    EmptyState {
+                        anchors.centerIn: parent; width: parent.width * 0.8
+                        glyph: "󰂯"
+                        title: "No devices found"
+                        hint: "Scan to find devices nearby."
                     }
                 }
 

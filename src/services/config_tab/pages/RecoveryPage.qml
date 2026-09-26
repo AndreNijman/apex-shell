@@ -294,7 +294,7 @@ CfgScroll {
                         width:          parent.width
                         text:           "→ " + (compRow.row ? compRow.row.action : "")
                         font.pixelSize: theme.typeCaption
-                        font.family:    "JetBrains Mono"
+                        font.family:    Theme.fontMono
                         color:          Theme.active
                         wrapMode:       Text.WordWrap
                     }
@@ -397,7 +397,7 @@ CfgScroll {
                         width:          parent.width
                         text:           "→ " + RecoveryService.repairSystemCommand
                         font.pixelSize: theme.fs(9)
-                        font.family:    "JetBrains Mono"
+                        font.family:    Theme.fontMono
                         color:          Theme.active
                         wrapMode:       Text.WordWrap
                     }
@@ -442,10 +442,11 @@ CfgScroll {
             a11yExtra:   "The command is: " + RecoveryService.rollbackCommand
             effect:      "reboot"
             Text {
+                // A command to copy — the same treatment as Firewall's (UI/UX Phase 17).
                 text:           RecoveryService.rollbackCommand
-                font.pixelSize: theme.fs(11)
-                font.family:    "JetBrains Mono"
-                color:          Theme.active
+                font.pixelSize: theme.typeMono
+                font.family:    Theme.fontMono
+                color:          Theme.accentText
             }
         }
 
@@ -456,7 +457,7 @@ CfgScroll {
             Text {
                 text:           RecoveryService.pinCommand
                 font.pixelSize: theme.fs(11)
-                font.family:    "JetBrains Mono"
+                font.family:    Theme.fontMono
                 color:          Theme.active
             }
         }
@@ -521,7 +522,7 @@ CfgScroll {
                     Text {
                         text:           routeRow.route ? routeRow.route.id : ""
                         font.pixelSize: theme.fs(11)
-                        font.family:    "JetBrains Mono"
+                        font.family:    Theme.fontMono
                         color:          routeRow.mark === "yes" ? Theme.text : Theme.subtext
                     }
                     Text {
@@ -896,7 +897,7 @@ CfgScroll {
                                         width:          parent.width
                                         text:           lossRow.loss ? lossRow.loss.relative : ""
                                         font.pixelSize: theme.typeCaption
-                                        font.family:    "JetBrains Mono"
+                                        font.family:    Theme.fontMono
                                         color:          Theme.text
                                         elide:          Text.ElideMiddle
                                     }
@@ -1110,7 +1111,7 @@ CfgScroll {
                               ? "Resetting. Backing up first; leave this alone until it finishes."
                               : RecoveryService.resetMessage
                         font.pixelSize: theme.typeCaption
-                        font.family:    "JetBrains Mono"
+                        font.family:    Theme.fontMono
                         color: RecoveryService.resetPhase === "done" ? Theme.success : Theme.warning
                         wrapMode: Text.WordWrap
                         // apexd's refusals name what did not match and what to

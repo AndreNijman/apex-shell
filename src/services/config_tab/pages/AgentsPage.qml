@@ -161,12 +161,14 @@ CfgScroll {
             hoverable: false
 
             Text {
+                // A value: CfgRow's readout treatment (UI/UX Phase 17), keeping
+                // the mode's own colour — unrestricted is the danger tone.
                 text: AgentPolicyService.busy ? "saving…"
                                               : AgentPolicyService.defaultSandbox
-                font.pixelSize: theme.fs(11)
-                font.bold: true
+                font.pixelSize: theme.typeMono
+                font.family: Theme.fontMono
                 color: AgentPolicyService.busy
-                     ? Theme.subtext
+                     ? Theme.textSecondary
                      : root._modeColor(AgentPolicyService.defaultSandbox)
             }
         }
