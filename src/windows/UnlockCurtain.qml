@@ -46,9 +46,13 @@ Variants {
             anchors.fill: parent
             source: WallpaperService.currentWall !== "" ? "file://" + WallpaperService.currentWall : ""
             fillMode: Image.PreserveAspectCrop
-            // Decoded before the first frame: the frame the lock hands over to
-            // must already be the wallpaper, not transparent.
-            asynchronous: false
+            // Asynchronous: this window exists (unmapped) from startup, so the
+            // image is decoded long before any lock, off the GUI thread — and
+            // the lock surface's own wallpaper (same URL, same cache) finds it
+            // warm on the first lock of a session instead of popping in over
+            // the gradient. A synchronous decode here would run exactly as
+            // the lock surface is being built.
+            asynchronous: true
             cache: true
             opacity: win.fade
         }

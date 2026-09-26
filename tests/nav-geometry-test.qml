@@ -95,6 +95,8 @@ ShellRoot {
     }
 
     function reportKinds() {
+        // The rowless-page self-test must have had a page to run on.
+        root.check("self-test: the rowless-page gate was exercised on a real page", root._mutantDone)
         if (root.kindOrder.length === 0)
             return
         console.log("")
@@ -359,6 +361,20 @@ ShellRoot {
     }
     function isCtl(o)  { return o.variant !== undefined && o.label !== undefined }
     function isText(o) { return o.text !== undefined && o.wrapMode !== undefined }
+    // A page's declared "there is nothing to list" state: the shared EmptyState
+    // (glyph + hint + command), or a section that sets `pageUnavailable` (the
+    // Privacy page's "Nothing could be read"). Only a page showing one of these
+    // may be measured without rows; any other rowless page fails as before.
+    function isUnavailable(o) {
+        return o.pageUnavailable === true
+            || (o.glyph !== undefined && o.hint !== undefined && o.command !== undefined
+                && o.inline === false)      // an inline EmptyState is a row's note, not the page's
+    }
+    // "rows" | "unavailable" | "none" — the one decision the three readers share.
+    function pageStateOf(rows, markers) {
+        return rows.length > 0 ? "rows" : (markers.length > 0 ? "unavailable" : "none")
+    }
+    property bool _mutantDone: false
 
     function livePartsOf(page, pred) {
         const all = root.partsOf(page, pred, [], 12)
@@ -399,16 +415,30 @@ ShellRoot {
             return
         }
         const rows = root.livePartsOf(page, root.isRow)
+        const markers = root.livePartsOf(page, root.isUnavailable)
+        // Can the fallback below fail? A page with rows and no unavailable
+        // state, its rows taken away, must read as "none" — i.e. be failed,
+        // not accepted as text. Checked once, on the first rowed page.
+        if (rows.length > 0 && markers.length === 0 && !root._mutantDone) {
+            root._mutantDone = true
+            root.check("self-test: a rowed page that lost its rows is failed, not accepted as text",
+                       root.pageStateOf([], markers) === "none", "markers: " + markers.length)
+        }
         if (rows.length === 0) {
             // A page with nothing to list is not a page that failed to lay out:
             // on this stubbed machine Privacy reads no permissions service and
             // says so in a section of TEXT ("Nothing could be read"). That
-            // state is measured as what it is — its text blocks fit the page —
-            // instead of failing for want of rows (it was the suite's two
-            // standing "baseline" failures, per scale).
+            // DECLARED state is measured as what it is — its text blocks fit
+            // the page — instead of failing for want of rows (it was the
+            // suite's two standing "baseline" failures, per scale). A rowless
+            // page WITHOUT such a state still fails: every page has a header
+            // Text, so "any text" would accept a page that lost its rows.
+            if (root.pageStateOf(rows, markers) === "none") {
+                root.check(label + ": the page laid out at least one row", false, "found none")
+                return
+            }
             const texts = root.livePartsOf(page, root.isText)
-            root.check(label + ": the page laid out at least one row or block of text",
-                       texts.length > 0, "found none")
+            root.check(label + ": the unavailable page laid out its text", texts.length > 0, "found none")
             var spill = -1e9, spillAt = ""
             for (const t of texts) {
                 const q = t.mapToItem(page, 0, 0)
@@ -772,8 +802,8 @@ ShellRoot {
             // reporting the previous pane's width is a stale read, which is the
             // whole reason this function exists.
             return Math.abs(pg.width - pageHost.width) <= 1.5
-                && (root.livePartsOf(pg, root.isRow).length > 0
-                    || root.livePartsOf(pg, root.isText).length > 0)
+                && root.pageStateOf(root.livePartsOf(pg, root.isRow),
+                                    root.livePartsOf(pg, root.isUnavailable)) !== "none"
         }
         const v  = root.vRigFor(stepData)
         const sw = v ? v.sw : hSwitcher
@@ -792,8 +822,10 @@ ShellRoot {
             const pg = pageLoader.item
             if (!pg) return "incomplete:0"
             var rows = root.livePartsOf(pg, root.isRow)
-            // A page with no rows (see measurePage) settles on its text.
-            if (rows.length === 0) rows = root.livePartsOf(pg, root.isText)
+            // A page in its declared unavailable state (see measurePage)
+            // settles on its text; any other rowless page is incomplete.
+            if (rows.length === 0 && root.livePartsOf(pg, root.isUnavailable).length > 0)
+                rows = root.livePartsOf(pg, root.isText)
             if (rows.length === 0) return "incomplete:0"
             var sig = "p" + stepData.pageIndex + ":" + pageHost.width + ":"
             for (const r of rows) {

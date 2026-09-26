@@ -313,6 +313,9 @@ CfgScroll {
     CfgSection {
         title: "Nothing could be read"
         visible: PermissionsService.checked && !PermissionsService.available
+        // The page's declared unavailable state, for tests/nav-geometry-test.qml
+        // (a rowless page is measured as text only when it says it is one).
+        readonly property bool pageUnavailable: true
 
         Text {
             width: parent.width
