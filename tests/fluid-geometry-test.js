@@ -95,6 +95,68 @@ function inside(pts, x, y) {
     return c;
 }
 
+// ── Phase 23: the parameters themselves ────────────────────────────────────
+// Two of the roadmap's rejects are about the parameters a silhouette is built
+// from rather than its outline at one instant:
+//
+//   SUDDEN RADIUS CHANGE — a parameter that JUMPS. Fast is not the fault: the
+//   pour's fillet is min(r, depth / 2) and reaches its radius within 7 % of the
+//   open because the body does; a spill's corner is clamped to a body a few
+//   pixels wide. What is wrong is a discontinuity, and a discontinuity has a
+//   signature fast motion does not: sample ten times finer and a continuous
+//   parameter's largest step shrinks about tenfold, while a jump's does not
+//   shrink at all. So a parameter jumps when its largest step at N = 2000 is
+//   still over a quarter of its largest at N = 200 AND over 3 px — the pixel
+//   floor, because edges and depths are rounded to whole pixels and a sum of
+//   two rounded values steps up to ~2.6 px at ANY sampling density (measured:
+//   bloom R, spill top/bottom/rb, edge Hb/rb). A snapped radius is several px.
+//
+//   OVERSHOOT — a parameter going past where it starts or ends. Every one stays
+//   between its p = 0 and p = 1 values (a pixel of rounding either way — R is
+//   L + W, both rounded),
+//   except the ones named in EXEMPT with the reason, each documented where it
+//   is computed in geometry.js.
+const EXEMPT = {
+    // "Bottom-left: the notch's own corner at p = 0, the body's (bulging
+    // 17 → 35 → 17) once it has depth" — the pour's trailing corner is rounder
+    // mid-pour by design (Fluid roadmap RIGHT_POUR); it is a shape, not a bounce.
+    "pour.rbl": "the trailing corner's designed 17 → 35 → 17 bulge"
+};
+function paramAudit(name, fn, g) {
+    const stepsAt = N => {
+        const st = {}; let prev = null;
+        for (let i = 0; i <= N; i++) {
+            const pr = fn(i / N, g).params;
+            for (const k in pr) {
+                if (typeof pr[k] !== "number") continue;
+                const s = st[k] || (st[k] = { step: 0, at: 0, min: Infinity, max: -Infinity });
+                s.min = Math.min(s.min, pr[k]); s.max = Math.max(s.max, pr[k]);
+                if (prev) { const d = Math.abs(pr[k] - prev[k]); if (d > s.step) { s.step = d; s.at = i / N; } }
+            }
+            prev = pr;
+        }
+        return st;
+    };
+    const coarse = stepsAt(200), fine = stepsAt(2000);
+    const p0 = fn(0, g).params, p1 = fn(1, g).params;
+    const jumps = [], overs = [];
+    for (const k in fine) {
+        const f = fine[k], c = coarse[k];
+        if (f.step > 3 && f.step > c.step / 4)
+            jumps.push(k + "@" + f.at.toFixed(4) + " (" + c.step.toFixed(2) + " → " + f.step.toFixed(2) + " px)");
+        if (EXEMPT[name + "." + k]) continue;
+        const lo = Math.min(p0[k], p1[k]) - 1, hi = Math.max(p0[k], p1[k]) + 1;
+        if (f.min < lo || f.max > hi)
+            overs.push(k + " " + f.min.toFixed(1) + ".." + f.max.toFixed(1) + " outside " + p0[k].toFixed(1) + "/" + p1[k].toFixed(1));
+    }
+    return { jumps: jumps, overs: overs };
+}
+function auditChecks(name, fn, g) {
+    const a = paramAudit(name, fn, g);
+    check(name + ": no parameter jumps (continuous under 10x finer sampling)", a.jumps.length === 0, a.jumps.slice(0, 4).join("; "));
+    check(name + ": no parameter overshoots its endpoints", a.overs.length === 0, a.overs.slice(0, 4).join("; "));
+}
+
 // ── The sweep every family must survive ────────────────────────────────────
 // `contact(r, g)` returns false if the silhouette has let go of its origin.
 function sweep(name, fn, g, contact, monotone) {
@@ -152,6 +214,7 @@ for (const scale of [0.85, 1.0, 1.5]) {
     const cg = { cx: px(960), strip: px(6), notchW: px(300), notchH: px(40), shoulder: px(15),
                  notchBottom: px(14), w: px(900), h: px(560), r: px(24),
                  shoulderW1: px(28), shoulderH1: px(22) };
+    auditChecks("bloom", G.centerBloom, cg);
     sweep("bloom", G.centerBloom, cg,
           (r, g) => r.bounds.y === 0 && Math.abs(r.bounds.x + r.bounds.w / 2 - Math.round(g.cx)) <= 1,
           ["W", "D", "sw", "sh", "rb"]);
@@ -175,6 +238,7 @@ for (const scale of [0.85, 1.0, 1.5]) {
     section("RIGHT_POUR at scale " + scale);
     const rg = { winW: px(495) + px(15), strip: px(6), seam: px(40), shoulder: px(15), notchBottom: px(14),
                  notchW: px(213), w: px(495), h: px(648), r: px(17) };
+    auditChecks("pour", G.rightPour, rg);
     sweep("pour", G.rightPour, rg,
           (r, g) => r.bounds.y === 0 && near(r.bounds.x + r.bounds.w, g.winW),
           ["W", "Dr"]);
@@ -260,6 +324,7 @@ for (const scale of [0.85, 1.0, 1.5]) {
     // ── LEFT_SPILL ──────────────────────────────────────────────────────────
     section("LEFT_SPILL at scale " + scale);
     const lg = { x0: px(6), cy: px(400), w: px(220), h: px(270), r: px(17), rm: px(12) };
+    auditChecks("spill", G.leftSpill, lg);
     sweep("spill", G.leftSpill, lg,
           (r, g) => r.bounds.x === 0 && Math.abs((r.params.top + r.params.bottom) / 2 - g.cy) <= 1,
           ["Wb", "Hb", "f"]);
@@ -275,6 +340,7 @@ for (const scale of [0.85, 1.0, 1.5]) {
     // ── EDGE_SPILL (right) ──────────────────────────────────────────────────
     section("EDGE_SPILL (right) at scale " + scale);
     const eg = { x1: px(174), edgeW: px(6), cy: px(400), w: px(174), h: px(340), r: px(17), rm: px(12) };
+    auditChecks("edge", G.edgeSpillRight, eg);
     sweep("edge", G.edgeSpillRight, eg,
           (r, g) => near(r.bounds.x + r.bounds.w, g.x1 + g.edgeW),
           ["Wb", "Hb"]);
@@ -288,6 +354,50 @@ for (const scale of [0.85, 1.0, 1.5]) {
     const lm = G.leftSpill(0.5, lg).params;
     check("the two spills differ in character, not only in side",
           Math.abs((lm.top + lm.bottom) / 2 - lg.cy) <= 1 && Math.abs((xm.top + xm.bottom) / 2 - eg.cy) > 5);
+}
+
+// ── Phase 23: can the parameter audit fail? ─────────────────────────────────
+// A family with a radius that snaps at p = 0.5, and one whose width swells 40 px
+// past its end, must both be caught — or the two checks above assert nothing.
+section("parameter audit self-test");
+{
+    const cg = { cx: 960, strip: 6, notchW: 300, notchH: 40, shoulder: 15, notchBottom: 14,
+                 w: 900, h: 560, r: 24, shoulderW1: 28, shoulderH1: 22 };
+    const snapping = (p, g) => { const r = G.centerBloom(p, g); r.params = Object.assign({}, r.params, { rb: p < 0.5 ? g.notchBottom : g.r }); return r; };
+    const swelling = (p, g) => { const r = G.centerBloom(p, g); r.params = Object.assign({}, r.params, { W: r.params.W + 40 * Math.sin(Math.PI * p) }); return r; };
+    const snap = paramAudit("mutant", snapping, cg), swell = paramAudit("mutant", swelling, cg);
+    check("self-test: a radius that snaps mid-morph is caught as a jump", snap.jumps.some(j => j.startsWith("rb@")), snap.jumps.join("; "));
+    check("self-test: a width that swells past its end is caught as an overshoot", swell.overs.some(o => o.startsWith("W ")), swell.overs.join("; "));
+    const clean = paramAudit("bloom", G.centerBloom, cg);
+    check("self-test: the real bloom passes the same audit", clean.jumps.length === 0 && clean.overs.length === 0);
+}
+
+// ── Phase 23: the input mask follows the body ──────────────────────────────
+// A mask computed apart from the silhouette drifts from it mid-animation: a
+// click lands on nothing where the body is drawn, or the body's neighbour is
+// blocked where it is not. Every fluid popup masks by an item bound to the SAME
+// geometry result it draws (body.result.bounds), so the two cannot disagree at
+// any progress. Asserted on the source, and self-tested on a hand-sized copy.
+section("input masks follow the body");
+{
+    const fs = require("fs");
+    const maskFollowsBody = src => {
+        const m = src.match(/mask:\s*Region\s*\{\s*item:[^}]*?\b(\w+)\s*:\s*null\s*\}|mask:\s*Region\s*\{\s*item:\s*(\w+)\s*\}/);
+        const id = m && (m[1] || m[2]);
+        if (!id) return false;
+        const at = src.indexOf("id: " + id);
+        if (at < 0) return false;
+        const block = src.slice(at, at + 600);
+        return ["x", "y", "width", "height"].every(k =>
+            new RegExp("\\b" + k + ":\\s*[^;\\n]*body\\.result\\.bounds\\.").test(block));
+    };
+    for (const f of ["popups/RightPanel.qml", "popups/ArchMenu.qml", "popups/QuickControl.qml"]) {
+        const src = fs.readFileSync(path.join(SRC, f), "utf8");
+        check(f + ": its input mask is the body's own bounds", maskFollowsBody(src));
+    }
+    const rp = fs.readFileSync(path.join(SRC, "popups/RightPanel.qml"), "utf8");
+    const handSized = rp.replace(/width: body\.result\.bounds\.w/, "width: 400");
+    check("self-test: a mask sized by hand is caught", handSized !== rp && !maskFollowsBody(handSized));
 }
 
 console.log("\nfluid-geometry: passed=" + passed + " failed=" + failed);
