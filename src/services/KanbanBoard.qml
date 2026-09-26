@@ -614,7 +614,7 @@ Item {
 
                             Column {
                                 id: taskCol
-                                x: 3; y: 3
+                                anchors.left: parent.left; anchors.leftMargin: 3; y: 3
                                 width: parent.width - 6; spacing: 6
 
                                 Repeater {

@@ -889,7 +889,7 @@ StatCard {
 
                 Grid {
                     id: tileGrid
-                    x: 4; y: 4
+                    anchors.left: parent.left; anchors.leftMargin: 4; y: 4   // an anchor, so a mirrored row insets the same
                     width: flick.width - 8
                     columns: 2; spacing: 6
 

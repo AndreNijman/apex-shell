@@ -272,6 +272,24 @@ StatCard {
     Item {
         anchors.fill: parent
 
+        // ── Tab bar ───────────────────────────────────────────────────────────
+        // Declared first though drawn at the bottom: Tab follows declaration
+        // order, and a tab list is followed by its panel — choose the mode,
+        // then Tab into it (it came after the panel, so Tab left the card).
+        TabSwitcher {
+            id: tabs
+            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+            orientation: "horizontal"; width: parent.width
+            currentPage: root._mode
+            model: [
+                { key: "clock",     icon: "󰥔", label: "Clock"     },
+                { key: "timer",     icon: "󱎫", label: "Timer"     },
+                { key: "alarm",     icon: "󰀠", label: "Alarm"     },
+                { key: "stopwatch", icon: "󰔚", label: "Stopwatch" }
+            ]
+            onPageChanged: function(key) { root._mode = key }
+        }
+
         // ── CLOCK ─────────────────────────────────────────────────────────────
         Item {
             anchors { left: parent.left; right: parent.right; top: parent.top; bottom: tabs.top }
@@ -633,6 +651,9 @@ StatCard {
                     radius:  8
                     border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.1); border.width: 1
                     opacity: root._addOpen ? 1 : 0
+                    // Collapsed is not gone: at height 0 its spin boxes and Set
+                    // were still Tab stops, invisible ones. Hidden once closed.
+                    visible: root._addOpen || height > 0
                     Behavior on height  { MotionMove { role: "surfaceEnterSmall" } }
                     Behavior on opacity { MotionFade {} }
 
@@ -836,21 +857,6 @@ StatCard {
                     }
                 }
             }
-        }
-
-        // ── Tab bar ───────────────────────────────────────────────────────────
-        TabSwitcher {
-            id: tabs
-            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-            orientation: "horizontal"; width: parent.width
-            currentPage: root._mode
-            model: [
-                { key: "clock",     icon: "󰥔", label: "Clock"     },
-                { key: "timer",     icon: "󱎫", label: "Timer"     },
-                { key: "alarm",     icon: "󰀠", label: "Alarm"     },
-                { key: "stopwatch", icon: "󰔚", label: "Stopwatch" }
-            ]
-            onPageChanged: function(key) { root._mode = key }
         }
     }
 }

@@ -19,9 +19,11 @@
 #           Tab to brightness, Up / End / Home → set 55 / set 100 / set 2
 #                                                (the service's floor, not black)
 #           Tab to the Wi-Fi tile, Space       → radio wifi off
-#    Clock  Right ×2 on the mode tabs to Alarm; Tab to +, Return; the HH:MM
-#           spin boxes Up; Set; Tab to the new alarm's switch, Space; Tab to
-#           its ✕, Return — and no script error (each edit rebuilds the list)
+#    Clock  (reopened: every open starts at the tab bar) Right ×2 on the mode
+#           tabs to Alarm; Tab into the panel, +, Return; the HH:MM spin boxes
+#           Up; Set → a row in the list; Tab to its switch, Space → its time
+#           dims; Tab to its ✕, Return → the list is empty again (read off
+#           frames — the clock keeps no file) — and no script error
 #    Tasks  three seeded cards; the first has id 0, which the board must not
 #           read as "no card":
 #           Tab ×3 reaches the To Do list (tab bar, +, list) on card 0;
@@ -161,20 +163,49 @@ sleep 1
 ipc dashboard-home toggle; sleep 1.2
 
 # ── The clock's alarms ───────────────────────────────────────────────────────
-# Kept in memory only (ClockState), so the observable is the shell's log: every
-# alarm edit rebuilds the list, and a handler that touches its row after the
-# edit dies with it ("… is not defined"). Frames with SHOTS=.
+# Kept in memory only (ClockState: no file, no IPC), so the observable is the
+# card itself, read off frames of the Dashboard (480,0 960x600): the alarm list
+# (250,100 → 700,240) is "No alarms set" when empty; a new alarm is a row in the
+# band above that text (250,108 → 700,150), whose time digits (266,122 →
+# 318,138) are bright when on and dim when off — measured Δ 10.6 for the row,
+# 67 → 51 for the digits, 0.1 for the list back to empty. Plus the
+# shell's log: every edit rebuilds the list, and a handler that touches its row
+# after the edit dies with it ("… is not defined").
+grab() { grim -g "480,0 960x600" "$HEADLESS_W/$1.png"; [ -n "${SHOTS:-}" ] && mkdir -p "$SHOTS" && cp "$HEADLESS_W/$1.png" "$SHOTS/"; }
+region() {   # region <a> <b> <x0,y0,x1,y1> — mean abs difference, then mean brightness of each
+    python3 - "$HEADLESS_W/$1.png" "$HEADLESS_W/$2.png" "$3" <<'PY2'
+import sys
+from PIL import Image, ImageChops, ImageStat
+box = tuple(int(v) for v in sys.argv[3].split(","))
+a = Image.open(sys.argv[1]).convert("L").crop(box)
+b = Image.open(sys.argv[2]).convert("L").crop(box)
+print(f"{ImageStat.Stat(ImageChops.difference(a, b)).mean[0]:.2f} "
+      f"{ImageStat.Stat(a).mean[0]:.2f} {ImageStat.Stat(b).mean[0]:.2f}")
+PY2
+}
+LIST="250,100,700,240"; ROW="250,108,700,150"; LABEL="266,122,318,138"
 errs_before="$(grep -cE 'ReferenceError|TypeError' "$log")"
 ipc dashboard-home toggle; sleep 1.5
-keys Tab Tab Tab Tab Right Right; sleep 0.6; shot clock-1-alarm-mode
-keys Tab Return; sleep 0.5; shot clock-2-add
-keys Tab Up Tab Up; shot clock-3-time
-keys Tab Return; sleep 0.6; shot clock-4-set
-keys Tab space; sleep 0.6; shot clock-5-toggled
-keys Tab Return; sleep 0.6; shot clock-6-deleted
+keys Tab Tab Tab Tab Right Right; sleep 0.8; grab clock-1-empty
+keys Tab Return; sleep 0.6                       # the mode tabs → + (the panel follows its tabs)
+keys Tab Up Tab Up; grab clock-2-time            # HH, MM
+keys Tab Return; sleep 0.8; grab clock-3-added   # Set Alarm; focus back on +
+read -r d _ _ <<<"$(region clock-1-empty clock-3-added "$ROW")"
+awk -v d="$d" 'BEGIN { exit !(d > 5) }' \
+    && ok "Tab to +, the HH:MM spin boxes, Set: an alarm is in the list (row band Δ $d)" \
+    || bad "no alarm appeared (row band Δ $d)"
+keys Tab space; sleep 0.8; grab clock-4-off      # its switch
+read -r _ on off <<<"$(region clock-3-added clock-4-off "$LABEL")"
+awk -v a="$on" -v b="$off" 'BEGIN { exit !(b < a * 0.85) }' \
+    && ok "Tab to its switch, Space turns it off (its time dims: $on → $off)" \
+    || bad "the alarm's switch (time label $on → $off)"
+keys Tab Return; sleep 0.8; grab clock-5-gone    # its ✕
+read -r d _ _ <<<"$(region clock-1-empty clock-5-gone "$LIST")"
+awk -v d="$d" 'BEGIN { exit !(d < 1.5) }' \
+    && ok "Tab to its ✕, Return deletes it: the list is empty again (Δ $d from the start)" \
+    || bad "the delete (list region Δ $d from empty)"
 errs_after="$(grep -cE 'ReferenceError|TypeError' "$log")"
-[ "$errs_after" = "$errs_before" ] \
-    && ok "an alarm added (Tab to +, the HH:MM spin boxes, Set), toggled and deleted from the keyboard, with no script error" \
+[ "$errs_after" = "$errs_before" ] && ok "and no script error through the three edits (each rebuilds the list)" \
     || bad "the alarm edits logged: $(grep -E 'ReferenceError|TypeError' "$log" | tail -n +"$((errs_before + 1))" | head -3 | tr '\n' '|')"
 ipc dashboard-home toggle; sleep 1.2
 
