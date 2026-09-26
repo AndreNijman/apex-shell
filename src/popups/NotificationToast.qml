@@ -91,11 +91,16 @@ Item {
 	function _advance() {
 		if (!root._advancePending || !root.surfaceIdle || root.blocked) return
 		root._advancePending = false
-		if (root.queue.length > 0) {
-			const next = root.queue[0]
-			root.queue = root.queue.slice(1)
-			root.startShow(next)
+		// A queued notification its sender (or the centre) has closed since it
+		// was queued is gone: it must not toast. Measured by
+		// tests/visual/stress-matrix.sh — a burst of 12, closed at once by
+		// their sender, went on toasting one by one for a minute.
+		const live = root.queue.filter(function (q) { return q && q.tracked })
+		if (live.length > 0) {
+			root.queue = live.slice(1)
+			root.startShow(live[0])
 		} else {
+			root.queue = []
 			root.current = null
 		}
 	}

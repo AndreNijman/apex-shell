@@ -45,6 +45,7 @@ WlSessionLock {
     onSecureStateChanged: {
         LockedHintService.setLocked(sessionLock.secure)
         LockState.lockSecure = sessionLock.secure
+        if (Motion.pacingLog) console.info("APEX pacing: lock secure=" + sessionLock.secure)
     }
 
     // The initial sync, and the reason it cannot live in the service itself.

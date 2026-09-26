@@ -204,7 +204,12 @@ QtObject {
     property bool _presented: false
     // A new backing window (Quickshell builds one per map) has shown nothing.
     on_WinChanged: life._presented = false
-    onMappedChanged: if (!life.mapped) life._presented = false
+    onMappedChanged: {
+        if (!life.mapped) life._presented = false
+        // For tests/visual/stress-matrix.sh: every map and unmap, by name.
+        if (Motion.pacingLog)
+            console.info("APEX pacing: " + (life.name || "surface") + " mapped=" + life.mapped)
+    }
     property Connections _firstFrame: Connections {
         target: (life.surface && !life._presented) ? life._win : null
         ignoreUnknownSignals: true
