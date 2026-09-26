@@ -93,6 +93,7 @@ SubagentRow agents/SubagentRow.qml
 # through AgentCenter, which is reached through this file.
 TelemetryStrip agents/TelemetryStrip.qml
 UnrestrictedBanner agents/UnrestrictedBanner.qml
+UnrestrictedChip agents/UnrestrictedChip.qml
 SectionHeading agents/SectionHeading.qml
 SmallIconButton agents/SmallIconButton.qml
 StateBadge agents/StateBadge.qml

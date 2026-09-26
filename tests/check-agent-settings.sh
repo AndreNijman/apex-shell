@@ -366,10 +366,13 @@ check_tree() {
             'function revokeGrant\(id\) \{' 'pkcheck'
 
     # ── criterion 9: the indicator ───────────────────────────────────────────
-    want "the Agent Center draws the banner" \
-        has "$centre" 'UnrestrictedBanner \{'
-    want "the banner appears exactly while the default is unrestricted" \
-        in_fn "$centre" 'UnrestrictedBanner \{' \
+    # The Agent Center's indicator is a chip in its header since UI/UX Phase 17
+    # (Andre: obvious, but not a card taking up the page); the settings page
+    # keeps the full banner beside the switch it explains.
+    want "the Agent Center draws the indicator" \
+        has "$centre" 'UnrestrictedChip \{'
+    want "the indicator appears exactly while the default is unrestricted" \
+        in_fn "$centre" 'UnrestrictedChip \{' \
             'visible: AgentPolicyService\.alwaysUnrestricted'
     want "the settings page draws the same banner" \
         has "$page" 'UnrestrictedBanner \{'

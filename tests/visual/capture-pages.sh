@@ -16,6 +16,8 @@
 #  default wallpaper), dark and light.
 #
 #  Writes OUTDIR/<scheme>/<page>.png — one settled 1920x1080 frame per page.
+#  CAPTURE_UNRESTRICTED=1 turns Always Unrestricted on (the harness's own
+#  ~/.config/apex/agent.json), so the Agents panel shows its indicator.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -56,6 +58,9 @@ p = next(x for x in json.load(open(sys.argv[1]))["palettes"]
 json.dump({k: p[k] for k in ("background", "active", "text", "subtext", "border", "iconFont")},
           open(sys.argv[3], "w"))
 PY
+    if [ "${CAPTURE_UNRESTRICTED:-0}" = 1 ]; then
+        mkdir -p "$HOME/.config/apex"; printf '{"sandbox":"unrestricted"}' > "$HOME/.config/apex/agent.json"
+    fi
     python3 - "$ud/tasks.json" <<'PY'
 import json, sys, datetime
 d = datetime.date.today()

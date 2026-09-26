@@ -150,19 +150,41 @@ Item {
         return null
     }
 
-    // ── The help strip (§43) ──────────────────────────────────────────────────
-    // Pinned, never scrolled away, and present in all three page states.
+    // ── The header and help strip (§43) ───────────────────────────────────────
+    // Pinned, never scrolled away, and present in all three page states. The
+    // header is ONE line (UI/UX Phase 17, Andre): Always Unrestricted as a
+    // danger chip on the left when it is on, the guide as a help button on the
+    // right — both always reachable, neither a card. Declared chip first, so
+    // Tab meets the warning before the help.
     Column {
         id: helpStrip
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.topMargin: theme.px(8)
+        anchors.topMargin: theme.px(6)
         anchors.leftMargin: theme.px(10)
         anchors.rightMargin: theme.px(10)
-        spacing: theme.px(7)
+        spacing: theme.px(6)
 
-        AgentHelpEntry { id: helpEntry; width: parent.width }
+        Item {
+            width: parent.width
+            height: theme.px(32)
+            // §42.1 criterion 9: the reader who most needs to know the sandbox
+            // default is off is the one looking at an empty list or at "the
+            // runtime is not running", so it is pinned here, in every state.
+            // It says nothing about the sessions below, which carry their own
+            // recorded modes. This is about the next one.
+            UnrestrictedChip {
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                visible: AgentPolicyService.alwaysUnrestricted
+            }
+            AgentHelpEntry {
+                id: helpEntry
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+            }
+        }
         // Dismissed from the keyboard, the card leaves with the button that had
         // the keys: they go to the permanent entry above it (UI/UX roadmap v3
         // Phase 21). A click dismisses and moves nothing.
@@ -178,17 +200,6 @@ Item {
         // nothing has reported one — see TelemetryStrip.
         TelemetryStrip { width: parent.width }
 
-        // §42.1 criterion 9. Pinned for the same reason the help strip is: the
-        // reader who most needs to know the sandbox default is off is the one
-        // looking at an empty list or at "the runtime is not running", and
-        // neither of those draws the session list at all.
-        //
-        // It says nothing about the sessions below it, which have their own
-        // recorded modes on their own rows. This is about the next one.
-        UnrestrictedBanner {
-            width:   parent.width
-            visible: AgentPolicyService.alwaysUnrestricted
-        }
     }
 
     // Everything the page had before, moved down by the strip's height. An
