@@ -445,10 +445,11 @@ Item {
                 width:  (mainRow.width - mainRow.spacing * 2) / 3
                 height: parent.height
 
+                // One level of box (UI/UX Phase 17): the column is a surface,
+                // not a bordered box of bordered cards of bordered buttons.
                 Rectangle {
-                    anchors.fill: parent; radius: theme.cornerRadius
-                    color:        Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
-                    border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07); border.width: 1
+                    anchors.fill: parent; radius: theme.radiusL
+                    color:        Theme.surfaceRaised
                 }
 
                 Column {
@@ -464,8 +465,8 @@ Item {
                             spacing: 7
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: colItem.cLabel; color: Theme.active
-                                font.pixelSize: theme.fs(12); font.weight: Font.DemiBold
+                                text: colItem.cLabel; color: Theme.textPrimary
+                                font.pixelSize: theme.typeBodyStrong; font.weight: Font.DemiBold
                             }
                             Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
@@ -856,7 +857,7 @@ Item {
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "⏰"; font.pixelSize: theme.fs(13)
+                        text: "󰀠"; font.pixelSize: theme.fs(13); color: Theme.iconDefault
                     }
 
                     // Controls when time is set
@@ -965,7 +966,7 @@ Item {
                                 color: clearTimeBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.14) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
                                 Behavior on color { MotionColor {} }
                             }
-                            Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(8); color: Theme.textSecondary }
+                            Text { anchors.centerIn: parent; text: "󰅖"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
                             ApexFocusRing { target: clearTimeBtn }
                         }
                     }
@@ -1175,19 +1176,14 @@ Item {
         }
 
         // ── Card body ─────────────────────────────────────────────────────────
+        // Urgency is the chip's alone (UI/UX Phase 17): the border said it too,
+        // and so did the colour of the ✕. One hairline for every card.
         Rectangle {
             id: cardBg
-            width: parent.width; radius: 8
-            color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
-            border.color: {
-                var u = card.taskData.urgency
-                if (u === "high")   return Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.45)
-                if (u === "medium") return Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.35)
-                if (u === "low")    return Qt.rgba(Theme.success.r, Theme.success.g, Theme.success.b, 0.35)
-                return Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)
-            }
+            width: parent.width; radius: theme.radiusM
+            color: Theme.surfaceOverlay
+            border.color: Theme.outlineSoft
             border.width: 1
-            Behavior on border.color { MotionColor { role: "state" } }
             implicitHeight: body.implicitHeight + 18
 
             // Keyboard highlight ring — cardBg has no clip: true, so an outset
@@ -1238,15 +1234,16 @@ Item {
                     Rectangle {
                         visible: card.taskData.urgency !== ""
                         anchors.verticalCenter: parent.verticalCenter
-                        width: urgL.implicitWidth + 12; height: 16; radius: 8
-                        color: root._urgColor(card.taskData.urgency); opacity: 0.85
-                        Text { id: urgL; anchors.centerIn: parent; text: root._urgLabel(card.taskData.urgency); font.pixelSize: theme.fs(9); font.weight: Font.Bold; color: Theme.fixedDark }
+                        width: urgL.implicitWidth + 12; height: 18; radius: height / 2
+                        readonly property color tone: root._urgColor(card.taskData.urgency)
+                        color: Qt.rgba(tone.r, tone.g, tone.b, 0.16)
+                        Text { id: urgL; anchors.centerIn: parent; text: root._urgLabel(card.taskData.urgency); font.pixelSize: theme.typeCaption; font.weight: Font.DemiBold; color: parent.tone }
                     }
                     Row {
                         visible: (card.taskData.dueDate || "") !== ""
                         anchors.verticalCenter: parent.verticalCenter; spacing: 3
-                        Text { text: "📅"; font.pixelSize: theme.fs(9) }
-                        Text { text: root._formatDue(card.taskData.dueDate || ""); font.pixelSize: theme.fs(9); color: Theme.textSecondary }
+                        Text { text: "󰃭"; font.pixelSize: theme.fs(11); color: Theme.iconDefault; anchors.verticalCenter: parent.verticalCenter }
+                        Text { text: root._formatDue(card.taskData.dueDate || ""); font.pixelSize: theme.typeCaption; color: Theme.textSecondary; anchors.verticalCenter: parent.verticalCenter }
                     }
                 }
 
@@ -1341,7 +1338,7 @@ Item {
                                 color: clrDueBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
                                 Behavior on color { MotionColor { role: "state" } }
                             }
-                            Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(8); color: Theme.textSecondary }
+                            Text { anchors.centerIn: parent; text: "󰅖"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
                             ApexFocusRing { target: clrDueBtn }
                         }
                     }
@@ -1361,7 +1358,7 @@ Item {
                         onActivated: card.primary()
                         Rectangle {
                             anchors.fill: parent; radius: parent.radius
-                            color: expandBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                            color: expandBtn.stateLayer()
                             Behavior on color { MotionColor {} }
                         }
                         Text { anchors.centerIn: parent; text: card.showExtra ? "▴" : "▾"; font.pixelSize: theme.fs(9); color: expandBtn.hovered ? Theme.textPrimary : Theme.textTertiary }
@@ -1385,7 +1382,7 @@ Item {
                             onActivated: card.col._moveCardTo(card.taskData.id, -1)
                             Rectangle {
                                 anchors.fill: parent; radius: parent.radius
-                                color: leftBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                                color: leftBtn.stateLayer()
                                 Behavior on color { MotionColor {} }
                             }
                             Text { anchors.centerIn: parent; text: "←"; font.pixelSize: theme.fs(10); color: leftBtn.hovered ? Theme.textPrimary : Theme.textSecondary }
@@ -1402,7 +1399,7 @@ Item {
                             onActivated: card.col._moveCardTo(card.taskData.id, 1)
                             Rectangle {
                                 anchors.fill: parent; radius: parent.radius
-                                color: rightBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                                color: rightBtn.stateLayer()
                                 Behavior on color { MotionColor {} }
                             }
                             Text { anchors.centerIn: parent; text: "→"; font.pixelSize: theme.fs(10); color: rightBtn.hovered ? Theme.textPrimary : Theme.textSecondary }
@@ -1418,12 +1415,12 @@ Item {
                             onActivated: card.startDelete()
                             Rectangle {
                                 anchors.fill: parent; radius: parent.radius
-                                color: delBtn.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.20) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                                color: delBtn.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.16) : "transparent"
                                 Behavior on color { MotionColor {} }
                             }
                             Text {
-                                anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(10)
-                                color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, delBtn.hovered ? 1.0 : 0.60)
+                                anchors.centerIn: parent; text: "󰅖"; font.pixelSize: theme.fs(12)
+                                color: delBtn.hovered ? Theme.danger : Theme.textSecondary
                                 Behavior on color { MotionColor {} }
                             }
                             ApexFocusRing { target: delBtn }
