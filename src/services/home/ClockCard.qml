@@ -483,6 +483,9 @@ StatCard {
                             width: 58; height: 26; radius: 8; hitMargin: 3
                             Accessible.name: "Set timer"
                             onActivated: {
+                                // Read first: closing the panel hides this button,
+                                // and a hidden item has already lost its focus.
+                                const byKey = setTimerBtn.focusVisible
                                 var total = timerTimeInput.hours * 3600
                                           + timerTimeInput.minutes * 60
                                 root._addTimerOpen = false
@@ -494,7 +497,7 @@ StatCard {
                                     root._syncState()
                                     timerCanvas.requestPaint()
                                 }
-                                if (setTimerBtn.focusVisible) addTimerBtn.forceActiveFocus()
+                                if (byKey) addTimerBtn.forceActiveFocus()
                             }
                             Rectangle {
                                 anchors.fill: parent; radius: parent.radius
@@ -673,10 +676,11 @@ StatCard {
                             width: 58; height: 26; radius: 8; hitMargin: 3
                             Accessible.name: "Set alarm"
                             onActivated: {
+                                const byKey = setAlarmBtn.focusVisible   // read before the panel closes
                                 root._addHour   = alarmTimeInput.hours
                                 root._addMinute = alarmTimeInput.minutes
                                 root._addAlarm()
-                                if (setAlarmBtn.focusVisible) addAlarmBtn.forceActiveFocus()
+                                if (byKey) addAlarmBtn.forceActiveFocus()
                             }
                             Rectangle {
                                 anchors.fill: parent; radius: parent.radius

@@ -19,6 +19,8 @@
 #           Tab to brightness, Up / End / Home → set 55 / set 100 / set 2
 #                                                (the service's floor, not black)
 #           Tab to the Wi-Fi tile, Space       → radio wifi off
+#    Launcher opened after a close: "kqv", Return → Kqvkeytest runs (the
+#           first key lost would be "qv" → Qvkeytest)
 #    Clock  (reopened: every open starts at the tab bar) Right ×2 on the mode
 #           tabs to Alarm; Tab into the panel, +, Return; the HH:MM spin boxes
 #           Up; Set → a row in the list; Tab to its switch, Space → its time
@@ -31,11 +33,13 @@
 #           Delete, Return                     → card 0 gone
 #           reopen; Tab ×3 lands on card 1; Return opens it; Tab ×5 to the
 #           High chip, Space                   → urgency high
-#           Tab to Due, Return; Home, Right, Return in the day grid
-#                                              → due the 2nd of this month
+#           Tab to Due, Return; Home, Right in the day grid; Tab ×4 wraps
+#           to ‹, Return (a month back); Shift+Tab wraps to Done, Return
+#                                              → due the 2nd of last month
 #    and nothing else was asked of the player, the backlight, NetworkManager
 #    or BlueZ, and card 2 is untouched.
 #
+#  REDUCE_MOTION=true runs it with Reduce Motion on (CI runs both).
 #  PROBE=1 grabs a frame after every Tab on Home instead, to re-derive the
 #  stop counts. Skips (status 0) without quickshell, labwc, wtype, grim or
 #  python3 with PyGObject.
@@ -80,9 +84,19 @@ python3 "$here/lib/fake-mpris.py" "$MPRIS_LOG" &
 player=$!
 
 ud="$HOME/.config/apex-shell/src/user_data"; mkdir -p "$ud" "$HOME/.cache/apex-shell"
-printf '{"barEnabled":false,"animDuration":320,"motionScale":1,"dashboardWidth":900,"dashboardHeight":520}' > "$ud/settings.json"
+# REDUCE_MOTION=true runs the same keys with Reduce Motion on: panels snap
+# shut, so a handler that reads its own focus after closing its panel is caught.
+printf '{"barEnabled":false,"animDuration":320,"motionScale":1,"reduceMotion":%s,"dashboardWidth":900,"dashboardHeight":520}' \
+    "${REDUCE_MOTION:-false}" > "$ud/settings.json"
 printf '%s' '{"background":"#171210","active":"#fab898","text":"#ece0dc","subtext":"#d6c2ba","border":"#52443e","iconFont":"#be8366"}' \
     > "$HOME/.cache/apex-shell/colors.json"
+# Two applications for the launcher, told apart by the first key: "kqv" is
+# Kqvkeytest's; lose the k and "qv" is Qvkeytest's prefix.
+apps="$HOME/.local/share/applications"; mkdir -p "$apps"; LAUNCH_LOG="$HEADLESS_W/launched.log"; : > "$LAUNCH_LOG"
+for a in Kqvkeytest Qvkeytest; do
+    printf '#!/bin/sh\necho %s >> "%s"\n' "$a" "$LAUNCH_LOG" > "$HEADLESS_W/$a.sh"; chmod +x "$HEADLESS_W/$a.sh"
+    printf '[Desktop Entry]\nType=Application\nName=%s\nExec=%s\n' "$a" "$HEADLESS_W/$a.sh" > "$apps/$a.desktop"
+done
 tasks="$ud/tasks.json"
 printf '%s' '{"tasks":[{"id":0,"title":"Card zero","column":0,"urgency":"","dueDate":""},{"id":1,"title":"Card one","column":0,"urgency":"","dueDate":""},{"id":2,"title":"Card two","column":1,"urgency":"low","dueDate":""}],"nextId":3}' > "$tasks"
 log="$HEADLESS_W/shell.log"
@@ -162,6 +176,16 @@ logged "$FAKE_NMCLI_LOG" "radio wifi off" 5 \
 sleep 1
 ipc dashboard-home toggle; sleep 1.2
 
+# ── The launcher after a close ───────────────────────────────────────────────
+# A close puts the Dashboard's focus back at the top (so the next open starts
+# there); the launcher must still own the keys the moment it opens.
+ipc dashboard-launcher toggle; sleep 0.4
+wtype "kqv"; sleep 0.8; keys Return
+logged "$LAUNCH_LOG" "Kqvkeytest" 5 \
+    && ok "opened after a close, the launcher's field has the keys: \"kqv\", Return launches Kqvkeytest" \
+    || bad "the launcher after a close — launched: $(tr '\n' '|' < "$LAUNCH_LOG")"
+sleep 1
+
 # ── The clock's alarms ───────────────────────────────────────────────────────
 # Kept in memory only (ClockState: no file, no IPC), so the observable is the
 # card itself, read off frames of the Dashboard (480,0 960x600): the alarm list
@@ -184,6 +208,7 @@ print(f"{ImageStat.Stat(ImageChops.difference(a, b)).mean[0]:.2f} "
 PY2
 }
 LIST="250,100,700,240"; ROW="250,108,700,150"; LABEL="266,122,318,138"
+TIMERBAND="380,170,580,240"   # presets + Start/Reset when shut, HH:MM + Set Timer when open (Δ 11.6)
 errs_before="$(grep -cE 'ReferenceError|TypeError' "$log")"
 ipc dashboard-home toggle; sleep 1.5
 keys Tab Tab Tab Tab Right Right; sleep 0.8; grab clock-1-empty
@@ -204,6 +229,18 @@ read -r d _ _ <<<"$(region clock-1-empty clock-5-gone "$LIST")"
 awk -v d="$d" 'BEGIN { exit !(d < 1.5) }' \
     && ok "Tab to its ✕, Return deletes it: the list is empty again (Δ $d from the start)" \
     || bad "the delete (list region Δ $d from empty)"
+# The timer's Set: its panel hides at once (visible:), so its button has lost
+# focus by the handler's last line — it must read that first to hand focus
+# back to +. Space on + then reopens the panel; with focus lost it does nothing.
+wtype -M shift -k ISO_Left_Tab -m shift; sleep 0.3   # back to the mode tabs
+keys Left; sleep 0.6                                  # Timer
+keys Tab Return; sleep 0.5                            # its +, open
+keys Tab Up Tab Tab Return; sleep 0.8; grab clock-6-timer-set   # HH up, MM, Set Timer
+keys space; sleep 0.8; grab clock-7-timer-reopened
+read -r d _ _ <<<"$(region clock-6-timer-set clock-7-timer-reopened "$TIMERBAND")"
+awk -v d="$d" 'BEGIN { exit !(d > 5) }' \
+    && ok "Set Timer hands the keys back to +: Space reopens the panel (Δ $d)" \
+    || bad "after Set Timer, Space on + did nothing (Δ $d) — focus was lost"
 errs_after="$(grep -cE 'ReferenceError|TypeError' "$log")"
 [ "$errs_after" = "$errs_before" ] && ok "and no script error through the three edits (each rebuilds the list)" \
     || bad "the alarm edits logged: $(grep -E 'ReferenceError|TypeError' "$log" | tail -n +"$((errs_before + 1))" | head -3 | tr '\n' '|')"
@@ -232,9 +269,16 @@ keys Tab; shot kanban-4-due
 keys Return
 sleep 0.6; shot kanban-5-picker
 keys Home Right; shot kanban-6-day
-keys Return; sleep 0.4; shot kanban-7-done
-becomes 1 "0 high $(date +%Y-%m)-02" 5 \
-    && ok "Tab to Due, Return opens the picker on its day grid; Home, Right, Return — due the 2nd" \
+# Tab ×4 from the grid: Add time, Clear, Done — and wraps to ‹; Return there
+# goes back a month; Shift+Tab wraps back to Done; Return saves.
+keys Tab Tab Tab Tab Return; shot kanban-7-wrapped
+# Shift+Tab as a keyboard sends it: the Tab key's shifted keysym ISO_Left_Tab,
+# which Qt reads as Key_Backtab. `wtype -M shift -k Tab` is Tab with Shift held,
+# a different event that KeyNavigation.backtab never sees.
+wtype -M shift -k ISO_Left_Tab -m shift; sleep 0.3; keys Return; sleep 0.4; shot kanban-8-done
+prev="$(date -d "$(date +%Y-%m-01) -1 month" +%Y-%m)"
+becomes 1 "0 high $prev-02" 5 \
+    && ok "Tab to Due, Return: the picker's day grid (Home, Right → the 2nd); Tab wraps Done → ‹ (Return: a month back), Shift+Tab wraps ‹ → Done, Return — due $prev-02" \
     || bad "the date picker by keyboard — card 1 is: $(task 1)"
 
 [ "$(task 2)" = "1 low -" ] && ok "card 2 was not touched" || bad "card 2 changed: $(task 2)"

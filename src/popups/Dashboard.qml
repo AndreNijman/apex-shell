@@ -137,15 +137,16 @@ PanelWindow {
 
     onOpenChanged: {
         if (root.open) {
-            // The window only hides on close, so its focused item survived to
-            // the next open: Tab then started from wherever the last visit
-            // left it (a tile, say) instead of the tab bar. Every open starts
-            // at the top; the launcher re-takes its field after this.
-            content.forceActiveFocus()
             focusGrabTimer.restart() // Delay the grab slightly
         } else {
             root.wantsFocus = false // Release instantly
             focusGrabTimer.stop()
+            // The window only hides on close, so its focused item survived to
+            // the next open: Tab then started from wherever the last visit left
+            // it (a tile, say) instead of the tab bar. Reset here, on the way
+            // out, so the next open starts at the top with nothing contending —
+            // on open it could race the launcher taking its field.
+            content.forceActiveFocus()
         }
     }
     Component.onCompleted: {
