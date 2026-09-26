@@ -85,14 +85,22 @@ CfgScroll {
         title: "Recovery"
         first: true
 
+        // StatusHero's geometry, written out here rather than used: this page's
+        // accessibility contract (P2-003) is read out of THIS file by brace
+        // depth — tests/check-recovery-a11y.sh — so the headline's Text and its
+        // Accessible.* have to live here. Same edge, sizes and bound as the
+        // shared hero on Firewall, Privacy and the Lid (UI/UX Phase 17).
         Item {
+            id: heroBox
             width:  parent.width
-            height: theme.px(62)
+            height: Math.max(theme.px(62), heroText.implicitHeight + theme.spaceL)
 
             Row {
-                x: theme.px(10)
+                anchors.left: parent.left
+                anchors.right: heroRecheck.left
+                anchors.rightMargin: theme.spaceL
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: theme.px(12)
+                spacing: theme.spaceM
 
                 // Deliberately carries NO Accessible.* — see the block at the
                 // foot of this file. Every glyph on this page is a private-use
@@ -102,12 +110,15 @@ CfgScroll {
                 // words. tests/check-recovery-a11y.sh asserts that no icon on
                 // this page ever acquires a role.
                 Text {
+                    id: heroGlyph
                     text:           "󰑙"
                     font.pixelSize: theme.fs(28)
                     color: RecoveryService.needsAttention > 0 ? Theme.warning : Theme.active
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 Column {
+                    id: heroText
+                    width: parent.width - heroGlyph.width - parent.spacing
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: theme.px(3)
 
@@ -131,9 +142,12 @@ CfgScroll {
                                    ? " component needs attention"
                                    : " components need attention")
                         }
-                        font.pixelSize: theme.fs(15)
-                        font.weight:    Font.Medium
-                        color:          Theme.text
+                        width:          parent.width
+                        wrapMode:       Text.WordWrap
+                        font.family:    Theme.fontUi
+                        font.pixelSize: theme.typeHeading
+                        font.weight:    Font.DemiBold
+                        color:          Theme.textPrimary
                         Accessible.role: Accessible.StaticText
                         Accessible.name: summaryText.text
                     }
@@ -143,9 +157,13 @@ CfgScroll {
                             ? ("bootloader " + RecoveryService.status.bootloader
                                + "  ·  diagnostics: " + RecoveryService.doctorSummary)
                             : "`apex recover` is not on this machine, or predates this shell. Nothing below could be read."
+                        width:          parent.width
+                        // A sentence when nothing could be read; a status line otherwise.
+                        wrapMode:       RecoveryService.available ? Text.NoWrap : Text.WordWrap
+                        elide:          RecoveryService.available ? Text.ElideRight : Text.ElideNone
                         font.pixelSize: theme.typeCaption
-                        color:          Theme.subtext
-                        font.family:    "JetBrains Mono"
+                        color:          Theme.textSecondary
+                        font.family:    Theme.fontMono
                         Accessible.role: Accessible.StaticText
                         Accessible.name: summaryDetail.text
                     }
@@ -153,8 +171,8 @@ CfgScroll {
             }
 
             CfgButton {
+                id: heroRecheck
                 anchors.right:          parent.right
-                anchors.rightMargin:    theme.px(8)
                 anchors.verticalCenter: parent.verticalCenter
                 label:   RecoveryService.busy ? "Checking…" : "Re-check"
                 icon:    "󰑐"
@@ -165,8 +183,7 @@ CfgScroll {
 
         Text {
             id: pageIntro
-            x:     theme.px(10)
-            width: parent.width - theme.px(20)
+            width: parent.width
             text: "Everything on this page is read from the machine, not from a "
                 + "cache. Checking it changes nothing and needs no password: "
                 + "`apex recover status` and `apex doctor` read files. The two "
@@ -223,17 +240,12 @@ CfgScroll {
                     + ((compRow.row && compRow.row.action !== "")
                        ? (". Run in a terminal: " + compRow.row.action) : "")
 
-                Rectangle {
-                    anchors.fill: parent
-                    radius: theme.px(8)
-                    color:  compHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03) : "transparent"
-                    Behavior on color { MotionColor {} }
-                }
-                HoverHandler { id: compHov }
+                // No hover (UI/UX Phase 17, CfgRow's rule): a row lights up only when
+                // it holds something to press, and these hold none — it lit at
+                // .03 and did nothing.
 
                 Text {
                     id: compIcon
-                    x: theme.px(10)
                     anchors.top:       parent.top
                     anchors.topMargin: theme.px(9)
                     text:           RecoveryService.stateIcon(compRow.row ? compRow.row.state : "")
@@ -247,7 +259,7 @@ CfgScroll {
                     anchors.left:        compIcon.right
                     anchors.leftMargin:  theme.px(10)
                     anchors.right:       parent.right
-                    anchors.rightMargin: theme.px(10)
+                    anchors.rightMargin: 0
                     anchors.top:         parent.top
                     anchors.topMargin:   theme.px(8)
                     spacing: theme.px(3)
@@ -407,8 +419,7 @@ CfgScroll {
 
         Text {
             id: rollbackHintText
-            x:     theme.px(10)
-            width: parent.width - theme.px(20)
+            width: parent.width
             text:  RecoveryService.rollbackHint
             font.pixelSize: theme.typeCaption
             color:    Theme.subtext
@@ -487,7 +498,6 @@ CfgScroll {
 
                 Text {
                     id: routeIcon
-                    x: theme.px(10)
                     anchors.top:       parent.top
                     anchors.topMargin: theme.px(8)
                     text: routeRow.mark === "yes" ? "󰄬" : (routeRow.mark === "no" ? "󰅘" : "󰇙")
@@ -503,7 +513,7 @@ CfgScroll {
                     anchors.left:        routeIcon.right
                     anchors.leftMargin:  theme.px(10)
                     anchors.right:       parent.right
-                    anchors.rightMargin: theme.px(10)
+                    anchors.rightMargin: 0
                     anchors.top:         parent.top
                     anchors.topMargin:   theme.px(7)
                     spacing: theme.px(2)
@@ -541,8 +551,7 @@ CfgScroll {
 
         Text {
             id: doctorIntro
-            x:     theme.px(10)
-            width: parent.width - theme.px(20)
+            width: parent.width
             text:  RecoveryService.doctorSummary
                    + " — a warning here is information, not a fault: not every machine has every capability."
             font.pixelSize: theme.typeCaption

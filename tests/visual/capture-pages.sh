@@ -103,7 +103,7 @@ PY
         ipc "$cmd" toggle; sleep 2.2; shot "$page"; ipc "$cmd" toggle; sleep 1.2
     done
     for pair in "network-wifi|wifi-toggle" "network-bluetooth|bluetooth-toggle" "network-vpn|vpn-toggle" \
-                "notifications|notification-toggle"; do
+                "network-hotspot|hotspot-toggle" "notifications|notification-toggle"; do
         page="${pair%%|*}"; cmd="${pair#*|}"; want "$page" || continue
         ipc "$cmd" toggle; sleep 2; shot "$page"; ipc "$cmd" toggle; sleep 1.2
     done

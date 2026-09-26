@@ -87,51 +87,23 @@ CfgScroll {
         title: "Privacy & Permissions"
         first: true
 
-        Item {
-            width:  parent.width
-            height: theme.px(62)
-
-            Row {
-                x: theme.px(10)
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: theme.px(12)
-
-                Text {
-                    text:           "󰒃"
-                    font.pixelSize: theme.fs(28)
-                    color:          PermissionsService.available ? Theme.active : Theme.subtext
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: theme.px(3)
-
-                    Text {
-                        text: {
-                            if (!PermissionsService.checked) return "Reading what this session enforces…"
-                            if (!PermissionsService.available) return "Permissions could not be read"
-                            return PermissionsService.apps.length
-                                + " application" + (PermissionsService.apps.length === 1 ? "" : "s")
-                        }
-                        font.pixelSize: theme.fs(15)
-                        font.weight:    Font.Medium
-                        color:          Theme.text
-                    }
-                    Text {
-                        text: PermissionsService.available
-                            ? (PermissionsService.session.desktop + "  ·  " + PermissionsService.session.summary)
-                            : PermissionsService.unavailableReason
-                        font.pixelSize: theme.typeCaption
-                        color:          Theme.subtext
-                        font.family:    "JetBrains Mono"
-                    }
-                }
+        StatusHero {
+            glyph: "󰒃"
+            tone:  PermissionsService.available ? Theme.active : Theme.textSecondary
+            title: {
+                if (!PermissionsService.checked) return "Reading what this session enforces…"
+                if (!PermissionsService.available) return "Permissions could not be read"
+                return PermissionsService.apps.length
+                    + " application" + (PermissionsService.apps.length === 1 ? "" : "s")
             }
+            detail: PermissionsService.available
+                ? (PermissionsService.session.desktop + "  ·  " + PermissionsService.session.summary)
+                : PermissionsService.unavailableReason
+            // The reason is a sentence to be read whole; the session line is a
+            // status with a list in it.
+            detailWraps: !PermissionsService.available
 
             CfgButton {
-                anchors.right:          parent.right
-                anchors.rightMargin:    theme.px(8)
-                anchors.verticalCenter: parent.verticalCenter
                 label:   PermissionsService.busy ? "Reading…" : "Re-check"
                 icon:    "󰑐"
                 enabled: !PermissionsService.busy
@@ -140,8 +112,7 @@ CfgScroll {
         }
 
         Text {
-            x:     theme.px(10)
-            width: parent.width - theme.px(20)
+            width: parent.width
             text: "These are not all the same kind of permission, and this page "
                 + "will not pretend they are. Some are brokered by the desktop "
                 + "portal and can be withdrawn from one app. Some are built into "
@@ -199,8 +170,7 @@ CfgScroll {
             visible: !!app
 
             Text {
-                x:     theme.px(10)
-                width: parent.width - theme.px(20)
+                width: parent.width
                 text: (app && app.native
                        ? "A program installed outside a sandbox. "
                        : "")
@@ -227,8 +197,7 @@ CfgScroll {
 
                     Column {
                         id: col
-                        x:       theme.px(10)
-                        width:   parent.width - theme.px(20)
+                        width:   parent.width
                         y:       theme.px(7)
                         spacing: theme.px(3)
 
@@ -346,8 +315,7 @@ CfgScroll {
         visible: PermissionsService.checked && !PermissionsService.available
 
         Text {
-            x:     theme.px(10)
-            width: parent.width - theme.px(20)
+            width: parent.width
             text: PermissionsService.unavailableReason
                 + "\n\nThis is not the same as having no permissions. Nothing "
                 + "below this line was checked, so nothing below this line is "

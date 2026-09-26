@@ -57,65 +57,26 @@ CfgScroll {
         title: "Incoming connections"
         first: true
 
-        Rectangle {
+        // The shared hero (UI/UX Phase 17): no box — it was the one hero in a
+        // tinted bordered card, with the state said by the fill, the border, the
+        // glyph and the words — and the mono line bounded by the button, which
+        // it ran to within 0–4 px of.
+        StatusHero {
             id: fwHero
-            x:      theme.px(10)
-            width:  parent.width - theme.px(20)
-            height: theme.px(66)
-            radius: 8
-            color:        Qt.rgba(root._tone.r, root._tone.g, root._tone.b, 0.06)
-            border.color: Qt.rgba(root._tone.r, root._tone.g, root._tone.b, 0.18)
-            border.width: 1
-
-            Row {
-                anchors.left:           parent.left
-                anchors.leftMargin:     theme.px(12)
-                anchors.verticalCenter: parent.verticalCenter
-                spacing:                theme.px(10)
-
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text:  FirewallService.enforcing ? "󰕥" : "󰦝"
-                    color: root._tone
-                    font.pixelSize: theme.fs(20)
-                }
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: theme.px(3)
-                    // Bounded by the button (UI/UX Phase 17): the mono line ran to
-                    // within 0–4 px of Re-check, and a longer unit state overlapped it.
-                    width: fwHero.width - theme.px(12 + 20 + 10) - fwRecheck.width - theme.px(16)
-
-                    Text {
-                        width: parent.width; elide: Text.ElideRight
-                        text: FirewallService.checked
-                            ? FirewallService.statusLine
-                            : "Reading this machine…"
-                        font.pixelSize: theme.fs(13)
-                        font.weight:    Font.Medium
-                        color:          Theme.text
-                    }
-                    Text {
-                        // Says what was actually read, so the claim above can
-                        // be judged. The unit's state is not the same question
-                        // as "is the ruleset loaded" — someone with root can
-                        // flush the table behind a running unit — and the page
-                        // must not pretend it is.
-                        width: parent.width; elide: Text.ElideRight
-                        text: "apex-firewall.service: " + FirewallService.unit
-                            + "  ·  to read the live ruleset: " + FirewallService.readCommand
-                        font.pixelSize: theme.typeCaption
-                        font.family:    "JetBrains Mono"
-                        color:          Theme.subtext
-                    }
-                }
-            }
+            glyph: FirewallService.enforcing ? "󰕥" : "󰦝"
+            tone:  root._tone
+            title: FirewallService.checked
+                ? FirewallService.statusLine
+                : "Reading this machine…"
+            // Says what was actually read, so the claim above can be judged.
+            // The unit's state is not the same question as "is the ruleset
+            // loaded" — someone with root can flush the table behind a running
+            // unit — and the page must not pretend it is.
+            detail: "apex-firewall.service: " + FirewallService.unit
+                + "  ·  to read the live ruleset: " + FirewallService.readCommand
 
             CfgButton {
                 id: fwRecheck
-                anchors.right:          parent.right
-                anchors.rightMargin:    theme.px(8)
-                anchors.verticalCenter: parent.verticalCenter
                 label:   FirewallService.busy ? "Checking…" : "Re-check"
                 icon:    "󰑐"
                 enabled: !FirewallService.busy
@@ -170,8 +131,7 @@ CfgScroll {
         title: "Ports you have opened"
 
         Text {
-            x:              theme.px(10)
-            width:          parent.width - theme.px(20)
+            width:          parent.width
             visible:        FirewallService.exceptions.length === 0
                                 && FirewallService.emptyLine !== ""
             text:           FirewallService.emptyLine
@@ -205,8 +165,7 @@ CfgScroll {
         visible: FirewallService.openable.length > 0
 
         Text {
-            x:              theme.px(10)
-            width:          parent.width - theme.px(20)
+            width:          parent.width
             text:           "By name rather than by port number, because \"5353/udp\" is something you paste from a forum and \"mdns\" is something you can decide about — and read back in six months and still understand. Each opens on every interface."
             wrapMode:       Text.WordWrap
             font.pixelSize: theme.typeCaption

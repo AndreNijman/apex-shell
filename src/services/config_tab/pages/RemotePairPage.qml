@@ -90,8 +90,7 @@ CfgScroll {
         // is QrCode's, not this container's — see that file on why four
         // modules of light are part of the symbol rather than padding.
         Rectangle {
-            x: theme.px(10)
-            width: parent.width - theme.px(20)
+            width: parent.width
             height: theme.px(260)
             radius: theme.px(10)
             color: Theme.fixedLight
