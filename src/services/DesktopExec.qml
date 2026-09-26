@@ -68,20 +68,21 @@ Singleton {
     // shell asks for this and nothing else.
     readonly property string terminalHelper: "xdg-terminal-exec"
 
+    // Honours `PrefersNonDefaultGPU=`, which Quickshell does not parse: Steam
+    // declares it, and ignoring it put Steam and every game it starts on the
+    // integrated GPU. The script's header has the katana crash this caused.
+    readonly property string gpuLauncher: Quickshell.shellDir + "/src/scripts/desktop-launch.sh"
+
     // Launch `entry`. Returns true if the launch was made.
     //
-    // A Terminal=false entry goes straight to Quickshell's own execute(). The
+    // A Terminal=false entry goes through desktop-launch.sh, which runs the same
+    // argv execute() would, on the discrete GPU when the file asks for one. The
     // suite measures that execute() puts the program in the entry's Path= and
-    // strips the Exec field codes, so those two thirds of the old comment are
-    // now evidence rather than assertion, and are not worth reimplementing.
+    // strips the Exec field codes; entry.command is that stripped argv and Path=
+    // is carried as workingDirectory, so leaving execute() loses neither.
     function launch(entry) {
         if (!entry)
             return false
-
-        if (!entry.runInTerminal) {
-            entry.execute()
-            return true
-        }
 
         // entry.command is the Exec line already parsed into argv with the
         // field codes removed — measured, not assumed: an entry reading
@@ -91,10 +92,20 @@ Singleton {
         for (const a of entry.command)
             argv.push(a)
         if (argv.length === 0) {
-            // Nothing parseable to hand a terminal. Upstream's own path is a
-            // better failure than an empty terminal window.
+            // Nothing parseable to hand a terminal or the GPU launcher.
+            // Upstream's own path is a better failure than an empty terminal.
             entry.execute()
-            return false
+            return !entry.runInTerminal
+        }
+
+        const wd = entry.workingDirectory
+
+        if (!entry.runInTerminal) {
+            const plain = ({ "command": ["bash", root.gpuLauncher, entry.id, "--"].concat(argv) })
+            if (wd && wd !== "")
+                plain.workingDirectory = wd
+            Quickshell.execDetached(plain)
+            return true
         }
 
         const ctx = ({ "command": [root.terminalHelper].concat(argv) })
@@ -103,7 +114,6 @@ Singleton {
         // an untested branch in a launch path is how the Terminal= bug lasted.
         // The helper takes no directory argument (the spec gives it none), so
         // the terminal inherits this as its cwd and the program starts there.
-        const wd = entry.workingDirectory
         if (wd && wd !== "")
             ctx.workingDirectory = wd
 
