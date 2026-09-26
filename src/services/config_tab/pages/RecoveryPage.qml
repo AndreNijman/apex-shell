@@ -143,7 +143,7 @@ CfgScroll {
                             ? ("bootloader " + RecoveryService.status.bootloader
                                + "  ·  diagnostics: " + RecoveryService.doctorSummary)
                             : "`apex recover` is not on this machine, or predates this shell. Nothing below could be read."
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         color:          Theme.subtext
                         font.family:    "JetBrains Mono"
                         Accessible.role: Accessible.StaticText
@@ -172,7 +172,7 @@ CfgScroll {
                 + "`apex recover status` and `apex doctor` read files. The two "
                 + "verbs that do change something — repair, and the factory "
                 + "reset — run only when you press them."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.subtext
             wrapMode: Text.WordWrap
             Accessible.role: Accessible.StaticText
@@ -261,7 +261,7 @@ CfgScroll {
                         }
                         Text {
                             text:           RecoveryService.stateLabel(compRow.row ? compRow.row.state : "")
-                            font.pixelSize: theme.fs(10)
+                            font.pixelSize: theme.typeCaption
                             font.weight:    Font.Medium
                             color:          root.toneColor(RecoveryService.stateTone(compRow.row ? compRow.row.state : ""))
                             anchors.verticalCenter: parent.verticalCenter
@@ -271,7 +271,7 @@ CfgScroll {
                     Text {
                         width:          parent.width
                         text:           compRow.row ? compRow.row.detail : ""
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         color:          Theme.subtext
                         wrapMode:       Text.WordWrap
                     }
@@ -281,7 +281,7 @@ CfgScroll {
                         visible:        compRow.row && compRow.row.action !== ""
                         width:          parent.width
                         text:           "→ " + (compRow.row ? compRow.row.action : "")
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         font.family:    "JetBrains Mono"
                         color:          Theme.active
                         wrapMode:       Text.WordWrap
@@ -410,7 +410,7 @@ CfgScroll {
             x:     theme.px(10)
             width: parent.width - theme.px(20)
             text:  RecoveryService.rollbackHint
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.subtext
             wrapMode: Text.WordWrap
             Accessible.role: Accessible.StaticText
@@ -517,7 +517,7 @@ CfgScroll {
                     Text {
                         width:          parent.width
                         text:           routeRow.route ? routeRow.route.how : ""
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         color:          Theme.subtext
                         wrapMode:       Text.WordWrap
                     }
@@ -545,7 +545,7 @@ CfgScroll {
             width: parent.width - theme.px(20)
             text:  RecoveryService.doctorSummary
                    + " — a warning here is information, not a fault: not every machine has every capability."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.subtext
             wrapMode: Text.WordWrap
             Accessible.role: Accessible.StaticText
@@ -597,7 +597,7 @@ CfgScroll {
                     anchors.top:         parent.top
                     anchors.topMargin:   theme.px(5)
                     text:           checkRow.check ? checkRow.check.check : ""
-                    font.pixelSize: theme.fs(10)
+                    font.pixelSize: theme.typeCaption
                     color:          (checkRow.check && checkRow.check.ok) ? Theme.text : Theme.subtext
                     wrapMode:       Text.WordWrap
                 }
@@ -704,7 +704,7 @@ CfgScroll {
                         + "compositor configuration, your packages or your deployments. "
                         + "A machine indistinguishable from a fresh install is a "
                         + "reinstall, and the installer is what does that."
-                    font.pixelSize: theme.fs(10)
+                    font.pixelSize: theme.typeCaption
                     color:    Theme.subtext
                     wrapMode: Text.WordWrap
                     Accessible.role: Accessible.StaticText
@@ -756,7 +756,7 @@ CfgScroll {
                                     return scopes[i].summary
                             return ""
                         }
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         color:    Theme.subtext
                         wrapMode: Text.WordWrap
                         // What the CHOSEN scope covers. The two radio buttons
@@ -831,7 +831,7 @@ CfgScroll {
                                     ? "Nothing to remove: none of the paths this scope covers exists on this machine."
                                     : (p.losses.length + " item(s) will be changed. Everything except caches is copied to ~/apex-reset-backup-<timestamp> first.")
                             }
-                            font.pixelSize: theme.fs(10)
+                            font.pixelSize: theme.typeCaption
                             font.weight:    Font.Medium
                             color:          Theme.danger
                             wrapMode:       Text.WordWrap
@@ -886,7 +886,7 @@ CfgScroll {
                                     Text {
                                         width:          parent.width
                                         text:           lossRow.loss ? lossRow.loss.relative : ""
-                                        font.pixelSize: theme.fs(10)
+                                        font.pixelSize: theme.typeCaption
                                         font.family:    "JetBrains Mono"
                                         color:          Theme.text
                                         elide:          Text.ElideMiddle
@@ -1100,7 +1100,7 @@ CfgScroll {
                         text: RecoveryService.resetPhase === "committing"
                               ? "Resetting. Backing up first; leave this alone until it finishes."
                               : RecoveryService.resetMessage
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         font.family:    "JetBrains Mono"
                         color: RecoveryService.resetPhase === "done" ? Theme.success : Theme.warning
                         wrapMode: Text.WordWrap

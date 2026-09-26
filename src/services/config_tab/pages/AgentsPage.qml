@@ -122,7 +122,7 @@ CfgScroll {
                 ? "Switching this off takes effect at once and asks for nothing."
                 : "Switching this on asks for your password at the desktop's "
                   + "authentication prompt, not in an agent's terminal."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.subtext
             wrapMode: Text.WordWrap
         }
@@ -136,7 +136,7 @@ CfgScroll {
             visible: !root._on && root._refusal !== ""
             text:    "Cannot switch on: " + root._refusal
                    + ". Fix " + AgentPolicyService.configPath + " first."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.warning
             wrapMode: Text.WordWrap
         }
@@ -150,7 +150,7 @@ CfgScroll {
             x:       theme.px(10)
             visible: AgentPolicyService.lastError !== ""
             text:    AgentPolicyService.lastError
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.danger
             wrapMode: Text.WordWrap
         }
@@ -218,7 +218,7 @@ CfgScroll {
                     Text {
                         width:          parent.width
                         text:           claimLine.modelData.d
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         color:          Theme.subtext
                         wrapMode:       Text.WordWrap
                     }
@@ -243,7 +243,7 @@ CfgScroll {
                 + "an unconfined session can leave behind: your shell startup files, "
                 + "a git hook, a systemd user unit. Those run as you the next time "
                 + "you start a shell, with none of a session's limits on them."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.warning
             wrapMode: Text.WordWrap
         }
@@ -268,7 +268,7 @@ CfgScroll {
                    : "The agent runtime is not running. Start it with  apex agent enable")
                 : "Each session keeps the mode it started with. Changing the setting above "
                 + "does not move any of them."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.subtext
             wrapMode: Text.WordWrap
         }
@@ -300,7 +300,7 @@ CfgScroll {
                     }
                     Text {
                         text:           "#" + sessionLine.modelData.id
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         color:          Theme.subtext
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -315,7 +315,7 @@ CfgScroll {
                     Text {
                         visible:        sessionLine.nativeMode !== "inherit"
                         text:           "native " + sessionLine.nativeMode
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         color:          Theme.subtext
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -339,7 +339,7 @@ CfgScroll {
                 ? "1 running session is on a different mode from the setting above."
                 : root._elsewhere.length
                   + " running sessions are on a different mode from the setting above."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.warning
             wrapMode: Text.WordWrap
         }

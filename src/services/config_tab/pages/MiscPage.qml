@@ -84,7 +84,6 @@ CfgScroll {
             // LayoutMirroring resolves anchors and cannot touch an x.
             Row {
                 anchors.left:           parent.left
-                anchors.leftMargin:     10
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 12
 
@@ -106,7 +105,7 @@ CfgScroll {
                     }
                     Text {
                         text:        root.version + "  ·  APEX-OS"
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         color:       Theme.textSecondary
                         font.family: "JetBrains Mono"
                     }
@@ -163,10 +162,11 @@ CfgScroll {
             width:  parent.width
             height: sysStats.implicitHeight
 
+            // On the content edge with the rows around it (UI/UX Phase 17): it
+            // sat 10 px inside them.
             SystemStats {
                 id: sysStats
-                x:     10
-                width: parent.width - 20
+                width: parent.width
             }
         }
     }
@@ -210,8 +210,7 @@ CfgScroll {
         }
 
         Text {
-            x:        10
-            width:    parent.width - 20
+            width:    parent.width
             // The old wording printed `Compositor.detected`, a raw id, and named
             // only niri as the degrading target — which left a Floating user
             // reading a sentence about two compositors that were not theirs and
@@ -225,7 +224,7 @@ CfgScroll {
             // is niri's alone; windowMove is false on labwc only; nightLight is
             // true on all three, so it is deliberately NOT listed as degrading.
             text:     "Auto follows what APEX detects at login; pick one to pin it instead. Tiling is the only one the shell can give window gaps, an accent border, a layout indicator, a shader filter and a special workspace. Scrolling has an overview the other two do not. On Floating the shell cannot move a window to another workspace."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.textSecondary
             wrapMode: Text.WordWrap
         }
@@ -237,8 +236,7 @@ CfgScroll {
 
             CfgSegmented {
                 id: compSeg
-                x:     10
-                width: parent.width - 20
+                width: parent.width
                 // VALUES ARE IDS AND MUST NOT BE TRANSLATED — setOverride
                 // writes them straight into config_Provider.json's `compositor`
                 // key and Compositor.isValidName is what accepts them. Only the
@@ -299,7 +297,6 @@ CfgScroll {
             // Anchored, not `x: 10` — same reason as the About row above.
             CfgButton {
                 anchors.left:           parent.left
-                anchors.leftMargin:     10
                 anchors.verticalCenter: parent.verticalCenter
                 variant: "accent"
                 label:   "Update now"

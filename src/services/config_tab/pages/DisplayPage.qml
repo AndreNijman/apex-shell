@@ -403,7 +403,7 @@ CfgScroll {
                 anchors.verticalCenter: parent.verticalCenter
                 visible: DisplayService.curveReason !== ""
                 text:    "Calibration curve: " + DisplayService.curveReason
-                font.pixelSize: theme.fs(10)
+                font.pixelSize: theme.typeCaption
                 color:   DisplayService.curveLoadable ? Theme.subtext : Theme.warning
                 wrapMode: Text.WordWrap
             }
@@ -420,7 +420,7 @@ CfgScroll {
             visible: text !== ""
             text:    DisplayService.colourError !== "" ? DisplayService.colourError
                                                        : DisplayService.colourNotice
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:   DisplayService.colourError !== "" ? Theme.warning : Theme.info
             wrapMode: Text.WordWrap
             bottomPadding: theme.px(6)

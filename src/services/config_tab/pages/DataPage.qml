@@ -53,7 +53,6 @@ CfgScroll {
 
         Text {
             width:          parent.width
-            leftPadding:    10
             visible:        DiskService.disks.length === 0
             text:           "Reading disks…"
             color:          Theme.textTertiary
@@ -68,8 +67,7 @@ CfgScroll {
                 model: DiskService.disks
                 delegate: DiskBar {
                     required property var modelData
-                    x:        10
-                    width:    parent.width - 20
+                    width:    parent.width
                     height:   40
                     source:   modelData.source
                     mount:    modelData.mount
@@ -182,9 +180,8 @@ CfgScroll {
             height: folders.implicitHeight + 8
             Flow {
                 id: folders
-                x:       10
                 y:       4
-                width:   parent.width - 20
+                width:   parent.width
                 spacing: 8
                 CfgButton { label: "Config";     icon: "󰉋"; onClicked: root.openPath("~/.config/apex-shell") }
                 CfgButton { label: "Cache";      icon: "󰉋"; onClicked: root.openPath("~/.cache/apex-shell") }

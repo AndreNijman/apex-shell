@@ -126,13 +126,13 @@ CfgScroll {
                         // state also has a weight.
                         Text {
                             text: RemotePairingService.stateLabel(deviceRow.deviceState)
-                            font.pixelSize: theme.fs(10)
+                            font.pixelSize: theme.typeCaption
                             color: deviceRow.tone
                         }
                         Text {
                             text: "·  last seen " + RemotePairingService.lastSeen(modelData)
                                 + (modelData.lastPath ? "  over " + modelData.lastPath : "")
-                            font.pixelSize: theme.fs(10)
+                            font.pixelSize: theme.typeCaption
                             color: Theme.subtext
                             elide: Text.ElideRight
                         }

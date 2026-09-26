@@ -121,7 +121,7 @@ CfgScroll {
                         text: PermissionsService.available
                             ? (PermissionsService.session.desktop + "  ·  " + PermissionsService.session.summary)
                             : PermissionsService.unavailableReason
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         color:          Theme.subtext
                         font.family:    "JetBrains Mono"
                     }
@@ -149,7 +149,7 @@ CfgScroll {
                 + "come from your login session itself — every program you run "
                 + "has them, and nothing here can take them from one app alone. "
                 + "Each row says which it is."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.subtext
             wrapMode: Text.WordWrap
         }
@@ -175,7 +175,7 @@ CfgScroll {
                 width: theme.px(230)
                 text: PermissionsService.session.brokered.join(", ")
                 font.family:    "JetBrains Mono"
-                font.pixelSize: theme.fs(10)
+                font.pixelSize: theme.typeCaption
                 color:          Theme.active
                 wrapMode:       Text.WordWrap
             }
@@ -205,7 +205,7 @@ CfgScroll {
                        ? "A program installed outside a sandbox. "
                        : "")
                     + (app ? app.summary : "")
-                font.pixelSize: theme.fs(10)
+                font.pixelSize: theme.typeCaption
                 color:          Theme.subtext
                 wrapMode:       Text.WordWrap
             }
@@ -255,7 +255,7 @@ CfgScroll {
                             Text {
                                 text:           "· enforced by " + rowItem.row.enforcerLabel
                                 font.family:    "JetBrains Mono"
-                                font.pixelSize: theme.fs(10)
+                                font.pixelSize: theme.typeCaption
                                 color:          Theme.subtext
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -268,7 +268,7 @@ CfgScroll {
                         Text {
                             width:          parent.width
                             text:           "from: " + rowItem.row.originLabel
-                            font.pixelSize: theme.fs(10)
+                            font.pixelSize: theme.typeCaption
                             color:          Theme.subtext
                             wrapMode:       Text.WordWrap
                         }
@@ -281,7 +281,7 @@ CfgScroll {
                             width:          parent.width
                             visible:        text !== ""
                             text:           rowItem.controls.length === 0 ? rowItem.row.enforcerWhy : ""
-                            font.pixelSize: theme.fs(10)
+                            font.pixelSize: theme.typeCaption
                             color:          Theme.subtext
                             wrapMode:       Text.WordWrap
                         }
@@ -289,7 +289,7 @@ CfgScroll {
                             width:          parent.width
                             visible:        rowItem.row.caveat !== ""
                             text:           rowItem.row.caveat
-                            font.pixelSize: theme.fs(10)
+                            font.pixelSize: theme.typeCaption
                             color:          Theme.warning
                             wrapMode:       Text.WordWrap
                         }
@@ -307,7 +307,7 @@ CfgScroll {
                             width:          parent.width
                             visible:        rowItem.controls.length > 0
                             text:           rowItem.row.timingLabel
-                            font.pixelSize: theme.fs(10)
+                            font.pixelSize: theme.typeCaption
                             color:          Theme.subtext
                             wrapMode:       Text.WordWrap
                         }

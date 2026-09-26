@@ -46,7 +46,6 @@ CfgScroll {
 
             Row {
                 anchors.left:           parent.left
-                anchors.leftMargin:     10
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 14
 
@@ -128,7 +127,6 @@ CfgScroll {
             ListView {
                 id: wallStrip
                 anchors.fill:        parent
-                anchors.leftMargin:  10
                 anchors.rightMargin: 4
                 orientation:  ListView.Horizontal
                 spacing:      8
@@ -241,10 +239,9 @@ CfgScroll {
 
         Text {
             width:          parent.width
-            leftPadding:    10
             text:           "Which half of the wallpaper's palette the shell paints with. "
                           + "Changing this re-derives the colours from the wallpaper you are on."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:          Theme.textSecondary
             wrapMode:       Text.WordWrap
         }
@@ -256,8 +253,7 @@ CfgScroll {
 
             CfgSegmented {
                 id: modeSeg
-                x:     10
-                width: parent.width - 20
+                width: parent.width
                 options: WallpaperService.modes
                 value:   WallpaperService.mode
                 onSelected: function(v) { WallpaperService.setMode(v) }
@@ -273,9 +269,8 @@ CfgScroll {
 
         Text {
             width:          parent.width
-            leftPadding:    10
             text:           "How matugen derives the palette from your wallpaper."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:          Theme.textSecondary
             wrapMode:       Text.WordWrap
         }
@@ -287,8 +282,7 @@ CfgScroll {
 
             CfgSegmented {
                 id: schemeSeg
-                x:     10
-                width: parent.width - 20
+                width: parent.width
                 options: WallpaperService.schemes
                 value:   WallpaperService.scheme
                 onSelected: function(v) {

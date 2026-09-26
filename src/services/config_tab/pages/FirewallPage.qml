@@ -104,7 +104,7 @@ CfgScroll {
                         width: parent.width; elide: Text.ElideRight
                         text: "apex-firewall.service: " + FirewallService.unit
                             + "  ·  to read the live ruleset: " + FirewallService.readCommand
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         font.family:    "JetBrains Mono"
                         color:          Theme.subtext
                     }
@@ -209,7 +209,7 @@ CfgScroll {
             width:          parent.width - theme.px(20)
             text:           "By name rather than by port number, because \"5353/udp\" is something you paste from a forum and \"mdns\" is something you can decide about — and read back in six months and still understand. Each opens on every interface."
             wrapMode:       Text.WordWrap
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:          Theme.subtext
         }
 
@@ -221,7 +221,7 @@ CfgScroll {
                 description: modelData.description
                 Text {
                     text:           FirewallService.allowCommand(modelData.name)
-                    font.pixelSize: theme.fs(10)
+                    font.pixelSize: theme.typeCaption
                     font.family:    "JetBrains Mono"
                     color:          Theme.active
                 }

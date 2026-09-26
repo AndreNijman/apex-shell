@@ -129,7 +129,7 @@ CfgScroll {
                         text: LidService.available
                                 ? LidService.decision.why
                                 : LidService.unavailableReason
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         color: LidService.available ? Theme.subtext : Theme.danger
                         font.family:    "JetBrains Mono"
                         width:          theme.px(420)
@@ -169,7 +169,7 @@ CfgScroll {
                 text: "Policy files this read could not open: " + LidService.policyNote
                     + ".  Normal on a machine where another account is logged in; "
                     + "the policy actually in force is above."
-                font.pixelSize: theme.fs(10)
+                font.pixelSize: theme.typeCaption
                 color:    Theme.subtext
                 wrapMode: Text.WordWrap
             }
@@ -205,7 +205,7 @@ CfgScroll {
                 Text {
                     width:          parent.width
                     text:           LidService.logind.detail
-                    font.pixelSize: theme.fs(10)
+                    font.pixelSize: theme.typeCaption
                     color:          Theme.subtext
                     wrapMode:       Text.WordWrap
                     visible:        LidService.logind.detail !== ""
@@ -279,7 +279,7 @@ CfgScroll {
                     + "firmware's critical trip less the headroom below, and a battery guard "
                     + "at the floor, which checkpoints live work first. Whichever fires is "
                     + "named in the report after you reopen it."
-                font.pixelSize: theme.fs(10)
+                font.pixelSize: theme.typeCaption
                 color:    Theme.subtext
                 wrapMode: Text.WordWrap
             }
@@ -441,7 +441,7 @@ CfgScroll {
 
                 Text {
                     text:           "Powered down"
-                    font.pixelSize: theme.fs(10)
+                    font.pixelSize: theme.typeCaption
                     font.weight:    Font.Bold
                     color:          Theme.subtext
                 }
@@ -456,7 +456,7 @@ CfgScroll {
                         width:          downCol.width
                         text:           "· " + LidService.report.period.poweredDown[index]
                         font.family:    "JetBrains Mono"
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         color:          Theme.active
                         wrapMode:       Text.WordWrap
                     }
@@ -479,7 +479,7 @@ CfgScroll {
 
                 Text {
                     text:           "Left alone, and why"
-                    font.pixelSize: theme.fs(10)
+                    font.pixelSize: theme.typeCaption
                     font.weight:    Font.Bold
                     color:          Theme.subtext
                 }
@@ -492,7 +492,7 @@ CfgScroll {
                         width:          skipCol.width
                         text:           "· " + skip.what + " — " + skip.why
                         font.family:    "JetBrains Mono"
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         color:          Theme.subtext
                         wrapMode:       Text.WordWrap
                     }
