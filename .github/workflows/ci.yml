@@ -1561,6 +1561,14 @@ jobs:
       - name: A tray menu answers the keyboard
         run: ./tests/run-traymenu-keys-test.sh
 
+      # The Wi-Fi pane on the keyboard, against tests/lib/fake-nmcli (canned
+      # networks; changes are logged, never run): the list is one Tab stop,
+      # Return connects, Tab reaches the highlighted row's Disconnect and
+      # Forget, the Forget question answers the keyboard, and nothing else
+      # was asked of NetworkManager. Skips cleanly without labwc and wtype.
+      - name: The Wi-Fi pane answers the keyboard
+        run: ./tests/run-wifi-keys-test.sh
+
       # The fluid surface geometry (Phases 4-5): every family swept over
       # progress at three output scales — tangent-continuous joins, no
       # self-intersection, no collapse mid-morph, attached to its origin
