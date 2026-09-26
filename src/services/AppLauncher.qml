@@ -131,11 +131,21 @@ Item {
     }
 
     // ── Results ───────────────────────────────────────────────────────────────
-    readonly property var filtered: {
+    readonly property var _liveRows: {
         if (answerMode) return answerRows()
         if (query.trim() === "") return SearchService.restingRows
         return SearchService.results.concat(providers.rows)
     }
+    // The resting list is held through the moments the service has none: the
+    // search stack is released the instant this page stops being on screen,
+    // and re-reads when it comes back, so the page used to flip to "No apps
+    // found" while it faded out (and for a beat as it faded in). A query
+    // that finds nothing still says so — only the resting list is held.
+    property var _restingHeld: []
+    on_LiveRowsChanged: if (!root.answerMode && root.query.trim() === "" && root._liveRows.length > 0)
+        root._restingHeld = root._liveRows
+    readonly property var filtered: (!root.answerMode && root.query.trim() === "" && root._liveRows.length === 0)
+                                    ? root._restingHeld : root._liveRows
 
     // ── The launcher-provider extension point ─────────────────────────────────
     // Non-visual: it hosts one Loader per granted provider, feeds each the

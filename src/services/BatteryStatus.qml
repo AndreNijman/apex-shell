@@ -120,7 +120,7 @@ Item {
             implicitHeight: pctText.implicitHeight
             clip: true
             anchors.verticalCenter: parent.verticalCenter
-            Behavior on implicitWidth { MotionMove { curve: Motion.standard } }
+            Behavior on implicitWidth { MotionSpring { role: "page" } }
 
             Text {
                 id: pctText

@@ -106,9 +106,11 @@ PanelWindow {
         : (Compositor.isLabwc
             ? Math.max(theme.notchHeight, theme.exclusionGap)
             : theme.exclusionGap)
+    // Timed, not a spring: every step of the zone re-lays-out every window on
+    // the output, and a spring's long tail would be a dozen more of them.
     Behavior on exclusiveZone {
         enabled: !Compositor.isLabwc
-        MotionSpring { role: "page" }
+        MotionMove { role: "page"; curve: Motion.standard }
     }
 
     // The left notch grows with its content like the centre one; it used to
@@ -118,7 +120,7 @@ PanelWindow {
         Math.min(theme.lNotchMaxWidth,
                  leftContent.implicitWidth + theme.notchPadding * 2)
     )
-    Behavior on lWidth { MotionMove { role: "page"; curve: Motion.standard } }
+    Behavior on lWidth { MotionSpring { role: "page" } }
 
     // The centre notch's own width — its content's, clamped. It no longer
     // widens to the Dashboard's page width while the Dashboard is open: the
@@ -131,7 +133,9 @@ PanelWindow {
             Math.min(theme.cNotchMaxWidth,
                      centerContent.implicitWidth + theme.notchPadding * 2)
           )
-    Behavior on cWidth { MotionMove { role: "page"; curve: Motion.standard } }
+    // A spring: a title changing twice in a row bends the notch toward the
+    // second width instead of stopping it dead and starting over.
+    Behavior on cWidth { MotionSpring { role: "page" } }
 
     // ── The right notch, and the clock of what pours out of it ──────────────
     // (UI/UX roadmap v3 Phase 9, RIGHT_POUR)

@@ -27,6 +27,8 @@ Item {
     property var    _networks:      []
     property var    _needsPassword: ({})
     property bool   _scanning:      false
+    // What the scan in flight has read so far (see scanProc).
+    property var    _scanBuf:       []
     property bool   _wifiEnabled:   true
     property string _connectingTo:  ""
     property string _forgetSsid:    ""
@@ -86,7 +88,7 @@ Item {
                 var secured = security.trim() !== "" && security.trim() !== "--"
                 // nmcli prints enterprise security as e.g. "WPA2 802.1X"
                 var enterprise = security.trim().indexOf("802.1X") >= 0
-                var nets = root._networks.slice()
+                var nets = root._scanBuf.slice()
                 var found = false
                 for (var i = 0; i < nets.length; i++) {
                     if (nets[i].ssid === ssid) {
@@ -96,10 +98,17 @@ Item {
                     }
                 }
                 if (!found) nets.push({ ssid: ssid, signal: signal, secured: secured, inUse: inUse, enterprise: enterprise })
-                root._networks = nets
+                root._scanBuf = nets
             }
         }
-        onRunningChanged: if (!running) root._scanning = false
+        // The list on screen is replaced once, when the scan has finished — it
+        // used to be emptied when the scan STARTED and refilled line by line,
+        // so every refresh (one runs as the panel finishes opening) blanked
+        // the list to "Searching" and poured it back in a beat later.
+        onRunningChanged: if (!running) {
+            root._networks = root._scanBuf
+            root._scanning = false
+        }
     }
 
     // First attempt — captures stderr to detect secret requirement
@@ -238,7 +247,7 @@ Item {
 
     function _scan(rescan) {
         if (_scanning || !root._wifiEnabled) return
-        _scanning = true; _networks = []
+        _scanning = true; _scanBuf = []
         scanProc.command = ["bash", "-c",
             "nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi list " +
             (rescan ? "--rescan yes" : "--rescan no") + " 2>/dev/null"]
