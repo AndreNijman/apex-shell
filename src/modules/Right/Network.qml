@@ -129,6 +129,7 @@ Item {
         IconBtn {
             visible:   ShellState.vpnActive
             text:      "󰦝"
+            label:     "VPN connected"
             textColor: Theme.accentText
             anchors.verticalCenter: parent.verticalCenter
             onClicked: {
@@ -143,6 +144,7 @@ Item {
         IconBtn {
             id: netIcon
             text:      root._netIcon
+            label:     "Network"
             textColor: root._netColor
             anchors.verticalCenter: parent.verticalCenter
             onClicked: {
@@ -157,6 +159,7 @@ Item {
         IconBtn {
             visible:   root._bluetoothConnected
             text:      "󰂱"
+            label:     "Bluetooth connected"
             textColor: root._openOn("bluetooth") ? Theme.accentText : Theme.iconDefault
             anchors.verticalCenter: parent.verticalCenter
             onClicked: {
@@ -171,6 +174,7 @@ Item {
         IconBtn {
             visible:   ShellState.hotspot
             text:      "󰀂"
+            label:     "Hotspot on"
             textColor: Theme.accentText
             anchors.verticalCenter: parent.verticalCenter
             onClicked: {

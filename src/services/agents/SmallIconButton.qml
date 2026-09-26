@@ -19,7 +19,7 @@ ApexIconButton {
     size: theme.px(26)
     glyphSize: theme.fs(12)
     focusOnPress: false
-    Accessible.name: btn.tip !== "" ? btn.tip : btn.icon
+    label: btn.tip
 
     ToolTip.visible: btn.hovered && btn.tip !== ""
     ToolTip.text: btn.tip

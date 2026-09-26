@@ -112,11 +112,14 @@ VERIFIED (built, tests pass, visually reviewed at 1x and slow motion, scrutinise
   FIXED in 9b.
 - `tests/run-nav-geometry-test.sh`: 16 — the Privacy page lays out no rows at some scales (identical on `17eec38`).
 - `tests/run-lockscreen-atspi.sh`: 1 pinned assertion — this machine's Qt now publishes 8 AT-SPI nodes; the pin itself says that is an improvement.
+- `tests/run-lockscreen-atspi-shim.sh`: 4 and `tests/run-recovery-atspi-shim.sh`: 2 — the CONTROL / IN-PROCESS pins of the same upstream change (the tree is no longer empty); the identical set fails on untouched main (`99c5ab7`).
+- `tests/check-agent-help.sh` fails (`enable`) when `APEX_OS_ROOT` names a stale apex-os checkout; passes against the current CLI.
 - apex-os `tests/test-apex-greet-sessions.sh`: 2 — a new `apex-safe-graphics` session the suite does not expect.
 - `tests/check-colour-page.sh`: flaky, ~1 run in 3, on main as well.
 
 ## Verification log
 
+- 2026-09-26 — Accessibility regression found by the sweep and fixed: ApexIconButton (Phase 3) published its glyph as its accessible name, so every bar button reached AT-SPI as a private-use codepoint (the lock-screen and recovery shims' glyph rule, 5 strings). It takes a `label` now and never the glyph; the bar's nine buttons are named for what they do. The shims now fail exactly main's pins.
 - 2026-09-26 — Visual review 2 (Fable, over every family's capture sheet): each surface reads as its intended family. Applied here: the context menu's frame was the strip's 6 px border (now a 1 px outlineSoft hairline) and its rows, like the tray menu's, flooded with the accent on hover (now the state layer, textPrimary label); the open pill and the Nexus nav pill share surfaceSelected; Nexus nav rows 36 px on radiusM, selection by fill and colour only (no bold); bar cluster gaps even (Audio's trailing 6 px, the clock's padding); the text-role mixes moved to .30 / .50, so no shipped palette needs a fallback (was 13, including the default); the launcher page prewarmed (see Deviations). Waiting on the Phase 18 migration's files: the stack's add/remove pause and its rest overlap, Nexus's scrim outliving its sheet, SysTray's legacy animation. Full sweep green on an isolated tree (nav-geometry 16 pre-existing).
 - 2026-09-26 — Phases 2-3: roles over twelve palettes (13 fallbacks, pinned); primitives suite 10/0; migrated controls captured in Nexus. Found in passing: NavPane opened scrolled past its current page (reveal before layout, pre-existing) and its new pill was missing on first open — both fixed. Two Qt traps recorded in the code: a function named `layer` is shadowed by Item's `layer` group; emitting a derived signal straight from an inherited signal's handler threw.
 - 2026-09-26 — Phase 14: OSD captured at 1x through a new harness (entrance, held key tracking without replay, exit); fixed the bar growing from 0 on first show; context menu captured (keybind open, centred). Sweep green.

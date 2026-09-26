@@ -98,6 +98,7 @@ RowLayout {
     IconBtn {
         Layout.alignment: Qt.AlignVCenter
         text: trayRow.isOpen ? "󰅀" : "•••"
+        label: trayRow.isOpen ? "Hide tray icons" : "Show tray icons"
         onClicked: trayRow.isOpen = !trayRow.isOpen
     }
 }
