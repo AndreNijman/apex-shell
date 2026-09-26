@@ -8,6 +8,7 @@
 #  tests/surface-lifecycle-test.qml under qmltestrunner on the offscreen
 #  platform: no compositor, no window on anybody's desk.
 # ─────────────────────────────────────────────────────────────────────────────
+. "$(dirname "${BASH_SOURCE[0]}")/lib/private-bus.sh"   # the session bus is ours, not the desktop's
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

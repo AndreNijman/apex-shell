@@ -56,6 +56,7 @@
 #  Phase `labwc-real` proves the tool connects, binds the protocol and stays
 #  connected, which is everything the shell is responsible for.
 # ─────────────────────────────────────────────────────────────────────────────
+. "$(dirname "${BASH_SOURCE[0]}")/lib/private-bus.sh"   # the session bus is ours, not the desktop's
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -649,6 +649,35 @@ want "mutant C differs from the original" \
 want "mutant D differs from the original" \
     test "$(diff "$victim" "$fix/mutant-d.sh" | grep -c '^>')" -eq 1
 
+# ── ...nor may it reach the session bus it inherited ───────────────────────
+# A private XDG_RUNTIME_DIR does not move DBUS_SESSION_BUS_ADDRESS. A runner
+# that neither sources lib/headless.sh (its own dbus-daemon) nor
+# lib/private-bus.sh (a no-activation bus under dbus-run-session) puts every
+# service it loads — a NotificationServer, the tray watcher, MPRIS — on the
+# desktop's own bus. Twenty-four did until 2026-09-26 (found by the Phase 17
+# review). Comment lines do not count: prose naming the library is not a
+# source line.
+bus_orphans() {   # bus_orphans <file>... — prints each runner on neither bus
+    local f
+    for f in "$@"; do
+        grep -vE '^[[:space:]]*#' "$f" \
+            | grep -qE '^[[:space:]]*(\.|source)[[:space:]].*lib/(headless|private-bus)\.sh' \
+            || echo "$f"
+    done
+}
+orphans="$(cd "$root" && bus_orphans tests/run-*.sh)"
+want "every tests/run-*.sh is on a private session bus (lib/headless.sh or lib/private-bus.sh)${orphans:+ — not: $(echo $orphans)}" \
+    test -z "$orphans"
+# Self-test, both ways: a runner with the source line removed is caught, and
+# one whose only mention is a comment is caught too.
+busfix="$(mktemp -d)"
+grep -v 'lib/private-bus.sh' "$root/tests/run-rtl-test.sh" > "$busfix/removed.sh"
+{ echo '# . lib/private-bus.sh'; cat "$busfix/removed.sh"; } > "$busfix/commented.sh"
+want "self-test: a runner without the source line is caught" test -n "$(bus_orphans "$busfix/removed.sh")"
+want "self-test: a runner that only names it in a comment is caught" test -n "$(bus_orphans "$busfix/commented.sh")"
+want "self-test: the unmutated runner passes" test -z "$(bus_orphans "$root/tests/run-rtl-test.sh")"
+rm -rf "$busfix"
+
 echo
 echo "passed=$pass failed=$fail"
 [ "$fail" -eq 0 ]

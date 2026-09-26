@@ -71,6 +71,7 @@
 #
 #  Run from anywhere: ./tests/run-i18n-host-test.sh
 # ─────────────────────────────────────────────────────────────────────────────
+. "$(dirname "${BASH_SOURCE[0]}")/lib/private-bus.sh"   # the session bus is ours, not the desktop's
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

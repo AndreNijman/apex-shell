@@ -45,6 +45,7 @@
 #   dialog    the whole shell — the confirmation has to be mapped on an output
 #             that is still on after an apply that turned off the one the
 #             settings window was on.
+. "$(dirname "${BASH_SOURCE[0]}")/lib/private-bus.sh"   # the session bus is ours, not the desktop's
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

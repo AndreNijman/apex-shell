@@ -22,6 +22,7 @@
 #  Skips cleanly (status 0) without quickshell or without a headless compositor,
 #  so CI on a machine with neither does not fail the build.
 # ─────────────────────────────────────────────────────────────────────────────
+. "$(dirname "${BASH_SOURCE[0]}")/lib/private-bus.sh"   # the session bus is ours, not the desktop's
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

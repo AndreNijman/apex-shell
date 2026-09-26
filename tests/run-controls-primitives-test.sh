@@ -8,6 +8,7 @@
 #  than the glyph. Staged like run-a11y-controls-test.sh: the real controls,
 #  the real motion system and roles, a stub palette.
 # ─────────────────────────────────────────────────────────────────────────────
+. "$(dirname "${BASH_SOURCE[0]}")/lib/private-bus.sh"   # the session bus is ours, not the desktop's
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

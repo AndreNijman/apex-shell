@@ -9,6 +9,7 @@
 #  mirrored row reversed, a ring only while it has keyboard focus, and a
 #  single-page switcher that is no Tab stop at all.
 # ─────────────────────────────────────────────────────────────────────────────
+. "$(dirname "${BASH_SOURCE[0]}")/lib/private-bus.sh"   # the session bus is ours, not the desktop's
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
