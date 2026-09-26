@@ -138,6 +138,9 @@ PanelWindow {
         onPressed: root.close()
     }
 
+    // Depth (UI/UX Phase 18b): the popup level — it floats over the bare desktop.
+    Elevation { target: menuCard; level: "popup"; targetRadius: theme.cornerRadius }
+
     Item {
         id: menuCard
         x: root.menuX

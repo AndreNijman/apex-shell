@@ -1,5 +1,6 @@
 import Quickshell
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Shapes
 
 // bench-renderer.qml — frame cost of one animated connected shape.
@@ -33,9 +34,25 @@ ShellRoot {
         }
         Loader {
             anchors.fill: parent
-            sourceComponent: win.variant === "canvas" ? canvasC : win.variant === "idle" ? idleC : (win.variant === "geometry" ? shapeGeoC : shapeC)
+            sourceComponent: win.variant === "canvas" ? canvasC : win.variant === "idle" ? idleC : win.variant === "card" ? cardC : win.variant === "shadow" ? shadowC : (win.variant === "geometry" ? shapeGeoC : shapeC)
         }
         Component { id: idleC; Item { Rectangle { width: 10; height: 10; x: win.p * 100; color: "red" } } }
+        // UI/UX Phase 18b: a floating card resizing every frame, without and with
+        // Elevation's modal shadow (RectangularShadow, blur 40, 12 down, 4 in).
+        // `shadow` minus `card` is what the shadow costs on this GPU.
+        Component {
+            id: cardC
+            Item {
+                Rectangle { id: c1; x: 300; y: 200; width: 500 + 300 * win.p; height: 360; radius: 20; color: "#fdfaf3"; border.width: 1; border.color: "#e2ddd3" }
+            }
+        }
+        Component {
+            id: shadowC
+            Item {
+                RectangularShadow { x: c2.x; y: c2.y; width: c2.width; height: c2.height; radius: 20; blur: 40; spread: -4; offset: Qt.vector2d(0, 12); color: Qt.rgba(0, 0, 0, 0.28); cached: false }
+                Rectangle { id: c2; x: 300; y: 200; width: 500 + 300 * win.p; height: 360; radius: 20; color: "#fdfaf3"; border.width: 1; border.color: "#e2ddd3" }
+            }
+        }
         Component {
             id: shapeC
             Shape {

@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import "../"
+import "../components"
 import "../components/controls"
 
 // ─── DisplayConfirm ───────────────────────────────────────────────────────────
@@ -97,6 +98,7 @@ PanelWindow {
         MouseArea { anchors.fill: parent }
     }
 
+    Elevation { target: card; level: "modal" }   // over its scrim (UI/UX Phase 18b)
     Rectangle {
         id: card
 
@@ -112,7 +114,7 @@ PanelWindow {
         height: col.implicitHeight + theme.px(48)
         radius: theme.notchRadius
         color:  Theme.background
-        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
+        border.color: Theme.outlineSoft   // the surface rim, as a role (UI/UX Phase 18b)
         border.width: 1
 
         MouseArea { anchors.fill: parent }

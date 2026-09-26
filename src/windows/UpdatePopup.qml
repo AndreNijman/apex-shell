@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import "../"
+import "../components"
 
 // UpdatePopup — centered overlay popup for shell update notifications.
 // Same structural pattern as ConfirmDialog: PanelWindow Overlay, dim background,
@@ -67,13 +68,14 @@ PanelWindow {
     }
 
     // ── Card ──────────────────────────────────────────────────────────────────
+    Elevation { target: card; level: "modal" }   // over its scrim (UI/UX Phase 18b)
     Rectangle {
         id: card
         anchors.centerIn: parent
         width:  380
         radius: theme.notchRadius
         color:  Theme.background
-        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
+        border.color: Theme.outlineSoft   // the surface rim, as a role (UI/UX Phase 18b)
         border.width: 1
 
         // Size to content

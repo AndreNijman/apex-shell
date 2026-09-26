@@ -16,7 +16,8 @@
 #  default wallpaper), dark and light.
 #
 #  Writes OUTDIR/<scheme>/<page>.png — one settled 1920x1080 frame per page.
-#  CAPTURE_PAGES="home tasks" captures only those pages (default: all).
+#  CAPTURE_PAGES="home tasks" captures only those pages (default: all). The
+#  floating surfaces are pages too: toast, context-menu.
 #  CAPTURE_UNRESTRICTED=1 turns Always Unrestricted on (the harness's own
 #  ~/.config/apex/agent.json), so the Agents panel shows its indicator.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -93,6 +94,11 @@ PY
         gdbus call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications \
             --method org.freedesktop.Notifications.Notify "Pages" 0 "" "${n%%|*}" "${n#*|}" "[]" "{}" 0 >/dev/null 2>&1
         sleep 0.3
+        # The toast is a floating surface (UI/UX Phase 18b): one frame of it on
+        # screen, taken as the first one arrives.
+        if [ "$n" = "Build finished|apex-os roadmap/v2.2: 0 failures, 1,240 commits" ] && want toast; then
+            sleep 1.2; shot toast
+        fi
     done
     sleep 6   # let the toasts settle; expiry 0 keeps them in the centre
 
@@ -107,6 +113,9 @@ PY
         page="${pair%%|*}"; cmd="${pair#*|}"; want "$page" || continue
         ipc "$cmd" toggle; sleep 2; shot "$page"; ipc "$cmd" toggle; sleep 1.2
     done
+    if want context-menu; then
+        ipc context-menu open; sleep 1.5; shot context-menu; ipc context-menu close; sleep 1
+    fi
     local p
     for p in $(quickshell -p "$root/shell.qml" ipc call nexus pages 2>/dev/null | tr ',' ' '); do
         want "nexus-$p" || continue

@@ -134,6 +134,11 @@ PanelWindow {
 
         Keys.onEscapePressed: NexusState.close()
 
+        // Depth (UI/UX Phase 18b): the modal level. The scrim says the sheet is
+        // modal; nothing said it was in front — on the light scheme the sheet sat
+        // 3.6:1 over the scrimmed desk with only its hairline for an edge.
+        Elevation { target: card; level: "modal" }
+
         Rectangle {
             id: card
 
@@ -144,7 +149,7 @@ PanelWindow {
 
             radius: theme.radiusXL
             color: Theme.background
-            border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
+            border.color: Theme.outlineSoft   // the surface rim, as a role (UI/UX Phase 18b)
             border.width: 1
 
             opacity: life.content * life.alpha

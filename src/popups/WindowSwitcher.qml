@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import "../"
+import "../components"
 import "../services"
 import "../theme"
 
@@ -70,6 +71,7 @@ PanelWindow {
     }
 
     // ── The card ─────────────────────────────────────────────────────────────
+    Elevation { target: card; level: "modal" }   // over its scrim (UI/UX Phase 18b)
     Rectangle {
         id: card
         anchors.centerIn: parent
@@ -77,8 +79,10 @@ PanelWindow {
         height: content.implicitHeight + root.theme.px(36)
         radius: root.theme.cornerRadius
         color: Theme.background
-        border.width: root.theme.borderWidth
-        border.color: Theme.border
+        // The 1 px surface rim every floating surface has (UI/UX Phase 18b); it
+        // was the bar's border colour at the bar's user-set border width.
+        border.width: 1
+        border.color: Theme.outlineSoft
 
         ColumnLayout {
             id: content

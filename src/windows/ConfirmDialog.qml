@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 import "../"
+import "../components"
 import "../services/"
 import "../components/controls"
 
@@ -170,7 +171,9 @@ PanelWindow {
     }
 
     // ── Confirm dialog ────────────────────────────────────────────────────────
+    Elevation { target: confirmCard; level: "modal" }   // over its scrim (UI/UX Phase 18b)
     Rectangle {
+        id: confirmCard
         // Named for the scaling suite; see the note on the DisplayConfirm card.
         objectName: "apex-confirm-dialog-card"
 
@@ -184,6 +187,8 @@ PanelWindow {
         height: col.implicitHeight + 48
         radius: theme.notchRadius
         color:  Theme.background
+        border.width: 1
+        border.color: Theme.outlineSoft   // the surface rim; it had none (UI/UX Phase 18b)
         visible: Popups.confirmOpen && !Popups.confirmRunning
 
         MouseArea { anchors.fill: parent }
@@ -304,12 +309,16 @@ PanelWindow {
     }
 
     // ── Processing card ───────────────────────────────────────────────────────
+    Elevation { target: processingCard; level: "modal" }
     Rectangle {
+        id: processingCard
         anchors.centerIn: parent
         width:  300
         height: processingCol.implicitHeight + 56
         radius: theme.notchRadius
         color:  Theme.background
+        border.width: 1
+        border.color: Theme.outlineSoft
         visible: Popups.confirmRunning
 
         MouseArea { anchors.fill: parent }
