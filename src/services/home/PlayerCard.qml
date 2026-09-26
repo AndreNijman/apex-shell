@@ -570,9 +570,15 @@ Item {
     } 
 
     // ── Cava bars — independent, always flush with the card bottom ────────────
+    // Only while something plays (UI/UX Phase 17): at rest the 2 px minimum
+    // bars drew a dashed line along the card's bottom that read as a broken
+    // border.
     Item {
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: 7; rightMargin: 7; bottomMargin: 4 }
         height: 32
+        opacity: root.isPlaying ? 1 : 0
+        visible: opacity > 0
+        Behavior on opacity { MotionFade {} }
         Row {
             anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
             spacing: 2

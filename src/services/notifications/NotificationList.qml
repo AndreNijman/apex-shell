@@ -134,9 +134,9 @@ Item {
             // Left-aligned, like every other pane's heading (it was centred).
             anchors { left: parent.left; leftMargin: 4; verticalCenter: parent.verticalCenter }
             text:           "Notifications"
-            color:          Theme.text
-            font.pixelSize: theme.fs(14)
-            font.bold:      true
+            color:          Theme.textPrimary
+            font.pixelSize: theme.typeHeading
+            font.weight:    Font.DemiBold
         }
 
         // Clear-all — only visible when there are notifications
@@ -203,7 +203,9 @@ Item {
             // cards still moving up into the gap; the panel's own body, which
             // retargets over the same beat, bounds them instead.
             clip:           contentList.contentHeight > listArea.maxListHeight
-            spacing:        1
+            // Cards apart (UI/UX Phase 17): at 1 px, each card's left urgency bar
+            // joined the next into one long rule that read as the panel's edge.
+            spacing:        theme.spaceS
             boundsBehavior: Flickable.StopAtBounds
 
             // ── Keyboard — the stack is ONE Tab stop ────────────────────
@@ -504,19 +506,21 @@ Item {
             transform: Translate { x: card.dragX }
             opacity: 1 - 0.5 * Math.min(1, Math.abs(card.dragX) / Math.max(1, card.width))
 
-        // Hover background
+        // The card is a surface (UI/UX Phase 17, visual roadmap §25: "a small
+        // accent marker or stronger surface level rather than glowing borders"):
+        // the raised level, the state layer on hover — it read a HoverHandler's
+        // `containsMouse`, which it does not have, so the hover never showed —
+        // and a Critical one tinted toward danger. The 3 px left bar is gone.
         Rectangle {
             anchors.fill: parent
-            color:        cardHover.containsMouse ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05) : "transparent"
+            radius:       theme.radiusM
+            readonly property color base: card.tUrgency === NotificationUrgency.Critical
+                ? Qt.rgba(Theme.surfaceRaised.r * 0.86 + Theme.danger.r * 0.14,
+                          Theme.surfaceRaised.g * 0.86 + Theme.danger.g * 0.14,
+                          Theme.surfaceRaised.b * 0.86 + Theme.danger.b * 0.14, 1)
+                : Theme.surfaceRaised
+            color:        cardHover.hovered ? Theme.surfaceHover(base) : base
             Behavior on color { MotionColor {} }
-        }
-
-        // Left urgency accent bar
-        Rectangle {
-            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-            width:   3
-            color:   card.urgencyColor
-            opacity: 0.85
         }
 
         // Content row
@@ -679,9 +683,9 @@ Item {
                 }
                 Text {
                     anchors.centerIn: parent
-                    text:             "✕"
-                    color:            Theme.subtext
-                    font.pixelSize:   theme.fs(10)
+                    text:             "󰅖"
+                    color:            dismissBtn.hovered ? Theme.textPrimary : Theme.textSecondary
+                    font.pixelSize:   theme.fs(13)
                 }
                 ApexFocusRing { target: dismissBtn }
             }
