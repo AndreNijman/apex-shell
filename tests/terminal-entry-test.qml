@@ -20,6 +20,9 @@ import QtQuick
 //   plain  — a Terminal=false entry through the shell's own launch path, which
 //            must NOT acquire a terminal. A "fix" that wrapped everything would
 //            pass the middle case and be wrong.
+//   dgpu   — a Terminal=false entry declaring PrefersNonDefaultGPU=true, as
+//            Steam's does, which must start with the discrete GPU's
+//            environment while `plain` starts without it.
 //
 // The QML never imports src/. It is launched with the shell's services on the
 // import path when they exist and without them when they do not, so the raw
@@ -76,9 +79,10 @@ ShellRoot {
             const r = DesktopEntries.byId("apex-probe-raw")
             const t = DesktopEntries.byId("apex-probe-term")
             const p = DesktopEntries.byId("apex-probe-plain")
+            const d = DesktopEntries.byId("apex-probe-dgpu")
 
             if (root.phase === 0) {
-                if (!r || !t || !p) {
+                if (!r || !t || !p || !d) {
                     root.waited += 1
                     if (root.waited < 25)
                         return
@@ -87,6 +91,7 @@ ShellRoot {
                 root.describe("raw", r)
                 root.describe("term", t)
                 root.describe("plain", p)
+                root.describe("dgpu", d)
                 root.phase = 1
                 return
             }
@@ -115,6 +120,13 @@ ShellRoot {
                     root.shellLaunch(p)
                 } else {
                     root.report("plain.launched", "0")
+                }
+            } else if (root.phase === 5) {
+                if (root.routeVia === "shell" && d) {
+                    root.report("dgpu.launched", "1")
+                    root.shellLaunch(d)
+                } else {
+                    root.report("dgpu.launched", "0")
                 }
             } else if (root.phase >= 9) {
                 step.stop()

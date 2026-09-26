@@ -93,6 +93,7 @@ fd1="$(readlink /proc/self/fd/9 2>/dev/null)"
     printf 'pwd=%s\n' "$PWD"
     printf 'argc=%s\n' "$#"
     printf 'argv=%s\n' "$*"
+    printf 'prime=%s\n' "${__NV_PRIME_RENDER_OFFLOAD:-}"
 } > "$out.tmp" && mv "$out.tmp" "$out"
 REC
 chmod +x "$HEADLESS_W/bin/apex-probe-record"
@@ -106,6 +107,19 @@ printf 'invocations=1\n' >> "$SENTDIR/helper.count"
 exec python3 -c 'import pty,sys; sys.exit(pty.spawn(sys.argv[1:]))' "$@" >/dev/null 2>&1
 TERMSTUB
 chmod +x "$HEADLESS_W/bin/xdg-terminal-exec"
+
+# The discrete GPU. The real switcherooctl exports the dGPU's environment from
+# switcheroo-control and execs; this one records that it was asked and exports
+# the variable the real one sets on katana, so `prime=` in the recorder's
+# sentinel is graded on the launched program's own environment.
+cat > "$HEADLESS_W/bin/switcherooctl" <<'GPUSTUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$SENTDIR/switcheroo.argv"
+[ "$1" = "launch" ] && shift
+export __NV_PRIME_RENDER_OFFLOAD=1
+exec "$@"
+GPUSTUB
+chmod +x "$HEADLESS_W/bin/switcherooctl"
 
 apps="$XDG_DATA_HOME/applications"
 mkdir -p "$apps"
@@ -139,6 +153,18 @@ Type=Application
 Name=APEX plain probe
 Exec=apex-probe-record plain
 Terminal=false
+NoDisplay=true
+FIXTURE
+# Steam's entry declares this key. Path= is carried so the detour through
+# desktop-launch.sh is graded on keeping it, as the terminal detour is.
+cat > "$apps/apex-probe-dgpu.desktop" <<FIXTURE
+[Desktop Entry]
+Type=Application
+Name=APEX discrete-GPU probe
+Exec=apex-probe-record dgpu %U
+Path=$CWD
+Terminal=false
+PrefersNonDefaultGPU=true
 NoDisplay=true
 FIXTURE
 export XDG_DATA_DIRS="$XDG_DATA_HOME:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
@@ -256,6 +282,41 @@ else
         fi
     else
         bad "a Terminal=false entry still launches"
+    fi
+
+    if [ -f "$SENT/dgpu" ]; then
+        ok "a PrefersNonDefaultGPU=true entry launches"
+        if [ "$(field dgpu prime)" = "1" ]; then
+            ok "and it runs with the discrete GPU's environment"
+        else
+            bad "and it runs with the discrete GPU's environment"
+        fi
+        if [ "$(field dgpu pwd)" = "$CWD" ]; then
+            ok "and Path= survived the detour through desktop-launch.sh"
+        else
+            bad "and Path= survived the detour through desktop-launch.sh"
+            echo "        wanted $CWD, got $(field dgpu pwd)"
+        fi
+        # The recorder shifts its own tag off first, so a clean launch is 0.
+        if [ "$(field dgpu argc)" = "0" ]; then
+            ok "and the unexpanded %U did not reach it"
+        else
+            bad "and the unexpanded %U did not reach it"
+        fi
+    else
+        bad "a PrefersNonDefaultGPU=true entry launches"
+    fi
+    if [ -f "$SENT/plain" ] && [ -z "$(field plain prime)" ]; then
+        ok "an entry that does not ask for the discrete GPU does not get it"
+    else
+        bad "an entry that does not ask for the discrete GPU does not get it"
+    fi
+    if [ "$(grep -c . "$SENT/switcheroo.argv" 2>/dev/null || echo 0)" = "1" ] \
+       && grep -qx 'launch apex-probe-record dgpu' "$SENT/switcheroo.argv"; then
+        ok "switcherooctl was asked exactly once, by the entry that asked for it"
+    else
+        bad "switcherooctl was asked exactly once, by the entry that asked for it"
+        sed 's/^/        argv: /' "$SENT/switcheroo.argv" 2>/dev/null
     fi
 
     if [ "$(grep -c . "$SENT/helper.count" 2>/dev/null || echo 0)" = "1" ]; then

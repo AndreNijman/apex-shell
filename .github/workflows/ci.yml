@@ -294,8 +294,20 @@ jobs:
           # that the shell's own path hands such an entry to xdg-terminal-exec
           # and leaves Terminal=false entries alone. Needs a compositor and
           # skips cleanly without one, like the suite above. No window opens:
-          # the terminal is a stub that gives the program a pty.
+          # the terminal is a stub that gives the program a pty. It also grades
+          # that a PrefersNonDefaultGPU=true entry starts with the discrete
+          # GPU's environment and a plain one does not.
           ./tests/run-terminal-entry-test.sh
+
+      - name: PrefersNonDefaultGPU=true starts an entry on the discrete GPU
+        run: |
+          # Steam declares the key and Quickshell does not parse it, so Steam
+          # and every game it started ran on the integrated GPU. On katana an
+          # i915 hang in a game then reset Hyprland's context and crashed it.
+          # desktop-launch.sh reads the key and goes through switcherooctl;
+          # this grades which entries are offloaded against a stub GPU, with
+          # no compositor, and fails against a launcher that ignores the key.
+          bash tests/check-desktop-launch.sh
 
       - name: A resting pointer does not pick the launcher row Enter opens
         run: |
