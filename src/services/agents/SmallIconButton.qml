@@ -17,6 +17,9 @@ ApexIconButton {
 
     glyph: btn.icon
     size: theme.px(26)
+    // A 32 px target (hitMin) around the 26 px glyph; the rows that hold these
+    // leave 6 px between them, so a margin meets a margin, never a glyph.
+    hitMargin: theme.px(3)
     glyphSize: theme.fs(12)
     focusOnPress: false
     label: btn.tip

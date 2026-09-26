@@ -54,8 +54,11 @@ code() { grep -vE '^\s*(//|#)' "$1" 2>/dev/null; }
 # written that way at first: their greps got empty input, and the three
 # negative ones passed because a grep of nothing matches nothing. Every check
 # that needs stripped code is therefore a named function run in THIS shell.
-page_code_has()     { code "$page" | grep -q "$1"; }
-page_code_has_not() { ! code "$page" | grep -qE "$1"; }
+# grep -c, not -q: -q exits at the first match, the writer takes SIGPIPE, and
+# under pipefail the MATCH reads as 141 — this check failed at random for that,
+# and the negated form passed at random on a match. -c reads everything.
+page_code_has()     { code "$page" | grep -c -- "$1" >/dev/null; }
+page_code_has_not() { ! code "$page" | grep -cE -- "$1" >/dev/null; }
 
 want "the behavioural suite exists and is non-empty"  test -s "$suite"
 want "its runner exists and is non-empty"             test -s "$runner"

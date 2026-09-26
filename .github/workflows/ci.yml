@@ -1523,6 +1523,12 @@ jobs:
       - name: How far Reduce Motion reaches
         run: ./tests/check-reduce-motion.sh
 
+      # Every button big enough to hit (Phase 21): the design system's
+      # hitMin (32 px) outside the bar, hitBar (24 px) the floor anywhere,
+      # counting hitMargin. Under 24 fails; the count under 32 is ratcheted.
+      - name: Every button is big enough to hit
+        run: ./tests/check-hit-targets.sh
+
       # The motion table and its policy, in node: exits shorter than entrances,
       # no curve overshoots, spatial tokens are 0 under Reduce Motion while
       # effects survive capped, the legacy animDuration migrates by its ratio
@@ -1599,6 +1605,13 @@ jobs:
       # collapsing over a few frames.
       - name: The Dashboard's Home and Tasks tabs answer the keyboard (Reduce Motion)
         run: REDUCE_MOTION=true ./tests/run-dashboard-keys-test.sh
+
+      # The Agents and Config tabs on the keyboard: the agents guide opens on
+      # its section list, keeps Tab inside it, closes on Escape alone and hands
+      # the keys back; a wallpaper applied from the Appearance strip, read off
+      # a logging awww/swww and ~/.curr_wall. Needs labwc, wtype and PIL.
+      - name: The Agents and Config tabs answer the keyboard
+        run: ./tests/run-config-agents-keys-test.sh
 
       # The fluid surface geometry (Phases 4-5): every family swept over
       # progress at three output scales — tangent-continuous joins, no

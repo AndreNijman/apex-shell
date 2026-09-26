@@ -2,6 +2,7 @@ import QtQuick
 import "../../../"
 import "../../"
 import "../../../components/config"
+import "../../../components/controls"
 
 // Config → Appearance
 //   • Live palette preview (matugen output)
@@ -11,6 +12,21 @@ import "../../../components/config"
 CfgScroll {
     id: root
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
+    // ── Keyboard (UI/UX roadmap v3 Phase 21) ─────────────────────────────────
+    // The wallpaper strip is ONE Tab stop: Left/Right move a highlight kept by
+    // the wallpaper's own path (a stable key — a rescan can reorder the list),
+    // Return/Space applies it. It is a single horizontal row, so Up/Down do
+    // nothing here (there is no second row to jump to).
+    property string _curWall: ""
+
+    function _stepWall(d) {
+        var list = WallpaperService.wallpapers
+        if (list.length === 0) return
+        var i = list.indexOf(root._curWall)
+        root._curWall = i < 0 ? list[d > 0 ? 0 : list.length - 1]
+                              : list[Math.max(0, Math.min(list.length - 1, i + d))]
+    }
 
 
     // Criterion 1. Everything on this page writes as you touch it and is
@@ -120,13 +136,53 @@ CfgScroll {
                 boundsBehavior: Flickable.StopAtBounds
                 model:        WallpaperService.wallpapers
 
+                // Its own currentIndex/arrow handling would fight the stable-
+                // path highlight below (WallpaperService.wallpapers can
+                // reorder on a rescan, so an index is not a safe key).
+                keyNavigationEnabled: false
+                activeFocusOnTab: WallpaperService.wallpapers.length > 0
+                Accessible.role: Accessible.List
+                Accessible.name: "Wallpapers"
+                onActiveFocusChanged: if (activeFocus
+                        && WallpaperService.wallpapers.indexOf(root._curWall) < 0)
+                    root._stepWall(1)
+                Keys.onPressed: function (event) {
+                    // A single row: Up/Down have nowhere to go, so they are
+                    // left unaccepted rather than eaten.
+                    var flip = wallStrip.LayoutMirroring.enabled ? -1 : 1
+                    var list = WallpaperService.wallpapers
+                    if      (event.key === Qt.Key_Right) root._stepWall(flip)
+                    else if (event.key === Qt.Key_Left)  root._stepWall(-flip)
+                    else if (event.key === Qt.Key_Home && list.length > 0) root._curWall = list[0]
+                    else if (event.key === Qt.Key_End   && list.length > 0) root._curWall = list[list.length - 1]
+                    else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                             || event.key === Qt.Key_Space) {
+                        if (!WallpaperService.applying && root._curWall !== "")
+                            WallpaperService.apply(root._curWall)
+                    } else return
+                    event.accepted = true
+                    var idx = list.indexOf(root._curWall)
+                    if (idx >= 0) wallStrip.positionViewAtIndex(idx, ListView.Contain)
+                }
+
                 delegate: Item {
+                    id: thumb
                     required property string modelData
                     width:  118
                     height: 70
                     anchors.verticalCenter: parent ? parent.verticalCenter : undefined
 
                     readonly property bool active: WallpaperService.currentWall === modelData
+                    // ApexFocusRing's contract: radius + focusVisible. The
+                    // container (wallStrip) is the actual Tab stop; this is
+                    // never itself focused, so focusVisible just tracks
+                    // whether it is the keyboard's current thumbnail.
+                    readonly property real radius: 10
+                    readonly property bool focusVisible: root._curWall === modelData && wallStrip.activeFocus
+
+                    Accessible.role: Accessible.ListItem
+                    Accessible.name: modelData.split("/").pop()
+                    Accessible.selected: active
 
                     Rectangle {
                         anchors.fill: parent
@@ -161,9 +217,11 @@ CfgScroll {
                             Behavior on border.width { MotionFade {} }
                         }
                     }
+                    ApexFocusRing { target: thumb }
                     HoverHandler { id: wh; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
                         anchors.fill: parent
+                        onPressed: root._curWall = modelData
                         cursorShape:  Qt.PointingHandCursor
                         onClicked:    if (!WallpaperService.applying) WallpaperService.apply(modelData)
                     }

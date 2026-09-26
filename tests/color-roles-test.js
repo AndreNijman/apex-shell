@@ -63,12 +63,22 @@ for (const p of FIX.palettes) {
     track("iconDefault", R.contrast(r.iconDefault, r.surfaceHigh), tag + " on high");
     track("onAccentContainer", R.contrast(r.onAccentContainer, r.accentContainer), tag);
     track("containerStep", R.contrast(r.accentContainer, r.surfaceBase), tag);
+    // The keyboard focus ring (ApexFocusRing, and every hand-drawn ring since
+    // Phase 21) is accentText at 2 px, on whatever surface the control sits:
+    // a focus indicator is non-text, 3:1 (WCAG 1.4.11) — measured 4.21 worst.
+    for (const [s, c] of Object.entries({ base: r.surfaceBase, raised: r.surfaceRaised, overlay: r.surfaceOverlay,
+                                          high: r.surfaceHigh, selected: r.surfaceSelected, container: r.accentContainer }))
+        track("focusRing", R.contrast(r.accentText, c), tag + " on " + s);
+    // The selected fill is a step, not the whole cue — a selected control also
+    // turns its label and glyph to the accent — but the step must not vanish.
+    track("selectedStep", R.contrast(r.surfaceSelected, r.surfaceBase), tag);
     const lift = [r.surfaceRaised, r.surfaceOverlay, r.surfaceHigh].map(c => R.contrast(c, r.surfaceBase));
     track("elevationOrdered", lift[0] < lift[1] && lift[1] < lift[2] ? 1 : 0, tag);
 }
 const req = { textPrimary: T.textPrimary, textSecondary: T.textSecondary, textTertiary: T.textTertiary,
               accentText: T.accentOnBase, iconDefault: T.icon, onAccentContainer: T.textSecondary,
-              containerStep: T.containerStep, elevationOrdered: 1 };
+              containerStep: T.containerStep, elevationOrdered: 1,
+              focusRing: 3.0, selectedStep: 1.2 };
 for (const [k, min] of Object.entries(req)) {
     const w = worst[k];
     check(`${k}: ≥ ${min} on all ${FIX.palettes.length} palettes (worst ${w.v.toFixed(2)}, ${w.where})`, w.v >= min);

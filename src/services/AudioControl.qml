@@ -1,6 +1,8 @@
 import QtQuick
 import Quickshell.Services.Pipewire
 import "../components"
+import "../components/controls"
+import "../popups"
 import "../"
 
 Item {
@@ -70,6 +72,8 @@ Item {
 
                 ChannelColumn {
                     width:  parent.width
+                    trackHeight: 160; gap: 8; muteText: true; labelWidth: barW + 60
+                    accessibleName: "Output volume"
                     label:  (root.sink && root.sink.ready) ? root.deviceName(root.sink) : "Output"
                     icon: {
                         if (!root.sink || !root.sink.ready)           return "󰕾"
@@ -98,6 +102,8 @@ Item {
 
                 ChannelColumn {
                     width:  parent.width
+                    trackHeight: 160; gap: 8; muteText: true; labelWidth: barW + 60
+                    accessibleName: "Input volume"
                     label:  (root.source && root.source.ready) ? root.deviceName(root.source) : "Input"
                     icon:   (root.source && root.source.audio && root.source.audio.muted) ? "󰍭" : "󰍬"
                     value:  (root.source && root.source.ready) ? root.source.audio.volume : 0
@@ -120,14 +126,12 @@ Item {
 
                 SectionLabel { text: "Output Devices" }
 
-                Repeater {
-                    model: root.sinkNodes
-                    delegate: DeviceRow {
-                        width:     parent.width
-                        label:     root.deviceName(modelData)
-                        isDefault: (root.sink && root.sink.ready && modelData.name === root.sink.name) || false
-                        onClicked: Pipewire.preferredDefaultAudioSink = modelData
-                    }
+                DeviceList {
+                    width:    parent.width
+                    listName: "Output devices"
+                    nodes:    root.sinkNodes
+                    current:  (root.sink && root.sink.ready) ? root.sink.name : ""
+                    onChosen: function (node) { Pipewire.preferredDefaultAudioSink = node }
                 }
 
                 Text {
@@ -145,14 +149,12 @@ Item {
 
                 SectionLabel { text: "Input Devices" }
 
-                Repeater {
-                    model: root.sourceNodes
-                    delegate: DeviceRow {
-                        width:     parent.width
-                        label:     root.deviceName(modelData)
-                        isDefault: (root.source && root.source.ready && modelData.name === root.source.name) || false
-                        onClicked: Pipewire.preferredDefaultAudioSource = modelData
-                    }
+                DeviceList {
+                    width:    parent.width
+                    listName: "Input devices"
+                    nodes:    root.sourceNodes
+                    current:  (root.source && root.source.ready) ? root.source.name : ""
+                    onChosen: function (node) { Pipewire.preferredDefaultAudioSource = node }
                 }
 
                 Text {
@@ -187,150 +189,6 @@ Item {
         }
     }
 
-    // ── ChannelColumn ─────────────────────────────────────────────────────────
-    component ChannelColumn: Item {
-        id: col
-
-        property string label:  ""
-        property string icon:   ""
-        property real   value:  0.0
-        property bool   muted:  false
-        property bool   active: false
-
-        readonly property int trackHeight: 160
-        readonly property int barW:        22
-        readonly property int thumbD:      barW - 6
-
-        signal volumeChanged(real value)
-        signal muteToggled()
-
-        // Expose size so PopupPage Flickable can measure content
-        implicitWidth:  inner.implicitWidth
-        implicitHeight: inner.implicitHeight
-
-        readonly property string pctText:
-            active ? Math.round(value * 100) + "%" : "—"   // no device: a dash (brief §F.7)
-
-        Column {
-            id: inner
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 8
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text:           col.pctText
-                color:          col.muted ? Theme.textTertiary : Theme.text
-                font.pixelSize: theme.fs(13)
-                font.bold:      true
-                Behavior on color { MotionColor { role: "state" } }
-            }
-
-            Item {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width:  col.barW
-                height: col.trackHeight
-
-                Rectangle {
-                    id: track
-                    anchors.fill: parent
-                    radius: width / 2
-                    color:  Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
-
-                    // Fill bar
-                    Rectangle {
-                        anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
-                        height: Math.max(parent.radius * 2, parent.height * col.value)
-                        radius: parent.radius
-                        color:  col.muted ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.15) : Theme.active
-                        Behavior on color  { MotionColor { role: "state" } }
-                        Behavior on height { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
-                    }
-
-                    // Thumb
-                    Rectangle {
-                        id: thumb
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width:  col.thumbD
-                        height: width
-                        radius: width / 2
-                        color:  col.muted ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.3) : Theme.fixedLight
-                        y: {
-                            var travel = track.height - height
-                            return Math.max(0, Math.min(travel, (1.0 - col.value) * travel))
-                        }
-                        Behavior on color { MotionColor { role: "state" } }
-                    }
-
-                    // Drag to change volume. No wheel handler: these columns sit
-                    // inside a PopupPage that scrolls, so a wheel here belongs
-                    // to the page.
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape:  Qt.SizeVerCursor
-                        function calc(my) {
-                            var travel = track.height - thumb.height
-                            return Math.max(0.0, Math.min(1.0,
-                                1.0 - (my - thumb.height / 2) / travel))
-                        }
-                        onPressed:         col.volumeChanged(calc(mouseY))
-                        onPositionChanged: if (pressed) col.volumeChanged(calc(mouseY))
-                    }
-                }
-            }
-
-            // Mute button
-            Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width:  col.barW + 32
-                height: 28
-                radius: theme.cornerRadius
-                color:  col.muted
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.2)
-                            : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
-                Behavior on color { MotionColor { role: "state" } }
-
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 5
-                    Text {
-                        text:           col.icon
-                        font.pixelSize: theme.fs(13)
-                        color:          col.muted ? Theme.active : Theme.textSecondary
-                        anchors.verticalCenter: parent.verticalCenter
-                        Behavior on color { MotionColor { role: "state" } }
-                    }
-                    Text {
-                        text:           col.muted ? "Muted" : "Mute"
-                        font.pixelSize: theme.fs(11)
-                        color:          col.muted ? Theme.active : Theme.textSecondary
-                        anchors.verticalCenter: parent.verticalCenter
-                        Behavior on color { MotionColor { role: "state" } }
-                    }
-                }
-                Rectangle {
-                    anchors.fill: parent; radius: parent.radius
-                    color: muteHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05) : "transparent"
-                    Behavior on color { MotionColor {} }
-                }
-                HoverHandler { id: muteHov; cursorShape: Qt.PointingHandCursor }
-                MouseArea { anchors.fill: parent; onClicked: col.muteToggled() }
-            }
-
-            // Label
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text:            col.label
-                color:           Theme.textTertiary
-                font.pixelSize:  theme.fs(10)
-                font.capitalization: Font.AllUppercase
-                font.letterSpacing: 1
-                elide:           Text.ElideRight
-                width:           col.barW + 60
-                horizontalAlignment: Text.AlignHCenter
-            }
-        }
-    }
-
     // ── SectionLabel ──────────────────────────────────────────────────────────
     component SectionLabel: Text {
         color:           Theme.textSecondary
@@ -339,49 +197,5 @@ Item {
         font.letterSpacing: 0.8
         leftPadding: 4
         topPadding:  2
-    }
-
-    // ── DeviceRow ─────────────────────────────────────────────────────────────
-    component DeviceRow: Item {
-        id: row
-        implicitHeight: 28
-
-        property string label:     ""
-        property bool   isDefault: false
-        signal clicked()
-
-        Rectangle {
-            anchors.fill: parent
-            radius: theme.cornerRadius - 4
-            color:  row.isDefault
-                        ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12)
-                        : (rowHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05) : "transparent")
-            Behavior on color { MotionColor { role: "state" } }
-        }
-
-        Row {
-            anchors { left: parent.left; leftMargin: 8; right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
-            spacing: 6
-
-            Rectangle {
-                width: 6; height: 6; radius: 3
-                anchors.verticalCenter: parent.verticalCenter
-                color: row.isDefault ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.2)
-                Behavior on color { MotionColor { role: "state" } }
-            }
-
-            Text {
-                text:           row.label
-                color:          row.isDefault ? Theme.text : Theme.textSecondary
-                font.pixelSize: theme.fs(11)
-                elide:          Text.ElideRight
-                width:          parent.width - 14 - parent.spacing
-                anchors.verticalCenter: parent.verticalCenter
-                Behavior on color { MotionColor { role: "state" } }
-            }
-        }
-
-        HoverHandler { id: rowHov; cursorShape: Qt.PointingHandCursor }
-        MouseArea { anchors.fill: parent; onClicked: row.clicked() }
     }
 }

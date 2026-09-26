@@ -869,7 +869,7 @@ Item {
                             spacing: 2; anchors.verticalCenter: parent.verticalCenter
                             ApexPressable {
                                 id: hourUpBtn
-                                width: 26; height: 18; radius: 4; hitMargin: 1   // 2px Column spacing either side
+                                width: 26; height: 18; radius: 4; hitMargin: 7   // 32 px: the digit box between ▲ and ▼ takes no clicks
                                 Accessible.name: "Increase hour"
                                 onActivated: root.pickerTimeH = (root.pickerTimeH + 1) % 24
                                 Rectangle {
@@ -893,7 +893,7 @@ Item {
                             }
                             ApexPressable {
                                 id: hourDownBtn
-                                width: 26; height: 18; radius: 4; hitMargin: 1
+                                width: 26; height: 18; radius: 4; hitMargin: 7
                                 Accessible.name: "Decrease hour"
                                 onActivated: root.pickerTimeH = (root.pickerTimeH + 23) % 24
                                 Rectangle {
@@ -914,7 +914,7 @@ Item {
                             spacing: 2; anchors.verticalCenter: parent.verticalCenter
                             ApexPressable {
                                 id: minUpBtn
-                                width: 26; height: 18; radius: 4; hitMargin: 1
+                                width: 26; height: 18; radius: 4; hitMargin: 7
                                 Accessible.name: "Increase minute"
                                 onActivated: root.pickerTimeM = (root.pickerTimeM + 5) % 60
                                 Rectangle {
@@ -938,7 +938,7 @@ Item {
                             }
                             ApexPressable {
                                 id: minDownBtn
-                                width: 26; height: 18; radius: 4; hitMargin: 1
+                                width: 26; height: 18; radius: 4; hitMargin: 7
                                 Accessible.name: "Decrease minute"
                                 onActivated: root.pickerTimeM = (root.pickerTimeM + 55) % 60
                                 Rectangle {
@@ -956,7 +956,8 @@ Item {
                         ApexPressable {
                             id: clearTimeBtn
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 18; height: 18; radius: 9; hitMargin: 2
+                            // 28 px: at 5 its margin just meets the minute ▲'s corner
+                            width: 18; height: 18; radius: 9; hitMargin: 5
                             Accessible.name: "Remove time"
                             onActivated: root.pickerHasTime = false
                             Rectangle {
@@ -1328,7 +1329,7 @@ Item {
                             id: clrDueBtn
                             visible: (card.taskData.dueDate || "") !== ""
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 16; height: 16; radius: 8; hitMargin: 3
+                            width: 16; height: 16; radius: 8; hitMargin: 5   // 26 px; 6 px from Due
                             activeFocusOnTab: card.keyed || card.open
                             Accessible.name: "Clear due date"
                             onActivated: {
@@ -1369,15 +1370,16 @@ Item {
 
                     Row {
                         anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                        spacing: 4
+                        // 12 px apart so each 20 px button can take a 32 px
+                        // target (hitMargin 6) without reaching its neighbour's
+                        // (UI/UX Phase 21; they were 4 apart and 24 px).
+                        spacing: 12
 
-                        // ← left — grouped with 4px spacing, so hitMargin is capped
-                        // well under the (32-20)/2 nominal value to avoid stealing
-                        // clicks meant for its neighbour.
+                        // ← left
                         ApexPressable {
                             id: leftBtn
                             visible: card.colIdx > 0
-                            width: 20; height: 20; radius: 5; hitMargin: 2
+                            width: 20; height: 20; radius: 5; hitMargin: 6
                             activeFocusOnTab: card.keyed || card.open
                             Accessible.name: "Move task left"
                             onActivated: card.col._moveCardTo(card.taskData.id, -1)
@@ -1394,7 +1396,7 @@ Item {
                         ApexPressable {
                             id: rightBtn
                             visible: card.colIdx < 2
-                            width: 20; height: 20; radius: 5; hitMargin: 2
+                            width: 20; height: 20; radius: 5; hitMargin: 6
                             activeFocusOnTab: card.keyed || card.open
                             Accessible.name: "Move task right"
                             onActivated: card.col._moveCardTo(card.taskData.id, 1)
@@ -1410,7 +1412,7 @@ Item {
                         // ✕ delete — opens the confirmation overlay below.
                         ApexPressable {
                             id: delBtn
-                            width: 20; height: 20; radius: 5; hitMargin: 2
+                            width: 20; height: 20; radius: 5; hitMargin: 6
                             activeFocusOnTab: card.keyed || card.open
                             Accessible.name: "Delete task"
                             onActivated: card.startDelete()

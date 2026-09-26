@@ -98,6 +98,58 @@ Item {
     // it in a binding.
     readonly property bool _hasRemote: RemoteAgentService.hosts.length > 0
 
+    // ── Keyboard (UI/UX roadmap v3 Phase 21) ────────────────────────────────
+    // One Tab stop over ALL rows in visual order — requests, then "needs you",
+    // then everything else — rather than one stop per section. The three
+    // sections read as one list ("what needs me, in order"), and Up/Down
+    // crossing a section boundary is what makes that order legible; three
+    // separate stops would make the same list feel like three unrelated ones
+    // for the price of extra Tab presses. Remote devices (§20) are NOT in this
+    // list: RemoteHostRow is outside this page's edit scope, and a device row
+    // backed by ssh cannot safely share a "highlight, then Return" model with
+    // local rows that mutate the local runtime.
+    //
+    // Keys are request ids and session ids prefixed by kind, because the two
+    // id spaces are independent — a request "5" and a session "5" existing at
+    // once is not implausible (the same sentinel trap WifiTab's note covers).
+    readonly property var _rows: {
+        var r = []
+        for (var i = 0; i < root._requests.length; i++)
+            r.push({ kind: "request", id: root._requests[i].id, key: "req:" + root._requests[i].id })
+        for (var j = 0; j < root._needsYou.length; j++)
+            r.push({ kind: "session", id: root._needsYou[j].id, key: "sess:" + root._needsYou[j].id })
+        for (var k = 0; k < root._others.length; k++)
+            r.push({ kind: "session", id: root._others[k].id, key: "sess:" + root._others[k].id })
+        return r
+    }
+    property string _curKey: ""
+    readonly property var _rowKeys: root._rows.map(function (m) { return m.key })
+    function _stepRow(d) {
+        const list = root._rowKeys
+        if (list.length === 0) return
+        const i = list.indexOf(root._curKey)
+        root._curKey = i < 0 ? list[d > 0 ? 0 : list.length - 1]
+                             : list[Math.max(0, Math.min(list.length - 1, i + d))]
+    }
+    // The actual row Item for a key, so the list can call ITS primary()
+    // rather than duplicating what a tap does. Three Repeaters, like WifiTab's
+    // single one, because requests and sessions are different delegate types.
+    function _rowItemFor(key) {
+        for (let i = 0; i < reqRepeater.count; i++) {
+            const it = reqRepeater.itemAt(i)
+            if (it && "req:" + it.request.id === key) return it
+        }
+        for (let i = 0; i < needsYouRepeater.count; i++) {
+            const it = needsYouRepeater.itemAt(i)
+            if (it && "sess:" + it.session.id === key) return it
+        }
+        for (let i = 0; i < othersRepeater.count; i++) {
+            const it = othersRepeater.itemAt(i)
+            if (it && "sess:" + it.session.id === key) return it
+        }
+        return null
+    }
+
     // ── The help strip (§43) ──────────────────────────────────────────────────
     // Pinned, never scrolled away, and present in all three page states.
     Column {
@@ -110,8 +162,14 @@ Item {
         anchors.rightMargin: theme.px(10)
         spacing: theme.px(7)
 
-        AgentHelpEntry { width: parent.width }
-        AgentHelpCard   { width: parent.width }
+        AgentHelpEntry { id: helpEntry; width: parent.width }
+        // Dismissed from the keyboard, the card leaves with the button that had
+        // the keys: they go to the permanent entry above it (UI/UX roadmap v3
+        // Phase 21). A click dismisses and moves nothing.
+        AgentHelpCard {
+            width: parent.width
+            onDismissedByKey: Qt.callLater(function() { helpEntry.forceActiveFocus() })
+        }
 
         // §P1-021's account-wide windows. Pinned, for the reason the banner
         // below it is: it is a fact about the machine rather than about any
@@ -215,14 +273,41 @@ Item {
         }
 
         // ── The list ─────────────────────────────────────────────────────────────
+        // ONE Tab stop for the whole scroll area — see the keyboard note above
+        // for why the three local sections share it. Remote devices scroll
+        // inside the same view but are not part of the Up/Down order.
         ScrollView {
+            id: scrollView
             anchors.fill: parent
             anchors.margins: theme.px(6)
             clip: true
             visible: (AgentService.daemonUp && !root._empty) || root._hasRemote
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
+            activeFocusOnTab: root._rows.length > 0
+            Accessible.role: Accessible.List
+            Accessible.name: "Agent sessions and requests"
+            onActiveFocusChanged: if (activeFocus && root._rowKeys.indexOf(root._curKey) < 0) root._stepRow(1)
+            Keys.onPressed: function (event) {
+                if      (event.key === Qt.Key_Down) root._stepRow(1)
+                else if (event.key === Qt.Key_Up)   root._stepRow(-1)
+                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                    const r = root._rowItemFor(root._curKey)
+                    if (r) r.primary()
+                } else return
+                event.accepted = true
+                // Keep the highlighted row in view.
+                const r2 = root._rowItemFor(root._curKey)
+                if (r2 && scrollView.contentItem) {
+                    const top = r2.mapToItem(contentCol, 0, 0).y
+                    if (top < scrollView.contentItem.contentY) scrollView.contentItem.contentY = top
+                    else if (top + r2.height > scrollView.contentItem.contentY + scrollView.height)
+                        scrollView.contentItem.contentY = top + r2.height - scrollView.height
+                }
+            }
+
             Column {
+                id: contentCol
                 width: root.width - theme.fs(20)
                 spacing: theme.px(6)
 
@@ -236,6 +321,7 @@ Item {
                     tone: Theme.attention
                 }
                 Repeater {
+                    id: reqRepeater
                     model: root._requests
                     delegate: RequestRow {
                         // Declared required rather than reached for implicitly:
@@ -245,6 +331,8 @@ Item {
                         required property var modelData
                         width: parent.width
                         request: modelData
+                        keyed: root._curKey === "req:" + modelData.id
+                        listFocused: scrollView.activeFocus
                     }
                 }
 
@@ -255,11 +343,15 @@ Item {
                     accent: true
                 }
                 Repeater {
+                    id: needsYouRepeater
                     model: root._needsYou
                     delegate: SessionRow {
                         required property var modelData
                         width: parent.width
                         session: modelData
+                        keyed: root._curKey === "sess:" + modelData.id
+                        listFocused: scrollView.activeFocus
+                        list: scrollView
                     }
                 }
 
@@ -276,14 +368,22 @@ Item {
                     readonly property int finished:
                         root._others.filter(s => !AgentService._isLive(s)).length
                     actionText: finished > 0 ? "Clear " + finished + " finished" : ""
-                    onAction: AgentService.dismissFinished()
+                    // "Clear finished" removes rows out from under the list;
+                    // its own button vanishes with them the instant `finished`
+                    // recomputes to 0, so the keys go back to the list rather
+                    // than to a control that just disappeared.
+                    onAction: { AgentService.dismissFinished(); Qt.callLater(function() { scrollView.forceActiveFocus() }) }
                 }
                 Repeater {
+                    id: othersRepeater
                     model: root._others
                     delegate: SessionRow {
                         required property var modelData
                         width: parent.width
                         session: modelData
+                        keyed: root._curKey === "sess:" + modelData.id
+                        listFocused: scrollView.activeFocus
+                        list: scrollView
                     }
                 }
 
@@ -399,5 +499,7 @@ Item {
     // ── The guide (§43) ───────────────────────────────────────────────────────
     // Last child, so it draws over the strip and the list alike. It anchors
     // itself and carries its own z; opening it is AgentHelp.open().
-    AgentHelpPanel {}
+    // Closed from the keyboard, the guide hands the keys back to the entry that
+    // opens it (a pointer close moves nothing).
+    AgentHelpPanel { onClosedByKey: Qt.callLater(function() { helpEntry.forceActiveFocus() }) }
 }

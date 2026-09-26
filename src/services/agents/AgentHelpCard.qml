@@ -1,5 +1,6 @@
 import QtQuick
 import "../../"
+import "../../components/controls"
 
 // First-run guidance, shown until the user says otherwise (roadmap §43).
 //
@@ -15,6 +16,11 @@ Rectangle {
     id: card
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
+    // Fired after a dismissal from the keyboard. The card's own two buttons go
+    // with it — `visible` collapses the instant AgentHelp.showOnboarding does —
+    // so the page puts the keys somewhere sensible instead of nowhere (UI/UX
+    // roadmap v3 Phase 21). A click dismisses and moves nothing.
+    signal dismissedByKey()
 
     // A Column reserves space for an invisible child, so the collapse has to be
     // a height of zero. Same trap as the notes in AgentCenter.
@@ -64,16 +70,24 @@ Rectangle {
         Row {
             spacing: theme.px(8)
 
-            Rectangle {
+            // ApexPressable (UI/UX roadmap v3 Phase 21): was a bare
+            // Rectangle/HoverHandler/TapHandler pair with no keyboard path.
+            ApexPressable {
                 id: readBtn
                 width: readLabel.implicitWidth + theme.px(20)
                 height: theme.px(26)
                 radius: theme.px(6)
-                color: readHover.hovered
-                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
-                    : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.20)
+                Accessible.name: AgentHelpContent.cardRead
+                onActivated: AgentHelp.open("start")
 
-                Behavior on color { MotionColor {} }
+                Rectangle {
+                    anchors.fill: parent; radius: parent.radius
+                    color: readBtn.hovered
+                        ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
+                        : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.20)
+
+                    Behavior on color { MotionColor {} }
+                }
 
                 Text {
                     id: readLabel
@@ -83,23 +97,35 @@ Rectangle {
                     font.pixelSize: theme.fs(10)
                 }
 
-                HoverHandler { id: readHover; cursorShape: Qt.PointingHandCursor }
-                TapHandler { onTapped: AgentHelp.open("start") }
+                ApexFocusRing { target: readBtn }
             }
 
             // Dismissal is permanent and takes no confirmation. Getting the
             // card back is one IPC call, documented in the guide's own
             // "Keys and commands" section, so the worst case is recoverable.
-            Rectangle {
+            ApexPressable {
                 id: gotItBtn
                 width: gotItLabel.implicitWidth + theme.px(20)
                 height: theme.px(26)
                 radius: theme.px(6)
-                color: gotItHover.hovered
-                    ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.14)
-                    : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
+                Accessible.name: AgentHelpContent.cardDismiss
+                // The card (and this button with it) disappears the instant
+                // this runs, so the keys go to wherever the caller decides —
+                // AgentCenter sends them back to the permanent entry row.
+                onActivated: {
+                    const byKey = gotItBtn.focusVisible   // read before the card hides
+                    AgentHelp.dismissOnboarding()
+                    if (byKey) card.dismissedByKey()
+                }
 
-                Behavior on color { MotionColor {} }
+                Rectangle {
+                    anchors.fill: parent; radius: parent.radius
+                    color: gotItBtn.hovered
+                        ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.14)
+                        : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
+
+                    Behavior on color { MotionColor {} }
+                }
 
                 Text {
                     id: gotItLabel
@@ -109,8 +135,7 @@ Rectangle {
                     font.pixelSize: theme.fs(10)
                 }
 
-                HoverHandler { id: gotItHover; cursorShape: Qt.PointingHandCursor }
-                TapHandler { onTapped: AgentHelp.dismissOnboarding() }
+                ApexFocusRing { target: gotItBtn }
             }
         }
     }

@@ -149,8 +149,11 @@ Item {
             anchors.margins: -4
             radius:          8
             color:           "transparent"
-            border.width:    1
-            border.color:    Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.6)
+            // The one ring every control draws: 2 px of accentText, 3:1 or better
+            // on every surface of every shipped palette (color-roles-test). It was
+            // 1 px of the raw accent at 60 %, the faintest ring in the shell.
+            border.width:    2
+            border.color:    Theme.accentText
             // Keyboard focus only: a drag that takes focus lights no ring.
             visible:         root.activeFocus && !root._pointerFocus
         }

@@ -3,6 +3,7 @@ import "../"
 import "../../"
 import "../../nexus"
 import "../../components"
+import "../../components/controls"
 
 // Dashboard → Config tab.
 //
@@ -35,6 +36,12 @@ Item {
         for (const p of PageRegistry.pages)
             out.push({ "key": p.id, "icon": p.icon, "label": p.title })
         return out
+    }
+
+    // For the "Open in Settings" button's name — which page it opens.
+    readonly property string _pageTitle: {
+        for (const t of root._tabs) if (t.key === root._page) return t.label
+        return ""
     }
 
     Row {
@@ -73,7 +80,7 @@ Item {
 
             // Hand the current page off to the real window, on the page the user
             // is already looking at.
-            Rectangle {
+            ApexPressable {
                 id: popOut
                 anchors {
                     left:         parent.left
@@ -85,26 +92,28 @@ Item {
                 }
                 height: theme.px(30)
                 radius: theme.cornerRadius
-                color:  popHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
-                Behavior on color { MotionColor {} }
+                Accessible.name: "Open " + root._pageTitle + " in Settings"
+                onActivated: {
+                    Popups.dashboardOpen = false
+                    NexusState.openAt(root._page, Popups.dashboardScreen)
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: parent.radius
+                    color:  popOut.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
+                    Behavior on color { MotionColor {} }
+                }
 
                 Text {
                     anchors.centerIn: parent
                     text:  "󰏋  Open in window"
-                    color: popHov.hovered ? Theme.active : Theme.subtext
+                    color: popOut.hovered ? Theme.active : Theme.subtext
                     font.pixelSize: theme.fs(11)
                     Behavior on color { MotionColor {} }
                 }
 
-                HoverHandler { id: popHov; cursorShape: Qt.PointingHandCursor }
-
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
-                        Popups.dashboardOpen = false
-                        NexusState.openAt(root._page, Popups.dashboardScreen)
-                    }
-                }
+                ApexFocusRing { target: popOut }
             }
         }
 

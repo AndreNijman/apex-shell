@@ -2,11 +2,12 @@ import QtQuick
 import "../"
 import "../components/controls"
 
-// ChannelColumn — one vertical level control in the quick controls (volume,
-// brightness, an external display's brightness): a percentage, a track with
-// its fill and thumb, and a mute/icon button. Its own file so the keyboard
-// suite can drive it (UI/UX roadmap v3 Phase 21; it was an inline component
-// of QuickControl.qml).
+// ChannelColumn — one vertical level control (volume, brightness, an external
+// display's brightness): a percentage, a track with its fill and thumb, and a
+// mute/icon button. Its own file so the keyboard suite can drive it (UI/UX
+// roadmap v3 Phase 21; it was an inline component of QuickControl.qml, and a
+// pointer-only copy of it lived in AudioControl.qml — the right panel's audio
+// pane uses this one now, with its own sizes and a worded mute button).
 Item {
     id: col
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }
@@ -19,9 +20,14 @@ Item {
     property string accessibleName: "Level"
     function focusSlider() { track.forceActiveFocus() }
 
-    readonly property int trackHeight: 180
-    readonly property int barW:        22
-    readonly property int thumbD:      barW - 6
+    // The quick controls' sizes by default; the audio pane is shorter and
+    // tighter, and words its mute button.
+    property int  trackHeight: 180
+    property int  gap:         12
+    property bool muteText:    false
+    readonly property int barW:   22
+    readonly property int thumbD: barW - 6
+    property int  labelWidth:  barW + 50
 
     signal volumeChanged(real value)
     signal muteToggled()
@@ -35,7 +41,7 @@ Item {
     Column {
         id: inner
         anchors.horizontalCenter: parent.horizontalCenter
-        spacing: 12
+        spacing: col.gap
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -127,11 +133,14 @@ Item {
         ApexPressable {
             id: muteBtn
             anchors.horizontalCenter: parent.horizontalCenter
-            width:  col.barW + 16
+            width:  col.barW + (col.muteText ? 32 : 16)
             height: 28
             radius: theme.cornerRadius
             hitMargin: 2
-            Accessible.name: col.muted ? "Unmute" : "Mute"
+            // A toggle: the name stays put and the state is its checked state.
+            Accessible.name: "Mute " + col.accessibleName
+            Accessible.checkable: true
+            Accessible.checked: col.muted
             onActivated: col.muteToggled()
           Rectangle {
             anchors.fill: parent; radius: parent.radius
@@ -141,12 +150,24 @@ Item {
             Behavior on color { MotionColor { role: "state" } }
           }
 
-            Text {
+            Row {
                 anchors.centerIn: parent
-                text:           col.icon
-                font.pixelSize: theme.fs(14)
-                color:          col.muted ? Theme.active : Theme.textSecondary
-                Behavior on color { MotionColor { role: "state" } }
+                spacing: 5
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text:           col.icon
+                    font.pixelSize: theme.fs(col.muteText ? 13 : 14)
+                    color:          col.muted ? Theme.active : Theme.textSecondary
+                    Behavior on color { MotionColor { role: "state" } }
+                }
+                Text {
+                    visible:        col.muteText
+                    anchors.verticalCenter: parent.verticalCenter
+                    text:           col.muted ? "Muted" : "Mute"
+                    font.pixelSize: theme.fs(11)
+                    color:          col.muted ? Theme.active : Theme.textSecondary
+                    Behavior on color { MotionColor { role: "state" } }
+                }
             }
 
             Rectangle {
@@ -166,7 +187,7 @@ Item {
             font.capitalization: Font.AllUppercase
             font.letterSpacing: 1
             elide:           Text.ElideRight
-            width:           col.barW + 50
+            width:           col.labelWidth
             horizontalAlignment: Text.AlignHCenter
         }
     }

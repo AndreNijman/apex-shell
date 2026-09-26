@@ -93,4 +93,24 @@ Item {
             spacing: root.contentSpacing
         }
     }
+
+    // Tab onto a control below the fold scrolls it into view (UI/UX roadmap v3
+    // Phase 21): the focus moved and the ring sat off-screen, so on a long page
+    // the keyboard user saw nothing happen. Whatever holds the keys, if it is
+    // on this page — 8 px clear of the edges, for the ring — and only by as
+    // much as it takes; a control already in view does not move the page.
+    readonly property Item _focused: root.Window.activeFocusItem
+    on_FocusedChanged: {
+        const it = root._focused
+        if (!it || !root.visible) return
+        let p = it
+        while (p && p !== col) p = p.parent
+        if (!p) return
+        const y = it.mapToItem(col, 0, 0).y
+        const top = y - 8, bottom = y + it.height + 8
+        if (top < flick.contentY)
+            flick.contentY = Math.max(0, top)
+        else if (bottom > flick.contentY + flick.height)
+            flick.contentY = Math.min(Math.max(0, flick.contentHeight - flick.height), bottom - flick.height)
+    }
 }

@@ -92,6 +92,19 @@ Item {
     // The clock's HH:MM (UI/UX Phase 21): two spin boxes on the keyboard.
     TimeInput { id: ti; x: 250; y: 520; minuteStep: 5 }
 
+    // The audio pane's devices (UI/UX Phase 21): one list per section.
+    property string chosenDev: ""
+    DeviceList {
+        id: devs
+        x: 360; y: 520; width: 200
+        listName: "Output devices"
+        nodes: [{ name: "spk", description: "Speakers" }, { name: "hp", description: "Headphones" },
+                { name: "hdmi", nickname: "TV" }]
+        current: "spk"
+        onChosen: function (node) { fixture.chosenDev = node.name }
+    }
+    DeviceList { id: noDevs; x: 360; y: 640; width: 200; nodes: [] }
+
     TestCase {
         name: "KeyboardNav"
         when: windowShown
@@ -212,6 +225,20 @@ Item {
             keyClick(Qt.Key_Down); compare(ti.minutes, 55)
             keyClick(Qt.Key_Home); compare(ti.minutes, 0)
             keyClick(Qt.Key_End);  compare(ti.minutes, 55, "End is not the last step")
+        }
+
+        function test_140_a_device_list_is_one_stop_that_chooses() {
+            verify(devs.activeFocusOnTab, "a section with devices is not a Tab stop")
+            verify(!noDevs.activeFocusOnTab, "a section with no devices is a Tab stop")
+            fixture.chosenDev = ""
+            devs.forceActiveFocus()
+            compare(devs._cur, "spk", "focus did not land on the current default")
+            keyClick(Qt.Key_Down); compare(devs._cur, "hp")
+            keyClick(Qt.Key_Down); compare(devs._cur, "hdmi")
+            keyClick(Qt.Key_Down); compare(devs._cur, "hdmi", "stepped past the last device")
+            keyClick(Qt.Key_Return); compare(fixture.chosenDev, "hdmi", "Return did not choose the highlighted device")
+            keyClick(Qt.Key_Up); keyClick(Qt.Key_Space)
+            compare(fixture.chosenDev, "hp", "Space did not choose the highlighted device")
         }
 
         function test_080_a_click_chooses_without_taking_focus() {
