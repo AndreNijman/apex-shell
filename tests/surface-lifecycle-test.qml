@@ -258,6 +258,21 @@ TestCase {
         compare(l.progress, 1)
     }
 
+    function test_an_underdamped_body_overshoots_but_progress_does_not() {
+        // A surface may ask for a spring with a whisper of overshoot (the
+        // context menu's pop): `body` passes 1 and comes back, `progress` —
+        // what clamped geometry reads — never leaves 0..1, and both end on 1.
+        var l = make({ enterDamping: 0.8 })
+        var peakBody = 0, peakProgress = 0
+        l.bodyChanged.connect(function () { peakBody = Math.max(peakBody, l.body) })
+        l.progressChanged.connect(function () { peakProgress = Math.max(peakProgress, l.progress) })
+        l.open = true
+        tryVerify(function () { return l.body === 1 }, 3000, "settles on 1")
+        verify(peakBody > 1.005 && peakBody < 1.03, "body overshoots by a hair: " + peakBody)
+        compare(peakProgress, 1, "progress never passes 1")
+        compare(l.phase, "Open")
+    }
+
     function test_no_spatial_motion_is_a_fade() {
         // Reduce Motion makes the spatial durations 0. The machine is the same;
         // the shape is simply at its end state and alpha carries the change.

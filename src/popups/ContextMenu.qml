@@ -53,14 +53,18 @@ PanelWindow {
     visible: windowVisible
 
     // ── PIVOT_POP (UI/UX roadmap v3 Phase 14, brief B.8) ────────────────────
-    // In: a fade on the state beat and a scale 0.97 → 1 on emphasizedDecel,
-    // from the corner nearest the pointer. Out: the fade only, on the hover
-    // beat — no scale-down, which under the click reads as a missed click.
+    // In: a fade on the state beat and a scale 0.94 → 1 on a spring with a
+    // whisper of overshoot (damping 0.8: ~1.5 % past, then settles), from the
+    // corner nearest the pointer — it pops out of the click like a physical
+    // card. The scale reads the RAW body (`life.body`), since `progress` is
+    // clamped and would flatten the overshoot. Out: the fade only, on the
+    // hover beat — no scale-down, which under the click reads as a missed click.
     SurfaceLifecycle {
         name: "context"
         id: life
         open:          Popups.contextMenuOpen && root.placed
         enterDuration: Motion.selection
+        enterDamping:  0.8
         exitDuration:  Motion.hover
         contentDelay:  0
         contentIn:     Motion.state
@@ -150,7 +154,7 @@ PanelWindow {
 
         visible: root.placed
         opacity: life.content * life.alpha
-        scale: life.closing ? 1 : 0.97 + 0.03 * life.progress
+        scale: (life.closing || Motion.reduced) ? 1 : 0.94 + 0.06 * Math.max(0, life.body)
         transformOrigin: root.origin
 
         Rectangle {
