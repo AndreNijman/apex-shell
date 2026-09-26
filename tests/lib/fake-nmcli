@@ -26,9 +26,19 @@ case "$args" in
     *"802-11-wireless.ssid connection show"*)
         echo "${@: -1}"          # a profile's SSID is its name, here
         ;;
-    *"connection show"*|*"con show"*)
-        printf '%s\n' 'HomeNet:802-11-wireless' 'Office:802-11-wireless'
+    *"NAME,TYPE,ACTIVE"*)
+        printf '%s\n' 'HomeNet:802-11-wireless:yes' 'Office:802-11-wireless:no' \
+                      'HomeVPN:wireguard:yes' 'WorkVPN:wireguard:no'
         ;;
+    *"--active"*)
+        printf '%s\n' 'HomeNet:802-11-wireless' 'HomeVPN:wireguard'
+        ;;
+    *"connection show"*|*"con show"*)
+        printf '%s\n' 'HomeNet:802-11-wireless' 'Office:802-11-wireless' \
+                      'HomeVPN:wireguard' 'WorkVPN:wireguard'
+        ;;
+    *monitor*)
+        : ;;
     *"general status"*|*"networking"*)
         echo "connected"
         ;;

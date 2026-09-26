@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import "../"
 import "../components"
+import "../components/controls"
 
 // HotspotTab — config editor for hotspot SSID/password.
 // The actual start/stop toggle lives in QuickSettings tile.
@@ -144,6 +145,8 @@ Item {
                                 Behavior on border.color { MotionColor { role: "state" } }
                                 TextInput {
                                     id: ssidInput; anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
+                                    activeFocusOnTab: true   // a plain TextInput is no Tab stop (UI/UX Phase 21)
+                                    Accessible.name: "Hotspot name"
                                     verticalAlignment: TextInput.AlignVCenter; color: Theme.text; font.pixelSize: theme.fs(12)
                                     selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
                                     clip: true; maximumLength: 32
@@ -166,6 +169,8 @@ Item {
                                 Behavior on border.color { MotionColor { role: "state" } }
                                 TextInput {
                                     id: passInput; anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
+                                    activeFocusOnTab: true
+                                    Accessible.name: "Hotspot password"
                                     verticalAlignment: TextInput.AlignVCenter; color: Theme.text; font.pixelSize: theme.fs(12)
                                     selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
                                     echoMode: root._showPass ? TextInput.Normal : TextInput.Password
@@ -174,30 +179,39 @@ Item {
                                     onTextChanged: { root._password = text; root._dirty = true }
                                 }
                             }
-                            Item {
+                            // Real buttons (UI/UX roadmap v3 Phase 21): they were pointer-only.
+                            ApexPressable {
                                 id: eyeBtn; anchors { right: parent.right;
                                 verticalCenter: parent.verticalCenter }
-                                width: 28; height: 28
-                                Rectangle { anchors.fill: parent; radius: 6; color: eyeH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : "transparent" }
+                                width: 28; height: 28; radius: 6; hitMargin: 2
+                                focusOnPress: false
+                                Accessible.name: root._showPass ? "Hide password" : "Show password"
+                                onActivated: root._showPass = !root._showPass
+                                Rectangle { anchors.fill: parent; radius: parent.radius; color: eyeBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : "transparent" }
                                 Text { anchors.centerIn: parent; text: root._showPass ? "" : ""; font.pixelSize: theme.fs(13); color: root._showPass ? Theme.active : Theme.textTertiary }
-                                HoverHandler { id: eyeH; cursorShape: Qt.PointingHandCursor }
-                                MouseArea { anchors.fill: parent; onClicked: root._showPass = !root._showPass }
+                                ApexFocusRing { target: eyeBtn }
                             }
                         }
 
                         // Save button — only visible when dirty
-                        Rectangle {
+                        ApexPressable {
+                            id: saveBtn
                             visible: root._dirty
                             anchors.horizontalCenter: parent.horizontalCenter
-                            width: 90; height: 28; radius: 8
-                            color: saveH.hovered
-                                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28)
-                                : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
-                            border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40); border.width: 1
-                            Behavior on color { MotionColor {} }
+                            width: 90; height: 28; radius: 8; hitMargin: 2
+                            Accessible.name: "Save hotspot settings"
+                            // The button goes once saved; the keys go back to the name field.
+                            onActivated: { root._save(); ssidInput.forceActiveFocus() }
+                            Rectangle {
+                                anchors.fill: parent; radius: parent.radius
+                                color: saveBtn.hovered
+                                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28)
+                                    : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
+                                border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40); border.width: 1
+                                Behavior on color { MotionColor {} }
+                            }
                             Text { anchors.centerIn: parent; text: "Save"; font.pixelSize: theme.fs(12); font.weight: Font.Medium; color: Theme.active }
-                            HoverHandler { id: saveH; cursorShape: Qt.PointingHandCursor }
-                            MouseArea { anchors.fill: parent; onClicked: root._save() }
+                            ApexFocusRing { target: saveBtn }
                         }
                     }
                 }

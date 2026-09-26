@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell.Io
 import "../"
+import "../components/controls"
 import "../components"
 
 // VPNTab — WireGuard connections via nmcli + the sing-box VLESS/Reality tunnel.
@@ -472,6 +473,36 @@ Item {
         }
     }
 
+    // ── Keyboard (UI/UX roadmap v3 Phase 21) ────────────────────────────────
+    // The connection list is ONE Tab stop: Up and Down move a highlight over
+    // the sing-box row then every WireGuard connection (active first, then
+    // available), Return does what the row's own click does (connect,
+    // disconnect, or toggle the tunnel). A list of many connections is not
+    // that many stops.
+    property string _curKey: ""
+    readonly property var _rowKeys: ["__singbox"]
+        .concat(root._connections.filter(function (c) { return c.active }).map(function (c) { return c.name }))
+        .concat(root._connections.filter(function (c) { return !c.active }).map(function (c) { return c.name }))
+    function _stepRow(d) {
+        const list = root._rowKeys
+        if (list.length === 0) return
+        const i = list.indexOf(root._curKey)
+        root._curKey = i < 0 ? list[d > 0 ? 0 : list.length - 1]
+                             : list[Math.max(0, Math.min(list.length - 1, i + d))]
+    }
+    function _rowFor(key) {
+        if (key === "__singbox") return sbRow
+        for (let i = 0; i < activeRows.count; i++) {
+            const r = activeRows.itemAt(i)
+            if (r && r.con.name === key) return r
+        }
+        for (let i = 0; i < availRows.count; i++) {
+            const r = availRows.itemAt(i)
+            if (r && r.con.name === key) return r
+        }
+        return null
+    }
+
     // Reset on popup open
     Connections {
         target: Popups
@@ -505,18 +536,25 @@ Item {
                 spacing: 8
 
                 // Kill switch toggle
-                Rectangle {
+                ApexPressable {
+                    id: ksBtn
                     height: 28; radius: 14
                     width: ksRow.implicitWidth + 18
+                    hitMargin: 2
+                    Accessible.name: root._killSwitch ? "Turn off kill switch" : "Turn on kill switch"
+                    onActivated: root._toggleKillSwitch()
+                  Rectangle {
+                    anchors.fill: parent; radius: parent.radius
                     color: root._killSwitch
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                        : ksH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                        : ksBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
                     border.color: root._killSwitch
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40)
                         : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)
                     border.width: 1
                     Behavior on color        { MotionColor { role: "state" } }
                     Behavior on border.color { MotionColor { role: "state" } }
+                  }
 
                     Row {
                         id: ksRow; anchors.centerIn: parent; spacing: 6
@@ -534,18 +572,22 @@ Item {
                             Behavior on color { MotionColor { role: "state" } }
                         }
                     }
-
-                    HoverHandler { id: ksH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent; onClicked: root._toggleKillSwitch() }
+                    ApexFocusRing { target: ksBtn }
                 }
 
                 // Refresh
-                Rectangle {
+                ApexPressable {
+                    id: rfBtn
                     width: 32; height: 32; radius: 8
-                    color: rfH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                    Accessible.name: "Refresh VPN connections"
+                    onActivated: if (!root._loading) root._refresh()
+                  Rectangle {
+                    anchors.fill: parent; radius: parent.radius
+                    color: rfBtn.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
                     border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28)
                     border.width: 1
                     Behavior on color { MotionColor {} }
+                  }
 
                     Text {
                         id: rfIcon; anchors.centerIn: parent; text: "󰑐"; font.pixelSize: theme.fs(15)
@@ -559,8 +601,7 @@ Item {
                             easing.type: Easing.Linear
                         }
                     }
-                    HoverHandler { id: rfH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent; onClicked: if (!root._loading) root._refresh() }
+                    ApexFocusRing { target: rfBtn }
                 }
             }
         }
@@ -570,9 +611,31 @@ Item {
 
         // Connection list
         Flickable {
+            id: flick
             width: parent.width; height: parent.height - 49
             contentWidth: width; contentHeight: conCol.height
             clip: true; boundsBehavior: Flickable.StopAtBounds
+            activeFocusOnTab: root._rowKeys.length > 0
+            Accessible.role: Accessible.List
+            Accessible.name: "VPN connections"
+            onActiveFocusChanged: if (activeFocus && root._rowKeys.indexOf(root._curKey) < 0) root._stepRow(1)
+            Keys.onPressed: function (event) {
+                if      (event.key === Qt.Key_Down) root._stepRow(1)
+                else if (event.key === Qt.Key_Up)   root._stepRow(-1)
+                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                    const row = root._rowFor(root._curKey)
+                    if (row) row.primary()
+                } else return
+                event.accepted = true
+                // Keep the highlighted row in view.
+                const r = root._rowFor(root._curKey)
+                if (r) {
+                    const top = r.mapToItem(conCol, 0, 0).y
+                    if (top < flick.contentY) flick.contentY = top
+                    else if (top + r.height > flick.contentY + flick.height)
+                        flick.contentY = top + r.height - flick.height
+                }
+            }
 
             Column {
                 id: conCol; width: parent.width; height: implicitHeight; spacing: 6
@@ -594,6 +657,18 @@ Item {
                     id: sbRow
                     width: conCol.width - 2; x: 1; height: 54
 
+                    // Highlighted by the keyboard; Return activates it via primary().
+                    readonly property bool keyed: root._curKey === "__singbox"
+                    // The row's own click action, for Return on the list as well.
+                    function primary() {
+                        if (root._sbBusy) return
+                        root._sbActive ? root._sbDisconnect() : root._sbConnect()
+                    }
+                    Accessible.role: Accessible.ListItem
+                    Accessible.name: "sing-box" + (root._sbBusy
+                        ? (root._sbActive ? ", disconnecting" : ", connecting")
+                        : (root._sbActive ? ", connected" : ", disconnected"))
+
                     Rectangle {
                         id: sbCard; anchors.fill: parent; radius: theme.cornerRadius
                         color: root._sbActive
@@ -605,6 +680,12 @@ Item {
                         border.width: 1
                         Behavior on color        { MotionColor { role: "state" } }
                         Behavior on border.color { MotionColor { role: "state" } }
+                    }
+                    Rectangle {
+                        anchors.fill: parent; anchors.margins: -3
+                        radius: theme.cornerRadius + 3
+                        color: "transparent"; border.width: 2; border.color: Theme.accentText
+                        visible: sbRow.keyed && flick.activeFocus
                     }
 
                     Row {
@@ -689,7 +770,7 @@ Item {
                     MouseArea {
                         anchors.fill: parent
                         enabled: !root._sbBusy
-                        onClicked: root._sbActive ? root._sbDisconnect() : root._sbConnect()
+                        onClicked: sbRow.primary()
                     }
                 }
 
@@ -707,6 +788,7 @@ Item {
                 }
 
                 Repeater {
+                    id: activeRows
                     model: root._connections.filter(function(c) { return c.active })
                     delegate: VPNRow {
                         required property var modelData
@@ -732,6 +814,7 @@ Item {
                 }
 
                 Repeater {
+                    id: availRows
                     model: root._connections.filter(function(c) { return !c.active })
                     delegate: VPNRow {
                         required property var modelData
@@ -802,6 +885,18 @@ Item {
             _wasActive = con.active
         }
 
+        // Highlighted by the keyboard; Return activates it via primary().
+        readonly property bool keyed: root._curKey === vRow.con.name
+        // The row's own click action, for Return on the list as well.
+        function primary() {
+            if (vRow.con.busy) return
+            vRow.con.active ? root._disconnect(vRow.con.name) : root._connect(vRow.con.name)
+        }
+        Accessible.role: Accessible.ListItem
+        Accessible.name: vRow.con.name + (vRow.con.busy
+            ? (vRow.con.active ? ", disconnecting" : ", connecting")
+            : (vRow.con.active ? ", connected" : ", disconnected"))
+
         // Card background
         Rectangle {
             id: card; anchors.fill: parent; radius: theme.cornerRadius
@@ -820,6 +915,12 @@ Item {
                 ColorAnimation { target: card; to: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30); duration: Motion.micro }
                 ColorAnimation { target: card; to: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08); duration: Motion.settle; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardDecel }
             }
+        }
+        Rectangle {
+            anchors.fill: parent; anchors.margins: -3
+            radius: theme.cornerRadius + 3
+            color: "transparent"; border.width: 2; border.color: Theme.accentText
+            visible: vRow.keyed && flick.activeFocus
         }
 
         Row {
@@ -889,9 +990,7 @@ Item {
         MouseArea {
             anchors.fill: parent
             enabled: !vRow.con.busy
-            onClicked: vRow.con.active
-                ? root._disconnect(vRow.con.name)
-                : root._connect(vRow.con.name)
+            onClicked: vRow.primary()
         }
     }
 }

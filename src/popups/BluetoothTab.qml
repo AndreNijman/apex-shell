@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell.Io
 import "../"
+import "../components/controls"
 import "../components"
 
 // BluetoothTab — bluetooth device management.
@@ -202,6 +203,34 @@ Item {
         root._allDevices = devs
     }
 
+    // ── Keyboard (UI/UX roadmap v3 Phase 21) ────────────────────────────────
+    // The device list is ONE Tab stop: Up and Down move a highlight over the
+    // paired devices then the available ones, Return does what the row's own
+    // button does (connect/disconnect, or pair). Tab from the list reaches the
+    // highlighted row's buttons, which are Tab stops only while it is
+    // highlighted, so a list of many devices is not many times that in stops.
+    property string _curMac: ""
+    readonly property var _rowMacs: root._paired.map(function (d) { return d.mac })
+                                     .concat(root._available.map(function (d) { return d.mac }))
+    function _stepRow(d) {
+        const list = root._rowMacs
+        if (list.length === 0) return
+        const i = list.indexOf(root._curMac)
+        root._curMac = i < 0 ? list[d > 0 ? 0 : list.length - 1]
+                             : list[Math.max(0, Math.min(list.length - 1, i + d))]
+    }
+    function _rowFor(mac) {
+        for (let i = 0; i < pairedRows.count; i++) {
+            const r = pairedRows.itemAt(i)
+            if (r && r.device.mac === mac) return r
+        }
+        for (let i = 0; i < availRows.count; i++) {
+            const r = availRows.itemAt(i)
+            if (r && r.device.mac === mac) return r
+        }
+        return null
+    }
+
     function _setPower(on) {
         root._btPowered = on
         if (!on) root._allDevices = []
@@ -312,6 +341,31 @@ Item {
         width: parent?.width ?? 0
         height: baseRow.height + expandArea.height
 
+        // Highlighted by the keyboard: its buttons join the Tab order.
+        readonly property bool keyed: root._curMac === device.mac
+        readonly property bool open: isRemovePending || isPairingOpen
+        // The row's default action for Return on the list as well: connect or
+        // disconnect a paired device, pair (without a PIN) an available one.
+        function primary() {
+            if (dRow.inAction || dRow.inRemove) return
+            if (dRow.isPaired) {
+                dRow.isConnected ? root._disconnect(dRow.device.mac) : root._connect(dRow.device.mac)
+            } else {
+                root._removeMac = ""; root._pairingMac = ""; root._pair(dRow.device.mac, "")
+            }
+        }
+        Accessible.role: Accessible.ListItem
+        Accessible.name: device.name + (isConnected ? ", connected" : isPaired ? ", paired" : "")
+        // Escape closes this row's own panel (the remove question, PIN entry)
+        // and hands the keys back to the list; with nothing open it passes on,
+        // and the pane closes.
+        Keys.onEscapePressed: function (event) {
+            if (!dRow.open) { event.accepted = false; return }
+            root._removeMac = ""; root._pairingMac = ""
+            root._curMac = dRow.device.mac
+            devFlick.forceActiveFocus()
+        }
+
         Rectangle {
             anchors.fill: parent; radius: theme.cornerRadius
             color: dRow.isConnected
@@ -323,6 +377,12 @@ Item {
             border.width: 1
             Behavior on color        { MotionColor { role: "state" } }
             Behavior on border.color { MotionColor { role: "state" } }
+        }
+        Rectangle {
+            anchors.fill: parent; anchors.margins: -3
+            radius: theme.cornerRadius + 3
+            color: "transparent"; border.width: 2; border.color: Theme.accentText
+            visible: dRow.keyed && devFlick.activeFocus
         }
 
         Item {
@@ -372,31 +432,43 @@ Item {
                 }
 
                 // Paired: connect/disconnect pill
-                Rectangle {
+                ApexPressable {
+                    id: togBtn
                     visible: dRow.isPaired && !dRow.inAction && !dRow.inRemove
                     anchors.verticalCenter: parent.verticalCenter
                     width: togContent.implicitWidth + 20; height: 28; radius: 14
-                    color: dRow.isConnected ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14) : togH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
-                    border.color: dRow.isConnected ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.36) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.11)
-                    border.width: 1
-                    Behavior on color { MotionColor { role: "state" } }
+                    hitMargin: 2
+                    activeFocusOnTab: dRow.keyed || dRow.open
+                    Accessible.name: (dRow.isConnected ? "Disconnect " : "Connect ") + dRow.device.name
+                    // The pill hides while the action runs; the keys go back to the list.
+                    onActivated: { dRow.isConnected ? root._disconnect(dRow.device.mac) : root._connect(dRow.device.mac); devFlick.forceActiveFocus() }
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color: dRow.isConnected ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14) : togBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                        border.color: dRow.isConnected ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.36) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.11)
+                        border.width: 1
+                        Behavior on color { MotionColor { role: "state" } }
+                    }
                     Row {
                         id: togContent; anchors.centerIn: parent; spacing: 7
                         Rectangle { width: 7; height: 7; radius: 4; anchors.verticalCenter: parent.verticalCenter; color: dRow.isConnected ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.25); Behavior on color { MotionColor { role: "state" } } }
                         Text { text: dRow.isConnected ? "Connected" : "Connect"; font.pixelSize: theme.fs(11); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter; color: dRow.isConnected ? Theme.active : Theme.textSecondary; Behavior on color { MotionColor { role: "state" } } }
                     }
-                    HoverHandler { id: togH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent; onClicked: dRow.isConnected ? root._disconnect(dRow.device.mac) : root._connect(dRow.device.mac) }
+                    ApexFocusRing { target: togBtn }
                 }
 
                 // Paired: remove button
-                Item {
+                ApexPressable {
+                    id: rmBtn
                     visible: dRow.isPaired && !dRow.inAction && !dRow.inRemove
-                    width: 28; height: 28; anchors.verticalCenter: parent.verticalCenter
-                    Rectangle { anchors.fill: parent; radius: 7; color: rmH.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.20) : dRow.isRemovePending ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.12) : "transparent"; Behavior on color { MotionColor { role: "state" } } }
-                    Text { anchors.centerIn: parent; text: "󰗼"; font.pixelSize: theme.fs(13); color: (rmH.hovered || dRow.isRemovePending) ? Theme.danger : Theme.textTertiary; Behavior on color { MotionColor { role: "state" } } }
-                    HoverHandler { id: rmH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent; onClicked: { root._pairingMac = ""; root._removeMac = dRow.isRemovePending ? "" : dRow.device.mac } }
+                    width: 28; height: 28; radius: 7; anchors.verticalCenter: parent.verticalCenter
+                    hitMargin: 2
+                    activeFocusOnTab: dRow.keyed || dRow.open
+                    Accessible.name: "Remove " + dRow.device.name
+                    onActivated: { root._pairingMac = ""; root._removeMac = dRow.isRemovePending ? "" : dRow.device.mac }
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: rmBtn.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.20) : dRow.isRemovePending ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.12) : "transparent"; Behavior on color { MotionColor { role: "state" } } }
+                    Text { anchors.centerIn: parent; text: "󰗼"; font.pixelSize: theme.fs(13); color: (rmBtn.hovered || dRow.isRemovePending) ? Theme.danger : Theme.textTertiary; Behavior on color { MotionColor { role: "state" } } }
+                    ApexFocusRing { target: rmBtn }
                 }
 
                 // Available: Pair + PIN icon
@@ -405,30 +477,39 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
 
-                    Rectangle {
+                    ApexPressable {
+                        id: pairBtn
                         width: pairLbl.implicitWidth + 20; height: 28; radius: 8
-                        color: pairH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.09)
-                        border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35); border.width: 1
-                        Behavior on color { MotionColor {} }
+                        hitMargin: 2
+                        activeFocusOnTab: dRow.keyed || dRow.open
+                        Accessible.name: "Pair with " + dRow.device.name
+                        // The row loses this button once pairing starts; the keys go back to the list.
+                        onActivated: { root._removeMac = ""; root._pairingMac = ""; root._pair(dRow.device.mac, ""); devFlick.forceActiveFocus() }
+                        Rectangle {
+                            anchors.fill: parent; radius: parent.radius
+                            color: pairBtn.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.09)
+                            border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35); border.width: 1
+                            Behavior on color { MotionColor {} }
+                        }
                         Text { id: pairLbl; anchors.centerIn: parent; text: "Pair"; font.pixelSize: theme.fs(11); font.weight: Font.Medium; color: Theme.active }
-                        HoverHandler { id: pairH; cursorShape: Qt.PointingHandCursor }
-                        MouseArea { anchors.fill: parent; onClicked: { root._removeMac = ""; root._pairingMac = ""; root._pair(dRow.device.mac, "") } }
+                        ApexFocusRing { target: pairBtn }
                     }
 
-                    Item {
-                        width: 24; height: 28; anchors.verticalCenter: parent?.verticalCenter
-                        Rectangle { anchors.fill: parent; radius: 6; color: pinH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : dRow.isPairingOpen ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04); border.color: dRow.isPairingOpen ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09); border.width: 1; Behavior on color { MotionColor { role: "state" } } }
-                        Text { anchors.centerIn: parent; text: "󰌾"; font.pixelSize: theme.fs(12); color: dRow.isPairingOpen ? Theme.active : pinH.hovered ? Theme.textPrimary : Theme.textTertiary; Behavior on color { MotionColor { role: "state" } } }
-                        HoverHandler { id: pinH; cursorShape: Qt.PointingHandCursor }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                root._removeMac  = ""
-                                root._pairingMac = dRow.isPairingOpen ? "" : dRow.device.mac
-                                if (!dRow.isPairingOpen) Qt.callLater(function() { pinInput.forceActiveFocus() })
-                                else pinInput.text = ""
-                            }
+                    ApexPressable {
+                        id: pinBtn
+                        width: 24; height: 28; radius: 6; anchors.verticalCenter: parent?.verticalCenter
+                        hitMargin: 4
+                        activeFocusOnTab: dRow.keyed || dRow.open
+                        Accessible.name: dRow.isPairingOpen ? "Close PIN entry for " + dRow.device.name : "Enter PIN for " + dRow.device.name
+                        onActivated: {
+                            root._removeMac  = ""
+                            root._pairingMac = dRow.isPairingOpen ? "" : dRow.device.mac
+                            if (!dRow.isPairingOpen) Qt.callLater(function() { pinInput.forceActiveFocus() })
+                            else pinInput.text = ""
                         }
+                        Rectangle { anchors.fill: parent; radius: parent.radius; color: pinBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : dRow.isPairingOpen ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04); border.color: dRow.isPairingOpen ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09); border.width: 1; Behavior on color { MotionColor { role: "state" } } }
+                        Text { anchors.centerIn: parent; text: "󰌾"; font.pixelSize: theme.fs(12); color: dRow.isPairingOpen ? Theme.active : pinBtn.hovered ? Theme.textPrimary : Theme.textTertiary; Behavior on color { MotionColor { role: "state" } } }
+                        ApexFocusRing { target: pinBtn }
                     }
                 }
             }
@@ -455,15 +536,23 @@ Item {
                     Row {
                         anchors.centerIn: parent; spacing: 12
                         Text { anchors.verticalCenter: parent.verticalCenter; text: "Remove this device?"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
-                        Rectangle { width: 58; height: 24; radius: 6; color: cxH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04); Behavior on color { MotionColor {} }
+                        ApexPressable {
+                            id: cxBtn
+                            width: 58; height: 24; radius: 6; hitMargin: 4
+                            Accessible.name: "Keep " + dRow.device.name
+                            onActivated: { root._removeMac = ""; rmBtn.forceActiveFocus() }
+                            Rectangle { anchors.fill: parent; radius: parent.radius; color: cxBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04); Behavior on color { MotionColor {} } }
                             Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.fs(10); color: Theme.textSecondary }
-                            HoverHandler { id: cxH; cursorShape: Qt.PointingHandCursor }
-                            MouseArea { anchors.fill: parent; onClicked: root._removeMac = "" }
+                            ApexFocusRing { target: cxBtn }
                         }
-                        Rectangle { width: 64; height: 24; radius: 6; color: rxH.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.40) : Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18); Behavior on color { MotionColor {} }
+                        ApexPressable {
+                            id: rxBtn
+                            width: 64; height: 24; radius: 6; hitMargin: 4
+                            Accessible.name: "Remove " + dRow.device.name
+                            onActivated: { root._remove(dRow.device.mac); devFlick.forceActiveFocus() }
+                            Rectangle { anchors.fill: parent; radius: parent.radius; color: rxBtn.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.40) : Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18); Behavior on color { MotionColor {} } }
                             Text { anchors.centerIn: parent; text: "Remove"; font.pixelSize: theme.fs(10); font.weight: Font.Medium; color: Theme.danger }
-                            HoverHandler { id: rxH; cursorShape: Qt.PointingHandCursor }
-                            MouseArea { anchors.fill: parent; onClicked: root._remove(dRow.device.mac) }
+                            ApexFocusRing { target: rxBtn }
                         }
                     }
                 }
@@ -492,6 +581,7 @@ Item {
                             text: "PIN (optional)…"; font.pixelSize: theme.fs(12); color: Theme.textTertiary; visible: pinInput.text === "" }
                             TextInput {
                                 id: pinInput
+                                activeFocusOnTab: true
                                 anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                                 verticalAlignment: TextInput.AlignVCenter; color: Theme.text
                                 font.pixelSize: theme.fs(12); font.family: "JetBrains Mono"
@@ -500,14 +590,19 @@ Item {
                                 Keys.onReturnPressed: root._pair(dRow.device.mac, text)
                             }
                         }
-                        Rectangle {
+                        ApexPressable {
                             id: pairConfBtn; width: 64; height: 32; radius: 8
-                            color: pcH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
-                            border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.42); border.width: 1
-                            Behavior on color { MotionColor {} }
+                            Accessible.name: "Pair with " + dRow.device.name
+                            // Pairing clears _pairingMac and collapses this row; the keys go back to the list.
+                            onActivated: { root._pair(dRow.device.mac, pinInput.text); devFlick.forceActiveFocus() }
+                            Rectangle {
+                                anchors.fill: parent; radius: parent.radius
+                                color: pairConfBtn.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
+                                border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.42); border.width: 1
+                                Behavior on color { MotionColor {} }
+                            }
                             Text { anchors.centerIn: parent; text: "Pair"; font.pixelSize: theme.fs(11); font.weight: Font.Medium; color: Theme.active }
-                            HoverHandler { id: pcH; cursorShape: Qt.PointingHandCursor }
-                            MouseArea { anchors.fill: parent; onClicked: root._pair(dRow.device.mac, pinInput.text) }
+                            ApexFocusRing { target: pairConfBtn }
                         }
                     }
                 }
@@ -534,36 +629,52 @@ Item {
                 spacing: 8
 
                 // Power toggle
-                Rectangle {
+                ApexPressable {
+                    id: pwrBtn
                     width: 32; height: 32; radius: 8
-                    color: pwrH.hovered ? (root._btPowered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
-                    border.color: root._btPowered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30); border.width: 1
-                    Behavior on color        { MotionColor { role: "state" } }
-                    Behavior on border.color { MotionColor { role: "state" } }
-                    Text { anchors.centerIn: parent; text: "⏻"; font.pixelSize: theme.fs(14); color: root._btPowered ? (pwrH.hovered ? Theme.danger : Theme.textTertiary) : Theme.active; Behavior on color { MotionColor { role: "state" } } }
-                    HoverHandler { id: pwrH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent; onClicked: root._setPower(!root._btPowered) }
+                    Accessible.name: root._btPowered ? "Turn Bluetooth off" : "Turn Bluetooth on"
+                    onActivated: root._setPower(!root._btPowered)
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color: pwrBtn.hovered ? (root._btPowered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                        border.color: root._btPowered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30); border.width: 1
+                        Behavior on color        { MotionColor { role: "state" } }
+                        Behavior on border.color { MotionColor { role: "state" } }
+                    }
+                    Text { anchors.centerIn: parent; text: "⏻"; font.pixelSize: theme.fs(14); color: root._btPowered ? (pwrBtn.hovered ? Theme.danger : Theme.textTertiary) : Theme.active; Behavior on color { MotionColor { role: "state" } } }
+                    ApexFocusRing { target: pwrBtn }
                 }
 
                 // Settings — blueman-manager
-                Rectangle {
+                ApexPressable {
+                    id: setBtn
                     width: 32; height: 32; radius: 8
-                    color: settH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
-                    border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10); border.width: 1
-                    Behavior on color { MotionColor {} }
-                    Text { anchors.centerIn: parent; text: "󰒓"; font.pixelSize: theme.fs(14); color: settH.hovered ? Theme.textPrimary : Theme.textTertiary; Behavior on color { MotionColor {} } }
-                    HoverHandler { id: settH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent; onClicked: { bluemanProc.running = false; bluemanProc.running = true } }
+                    Accessible.name: "Bluetooth device manager"
+                    onActivated: { bluemanProc.running = false; bluemanProc.running = true }
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color: setBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
+                        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10); border.width: 1
+                        Behavior on color { MotionColor {} }
+                    }
+                    Text { anchors.centerIn: parent; text: "󰒓"; font.pixelSize: theme.fs(14); color: setBtn.hovered ? Theme.textPrimary : Theme.textTertiary; Behavior on color { MotionColor {} } }
+                    ApexFocusRing { target: setBtn }
                 }
 
                 // Scan / Stop pill — disabled when adapter is off
-                Rectangle {
+                ApexPressable {
+                    id: scanBtn
                     width: scanRow.implicitWidth + 20; height: 30; radius: 15
-                    opacity: root._btPowered ? 1.0 : 0.35
-                    Behavior on opacity { MotionFade {} }
-                    color: root._scanning ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18) : scanH.hovered && root._btPowered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
-                    border.color: root._scanning ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.48) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28); border.width: 1
-                    Behavior on color { MotionColor { role: "state" } }
+                    hitMargin: 1
+                    interactive: root._btPowered
+                    Accessible.name: root._scanning ? "Stop scanning" : "Scan for devices"
+                    onActivated: root._startScan()
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color: root._scanning ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18) : scanBtn.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                        border.color: root._scanning ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.48) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28); border.width: 1
+                        Behavior on color { MotionColor { role: "state" } }
+                    }
                     Row {
                         id: scanRow; anchors.centerIn: parent; spacing: 7
                         Rectangle {
@@ -577,8 +688,7 @@ Item {
                         }
                         Text { anchors.verticalCenter: parent.verticalCenter; text: root._scanning ? "Stop" : "Scan"; font.pixelSize: theme.fs(12); font.weight: Font.Medium; color: root._scanning ? Theme.active : Theme.textSecondary; Behavior on color { MotionColor { role: "state" } } }
                     }
-                    HoverHandler { id: scanH; cursorShape: root._btPowered ? Qt.PointingHandCursor : Qt.ArrowCursor }
-                    MouseArea { anchors.fill: parent; onClicked: if (root._btPowered) root._startScan() }
+                    ApexFocusRing { target: scanBtn }
                 }
             }
         }
@@ -596,11 +706,33 @@ Item {
         }
 
         Flickable {
+            id: devFlick
             width: parent.width
             height: parent.height - 49 - (root._scanning ? 90 : 0)
             contentWidth: width; contentHeight: devCol.height
             clip: true; boundsBehavior: Flickable.StopAtBounds
             Behavior on height { MotionMove { role: "surfaceEnterSmall" } }
+            activeFocusOnTab: root._rowMacs.length > 0
+            Accessible.role: Accessible.List
+            Accessible.name: "Bluetooth devices"
+            onActiveFocusChanged: if (activeFocus && root._rowMacs.indexOf(root._curMac) < 0) root._stepRow(1)
+            Keys.onPressed: function (event) {
+                if      (event.key === Qt.Key_Down) root._stepRow(1)
+                else if (event.key === Qt.Key_Up)   root._stepRow(-1)
+                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                    const row = root._rowFor(root._curMac)
+                    if (row) row.primary()
+                } else return
+                event.accepted = true
+                // Keep the highlighted row in view.
+                const r = root._rowFor(root._curMac)
+                if (r) {
+                    const top = r.mapToItem(devCol, 0, 0).y
+                    if (top < devFlick.contentY) devFlick.contentY = top
+                    else if (top + r.height > devFlick.contentY + devFlick.height)
+                        devFlick.contentY = top + r.height - devFlick.height
+                }
+            }
 
             Column {
                 id: devCol; width: parent.width; height: implicitHeight; spacing: 4
@@ -609,6 +741,7 @@ Item {
                     Text { id: pLbl; text: "PAIRED"; font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2; color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5) } }
 
                 Repeater {
+                    id: pairedRows
                     model: root._paired
                     delegate: DeviceRow { required property var modelData; width: devCol.width - 2; x: 1; device: modelData; isPaired: true }
                 }
@@ -619,6 +752,7 @@ Item {
                     Text { id: aLbl; text: root._scanning ? "DISCOVERED" : "AVAILABLE"; font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2; color: Theme.textTertiary } }
 
                 Repeater {
+                    id: availRows
                     model: root._available
                     delegate: DeviceRow { required property var modelData; width: devCol.width - 2; x: 1; device: modelData; isPaired: false }
                 }
@@ -651,18 +785,23 @@ Item {
             anchors.centerIn: parent; spacing: 16
             Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰂲"; font.pixelSize: theme.fs(42); color: Theme.textTertiary }
             Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Bluetooth is off"; font.pixelSize: theme.fs(14); font.weight: Font.Medium; color: Theme.textTertiary }
-            Rectangle {
+            ApexPressable {
+                id: onBtn
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: enableRow.implicitWidth + 24; height: 34; radius: 17
-                color: enableH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12)
-                border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40); border.width: 1
-                Behavior on color { MotionColor {} }
+                Accessible.name: "Turn Bluetooth on"
+                onActivated: root._setPower(true)
+                Rectangle {
+                    anchors.fill: parent; radius: parent.radius
+                    color: onBtn.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12)
+                    border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40); border.width: 1
+                    Behavior on color { MotionColor {} }
+                }
                 Row { id: enableRow; anchors.centerIn: parent; spacing: 8
                     Text { anchors.verticalCenter: parent.verticalCenter; text: "󰂯"; font.pixelSize: theme.fs(14); color: Theme.active }
                     Text { anchors.verticalCenter: parent.verticalCenter; text: "Turn On"; font.pixelSize: theme.fs(12); font.weight: Font.Medium; color: Theme.active }
                 }
-                HoverHandler { id: enableH; cursorShape: Qt.PointingHandCursor }
-                MouseArea { anchors.fill: parent; onClicked: root._setPower(true) }
+                ApexFocusRing { target: onBtn }
             }
         }
     }
