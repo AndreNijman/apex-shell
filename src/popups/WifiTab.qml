@@ -421,18 +421,13 @@ Item {
         }
 
         Rectangle {
-            anchors.fill: parent; radius: theme.cornerRadius
+            // Borderless at rest; only the connected row carries a fill
+            // (UI/UX roadmap v3 Phase 17 — rows read as list items, not cards).
+            anchors.fill: parent; radius: theme.radiusS
             color: netRow.isCurrent
-                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.07)
-                : rHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04) : "transparent"
-            border.color: netRow.isCurrent
-                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                : netRow.needsPassword
-                    ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b,0.30)
-                    : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
-            border.width: 1
-            Behavior on color        { MotionColor { role: "state" } }
-            Behavior on border.color { MotionColor { role: "state" } }
+                ? Theme.surfaceSelected
+                : rHov.hovered ? Theme.surfaceHover(Theme.background) : "transparent"
+            Behavior on color { MotionColor { role: "state" } }
         }
         Rectangle {
             anchors.fill: parent; anchors.margins: -3
@@ -488,33 +483,36 @@ Item {
                         }
                     }
                 }
-                // Disconnect
+                // Disconnect — same action style as Connect/Forget (UI/UX Phase 17)
                 ApexPressable {
                     id: disBtn
-                    visible: netRow.isCurrent; width: 28; height: 28; radius: 6; anchors.verticalCenter: parent.verticalCenter
+                    visible: netRow.isCurrent
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: disLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
                     hitMargin: 2
                     activeFocusOnTab: netRow.keyed || netRow.open
                     Accessible.name: "Disconnect from " + netRow.net.ssid
                     // The row goes when it disconnects; the keys go back to the list.
                     onActivated: { root._disconnect(); flick.forceActiveFocus() }
-                    Rectangle { anchors.fill: parent; radius: parent.radius; color: disBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : "transparent"; Behavior on color { MotionColor {} } }
-                    Text { anchors.centerIn: parent; text: "󰖪"; font.pixelSize: theme.fs(14); color: disBtn.hovered ? Theme.textPrimary : Theme.textSecondary; Behavior on color { MotionColor {} } }
+                    // On the selected row the sheet colour, not surfaceHigh: in light the
+                    // two roles converge and the button vanished into its own row.
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: disBtn.tint(Theme.surfaceBase); Behavior on color { MotionColor {} } }
+                    Text { id: disLbl; anchors.centerIn: parent; text: "Disconnect"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
                     ApexFocusRing { target: disBtn }
                 }
-                // Forget
+                // Forget — opens the confirmation below; the destructive action
+                // lives on that confirmation's own Forget button, not here.
                 ApexPressable {
                     id: forBtn
-                    visible: netRow.isCurrent; width: 28; height: 28; radius: 6; anchors.verticalCenter: parent.verticalCenter
+                    visible: netRow.isCurrent
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: forLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
                     hitMargin: 2
                     activeFocusOnTab: netRow.keyed || netRow.open
                     Accessible.name: "Forget " + netRow.net.ssid
                     onActivated: root._forgetSsid = netRow.isForgetPending ? "" : netRow.net.ssid
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius
-                        color: forBtn.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.15) : netRow.isForgetPending ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.10) : "transparent"
-                        Behavior on color { MotionColor { role: "state" } }
-                    }
-                    Text { anchors.centerIn: parent; text: "󰗼"; font.pixelSize: theme.fs(13); color: (forBtn.hovered || netRow.isForgetPending) ? Theme.danger : Theme.textTertiary; Behavior on color { MotionColor { role: "state" } } }
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: forBtn.tint(Theme.surfaceBase); Behavior on color { MotionColor { role: "state" } } }
+                    Text { id: forLbl; anchors.centerIn: parent; text: "Forget"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
                     ApexFocusRing { target: forBtn }
                 }
                 // Connect
@@ -522,20 +520,15 @@ Item {
                     id: conBtn
                     visible: !netRow.isCurrent && !netRow.isConnecting
                     anchors.verticalCenter: parent.verticalCenter
-                    width: connectLbl.implicitWidth + 20; height: 28; radius: 8
+                    width: connectLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
                     hitMargin: 2
                     activeFocusOnTab: netRow.keyed || netRow.open
                     Accessible.name: (netRow.isExpanded ? "Retry " : "Connect to ") + netRow.net.ssid
                     // The button goes once the row connects; the keys go back to the list
                     // (a row that asks for a password takes them for its field instead).
                     onActivated: { netRow.primary(); flick.forceActiveFocus() }
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius
-                        color: conBtn.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.09)
-                        border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35); border.width: 1
-                        Behavior on color { MotionColor {} }
-                    }
-                    Text { id: connectLbl; anchors.centerIn: parent; text: netRow.isExpanded ? "Retry" : "Connect"; font.pixelSize: theme.fs(11); font.weight: Font.Medium; color: Theme.active }
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: conBtn.tint(Theme.surfaceHigh); Behavior on color { MotionColor {} } }
+                    Text { id: connectLbl; anchors.centerIn: parent; text: netRow.isExpanded ? "Retry" : "Connect"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
                     ApexFocusRing { target: conBtn }
                 }
             }
@@ -564,20 +557,27 @@ Item {
                         Text { anchors.verticalCenter: parent.verticalCenter; text: "Forget this network?"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
                         ApexPressable {
                             id: cfBtn
-                            width: 54; height: 24; radius: 6; hitMargin: 4
+                            width: cfLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS; hitMargin: 2
                             Accessible.name: "Keep " + netRow.net.ssid
                             onActivated: { root._forgetSsid = ""; forBtn.forceActiveFocus() }
-                            Rectangle { anchors.fill: parent; radius: parent.radius; color: cfBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04); Behavior on color { MotionColor {} } }
-                            Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.fs(10); color: Theme.textSecondary }
+                            Rectangle { anchors.fill: parent; radius: parent.radius; color: cfBtn.tint(Theme.surfaceHigh); Behavior on color { MotionColor {} } }
+                            Text { id: cfLbl; anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
                             ApexFocusRing { target: cfBtn }
                         }
+                        // The one destructive action in this pane — Theme.dangerFill,
+                        // matching every other confirm-to-delete button in the shell.
                         ApexPressable {
                             id: ffBtn
-                            width: 54; height: 24; radius: 6; hitMargin: 4
+                            width: ffLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS; hitMargin: 2
                             Accessible.name: "Forget " + netRow.net.ssid
                             onActivated: { root._forget(netRow.net.ssid); flick.forceActiveFocus() }
-                            Rectangle { anchors.fill: parent; radius: parent.radius; color: ffBtn.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.35) : Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18); Behavior on color { MotionColor {} } }
-                            Text { anchors.centerIn: parent; text: "Forget"; font.pixelSize: theme.fs(10); font.weight: Font.Medium; color: Theme.danger }
+                            Rectangle { anchors.fill: parent; radius: parent.radius; color: Theme.dangerFill }
+                            Rectangle {
+                                anchors.fill: parent; radius: parent.radius; color: Theme.dangerFillHover
+                                opacity: ffBtn.hovered || ffBtn.pressed ? 1 : 0
+                                Behavior on opacity { MotionFade {} }
+                            }
+                            Text { id: ffLbl; anchors.centerIn: parent; text: "Forget"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.fixedLight }
                             ApexFocusRing { target: ffBtn }
                         }
                     }
@@ -685,20 +685,20 @@ Item {
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                 spacing: 8
 
+                // Header icon trio — borderless, state layer only (UI/UX Phase 17)
                 ApexPressable {
                     id: pwrBtn
                     width: 32; height: 32; radius: 8
                     Accessible.name: root._wifiEnabled ? "Turn Wi-Fi off" : "Turn Wi-Fi on"
                     onActivated: root._setWifiEnabled(!root._wifiEnabled)
-                  Rectangle {
-                    anchors.fill: parent; radius: parent.radius
-                    color: pwrBtn.hovered ? (root._wifiEnabled ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
-                    border.color: root._wifiEnabled ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30)
-                    border.width: 1
-                    Behavior on color        { MotionColor { role: "state" } }
-                    Behavior on border.color { MotionColor { role: "state" } }
-                  }
-                    Text { anchors.centerIn: parent; text: "⏻"; font.pixelSize: theme.fs(14); color: root._wifiEnabled ? (pwrBtn.hovered ? Theme.danger : Theme.textTertiary) : Theme.active; Behavior on color { MotionColor { role: "state" } } }
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: pwrBtn.stateLayer() }
+                    Text {
+                        anchors.centerIn: parent; text: "⏻"; font.pixelSize: theme.fs(14)
+                        // Genuine state colour: accent while off (inviting it back on),
+                        // a hover preview of the disable while on.
+                        color: !root._wifiEnabled ? Theme.active : pwrBtn.hovered ? Theme.danger : Theme.iconDefault
+                        Behavior on color { MotionColor { role: "state" } }
+                    }
                     ApexFocusRing { target: pwrBtn }
                 }
 
@@ -707,12 +707,8 @@ Item {
                     width: 32; height: 32; radius: 8
                     Accessible.name: "Network settings in a terminal"
                     onActivated: { nmtuiProc.running = false; nmtuiProc.running = true }
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius
-                        color: setBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
-                        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10); border.width: 1; Behavior on color { MotionColor {} }
-                    }
-                    Text { anchors.centerIn: parent; text: "󰒓"; font.pixelSize: theme.fs(14); color: setBtn.hovered ? Theme.textPrimary : Theme.textTertiary; Behavior on color { MotionColor {} } }
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: setBtn.stateLayer() }
+                    Text { anchors.centerIn: parent; text: "󰒓"; font.pixelSize: theme.fs(14); color: setBtn.hovered ? Theme.textPrimary : Theme.iconDefault; Behavior on color { MotionColor {} } }
                     ApexFocusRing { target: setBtn }
                 }
 
@@ -722,15 +718,11 @@ Item {
                     interactive: root._wifiEnabled
                     Accessible.name: "Scan for networks"
                     onActivated: if (!root._scanning) root._scan(true)
-                  Rectangle {
-                    anchors.fill: parent; radius: parent.radius
-                    color: rfBtn.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
-                    border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28); border.width: 1
-                    Behavior on color { MotionColor {} }
-                  }
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: rfBtn.stateLayer() }
                     Text {
                         id: rfIcon; anchors.centerIn: parent; text: "󰑐"; font.pixelSize: theme.fs(15)
-                        color: root._scanning ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4) : (root._wifiEnabled ? Theme.active : Theme.textTertiary)
+                        // Genuine state colour: dimmed accent while the spin runs.
+                        color: root._scanning ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4) : (rfBtn.hovered ? Theme.textPrimary : Theme.iconDefault)
                         Behavior on color { MotionColor { role: "state" } }
                         RotationAnimator { target: rfIcon; from: 0; to: 360; duration: Motion.spinPeriod; loops: Animation.Infinite; running: root._scanning && Motion.loops; easing.type: Easing.Linear }
                     }

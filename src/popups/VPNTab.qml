@@ -32,6 +32,11 @@ import "../components"
 
 Item {
     id: root
+
+    // How tall this tab wants to be — the header block (49) and its content —
+    // as WifiTab reports it (UI/UX Phase 17). The panel sized every other tab
+    // to a fixed 648 px, most of it empty.
+    readonly property real preferredHeight: 49 + conCol.height
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
@@ -475,14 +480,15 @@ Item {
 
     // ── Keyboard (UI/UX roadmap v3 Phase 21) ────────────────────────────────
     // The connection list is ONE Tab stop: Up and Down move a highlight over
-    // the sing-box row then every WireGuard connection (active first, then
-    // available), Return does what the row's own click does (connect,
+    // every WireGuard connection (active first, then available) and then the
+    // sing-box row last — the same top-to-bottom order Phase 17 put on
+    // screen — Return does what the row's own click does (connect,
     // disconnect, or toggle the tunnel). A list of many connections is not
     // that many stops.
     property string _curKey: ""
-    readonly property var _rowKeys: ["__singbox"]
-        .concat(root._connections.filter(function (c) { return c.active }).map(function (c) { return c.name }))
+    readonly property var _rowKeys: root._connections.filter(function (c) { return c.active }).map(function (c) { return c.name })
         .concat(root._connections.filter(function (c) { return !c.active }).map(function (c) { return c.name }))
+        .concat(["__singbox"])
     function _stepRow(d) {
         const list = root._rowKeys
         if (list.length === 0) return
@@ -535,26 +541,23 @@ Item {
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                 spacing: 8
 
-                // Kill switch toggle
+                // Kill switch — a real toggle (UI/UX Phase 17): ON is
+                // surfaceSelected + accentText, same as a selected row; OFF is
+                // the one action-button style everything else in this pane uses.
                 ApexPressable {
                     id: ksBtn
-                    height: 28; radius: 14
+                    height: 28; radius: theme.radiusS
                     width: ksRow.implicitWidth + 18
                     hitMargin: 2
                     Accessible.name: root._killSwitch ? "Turn off kill switch" : "Turn on kill switch"
+                    Accessible.checkable: true
+                    Accessible.checked: root._killSwitch
                     onActivated: root._toggleKillSwitch()
-                  Rectangle {
-                    anchors.fill: parent; radius: parent.radius
-                    color: root._killSwitch
-                        ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                        : ksBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
-                    border.color: root._killSwitch
-                        ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40)
-                        : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)
-                    border.width: 1
-                    Behavior on color        { MotionColor { role: "state" } }
-                    Behavior on border.color { MotionColor { role: "state" } }
-                  }
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color: root._killSwitch ? ksBtn.tint(Theme.surfaceSelected) : ksBtn.tint(Theme.surfaceHigh)
+                        Behavior on color { MotionColor { role: "state" } }
+                    }
 
                     Row {
                         id: ksRow; anchors.centerIn: parent; spacing: 6
@@ -562,38 +565,30 @@ Item {
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text: "󰒃"; font.pixelSize: theme.fs(13)
-                            color: root._killSwitch ? Theme.active : Theme.textSecondary
+                            color: root._killSwitch ? Theme.accentText : Theme.textPrimary
                             Behavior on color { MotionColor { role: "state" } }
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Kill Switch"; font.pixelSize: theme.fs(11); font.weight: Font.Medium
-                            color: root._killSwitch ? Theme.active : Theme.textSecondary
+                            text: "Kill Switch"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium
+                            color: root._killSwitch ? Theme.accentText : Theme.textPrimary
                             Behavior on color { MotionColor { role: "state" } }
                         }
                     }
                     ApexFocusRing { target: ksBtn }
                 }
 
-                // Refresh
+                // Refresh — borderless, state layer only (UI/UX Phase 17)
                 ApexPressable {
                     id: rfBtn
                     width: 32; height: 32; radius: 8
                     Accessible.name: "Refresh VPN connections"
                     onActivated: if (!root._loading) root._refresh()
-                  Rectangle {
-                    anchors.fill: parent; radius: parent.radius
-                    color: rfBtn.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
-                    border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28)
-                    border.width: 1
-                    Behavior on color { MotionColor {} }
-                  }
-
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: rfBtn.stateLayer() }
                     Text {
                         id: rfIcon; anchors.centerIn: parent; text: "󰑐"; font.pixelSize: theme.fs(15)
-                        color: root._loading
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4)
-                            : Theme.active
+                        // Genuine state colour: dimmed accent while the spin runs.
+                        color: root._loading ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4) : (rfBtn.hovered ? Theme.textPrimary : Theme.iconDefault)
                         Behavior on color { MotionColor { role: "state" } }
                         RotationAnimator {
                             target: rfIcon; from: 0; to: 360; duration: Motion.spinPeriod
@@ -640,137 +635,8 @@ Item {
             Column {
                 id: conCol; width: parent.width; height: implicitHeight; spacing: 6
 
-                // ── Tunnel section — sing-box ─────────────────────────────
-                Item {
-                    width: parent.width; height: tLbl.implicitHeight + 4
-                    SectionLabel { id: tLbl; text: "TUNNEL" }
-                }
-
-                // sing-box row
-                Item {
-                    id: sbRow
-                    width: conCol.width - 2; x: 1; height: 54
-
-                    // Highlighted by the keyboard; Return activates it via primary().
-                    readonly property bool keyed: root._curKey === "__singbox"
-                    // The row's own click action, for Return on the list as well.
-                    function primary() {
-                        if (root._sbBusy) return
-                        root._sbActive ? root._sbDisconnect() : root._sbConnect()
-                    }
-                    Accessible.role: Accessible.ListItem
-                    Accessible.name: "sing-box" + (root._sbBusy
-                        ? (root._sbActive ? ", disconnecting" : ", connecting")
-                        : (root._sbActive ? ", connected" : ", disconnected"))
-
-                    Rectangle {
-                        id: sbCard; anchors.fill: parent; radius: theme.cornerRadius
-                        color: root._sbActive
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08)
-                            : sbHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04) : "transparent"
-                        border.color: root._sbActive
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22)
-                            : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
-                        border.width: 1
-                        Behavior on color        { MotionColor { role: "state" } }
-                        Behavior on border.color { MotionColor { role: "state" } }
-                    }
-                    Rectangle {
-                        anchors.fill: parent; anchors.margins: -3
-                        radius: theme.cornerRadius + 3
-                        color: "transparent"; border.width: 2; border.color: Theme.accentText
-                        visible: sbRow.keyed && flick.activeFocus
-                    }
-
-                    Row {
-                        anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
-                        spacing: 12
-
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "󰖂"; font.pixelSize: theme.fs(20)
-                            color: root._sbActive
-                                ? Theme.active
-                                : root._sbBusy
-                                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
-                                    : Theme.textTertiary
-                            Behavior on color { MotionColor { role: "state" } }
-                        }
-
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter; spacing: 4
-
-                            Row {
-                                spacing: 8
-                                Text {
-                                    text: "sing-box"; font.pixelSize: theme.fs(13)
-                                    font.weight: root._sbActive ? Font.Medium : Font.Normal
-                                    color: root._sbActive ? Theme.text : Theme.textSecondary
-                                }
-                                Rectangle {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: sbTag.implicitWidth + 10; height: 15; radius: 4
-                                    color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.10)
-                                    border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.25)
-                                    border.width: 1
-                                    Text {
-                                        id: sbTag; anchors.centerIn: parent
-                                        text: "VLESS · Reality"; font.pixelSize: theme.fs(8)
-                                        font.family: "JetBrains Mono"
-                                        color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7)
-                                    }
-                                }
-                            }
-                            Text {
-                                font.pixelSize: theme.fs(10)
-                                text: root._sbBusy
-                                    ? (root._sbActive ? "Disconnecting…" : "Connecting…")
-                                    : root._sbActive
-                                        ? ("Connected" + (root._sbEgress !== "" ? "  ·  " + root._sbEgress : ""))
-                                        : "Disconnected"
-                                color: root._sbBusy
-                                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.60)
-                                    : root._sbActive ? Theme.active : Theme.textTertiary
-                                Behavior on color { MotionColor { role: "state" } }
-                            }
-                        }
-                    }
-
-                    // Right: spinner or status dot
-                    Item {
-                        anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
-                        width: 28; height: 28
-
-                        Text {
-                            anchors.centerIn: parent; visible: root._sbBusy
-                            text: "○"; font.pixelSize: theme.fs(16); color: Theme.active
-                            SequentialAnimation on opacity {
-                                running: root._sbBusy && Motion.ambient; alwaysRunToEnd: true; loops: Animation.Infinite
-                                NumberAnimation { to: 0.15; duration: Motion.pulseHalf }
-                                NumberAnimation { to: 1.0;  duration: Motion.pulseHalf }
-                            }
-                        }
-                        Rectangle {
-                            anchors.centerIn: parent; visible: !root._sbBusy
-                            width: 10; height: 10; radius: 5
-                            color: root._sbActive
-                                ? Theme.active
-                                : sbHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.35) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.18)
-                            Behavior on color { MotionColor { role: "state" } }
-                        }
-                    }
-
-                    HoverHandler { id: sbHov; cursorShape: Qt.PointingHandCursor }
-                    MouseArea {
-                        anchors.fill: parent
-                        enabled: !root._sbBusy
-                        onClicked: sbRow.primary()
-                    }
-                }
-
-                Item { width: parent.width; height: 6 }
-
-                // Active section
+                // ── Active section (UI/UX Phase 17: ACTIVE, then AVAILABLE,
+                // then TUNNEL — the connection you are on belongs at the top) ──
                 Item {
                     width: parent.width; height: visible ? aLbl.implicitHeight + 4 : 0
                     visible: root._connections.some(function(c) { return c.active })
@@ -854,6 +720,134 @@ Item {
                     }
                 }
 
+                Item { width: parent.width; height: 6 }
+
+                // ── Tunnel section — sing-box. Always last: a dedicated backend
+                // rather than a WireGuard peer, so it never competes with ACTIVE/
+                // AVAILABLE for the top of the list (UI/UX Phase 17). ──────────
+                Item {
+                    width: parent.width; height: tLbl.implicitHeight + 4
+                    SectionLabel { id: tLbl; text: "TUNNEL" }
+                }
+
+                // sing-box row
+                Item {
+                    id: sbRow
+                    width: conCol.width - 2; x: 1; height: 54
+
+                    // Highlighted by the keyboard; Return activates it via primary().
+                    readonly property bool keyed: root._curKey === "__singbox"
+                    // The row's own click action, for Return on the list as well.
+                    function primary() {
+                        if (root._sbBusy) return
+                        root._sbActive ? root._sbDisconnect() : root._sbConnect()
+                    }
+                    Accessible.role: Accessible.ListItem
+                    Accessible.name: "sing-box" + (root._sbBusy
+                        ? (root._sbActive ? ", disconnecting" : ", connecting")
+                        : (root._sbActive ? ", connected" : ", disconnected"))
+
+                    Rectangle {
+                        // Borderless at rest; only the active tunnel carries a fill
+                        // (UI/UX roadmap v3 Phase 17 — rows read as list items, not cards).
+                        id: sbCard; anchors.fill: parent; radius: theme.radiusS
+                        color: root._sbActive
+                            ? Theme.surfaceSelected
+                            : sbHov.hovered ? Theme.surfaceHover(Theme.background) : "transparent"
+                        Behavior on color { MotionColor { role: "state" } }
+                    }
+                    Rectangle {
+                        anchors.fill: parent; anchors.margins: -3
+                        radius: theme.cornerRadius + 3
+                        color: "transparent"; border.width: 2; border.color: Theme.accentText
+                        visible: sbRow.keyed && flick.activeFocus
+                    }
+
+                    Row {
+                        anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
+                        spacing: 12
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "󰖂"; font.pixelSize: theme.fs(20)
+                            color: root._sbActive
+                                ? Theme.active
+                                : root._sbBusy
+                                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
+                                    : Theme.textTertiary
+                            Behavior on color { MotionColor { role: "state" } }
+                        }
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter; spacing: 4
+
+                            Row {
+                                spacing: 8
+                                Text {
+                                    text: "sing-box"; font.pixelSize: theme.fs(13)
+                                    font.weight: root._sbActive ? Font.Medium : Font.Normal
+                                    color: root._sbActive ? Theme.text : Theme.textSecondary
+                                }
+                                Rectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: sbTag.implicitWidth + 10; height: 15; radius: 4
+                                    color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.10)
+                                    border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.25)
+                                    border.width: 1
+                                    Text {
+                                        id: sbTag; anchors.centerIn: parent
+                                        text: "VLESS · Reality"; font.pixelSize: theme.fs(8)
+                                        font.family: "JetBrains Mono"
+                                        color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7)
+                                    }
+                                }
+                            }
+                            Text {
+                                font.pixelSize: theme.fs(10)
+                                text: root._sbBusy
+                                    ? (root._sbActive ? "Disconnecting…" : "Connecting…")
+                                    : root._sbActive
+                                        ? ("Connected" + (root._sbEgress !== "" ? "  ·  " + root._sbEgress : ""))
+                                        : "Disconnected"
+                                color: root._sbBusy
+                                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.60)
+                                    : root._sbActive ? Theme.active : Theme.textTertiary
+                                Behavior on color { MotionColor { role: "state" } }
+                            }
+                        }
+                    }
+
+                    // Right: busy spinner only — the row's own fill and subtitle
+                    // already carry the connected/disconnected state, so the bare
+                    // status dot next to them was redundant (UI/UX Phase 17).
+                    Item {
+                        anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
+                        width: 28; height: 28
+
+                        Text {
+                            anchors.centerIn: parent; visible: root._sbBusy
+                            text: "○"; font.pixelSize: theme.fs(16); color: Theme.active
+                            SequentialAnimation on opacity {
+                                running: root._sbBusy && Motion.ambient; alwaysRunToEnd: true; loops: Animation.Infinite
+                                NumberAnimation { to: 0.15; duration: Motion.pulseHalf }
+                                NumberAnimation { to: 1.0;  duration: Motion.pulseHalf }
+                            }
+                        }
+                    }
+
+                    HoverHandler { id: sbHov; cursorShape: Qt.PointingHandCursor }
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: !root._sbBusy
+                        onClicked: sbRow.primary()
+                    }
+                    RowAction {
+                        visible: !root._sbBusy
+                        connected: root._sbActive; target: "sing-box"; keyed: sbRow.keyed
+                        onGo: sbRow.primary()
+                    }
+                }
+
                 Item { width: parent.width; height: 8 }
             }
         }
@@ -883,23 +877,20 @@ Item {
             ? (vRow.con.active ? ", disconnecting" : ", connecting")
             : (vRow.con.active ? ", connected" : ", disconnected"))
 
-        // Card background
+        // Card background — borderless at rest; only the active connection
+        // carries a fill (UI/UX roadmap v3 Phase 17 — rows read as list
+        // items, not cards).
         Rectangle {
-            id: card; anchors.fill: parent; radius: theme.cornerRadius
+            id: card; anchors.fill: parent; radius: theme.radiusS
             color: vRow.con.active
-                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08)
-                : vHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04) : "transparent"
-            border.color: vRow.con.active
-                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22)
-                : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
-            border.width: 1
-            Behavior on color        { MotionColor { role: "state" } }
-            Behavior on border.color { MotionColor { role: "state" } }
+                ? Theme.surfaceSelected
+                : vHov.hovered ? Theme.surfaceHover(Theme.background) : "transparent"
+            Behavior on color { MotionColor { role: "state" } }
 
             SequentialAnimation {
                 id: pulseAnim; running: false
                 ColorAnimation { target: card; to: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30); duration: Motion.micro }
-                ColorAnimation { target: card; to: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08); duration: Motion.settle; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardDecel }
+                ColorAnimation { target: card; to: Theme.surfaceSelected; duration: Motion.settle; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardDecel }
             }
         }
         Rectangle {
@@ -947,7 +938,8 @@ Item {
             }
         }
 
-        // Right: spinner or status dot
+        // Right: busy spinner only — the row's own fill and subtitle already
+        // carry the connected/disconnected state (UI/UX Phase 17).
         Item {
             anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
             width: 28; height: 28
@@ -961,15 +953,6 @@ Item {
                     NumberAnimation { to: 1.0;  duration: Motion.pulseHalf }
                 }
             }
-
-            Rectangle {
-                anchors.centerIn: parent; visible: !vRow.con.busy
-                width: 10; height: 10; radius: 5
-                color: vRow.con.active
-                    ? Theme.active
-                    : vHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.35) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.18)
-                Behavior on color { MotionColor { role: "state" } }
-            }
         }
 
         HoverHandler { id: vHov; cursorShape: Qt.PointingHandCursor }
@@ -978,5 +961,33 @@ Item {
             enabled: !vRow.con.busy
             onClicked: vRow.primary()
         }
+        RowAction {
+            visible: !vRow.con.busy
+            connected: vRow.con.active; target: vRow.con.name; keyed: vRow.keyed
+            onGo: vRow.primary()
+        }
+    }
+
+    // The row's verb as a button, the same one Wi-Fi's rows carry (UI/UX Phase
+    // 17, one action style). The whole row still toggles on a click and on
+    // Return in the list; this says what that click does — with the status dot
+    // gone, nothing on an idle row did. The busy spinner takes its place while
+    // the tunnel moves. On the connected (selected) row it sits on the sheet
+    // colour: in light, surfaceHigh and surfaceSelected converge.
+    component RowAction: ApexPressable {
+        id: act
+        property bool   connected: false
+        property string target:    ""
+        property bool   keyed:     false
+        signal go()
+        anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+        width: actLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
+        hitMargin: 2
+        activeFocusOnTab: act.keyed
+        Accessible.name: (act.connected ? "Disconnect " : "Connect ") + act.target
+        onActivated: { act.go(); flick.forceActiveFocus() }
+        Rectangle { anchors.fill: parent; radius: parent.radius; color: act.tint(act.connected ? Theme.surfaceBase : Theme.surfaceHigh); Behavior on color { MotionColor {} } }
+        Text { id: actLbl; anchors.centerIn: parent; text: act.connected ? "Disconnect" : "Connect"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
+        ApexFocusRing { target: act }
     }
 }

@@ -10,6 +10,11 @@ import "../components"
 
 Item {
     id: root
+
+    // How tall this tab wants to be — the header block (49) and its content —
+    // as WifiTab reports it (UI/UX Phase 17). The panel sized every other tab
+    // to a fixed 648 px, most of it empty.
+    readonly property real preferredHeight: 49 + devCol.height + (root._scanning ? 90 : 0)
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
@@ -367,16 +372,13 @@ Item {
         }
 
         Rectangle {
-            anchors.fill: parent; radius: theme.cornerRadius
+            // Borderless at rest; only the connected row carries a fill
+            // (UI/UX roadmap v3 Phase 17 — rows read as list items, not cards).
+            anchors.fill: parent; radius: theme.radiusS
             color: dRow.isConnected
-                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.07)
-                : rowHov.hovered && !dRow.isPaired ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04) : "transparent"
-            border.color: dRow.isConnected
-                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                : dRow.isRemovePending ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.22) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
-            border.width: 1
-            Behavior on color        { MotionColor { role: "state" } }
-            Behavior on border.color { MotionColor { role: "state" } }
+                ? Theme.surfaceSelected
+                : rowHov.hovered && !dRow.isPaired ? Theme.surfaceHover(Theme.background) : "transparent"
+            Behavior on color { MotionColor { role: "state" } }
         }
         Rectangle {
             anchors.fill: parent; anchors.margins: -3
@@ -431,43 +433,40 @@ Item {
                     }
                 }
 
-                // Paired: connect/disconnect pill
+                // Paired: connect/disconnect — one action style (UI/UX Phase 17).
+                // The row's subtitle already says "Connected", so the connected
+                // state is a "Disconnect" button rather than a filled pill with a dot.
                 ApexPressable {
                     id: togBtn
                     visible: dRow.isPaired && !dRow.inAction && !dRow.inRemove
                     anchors.verticalCenter: parent.verticalCenter
-                    width: togContent.implicitWidth + 20; height: 28; radius: 14
+                    width: togLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
                     hitMargin: 2
                     activeFocusOnTab: dRow.keyed || dRow.open
                     Accessible.name: (dRow.isConnected ? "Disconnect " : "Connect ") + dRow.device.name
-                    // The pill hides while the action runs; the keys go back to the list.
+                    // The button hides while the action runs; the keys go back to the list.
                     onActivated: { dRow.isConnected ? root._disconnect(dRow.device.mac) : root._connect(dRow.device.mac); devFlick.forceActiveFocus() }
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius
-                        color: dRow.isConnected ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14) : togBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
-                        border.color: dRow.isConnected ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.36) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.11)
-                        border.width: 1
-                        Behavior on color { MotionColor { role: "state" } }
-                    }
-                    Row {
-                        id: togContent; anchors.centerIn: parent; spacing: 7
-                        Rectangle { width: 7; height: 7; radius: 4; anchors.verticalCenter: parent.verticalCenter; color: dRow.isConnected ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.25); Behavior on color { MotionColor { role: "state" } } }
-                        Text { text: dRow.isConnected ? "Connected" : "Connect"; font.pixelSize: theme.fs(11); font.weight: Font.Medium; anchors.verticalCenter: parent.verticalCenter; color: dRow.isConnected ? Theme.active : Theme.textSecondary; Behavior on color { MotionColor { role: "state" } } }
-                    }
+                    // On the selected row the sheet colour, not surfaceHigh: in light the
+                    // two roles converge and the button vanished into its own row.
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: togBtn.tint(dRow.isConnected ? Theme.surfaceBase : Theme.surfaceHigh); Behavior on color { MotionColor { role: "state" } } }
+                    Text { id: togLbl; anchors.centerIn: parent; text: dRow.isConnected ? "Disconnect" : "Connect"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
                     ApexFocusRing { target: togBtn }
                 }
 
-                // Paired: remove button
+                // Paired: remove — opens the confirmation below; same non-destructive
+                // action style as everything else (the destructive fill lives on the
+                // confirmation's own Remove button).
                 ApexPressable {
                     id: rmBtn
                     visible: dRow.isPaired && !dRow.inAction && !dRow.inRemove
-                    width: 28; height: 28; radius: 7; anchors.verticalCenter: parent.verticalCenter
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: rmLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
                     hitMargin: 2
                     activeFocusOnTab: dRow.keyed || dRow.open
                     Accessible.name: "Remove " + dRow.device.name
                     onActivated: { root._pairingMac = ""; root._removeMac = dRow.isRemovePending ? "" : dRow.device.mac }
-                    Rectangle { anchors.fill: parent; radius: parent.radius; color: rmBtn.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.20) : dRow.isRemovePending ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.12) : "transparent"; Behavior on color { MotionColor { role: "state" } } }
-                    Text { anchors.centerIn: parent; text: "󰗼"; font.pixelSize: theme.fs(13); color: (rmBtn.hovered || dRow.isRemovePending) ? Theme.danger : Theme.textTertiary; Behavior on color { MotionColor { role: "state" } } }
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: rmBtn.tint(dRow.isConnected ? Theme.surfaceBase : Theme.surfaceHigh); Behavior on color { MotionColor { role: "state" } } }
+                    Text { id: rmLbl; anchors.centerIn: parent; text: "Remove"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
                     ApexFocusRing { target: rmBtn }
                 }
 
@@ -479,19 +478,14 @@ Item {
 
                     ApexPressable {
                         id: pairBtn
-                        width: pairLbl.implicitWidth + 20; height: 28; radius: 8
+                        width: pairLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
                         hitMargin: 2
                         activeFocusOnTab: dRow.keyed || dRow.open
                         Accessible.name: "Pair with " + dRow.device.name
                         // The row loses this button once pairing starts; the keys go back to the list.
                         onActivated: { root._removeMac = ""; root._pairingMac = ""; root._pair(dRow.device.mac, ""); devFlick.forceActiveFocus() }
-                        Rectangle {
-                            anchors.fill: parent; radius: parent.radius
-                            color: pairBtn.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.09)
-                            border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35); border.width: 1
-                            Behavior on color { MotionColor {} }
-                        }
-                        Text { id: pairLbl; anchors.centerIn: parent; text: "Pair"; font.pixelSize: theme.fs(11); font.weight: Font.Medium; color: Theme.active }
+                        Rectangle { anchors.fill: parent; radius: parent.radius; color: pairBtn.tint(Theme.surfaceHigh); Behavior on color { MotionColor {} } }
+                        Text { id: pairLbl; anchors.centerIn: parent; text: "Pair"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
                         ApexFocusRing { target: pairBtn }
                     }
 
@@ -538,20 +532,27 @@ Item {
                         Text { anchors.verticalCenter: parent.verticalCenter; text: "Remove this device?"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
                         ApexPressable {
                             id: cxBtn
-                            width: 58; height: 24; radius: 6; hitMargin: 4
+                            width: cxLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS; hitMargin: 2
                             Accessible.name: "Keep " + dRow.device.name
                             onActivated: { root._removeMac = ""; rmBtn.forceActiveFocus() }
-                            Rectangle { anchors.fill: parent; radius: parent.radius; color: cxBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04); Behavior on color { MotionColor {} } }
-                            Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.fs(10); color: Theme.textSecondary }
+                            Rectangle { anchors.fill: parent; radius: parent.radius; color: cxBtn.tint(Theme.surfaceHigh); Behavior on color { MotionColor {} } }
+                            Text { id: cxLbl; anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
                             ApexFocusRing { target: cxBtn }
                         }
+                        // The one destructive action in this pane — Theme.dangerFill,
+                        // matching every other confirm-to-delete button in the shell.
                         ApexPressable {
                             id: rxBtn
-                            width: 64; height: 24; radius: 6; hitMargin: 4
+                            width: rxLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS; hitMargin: 2
                             Accessible.name: "Remove " + dRow.device.name
                             onActivated: { root._remove(dRow.device.mac); devFlick.forceActiveFocus() }
-                            Rectangle { anchors.fill: parent; radius: parent.radius; color: rxBtn.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.40) : Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18); Behavior on color { MotionColor {} } }
-                            Text { anchors.centerIn: parent; text: "Remove"; font.pixelSize: theme.fs(10); font.weight: Font.Medium; color: Theme.danger }
+                            Rectangle { anchors.fill: parent; radius: parent.radius; color: Theme.dangerFill }
+                            Rectangle {
+                                anchors.fill: parent; radius: parent.radius; color: Theme.dangerFillHover
+                                opacity: rxBtn.hovered || rxBtn.pressed ? 1 : 0
+                                Behavior on opacity { MotionFade {} }
+                            }
+                            Text { id: rxLbl; anchors.centerIn: parent; text: "Remove"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.fixedLight }
                             ApexFocusRing { target: rxBtn }
                         }
                     }
@@ -591,17 +592,12 @@ Item {
                             }
                         }
                         ApexPressable {
-                            id: pairConfBtn; width: 64; height: 32; radius: 8
+                            id: pairConfBtn; width: pairConfLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
                             Accessible.name: "Pair with " + dRow.device.name
                             // Pairing clears _pairingMac and collapses this row; the keys go back to the list.
                             onActivated: { root._pair(dRow.device.mac, pinInput.text); devFlick.forceActiveFocus() }
-                            Rectangle {
-                                anchors.fill: parent; radius: parent.radius
-                                color: pairConfBtn.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
-                                border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.42); border.width: 1
-                                Behavior on color { MotionColor {} }
-                            }
-                            Text { anchors.centerIn: parent; text: "Pair"; font.pixelSize: theme.fs(11); font.weight: Font.Medium; color: Theme.active }
+                            Rectangle { anchors.fill: parent; radius: parent.radius; color: pairConfBtn.tint(Theme.surfaceHigh); Behavior on color { MotionColor {} } }
+                            Text { id: pairConfLbl; anchors.centerIn: parent; text: "Pair"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
                             ApexFocusRing { target: pairConfBtn }
                         }
                     }
@@ -628,20 +624,20 @@ Item {
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                 spacing: 8
 
-                // Power toggle
+                // Power toggle — borderless, state layer only (UI/UX Phase 17)
                 ApexPressable {
                     id: pwrBtn
                     width: 32; height: 32; radius: 8
                     Accessible.name: root._btPowered ? "Turn Bluetooth off" : "Turn Bluetooth on"
                     onActivated: root._setPower(!root._btPowered)
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius
-                        color: pwrBtn.hovered ? (root._btPowered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
-                        border.color: root._btPowered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30); border.width: 1
-                        Behavior on color        { MotionColor { role: "state" } }
-                        Behavior on border.color { MotionColor { role: "state" } }
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: pwrBtn.stateLayer() }
+                    Text {
+                        anchors.centerIn: parent; text: "⏻"; font.pixelSize: theme.fs(14)
+                        // Genuine state colour: accent while off (inviting it back on),
+                        // a hover preview of the disable while on.
+                        color: !root._btPowered ? Theme.active : pwrBtn.hovered ? Theme.danger : Theme.iconDefault
+                        Behavior on color { MotionColor { role: "state" } }
                     }
-                    Text { anchors.centerIn: parent; text: "⏻"; font.pixelSize: theme.fs(14); color: root._btPowered ? (pwrBtn.hovered ? Theme.danger : Theme.textTertiary) : Theme.active; Behavior on color { MotionColor { role: "state" } } }
                     ApexFocusRing { target: pwrBtn }
                 }
 
@@ -651,42 +647,39 @@ Item {
                     width: 32; height: 32; radius: 8
                     Accessible.name: "Bluetooth device manager"
                     onActivated: { bluemanProc.running = false; bluemanProc.running = true }
-                    Rectangle {
-                        anchors.fill: parent; radius: parent.radius
-                        color: setBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
-                        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10); border.width: 1
-                        Behavior on color { MotionColor {} }
-                    }
-                    Text { anchors.centerIn: parent; text: "󰒓"; font.pixelSize: theme.fs(14); color: setBtn.hovered ? Theme.textPrimary : Theme.textTertiary; Behavior on color { MotionColor {} } }
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: setBtn.stateLayer() }
+                    Text { anchors.centerIn: parent; text: "󰒓"; font.pixelSize: theme.fs(14); color: setBtn.hovered ? Theme.textPrimary : Theme.iconDefault; Behavior on color { MotionColor {} } }
                     ApexFocusRing { target: setBtn }
                 }
 
-                // Scan / Stop pill — disabled when adapter is off
+                // Scan / Stop — one action style (UI/UX Phase 17): scanning is a
+                // real running state, so it takes the same ON treatment as the
+                // VPN Kill Switch (surfaceSelected + accentText); the pulsing dot
+                // is genuine state, the same class as the header refresh spin.
                 ApexPressable {
                     id: scanBtn
-                    width: scanRow.implicitWidth + 20; height: 30; radius: 15
-                    hitMargin: 1
+                    width: scanRow.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
+                    hitMargin: 2
                     interactive: root._btPowered
                     Accessible.name: root._scanning ? "Stop scanning" : "Scan for devices"
                     onActivated: root._startScan()
                     Rectangle {
                         anchors.fill: parent; radius: parent.radius
-                        color: root._scanning ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18) : scanBtn.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
-                        border.color: root._scanning ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.48) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28); border.width: 1
+                        color: root._scanning ? scanBtn.tint(Theme.surfaceSelected) : scanBtn.tint(Theme.surfaceHigh)
                         Behavior on color { MotionColor { role: "state" } }
                     }
                     Row {
                         id: scanRow; anchors.centerIn: parent; spacing: 7
                         Rectangle {
                             width: 7; height: 7; radius: 4; anchors.verticalCenter: parent.verticalCenter
-                            color: root._scanning ? Theme.active : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
+                            color: root._scanning ? Theme.accentText : Theme.textSecondary
                             Behavior on color { MotionColor { role: "state" } }
                             SequentialAnimation on opacity {
                                 running: root._scanning && Motion.ambient; alwaysRunToEnd: true; loops: Animation.Infinite; NumberAnimation { to: 0.15; duration: Motion.pulseHalf }
                                 NumberAnimation { to: 1.0; duration: Motion.pulseHalf }
                             }
                         }
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: root._scanning ? "Stop" : "Scan"; font.pixelSize: theme.fs(12); font.weight: Font.Medium; color: root._scanning ? Theme.active : Theme.textSecondary; Behavior on color { MotionColor { role: "state" } } }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: root._scanning ? "Stop" : "Scan"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: root._scanning ? Theme.accentText : Theme.textPrimary; Behavior on color { MotionColor { role: "state" } } }
                     }
                     ApexFocusRing { target: scanBtn }
                 }

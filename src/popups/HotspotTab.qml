@@ -11,6 +11,11 @@ import "../components/controls"
 
 Item {
     id: root
+
+    // How tall this tab wants to be — the header block (49) and its content —
+    // as WifiTab reports it (UI/UX Phase 17). The panel sized every other tab
+    // to a fixed 648 px, most of it empty.
+    readonly property real preferredHeight: 49 + mainCol.implicitHeight + 8
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 

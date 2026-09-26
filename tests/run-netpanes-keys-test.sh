@@ -13,9 +13,10 @@
 #  harness's own stub. The logs are the observable:
 #
 #    VPN       Tab ×3 reaches the list (kill switch, refresh, list), which
-#              highlights the sing-box row; Down, Return on the active
-#              tunnel → con down HomeVPN; Down, Return on the other →
-#              con up WorkVPN.
+#              highlights the active tunnel (HomeVPN — UI/UX Phase 17 put
+#              ACTIVE first, then AVAILABLE, then TUNNEL/sing-box last, so
+#              the list no longer opens on sing-box); Return on it →
+#              con down HomeVPN; Down, Return on the other → con up WorkVPN.
 #    Bluetooth Tab to the device list; Return on the connected mouse →
 #              disconnect; Down to the paired headphones, Return → connect.
 #    Hotspot   Tab to the name field and type; Tab past the password and the
@@ -66,11 +67,14 @@ logged() {   # logged <file> <text> <seconds>
 wtype -k Shift_L; sleep 0.3          # the first wtype key of a session is lost
 
 # ── VPN ──────────────────────────────────────────────────────────────────────
+# UI/UX Phase 17 reordered the pane to ACTIVE, then AVAILABLE, then TUNNEL
+# (sing-box) last, so Tab ×3 now highlights the active WireGuard tunnel
+# (HomeVPN) directly — no Down needed to skip past sing-box any more.
 ipc vpn-toggle toggle; sleep 1.5
-keys Tab Tab Tab Down Return
+keys Tab Tab Tab Return
 logged "$FAKE_NMCLI_LOG" "con down HomeVPN" 5 \
-    && ok "VPN: Tab ×3 reaches the list; Down, Return drops the active tunnel" \
-    || bad "VPN: Down, Return — NetworkManager was asked: $(tr '\n' '|' < "$FAKE_NMCLI_LOG")"
+    && ok "VPN: Tab ×3 reaches the list, highlighting the active tunnel; Return drops it" \
+    || bad "VPN: Return on the active tunnel — NetworkManager was asked: $(tr '\n' '|' < "$FAKE_NMCLI_LOG")"
 sleep 1.5
 before="$(wc -l < "$FAKE_NMCLI_LOG")"
 keys Down Return
