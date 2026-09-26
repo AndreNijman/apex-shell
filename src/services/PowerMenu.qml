@@ -197,7 +197,7 @@ Column {
         // Lock routes through shared state (engages windows/Lockscreen.qml
         // instantly) rather than spawning hyprlock. No external round-trip.
         if (action === "lock") {
-            LockState.locked = true
+            LockState.lock()
             Popups.archMenuOpen = false
             return
         }

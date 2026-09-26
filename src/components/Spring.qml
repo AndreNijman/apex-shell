@@ -70,8 +70,13 @@ QtObject {
             if (dt > 0) {
                 const r = S.step(spring.value, spring.velocity, spring.target,
                                  spring.response, spring.dampingFraction, dt)
-                spring.value = r[0]
+                // Velocity first: writing the value runs its listeners, and one
+                // of them may snap this spring to rest (a lifecycle reaching a
+                // visual zero) — a velocity written after that would leave it
+                // "at rest" and still moving.
                 spring.velocity = r[1]
+                spring.value = r[0]
+                if (!running) return
             }
             if (S.atRest(spring.value, spring.velocity, spring.target, spring.epsilon)) {
                 running = false

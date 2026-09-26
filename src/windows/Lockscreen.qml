@@ -90,6 +90,9 @@ WlSessionLock {
     property Timer _release: Timer {
         repeat: false
         onTriggered: {
+            // A lock asked for since the password (LockState.lock()) cancelled
+            // the release: stay locked.
+            if (!LockState.unlocking) return
             LockState.unlocking = false
             LockState.locked = false
         }
@@ -259,7 +262,7 @@ WlSessionLock {
             id: enterAnim
             target: surface; property: "enter"; from: 0; to: 1
             duration: Motion.reduced ? Motion.fadeIn : Motion.hero
-            easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.spring
+            easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.springCurve
         }
         // The backdrop's strength, the clock's arrival, the card's arrival.
         readonly property real _veil:  surface.enter * (1 - surface.leave)
@@ -627,6 +630,11 @@ WlSessionLock {
             passwordInput.forceActiveFocus()
             enterAnim.start()
         }
-        onVisibleChanged: if (visible) passwordInput.forceActiveFocus()
+        // A surface Quickshell shows again for a later lock arrives again.
+        onVisibleChanged: if (visible) {
+            passwordInput.forceActiveFocus()
+            surface.enter = 0
+            enterAnim.restart()
+        }
     }
 }

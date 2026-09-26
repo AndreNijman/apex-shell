@@ -618,7 +618,7 @@ QtObject {
         target: "lockscreen"
 
         function lock() {
-            LockState.locked = true
+            LockState.lock()
         }
 
         function unlock() {

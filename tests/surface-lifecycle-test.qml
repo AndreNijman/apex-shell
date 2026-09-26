@@ -273,6 +273,25 @@ TestCase {
         compare(l.phase, "Open")
     }
 
+    function test_a_closed_surface_is_exactly_at_rest() {
+        // The close ends on a snap to a visual zero, made from inside the
+        // spring's own frame handler; a velocity written after it left the
+        // spring "at rest" and still moving, so the flow was not 0 while closed
+        // and the next open started with a small backward push (review).
+        var l = make({ liquid: true })
+        l.open = true
+        tryCompare(l, "phase", "Open", 2000)
+        l.open = false
+        tryCompare(l, "mapped", false, 3000)
+        compare(l.velocity, 0, "body velocity"); compare(l.leadVelocity, 0, "lead velocity")
+        compare(l.bodyFlow, 0, "body flow");     compare(l.leadFlow, 0, "lead flow")
+        // All three springs, including the trail (which publishes no velocity
+        // of its own but starts the next open with whatever it kept).
+        compare(l._body.velocity, 0, "body spring"); compare(l._lead.velocity, 0, "lead spring")
+        compare(l._trail.velocity, 0, "trail spring")
+        compare(l._body.running || l._lead.running || l._trail.running, false, "nothing still stepping")
+    }
+
     function test_no_spatial_motion_is_a_fade() {
         // Reduce Motion makes the spatial durations 0. The machine is the same;
         // the shape is simply at its end state and alpha carries the change.

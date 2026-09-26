@@ -419,7 +419,7 @@ ShellRoot {
     // acknowledged it, and `onSecureStateChanged` is what reaches logind. That
     // is the whole path P0-015 depends on and none of it has ever been run.
     function phase9() {
-        LockState.locked = true
+        LockState.lock()
         waitFor(function () { return lock.secure }, 200, function (got) {
             if (!got) {
                 console.log("locked-hint: compositor-did-not-acknowledge")
@@ -435,6 +435,15 @@ ShellRoot {
                     // UI's exit and maps the unlock curtain, and the lock lets go
                     // on a timer — unconditionally, so a correct password can
                     // never be left holding the session locked.
+                    // A lock asked for INSIDE the release window (a lid closed
+                    // just after Enter) must cancel it and hold.
+                    lock.release()
+                    LockState.lock()
+                    rootScope.check("a lock asked for during the release cancels it",
+                                    LockState.locked && !LockState.unlocking)
+                    waitFor(function () { return !LockState.locked }, 12, function (unlockedAnyway) {
+                    rootScope.check("…and the session stays locked past the release's beat",
+                                    !unlockedAnyway && lock.secure)
                     lock.release()
                     rootScope.check("a correct password starts the exit: still locked, unlocking, the curtain (raised with the lock) up",
                                     LockState.locked && LockState.unlocking && LockState.curtain)
@@ -455,6 +464,7 @@ ShellRoot {
                                 finish()
                             })
                         })
+                    })
                     })
                     })
                 })

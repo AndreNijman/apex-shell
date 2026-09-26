@@ -1651,6 +1651,15 @@ jobs:
       - name: Password shapes cannot see the password
         run: ./tests/check-password-shapes.sh
 
+      # Who may lock the session and who may unlock it. A correct password now
+      # releases the lock a beat later (the exit plays first), so a lock asked
+      # for in that beat must CANCEL the release: every request goes through
+      # LockState.lock(), only the release writes `locked = false`, its timer
+      # checks it was not cancelled, and the IPC unlock stays a no-op — each
+      # rule proved able to fail by a mutant.
+      - name: A lock asked for during an unlock holds
+        run: ./tests/check-lock-writes.sh
+
       # The notification centre's cards arrive and leave (STACK_REFLOW). Four
       # Qt behaviours each turned that into cards that pop in and vanish with
       # nothing logged — a replaced-array model, a destroyed QObject as a model

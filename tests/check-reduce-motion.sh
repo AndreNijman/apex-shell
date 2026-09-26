@@ -368,5 +368,32 @@ for m in a b; do
 done
 rm -rf "$DLG"
 
+# ── Every curve named from Motion is a curve ────────────────────────────────
+# `easing.bezierCurve: Motion.X` and MotionMove's `curve: Motion.X` must name
+# one of Motion's curve properties. Motion.spring is a FUNCTION (the spring
+# role lookup); bound as a curve it gave BezierSpline no points — a linear
+# animation and a warning on every lock (found by review, 2026-09-26).
+curve_refs() {   # curve_refs <motion.qml> <tree> — prints "file:line name" for every unknown curve
+    python3 - "$1" "$2" <<'PY3'
+import re, sys, pathlib
+motion = open(sys.argv[1]).read()
+known = set(re.findall(r'readonly\s+property\s+var\s+(\w+)\s*:\s*M\.CURVES\.', motion))
+for f in pathlib.Path(sys.argv[2]).rglob("*.qml"):
+    for i, line in enumerate(f.read_text(errors="replace").split("\n"), 1):
+        code = line.split("//", 1)[0]
+        for m in re.finditer(r'\b(?:bezierCurve|curve)\s*:\s*Motion\.(\w+)', code):
+            if m.group(1) not in known:
+                print("%s:%d %s" % (f, i, m.group(1)))
+PY3
+}
+UNKNOWN_CURVES="$(curve_refs src/theme/Motion.qml src)"
+[ -z "$UNKNOWN_CURVES" ] && ok "every curve named from Motion is one of its curves" \
+    || bad "curves that Motion does not have: $(echo $UNKNOWN_CURVES)"
+CRV="$(mktemp -d)"; mkdir -p "$CRV/src"
+printf 'import QtQuick\nNumberAnimation { easing.bezierCurve: Motion.spring }\n' > "$CRV/src/Mut.qml"
+[ -n "$(curve_refs src/theme/Motion.qml "$CRV/src")" ] && ok "self-test CURVE: caught (Motion.spring bound as a curve)" \
+    || bad "self-test CURVE: SURVIVED"
+rm -rf "$CRV"
+
 printf '\ncheck-reduce-motion: passed=%d failed=%d\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

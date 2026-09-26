@@ -692,8 +692,10 @@ win_mirrored="$(grep -rlE '^\s*PanelWindow\b|^\s*FloatingWindow\b' "$root/src" 2
                  | xargs -r grep -l 'LayoutMirroring' | wc -l)"
 # 16 since UI/UX Phase 9b and 17 since Phase 10: QuickControl and ArchMenu
 # became PanelWindows spanning their strips (both were PopupWindows placed by
-# an anchor rectangle).
-WIN_TOTAL_EXPECT=17
+# an anchor rectangle). 18 since Fluid F3: UnlockCurtain, the desktop wallpaper
+# that fades the desktop back in after an unlock (it draws one Image — nothing
+# in it has a reading direction).
+WIN_TOTAL_EXPECT=18
 WIN_MIRRORED_EXPECT=0
 [ "$win_total" -eq "$WIN_TOTAL_EXPECT" ] \
     && ok "the shell paints from $WIN_TOTAL_EXPECT window roots — counted $win_total" \

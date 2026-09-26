@@ -134,6 +134,10 @@ QtObject {
     readonly property var defaultSpatial:  M.CURVES.defaultSpatial
     readonly property var slowSpatial:     M.CURVES.slowSpatial
     readonly property var effects:         M.CURVES.effects
+    /// A critically damped spring from rest, as a curve, for timed moves that
+    /// should read like the springs that drive surfaces. (Not `spring`: that
+    /// name is the spring-ROLE function below.)
+    readonly property var springCurve:     M.CURVES.spring
 
     /// A spring role at the user's speed: {response (s), damping}; response 0
     /// under Reduce Motion or with motion off.

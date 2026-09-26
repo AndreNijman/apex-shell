@@ -55,12 +55,27 @@ PopupWindow {
         onTriggered: tip._armed = true
     }
 
+    // It settles into place as it appears: 96 % → 100 % from its top edge,
+    // toward the bar item, on the spring curve (the compositor fades the popup
+    // itself in). A scale, not a slide: the surface is exactly the label's
+    // size, so any travel would be clipped at its edge.
+    property real _drop: 0
+    onVisibleChanged: if (visible) { tip._drop = 1; dropAnim.restart() }
+    NumberAnimation {
+        id: dropAnim
+        target: tip; property: "_drop"; to: 0
+        duration: Motion.surfaceEnterSmall
+        easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.springCurve
+    }
+
     Rectangle {
         anchors.fill: parent
         radius: 6
         color: Theme.background
         border.color: Theme.border
         border.width: 1
+        transformOrigin: Item.Top
+        scale: Motion.reduced ? 1 : 1 - 0.04 * tip._drop
 
         Text {
             id: label

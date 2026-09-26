@@ -44,7 +44,14 @@ Variants {
 
         Image {
             anchors.fill: parent
-            source: WallpaperService.currentWall !== "" ? "file://" + WallpaperService.currentWall : ""
+            // What the lock surface sharpens into: the lock's own background
+            // when one is set (so the hand-over is not a cut from that image to
+            // the desktop's), else the desktop wallpaper.
+            source: {
+                const o = SettingsService.lockBackground
+                if (o && o !== "") return o.startsWith("/") ? "file://" + o : o
+                return WallpaperService.currentWall !== "" ? "file://" + WallpaperService.currentWall : ""
+            }
             fillMode: Image.PreserveAspectCrop
             // Asynchronous: this window exists (unmapped) from startup, so the
             // image is decoded long before any lock, off the GUI thread — and
@@ -61,6 +68,9 @@ Variants {
             target: LockState
             function onLockedChanged() {
                 if (!LockState.locked && LockState.curtain) fadeOut.restart()
+                // Locked again mid-fade: the curtain is whole again for the
+                // next unlock, and the fade must not take it down under the lock.
+                else if (LockState.locked) { fadeOut.stop(); win.fade = 1 }
             }
         }
         NumberAnimation {
@@ -68,7 +78,7 @@ Variants {
             target: win; property: "fade"; from: 1; to: 0
             duration: Motion.fadeIn
             easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.effects
-            onFinished: LockState.curtain = false
+            onFinished: if (!LockState.locked) LockState.curtain = false
         }
     }
 }
