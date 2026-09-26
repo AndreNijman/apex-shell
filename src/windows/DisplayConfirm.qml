@@ -76,13 +76,15 @@ PanelWindow {
                                   || DisplayService.confirmScreen === ""
 
     color: "transparent"
-    visible: DisplayService.pending
+    // On the dialog lifecycle (UI/UX Phase 6): mapped until its exit finishes.
+    DialogLifecycle { id: life; open: DisplayService.pending }
+    visible: life.mapped
 
     anchors { top: true; left: true; right: true; bottom: true }
     exclusionMode: ExclusionMode.Ignore
 
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: root.visible && root.owner
+    WlrLayershell.keyboardFocus: life.open && root.owner
                                      ? WlrKeyboardFocus.Exclusive
                                      : WlrKeyboardFocus.None
 
@@ -92,6 +94,7 @@ PanelWindow {
     Rectangle {
         anchors.fill: parent
         color: "#99000000"
+        opacity: life.scrimK()
         // Swallows clicks without dismissing. There is no "click away" answer
         // to this question: doing nothing is already an answer, and it is the
         // one that undoes your change.
@@ -116,6 +119,8 @@ PanelWindow {
         color:  Theme.background
         border.color: Theme.outlineSoft   // the surface rim, as a role (UI/UX Phase 18b)
         border.width: 1
+        opacity: life.content * life.alpha
+        scale:   life.cardScale()
 
         MouseArea { anchors.fill: parent }
 

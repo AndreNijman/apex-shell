@@ -222,7 +222,7 @@ N_UNLISTED=$(printf '%s\n' "$FIND" | awk -F'\t' '$1=="literal"' | while IFS=$'\t
 # ── THE RATCHETS ──
 # Lower them as call sites move to Motion. Never raise one.
 EXPECT_UNLISTED_LITERAL=0
-EXPECT_LEGACY=5       # 14 → 12: SysTray (UI/UX design review 2); 12 → 5: the clipboard and wallpaper sheets onto SurfaceLifecycle (Phase 21d)
+EXPECT_LEGACY=4       # 14 → 12: SysTray (UI/UX design review 2); 12 → 5: the clipboard and wallpaper sheets onto SurfaceLifecycle (Phase 21d); 5 → 4: the window switcher's scrim onto DialogLifecycle (Phase 6)
 EXPECT_UNRESOLVED=2
 EXPECT_EASING=3       # 10 → 8: SysTray; 8 → 3: the clipboard and wallpaper sheets
 EXPECT_LOOP_UNGATED=0
@@ -332,6 +332,41 @@ if [ "$(kinds literal)" -eq "$LIT" ] && [ "$(kinds easing)" -eq "$EAS" ] && [ "$
 else
     bad "self-test inverse: prose was counted"
 fi
+
+# ── the dialogs are on a lifecycle (UI/UX Phase 6, finished) ────────────────
+# The last five transient surfaces left on the old model — mapped on a flag
+# (no exit motion), unmapped on a timer, or a scrim fade that never showed
+# because its window went first. Each now maps its window from a lifecycle
+# (`visible: life.mapped`, or `windowVisible: life.mapped`) and holds the
+# keyboard on `life.open`, never on `visible`: a dialog that is leaving must
+# not keep the keys through its exit. The confirm dialog cannot be driven
+# from a harness — its confirm button takes focus on open and its action
+# authenticates, then logs out or powers off — so this is the gate for it.
+dialog_on_lifecycle() {   # dialog_on_lifecycle <file> — 0 when it follows the rule
+    python3 - "$1" <<'PY2'
+import re, sys
+s = "\n".join(l for l in open(sys.argv[1]).read().splitlines() if not l.lstrip().startswith("//"))
+mapped = re.search(r'^\s*(visible|readonly property bool windowVisible)\s*:\s*life\.mapped\s*$', s, re.M)
+lifecycle = re.search(r'\b(DialogLifecycle|SurfaceLifecycle)\s*\{[^}]*\bid:\s*life\b', s)
+keys_on_visible = re.search(r'keyboardFocus:\s*root\.visible', s)
+sys.exit(0 if (mapped and lifecycle and not keys_on_visible) else 1)
+PY2
+}
+for f in src/windows/ConfirmDialog.qml src/windows/DisplayConfirm.qml src/windows/UpdatePopup.qml \
+         src/popups/WindowSwitcher.qml src/popups/ScreenRecOptionsPopup.qml; do
+    dialog_on_lifecycle "$f" && ok "$(basename "$f" .qml) maps from its lifecycle and holds the keys only while open" \
+        || bad "$(basename "$f" .qml) is off the lifecycle, or holds the keyboard on visible"
+done
+DLG="$(mktemp -d)"
+sed 's/^    visible: life.mapped$/    visible: Popups.confirmOpen || Popups.confirmRunning/' "src/windows/ConfirmDialog.qml" > "$DLG/a.qml"
+sed 's/keyboardFocus: life.open ?/keyboardFocus: root.visible ?/' "src/windows/ConfirmDialog.qml" > "$DLG/b.qml"
+for m in a b; do
+    if cmp -s "src/windows/ConfirmDialog.qml" "$DLG/$m.qml"; then bad "self-test DIALOG-$m: the mutation did not apply"
+    elif dialog_on_lifecycle "$DLG/$m.qml"; then bad "self-test DIALOG-$m: SURVIVED"
+    else case $m in a) why="mapped on the flag again";; b) why="keys held on visible";; esac
+         ok "self-test DIALOG-$m: caught ($why)"; fi
+done
+rm -rf "$DLG"
 
 printf '\ncheck-reduce-motion: passed=%d failed=%d\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

@@ -57,13 +57,16 @@ PanelWindow {
     anchors { top: true; left: true; right: true; bottom: true }
     exclusionMode: ExclusionMode.Ignore
 
-    visible: Popups.confirmOpen || Popups.confirmRunning
+    // On the dialog lifecycle (UI/UX Phase 6): the window stays mapped until
+    // the exit has finished; it used to vanish on the flag with no motion.
+    DialogLifecycle { id: life; open: Popups.confirmOpen || Popups.confirmRunning }
+    visible: life.mapped
 
     WlrLayershell.layer:         WlrLayer.Overlay
     // A modal holds the keyboard while it is up. OnDemand — which a compositor
     // may grant only on a click — left it opened from the keyboard with no
     // key reaching it, not even Escape (measured on labwc; UI/UX Phase 21).
-    WlrLayershell.keyboardFocus: root.visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: life.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     // ── Processes ─────────────────────────────────────────────────────────────
     Process {
@@ -163,6 +166,7 @@ PanelWindow {
     Rectangle {
         anchors.fill: parent
         color: "#99000000"
+        opacity: life.scrimK()
 
         MouseArea {
             anchors.fill: parent
@@ -190,6 +194,8 @@ PanelWindow {
         border.width: 1
         border.color: Theme.outlineSoft   // the surface rim; it had none (UI/UX Phase 18b)
         visible: Popups.confirmOpen && !Popups.confirmRunning
+        opacity: life.content * life.alpha
+        scale:   life.cardScale()
 
         MouseArea { anchors.fill: parent }
 
@@ -320,6 +326,8 @@ PanelWindow {
         border.width: 1
         border.color: Theme.outlineSoft
         visible: Popups.confirmRunning
+        opacity: life.content * life.alpha
+        scale:   life.cardScale()
 
         MouseArea { anchors.fill: parent }
 

@@ -28,31 +28,23 @@ PanelWindow {
     WlrLayershell.layer:         WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
 
-    property bool windowVisible: false
+    // On the dialog lifecycle (UI/UX Phase 6): mapped from the flag until the
+    // exit has finished — it used to unmap on a 20 ms timer, with no motion.
+    DialogLifecycle { id: life; open: UpdateService.showPopup }
+    readonly property bool windowVisible: life.mapped
     visible: windowVisible
-    
+
     Connections {
         target: UpdateService
         function onShowPopupChanged() {
-            if (UpdateService.showPopup) {
-                UpdateService.refreshStashCount()
-                root.windowVisible = true
-            } else {
-                closeTimer.restart()
-            }
+            if (UpdateService.showPopup) UpdateService.refreshStashCount()
         }
-    }
-    
-    Timer {
-        id: closeTimer
-        interval: 20
-        onTriggered: if (!UpdateService.showPopup) root.windowVisible = false
     }
 
     // Auto-dismiss success state after 10s
     Timer {
         interval: 3000
-        running:  UpdateService.updateSuccess && root.windowVisible
+        running:  UpdateService.updateSuccess && life.open
         onTriggered: UpdateService.dismiss()
     }
 
@@ -60,6 +52,7 @@ PanelWindow {
     Rectangle {
         anchors.fill: parent
         color: Qt.rgba(0, 0, 0, 0.50)
+        opacity: life.scrimK()
         // Pass through clicks in the dim area — update is non-blocking
         MouseArea {
             anchors.fill: parent
@@ -77,6 +70,8 @@ PanelWindow {
         color:  Theme.background
         border.color: Theme.outlineSoft   // the surface rim, as a role (UI/UX Phase 18b)
         border.width: 1
+        opacity: life.content * life.alpha
+        scale:   life.cardScale()
 
         // Size to content
         height: cardCol.implicitHeight + 48
