@@ -65,10 +65,12 @@ NotificationServer {
     onNotification: function(n) {
         n.tracked = true
 
+        // A notification the server hands over again (a replace) is a new
+        // arrival for its timestamp, before the already-tracked early return.
+        root._arrived[n.id] = Date.now()
         if (root.list.includes(n)) return
 
         const id = n.id
-        root._arrived[id] = Date.now()
         root.list = [n, ...root.list]
 
         // Connected BEFORE the Do Not Disturb return. It used to come after it,

@@ -989,7 +989,7 @@ Item {
                         }
                         Text {
                             id: addTL; anchors.centerIn: parent
-                            text: "Add time"; font.pixelSize: theme.fs(10)
+                            text: "Add time"; font.pixelSize: theme.typeCaption
                             color: addTimeBtn.hovered ? Theme.active : Theme.textSecondary
                             Behavior on color { MotionColor {} }
                         }

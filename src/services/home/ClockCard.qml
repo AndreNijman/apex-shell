@@ -784,13 +784,16 @@ StatCard {
                         }
                     }
 
-                    Text {
+                    // The shared empty state (UI/UX Phase 17 review), in desktop
+                    // words: it said "Tap + to add one" on a machine with no touch
+                    // screen, in the tertiary role that roles.js reserves for
+                    // placeholders, never information.
+                    EmptyState {
                         anchors.centerIn: parent
+                        width: parent.width * 0.8
                         visible: root._alarms.length === 0 && !root._addOpen
-                        text: "No alarms set\nTap + to add one"
-                        horizontalAlignment: Text.AlignHCenter
-                        font.pixelSize: theme.fs(11); color: Theme.textTertiary
-                        lineHeight: 1.5
+                        title: "No alarms set"
+                        hint: "Add one with the + button."
                     }
                 }
             }

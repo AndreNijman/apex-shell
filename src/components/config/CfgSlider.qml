@@ -87,9 +87,10 @@ Item {
         width:               root.readoutWidth
         horizontalAlignment: Text.AlignRight
         text:           Math.round(root.value) + root.suffix
-        font.pixelSize: theme.fs(11)
-        font.family:    "JetBrains Mono"
-        color:          Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.9)
+        // A value: the readout treatment (UI/UX Phase 17, P2.17).
+        font.pixelSize: theme.typeMono
+        font.family:    Theme.fontMono
+        color:          Theme.textSecondary
     }
 
     Item {

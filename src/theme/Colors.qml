@@ -165,7 +165,14 @@ QtObject {
     readonly property color surfaceSelected:   _c(_roleSet.roles.surfaceSelected)
     readonly property color surfaceOnSelected: _c(_roleSet.roles.surfaceOnSelected)
     readonly property color accentContainer:   _c(_roleSet.roles.accentContainer)
-    readonly property color onAccentContainer: _c(_roleSet.roles.onAccentContainer)
+    // NOT `onAccentContainer`, the role's name in roles.js: a QML property called
+    // on<X> beside a property called x is never bound — the engine takes the
+    // name for handler syntax — so it stayed an invalid colour and drew BLACK:
+    // every "on" Home tile's label and glyph, and the lifecycle chip's text, were
+    // black on the dark accent container from Phase 2 until 2026-09-26 (found by
+    // a light/dark capture of the power-profile choice; measured valid:false).
+    // check-color-tokens.sh now fails any on<X> property that shadows one.
+    readonly property color textOnAccentContainer: _c(_roleSet.roles.onAccentContainer)
     readonly property color accentText:        _c(_roleSet.roles.accentText)
     readonly property color outlineSoft:       _c(_roleSet.roles.outlineSoft)
     readonly property color outlineStrong:     _c(_roleSet.roles.outlineStrong)

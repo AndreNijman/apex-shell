@@ -19,7 +19,8 @@ const now = new Date(2026, 8, 26, 15, 30, 0).getTime();   // Sep 26 2026, 15:30 
 const at = (d, h, m, s) => new Date(2026, 8, d, h, m, s || 0).getTime();
 
 eq("no arrival time says nothing", T.ago(0, now), "");
-eq("an arrival in the future says nothing (clock stepped back)", T.ago(now + 5000, now), "");
+eq("seconds ahead is the reader's clock lagging: now", T.ago(now + 5000, now), "now");
+eq("a minute or more ahead is a clock step: nothing", T.ago(now + 2 * 60 * 1000, now), "");
 eq("seconds ago is now", T.ago(now - 20 * 1000, now), "now");
 eq("59 s is still now", T.ago(now - 59 * 1000, now), "now");
 eq("one minute", T.ago(now - 60 * 1000, now), "1 min");

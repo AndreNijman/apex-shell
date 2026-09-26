@@ -609,6 +609,38 @@ else
 fi
 rm -f "$TMP/src/InverseMutant.qml"
 
+# ── a property the engine never binds ────────────────────────────────────────
+# A QML property called on<X> declared beside a property called x is taken for
+# handler syntax and never bound: Colors.onAccentContainer stayed an invalid
+# colour (valid: false) and drew BLACK — every "on" Home tile's label and glyph
+# and the lifecycle chip's text, on the dark accent container, from Phase 2
+# until 2026-09-26. The role is textOnAccentContainer now; this keeps the shape
+# from coming back anywhere in src/.
+shadowing_on_props() {   # shadowing_on_props <dir> — prints file:on<X> for each offender
+    python3 - "$1" <<'PY2'
+import os, re, sys
+decl = re.compile(r'^\s*(?:readonly\s+|required\s+|default\s+)*property\s+[\w.<>]+\s+(\w+)', re.M)
+for dp, _, fs in os.walk(sys.argv[1]):
+    for f in fs:
+        if not f.endswith(".qml"): continue
+        p = os.path.join(dp, f)
+        names = set(decl.findall(open(p, encoding="utf-8", errors="replace").read()))
+        for n in names:
+            m = re.fullmatch(r'on([A-Z])(\w*)', n)
+            if m and (m.group(1).lower() + m.group(2)) in names:
+                print(f"{p}:{n}")
+PY2
+}
+off="$(shadowing_on_props "$SRC")"
+[ -z "$off" ] && ok "no on<X> property is declared beside a property x (the engine would never bind it)" \
+    || bad "on<X> properties the engine will not bind: $(echo $off)"
+ONT="$(mktemp -d)"; mkdir -p "$ONT/src"
+sed 's/readonly property color textOnAccentContainer:/readonly property color onAccentContainer:/' "$SRC/theme/Colors.qml" > "$ONT/src/Colors.qml"
+if cmp -s "$SRC/theme/Colors.qml" "$ONT/src/Colors.qml"; then bad "self-test ON-SHADOW: the mutation did not apply"
+elif [ -n "$(shadowing_on_props "$ONT/src")" ]; then ok "self-test ON-SHADOW: the old onAccentContainer beside accentContainer is caught"
+else bad "self-test ON-SHADOW: SURVIVED"; fi
+rm -rf "$ONT"
+
 printf '\nself-test: mutants applied=%d, failed-to-apply=%d\n' "$applied" "$noapply"
 printf 'check-color-tokens: passed=%d failed=%d\n' "$pass" "$fail"
 [ "$fail" -eq 0 ] || exit 1

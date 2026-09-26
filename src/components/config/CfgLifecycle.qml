@@ -72,7 +72,7 @@ Item {
             text: Semantics.stateLabel(root.lifecycle)
             font.pixelSize: theme.typeCaption
             font.weight: Font.DemiBold
-            color: Theme.onAccentContainer
+            color: Theme.textOnAccentContainer
         }
     }
     Text {

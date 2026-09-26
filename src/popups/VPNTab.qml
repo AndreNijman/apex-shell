@@ -546,7 +546,7 @@ Item {
                 // the one action-button style everything else in this pane uses.
                 ApexPressable {
                     id: ksBtn
-                    height: 28; radius: theme.radiusS
+                    height: theme.controlStandard; radius: theme.radiusS
                     width: ksRow.implicitWidth + 18
                     hitMargin: 2
                     Accessible.name: root._killSwitch ? "Turn off kill switch" : "Turn on kill switch"

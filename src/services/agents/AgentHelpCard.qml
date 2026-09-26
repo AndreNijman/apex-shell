@@ -80,7 +80,7 @@ Rectangle {
                 // The one action style (UI/UX Phase 17), on the card's raised
                 // surface one step up.
                 width: readLabel.implicitWidth + theme.px(24)
-                height: theme.controlCompact
+                height: theme.controlStandard
                 radius: theme.radiusS
                 Accessible.name: AgentHelpContent.cardRead
                 onActivated: AgentHelp.open("start")
@@ -110,7 +110,7 @@ Rectangle {
                 id: gotItBtn
                 // The quieter of the two: a text button, the state layer only.
                 width: gotItLabel.implicitWidth + theme.px(24)
-                height: theme.controlCompact
+                height: theme.controlStandard
                 radius: theme.radiusS
                 Accessible.name: AgentHelpContent.cardDismiss
                 // The card (and this button with it) disappears the instant

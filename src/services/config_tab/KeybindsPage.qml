@@ -493,8 +493,10 @@ Item {
                     visible: br._savedDupe
                     anchors.verticalCenter: parent.verticalCenter
                     text:           "⚠ " + KeybindService.conflictsWith(br.action)
-                    font.pixelSize: theme.fs(9)
-                    color:          Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.75)
+                    // A conflict is information, not decoration: the caption
+                    // size in full danger (it was 9 px at .75).
+                    font.pixelSize: theme.typeCaption
+                    color:          Theme.danger
                 }
 
 				// Clear bind. activeFocusOnTab only while this row is
@@ -629,7 +631,7 @@ Item {
                         id: _pillT
                         anchors.centerIn: parent
                         text:           br._pillText
-                        font.pixelSize: theme.fs(10); font.family: "JetBrains Mono"
+                        font.pixelSize: theme.typeCaption; font.family: Theme.fontMono
                         font.italic:    br._isUnbound
 
                         color: br._isUnbound
@@ -684,7 +686,7 @@ Item {
                         Text {
                             id: _capT
                             anchors.centerIn: parent
-                            font.pixelSize: theme.fs(10); font.family: "JetBrains Mono"
+                            font.pixelSize: theme.typeCaption; font.family: Theme.fontMono
                             color: br._hasConflict
                                 ? Theme.danger
                                 : br.capturedKey !== ""
@@ -722,7 +724,7 @@ Item {
                 Text {
                     anchors { left: parent.left; leftMargin: 2; verticalCenter: parent.verticalCenter }
                     text:           "⚠  Conflicts with: " + br._conflictLabel
-                    font.pixelSize: theme.fs(10)
+                    font.pixelSize: theme.typeCaption
                     color:          Theme.danger
                 }
             }

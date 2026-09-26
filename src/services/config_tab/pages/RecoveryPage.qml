@@ -385,7 +385,7 @@ CfgScroll {
                     Text {
                         width:          parent.width
                         text:           stepRow.step ? stepRow.step.whySafe : ""
-                        font.pixelSize: theme.fs(9)
+                        font.pixelSize: theme.typeCaption
                         color:          Theme.subtext
                         wrapMode:       Text.WordWrap
                     }
@@ -396,7 +396,7 @@ CfgScroll {
                         visible:        stepRow.step && !stepRow.step.runnableHere
                         width:          parent.width
                         text:           "→ " + RecoveryService.repairSystemCommand
-                        font.pixelSize: theme.fs(9)
+                        font.pixelSize: theme.typeCaption
                         font.family:    Theme.fontMono
                         color:          Theme.active
                         wrapMode:       Text.WordWrap
@@ -730,7 +730,7 @@ CfgScroll {
                     Text {
                         width:          parent.width
                         text:           "How much"
-                        font.pixelSize: theme.fs(9)
+                        font.pixelSize: theme.typeCaption
                         font.weight:    Font.Bold
                         color:          Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
                     }
@@ -909,7 +909,7 @@ CfgScroll {
                                             return l.verb + " · " + l.what
                                                  + (l.backedUp ? "" : " · NOT backed up")
                                         }
-                                        font.pixelSize: theme.fs(9)
+                                        font.pixelSize: theme.typeCaption
                                         color:          lossRow.loss && lossRow.loss.backedUp
                                                         ? Theme.subtext : Theme.warning
                                         wrapMode:       Text.WordWrap
@@ -925,7 +925,7 @@ CfgScroll {
                             id: preservedHeading
                             width:          parent.width
                             text:           "Preserved"
-                            font.pixelSize: theme.fs(9)
+                            font.pixelSize: theme.typeCaption
                             font.weight:    Font.Bold
                             color:          Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
                             Accessible.role: Accessible.StaticText
@@ -944,7 +944,7 @@ CfgScroll {
                                 width:          lossList.width - theme.px(12)
                                 x:              theme.px(6)
                                 text:           "· " + line
-                                font.pixelSize: theme.fs(9)
+                                font.pixelSize: theme.typeCaption
                                 color:          Theme.subtext
                                 wrapMode:       Text.WordWrap
                                 // The name is the LINE, not the rendered text:
@@ -1086,7 +1086,7 @@ CfgScroll {
                             text:    "The confirmation is not ready. It is derived from this "
                                    + "scope and the exact paths above, so it cannot be built "
                                    + "without the list being on screen."
-                            font.pixelSize: theme.fs(9)
+                            font.pixelSize: theme.typeCaption
                             color:    Theme.subtext
                             wrapMode: Text.WordWrap
                             // Why there is no button. Without this a reader

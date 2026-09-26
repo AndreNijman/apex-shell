@@ -149,19 +149,14 @@ Item {
 			}
 			width:  3
 			radius: 2
-			// Same urgency accent as NotificationList's card, deliberately: one
-			// notification is shown by both surfaces, first as a toast and then in
-			// the list, and they used to disagree about it. Critical and Low always
-			// matched; normal urgency was #ABB2BF here and Theme.active there, so
-			// the accent bar changed colour as the toast expired.
-			color: {
-				if (!root.current) return Theme.active
-				switch (root.current.urgency) {
-					case NotificationUrgency.Critical: return Theme.danger
-					case NotificationUrgency.Low:      return Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.25)
-					default:                           return Theme.active
-				}
-			}
+			// The same urgency statement as NotificationList's card, deliberately:
+			// one notification is shown by both, first as a toast and then in the
+			// list. Since UI/UX Phase 17i the card marks Critical alone (a danger
+			// tint) and Normal and Low not at all, so the toast does too: the bar
+			// shows for Critical only. It used to draw for every notification, in
+			// the accent for Normal, which the card no longer says.
+			visible: !!root.current && root.current.urgency === NotificationUrgency.Critical
+			color:   Theme.danger
 		}
 
 		// No fade of its own: the panel's content channel carries it in and out.

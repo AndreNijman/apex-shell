@@ -88,8 +88,14 @@ ud="$HOME/.config/apex-shell/src/user_data"; mkdir -p "$ud" "$HOME/.cache/apex-s
 # shut, so a handler that reads its own focus after closing its panel is caught.
 printf '{"barEnabled":false,"animDuration":320,"motionScale":1,"reduceMotion":%s,"dashboardWidth":900,"dashboardHeight":520}' \
     "${REDUCE_MOTION:-false}" > "$ud/settings.json"
-printf '%s' '{"background":"#171210","active":"#fab898","text":"#ece0dc","subtext":"#d6c2ba","border":"#52443e","iconFont":"#be8366"}' \
-    > "$HOME/.cache/apex-shell/colors.json"
+# DASH_KEYS_COLORS=<file> runs on another palette (a light one, for the frames
+# SHOTS keeps); the keys and every assertion are the same either way.
+if [ -n "${DASH_KEYS_COLORS:-}" ]; then
+    cp "$DASH_KEYS_COLORS" "$HOME/.cache/apex-shell/colors.json"
+else
+    printf '%s' '{"background":"#171210","active":"#fab898","text":"#ece0dc","subtext":"#d6c2ba","border":"#52443e","iconFont":"#be8366"}' \
+        > "$HOME/.cache/apex-shell/colors.json"
+fi
 # Two applications for the launcher, told apart by the first key: "kqv" is
 # Kqvkeytest's; lose the k and "qv" is Qvkeytest's prefix.
 apps="$HOME/.local/share/applications"; mkdir -p "$apps"; LAUNCH_LOG="$HEADLESS_W/launched.log"; : > "$LAUNCH_LOG"
@@ -208,6 +214,7 @@ print(f"{ImageStat.Stat(ImageChops.difference(a, b)).mean[0]:.2f} "
 PY2
 }
 LIST="250,100,700,240"; ROW="250,108,700,150"; LABEL="266,122,318,138"
+LABEL_BG="340,122,380,138"   # the row's own surface between the time and its switch
 TIMERBAND="380,170,580,240"   # presets + Start/Reset when shut, HH:MM + Set Timer when open (Δ 11.6)
 errs_before="$(grep -cE 'ReferenceError|TypeError' "$log")"
 ipc dashboard-home toggle; sleep 1.5
@@ -221,9 +228,15 @@ awk -v d="$d" 'BEGIN { exit !(d > 5) }' \
     || bad "no alarm appeared (row band Δ $d)"
 keys Tab space; sleep 0.8; grab clock-4-off      # its switch
 read -r _ on off <<<"$(region clock-3-added clock-4-off "$LABEL")"
-awk -v a="$on" -v b="$off" 'BEGIN { exit !(b < a * 0.85) }' \
-    && ok "Tab to its switch, Space turns it off (its time dims: $on → $off)" \
-    || bad "the alarm's switch (time label $on → $off)"
+read -r _ bgon bgoff <<<"$(region clock-3-added clock-4-off "$LABEL_BG")"
+# "Dims" is toward the surface under it, not toward black: on a light palette
+# a dimmed label gets BRIGHTER. So the label's distance from the row's own
+# surface must shrink by 15 %, whichever way that is (DASH_KEYS_COLORS runs it
+# on a light palette; the old "darker by 15 %" failed there, 196 → 213).
+awk -v a="$on" -v b="$off" -v ga="$bgon" -v gb="$bgoff" \
+    'function abs(x) { return x < 0 ? -x : x } BEGIN { exit !(abs(b - gb) < abs(a - ga) * 0.85) }' \
+    && ok "Tab to its switch, Space turns it off (its time dims toward its surface: $on → $off, surface $bgon → $bgoff)" \
+    || bad "the alarm's switch (time label $on → $off, surface $bgon → $bgoff)"
 keys Tab Return; sleep 0.8; grab clock-5-gone    # its ✕
 read -r d _ _ <<<"$(region clock-1-empty clock-5-gone "$LIST")"
 awk -v d="$d" 'BEGIN { exit !(d < 1.5) }' \

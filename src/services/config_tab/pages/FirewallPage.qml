@@ -74,6 +74,9 @@ CfgScroll {
             // unit — and the page must not pretend it is.
             detail: "apex-firewall.service: " + FirewallService.unit
                 + "  ·  to read the live ruleset: " + FirewallService.readCommand
+            // Wrapped, not elided: the tail is the command the line exists to
+            // show, and at the sheet's width it was the part cut to "…".
+            detailWraps: true
 
             CfgButton {
                 id: fwRecheck

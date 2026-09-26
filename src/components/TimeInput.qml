@@ -48,7 +48,7 @@ Item {
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "HH"; font.pixelSize: theme.fs(9); font.weight: Font.Medium
+                text: "HH"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium
                 font.family: "JetBrains Mono"
                 color: Theme.textTertiary
             }
@@ -122,7 +122,7 @@ Item {
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "MM"; font.pixelSize: theme.fs(9); font.weight: Font.Medium
+                text: "MM"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium
                 font.family: "JetBrains Mono"
                 color: Theme.textTertiary
             }

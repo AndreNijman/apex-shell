@@ -24,7 +24,7 @@ import "../"
 //
 // The glyph is decoration: outlineStrong, the Phase 18a colour for a glyph
 // that stands for nothing interactive, and no accessible role. The title and
-// hint name themselves, and the command is text a reader can copy.
+// hint name themselves, and the command can be selected and copied.
 // ─────────────────────────────────────────────────────────────────────────────
 Column {
     id: root
@@ -82,15 +82,24 @@ Column {
         height: cmdText.implicitHeight + theme.spaceS
         radius: theme.radiusXS
         color: Theme.surfaceHigh
-        Text {
+        // A read-only TextEdit, not a Text: the command is there to be run, so
+        // it can be selected with the pointer and copied (the review of Phase 17
+        // found the "copyable" chip was a plain Text).
+        TextEdit {
             id: cmdText
             anchors.centerIn: parent
             width: Math.min(implicitWidth, parent.width - theme.spaceL)
-            elide: Text.ElideRight
+            readOnly: true
+            selectByMouse: true
+            activeFocusOnTab: false
+            wrapMode: TextEdit.NoWrap
+            clip: true
             text: root.command
             font.family: Theme.fontMono
             font.pixelSize: theme.typeMono
             color: Theme.textPrimary
+            selectionColor: Theme.accentContainer
+            selectedTextColor: Theme.textOnAccentContainer
             Accessible.role: Accessible.StaticText
             Accessible.name: text
         }

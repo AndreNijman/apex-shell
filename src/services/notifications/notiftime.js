@@ -11,7 +11,8 @@
 //   older              "Sep 24"
 //
 // `ts` and `now` are epoch milliseconds. A missing or future arrival time (a
-// clock step backwards) says nothing rather than something wrong.
+// clock step backwards) says nothing rather than something wrong; one up to a
+// minute ahead is the reader's own clock lagging, and reads "now".
 
 var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -27,7 +28,9 @@ function sameDay(a, b) {
 function ago(ts, now) {
     if (!ts || ts <= 0 || !now) return "";
     var d = now - ts;
-    if (d < 0) return "";
+    // A few seconds ahead is the reader's clock lagging the arrival (it ticks
+    // every 30 s): that is "now". Further ahead is a clock step: say nothing.
+    if (d < 0) return d > -60 * 1000 ? "now" : "";
     if (d < 60 * 1000) return "now";
     if (d < 60 * 60 * 1000) return Math.floor(d / 60000) + " min";
     var t = new Date(ts), n = new Date(now);

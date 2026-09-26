@@ -44,12 +44,19 @@ Item {
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
     // The clock the cards' timestamps read ("now", "12 min"). Ticks only while
-    // the centre is on screen with something in it — nothing polls at idle.
+    // the centre is OPEN with something in it: `visible` alone was not enough,
+    // the pane stays loaded (and visible to QML) after the panel closes. And it
+    // is re-read the moment the list changes, or a card arriving while the
+    // centre is open would read as "in the future" (blank) until the next tick.
     property real _now: Date.now()
     Timer {
         interval: 30000; repeat: true; triggeredOnStart: true
-        running: root.visible && NotificationService.count > 0
+        running: Popups.notificationsOpen && NotificationService.count > 0
         onTriggered: root._now = Date.now()
+    }
+    Connections {
+        target: NotificationService
+        function onCountChanged() { root._now = Date.now() }
     }
 
     // Clear all: every card takes its place in the bottom-up stagger from the
@@ -423,13 +430,16 @@ Item {
             card.sUrgency = n.urgency ?? NotificationUrgency.Normal
             card.sTime    = NotificationService.arrivedAt(n) || card.sTime
         }
+        // New content in the same notification (a replace-id update — how an
+        // agent's status line is re-sent) is a new arrival: the time moves with it.
+        function _updated() { card._snap(); card.sTime = Date.now(); root._now = Date.now() }
         onNotificationChanged: card._snap()
         Component.onCompleted: card._snap()
         Connections {
             target: card.notification
             ignoreUnknownSignals: true
-            function onSummaryChanged() { card._snap() }
-            function onBodyChanged()    { card._snap() }
+            function onSummaryChanged() { card._updated() }
+            function onBodyChanged()    { card._updated() }
             function onAppIconChanged() { card._snap() }
             function onActionsChanged() { card._snap() }
         }
@@ -443,15 +453,6 @@ Item {
             function onClearRequested(order) {
                 const i = order.indexOf(card.notification)
                 card.leaveRank = i < 0 ? 0 : order.length - 1 - i
-            }
-        }
-
-        // Urgency accent color
-        readonly property color urgencyColor: {
-            switch (card.tUrgency) {
-                case NotificationUrgency.Critical: return Theme.danger
-                case NotificationUrgency.Low:      return Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.25)
-                default:                           return Theme.active
             }
         }
 

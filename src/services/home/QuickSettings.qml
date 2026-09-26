@@ -699,8 +699,9 @@ StatCard {
             Text {
                 anchors { right: parent.right; top: parent.top }
                 text: Math.round(root._brightVal * 100) + "%"
-                font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"; font.weight: Font.Bold
-                color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7)
+                // A value: the readout treatment (UI/UX Phase 17).
+                font.pixelSize: theme.typeMono; font.family: Theme.fontMono
+                color: Theme.textSecondary
             }
 
             Row {
@@ -858,7 +859,7 @@ StatCard {
                     Text {
                         anchors { top: parent.top; left: parent.left; margins: theme.px(9) }
                         text: btn.icon; font.pixelSize: theme.fs(17)
-                        color: btn.on ? Theme.onAccentContainer : Theme.iconDefault
+                        color: btn.on ? Theme.textOnAccentContainer : Theme.iconDefault
                         Behavior on color { MotionColor { role: "state" } }
                     }
                     Column {
@@ -871,7 +872,7 @@ StatCard {
                             text: btn.label
                             font.pixelSize: theme.typeCaption; font.weight: Font.Medium
                             fontSizeMode: Text.HorizontalFit; minimumPixelSize: theme.fs(9)
-                            color: btn.on ? Theme.onAccentContainer : Theme.textSecondary
+                            color: btn.on ? Theme.textOnAccentContainer : Theme.textSecondary
                             elide: Text.ElideRight
                             Behavior on color { MotionColor { role: "state" } }
                         }
@@ -881,7 +882,7 @@ StatCard {
                                 anchors.fill: parent
                                 text: btn.sublabel
                                 font.pixelSize: theme.typeCaption; font.family: Theme.fontMono
-                                color: btn.on ? Theme.onAccentContainer : Theme.textTertiary
+                                color: btn.on ? Theme.textOnAccentContainer : Theme.textTertiary
                                 opacity: btn.on ? 0.8 : 1
                                 elide: Text.ElideRight
                             }
@@ -1101,11 +1102,9 @@ StatCard {
                 spacing: 2
 
                 // Header label
-                Text {
+                SectionLabel {
                     width: parent.width
-                    text: "SHADER"
-                    font.pixelSize: theme.fs(9); font.weight: Font.Bold
-                    color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
+                    text: "Shader"
                     leftPadding: 4
                     bottomPadding: 4
                 }
