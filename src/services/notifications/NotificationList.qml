@@ -158,17 +158,28 @@ Item {
                 notification: modelData.note
             }
 
-            // Arrival: from the right, with its fade.
+            // Arrival: from the right, with its fade — a beat after the rest
+            // begin making room, so it does not land on the card still
+            // leaving its slot (design review 2). Nested, so targeted.
             add: Transition {
-                NumberAnimation {
-                    property: "x"; from: Motion.travel(theme.px(24)); to: 0
-                    duration: Motion.notificationShift
-                    easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.emphasizedDecel
-                }
-                NumberAnimation {
-                    property: "opacity"; from: 0; to: 1
-                    duration: Math.max(Motion.notificationShift, Motion.hover)
-                    easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.effects
+                id: arriveTrans
+                SequentialAnimation {
+                    PropertyAction { target: arriveTrans.ViewTransition.item; property: "opacity"; value: 0 }
+                    PauseAnimation { duration: Motion.contentDelay }
+                    ParallelAnimation {
+                        NumberAnimation {
+                            target: arriveTrans.ViewTransition.item
+                            property: "x"; from: Motion.travel(theme.px(24)); to: 0
+                            duration: Motion.notificationShift
+                            easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.emphasizedDecel
+                        }
+                        NumberAnimation {
+                            target: arriveTrans.ViewTransition.item
+                            property: "opacity"; from: 0; to: 1
+                            duration: Math.max(Motion.notificationShift, Motion.hover)
+                            easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.effects
+                        }
+                    }
                 }
             }
             // Leaving: to the right and out, after its place in a Clear all.
@@ -189,16 +200,34 @@ Item {
                             duration: Motion.state
                             easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardAccel
                         }
+                        // Gone on the content beat, ahead of its own slide and
+                        // before the card below has risen into its slot.
                         NumberAnimation {
                             target: removeTrans.ViewTransition.item
                             property: "opacity"; to: 0
-                            duration: Motion.state
+                            duration: Motion.fadeOut
                             easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.effects
                         }
                     }
                 }
             }
-            // The rest make room, or close up, at the same instant.
+            // Closing up after a removal waits a beat, so the card rising
+            // into the gap does not run into the one still leaving it.
+            removeDisplaced: Transition {
+                id: closeUpTrans
+                SequentialAnimation {
+                    PauseAnimation { duration: Motion.contentDelay }
+                    NumberAnimation {
+                        target: closeUpTrans.ViewTransition.item
+                        property: "y"; to: closeUpTrans.ViewTransition.destination.y
+                        duration: Motion.notificationShift
+                        easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standard
+                    }
+                }
+                NumberAnimation { property: "x"; to: 0; duration: Motion.notificationShift }
+                NumberAnimation { property: "opacity"; to: 1; duration: Motion.hover }
+            }
+            // Making room for an arrival starts at once.
             displaced: Transition {
                 NumberAnimation {
                     property: "y"
@@ -325,11 +354,16 @@ Item {
 
         height: cardRow.height + 20
         readonly property int actionH: 22
+        // Counted on the conditions the lines are SHOWN on, never on `visible`:
+        // `visible` is the effective visibility, false while any ancestor is
+        // hidden, so a card built while the centre was closed counted no lines,
+        // took the icon's 32 px and kept it — the cards sat jammed together
+        // until something else made the list lay out again (design review 2).
         readonly property real textHeight: {
             let h = 0, n = 0
             for (const t of [appLine, summaryLine, bodyLine])
-                if (t.visible) { h += t.implicitHeight; n++ }
-            if (actionsRow.visible) { h += card.actionH; n++ }   // a Row's implicitHeight is polish-time too
+                if (t.text !== "") { h += t.implicitHeight; n++ }
+            if (card.tActions.length > 0) { h += card.actionH; n++ }   // a Row's implicitHeight is polish-time too
             return h + Math.max(0, n - 1) * textCol.spacing
         }
 

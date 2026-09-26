@@ -50,7 +50,10 @@ PanelWindow {
     readonly property string pane: root.anchorWindow.rightPane
 
     // The bar's clock waits for this window to exist (see TopBar.rightHostReady).
-    Component.onCompleted: root.anchorWindow.rightHostReady = true
+    Component.onCompleted: {
+        root.targetD = root.paneDepth
+        root.anchorWindow.rightHostReady = true
+    }
 
     // The toast asks for the surface through the bar, per screen.
     Binding {
@@ -105,10 +108,25 @@ PanelWindow {
     // D1. Retargets over a page beat while the body is up (a pane switch, a
     // notification arriving in the open centre); from closed it is simply the
     // pane's.
-    property real targetD: root.paneDepth
-    Behavior on targetD {
-        enabled: root.life.progress > 0
-        MotionMove { role: "page"; curve: Motion.standard }
+    // Driven, not a Behavior: the pause has to be decided from the depth the
+    // body is leaving, and a Behavior starts before a binding beside it has
+    // seen the new depth (measured: the pause ran at 0 ms).
+    property real targetD: 0
+    onPaneDepthChanged: root._retarget()
+    function _retarget() {
+        if (root.life.progress <= 0) { dAnim.stop(); root.targetD = root.paneDepth; return }
+        // A card leaving the open centre: the cards below close up a beat
+        // later (NotificationList's removeDisplaced), so the body waits the
+        // same beat — shrinking at once, it clipped the card still rising.
+        dWait.duration = root.pane === "notifications" && root.paneDepth < root.targetD
+                         ? Motion.contentDelay : 0
+        dMove.to = root.paneDepth
+        dAnim.restart()
+    }
+    SequentialAnimation {
+        id: dAnim
+        PauseAnimation { id: dWait }
+        MotionMove { id: dMove; target: root; property: "targetD"; role: "page"; curve: Motion.standard }
     }
 
     // The window: wide enough for the widest pane plus the band's shoulder,

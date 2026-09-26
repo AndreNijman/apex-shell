@@ -235,8 +235,6 @@ lens_switch() {
     echo "captured lens"
 }
 
-# Changing page in Nexus: the nav's one selection travels, the page moves in
-# nav order.
 # Every Nexus page, settled: one frame each (nexus-pages).
 nexus_pages() {
     local p
@@ -249,6 +247,8 @@ nexus_pages() {
     echo "captured nexus-pages"
 }
 
+# Changing page in Nexus: the nav's one selection travels, the page moves in
+# nav order.
 nexus_nav() {
     ipc nexus open appearance; sleep 1.2
     t0=$(date +%s%N); ipc nexus open display; burst "nexus-nav-down" "$t0"

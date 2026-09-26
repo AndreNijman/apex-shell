@@ -27,6 +27,10 @@
 #   HEIGHT    the card's height is not a positioner's implicitHeight (a
 #             Column's is computed at polish time, after the list has laid a new
 #             card out — the others made room for too little and stayed there).
+#   SHOWN     …and it counts its lines by the conditions they are shown on,
+#             never by `visible`: that is the effective visibility, false while
+#             the centre is closed, so cards that arrived then took the icon's
+#             height and sat jammed together at rest.
 #
 #  Each rule is mutated on a copy to prove it can fail.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -57,6 +61,8 @@ anims = re.findall(r'NumberAnimation\s*\{(.*?)\}', rm, re.S)
 print("TARGETED", "PASS" if anims and all(re.search(r'target:\s*removeTrans\.ViewTransition\.item', a) for a in anims) else "FAIL")
 row = re.search(r'id:\s*cardRow(.*?)height:\s*([^\n]+)', code, re.S)
 print("HEIGHT",   "PASS" if row and "implicitHeight" not in row.group(2) else "FAIL")
+th = re.search(r'readonly property real textHeight:\s*\{(.*?)\n        \}', code, re.S)
+print("SHOWN",    "PASS" if th and ".visible" not in th.group(1) and "text" in th.group(1) else "FAIL")
 PY
 }
 
@@ -68,6 +74,7 @@ label() {
         EXTENT)   echo "the ListView is not sized to its content (exits are not released early)" ;;
         TARGETED) echo "every animation in the remove transition names its target" ;;
         HEIGHT)   echo "a card's height is not a positioner's polish-time implicitHeight" ;;
+        SHOWN)    echo "a card counts its lines by their show conditions, not effective visibility" ;;
     esac
 }
 
@@ -76,7 +83,7 @@ while read -r rule verdict; do
     [ -n "$rule" ] || continue
     if [ "$verdict" = PASS ]; then ok "$(label "$rule")"; else bad "$(label "$rule")"; fi
 done <<<"$verdicts"
-[ "$(grep -c . <<<"$verdicts")" -eq 6 ] && ok "all six rules were evaluated" || bad "expected six verdicts: $verdicts"
+[ "$(grep -c . <<<"$verdicts")" -eq 7 ] && ok "all seven rules were evaluated" || bad "expected seven verdicts: $verdicts"
 
 # ── self-test ────────────────────────────────────────────────────────────────
 MW="$(mktemp -d)"; trap 'rm -rf "$MW"' EXIT INT TERM
@@ -100,6 +107,7 @@ mutant "a content-sized list" 'height:         listArea.maxListHeight' 'height: 
 mutant "an untargeted nested exit" 'target: removeTrans.ViewTransition.item
                             property: "opacity"' 'property: "opacity"' TARGETED
 mutant "the Column's implicitHeight" 'height:  Math.max(iconArea.height, card.textHeight)' 'height:  Math.max(iconArea.height, textCol.implicitHeight)' HEIGHT
+mutant "lines counted by effective visibility" 'if (t.text !== "")' 'if (t.visible)' SHOWN
 
 printf '\ncheck-notification-stack: passed=%d failed=%d\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

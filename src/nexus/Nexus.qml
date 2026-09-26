@@ -59,6 +59,11 @@ PanelWindow {
         enterCurve:    Motion.emphasizedDecel
         exitCurve:     Motion.standardAccel
         contentDelay:  0
+        // The sheet leaves on the scrim's beat. On the content beat (70 ms) it
+        // was gone while the scrim still dimmed an empty desk for another
+        // 65 ms (design review 2). Under Reduce Motion that beat is 0 and the
+        // alpha takes it too, so the short fade stays.
+        contentOut:    Motion.reduced ? Motion.fadeOut : Motion.surfaceExitSmall
     }
 
     // The window stays mapped for the duration of the close animation.
@@ -114,8 +119,11 @@ PanelWindow {
         anchors.fill: parent
         color: "black"
         // With the progress (a fade of its own under Reduce Motion, when the
-        // progress jumps and alpha carries the change).
-        opacity: 0.35 * life.progress * life.alpha
+        // progress jumps and alpha carries the change). Closing, with the
+        // sheet's own channel: on the progress (standardAccel, slow to start)
+        // the dim outlived the sheet — at 187 ms of a slowed close, 69 % of the
+        // scrim was left over 15 % of the sheet (design review 2, measured).
+        opacity: 0.35 * (life.closing ? life.content : life.progress) * life.alpha
     }
 
     Item {
@@ -133,7 +141,7 @@ PanelWindow {
             width: Math.min(parent.width - theme.px(80), theme.px(920))
             height: Math.min(parent.height - theme.px(80), theme.px(620))
 
-            radius: theme.cornerRadius + theme.px(4)
+            radius: theme.radiusXL
             color: Theme.background
             border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
             border.width: 1
@@ -205,9 +213,9 @@ PanelWindow {
                             topMargin: theme.px(12)
                         }
                         text: pane.current ? pane.current.title : ""
-                        color: Theme.text
-                        font.pixelSize: theme.fs(15)
-                        font.bold: true
+                        color: Theme.textPrimary
+                        font.pixelSize: theme.typePageTitle
+                        font.weight: Font.DemiBold
                     }
 
                     Text {
@@ -220,8 +228,8 @@ PanelWindow {
                             rightMargin: theme.px(8)
                         }
                         text: pane.current ? pane.current.subtitle : ""
-                        color: Theme.subtext
-                        font.pixelSize: theme.fs(11)
+                        color: Theme.textSecondary
+                        font.pixelSize: theme.typeCaption
                         elide: Text.ElideRight
                     }
 
