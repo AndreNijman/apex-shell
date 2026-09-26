@@ -549,9 +549,25 @@ Item {
                         }
                     }
 
+                    // The prefixes, once, under the list while the field is empty
+                    // (UI/UX Phase 17, visual roadmap §26): they were the field's
+                    // placeholder — six items of legend where the reader looks to
+                    // type.
+                    Text {
+                        id: prefixHint
+                        anchors { left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: theme.px(10) }
+                        visible: root.query === ""
+                        text: "install …   ·   ssh …   ·   ~/ files   ·   > commands   ·   ? asks"
+                        font.pixelSize: theme.typeCaption
+                        color: Theme.textTertiary
+                        elide: Text.ElideRight
+                    }
+
                     ListView {
                         id: appList
-                        anchors.fill: parent
+                        anchors { top: parent.top; left: parent.left; right: parent.right
+                                  bottom: prefixHint.visible ? prefixHint.top : parent.bottom
+                                  bottomMargin: prefixHint.visible ? theme.px(8) : 0 }
                         visible: root.filtered.length > 0
                         clip:    true
                         spacing: 3
@@ -614,17 +630,14 @@ Item {
                                    ? (isDestructive ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.16)
                                                     : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14))
                                    : rowH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06) : "transparent"
-                            border.color: isSel
-                                          ? (isDestructive ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.50)
-                                                           : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28))
-                                          : rowH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : "transparent"
-                            border.width: 1
+                            // One selected surface, no outline (UI/UX Phase 17, §18/§21):
+                            // it drew the fill AND a 1 px border.
+                            border.width: 0
 
                             // The selection changing is the one thing in the list that
                             // moves as you type or arrow: a colour change on the state
                             // beat. Rows themselves never animate (brief B.6).
                             Behavior on color        { MotionColor { role: "state" } }
-                            Behavior on border.color { MotionColor { role: "state" } }
 
                             Row {
                                 anchors {
@@ -713,7 +726,7 @@ Item {
                                         visible:        rowItem.modelData
                                                         && (rowItem.modelData.detail ?? "") !== ""
                                         text:           rowItem.modelData ? (rowItem.modelData.detail ?? "") : ""
-                                        font.pixelSize: theme.fs(10)
+                                        font.pixelSize: theme.typeCaption
                                         color:          Theme.textTertiary
                                         elide:          Text.ElideRight
                                         maximumLineCount: 1
@@ -995,7 +1008,7 @@ Item {
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text:    "Search  ·  install …  ·  ssh …  ·  ~/  ·  > commands  ·  ? asks"
+                        text:    "Search apps, files and settings"
                         color:   Theme.textTertiary
                         font.pixelSize: theme.fs(13)
                         visible: searchInput.text === ""
