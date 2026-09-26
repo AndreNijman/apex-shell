@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell.Io
 import "../"
+import "../components/controls"
 import "../components"
 
 // VPNTab — WireGuard connections via nmcli + the sing-box VLESS/Reality tunnel.
@@ -31,6 +32,14 @@ import "../components"
 
 Item {
     id: root
+
+    // How tall this tab wants to be — the header block (49) and its content —
+    // as WifiTab reports it (UI/UX Phase 17). The panel sized every other tab
+    // to a fixed 648 px, most of it empty.
+    readonly property real preferredHeight: 49 + conCol.height
+    // Set by NetworkPane: the panel has finished opening. Refreshes wait for it
+    // (UI/UX Phase 22 — no process starts, no list rebuilt, under the pour).
+    property bool settled: false
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
@@ -333,7 +342,8 @@ Item {
     // ── nmcli monitor — debounced refresh ─────────────────────────────────────
     Process {
         id: monitorProc
-        running: Popups.networkOpen
+        // Started once the panel has settled, not under its open (UI/UX Phase 22).
+        running: root.settled && Popups.networkOpen
         command: ["nmcli", "monitor"]
         stdout: SplitParser {
             onRead: function(data) { monitorDebounce.restart() }
@@ -348,7 +358,7 @@ Item {
 
     // Also poll every 8s while popup is open to catch external changes
     Timer {
-        interval: 8000; repeat: true; running: Popups.networkOpen
+        interval: 8000; repeat: true; running: root.settled && Popups.networkOpen
         onTriggered: root._refresh()
     }
 
@@ -472,14 +482,39 @@ Item {
         }
     }
 
-    // Reset on popup open
-    Connections {
-        target: Popups
-        function onNetworkOpenChanged() {
-            if (Popups.networkOpen && root.visible)
-                root._refresh()
-        }
+    // ── Keyboard (UI/UX roadmap v3 Phase 21) ────────────────────────────────
+    // The connection list is ONE Tab stop: Up and Down move a highlight over
+    // every WireGuard connection (active first, then available) and then the
+    // sing-box row last — the same top-to-bottom order Phase 17 put on
+    // screen — Return does what the row's own click does (connect,
+    // disconnect, or toggle the tunnel). A list of many connections is not
+    // that many stops.
+    property string _curKey: ""
+    readonly property var _rowKeys: root._connections.filter(function (c) { return c.active }).map(function (c) { return c.name })
+        .concat(root._connections.filter(function (c) { return !c.active }).map(function (c) { return c.name }))
+        .concat(["__singbox"])
+    function _stepRow(d) {
+        const list = root._rowKeys
+        if (list.length === 0) return
+        const i = list.indexOf(root._curKey)
+        root._curKey = i < 0 ? list[d > 0 ? 0 : list.length - 1]
+                             : list[Math.max(0, Math.min(list.length - 1, i + d))]
     }
+    function _rowFor(key) {
+        if (key === "__singbox") return sbRow
+        for (let i = 0; i < activeRows.count; i++) {
+            const r = activeRows.itemAt(i)
+            if (r && r.con.name === key) return r
+        }
+        for (let i = 0; i < availRows.count; i++) {
+            const r = availRows.itemAt(i)
+            if (r && r.con.name === key) return r
+        }
+        return null
+    }
+
+    // The refresh once the panel is up, not as it starts to open (UI/UX Phase 22).
+    onSettledChanged: if (root.settled && Popups.networkOpen && root.visible) root._refresh()
 
     Component.onCompleted: {
         // Disable autoconnect for all WireGuard profiles silently
@@ -504,19 +539,23 @@ Item {
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                 spacing: 8
 
-                // Kill switch toggle
-                Rectangle {
-                    height: 28; radius: 14
+                // Kill switch — a real toggle (UI/UX Phase 17): ON is
+                // surfaceSelected + accentText, same as a selected row; OFF is
+                // the one action-button style everything else in this pane uses.
+                ApexPressable {
+                    id: ksBtn
+                    height: theme.controlStandard; radius: theme.radiusS
                     width: ksRow.implicitWidth + 18
-                    color: root._killSwitch
-                        ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                        : ksH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
-                    border.color: root._killSwitch
-                        ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40)
-                        : Qt.rgba(1,1,1,0.10)
-                    border.width: 1
-                    Behavior on color        { ColorAnimation { duration: 130 } }
-                    Behavior on border.color { ColorAnimation { duration: 130 } }
+                    hitMargin: 2
+                    Accessible.name: root._killSwitch ? "Turn off kill switch" : "Turn on kill switch"
+                    Accessible.checkable: true
+                    Accessible.checked: root._killSwitch
+                    onActivated: root._toggleKillSwitch()
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color: root._killSwitch ? ksBtn.tint(Theme.surfaceSelected) : ksBtn.tint(Theme.surfaceHigh)
+                        Behavior on color { MotionColor { role: "state" } }
+                    }
 
                     Row {
                         id: ksRow; anchors.centerIn: parent; spacing: 6
@@ -524,69 +563,160 @@ Item {
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text: "󰒃"; font.pixelSize: theme.fs(13)
-                            color: root._killSwitch ? Theme.active : Qt.rgba(1,1,1,0.40)
-                            Behavior on color { ColorAnimation { duration: 130 } }
+                            color: root._killSwitch ? Theme.accentText : Theme.textPrimary
+                            Behavior on color { MotionColor { role: "state" } }
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "Kill Switch"; font.pixelSize: theme.fs(11); font.weight: Font.Medium
-                            color: root._killSwitch ? Theme.active : Qt.rgba(1,1,1,0.45)
-                            Behavior on color { ColorAnimation { duration: 130 } }
+                            text: "Kill Switch"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium
+                            color: root._killSwitch ? Theme.accentText : Theme.textPrimary
+                            Behavior on color { MotionColor { role: "state" } }
                         }
                     }
-
-                    HoverHandler { id: ksH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent; onClicked: root._toggleKillSwitch() }
+                    ApexFocusRing { target: ksBtn }
                 }
 
-                // Refresh
-                Rectangle {
+                // Refresh — borderless, state layer only (UI/UX Phase 17)
+                ApexPressable {
+                    id: rfBtn
                     width: 32; height: 32; radius: 8
-                    color: rfH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15) : Qt.rgba(1,1,1,0.05)
-                    border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28)
-                    border.width: 1
-                    Behavior on color { ColorAnimation { duration: 120 } }
-
+                    Accessible.name: "Refresh VPN connections"
+                    onActivated: if (!root._loading) root._refresh()
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: rfBtn.stateLayer() }
                     Text {
                         id: rfIcon; anchors.centerIn: parent; text: "󰑐"; font.pixelSize: theme.fs(15)
-                        color: root._loading
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4)
-                            : Theme.active
-                        Behavior on color { ColorAnimation { duration: 150 } }
+                        // Genuine state colour: dimmed accent while the spin runs.
+                        color: root._loading ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4) : (rfBtn.hovered ? Theme.textPrimary : Theme.iconDefault)
+                        Behavior on color { MotionColor { role: "state" } }
                         RotationAnimator {
-                            target: rfIcon; from: 0; to: 360; duration: 900
-                            loops: Animation.Infinite; running: root._loading
+                            target: rfIcon; from: 0; to: 360; duration: Motion.spinPeriod
+                            loops: Animation.Infinite; running: root._loading && Motion.loops
                             easing.type: Easing.Linear
                         }
                     }
-                    HoverHandler { id: rfH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent; onClicked: if (!root._loading) root._refresh() }
+                    ApexFocusRing { target: rfBtn }
                 }
             }
         }
 
-        Rectangle { width: parent.width; height: 1; color: Qt.rgba(1,1,1,0.07) }
+        Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) }
         Item      { width: parent.width; height: 8 }
 
         // Connection list
         Flickable {
+            id: flick
             width: parent.width; height: parent.height - 49
             contentWidth: width; contentHeight: conCol.height
             clip: true; boundsBehavior: Flickable.StopAtBounds
+            activeFocusOnTab: root._rowKeys.length > 0
+            Accessible.role: Accessible.List
+            Accessible.name: "VPN connections"
+            onActiveFocusChanged: if (activeFocus && root._rowKeys.indexOf(root._curKey) < 0) root._stepRow(1)
+            Keys.onPressed: function (event) {
+                if      (event.key === Qt.Key_Down) root._stepRow(1)
+                else if (event.key === Qt.Key_Up)   root._stepRow(-1)
+                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                    const row = root._rowFor(root._curKey)
+                    if (row) row.primary()
+                } else return
+                event.accepted = true
+                // Keep the highlighted row in view.
+                const r = root._rowFor(root._curKey)
+                if (r) {
+                    const top = r.mapToItem(conCol, 0, 0).y
+                    if (top < flick.contentY) flick.contentY = top
+                    else if (top + r.height > flick.contentY + flick.height)
+                        flick.contentY = top + r.height - flick.height
+                }
+            }
 
             Column {
                 id: conCol; width: parent.width; height: implicitHeight; spacing: 6
 
-                // ── Tunnel section — sing-box ─────────────────────────────
+                // ── Active section (UI/UX Phase 17: ACTIVE, then AVAILABLE,
+                // then TUNNEL — the connection you are on belongs at the top) ──
+                Item {
+                    width: parent.width; height: visible ? aLbl.implicitHeight + 4 : 0
+                    visible: root._connections.some(function(c) { return c.active })
+                    SectionLabel { id: aLbl; text: "ACTIVE" }
+                }
+
+                Repeater {
+                    id: activeRows
+                    model: root._connections.filter(function(c) { return c.active })
+                    delegate: VPNRow {
+                        required property var modelData
+                        width: conCol.width - 2; x: 1; con: modelData
+                    }
+                }
+
+                Item {
+                    width: parent.width; height: 6
+                    visible: root._connections.some(function(c) { return c.active })
+                          && root._connections.some(function(c) { return !c.active })
+                }
+
+                // Available section
+                Item {
+                    width: parent.width; height: visible ? iLbl.implicitHeight + 4 : 0
+                    visible: root._connections.some(function(c) { return !c.active })
+                    SectionLabel { id: iLbl; text: "AVAILABLE" }
+                }
+
+                Repeater {
+                    id: availRows
+                    model: root._connections.filter(function(c) { return !c.active })
+                    delegate: VPNRow {
+                        required property var modelData
+                        width: conCol.width - 2; x: 1; con: modelData
+                    }
+                }
+
+                // Empty state
+                Item {
+                    width: parent.width; height: 180
+                    visible: !root._loading && root._connections.length === 0
+                    // The shared empty state (UI/UX Phase 17).
+                    EmptyState {
+                        anchors.centerIn: parent; width: parent.width * 0.8
+                        glyph: "󰦝"
+                        title: "No WireGuard connections"
+                        hint: "Import a config to get started:"
+                        command: "nmcli con import type wireguard file <conf>"
+                    }
+                }
+
+                // Loading state
+                Item {
+                    width: parent.width; height: 80
+                    visible: root._loading && root._connections.length === 0
+                    Column {
+                        anchors.centerIn: parent; spacing: 8
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: "○"; font.pixelSize: theme.fs(20); color: Theme.active
+                            SequentialAnimation on opacity {
+                                running: (root._loading && root._connections.length === 0) && Motion.ambient
+                                // Finish the current beat when gated off, so it rests at its
+                                // end value instead of freezing mid-fade (Reduce Motion mid-pulse).
+                                alwaysRunToEnd: true
+                                loops:   Animation.Infinite
+                                NumberAnimation { to: 0.15; duration: Motion.pulseHalf }
+                                NumberAnimation { to: 1.0;  duration: Motion.pulseHalf }
+                            }
+                        }
+                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Loading…"; font.pixelSize: theme.fs(11); color: Theme.textTertiary }
+                    }
+                }
+
+                Item { width: parent.width; height: 6 }
+
+                // ── Tunnel section — sing-box. Always last: a dedicated backend
+                // rather than a WireGuard peer, so it never competes with ACTIVE/
+                // AVAILABLE for the top of the list (UI/UX Phase 17). ──────────
                 Item {
                     width: parent.width; height: tLbl.implicitHeight + 4
-                    Text {
-                        id: tLbl; text: "TUNNEL"
-                        font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2
-                        color: root._sbActive
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
-                            : Qt.rgba(1,1,1,0.25)
-                    }
+                    SectionLabel { id: tLbl; text: "TUNNEL" }
                 }
 
                 // sing-box row
@@ -594,17 +724,32 @@ Item {
                     id: sbRow
                     width: conCol.width - 2; x: 1; height: 54
 
+                    // Highlighted by the keyboard; Return activates it via primary().
+                    readonly property bool keyed: root._curKey === "__singbox"
+                    // The row's own click action, for Return on the list as well.
+                    function primary() {
+                        if (root._sbBusy) return
+                        root._sbActive ? root._sbDisconnect() : root._sbConnect()
+                    }
+                    Accessible.role: Accessible.ListItem
+                    Accessible.name: "sing-box" + (root._sbBusy
+                        ? (root._sbActive ? ", disconnecting" : ", connecting")
+                        : (root._sbActive ? ", connected" : ", disconnected"))
+
                     Rectangle {
-                        id: sbCard; anchors.fill: parent; radius: theme.cornerRadius
+                        // Borderless at rest; only the active tunnel carries a fill
+                        // (UI/UX roadmap v3 Phase 17 — rows read as list items, not cards).
+                        id: sbCard; anchors.fill: parent; radius: theme.radiusS
                         color: root._sbActive
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08)
-                            : sbHov.hovered ? Qt.rgba(1,1,1,0.04) : "transparent"
-                        border.color: root._sbActive
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22)
-                            : Qt.rgba(1,1,1,0.07)
-                        border.width: 1
-                        Behavior on color        { ColorAnimation { duration: 200 } }
-                        Behavior on border.color { ColorAnimation { duration: 200 } }
+                            ? Theme.surfaceSelected
+                            : sbHov.hovered ? Theme.surfaceHover(Theme.background) : "transparent"
+                        Behavior on color { MotionColor { role: "state" } }
+                    }
+                    Rectangle {
+                        anchors.fill: parent; anchors.margins: -3
+                        radius: theme.cornerRadius + 3
+                        color: "transparent"; border.width: 2; border.color: Theme.accentText
+                        visible: sbRow.keyed && flick.activeFocus
                     }
 
                     Row {
@@ -618,8 +763,8 @@ Item {
                                 ? Theme.active
                                 : root._sbBusy
                                     ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
-                                    : Qt.rgba(1,1,1,0.28)
-                            Behavior on color { ColorAnimation { duration: 200 } }
+                                    : Theme.textTertiary
+                            Behavior on color { MotionColor { role: "state" } }
                         }
 
                         Column {
@@ -630,7 +775,7 @@ Item {
                                 Text {
                                     text: "sing-box"; font.pixelSize: theme.fs(13)
                                     font.weight: root._sbActive ? Font.Medium : Font.Normal
-                                    color: root._sbActive ? Theme.text : Qt.rgba(1,1,1,0.65)
+                                    color: root._sbActive ? Theme.text : Theme.textSecondary
                                 }
                                 Rectangle {
                                     anchors.verticalCenter: parent.verticalCenter
@@ -655,13 +800,15 @@ Item {
                                         : "Disconnected"
                                 color: root._sbBusy
                                     ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.60)
-                                    : root._sbActive ? Theme.active : Qt.rgba(1,1,1,0.32)
-                                Behavior on color { ColorAnimation { duration: 200 } }
+                                    : root._sbActive ? Theme.active : Theme.textTertiary
+                                Behavior on color { MotionColor { role: "state" } }
                             }
                         }
                     }
 
-                    // Right: spinner or status dot
+                    // Right: busy spinner only — the row's own fill and subtitle
+                    // already carry the connected/disconnected state, so the bare
+                    // status dot next to them was redundant (UI/UX Phase 17).
                     Item {
                         anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
                         width: 28; height: 28
@@ -670,18 +817,10 @@ Item {
                             anchors.centerIn: parent; visible: root._sbBusy
                             text: "○"; font.pixelSize: theme.fs(16); color: Theme.active
                             SequentialAnimation on opacity {
-                                running: root._sbBusy; loops: Animation.Infinite
-                                NumberAnimation { to: 0.15; duration: 450 }
-                                NumberAnimation { to: 1.0;  duration: 450 }
+                                running: root._sbBusy && Motion.ambient; alwaysRunToEnd: true; loops: Animation.Infinite
+                                NumberAnimation { to: 0.15; duration: Motion.pulseHalf }
+                                NumberAnimation { to: 1.0;  duration: Motion.pulseHalf }
                             }
-                        }
-                        Rectangle {
-                            anchors.centerIn: parent; visible: !root._sbBusy
-                            width: 10; height: 10; radius: 5
-                            color: root._sbActive
-                                ? Theme.active
-                                : sbHov.hovered ? Qt.rgba(1,1,1,0.35) : Qt.rgba(1,1,1,0.18)
-                            Behavior on color { ColorAnimation { duration: 200 } }
                         }
                     }
 
@@ -689,96 +828,12 @@ Item {
                     MouseArea {
                         anchors.fill: parent
                         enabled: !root._sbBusy
-                        onClicked: root._sbActive ? root._sbDisconnect() : root._sbConnect()
+                        onClicked: sbRow.primary()
                     }
-                }
-
-                Item { width: parent.width; height: 6 }
-
-                // Active section
-                Item {
-                    width: parent.width; height: visible ? aLbl.implicitHeight + 4 : 0
-                    visible: root._connections.some(function(c) { return c.active })
-                    Text {
-                        id: aLbl; text: "ACTIVE"
-                        font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2
-                        color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
-                    }
-                }
-
-                Repeater {
-                    model: root._connections.filter(function(c) { return c.active })
-                    delegate: VPNRow {
-                        required property var modelData
-                        width: conCol.width - 2; x: 1; con: modelData
-                    }
-                }
-
-                Item {
-                    width: parent.width; height: 6
-                    visible: root._connections.some(function(c) { return c.active })
-                          && root._connections.some(function(c) { return !c.active })
-                }
-
-                // Available section
-                Item {
-                    width: parent.width; height: visible ? iLbl.implicitHeight + 4 : 0
-                    visible: root._connections.some(function(c) { return !c.active })
-                    Text {
-                        id: iLbl; text: "AVAILABLE"
-                        font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2
-                        color: Qt.rgba(1,1,1,0.25)
-                    }
-                }
-
-                Repeater {
-                    model: root._connections.filter(function(c) { return !c.active })
-                    delegate: VPNRow {
-                        required property var modelData
-                        width: conCol.width - 2; x: 1; con: modelData
-                    }
-                }
-
-                // Empty state
-                Item {
-                    width: parent.width; height: 180
-                    visible: !root._loading && root._connections.length === 0
-                    Column {
-                        anchors.centerIn: parent; spacing: 12
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰦝"; font.pixelSize: theme.fs(36); color: Qt.rgba(1,1,1,0.08) }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "No WireGuard connections"; font.pixelSize: theme.fs(13); color: Qt.rgba(1,1,1,0.2) }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Import a config to get started:"; font.pixelSize: theme.fs(10); color: Qt.rgba(1,1,1,0.14); horizontalAlignment: Text.AlignHCenter }
-                        Rectangle {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: codeText.implicitWidth + 24; height: 26; radius: 6
-                            color: Qt.rgba(1,1,1,0.05); border.color: Qt.rgba(1,1,1,0.10); border.width: 1
-                            Text {
-                                id: codeText; anchors.centerIn: parent
-                                text: "nmcli con import type wireguard file <conf>"
-                                font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"
-                                color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
-                            }
-                        }
-                    }
-                }
-
-                // Loading state
-                Item {
-                    width: parent.width; height: 80
-                    visible: root._loading && root._connections.length === 0
-                    Column {
-                        anchors.centerIn: parent; spacing: 8
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "○"; font.pixelSize: theme.fs(20); color: Theme.active
-                            SequentialAnimation on opacity {
-                                running: root._loading && root._connections.length === 0
-                                loops:   Animation.Infinite
-                                NumberAnimation { to: 0.15; duration: 550 }
-                                NumberAnimation { to: 1.0;  duration: 550 }
-                            }
-                        }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Loading…"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.25) }
+                    RowAction {
+                        visible: !root._sbBusy
+                        connected: root._sbActive; target: "sing-box"; keyed: sbRow.keyed
+                        onGo: sbRow.primary()
                     }
                 }
 
@@ -799,24 +854,39 @@ Item {
             _wasActive = con.active
         }
 
-        // Card background
+        // Highlighted by the keyboard; Return activates it via primary().
+        readonly property bool keyed: root._curKey === vRow.con.name
+        // The row's own click action, for Return on the list as well.
+        function primary() {
+            if (vRow.con.busy) return
+            vRow.con.active ? root._disconnect(vRow.con.name) : root._connect(vRow.con.name)
+        }
+        Accessible.role: Accessible.ListItem
+        Accessible.name: vRow.con.name + (vRow.con.busy
+            ? (vRow.con.active ? ", disconnecting" : ", connecting")
+            : (vRow.con.active ? ", connected" : ", disconnected"))
+
+        // Card background — borderless at rest; only the active connection
+        // carries a fill (UI/UX roadmap v3 Phase 17 — rows read as list
+        // items, not cards).
         Rectangle {
-            id: card; anchors.fill: parent; radius: theme.cornerRadius
+            id: card; anchors.fill: parent; radius: theme.radiusS
             color: vRow.con.active
-                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08)
-                : vHov.hovered ? Qt.rgba(1,1,1,0.04) : "transparent"
-            border.color: vRow.con.active
-                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22)
-                : Qt.rgba(1,1,1,0.07)
-            border.width: 1
-            Behavior on color        { ColorAnimation { duration: 200 } }
-            Behavior on border.color { ColorAnimation { duration: 200 } }
+                ? Theme.surfaceSelected
+                : vHov.hovered ? Theme.surfaceHover(Theme.background) : "transparent"
+            Behavior on color { MotionColor { role: "state" } }
 
             SequentialAnimation {
                 id: pulseAnim; running: false
-                ColorAnimation { target: card; to: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30); duration: 160 }
-                ColorAnimation { target: card; to: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08); duration: 500; easing.type: Easing.OutCubic }
+                ColorAnimation { target: card; to: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30); duration: Motion.micro }
+                ColorAnimation { target: card; to: Theme.surfaceSelected; duration: Motion.settle; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardDecel }
             }
+        }
+        Rectangle {
+            anchors.fill: parent; anchors.margins: -3
+            radius: theme.cornerRadius + 3
+            color: "transparent"; border.width: 2; border.color: Theme.accentText
+            visible: vRow.keyed && flick.activeFocus
         }
 
         Row {
@@ -831,8 +901,8 @@ Item {
                     ? Theme.active
                     : vRow.con.busy
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
-                        : Qt.rgba(1,1,1,0.28)
-                Behavior on color { ColorAnimation { duration: 200 } }
+                        : Theme.textTertiary
+                Behavior on color { MotionColor { role: "state" } }
             }
 
             Column {
@@ -841,7 +911,7 @@ Item {
                 Text {
                     text: vRow.con.name; font.pixelSize: theme.fs(13)
                     font.weight: vRow.con.active ? Font.Medium : Font.Normal
-                    color: vRow.con.active ? Theme.text : Qt.rgba(1,1,1,0.65)
+                    color: vRow.con.active ? Theme.text : Theme.textSecondary
                     width: 160; elide: Text.ElideRight
                 }
                 Text {
@@ -851,13 +921,14 @@ Item {
                         : vRow.con.active ? "Connected" : "Disconnected"
                     color: vRow.con.busy
                         ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.60)
-                        : vRow.con.active ? Theme.active : Qt.rgba(1,1,1,0.32)
-                    Behavior on color { ColorAnimation { duration: 200 } }
+                        : vRow.con.active ? Theme.active : Theme.textTertiary
+                    Behavior on color { MotionColor { role: "state" } }
                 }
             }
         }
 
-        // Right: spinner or status dot
+        // Right: busy spinner only — the row's own fill and subtitle already
+        // carry the connected/disconnected state (UI/UX Phase 17).
         Item {
             anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
             width: 28; height: 28
@@ -866,19 +937,10 @@ Item {
                 anchors.centerIn: parent; visible: vRow.con.busy
                 text: "○"; font.pixelSize: theme.fs(16); color: Theme.active
                 SequentialAnimation on opacity {
-                    running: vRow.con.busy; loops: Animation.Infinite
-                    NumberAnimation { to: 0.15; duration: 450 }
-                    NumberAnimation { to: 1.0;  duration: 450 }
+                    running: vRow.con.busy && Motion.ambient; alwaysRunToEnd: true; loops: Animation.Infinite
+                    NumberAnimation { to: 0.15; duration: Motion.pulseHalf }
+                    NumberAnimation { to: 1.0;  duration: Motion.pulseHalf }
                 }
-            }
-
-            Rectangle {
-                anchors.centerIn: parent; visible: !vRow.con.busy
-                width: 10; height: 10; radius: 5
-                color: vRow.con.active
-                    ? Theme.active
-                    : vHov.hovered ? Qt.rgba(1,1,1,0.35) : Qt.rgba(1,1,1,0.18)
-                Behavior on color { ColorAnimation { duration: 200 } }
             }
         }
 
@@ -886,9 +948,35 @@ Item {
         MouseArea {
             anchors.fill: parent
             enabled: !vRow.con.busy
-            onClicked: vRow.con.active
-                ? root._disconnect(vRow.con.name)
-                : root._connect(vRow.con.name)
+            onClicked: vRow.primary()
         }
+        RowAction {
+            visible: !vRow.con.busy
+            connected: vRow.con.active; target: vRow.con.name; keyed: vRow.keyed
+            onGo: vRow.primary()
+        }
+    }
+
+    // The row's verb as a button, the same one Wi-Fi's rows carry (UI/UX Phase
+    // 17, one action style). The whole row still toggles on a click and on
+    // Return in the list; this says what that click does — with the status dot
+    // gone, nothing on an idle row did. The busy spinner takes its place while
+    // the tunnel moves. On the connected (selected) row its fill is
+    // Theme.surfaceOnSelected (roles.js says why).
+    component RowAction: ApexPressable {
+        id: act
+        property bool   connected: false
+        property string target:    ""
+        property bool   keyed:     false
+        signal go()
+        anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+        width: actLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
+        hitMargin: 2
+        activeFocusOnTab: act.keyed
+        Accessible.name: (act.connected ? "Disconnect " : "Connect ") + act.target
+        onActivated: { act.go(); flick.forceActiveFocus() }
+        Rectangle { anchors.fill: parent; radius: parent.radius; color: act.tint(act.connected ? Theme.surfaceOnSelected : Theme.surfaceHigh); Behavior on color { MotionColor {} } }
+        Text { id: actLbl; anchors.centerIn: parent; text: act.connected ? "Disconnect" : "Connect"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
+        ApexFocusRing { target: act }
     }
 }

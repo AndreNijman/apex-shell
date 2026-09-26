@@ -89,8 +89,7 @@ CfgScroll {
                 readonly property color tone: Theme[RemotePairingService.stateToken(deviceRow.deviceState)]
                 readonly property string weight: RemotePairingService.stateWeight(deviceRow.deviceState)
 
-                x: theme.px(10)
-                width: parent.width - theme.px(20)
+                width: parent.width
                 height: theme.px(62)
                 radius: theme.px(8)
                 color: deviceRow.weight === "tint"
@@ -126,13 +125,13 @@ CfgScroll {
                         // state also has a weight.
                         Text {
                             text: RemotePairingService.stateLabel(deviceRow.deviceState)
-                            font.pixelSize: theme.fs(10)
+                            font.pixelSize: theme.typeCaption
                             color: deviceRow.tone
                         }
                         Text {
                             text: "·  last seen " + RemotePairingService.lastSeen(modelData)
                                 + (modelData.lastPath ? "  over " + modelData.lastPath : "")
-                            font.pixelSize: theme.fs(10)
+                            font.pixelSize: theme.typeCaption
                             color: Theme.subtext
                             elide: Text.ElideRight
                         }

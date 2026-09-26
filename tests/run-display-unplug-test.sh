@@ -47,6 +47,7 @@
 #      falls back to `pgrep -x` when XDG_CURRENT_DESKTOP names no compositor it
 #      knows, and on Andre's desk that fallback finds his live Hyprland. Which
 #      is exactly how a display test blanks the developer's screen.
+. "$(dirname "${BASH_SOURCE[0]}")/lib/private-bus.sh"   # the session bus is ours, not the desktop's
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

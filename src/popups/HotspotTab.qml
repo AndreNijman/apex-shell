@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import "../"
 import "../components"
+import "../components/controls"
 
 // HotspotTab — config editor for hotspot SSID/password.
 // The actual start/stop toggle lives in QuickSettings tile.
@@ -10,6 +11,14 @@ import "../components"
 
 Item {
     id: root
+
+    // How tall this tab wants to be — the header block (49) and its content —
+    // as WifiTab reports it (UI/UX Phase 17). The panel sized every other tab
+    // to a fixed 648 px, most of it empty.
+    readonly property real preferredHeight: 49 + mainCol.implicitHeight + 8
+    // Set by NetworkPane: the panel has finished opening. Refreshes wait for it
+    // (UI/UX Phase 22 — no process starts, no list rebuilt, under the pour).
+    property bool settled: false
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
@@ -56,45 +65,43 @@ Item {
         saveProc.running = false; saveProc.running = true
     }
 
-    // Also update QuickSettings in-memory values so the tile uses new creds immediately
-    function _applyToQuickSettings() {
-        // Walk to the parent DashHome → QuickSettings sibling is not accessible,
-        // so we just save to disk; QS reads from disk on next hotspot start.
-    }
+    // The Home tile that starts the hotspot watches this file (QuickSettings'
+    // hsCfgFile), so a save here reaches it at once (UI/UX Phase 19: it used to
+    // read the file only when the Home page was built).
 
-    Connections {
-        target: Popups
-        function onNetworkOpenChanged() {
-            if (Popups.networkOpen && root.visible)
-                loadProc.running = true
-        }
-    }
+    // Re-read once the panel is up, not under its open (UI/UX Phase 22).
+    onSettledChanged: if (root.settled && Popups.networkOpen && root.visible) loadProc.running = true
 
     Component.onCompleted: loadProc.running = true
 
     // ── Layout ────────────────────────────────────────────────────────────────
+    // The same grammar as the other three panes (UI/UX roadmap v3 Phase 17): no
+    // box round the note or the form (it was a tinted bordered banner over a
+    // bordered card), one label for the state (the header had a dot and a
+    // coloured word), fields in CfgTextField's treatment, and Save in the one
+    // action style (it was an accent pill with a border, centred under the form).
     Column {
         anchors.fill: parent; spacing: 0
 
         // Header
         Item {
             width: parent.width; height: 40
-            Text { anchors { left: parent.left; leftMargin: 2
-            verticalCenter: parent.verticalCenter }
-            text: "Hotspot"
-            font.pixelSize: theme.fs(15); font.weight: Font.Bold; color: Theme.text }
-
-            // Active indicator
-            Row {
-                anchors { left: parent.left; leftMargin: 76;
-                verticalCenter: parent.verticalCenter }
-                spacing: 6
-                Rectangle { width: 7; height: 7; radius: 4; anchors.verticalCenter: parent.verticalCenter; color: ShellState.hotspot ? Theme.active : Qt.rgba(1,1,1,0.22); Behavior on color { ColorAnimation { duration: 200 } } }
-                Text { anchors.verticalCenter: parent.verticalCenter; text: ShellState.hotspot ? "Active" : "Inactive"; font.pixelSize: theme.fs(11); color: ShellState.hotspot ? Theme.active : Qt.rgba(1,1,1,0.32) }
+            Text {
+                id: hsTitle
+                anchors { left: parent.left; leftMargin: 2; verticalCenter: parent.verticalCenter }
+                text: "Hotspot"
+                font.pixelSize: theme.fs(15); font.weight: Font.Bold; color: Theme.text
+            }
+            Text {
+                anchors { left: hsTitle.right; leftMargin: theme.spaceM; verticalCenter: parent.verticalCenter }
+                text: ShellState.hotspot ? "Active" : "Inactive"
+                font.pixelSize: theme.typeCaption; font.weight: Font.Medium
+                color: ShellState.hotspot ? Theme.accentText : Theme.textTertiary
+                Behavior on color { MotionColor { role: "state" } }
             }
         }
 
-        Rectangle { width: parent.width; height: 1; color: Qt.rgba(1,1,1,0.07) }
+        Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) }
         Item { width: parent.width; height: 8 }
 
         Flickable {
@@ -103,102 +110,99 @@ Item {
             clip: true; boundsBehavior: Flickable.StopAtBounds
 
             Column {
-                id: mainCol; width: parent.width; spacing: 14
+                id: mainCol; width: parent.width - 2; x: 1; spacing: 12
 
-                // Info banner
-                Rectangle {
-                    width: parent.width; height: infoCol.implicitHeight + 16; radius: theme.cornerRadius
-                    color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.06)
-                    border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18); border.width: 1
+                // What the pane does not do, said once, in the caption role.
+                Column {
+                    width: parent.width; spacing: 4
+                    Text { width: parent.width; text: "󰋽  Turn the hotspot on from Quick Settings."; font.pixelSize: theme.typeBodySmall; color: Theme.textSecondary; wrapMode: Text.WordWrap }
+                    Text { width: parent.width; text: "Needs an ethernet connection. Shares the Wi-Fi channel of your current connection."; font.pixelSize: theme.typeCaption; color: Theme.textTertiary; wrapMode: Text.WordWrap; lineHeight: 1.3 }
+                }
 
-                    Column {
-                        id: infoCol;
-                        anchors { left: parent.left; right: parent.right; top: parent.top; margins: 12 }
-                        spacing: 4
-                        Text { width: parent.width; text: "󰀃  Toggle hotspot from the Quick Settings panel."; font.pixelSize: theme.fs(11); color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7); wrapMode: Text.WordWrap }
-                        Text { width: parent.width; text: "Requires an ethernet connection. Shares the same WiFi channel as your current connection."; font.pixelSize: theme.fs(10); color: Qt.rgba(1,1,1,0.30); wrapMode: Text.WordWrap; lineHeight: 1.4 }
+                SectionLabel { text: "CREDENTIALS" }
+
+                // SSID
+                Item {
+                    width: parent.width; height: theme.controlStandard
+                    Text { anchors { left: parent.left; verticalCenter: parent.verticalCenter }
+                    text: "Name"; font.pixelSize: theme.typeBodySmall; color: Theme.textSecondary; width: 72 }
+                    Rectangle {
+                        anchors { left: parent.left; leftMargin: 76; right: parent.right; verticalCenter: parent.verticalCenter }
+                        height: theme.controlStandard; radius: theme.radiusS
+                        color: Theme.surfaceHigh
+                        border.width: 1
+                        border.color: ssidInput.activeFocus ? Theme.accentText : ssidHov.hovered ? Theme.outlineStrong : Theme.outlineSoft
+                        Behavior on border.color { MotionColor { role: "state" } }
+                        HoverHandler { id: ssidHov; cursorShape: Qt.IBeamCursor }
+                        TextInput {
+                            id: ssidInput; anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
+                            activeFocusOnTab: true   // a plain TextInput is no Tab stop (UI/UX Phase 21)
+                            Accessible.name: "Hotspot name"
+                            verticalAlignment: TextInput.AlignVCenter; color: Theme.textPrimary; font.pixelSize: theme.typeBody
+                            selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
+                            clip: true; maximumLength: 32
+                            text: root._ssid
+                            // textEdited, not textChanged: loading the saved file changes the
+                            // text too, and marked a form nobody had touched as unsaved —
+                            // Save showed on every open.
+                            onTextEdited: { root._ssid = text; root._dirty = true }
+                        }
                     }
                 }
 
-                // Config card
-                Rectangle {
-                    width: parent.width; height: cfgCol.implicitHeight + 20; radius: theme.cornerRadius
-                    color: Qt.rgba(1,1,1,0.04); border.color: Qt.rgba(1,1,1,0.07); border.width: 1
-
-                    Column {
-                        id: cfgCol; anchors { left: parent.left; right: parent.right; top: parent.top; margins: 12 }
-                        spacing: 12
-
-                        Text { text: "CREDENTIALS"; font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2; color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5) }
-
-                        // SSID
-                        Item {
-                            width: parent.width; height: 32
-                            Text { anchors { left: parent.left; verticalCenter: parent.verticalCenter }
-                            text: "SSID"; font.pixelSize: theme.fs(11); font.weight: Font.Medium; color: Qt.rgba(1,1,1,0.45); width: 72 }
-                            Rectangle {
-                                anchors { left: parent.left; leftMargin: 76; right: parent.right; verticalCenter: parent.verticalCenter }
-                                height: 28; radius: 7
-                                color: ssidInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08) : Qt.rgba(1,1,1,0.05)
-                                border.color: ssidInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.45) : Qt.rgba(1,1,1,0.11); border.width: 1
-                                Behavior on border.color { ColorAnimation { duration: 120 } }
-                                TextInput {
-                                    id: ssidInput; anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
-                                    verticalAlignment: TextInput.AlignVCenter; color: Theme.text; font.pixelSize: theme.fs(12)
-                                    selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
-                                    clip: true; maximumLength: 32
-                                    text: root._ssid
-                                    onTextChanged: { root._ssid = text; root._dirty = true }
-                                }
-                            }
+                // Password
+                Item {
+                    width: parent.width; height: theme.controlStandard
+                    Text { anchors { left: parent.left; verticalCenter: parent.verticalCenter }
+                    text: "Password"; font.pixelSize: theme.typeBodySmall; color: Theme.textSecondary; width: 72 }
+                    Rectangle {
+                        anchors { left: parent.left; leftMargin: 76; right: eyeBtn.left; rightMargin: 6; verticalCenter: parent.verticalCenter }
+                        height: theme.controlStandard; radius: theme.radiusS
+                        color: Theme.surfaceHigh
+                        border.width: 1
+                        border.color: passInput.activeFocus ? Theme.accentText : passHov.hovered ? Theme.outlineStrong : Theme.outlineSoft
+                        Behavior on border.color { MotionColor { role: "state" } }
+                        HoverHandler { id: passHov; cursorShape: Qt.IBeamCursor }
+                        TextInput {
+                            id: passInput; anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
+                            activeFocusOnTab: true
+                            Accessible.name: "Hotspot password"
+                            verticalAlignment: TextInput.AlignVCenter; color: Theme.textPrimary; font.pixelSize: theme.typeBody
+                            selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
+                            echoMode: root._showPass ? TextInput.Normal : TextInput.Password
+                            clip: true; maximumLength: 63
+                            text: root._password
+                            onTextEdited: { root._password = text; root._dirty = true }
                         }
+                    }
+                    // Real buttons (UI/UX roadmap v3 Phase 21): they were pointer-only.
+                    ApexPressable {
+                        id: eyeBtn; anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+                        width: theme.controlStandard; height: theme.controlStandard; radius: theme.radiusS; hitMargin: 2
+                        focusOnPress: false
+                        Accessible.name: root._showPass ? "Hide password" : "Show password"
+                        onActivated: root._showPass = !root._showPass
+                        Rectangle { anchors.fill: parent; radius: parent.radius; color: eyeBtn.stateLayer() }
+                        Text { anchors.centerIn: parent; text: root._showPass ? "" : ""; font.pixelSize: theme.fs(13); color: root._showPass ? Theme.accentText : Theme.iconDefault }
+                        ApexFocusRing { target: eyeBtn }
+                    }
+                }
 
-                        // Password
-                        Item {
-                            width: parent.width; height: 32
-                            Text { anchors { left: parent.left; verticalCenter: parent.verticalCenter }
-                            text: "Password"; font.pixelSize: theme.fs(11); font.weight: Font.Medium; color: Qt.rgba(1,1,1,0.45); width: 72 }
-                            Rectangle {
-                                anchors { left: parent.left; leftMargin: 76; right: eyeBtn.left; rightMargin: 6; verticalCenter: parent.verticalCenter }
-                                height: 28; radius: 7
-                                color: passInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08) : Qt.rgba(1,1,1,0.05)
-                                border.color: passInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.45) : Qt.rgba(1,1,1,0.11); border.width: 1
-                                Behavior on border.color { ColorAnimation { duration: 120 } }
-                                TextInput {
-                                    id: passInput; anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
-                                    verticalAlignment: TextInput.AlignVCenter; color: Theme.text; font.pixelSize: theme.fs(12)
-                                    selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
-                                    echoMode: root._showPass ? TextInput.Normal : TextInput.Password
-                                    clip: true; maximumLength: 63
-                                    text: root._password
-                                    onTextChanged: { root._password = text; root._dirty = true }
-                                }
-                            }
-                            Item {
-                                id: eyeBtn; anchors { right: parent.right;
-                                verticalCenter: parent.verticalCenter }
-                                width: 28; height: 28
-                                Rectangle { anchors.fill: parent; radius: 6; color: eyeH.hovered ? Qt.rgba(1,1,1,0.08) : "transparent" }
-                                Text { anchors.centerIn: parent; text: root._showPass ? "" : ""; font.pixelSize: theme.fs(13); color: root._showPass ? Theme.active : Qt.rgba(1,1,1,0.28) }
-                                HoverHandler { id: eyeH; cursorShape: Qt.PointingHandCursor }
-                                MouseArea { anchors.fill: parent; onClicked: root._showPass = !root._showPass }
-                            }
-                        }
-
-                        // Save button — only visible when dirty
-                        Rectangle {
-                            visible: root._dirty
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: 90; height: 28; radius: 8
-                            color: saveH.hovered
-                                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28)
-                                : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
-                            border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40); border.width: 1
-                            Behavior on color { ColorAnimation { duration: 100 } }
-                            Text { anchors.centerIn: parent; text: "Save"; font.pixelSize: theme.fs(12); font.weight: Font.Medium; color: Theme.active }
-                            HoverHandler { id: saveH; cursorShape: Qt.PointingHandCursor }
-                            MouseArea { anchors.fill: parent; onClicked: root._save() }
-                        }
+                // Save — only while there is something to save. On the form's
+                // trailing edge, under the fields it saves.
+                Item {
+                    width: parent.width; height: saveBtn.visible ? theme.controlStandard : 0
+                    ApexPressable {
+                        id: saveBtn
+                        visible: root._dirty
+                        anchors.right: parent.right
+                        width: saveLbl.implicitWidth + 24; height: theme.controlStandard; radius: theme.radiusS; hitMargin: 2
+                        Accessible.name: "Save hotspot settings"
+                        // The button goes once saved; the keys go back to the name field.
+                        onActivated: { root._save(); ssidInput.forceActiveFocus() }
+                        Rectangle { anchors.fill: parent; radius: parent.radius; color: saveBtn.tint(Theme.surfaceHigh); Behavior on color { MotionColor {} } }
+                        Text { id: saveLbl; anchors.centerIn: parent; text: "Save"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
+                        ApexFocusRing { target: saveBtn }
                     }
                 }
 

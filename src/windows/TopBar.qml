@@ -96,9 +96,8 @@ PanelWindow {
     // Safe to animate on PanelWindow (anchored, no position jank).
     // PopupWindow is the one that must never have animated implicitHeight.
     implicitHeight: ShellState.focusMode ? theme.borderWidth : theme.notchHeight
-    Behavior on implicitHeight {
-        NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
-    }
+    // Focus mode collapses the bar to its strip over the page beat (brief §D.7).
+    Behavior on implicitHeight { MotionMove { role: "page"; curve: Motion.standard } }
 
     // labwc adds real server-side titlebars. Reserve the complete bar height so
     // their iconify/maximize/close buttons start below the right notch instead
@@ -107,37 +106,111 @@ PanelWindow {
         : (Compositor.isLabwc
             ? Math.max(theme.notchHeight, theme.exclusionGap)
             : theme.exclusionGap)
+    // Timed, not a spring: every step of the zone re-lays-out every window on
+    // the output, and a spring's long tail would be a dozen more of them.
     Behavior on exclusiveZone {
-        NumberAnimation {
-            duration: Compositor.isLabwc ? 0 : Theme.animDuration
-            easing.type: Easing.InOutCubic
-        }
+        enabled: !Compositor.isLabwc
+        MotionMove { role: "page"; curve: Motion.standard }
     }
 
-    readonly property int lWidth: Math.max(
-        theme.lNotchMinWidth,
-        Math.min(theme.lNotchMaxWidth,
-                 leftContent.implicitWidth + theme.notchPadding * 2)
-    )
-
-    // cWidth uses Popups.dashboardPageWidth when the dashboard is open,
-    // so the center notch tracks the active tab's declared width.
-    property int cWidth: Popups.dashboardOpen && Popups.dashboardScreen === root.screenName
-        ? Popups.dashboardPageWidth
-        : Math.max(
-            theme.cNotchMinWidth,
-            Math.min(theme.cNotchMaxWidth,
-                     centerContent.implicitWidth + theme.notchPadding * 2)
-          )
-    Behavior on cWidth {
-        NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
+    // The left notch grows with its content like the centre one; it used to
+    // snap while the other two animated (brief §F.10).
+    readonly property int lWidth: Math.round(root._lW.value)
+    readonly property SpringFollower _lW: SpringFollower {
+        role: "page"
+        target: Math.max(theme.lNotchMinWidth,
+                         Math.min(theme.lNotchMaxWidth, leftContent.implicitWidth + theme.notchPadding * 2))
     }
 
-    // Width matches sizer open width: popupWidth + notchRadius (fw) in both popups
-    property int rWidth: Math.max(
+    // The centre notch's own width — its content's, clamped. It no longer
+    // widens to the Dashboard's page width while the Dashboard is open: the
+    // Dashboard draws its whole silhouette over the notch (CENTER_BLOOM) and
+    // starts from, and shrinks back into, exactly this width, read live. A
+    // notch tweening underneath a body that already covers it was motion
+    // nobody could see, and a second clock on the same edge.
+    // A spring: a title changing twice in a row bends the notch toward the
+    // second width instead of stopping it dead and starting over
+    // (SpringFollower: exact at any refresh rate).
+    readonly property int cWidth: Math.round(root._cW.value)
+    readonly property SpringFollower _cW: SpringFollower {
+        role: "page"
+        target: Math.max(theme.cNotchMinWidth,
+                         Math.min(theme.cNotchMaxWidth, centerContent.implicitWidth + theme.notchPadding * 2))
+    }
+
+    // ── The right notch, and the clock of what pours out of it ──────────────
+    // (UI/UX roadmap v3 Phase 9, RIGHT_POUR)
+    // Network, the notification centre and the toast are panes of ONE surface
+    // under this notch (popups/RightPanel.qml). Its lifecycle lives HERE, in the
+    // bar, because the bar is the one party always present — the panel is built
+    // lazily and cannot be referenced from here, but it can read this.
+    //
+    // The notch itself does not move. The panel draws the part that does — the
+    // band the notch widens into, its shoulder, a cover over this notch's own
+    // bottom-left corner — in the same window and frame as the body under it.
+    // The first cut had this notch widen in step from the same width function;
+    // measured, the two layer surfaces present their frames independently and
+    // the notch sat a frame off the body (a 35-42 px ledge on a close). It
+    // replaces three `states` and a Transition that tweened rWidth on its own
+    // InOutCubic while each popup tweened a sizer on another.
+
+    // The notch's own width: its content's, clamped (the pour's W0).
+    readonly property int rNaturalWidth: Math.max(
         theme.rNotchMinWidth,
         Math.min(theme.rNotchMaxWidth, rightContent.implicitWidth + theme.notchPadding * 2)
     )
+    readonly property int rWidth: root.rNaturalWidth
+
+    // Which pane the flags ask for. The centre, the network panel and audio
+    // are mutually exclusive (every trigger runs closeAll() first); the toast
+    // shows only when none of them is up.
+    readonly property string rightWanted: Popups.notificationsOpen ? "notifications"
+                                        : Popups.networkOpen       ? "network"
+                                        : Popups.audioOpen         ? "audio"
+                                        : root.rightToastShowing   ? "toast" : ""
+    // Pushed by RightPanel: whether its toast pane has something to show (per
+    // screen — the old global flag let one screen's dismiss close every bar),
+    // and that the panel exists at all. The clock does not start before the
+    // panel is built: its first build blocks the thread, and an animation
+    // started before it would be most of the way through on its first frame.
+    property bool rightToastShowing: false
+    property bool rightHostReady:    false
+
+    // The pane on screen. Held through a close, so the body shrinks back from
+    // the shape it had rather than from the natural notch.
+    property string rightPane: ""
+    onRightWantedChanged: if (root.rightWanted !== "") root.rightPane = root.rightWanted
+
+    readonly property SurfaceLifecycle rightLife: SurfaceLifecycle {
+        name: "right-panel"
+        open:          root.rightWanted !== "" && root.rightHostReady
+        // A morph out of a notch, the same class as the Dashboard's bloom. Liquid:
+        // the right edge drops first, the body pours left after it, the front
+        // thins and its corner rounds out with its speed. It waits for the
+        // panel window's first frame (RightPanel hands its body over).
+        enterDuration: Motion.morphEnter
+        exitDuration:  Motion.morphExit
+        liquid:        true
+        surface:       root.rightSurface
+    }
+    // The RightPanel's body, pushed by RightPanel once it exists.
+    property Item rightSurface: null
+
+    // The finished width of the pane (W1): never narrower than the notch it
+    // hangs from, so a wide status cluster is not clipped by its own panel.
+    readonly property int rightPaneWidth: root.rightPane === "network"       ? theme.networkPopupWidth + theme.notchRadius
+                                        : root.rightPane === "notifications" ? theme.notificationsWidth + theme.notchRadius
+                                        : root.rightPane === "audio"         ? theme.px(Popups.audioPage === "mixer" ? 300 : 200) + theme.notchRadius
+                                        : root.rightPane === "toast"         ? theme.notificationToastWidth + theme.notchRadius
+                                        : root.rNaturalWidth
+    // Switching pane while the panel is up retargets the width on the page
+    // spring (progress stays 1); from closed it is simply the new pane's.
+    readonly property real rightTargetW: root._rTW.value
+    readonly property SpringFollower _rTW: SpringFollower {
+        role: "page"
+        live: root.rightLife.progress > 0
+        target: Math.max(root.rightPaneWidth, root.rNaturalWidth)
+    }
 
     // ── Border strip (focus mode) ────────────────────────────────────────────
     // Painted behind the notch content layer. Visible only when focus mode
@@ -147,60 +220,23 @@ PanelWindow {
         anchors.fill: parent
         color: Theme.background
         opacity: ShellState.focusMode ? 1 : 0
-        Behavior on opacity {
-            NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
-        }
+        Behavior on opacity { MotionFade {} }
     }
 
     // ── Notch content (fades out in focus mode) ──────────────────────────────
     Item {
         anchors.fill: parent
         opacity: ShellState.focusMode ? 0 : 1
-        Behavior on opacity {
-            NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
-        }
+        Behavior on opacity { MotionFade {} }
         
-        states: [
-        State {
-            name: "notifications"
-            when: Popups.notificationsOpen
-            PropertyChanges { target: root; rWidth: theme.notificationsWidth + theme.notchRadius }
-        },
-        State {
-            name: "network"
-            when: Popups.networkOpen && !Popups.notificationsOpen
-            PropertyChanges { target: root; rWidth: theme.networkPopupWidth + theme.notchRadius }
-        },
-        State {
-            name: "toast"
-            when: Popups.notificationToastOpen && !Popups.notificationsOpen && !Popups.networkOpen
-            // Matches the toast card width exactly (standardised pill-popup)
-            PropertyChanges { target: root; rWidth: theme.notificationToastWidth + theme.notchRadius }
-        }
-    ]
-
-    transitions: [
-        Transition {
-            // This animation ONLY runs when switching between popups (and toasts) and the base state.
-            NumberAnimation { property: "rWidth"; duration: Theme.animDuration; easing.type: Easing.InOutCubic }
-        }
-    ]
-
         SeamlessBarShape {
             id: barShape
             anchors.fill: parent
             leftWidth:   root.lWidth
             centerWidth: root.cWidth
             rightWidth:  root.rWidth
+            rightAttached: root.rightLife.progress > 0
 
-            // Un-round the right notch's bottom-left corner while a pill-popup
-            // hangs under it, so pill + popup merge into one straight edge.
-            rightBottomRadius: (Popups.notificationsOpen || Popups.networkOpen
-                                || Popups.notificationToastOpen)
-                ? 0 : theme.notchRadius
-            Behavior on rightBottomRadius {
-                NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }
-            }
         }
 
         Item {

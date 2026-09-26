@@ -709,7 +709,7 @@ CfgScroll {
             text: BlueprintService.toml
             color: Theme.subtext
             font.family: "monospace"
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             wrapMode: Text.NoWrap
         }
     }

@@ -81,10 +81,13 @@ Item {
                 // The only motion: a query actually in flight. Everything else
                 // is a settled fact and holds still.
                 SequentialAnimation on opacity {
-                    running: hrow.status === "querying"
+                    running: hrow.status === "querying" && Motion.ambient
+                    // Finish the current beat when gated off, so it rests at its
+                    // end value instead of freezing mid-fade (Reduce Motion mid-pulse).
+                    alwaysRunToEnd: true
                     loops: Animation.Infinite
-                    NumberAnimation { to: 0.35; duration: 700; easing.type: Easing.InOutQuad }
-                    NumberAnimation { to: 1.0;  duration: 700; easing.type: Easing.InOutQuad }
+                    NumberAnimation { to: 0.35; duration: Motion.pulseHalf; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standard }
+                    NumberAnimation { to: 1.0;  duration: Motion.pulseHalf; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standard }
                 }
                 onOpacityChanged: if (hrow.status !== "querying") opacity = 1.0
             }

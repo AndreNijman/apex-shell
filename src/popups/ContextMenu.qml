@@ -41,13 +41,38 @@ PanelWindow {
     color: "transparent"
 
     WlrLayershell.layer: WlrLayer.Overlay
-    // OnDemand, not Exclusive: the menu takes the keyboard while it is up so
-    // Escape closes it, but it must not steal focus from whatever the user was
-    // typing into once it is gone.
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    // Exclusive while it is open, and nothing once it is gone, so it never keeps
+    // focus from whatever the user was typing into. It was OnDemand, which a
+    // compositor may grant only on a click — measured on labwc: Escape and the
+    // arrows reached nothing and the menu stayed open (UI/UX Phase 21).
+    WlrLayershell.keyboardFocus: Popups.contextMenuOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-    property bool windowVisible: false
+    // The window maps with the flag, so the catcher below can learn where the
+    // pointer is; the menu's own entrance starts once it has been placed.
+    readonly property bool windowVisible: Popups.contextMenuOpen || life.mapped
     visible: windowVisible
+
+    // ── PIVOT_POP (UI/UX roadmap v3 Phase 14, brief B.8) ────────────────────
+    // In: a fade on the state beat and a scale 0.94 → 1 on a spring with a
+    // whisper of overshoot (damping 0.8: ~1.5 % past, then settles), from the
+    // corner nearest the pointer — it pops out of the click like a physical
+    // card. The scale reads the RAW body (`life.body`), since `progress` is
+    // clamped and would flatten the overshoot. Out: the fade only, on the
+    // hover beat — no scale-down, which under the click reads as a missed click.
+    SurfaceLifecycle {
+        name: "context"
+        id: life
+        open:          Popups.contextMenuOpen && root.placed
+        enterDuration: Motion.selection
+        enterDamping:  0.8
+        exitDuration:  Motion.hover
+        contentDelay:  0
+        contentIn:     Motion.state
+        contentOut:    Motion.hover
+    }
+    // The corner the menu grows from: the one nearest the pointer, which flips
+    // when the placement had to be clamped at the right or bottom edge.
+    property int origin: Item.TopLeft
 
     // Where the menu is drawn. Negative means "not placed yet".
     property real menuX: -1
@@ -55,10 +80,8 @@ PanelWindow {
     readonly property bool placed: menuX >= 0 && menuY >= 0
 
     function applyOpenState() {
-        closeTimer.stop()
         root.menuX = -1
         root.menuY = -1
-        root.windowVisible = true
         fallbackTimer.restart()
     }
 
@@ -76,6 +99,10 @@ PanelWindow {
         var maxY = Math.max(0, root.height - h - 8)
         root.menuX = Math.min(Math.max(8, px), maxX)
         root.menuY = Math.min(Math.max(8, py), maxY)
+        const right  = px > root.menuX + w / 2
+        const bottom = py > root.menuY + h / 2
+        root.origin = bottom ? (right ? Item.BottomRight : Item.BottomLeft)
+                             : (right ? Item.TopRight    : Item.TopLeft)
     }
 
     Connections {
@@ -83,29 +110,29 @@ PanelWindow {
         function onContextMenuOpenChanged() {
             if (Popups.contextMenuOpen)
                 root.applyOpenState()
-            else
-                closeTimer.restart()
         }
-    }
-
-    Timer {
-        id: closeTimer
-        interval: Theme.animDuration + 20
-        onTriggered: if (!Popups.contextMenuOpen) root.windowVisible = false
     }
 
     // Opened without a pointer (a keybind): centre it.
     Timer {
         id: fallbackTimer
         interval: 120
-        onTriggered: if (!root.placed)
+        onTriggered: if (!root.placed) {
             root.placeAt((root.width - menuCard.implicitWidth) / 2,
                          (root.height - menuCard.implicitHeight) / 2)
+            root.origin = Item.Center
+        }
     }
+
+    // Input only while the menu is wanted: through its exit fade the window is
+    // still mapped, and without this the catcher below swallowed the click
+    // that followed the menu.
+    mask: Region { item: Popups.contextMenuOpen ? catcher : null }
 
     // Full-screen catcher: reports where the pointer is, and dismisses on a
     // click anywhere outside the card.
     MouseArea {
+        id: catcher
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
@@ -115,6 +142,9 @@ PanelWindow {
         onPressed: root.close()
     }
 
+    // Depth (UI/UX Phase 18b): the popup level — it floats over the bare desktop.
+    Elevation { target: menuCard; level: "popup"; targetRadius: theme.cornerRadius }
+
     Item {
         id: menuCard
         x: root.menuX
@@ -123,19 +153,18 @@ PanelWindow {
         implicitHeight: itemColumn.implicitHeight + 12
 
         visible: root.placed
-        opacity: Popups.contextMenuOpen && root.placed ? 1 : 0
-        scale: Popups.contextMenuOpen && root.placed ? 1 : 0.96
-        transformOrigin: Item.TopLeft
-
-        Behavior on opacity { NumberAnimation { duration: Theme.animDuration * 0.5; easing.type: Easing.OutCubic } }
-        Behavior on scale   { NumberAnimation { duration: Theme.animDuration * 0.5; easing.type: Easing.OutCubic } }
+        opacity: life.content * life.alpha
+        scale: (life.closing || Motion.reduced) ? 1 : 0.94 + 0.06 * Math.max(0, life.body)
+        transformOrigin: root.origin
 
         Rectangle {
             anchors.fill: parent
             radius: theme.cornerRadius
             color: Theme.background
-            border.width: theme.borderWidth
-            border.color: Theme.border
+            // A hairline, not the strip's width: this used theme.borderWidth,
+            // a 6 px frame round a floating menu (design review 2).
+            border.width: 1
+            border.color: Theme.outlineSoft
         }
 
         // Swallow clicks on the card itself, so choosing an item does not also
@@ -155,11 +184,13 @@ PanelWindow {
 
                 delegate: Loader {
                     required property var modelData
+                    required property int index
                     width: itemColumn.width
                     sourceComponent: modelData.separator ? separatorItem : menuItem
                     onLoaded: if (!modelData.separator) {
                         item.label = modelData.label
                         item.action = modelData.action
+                        item.idx = index
                     }
                 }
             }
@@ -182,6 +213,27 @@ PanelWindow {
         { label: "Lock",                 action: "lock",       separator: false },
         { label: "Log out",              action: "logout",     separator: false }
     ]
+
+    // ── Keyboard (UI/UX roadmap v3 Phase 21) ────────────────────────────────
+    // The menu pattern: nothing is highlighted when it opens (it opens under
+    // the pointer), Down or Up takes the first or last item, the arrows walk
+    // the items and skip the separators, Home and End jump, Return, Enter or
+    // Space choose. The pointer and the keyboard move the SAME highlight, so
+    // there is never one item lit by each.
+    property int current: -1
+    onWindowVisibleChanged: if (root.windowVisible) root.current = -1
+    function _step(d) {
+        const n = root.entries.length
+        let i = root.current
+        for (let k = 0; k < n; k++) {
+            i = i < 0 ? (d > 0 ? 0 : n - 1) : (i + d + n) % n
+            if (!root.entries[i].separator) { root.current = i; return }
+        }
+    }
+    function _edge(first) {
+        root.current = -1
+        root._step(first ? 1 : -1)
+    }
 
     function run(action) {
         root.close()
@@ -208,9 +260,8 @@ PanelWindow {
             Rectangle {
                 anchors.centerIn: parent
                 width: parent.width - 20
-                height: Math.max(1, theme.borderWidth)
-                color: Theme.border
-                opacity: 0.7
+                height: 1
+                color: Theme.outlineSoft
             }
         }
     }
@@ -220,9 +271,16 @@ PanelWindow {
         Rectangle {
             property string label: ""
             property string action: ""
+            property int idx: -1
 
             height: 32
-            color: hover.hovered ? Theme.active : "transparent"
+            // The state layer, not a full accent flood (brief §E list row) —
+            // on the one highlight the pointer and the arrows share.
+            color: root.current === idx ? Theme.surfaceHover(Theme.background) : "transparent"
+            Accessible.role: Accessible.MenuItem
+            Accessible.name: label
+            Accessible.onPressAction: root.run(action)
+            Behavior on color { MotionColor {} }
             radius: theme.cornerRadius > 6 ? 6 : theme.cornerRadius
 
             // Inset so the hover highlight does not touch the card's border.
@@ -236,7 +294,7 @@ PanelWindow {
                     verticalCenter: parent.verticalCenter
                 }
                 text: parent.label
-                color: hover.hovered ? Theme.background : Theme.text
+                color: Theme.textPrimary
                 // No explicit family: inherit the shell's, like every other
                 // popup. Theme.fs() scales a size calibrated at 1080p, which is
                 // the house convention — a literal pixelSize would be wrong on
@@ -245,7 +303,10 @@ PanelWindow {
                 elide: Text.ElideRight
             }
 
-            HoverHandler { id: hover }
+            HoverHandler {
+                id: hover
+                onHoveredChanged: if (hovered) root.current = parent.idx
+            }
             TapHandler {
                 acceptedButtons: Qt.LeftButton
                 onTapped: root.run(parent.action)
@@ -253,10 +314,23 @@ PanelWindow {
         }
     }
 
-    // Escape closes, which is the reason this window takes keyboard focus.
+    // Escape closes, and the arrows and Return drive the menu — the reason this
+    // window takes keyboard focus.
     Item {
         anchors.fill: parent
         focus: root.windowVisible
+        Accessible.role: Accessible.PopupMenu
         Keys.onEscapePressed: root.close()
+        Keys.onPressed: function(event) {
+            if      (event.key === Qt.Key_Down) root._step(1)
+            else if (event.key === Qt.Key_Up)   root._step(-1)
+            else if (event.key === Qt.Key_Home) root._edge(true)
+            else if (event.key === Qt.Key_End)  root._edge(false)
+            else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                      || event.key === Qt.Key_Space) && root.current >= 0)
+                root.run(root.entries[root.current].action)
+            else return
+            event.accepted = true
+        }
     }
 }

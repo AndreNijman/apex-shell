@@ -1,75 +1,104 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
+import Quickshell.Wayland
 import Quickshell.Services.Pipewire
-import "../shapes"
+import "../shapes/fluid"
+import "../shapes/fluid/geometry.js" as Geo
 import "../components"
+import "../components/controls"
 import "../services"
 import "../"
 
-PopupWindow {
+// ─────────────────────────────────────────────────────────────────────────────
+// QuickControl — volume and brightness, out of the right screen strip
+// (UI/UX roadmap v3 Phase 9b, EDGE_SPILL).
+//
+// It opens on hovering the middle of the right strip and closes a moment after
+// the pointer has left both the strip and the panel. The body is geometry.js
+// edgeSpillRight: extruded out of the strip on standardDecel, its top settling
+// early and its bottom late — it arrives from the edge and drips down, which
+// is what keeps it from being LEFT_SPILL mirrored.
+//
+// ── It was unreachable ───────────────────────────────────────────────────────
+// Since the lazy-popup change (cea90b5, #2) this window was built only by
+// `Popups.quickOpen`, which nothing sets: the strip's hover wrote
+// `quickTriggerHovered`, read only inside the window that was never built. It
+// is now built by the hover itself, and its lifecycle opens from
+// construction, so the hover that builds it also shows it.
+//
+// A PanelWindow with the right strip's own extent (bar bottom to one corner
+// radius above the screen bottom), so the spill centres on the strip's hover
+// zone by construction instead of through a popup anchor rectangle.
+// ─────────────────────────────────────────────────────────────────────────────
+PanelWindow {
     id: root
-    // MEASURED: a PopupWindow's own `screen` is NOT the one it is
 
-    // anchored to. On two headless outputs the popup anchored to the
-
-    // bar on the 3840x2160 output reported the 1920x1080 one and
-
-    // would have been sized at 1.0 — silently, on the monitor the
-
-    // global factor was never for. The anchor window is given its
-
-    // screen by shell.qml, so it is the one that knows.
-
-    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.anchorWindow ? root.anchorWindow.screen : null) }
-
-
+    // The bar of this screen; it is only asked which screen that is.
     required property var anchorWindow
+    screen: root.anchorWindow.screen
+    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.screen) }   // P1-040: this output's sizes
 
     // ── Config ────────────────────────────────────────────────────────────────
-    readonly property int fw: theme.cornerRadius
-    readonly property int fh: theme.cornerRadius
-    readonly property int popupHeight: 340
-    readonly property int popupWidth:  180 // Thinner than the 300px AudioPopup
+    readonly property int popupWidth:  theme.px(180)
+    readonly property int popupHeight: theme.px(300)
 
-    color:   "transparent"
-    visible: slide.windowVisible
-    mask:    Region { item: maskProxy }
+    anchors.top:    true
+    anchors.bottom: true
+    anchors.right:  true
+    margins.top:    theme.notchHeight
+    margins.bottom: theme.cornerRadius
+    implicitWidth:  root.popupWidth + theme.radiusL + theme.borderWidth
 
-    // ── Position: Right Center ────────────────────────────────────────────────
-    //
-    // The height this centres on is the ANCHOR's output, for the same measured
-    // reason the token set above resolves from the anchor: a PopupWindow's own
-    // `screen` is not the output it is anchored to. This used to read
-    // `root.screen.height`, so on a mixed desk the panel anchored to the bar on
-    // the 2160px monitor was centred on the 1080px one's height — off by half
-    // the difference, 540px up. It survived because on a single monitor the two
-    // heights are the same number, and because P1-040 round two fixed the SIZE
-    // the six popups are drawn at and left this, the POSITION, as a named
-    // remainder on ROADMAP/state/agents/p1-040.md.
-    readonly property int anchorHeight: (root.anchorWindow && root.anchorWindow.screen)
-                                        ? root.anchorWindow.screen.height
-                                        : (root.screen ? root.screen.height : 1080)
+    exclusionMode: ExclusionMode.Ignore
+    color:         "transparent"
+    WlrLayershell.layer:         WlrLayer.Overlay
+    // The keyboard only when its keybind opened it (Popups.quickOpen): opened
+    // by the pointer resting on the edge it must never take the keys from the
+    // window being typed into (UI/UX Phase 21).
+    WlrLayershell.keyboardFocus: Popups.quickOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-    anchor.window:  anchorWindow
-    anchor.rect: Qt.rect(
-        anchorWindow.width - root.fw,
-        (root.anchorHeight + root.fh + 5)/2,
-        0,
-        0
-    )
-    anchor.gravity: Edges.Right
-    
-    Item {
-        id:      maskProxy
-        x:       root.popupWidth - sizer.width
-        y:       ((root.popupHeight - sizer.height) / 2)
-        width:   sizer.width
-        height:  sizer.height
+    // ── Open state: the flag, or the pointer on the strip or on the panel ────
+    property bool _selfHovered: false
+    readonly property bool _wanted: Popups.quickOpen || Popups.quickTriggerHovered || root._selfHovered
+    property bool _held: root._wanted
+    on_WantedChanged: {
+        if (root._wanted) { closeDelay.stop(); root._held = true }
+        else closeDelay.restart()
+    }
+    // Closing by the flag (the toggle, closeAll) is immediate. Only the
+    // pointer leaving gets the grace below — which is Popups.hoverCloseDelay,
+    // animDuration + 200, and made every keyboard close wait for it.
+    Connections {
+        target: Popups
+        function onQuickOpenChanged() {
+            // Opened by its keybind, the arrows adjust the volume at once.
+            if (Popups.quickOpen) Qt.callLater(function () { volCol.focusSlider() })
+            if (!Popups.quickOpen && !Popups.quickTriggerHovered && !root._selfHovered) {
+                closeDelay.stop()
+                root._held = false
+            }
+        }
+    }
+    // A moment's grace, so the pointer can cross from the strip to the panel.
+    Timer {
+        id: closeDelay
+        interval: Popups.hoverCloseDelay
+        onTriggered: if (!root._wanted) { root._held = false; Popups.quickOpen = false }
     }
 
-    implicitWidth:  popupWidth
-    implicitHeight: popupHeight
+    SurfaceLifecycle {
+        name: "quick"
+        id: life
+        open:          root._held
+        enterDuration: Motion.surfaceEnterSmall
+        exitDuration:  Motion.surfaceExitSmall
+        // Liquid: the width extrudes first, the height unfolds after it and
+        // swells a hair past its mark, the fillets trail; it waits for this
+        // window's first frame, so it grows out of the strip.
+        liquid:  true
+        surface: body
+    }
+    visible: life.mapped
 
     // ── Audio State ───────────────────────────────────────────────────────────
     readonly property var sink: Pipewire.defaultAudioSink
@@ -91,42 +120,78 @@ PopupWindow {
     onVisibleChanged: if (visible)
         BrightnessService.refresh()
 
-    // ── Layout ────────────────────────────────────────────────────────────────
-    PopupSlide {
-        id: slide
-        anchors.fill:     parent
-        edge:             "right"
-        open:             Popups.quickOpen 
-        hoverEnabled:     true
-        triggerHovered:   Popups.quickTriggerHovered 
-        onCloseRequested: Popups.quickOpen = false
+    // ── Body ──────────────────────────────────────────────────────────────────
+    Item {
+        id: bodyFade
+        anchors.fill: parent
+        // The ridge a spill starts from (16 px wide, geometry.js) is already a
+        // shape: it fades in over the next 24 px of width, so it neither appears
+        // nor vanishes on one frame — keyed to WIDTH, because the extrusion is
+        // so steep that by 8 % progress the body is already ~140 px wide, and a
+        // fade over progress left a translucent box at the end of every close.
+        // Both ways since the springs wait for the first frame: that frame IS
+        // the ridge (it used to be far wider than the ramp). And on a wrapper, not on the shape: read
+        // from the shape's own opacity, its `result` was a binding loop (logged)
+        // that left the opacity a frame stale — a translucent first frame. It
+        // reads `closing`, not `open`, for the same reason (SurfaceLifecycle).
+        opacity:  life.alpha * Math.min(1, Math.max(0,
+                      (Geo.edgeSpillWidth(life.progress, body.chGeometry) - Geo.spillRidge(body.geometry)) / 24))
+
+        FluidShape {
+            id: body
+            anchors.fill: parent
+            family:   "edgeSpillRight"
+            progress: life.progress
+            channels: ({ w: life.lead, d: life.body, n: life.trail, fw: life.leadFlow, fd: life.bodyFlow })
+            readonly property var chGeometry: Object.assign({}, geometry, { ch: channels })
+            color:    Theme.background
+            geometry: ({
+                x1:    root.width - theme.borderWidth,
+                edgeW: theme.borderWidth,
+                cy:    Math.round(root.height / 2),
+                w:     root.popupWidth,
+                h:     root.popupHeight,
+                r:     theme.radiusL,
+                rm:    theme.radiusM
+            })
+        }
+    }
+
+    mask: Region { item: hit }
+    Item {
+        id: hit
+        x: life.open ? body.result.bounds.x : 0
+        y: life.open ? body.result.bounds.y : 0
+        width:  life.open ? body.result.bounds.w : 0
+        height: life.open ? body.result.bounds.h : 0
+        HoverHandler { onHoveredChanged: root._selfHovered = hovered }
+    }
+
+    // ── Content, at its finished layout, revealed by the body's clip ─────────
+    Item {
+        id: reveal
+        x: body.result.clip.x; y: body.result.clip.y
+        width: body.result.clip.w; height: body.result.clip.h
+        clip: true
+        // An ancestor of every slider, so Escape reaches it from whichever has focus.
+        Keys.onEscapePressed: Popups.quickOpen = false
 
         Item {
             id: sizer
-            anchors.right:          parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            clip: true
-
+            // Window coordinates: the finished body.
+            x: root.width - theme.borderWidth - root.popupWidth - reveal.x
+            y: Math.round(root.height / 2 - root.popupHeight / 2) - reveal.y
             width:  root.popupWidth
             height: root.popupHeight
 
-            Behavior on width { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
-
-            PopupShape {
-                id: bg
-                anchors.fill: parent
-                attachedEdge: "right"
-                color:        Theme.background
-                radius:       theme.cornerRadius
-                flareWidth:   root.fw
-                flareHeight:  root.fh
-            }
+            opacity: life.content
+            transform: Translate { x: (1 - life.content) * Motion.travel(theme.px(8)) }
 
             // ── Sliders Layout ────────────────────────────────────────────────
             Row {
                 anchors {
                     fill:         parent
-                    topMargin:    root.fh + 30
+                    topMargin:    theme.px(24)
                     leftMargin:   8
                     rightMargin:  8
                 }
@@ -135,6 +200,9 @@ PopupWindow {
 
                 // Audio Slider
                 ChannelColumn {
+                    id: volCol
+                    label: ""
+                    accessibleName: "Volume"
                     icon: {
                         if (!root.sink?.ready)            return "󰕾"
                         if (root.sink.audio.muted)        return "󰖁"
@@ -158,6 +226,8 @@ PopupWindow {
                 // with no backlight, where the DDC columns below are the only
                 // brightness controls that exist.
                 ChannelColumn {
+                    accessibleName: "Brightness"
+                    muteable: false
                     icon:    "󰃠"
                     value:   root._bVal
                     muted:   false
@@ -180,6 +250,8 @@ PopupWindow {
                         required property var modelData
 
                         icon:   "󰍹"
+                        accessibleName: "External display brightness"
+                        muteable: false
                         value:  modelData.value >= 0 ? modelData.value : 0
                         muted:  false
                         // A monitor whose level has not been read yet cannot be
@@ -195,133 +267,4 @@ PopupWindow {
         }
     }
 
-    // ── Reusable ChannelColumn Component ──────────────────────────────────────
-    component ChannelColumn: Item {
-        id: col
-
-        property string label:  ""
-        property string icon:   ""
-        property real   value:  0.0
-        property bool   muted:  false
-        property bool   active: false
-
-        readonly property int trackHeight: 180
-        readonly property int barW:        22
-        readonly property int thumbD:      barW - 6
-
-        signal volumeChanged(real value)
-        signal muteToggled()
-
-        implicitWidth:  inner.implicitWidth
-        implicitHeight: inner.implicitHeight
-
-        readonly property string pctText: active ? Math.round(value * 100) + "%" : "--%"
-
-        Column {
-            id: inner
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 12
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text:           col.pctText
-                color:          col.muted ? Qt.rgba(1,1,1,0.25) : Theme.text
-                font.pixelSize: theme.fs(13)
-                font.bold:      true
-                Behavior on color { ColorAnimation { duration: 150 } }
-            }
-
-            Item {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width:  col.barW
-                height: col.trackHeight
-
-                Rectangle {
-                    id: track
-                    anchors.fill: parent
-                    radius: width / 2
-                    color:  Qt.rgba(1,1,1,0.08)
-
-                    // Fill bar
-                    Rectangle {
-                        anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
-                        height: Math.max(radius * 2, parent.height * col.value)
-                        radius: parent.radius
-                        color:  col.muted ? Qt.rgba(1,1,1,0.15) : Theme.active
-                        Behavior on color  { ColorAnimation  { duration: 150 } }
-                        Behavior on height { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
-                    }
-
-                    // Thumb
-                    Rectangle {
-                        id: thumb
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width:  col.thumbD
-                        height: width
-                        radius: width / 2
-                        color:  col.muted ? Qt.rgba(1,1,1,0.3) : Theme.fixedLight
-                        y: {
-                            var travel = track.height - height
-                            return Math.max(0, Math.min(travel, (1.0 - col.value) * travel))
-                        }
-                        Behavior on color { ColorAnimation { duration: 150 } }
-                    }
-
-                    // Drag to change value. No wheel handler: a value bar in this
-                    // shell never reads the wheel, so scrolling stays scrolling.
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape:  Qt.SizeVerCursor
-                        function calc(my) {
-                            var travel = track.height - thumb.height
-                            return Math.max(0.0, Math.min(1.0, 1.0 - (my - thumb.height / 2) / travel))
-                        }
-                        onPressed:         col.volumeChanged(calc(mouseY))
-                        onPositionChanged: if (pressed) col.volumeChanged(calc(mouseY))
-                    }
-                }
-            }
-
-            // Icon & Mute Toggle
-            Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width:  col.barW + 16
-                height: 28
-                radius: theme.cornerRadius
-                color:  col.muted
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.2)
-                            : Qt.rgba(1,1,1,0.06)
-                Behavior on color { ColorAnimation { duration: 150 } }
-
-                Text {
-                    anchors.centerIn: parent
-                    text:           col.icon
-                    font.pixelSize: theme.fs(14)
-                    color:          col.muted ? Theme.active : Qt.rgba(1,1,1,0.55)
-                    Behavior on color { ColorAnimation { duration: 150 } }
-                }
-
-                Rectangle {
-                    anchors.fill: parent; radius: parent.radius
-                    color: muteHov.hovered ? Qt.rgba(1,1,1,0.05) : "transparent"
-                    Behavior on color { ColorAnimation { duration: 100 } }
-                }
-                HoverHandler { id: muteHov; cursorShape: Qt.PointingHandCursor }
-                MouseArea { anchors.fill: parent; onClicked: col.muteToggled()}
-            }
-
-            // Label
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text:            col.label
-                color:           Qt.rgba(1,1,1,0.3)
-                font.pixelSize:  theme.fs(10)
-                font.capitalization: Font.AllUppercase
-                font.letterSpacing: 1
-                elide:           Text.ElideRight
-                width:           col.barW + 50
-                horizontalAlignment: Text.AlignHCenter
-            }
-        }
-    }
 }

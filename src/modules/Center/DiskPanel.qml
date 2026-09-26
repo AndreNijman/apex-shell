@@ -23,13 +23,10 @@ Item {
         implicitHeight: headerLabel.implicitHeight
         height:         implicitHeight
 
-        Text {
+        SectionLabel {
             id: headerLabel
-            anchors.horizontalCenter: parent.horizontalCenter
-            text:           "Disks"
-            font.pixelSize: theme.fs(11)
-            font.weight:    Font.Medium
-            color:          Qt.rgba(1, 1, 1, 0.4)
+            anchors.left: parent.left
+            text: "Disks"
         }
 
         Text {
@@ -40,9 +37,9 @@ Item {
                 verticalCenter: parent.verticalCenter
             }
             text:           root.service.disks.length
-            font.pixelSize: theme.fs(9)
+            font.pixelSize: theme.typeCaption
             font.weight:    Font.Medium
-            color:          Qt.rgba(1, 1, 1, 0.25)
+            color:          Theme.textTertiary
         }
     }
 
@@ -66,17 +63,15 @@ Item {
             implicitWidth:  2
             implicitHeight: 20
             radius:         width / 2
-            color:          Qt.rgba(1, 1, 1, 0.5)
+            color:          Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.5)
             opacity:        vScroll.active ? 1.0 : 0.0
-            Behavior on opacity {
-                NumberAnimation { duration: 400; easing.type: Easing.InOutQuad }
-            }
+            Behavior on opacity { MotionFade {} }
         }
 
         background: Rectangle {
             implicitWidth: 2
             radius:        width / 2
-            color:         Qt.rgba(1, 1, 1, 0.08)
+            color:         Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
         }
     }
 

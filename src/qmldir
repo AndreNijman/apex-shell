@@ -1,4 +1,15 @@
 singleton Theme      theme/Theme.qml
+# The motion system. Registered here ONLY — not in theme/qmldir as well — so
+# there is one instance: every consumer imports this module, and nothing inside
+# theme/ needs it.
+singleton Motion     theme/Motion.qml
+# Animation types that take their timing from Motion by role. Plain components,
+# so a second registration would only be a second name for the same file; they
+# are registered here because every animated file already imports this module.
+MotionColor 1.0 theme/anim/MotionColor.qml
+MotionFade  1.0 theme/anim/MotionFade.qml
+MotionMove  1.0 theme/anim/MotionMove.qml
+SpringFollower 1.0 theme/anim/SpringFollower.qml
 # The token table itself (P1-040). NOT a singleton — that is the whole point:
 # Metrics is the instance built at the reference output's factor, and a surface
 # that sizes itself from its OWN output builds another. Registered here as well

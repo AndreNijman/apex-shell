@@ -4,6 +4,7 @@ import QtQuick.Controls
 import Quickshell.Io
 import "../../"
 import "../../components"
+import "../../components/controls"
 import "../"
 
 // Right column — brightness slider + scrollable quick-settings grid.
@@ -235,14 +236,29 @@ StatCard {
             "cat '" + root._hsCfgPath + "'"]
         running: false
         stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    var o = JSON.parse(text.trim())
-                    if (o.ssid)     root._hsSSID     = o.ssid
-                    if (o.password) root._hsPassword = o.password
-                } catch(e) {}
-            }
+            onStreamFinished: { root._hsParse(text); hsCfgFile.reload() }
         }
+    }
+
+    // Kept current, not read once (UI/UX Phase 19): the Hotspot pane saves the
+    // name and password to this file, and the tile read it only at startup — a
+    // changed password did not reach the hotspot until the Home page was rebuilt
+    // (HotspotTab's header claimed a re-read "on next hotspot start" that never
+    // happened). The process above only creates the file on first run.
+    FileView {
+        id: hsCfgFile
+        path: root._hsCfgPath
+        watchChanges: true
+        printErrors: false
+        onFileChanged: hsCfgFile.reload()
+        onLoaded: root._hsParse(hsCfgFile.text())
+    }
+    function _hsParse(t) {
+        try {
+            var o = JSON.parse(t.trim())
+            if (o.ssid)     root._hsSSID     = o.ssid
+            if (o.password) root._hsPassword = o.password
+        } catch (e) {}
     }
 
     // Detect WiFi interface name
@@ -690,17 +706,17 @@ StatCard {
             width: parent.width
             height: 52
 
-            Text {
+            SectionLabel {
                 id: brightLbl
                 anchors { left: parent.left; top: parent.top }
-                text: "BRIGHTNESS"; font.pixelSize: theme.fs(9); font.weight: Font.Bold
-                color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
+                text: "Brightness"
             }
             Text {
                 anchors { right: parent.right; top: parent.top }
                 text: Math.round(root._brightVal * 100) + "%"
-                font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"; font.weight: Font.Bold
-                color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7)
+                // A value: the readout treatment (UI/UX Phase 17).
+                font.pixelSize: theme.typeMono; font.family: Theme.fontMono
+                color: Theme.textSecondary
             }
 
             Row {
@@ -720,6 +736,31 @@ StatCard {
                     anchors.bottomMargin: 30
                     readonly property int thumbD: 14
 
+                    // On the keyboard, as the audio sliders (ChannelColumn): a
+                    // Tab stop; Up/Right and Down/Left step 5 %, Page Up/Down
+                    // 20 %, Home and End the ends (the service floors a zero).
+                    activeFocusOnTab: true
+                    Accessible.role: Accessible.Slider
+                    Accessible.name: "Brightness"
+                    Accessible.description: Math.round(root._brightVal * 100) + "%"
+                    function _nudge(d) { root._setBright(Math.max(0, Math.min(1, root._brightVal + d))) }
+                    Keys.onPressed: function (event) {
+                        if      (event.key === Qt.Key_Up   || event.key === Qt.Key_Right) btw._nudge(0.05)
+                        else if (event.key === Qt.Key_Down || event.key === Qt.Key_Left)  btw._nudge(-0.05)
+                        else if (event.key === Qt.Key_PageUp)   btw._nudge(0.2)
+                        else if (event.key === Qt.Key_PageDown) btw._nudge(-0.2)
+                        else if (event.key === Qt.Key_Home)     root._setBright(0)
+                        else if (event.key === Qt.Key_End)      root._setBright(1)
+                        else return
+                        event.accepted = true
+                    }
+                    Rectangle {
+                        anchors.fill: btrack; anchors.margins: -5
+                        radius: height / 2
+                        color: "transparent"; border.width: 2; border.color: Theme.accentText
+                        visible: btw.activeFocus
+                    }
+
                     Rectangle {
                         id: btrack
                         anchors.verticalCenter: parent.verticalCenter
@@ -727,14 +768,18 @@ StatCard {
                         color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12)
                         Rectangle {
                             anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                            width: Math.max(parent.radius * 2, parent.width * root._brightVal)
+                            width: bfillW.value
+                            SpringFollower { id: bfillW; role: "valueFollow"
+                                             target: Math.max(btrack.radius * 2, btrack.width * root._brightVal) }
                             radius: parent.radius; color: Theme.active
-                            Behavior on width { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
                         }
                         // Drag or click to set brightness. No wheel handler: a
                         // value bar in this shell never reads the wheel.
                         MouseArea {
-                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                            // A 5 px bar with a 32 px target (hitMin): its row
+                            // holds nothing else to press; x still maps 1:1.
+                            anchors.fill: parent; anchors.topMargin: -13.5; anchors.bottomMargin: -13.5
+                            cursorShape: Qt.PointingHandCursor
                             function _c(mx) {
                                 return Math.max(0.0, Math.min(1.0,
                                     (mx - btw.thumbD/2) / (btrack.width - btw.thumbD)))
@@ -747,8 +792,9 @@ StatCard {
                     Rectangle {
                         width: btw.thumbD; height: btw.thumbD; radius: btw.thumbD / 2
                         color: Theme.fixedLight; anchors.verticalCenter: parent.verticalCenter
-                        x: Math.max(0, Math.min(btw.width - width, root._brightVal * (btw.width - width)))
-                        Behavior on x { NumberAnimation { duration: 80; easing.type: Easing.OutCubic } }
+                        x: bthumbX.value
+                        SpringFollower { id: bthumbX; role: "valueFollow"
+                                         target: Math.max(0, Math.min(btw.width - btw.thumbD, root._brightVal * (btw.width - btw.thumbD))) }
                     }
                 }
 
@@ -766,10 +812,9 @@ StatCard {
         }
         Item { width: parent.width; height: 8 }
 
-        Text {
+        SectionLabel {
             id: qsLbl; width: parent.width
-            text: "QUICK SETTINGS"; font.pixelSize: theme.fs(9); font.weight: Font.Bold
-            color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
+            text: "Quick settings"
         }
         Item { width: parent.width; height: 8 }
 
@@ -780,13 +825,27 @@ StatCard {
 
             Flickable {
                 id: flick
+                // 4 px past the column on every side, and the grid inset by the
+                // same 4: the tiles sit where they did, and the clip leaves room
+                // for a focus ring (ApexFocusRing draws 4 px outside its tile).
                 anchors.fill:   parent
+                anchors.margins: -4
                 contentWidth:   width
-                contentHeight:  tileGrid.implicitHeight + 8
+                contentHeight:  tileGrid.implicitHeight + 16
                 clip:           true
                 boundsBehavior: Flickable.StopAtBounds
 
-                component TglBtn: Rectangle {
+                // Tab onto a tile below the fold scrolls it into view.
+                function keepInView(item) {
+                    const y = item.mapToItem(flick.contentItem, 0, 0).y
+                    if (y - 4 < flick.contentY)
+                        flick.contentY = Math.max(0, y - 4)
+                    else if (y + item.height + 4 > flick.contentY + flick.height)
+                        flick.contentY = Math.min(flick.contentHeight - flick.height,
+                                                  y + item.height + 4 - flick.height)
+                }
+
+                component TglBtn: ApexPressable {
                     id: btn
                     required property bool   on
                     required property string icon
@@ -794,58 +853,71 @@ StatCard {
                     property  string sublabel: ""
                     signal toggled()
 
-                    radius: 10
-                    color: on
-                        ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
-                        : bH.hovered
-                            ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
-                            : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
-                    border.color: on
-                        ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30)
-                        : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)
-                    border.width: 1
-                    Behavior on color        { ColorAnimation { duration: 130 } }
-                    Behavior on border.color { ColorAnimation { duration: 130 } }
+                    // The tile (UI/UX Phase 17): one surface and one label say
+                    // on or off. It said it four ways — the fill, a status dot,
+                    // the icon's colour and the label's weight — and drew a
+                    // border round each of ten tiles inside a bordered card. Off
+                    // is the card's second surface level, on is the accent
+                    // container; the sublabel line is always reserved, so every
+                    // label in a row sits on one baseline.
+                    radius: theme.radiusM
+                    Accessible.checkable: true
+                    Accessible.checked: btn.on
+                    Accessible.name: btn.label + (btn.sublabel !== "" ? ", " + btn.sublabel : "")
+                    onActivated: btn.toggled()
+                    onActiveFocusChanged: if (btn.activeFocus) flick.keepInView(btn)
 
                     Rectangle {
-                        anchors { top: parent.top; right: parent.right; margins: 8 }
-                        width: 6; height: 6; radius: 3
-                        color: btn.on ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.18)
-                        Behavior on color { ColorAnimation { duration: 130 } }
+                        anchors.fill: parent; radius: parent.radius
+                        color: btn.tint(btn.on ? Theme.accentContainer : Theme.surfaceOverlay)
+                        Behavior on color { MotionColor { role: "state" } }
                     }
 
+                    Text {
+                        anchors { top: parent.top; left: parent.left; margins: theme.px(9) }
+                        text: btn.icon; font.pixelSize: theme.fs(17)
+                        color: btn.on ? Theme.textOnAccentContainer : Theme.iconDefault
+                        Behavior on color { MotionColor { role: "state" } }
+                    }
                     Column {
-                        anchors { left: parent.left; bottom: parent.bottom; margins: 9 }
-                        spacing: 2
+                        anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: theme.px(8) }
+                        spacing: theme.px(1)
+                        // The caption size, shrinking to fit a narrow tile rather than
+                        // eliding "Do Not Disturb" to "Do Not Dist…" — never under 9.
                         Text {
-                            text: btn.icon; font.pixelSize: theme.fs(17)
-                            color: btn.on ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.40)
-                            Behavior on color { ColorAnimation { duration: 130 } }
+                            width: parent.width
+                            text: btn.label
+                            font.pixelSize: theme.typeCaption; font.weight: Font.Medium
+                            fontSizeMode: Text.HorizontalFit; minimumPixelSize: theme.fs(9)
+                            color: btn.on ? Theme.textOnAccentContainer : Theme.textSecondary
+                            elide: Text.ElideRight
+                            Behavior on color { MotionColor { role: "state" } }
                         }
-                        Text {
-                            text: btn.label; font.pixelSize: theme.fs(9); font.weight: Font.Medium
-                            color: btn.on ? Theme.text : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.45)
-                            Behavior on color { ColorAnimation { duration: 130 } }
-                        }
-                        Text {
-                            visible: btn.sublabel !== ""
-                            text:    btn.sublabel
-                            font.pixelSize: theme.fs(8); font.family: "JetBrains Mono"
-                            color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.65)
-                            width: btn.width - 18; elide: Text.ElideRight
+                        Item {
+                            width: parent.width; height: theme.px(13)
+                            Text {
+                                anchors.fill: parent
+                                text: btn.sublabel
+                                font.pixelSize: theme.typeCaption; font.family: Theme.fontMono
+                                color: btn.on ? Theme.textOnAccentContainer : Theme.textTertiary
+                                opacity: btn.on ? 0.8 : 1
+                                elide: Text.ElideRight
+                            }
                         }
                     }
-                    HoverHandler { id: bH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea    { anchors.fill: parent; onClicked: btn.toggled() }
+                    ApexFocusRing { target: btn }
                 }
 
                 Grid {
                     id: tileGrid
-                    width: flick.width
+                    anchors.left: parent.left; anchors.leftMargin: 4; y: 4   // an anchor, so a mirrored row insets the same
+                    width: flick.width - 8
                     columns: 2; spacing: 6
 
                     readonly property real btnW: (width - spacing) / 2
-                    readonly property real btnH: btnW * 0.85
+                    // The token's height (72), not 85 % of the width (76): five
+                    // rows of the latter ran through the card's clip mid-label.
+                    readonly property real btnH: theme.tileHeight
 
                     TglBtn {
                         width: tileGrid.btnW; height: tileGrid.btnH
@@ -1023,8 +1095,8 @@ StatCard {
         // Subtle entrance scale + fade
         opacity: root.filterPickerOpen ? 1 : 0
         scale:   root.filterPickerOpen ? 1 : 0.95
-        Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-        Behavior on scale   { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+        Behavior on opacity { MotionFade {} }
+        Behavior on scale   { MotionMove { role: "surfaceEnterSmall"; curve: Motion.fastSpatial } }
         transformOrigin: Item.BottomRight
 
         // Dismiss when clicking outside the picker
@@ -1047,46 +1119,52 @@ StatCard {
                 spacing: 2
 
                 // Header label
-                Text {
+                SectionLabel {
                     width: parent.width
-                    text: "SHADER"
-                    font.pixelSize: theme.fs(9); font.weight: Font.Bold
-                    color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
+                    text: "Shader"
                     leftPadding: 4
                     bottomPadding: 4
                 }
 
                 // "Off" row — always first
-                Rectangle {
+                ApexPressable {
+                    id: offBtn
                     width:  parent.width
                     height: 28
-                    radius: 6
+                    radius: 6; hitMargin: 2
                     property bool isActive: root.currentFilter === ""
-                    color: isActive
-                        ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
-                        : offH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) : "transparent"
-                    Behavior on color { ColorAnimation { duration: 100 } }
+                    Accessible.checkable: true
+                    Accessible.checked: offBtn.isActive
+                    Accessible.name: "Filter off"
+                    onActivated: root._filterApply("")
+
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color: offBtn.isActive
+                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
+                            : offBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) : "transparent"
+                        Behavior on color { MotionColor { role: "state" } }
+                    }
 
                     Row {
                         anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
                         spacing: 8
                         Text {
-                            text:           parent.parent.isActive ? "●" : "○"
+                            text:           offBtn.isActive ? "●" : "○"
                             font.pixelSize: theme.fs(9)
-                            color: parent.parent.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.30)
+                            color: offBtn.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.30)
                             anchors.verticalCenter: parent.verticalCenter
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            Behavior on color { MotionColor { role: "state" } }
                         }
                         Text {
                             text:           "Off"
                             font.pixelSize: theme.fs(12)
-                            color: parent.parent.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.65)
+                            color: offBtn.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.65)
                             anchors.verticalCenter: parent.verticalCenter
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            Behavior on color { MotionColor { role: "state" } }
                         }
                     }
-                    HoverHandler { id: offH; cursorShape: Qt.PointingHandCursor }
-                    TapHandler   { onTapped: root._filterApply("") }
+                    ApexFocusRing { target: offBtn }
                 }
 
                 // Divider
@@ -1098,40 +1176,48 @@ StatCard {
                 // Shader rows — populated by hyprshade ls
                 Repeater {
                     model: root.filterList
-                    delegate: Rectangle {
+                    delegate: ApexPressable {
+                        id: shaderBtn
                         required property string modelData
                         property bool isActive: root.currentFilter === modelData
 
                         width:  pickerCol.width
                         height: 28
-                        radius: 6
-                        color: isActive
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
-                            : itemH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) : "transparent"
-                        Behavior on color { ColorAnimation { duration: 100 } }
+                        radius: 6; hitMargin: 2
+                        Accessible.checkable: true
+                        Accessible.checked: shaderBtn.isActive
+                        Accessible.name: "Filter: " + modelData
+                        onActivated: root._filterApply(modelData)
+
+                        Rectangle {
+                            anchors.fill: parent; radius: parent.radius
+                            color: shaderBtn.isActive
+                                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14)
+                                : shaderBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) : "transparent"
+                            Behavior on color { MotionColor { role: "state" } }
+                        }
 
                         Row {
                             anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
                             spacing: 8
                             Text {
-                                text:           parent.parent.isActive ? "●" : "○"
+                                text:           shaderBtn.isActive ? "●" : "○"
                                 font.pixelSize: theme.fs(9)
-                                color: parent.parent.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.30)
+                                color: shaderBtn.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.30)
                                 anchors.verticalCenter: parent.verticalCenter
-                                Behavior on color { ColorAnimation { duration: 100 } }
+                                Behavior on color { MotionColor { role: "state" } }
                             }
                             Text {
                                 text:           modelData
                                 font.pixelSize: theme.fs(12)
-                                color: parent.parent.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.65)
+                                color: shaderBtn.isActive ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.65)
                                 anchors.verticalCenter: parent.verticalCenter
                                 elide: Text.ElideRight
                                 width: pickerCol.width - 38
-                                Behavior on color { ColorAnimation { duration: 100 } }
+                                Behavior on color { MotionColor { role: "state" } }
                             }
                         }
-                        HoverHandler { id: itemH; cursorShape: Qt.PointingHandCursor }
-                        TapHandler   { onTapped: root._filterApply(modelData) }
+                        ApexFocusRing { target: shaderBtn }
                     }
                 }
 

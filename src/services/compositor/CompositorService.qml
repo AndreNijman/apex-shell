@@ -178,7 +178,8 @@ QtObject {
         tilingLayout:         false,   // has named tiling layouts to cycle
         keyboardInterception: false,   // can grab all keys (Hyprland submaps)
         screenShader:         false,   // can run a fullscreen fragment shader
-        nightLight:           false    // has a colour-temperature shifter
+        nightLight:           false,   // has a colour-temperature shifter
+        motion:               false    // its animations can follow the shell's Motion
     })
 
     readonly property var can: {
@@ -369,6 +370,25 @@ QtObject {
     // hex is six digits, no leading '#'.
     function setAccentBorder(hex)       { return root._act("accentBorder", "setAccentBorder", [hex]) }
     function setGaps(inner, outer)      { return root._act("gaps", "setGaps", [inner, outer]) }
+
+    // The compositor moves at the shell's speed and stops when the shell does
+    // (UI/UX roadmap v3 Phase 21): Motion's scale and Reduce Motion, pushed
+    // whenever either changes and once the backend is up. A backend that
+    // cannot is a capability answer, not an error.
+    readonly property real _motionScale:   Motion.scale
+    readonly property bool _motionReduced: Motion.reduced
+    on_MotionScaleChanged:   root._syncMotion()
+    on_MotionReducedChanged: root._syncMotion()
+    onReadyChanged:          root._syncMotion()
+    // Settled, not per step: dragging the duration slider would otherwise fork
+    // an eval for every value it passes through.
+    function _syncMotion() { if (root.ready) root._motionSettle.restart() }
+    property Timer _motionSettle: Timer {
+        interval: 150
+        onTriggered: root.syncMotion()
+    }
+    // Push the current Motion now. True when the backend carried it out.
+    function syncMotion() { return root._act("motion", "syncMotion", [root._motionScale, root._motionReduced]) }
 
     // Current gaps, so a caller that changes them can put them back. Focus mode
     // is the only user: it shrinks the gaps and has to restore whatever the user

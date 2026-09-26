@@ -24,7 +24,7 @@ CfgScroll {
     // another service's failure.
     lifecycle: "live"
 
-    // Set by ShellConfig: "the Data & Storage page is genuinely on screen".
+    // Set by SettingsHost (Nexus): "the Data & Storage page is genuinely on screen".
     // These two services used to be instantiated here with `active: true`
     // hardcoded, which meant a `df` every 15s and a `cat /proc/meminfo` every 2s
     // from shell startup to logout — for a config sub-page most users open once.
@@ -53,10 +53,9 @@ CfgScroll {
 
         Text {
             width:          parent.width
-            leftPadding:    10
             visible:        DiskService.disks.length === 0
             text:           "Reading disks…"
-            color:          Qt.rgba(1,1,1,0.3)
+            color:          Theme.textTertiary
             font.pixelSize: theme.fs(11)
         }
 
@@ -68,8 +67,7 @@ CfgScroll {
                 model: DiskService.disks
                 delegate: DiskBar {
                     required property var modelData
-                    x:        10
-                    width:    parent.width - 20
+                    width:    parent.width
                     height:   40
                     source:   modelData.source
                     mount:    modelData.mount
@@ -90,7 +88,7 @@ CfgScroll {
             hoverable: false
             Text {
                 text:           MemService.usedStr + " / " + MemService.totalStr
-                font.family:    "JetBrains Mono"
+                font.family:    Theme.fontMono
                 font.pixelSize: theme.fs(11)
                 color:          Theme.active
             }
@@ -182,9 +180,8 @@ CfgScroll {
             height: folders.implicitHeight + 8
             Flow {
                 id: folders
-                x:       10
                 y:       4
-                width:   parent.width - 20
+                width:   parent.width
                 spacing: 8
                 CfgButton { label: "Config";     icon: "󰉋"; onClicked: root.openPath("~/.config/apex-shell") }
                 CfgButton { label: "Cache";      icon: "󰉋"; onClicked: root.openPath("~/.cache/apex-shell") }

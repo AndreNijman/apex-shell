@@ -1,38 +1,31 @@
 import QtQuick
 import "../"
+import "controls"
 
-Rectangle {
+// ─────────────────────────────────────────────────────────────────────────────
+// IconBtn — a glyph button in the bar.
+//
+// ApexIconButton in bar mode (UI/UX roadmap v3 Phase 15; brief §D.3, §D.6):
+// a 15 px glyph in its icon font, in a 20 px box with a 24 px target, and no
+// fill at all — hover turns the glyph to the primary text colour, a press to
+// the accent, and the press dips it to .96. It used to fill the whole box with
+// the accent on hover, which in a bar of eight of these was the loudest thing
+// on screen for the least important state.
+//
+// `textColor` is the glyph's colour at rest: the passive icon colour unless
+// the caller has a state to show (a panel it opened, the brand mark).
+// ─────────────────────────────────────────────────────────────────────────────
+ApexIconButton {
     id: root
-    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
-    width: 24
-    height: 24
-    radius: 4
-    
-    // 1. Correct: referencing the ID 'hover' directly works here
-    color: hover.hovered ? Theme.active : "transparent"
-    
-    property string text: "" 
-    property color textColor: Theme.text
+    property string text: ""
+    property color  textColor: Theme.iconDefault
     signal clicked()
 
-    Text {
-        anchors.centerIn: parent
-        text: root.text
-        
-        // 2. FIX: Changed 'root.hoverHandler.hovered' to 'hover.hovered'
-        color: hover.hovered ? Theme.background : root.textColor
-        
-        font.pixelSize: theme.fs(14)
-    }
-
-    HoverHandler {
-        id: hover
-        cursorShape: Qt.PointingHandCursor
-    }
-    
-    MouseArea {
-        anchors.fill: parent
-        onClicked: root.clicked()
-    }
+    bar: true
+    glyph: root.text
+    glyphColor: root.pressed ? Theme.accentText
+              : root.hovered ? Theme.textPrimary
+              : root.textColor
+    onActivated: root.clicked()
 }

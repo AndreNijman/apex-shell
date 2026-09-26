@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell.Io
 import "../../"
 import "../../components"
+import "../../components/controls"
 
 // ClockCard — Clock / Timer / Alarm / Stopwatch
 
@@ -195,6 +196,18 @@ StatCard {
         _syncState()
     }
 
+    // Every alarm edit replaces _alarms and the list rebuilds each row, so the
+    // row whose button was pressed is gone by the next line. A keyboard toggle
+    // puts focus back on the rebuilt row's toggle; call it BEFORE the edit.
+    function _refocusAlarm(id) {
+        Qt.callLater(function () {
+            for (var i = 0; i < alarmList.count; i++) {
+                const row = alarmList.itemAtIndex(i)
+                if (row && row.modelData.id === id) { row.focusToggle(); return }
+            }
+        })
+    }
+
     function _deleteAlarm(id) {
         _alarms = _alarms.filter(function(a) { return a.id !== id })
         _syncState()
@@ -259,6 +272,24 @@ StatCard {
     Item {
         anchors.fill: parent
 
+        // ── Tab bar ───────────────────────────────────────────────────────────
+        // Declared first though drawn at the bottom: Tab follows declaration
+        // order, and a tab list is followed by its panel — choose the mode,
+        // then Tab into it (it came after the panel, so Tab left the card).
+        TabSwitcher {
+            id: tabs
+            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+            orientation: "horizontal"; width: parent.width
+            currentPage: root._mode
+            model: [
+                { key: "clock",     icon: "󰥔", label: "Clock"     },
+                { key: "timer",     icon: "󱎫", label: "Timer"     },
+                { key: "alarm",     icon: "󰀠", label: "Alarm"     },
+                { key: "stopwatch", icon: "󰔚", label: "Stopwatch" }
+            ]
+            onPageChanged: function(key) { root._mode = key }
+        }
+
         // ── CLOCK ─────────────────────────────────────────────────────────────
         Item {
             anchors { left: parent.left; right: parent.right; top: parent.top; bottom: tabs.top }
@@ -315,29 +346,29 @@ StatCard {
             visible: root._mode === "timer"
 
             // "+" / "x" toggle — top-right corner
-            Item {
+            ApexPressable {
                 id: addTimerBtn
                 anchors { top: parent.top; right: parent.right; topMargin: 8; rightMargin: 8 }
-                width: 24; height: 24
+                width: 24; height: 24; radius: 7; hitMargin: 4
+                Accessible.checkable: true
+                Accessible.checked: root._addTimerOpen
+                Accessible.name: "Add timer"
+                onActivated: root._addTimerOpen = !root._addTimerOpen
 
                 Rectangle {
-                    anchors.fill: parent; radius: 7
-                    color: _addTimerHov.hovered
+                    anchors.fill: parent; radius: parent.radius
+                    color: addTimerBtn.hovered
                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15)
-                           : Qt.rgba(1,1,1,0.06)
+                           : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
                     border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.2); border.width: 1
-                    Behavior on color { ColorAnimation { duration: 100 } }
+                    Behavior on color { MotionColor {} }
                     Text {
                         anchors.centerIn: parent
                         text: root._addTimerOpen ? "x" : "+"
                         font.pixelSize: theme.fs(14); color: Theme.active
                     }
                 }
-                HoverHandler { id: _addTimerHov; cursorShape: Qt.PointingHandCursor }
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: root._addTimerOpen = !root._addTimerOpen
-                }
+                ApexFocusRing { target: addTimerBtn }
             }
 
             Column {
@@ -357,7 +388,7 @@ StatCard {
                             ctx.clearRect(0, 0, width, height)
                             var cx = width/2, cy = height/2, r = 44
                             ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2)
-                            ctx.strokeStyle = Qt.rgba(1,1,1,0.08)
+                            ctx.strokeStyle = Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
                             ctx.lineWidth = 5; ctx.stroke()
                             var p = root._timerProgress()
                             if (p > 0) {
@@ -385,7 +416,7 @@ StatCard {
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "remaining"; font.pixelSize: theme.fs(8)
-                            color: Qt.rgba(1,1,1,0.25)
+                            color: Theme.textTertiary
                         }
                     }
                 }
@@ -397,31 +428,33 @@ StatCard {
                     visible: !root._addTimerOpen && !root._timerRunning
                     Repeater {
                         model: [5, 10, 15, 30]
-                        delegate: Rectangle {
+                        delegate: ApexPressable {
+                            id: presetBtn
                             required property int modelData
                             required property int index
-                            width: 36; height: 22; radius: 6
-                            color: _pH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.1) : Qt.rgba(1,1,1,0.05)
-                            border.color: Qt.rgba(1,1,1,0.1); border.width: 1
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            width: 36; height: 22; radius: 6; hitMargin: 5
+                            Accessible.name: "Set timer to " + (modelData < 60 ? modelData + " minutes" : "1 hour")
+                            onActivated: {
+                                root._timerTotal   = modelData * 60
+                                root._timerLeft    = modelData * 60
+                                root._timerRunning = false
+                                root._timerFired   = false
+                                root._syncState()
+                                timerCanvas.requestPaint()
+                            }
+                            Rectangle {
+                                anchors.fill: parent; radius: parent.radius
+                                color: presetBtn.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.1) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                                border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1); border.width: 1
+                                Behavior on color { MotionColor {} }
+                            }
                             Text {
                                 anchors.centerIn: parent
                                 text: modelData < 60 ? modelData+"m" : "1h"
                                 font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"; font.weight: Font.Bold
-                                color: Qt.rgba(1,1,1,0.45)
+                                color: Theme.textSecondary
                             }
-                            HoverHandler { id: _pH; cursorShape: Qt.PointingHandCursor }
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: {
-                                    root._timerTotal   = modelData * 60
-                                    root._timerLeft    = modelData * 60
-                                    root._timerRunning = false
-                                    root._timerFired   = false
-                                    root._syncState()
-                                    timerCanvas.requestPaint()
-                                }
-                            }
+                            ApexFocusRing { target: presetBtn }
                         }
                     }
                 }
@@ -444,36 +477,42 @@ StatCard {
                             minuteStep: 1
                         }
 
-                        Rectangle {
+                        ApexPressable {
+                            id: setTimerBtn
                             anchors.horizontalCenter: parent.horizontalCenter
-                            width: 58; height: 26; radius: 8
-                            color: _setTimerHov.hovered
-                                   ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.18)
-                                   : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.1)
-                            border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.25); border.width: 1
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            width: 58; height: 26; radius: 8; hitMargin: 3
+                            Accessible.name: "Set timer"
+                            onActivated: {
+                                // Read first: closing the panel hides this button,
+                                // and a hidden item has already lost its focus.
+                                const byKey = setTimerBtn.focusVisible
+                                var total = timerTimeInput.hours * 3600
+                                          + timerTimeInput.minutes * 60
+                                root._addTimerOpen = false
+                                if (total > 0) {
+                                    root._timerTotal   = total
+                                    root._timerLeft    = total
+                                    root._timerRunning = false
+                                    root._timerFired   = false
+                                    root._syncState()
+                                    timerCanvas.requestPaint()
+                                }
+                                if (byKey) addTimerBtn.forceActiveFocus()
+                            }
+                            Rectangle {
+                                anchors.fill: parent; radius: parent.radius
+                                color: setTimerBtn.hovered
+                                       ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.18)
+                                       : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.1)
+                                border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.25); border.width: 1
+                                Behavior on color { MotionColor {} }
+                            }
                             Text {
                                 anchors.centerIn: parent; text: "Set Timer"
                                 font.pixelSize: theme.fs(11); font.weight: Font.Medium
                                 color: Theme.active
                             }
-                            HoverHandler { id: _setTimerHov; cursorShape: Qt.PointingHandCursor }
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: {
-                                    var total = timerTimeInput.hours * 3600
-                                              + timerTimeInput.minutes * 60
-                                    root._addTimerOpen = false
-                                    if (total > 0) {
-                                        root._timerTotal   = total
-                                        root._timerLeft    = total
-                                        root._timerRunning = false
-                                        root._timerFired   = false
-                                        root._syncState()
-                                        timerCanvas.requestPaint()
-                                    }
-                                }
-                            }
+                            ApexFocusRing { target: setTimerBtn }
                         }
                     }
                 }
@@ -485,56 +524,60 @@ StatCard {
                     visible: !root._addTimerOpen
 
                     // Start / Pause
-                    Rectangle {
-                        width: 58; height: 26; radius: 8
-                        color: _startHov.hovered
-                               ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.2)
-                               : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.12)
-                        border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.22); border.width: 1
-                        Behavior on color { ColorAnimation { duration: 100 } }
+                    ApexPressable {
+                        id: timerStartBtn
+                        width: 58; height: 26; radius: 8; hitMargin: 3
+                        Accessible.name: root._timerRunning ? "Pause timer" : "Start timer"
+                        onActivated: {
+                            root._timerRunning = !root._timerRunning
+                            root._timerStarted = true
+                            root._timerFired   = false
+                            root._syncState()
+                        }
+                        Rectangle {
+                            anchors.fill: parent; radius: parent.radius
+                            color: timerStartBtn.hovered
+                                   ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.2)
+                                   : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.12)
+                            border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.22); border.width: 1
+                            Behavior on color { MotionColor {} }
+                        }
                         Text {
                             anchors.centerIn: parent
                             text: root._timerRunning ? "Pause" : "Start"
                             font.pixelSize: theme.fs(10); font.weight: Font.Medium
                             color: Theme.active
                         }
-                        HoverHandler { id: _startHov; cursorShape: Qt.PointingHandCursor }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                root._timerRunning = !root._timerRunning
-                                root._timerStarted = true
-                                root._timerFired   = false
-                                root._syncState()
-                            }
-                        }
+                        ApexFocusRing { target: timerStartBtn }
                     }
 
                     // Reset
-                    Rectangle {
-                        width: 58; height: 26; radius: 8
-                        color: _resetHov.hovered
-                               ? Qt.rgba(1,1,1,0.1)
-                               : Qt.rgba(1,1,1,0.05)
-                        border.color: Qt.rgba(1,1,1,0.1); border.width: 1
-                        Behavior on color { ColorAnimation { duration: 100 } }
+                    ApexPressable {
+                        id: timerResetBtn
+                        width: 58; height: 26; radius: 8; hitMargin: 3
+                        Accessible.name: "Reset timer"
+                        onActivated: {
+                            root._timerLeft    = root._timerTotal
+                            root._timerRunning = false
+                            root._timerFired   = false
+                            root._timerStarted = false
+                            root._syncState()
+                            timerCanvas.requestPaint()
+                        }
+                        Rectangle {
+                            anchors.fill: parent; radius: parent.radius
+                            color: timerResetBtn.hovered
+                                   ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
+                                   : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                            border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1); border.width: 1
+                            Behavior on color { MotionColor {} }
+                        }
                         Text {
                             anchors.centerIn: parent; text: "Reset"
                             font.pixelSize: theme.fs(10); font.weight: Font.Medium
-                            color: Qt.rgba(1,1,1,0.4)
+                            color: Theme.textSecondary
                         }
-                        HoverHandler { id: _resetHov; cursorShape: Qt.PointingHandCursor }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                root._timerLeft    = root._timerTotal
-                                root._timerRunning = false
-                                root._timerFired   = false
-                                root._timerStarted = false
-                                root._syncState()
-                                timerCanvas.requestPaint()
-                            }
-                        }
+                        ApexFocusRing { target: timerResetBtn }
                     }
                 }
             }
@@ -561,43 +604,43 @@ StatCard {
                         color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.7)
                     }
 
-                    Item {
+                    ApexPressable {
                         id: addAlarmBtn
                         anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                        width: 24; height: 24
+                        width: 24; height: 24; radius: 7; hitMargin: 4
+                        Accessible.checkable: true
+                        Accessible.checked: root._addOpen
+                        Accessible.name: "Add alarm"
+                        onActivated: {
+                            var opening = !root._addOpen
+                            root._addOpen = opening
+                            if (opening) {
+                                // Snap to next nearest 5-min mark from now
+                                var d = new Date()
+                                var totalMins = d.getHours() * 60 + d.getMinutes() + 1
+                                var snapped   = Math.ceil(totalMins / 5) * 5
+                                var h = Math.floor(snapped / 60) % 24
+                                var m = snapped % 60
+                                root._addHour   = h
+                                root._addMinute = m
+                                alarmTimeInput.initialize(h, m)
+                            }
+                        }
 
                         Rectangle {
-                            anchors.fill: parent; radius: 7
-                            color: _addHov.hovered
+                            anchors.fill: parent; radius: parent.radius
+                            color: addAlarmBtn.hovered
                                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.15)
-                                   : Qt.rgba(1,1,1,0.06)
+                                   : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
                             border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.2); border.width: 1
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            Behavior on color { MotionColor {} }
                             Text {
                                 anchors.centerIn: parent
                                 text: root._addOpen ? "✕" : "+"
                                 font.pixelSize: theme.fs(14); color: Theme.active
                             }
                         }
-                        HoverHandler { id: _addHov; cursorShape: Qt.PointingHandCursor }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                var opening = !root._addOpen
-                                root._addOpen = opening
-                                if (opening) {
-                                    // Snap to next nearest 5-min mark from now
-                                    var d = new Date()
-                                    var totalMins = d.getHours() * 60 + d.getMinutes() + 1
-                                    var snapped   = Math.ceil(totalMins / 5) * 5
-                                    var h = Math.floor(snapped / 60) % 24
-                                    var m = snapped % 60
-                                    root._addHour   = h
-                                    root._addMinute = m
-                                    alarmTimeInput.initialize(h, m)
-                                }
-                            }
-                        }
+                        ApexFocusRing { target: addAlarmBtn }
                     }
                 }
 
@@ -611,8 +654,11 @@ StatCard {
                     radius:  8
                     border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.1); border.width: 1
                     opacity: root._addOpen ? 1 : 0
-                    Behavior on height  { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-                    Behavior on opacity { NumberAnimation { duration: 150 } }
+                    // Collapsed is not gone: at height 0 its spin boxes and Set
+                    // were still Tab stops, invisible ones. Hidden once closed.
+                    visible: root._addOpen || height > 0
+                    Behavior on height  { MotionMove { role: "surfaceEnterSmall" } }
+                    Behavior on opacity { MotionFade {} }
 
                     Column {
                         anchors.centerIn: parent
@@ -624,28 +670,32 @@ StatCard {
                             minuteStep: 1
                         }
 
-                        Rectangle {
+                        ApexPressable {
+                            id: setAlarmBtn
                             anchors.horizontalCenter: parent.horizontalCenter
-                            width: 58; height: 26; radius: 8
-                            color: _setAlarmHov.hovered
-                                   ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.18)
-                                   : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.1)
-                            border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.25); border.width: 1
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            width: 58; height: 26; radius: 8; hitMargin: 3
+                            Accessible.name: "Set alarm"
+                            onActivated: {
+                                const byKey = setAlarmBtn.focusVisible   // read before the panel closes
+                                root._addHour   = alarmTimeInput.hours
+                                root._addMinute = alarmTimeInput.minutes
+                                root._addAlarm()
+                                if (byKey) addAlarmBtn.forceActiveFocus()
+                            }
+                            Rectangle {
+                                anchors.fill: parent; radius: parent.radius
+                                color: setAlarmBtn.hovered
+                                       ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.18)
+                                       : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.1)
+                                border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.25); border.width: 1
+                                Behavior on color { MotionColor {} }
+                            }
                             Text {
                                 anchors.centerIn: parent; text: "Set Alarm"
                                 font.pixelSize: theme.fs(11); font.weight: Font.Medium
                                 color: Theme.active
                             }
-                            HoverHandler { id: _setAlarmHov; cursorShape: Qt.PointingHandCursor }
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: {
-                                    root._addHour   = alarmTimeInput.hours
-                                    root._addMinute = alarmTimeInput.minutes
-                                    root._addAlarm()
-                                }
-                            }
+                            ApexFocusRing { target: setAlarmBtn }
                         }
                     }
                 }
@@ -665,11 +715,12 @@ StatCard {
                     delegate: Rectangle {
                         required property var modelData
                         required property int index
+                        function focusToggle() { toggleBtn.forceActiveFocus() }
                         width: alarmList.width; height: 36; radius: 8
-                        color: Qt.rgba(1,1,1,0.04)
+                        color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
                         border.color: modelData.enabled
                                       ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.15)
-                                      : Qt.rgba(1,1,1,0.07)
+                                      : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
                         border.width: 1
 
                         // Time label
@@ -679,52 +730,70 @@ StatCard {
                             font.pixelSize: theme.fs(15); font.weight: Font.Bold; font.family: "JetBrains Mono"
                             color: modelData.enabled
                                    ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.9)
-                                   : Qt.rgba(1,1,1,0.3)
+                                   : Theme.textTertiary
                         }
 
                         // Toggle
-                        Rectangle {
+                        ApexPressable {
                             id: toggleBtn
                             anchors { right: deleteBtn.left; rightMargin: 6; verticalCenter: parent.verticalCenter }
-                            width: 28; height: 18; radius: 9
-                            color: modelData.enabled
-                                   ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.25)
-                                   : Qt.rgba(1,1,1,0.1)
-                            Behavior on color { ColorAnimation { duration: 130 } }
+                            width: 28; height: 18; radius: 9; hitMargin: 7
+                            Accessible.checkable: true
+                            Accessible.checked: modelData.enabled
+                            Accessible.name: "Alarm " + root._zp(modelData.hour) + ":" + root._zp(modelData.minute)
+                            onActivated: {
+                                if (toggleBtn.focusVisible) root._refocusAlarm(modelData.id)
+                                root._toggleAlarm(modelData.id)
+                            }
                             Rectangle {
-                                width: 12; height: 12; radius: 6
-                                anchors.verticalCenter: parent.verticalCenter
-                                x: modelData.enabled ? parent.width - width - 3 : 3
-                                color: modelData.enabled ? Theme.active : Qt.rgba(1,1,1,0.3)
-                                Behavior on x     { NumberAnimation { duration: 130; easing.type: Easing.OutCubic } }
-                                Behavior on color { ColorAnimation  { duration: 130 } }
+                                anchors.fill: parent; radius: parent.radius
+                                color: modelData.enabled
+                                       ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.25)
+                                       : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
+                                Behavior on color { MotionColor { role: "state" } }
+                                Rectangle {
+                                    width: 12; height: 12; radius: 6
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    x: modelData.enabled ? parent.width - width - 3 : 3
+                                    color: modelData.enabled ? Theme.active : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.3)
+                                    Behavior on x     { MotionMove { curve: Motion.fastSpatial } }
+                                    Behavior on color { MotionColor { role: "state" } }
+                                }
                             }
-                            MouseArea {
-                                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                onClicked: root._toggleAlarm(modelData.id)
-                            }
+                            ApexFocusRing { target: toggleBtn }
                         }
 
                         // Delete
-                        Rectangle {
+                        ApexPressable {
                             id: deleteBtn
                             anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
-                            width: 22; height: 22; radius: 6
-                            color: _delH.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18) : "transparent"
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                            width: 22; height: 22; radius: 6; hitMargin: 5
+                            Accessible.name: "Delete alarm " + root._zp(modelData.hour) + ":" + root._zp(modelData.minute)
+                            // Focus first: this row is destroyed by the delete.
+                            onActivated: {
+                                if (deleteBtn.focusVisible) addAlarmBtn.forceActiveFocus()
+                                root._deleteAlarm(modelData.id)
+                            }
+                            Rectangle {
+                                anchors.fill: parent; radius: parent.radius
+                                color: deleteBtn.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18) : "transparent"
+                                Behavior on color { MotionColor {} }
+                            }
                             Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(10); color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.6) }
-                            HoverHandler { id: _delH; cursorShape: Qt.PointingHandCursor }
-                            MouseArea { anchors.fill: parent; onClicked: root._deleteAlarm(modelData.id) }
+                            ApexFocusRing { target: deleteBtn }
                         }
                     }
 
-                    Text {
+                    // The shared empty state (UI/UX Phase 17 review), in desktop
+                    // words: it said "Tap + to add one" on a machine with no touch
+                    // screen, in the tertiary role that roles.js reserves for
+                    // placeholders, never information.
+                    EmptyState {
                         anchors.centerIn: parent
+                        width: parent.width * 0.8
                         visible: root._alarms.length === 0 && !root._addOpen
-                        text: "No alarms set\nTap + to add one"
-                        horizontalAlignment: Text.AlignHCenter
-                        font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.2)
-                        lineHeight: 1.5
+                        title: "No alarms set"
+                        hint: "Add one with the + button."
                     }
                 }
             }
@@ -751,62 +820,50 @@ StatCard {
                     spacing: 6
 
                     // Start / Stop
-                    Rectangle {
-                        width: 58; height: 26; radius: 8
-                        color: _swStartHov.hovered
-                               ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.2)
-                               : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.12)
-                        border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.22); border.width: 1
-                        Behavior on color { ColorAnimation { duration: 100 } }
+                    ApexPressable {
+                        id: swStartBtn
+                        width: 58; height: 26; radius: 8; hitMargin: 3
+                        Accessible.name: root._swRunning ? "Stop stopwatch" : "Start stopwatch"
+                        onActivated: { root._swRunning = !root._swRunning; root._swStarted = true; root._syncState() }
+                        Rectangle {
+                            anchors.fill: parent; radius: parent.radius
+                            color: swStartBtn.hovered
+                                   ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.2)
+                                   : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.12)
+                            border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,0.22); border.width: 1
+                            Behavior on color { MotionColor {} }
+                        }
                         Text {
                             anchors.centerIn: parent
                             text: root._swRunning ? "Stop" : "Start"
                             font.pixelSize: theme.fs(10); font.weight: Font.Medium
                             color: Theme.active
                         }
-                        HoverHandler { id: _swStartHov; cursorShape: Qt.PointingHandCursor }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: { root._swRunning = !root._swRunning; root._swStarted = true; root._syncState();}
-                            
-                        }
+                        ApexFocusRing { target: swStartBtn }
                     }
                     // Reset
-                    Rectangle {
-                        width: 58; height: 26; radius: 8
-                        color: _swResetHov.hovered
-                               ? Qt.rgba(1,1,1,0.1)
-                               : Qt.rgba(1,1,1,0.05)
-                        border.color: Qt.rgba(1,1,1,0.1); border.width: 1
-                        Behavior on color { ColorAnimation { duration: 100 } }
+                    ApexPressable {
+                        id: swResetBtn
+                        width: 58; height: 26; radius: 8; hitMargin: 3
+                        Accessible.name: "Reset stopwatch"
+                        onActivated: { root._swMs = 0; root._swRunning = false; root._swStarted = false; root._syncState() }
+                        Rectangle {
+                            anchors.fill: parent; radius: parent.radius
+                            color: swResetBtn.hovered
+                                   ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
+                                   : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+                            border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1); border.width: 1
+                            Behavior on color { MotionColor {} }
+                        }
                         Text {
                             anchors.centerIn: parent; text: "Reset"
                             font.pixelSize: theme.fs(10); font.weight: Font.Medium
-                            color: Qt.rgba(1,1,1,0.4)
+                            color: Theme.textSecondary
                         }
-                        HoverHandler { id: _swResetHov; cursorShape: Qt.PointingHandCursor }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: { root._swMs = 0; root._swRunning = false; root._swStarted = false; root._syncState() }
-                        }
+                        ApexFocusRing { target: swResetBtn }
                     }
                 }
             }
-        }
-
-        // ── Tab bar ───────────────────────────────────────────────────────────
-        TabSwitcher {
-            id: tabs
-            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-            orientation: "horizontal"; width: parent.width
-            currentPage: root._mode
-            model: [
-                { key: "clock",     icon: "󰥔", label: "Clock"     },
-                { key: "timer",     icon: "󱎫", label: "Timer"     },
-                { key: "alarm",     icon: "󰀠", label: "Alarm"     },
-                { key: "stopwatch", icon: "󰔚", label: "Stopwatch" }
-            ]
-            onPageChanged: function(key) { root._mode = key }
         }
     }
 }

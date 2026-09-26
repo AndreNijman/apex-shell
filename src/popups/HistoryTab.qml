@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import Quickshell.Io
 import "../"
+import "../components/controls"
 
 Item {
     id: root
@@ -32,7 +33,12 @@ Item {
                 preview:  pins[pi].preview ?? pins[pi].text ?? "",
                 storedId: pins[pi].id      ?? "",
                 pinIndex: pi,
-                isImage:  false
+                isImage:  false,
+                // Stable across other pins being pinned/unpinned — pinIndex is
+                // NOT: unpinning an earlier pin renumbers every pin after it
+                // (UI/UX roadmap v3 Phase 21). Falls back to pi only for a
+                // pin persisted before `timestamp` existed.
+                key: "p:" + (pins[pi].timestamp ?? pi)
             })
         }
 
@@ -44,11 +50,32 @@ Item {
                 kind:    "entry",
                 id:      e.id,
                 preview: e.preview,
-                isImage: e.isImage ?? false
+                isImage: e.isImage ?? false,
+                key:     "e:" + e.id
             })
         }
 
         return result
+    }
+
+    // ── Keyboard (UI/UX roadmap v3 Phase 21) ────────────────────────────────
+    // The entry list is ONE Tab stop: Up and Down move a highlight over the
+    // flat model (pinned first, then history — the same order the list shows),
+    // Return does what a double-tap does today. Tab from the list reaches the
+    // highlighted entry's own buttons, which are Tab stops only while it is
+    // highlighted, so a long history is not many times that many stops.
+    property string _curId: ""
+    readonly property var _entryIds: root.flatModel.map(function (m) { return m.key })
+    function _stepEntry(d) {
+        const list = root._entryIds
+        if (list.length === 0) return
+        const i = list.indexOf(root._curId)
+        root._curId = i < 0 ? list[d > 0 ? 0 : list.length - 1]
+                            : list[Math.max(0, Math.min(list.length - 1, i + d))]
+    }
+    function _entryFor(id) {
+        const i = root._entryIds.indexOf(id)
+        return i < 0 ? null : mainList.itemAtIndex(i)
     }
 
     Column {
@@ -69,17 +96,23 @@ Item {
             }
 
             // Clear unpinned history button
-            Rectangle {
+            ApexPressable {
+                id: clearBtn
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 4 }
                 width:  clearRow.implicitWidth + 14
-                height: 26; radius: 8
-                color: clearH.hovered
-                    ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.18)
-                    : Qt.rgba(1, 1, 1, 0.04)
-                border.color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, clearH.hovered ? 0.38 : 0.12)
-                border.width: 1
-                Behavior on color        { ColorAnimation { duration: 150 } }
-                Behavior on border.color { ColorAnimation { duration: 150 } }
+                height: 26; radius: 8; hitMargin: 3
+                Accessible.name: "Clear unpinned clipboard history"
+                onActivated: ClipboardService.wipeHistory()
+                Rectangle {
+                    anchors.fill: parent; radius: parent.radius
+                    color: clearBtn.hovered
+                        ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.18)
+                        : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                    border.color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, clearBtn.hovered ? 0.38 : 0.12)
+                    border.width: 1
+                    Behavior on color        { MotionColor {} }
+                    Behavior on border.color { MotionColor {} }
+                }
 
                 Row {
                     id: clearRow
@@ -96,13 +129,12 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                     }
                 }
-                HoverHandler { id: clearH; cursorShape: Qt.PointingHandCursor }
-                MouseArea { anchors.fill: parent; onClicked: ClipboardService.wipeHistory() }
+                ApexFocusRing { target: clearBtn }
             }
         }
 
         // Divider
-        Rectangle { width: parent.width; height: 1; color: Qt.rgba(1,1,1,0.07) }
+        Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) }
 
         // ── Content ────────────────────────────────────────────────────────────
         Item {
@@ -119,14 +151,14 @@ Item {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "○"; font.pixelSize: theme.fs(22); color: Theme.active
                     SequentialAnimation on opacity {
-                        running: parent.visible; loops: Animation.Infinite
-                        NumberAnimation { to: 0.15; duration: 500 }
-                        NumberAnimation { to: 1.0;  duration: 500 }
+                        running: parent.visible && Motion.ambient; alwaysRunToEnd: true; loops: Animation.Infinite
+                        NumberAnimation { to: 0.15; duration: Motion.pulseHalf }
+                        NumberAnimation { to: 1.0;  duration: Motion.pulseHalf }
                     }
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Loading…"; font.pixelSize: theme.fs(12); color: Qt.rgba(1,1,1,0.25)
+                    text: "Loading…"; font.pixelSize: theme.fs(12); color: Theme.textTertiary
                 }
             }
 
@@ -138,15 +170,15 @@ Item {
                          && root.pinned.length  === 0
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "󰅍"; font.pixelSize: theme.fs(32); color: Qt.rgba(1,1,1,0.08)
+                    text: "󰅍"; font.pixelSize: theme.fs(32); color: Theme.outlineStrong
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Clipboard is empty"; font.pixelSize: theme.fs(12); color: Qt.rgba(1,1,1,0.20)
+                    text: "Clipboard is empty"; font.pixelSize: theme.fs(12); color: Theme.textTertiary
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Copy something to get started"; font.pixelSize: theme.fs(10); color: Qt.rgba(1,1,1,0.13)
+                    text: "Copy something to get started"; font.pixelSize: theme.fs(10); color: Theme.textTertiary
                 }
             }
 
@@ -166,12 +198,38 @@ Item {
                 visible:        root.flatModel.length > 0
                 model:          root.flatModel
 
+                activeFocusOnTab: root.flatModel.length > 0
+                Accessible.role: Accessible.List
+                Accessible.name: "Clipboard history"
+                onActiveFocusChanged: if (activeFocus && root._entryIds.indexOf(root._curId) < 0) root._stepEntry(1)
+                Keys.onPressed: function (event) {
+                    if      (event.key === Qt.Key_Down) root._stepEntry(1)
+                    else if (event.key === Qt.Key_Up)   root._stepEntry(-1)
+                    else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                        const entry = root._entryFor(root._curId)
+                        if (entry) entry.primary()
+                    } else if (event.key === Qt.Key_Space || event.key === Qt.Key_C) {
+                        const entry = root._entryFor(root._curId)
+                        if (entry) entry.copyOnly()
+                    } else if (event.key === Qt.Key_Delete) {
+                        const entry = root._entryFor(root._curId)
+                        if (entry) entry.removeEntry()
+                    } else if (event.key === Qt.Key_P) {
+                        const entry = root._entryFor(root._curId)
+                        if (entry && !entry.isImage) entry.togglePin()
+                    } else return
+                    event.accepted = true
+                    // Keep the highlighted entry in view.
+                    const idx = root._entryIds.indexOf(root._curId)
+                    if (idx >= 0) mainList.positionViewAtIndex(idx, ListView.Contain)
+                }
+
                 // Point to the detached scrollbar below
                 ScrollBar.vertical: vbar
 
                 // Smooth repositioning when items are removed
                 displaced: Transition {
-                    NumberAnimation { property: "y"; duration: 220; easing.type: Easing.OutCubic }
+                    NumberAnimation { property: "y"; duration: Motion.notificationShift; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardDecel }
                 }
 
                 delegate: ClipRow {
@@ -185,6 +243,7 @@ Item {
                     fullText:    modelData.kind === "pinned" ? (modelData.text ?? "") : ""
                     isImage:     modelData.isImage ?? false
                     pinnedIndex: modelData.kind === "pinned" ? modelData.pinIndex : -1
+                    key:         modelData.key
                 }
             }
 
@@ -203,7 +262,7 @@ Item {
                     implicitWidth:  4
                     implicitHeight: 10
                     radius:         2
-                    color:          Qt.rgba(1, 1, 1, 0.22)
+                    color:          Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.22)
                 }
             }
         }
@@ -220,6 +279,46 @@ component ClipRow: Item {
     property string fullText:    ""   // full decoded text (pinned items only)
     property bool   isImage:     false
     property int    pinnedIndex: -1
+    property string key:        ""   // flatModel's stable id for this entry (UI/UX Phase 21)
+
+    // Highlighted by the keyboard: its buttons join the Tab order.
+    readonly property bool keyed: row.key !== "" && root._curId === row.key
+
+    Accessible.role: Accessible.ListItem
+    Accessible.name: row.isImage ? "Image" : row.previewText
+
+    // Copy — what the Copy button does; Space/C on the list call this too.
+    function copyOnly() {
+        if (row.isPinned) ClipboardService.copyText(row.fullText || row.previewText)
+        else             ClipboardService.copyEntry(row.entryId)
+        Popups.clipboardOpen = false
+    }
+    // Copy, close the popup, and paste back — what a double-tap does today;
+    // Return on the list calls this too.
+    function primary() {
+        row.copyOnly()
+        ClipboardService.typeFromClipboard()
+    }
+    // Pin/unpin — what the Pin button does; P on the list too.
+    function togglePin() {
+        if (row.isPinned) ClipboardService.unpinAt(row.pinnedIndex)
+        else             ClipboardService.pinEntry(row.entryId, row.previewText)
+    }
+    // Delete — what the Delete button does; the Delete key on the list too.
+    // Picks the entry that will take this one's highlight (the next one, or
+    // the previous if this was last) before the removal starts, since
+    // flatModel is about to lose this id for good.
+    function removeEntry() {
+        const ids = root._entryIds
+        const i = ids.indexOf(row.key)
+        if (i >= 0) root._curId = i + 1 < ids.length ? ids[i + 1] : (i > 0 ? ids[i - 1] : "")
+
+        row._removing = true
+        delayedAction.isPinned    = row.isPinned
+        delayedAction.pinnedIndex = row.pinnedIndex
+        delayedAction.entryId     = row.entryId
+        delayedAction.restart()
+    }
 
     // Image preview: decoded to a temp file per entry id
     property string _imgPath: ""
@@ -247,8 +346,8 @@ component ClipRow: Item {
     opacity: _removing ? 0 : 1
     clip: true
 
-    Behavior on height  { NumberAnimation { duration: 210; easing.type: Easing.InCubic } }
-    Behavior on opacity { NumberAnimation { duration: 160 } }
+    Behavior on height  { MotionMove { role: "surfaceExitSmall"; curve: Motion.standardAccel } }
+    Behavior on opacity { MotionFade {} }
 
     // ── Card ──────────────────────────────────────────────────────────────────
     Rectangle {
@@ -260,15 +359,26 @@ component ClipRow: Item {
 
         color: row.isPinned
             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, rHov.hovered ? 0.10 : 0.055)
-            : rHov.hovered ? Qt.rgba(1, 1, 1, 0.065) : Qt.rgba(1, 1, 1, 0.024)
+            : rHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.065) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.024)
 
         border.color: row.isPinned
             ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, rHov.hovered ? 0.30 : 0.18)
-            : rHov.hovered ? Qt.rgba(1, 1, 1, 0.13) : Qt.rgba(1, 1, 1, 0.065)
+            : rHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.13) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.065)
         border.width: 1
 
-        Behavior on color        { ColorAnimation { duration: 140 } }
-        Behavior on border.color { ColorAnimation { duration: 140 } }
+        Behavior on color        { MotionColor { role: "state" } }
+        Behavior on border.color { MotionColor { role: "state" } }
+
+        // Keyboard highlight ring — inset rather than outset like the other
+        // panes' template, because `row`'s own `clip: true` (needed for the
+        // delete collapse animation) would cut off an outward ring on the
+        // left/right edges, where `card` has no margin to spare.
+        Rectangle {
+            anchors.fill: parent; anchors.margins: 2
+            radius: Math.max(card.radius - 2, 0)
+            color: "transparent"; border.width: 2; border.color: Theme.accentText
+            visible: row.keyed && mainList.activeFocus
+        }
 
         // ── Inner layout ──────────────────────────────────────────────────────
         Row {
@@ -297,7 +407,7 @@ component ClipRow: Item {
                         rightMargin: 6
                     }
                     radius: 6
-                    color:  Qt.rgba(1, 1, 1, 0.05)
+                    color:  Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
                     clip:   true
 
                     Image {
@@ -308,7 +418,7 @@ component ClipRow: Item {
                         smooth:   true
                         asynchronous: true
                         opacity: thumbImg.status === Image.Ready ? 1.0 : 0.0
-                        Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+                        Behavior on opacity { MotionFade { role: "fadeIn" } }
                     }
 
                     // Placeholder while loading / no path yet
@@ -318,7 +428,7 @@ component ClipRow: Item {
 
                         Rectangle {
                             anchors.fill: parent
-                            color: Qt.rgba(1,1,1,0.03)
+                            color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03)
                         }
                         Text {
                             anchors.centerIn: parent
@@ -333,7 +443,7 @@ component ClipRow: Item {
                     anchors.verticalCenter: parent.verticalCenter
                     text:           "󰅍"
                     font.pixelSize: theme.fs(12)
-                    color:          Qt.rgba(1, 1, 1, 0.22)
+                    color:          Theme.textTertiary
                 }
             }
 
@@ -350,8 +460,8 @@ component ClipRow: Item {
                 text: row.isImage ? "Image" : row.previewText
                 font.pixelSize:   theme.fs(12)
                 color: row.isImage
-                    ? Qt.rgba(1, 1, 1, 0.28)
-                    : Qt.rgba(1, 1, 1, 0.78)
+                    ? Theme.textTertiary
+                    : Theme.textPrimary
                 font.italic:      row.isImage
                 elide:            Text.ElideRight
                 maximumLineCount: 2
@@ -363,17 +473,18 @@ component ClipRow: Item {
                 id: actionsRow
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 2
-                opacity: rHov.hovered ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 160 } }
+                // Revealed on hover as before, and also while the keyboard has
+                // this entry highlighted — otherwise a Tab stop would sit here
+                // invisibly (UI/UX roadmap v3 Phase 21).
+                opacity: (rHov.hovered || row.keyed) ? 1 : 0
+                Behavior on opacity { MotionFade {} }
 
                 // Copy
                 ActionBtn {
                     icon: "󰆏"
-                    onClicked: {
-                        if (row.isPinned) ClipboardService.copyText(row.fullText || row.previewText)
-                        else             ClipboardService.copyEntry(row.entryId)
-                        Popups.clipboardOpen = false
-                    }
+                    activeFocusOnTab: row.keyed
+                    Accessible.name: "Copy " + (row.isImage ? "image" : row.previewText)
+                    onActivated: row.copyOnly()
                 }
 
                 // Pin / Unpin  (hidden for image entries — images can't be pinned)
@@ -381,25 +492,22 @@ component ClipRow: Item {
                     icon:    row.isPinned ? "󰐄" : "󰐃"
                     active:  row.isPinned
                     visible: !row.isImage
-                    onClicked: {
-                        if (row.isPinned)
-                            ClipboardService.unpinAt(row.pinnedIndex)
-                        else
-                            ClipboardService.pinEntry(row.entryId, row.previewText)
-                    }
+                    activeFocusOnTab: row.keyed
+                    Accessible.name: (row.isPinned ? "Unpin " : "Pin ") + row.previewText
+                    // The row's kind flips but it stays in the list; the keys
+                    // go back to the list either way.
+                    onActivated: { row.togglePin(); mainList.forceActiveFocus() }
                 }
 
                 // Delete / fully remove
                 ActionBtn {
                     icon:   "󰩺"
                     danger: true
-                    onClicked: {
-                        row._removing = true
-                        delayedAction.isPinned    = row.isPinned
-                        delayedAction.pinnedIndex = row.pinnedIndex
-                        delayedAction.entryId     = row.entryId
-                        delayedAction.restart()
-                    }
+                    activeFocusOnTab: row.keyed
+                    Accessible.name: "Delete " + (row.isImage ? "image" : row.previewText)
+                    // The row goes once the collapse finishes; the keys go back
+                    // to the list now, unless it was the last entry.
+                    onActivated: { row.removeEntry(); if (root.flatModel.length > 1) mainList.forceActiveFocus() }
                 }
             }
         }
@@ -418,29 +526,28 @@ component ClipRow: Item {
             }
 
             scale: row.isPinned ? 1.0 : 0.0
-            Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack } }
+            Behavior on scale { MotionMove { curve: Motion.fastSpatial } }
         }
     }
 
     HoverHandler { id: rHov }
 
     // ── Double-tap: copy + close popup + paste into active field ───────────────
+    // Kept for the pointer; calls the same function Return on the list does.
     TapHandler {
-        onDoubleTapped: {
-            if (row.isPinned) ClipboardService.copyText(row.fullText || row.previewText)
-            else             ClipboardService.copyEntry(row.entryId)
-            Popups.clipboardOpen = false
-            ClipboardService.typeFromClipboard()
-        }
+        onDoubleTapped: row.primary()
     }
 
-    // Fires after the collapse animation completes so the list reflows smoothly
+    // Fires after the collapse animation completes so the list reflows smoothly.
+    // Bound to the collapse's own token rather than to a copy of its length, so
+    // a faster motion speed (or Reduce Motion, where the collapse is instant)
+    // does not leave the row waiting on a delete that should already be done.
     Timer {
         id: delayedAction
         property bool   isPinned:    false
         property int    pinnedIndex: -1
         property string entryId:     ""
-        interval: 220
+        interval: Motion.surfaceExitSmall
         onTriggered: {
             if (isPinned) {
                 // Remove from pin list
@@ -455,30 +562,33 @@ component ClipRow: Item {
 
 
 // ── ActionBtn ──────────────────────────────────────────────────────────────────
-component ActionBtn: Rectangle {
+component ActionBtn: ApexPressable {
     id: ab
     property string icon:   ""
     property bool   active: false
     property bool   danger: false
-    signal clicked()
 
-    width: 26; height: 26; radius: 7
+    width: 26; height: 26; radius: 7; hitMargin: 3
 
-    color: ab.danger
-        ? (aH.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.20) : "transparent")
-        : ab.active
-            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22)
-            : (aH.hovered ? Qt.rgba(1, 1, 1, 0.11) : "transparent")
+    Rectangle {
+        anchors.fill: parent; radius: parent.radius
+        color: ab.danger
+            ? (ab.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.20) : "transparent")
+            : ab.active
+                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22)
+                : (ab.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.11) : "transparent")
 
-    Behavior on color { ColorAnimation { duration: 110 } }
+        Behavior on color { MotionColor { role: "state" } }
+    }
 
-    // Subtle scale-up on hover
+    // Subtle scale-up on hover — on top of ApexPressable's own press dip
+    // (Item.scale vs the transform list; the two compose without conflict).
     transform: Scale {
         origin.x: 13; origin.y: 13
-        xScale: aH.hovered ? 1.10 : 1.0
-        yScale: aH.hovered ? 1.10 : 1.0
-        Behavior on xScale { NumberAnimation { duration: 130; easing.type: Easing.OutCubic } }
-        Behavior on yScale { NumberAnimation { duration: 130; easing.type: Easing.OutCubic } }
+        xScale: ab.hovered ? 1.10 : 1.0
+        yScale: ab.hovered ? 1.10 : 1.0
+        Behavior on xScale { MotionMove { role: "pressOut"; curve: Motion.fastSpatial } }
+        Behavior on yScale { MotionMove { role: "pressOut"; curve: Motion.fastSpatial } }
     }
 
     Text {
@@ -486,14 +596,13 @@ component ActionBtn: Rectangle {
         text:           ab.icon
         font.pixelSize: theme.fs(13)
         color: ab.danger
-            ? (aH.hovered ? Theme.danger : Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.50))
+            ? (ab.hovered ? Theme.danger : Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.50))
             : ab.active
                 ? Theme.active
-                : (aH.hovered ? Qt.rgba(1, 1, 1, 0.88) : Qt.rgba(1, 1, 1, 0.38))
-        Behavior on color { ColorAnimation { duration: 110 } }
+                : (ab.hovered ? Theme.textPrimary : Theme.textSecondary)
+        Behavior on color { MotionColor { role: "state" } }
     }
 
-    HoverHandler { id: aH; cursorShape: Qt.PointingHandCursor }
-    MouseArea    { anchors.fill: parent; onClicked: ab.clicked() }
+    ApexFocusRing { target: ab }
 }
 }

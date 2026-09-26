@@ -3,7 +3,9 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 import "../"
+import "../components"
 import "../services/"
+import "../components/controls"
 
 // Unified confirmation modal — replaces GfxWarning.qml.
 // Driven entirely by Popups.confirm* props.
@@ -55,10 +57,16 @@ PanelWindow {
     anchors { top: true; left: true; right: true; bottom: true }
     exclusionMode: ExclusionMode.Ignore
 
-    visible: Popups.confirmOpen || Popups.confirmRunning
+    // On the dialog lifecycle (UI/UX Phase 6): the window stays mapped until
+    // the exit has finished; it used to vanish on the flag with no motion.
+    DialogLifecycle { id: life; name: "confirm"; open: Popups.confirmOpen || Popups.confirmRunning }
+    visible: life.mapped
 
     WlrLayershell.layer:         WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    // A modal holds the keyboard while it is up. OnDemand — which a compositor
+    // may grant only on a click — left it opened from the keyboard with no
+    // key reaching it, not even Escape (measured on labwc; UI/UX Phase 21).
+    WlrLayershell.keyboardFocus: life.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     // ── Processes ─────────────────────────────────────────────────────────────
     Process {
@@ -158,6 +166,7 @@ PanelWindow {
     Rectangle {
         anchors.fill: parent
         color: "#99000000"
+        opacity: life.scrimK()
 
         MouseArea {
             anchors.fill: parent
@@ -166,7 +175,9 @@ PanelWindow {
     }
 
     // ── Confirm dialog ────────────────────────────────────────────────────────
+    Elevation { target: confirmCard; level: "modal" }   // over its scrim (UI/UX Phase 18b)
     Rectangle {
+        id: confirmCard
         // Named for the scaling suite; see the note on the DisplayConfirm card.
         objectName: "apex-confirm-dialog-card"
 
@@ -180,7 +191,11 @@ PanelWindow {
         height: col.implicitHeight + 48
         radius: theme.notchRadius
         color:  Theme.background
+        border.width: 1
+        border.color: Theme.outlineSoft   // the surface rim; it had none (UI/UX Phase 18b)
         visible: Popups.confirmOpen && !Popups.confirmRunning
+        opacity: life.content * life.alpha
+        scale:   life.cardScale()
 
         MouseArea { anchors.fill: parent }
 
@@ -226,65 +241,93 @@ PanelWindow {
             Text {
                 width:          parent.width
                 text:           Popups.confirmMessage
-                color:          Qt.rgba(1, 1, 1, 0.65)
+                color:          Theme.textSecondary
                 font.pixelSize: theme.fs(12)
                 wrapMode:       Text.WordWrap
                 textFormat:     Text.RichText
                 lineHeight:     1.4
             }
 
+            // Two real buttons (UI/UX roadmap v3 Phase 21). Return used to
+            // confirm whatever had focus — it still confirms by default, since
+            // the confirm button takes focus when the dialog opens, but the
+            // focus is now shown, Tab and the arrows move it, and Return or
+            // Space press the button that has it.
             Row {
+                id: buttons
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 10
+                Keys.onEscapePressed: root.cancel()
 
-                Rectangle {
+                ApexPressable {
+                    id: cancelBtn
                     width:  130
                     height: 38
                     radius: theme.cornerRadius
-                    color:  cancelHov.hovered ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.05)
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Accessible.name: "Cancel"
+                    KeyNavigation.right: confirmBtn
+                    KeyNavigation.tab:   confirmBtn
+                    onActivated: root.cancel()
 
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b,
+                                       cancelBtn.pressed ? 0.14 : cancelBtn.hovered ? 0.10 : 0.05)
+                        Behavior on color { MotionColor {} }
+                    }
                     Text {
                         anchors.centerIn: parent
                         text:           "Cancel"
-                        color:          Theme.text
+                        color:          Theme.textPrimary
                         font.pixelSize: theme.fs(13)
                     }
-
-                    HoverHandler { id: cancelHov; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent; onClicked: root.cancel() }
+                    ApexFocusRing { target: cancelBtn }
                 }
 
-                Rectangle {
+                ApexPressable {
+                    id: confirmBtn
                     width:  130
                     height: 38
                     radius: theme.cornerRadius
-                    color:  confirmHov.hovered ? Theme.dangerFillHover : Theme.dangerFill
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    Accessible.name: Popups.confirmLabel
+                    KeyNavigation.left:    cancelBtn
+                    KeyNavigation.backtab: cancelBtn
+                    onActivated: root.confirm()
 
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        color: confirmBtn.hovered || confirmBtn.pressed ? Theme.dangerFillHover : Theme.dangerFill
+                        Behavior on color { MotionColor {} }
+                    }
                     Text {
                         anchors.centerIn: parent
                         text:           Popups.confirmLabel
-                        color:          Theme.fixedLight
+                        color:          Theme.fixedLight   // on a fixed surface (the danger fill)
                         font.pixelSize: theme.fs(13)
                         font.bold:      true
                     }
-
-                    HoverHandler { id: confirmHov; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent; onClicked: root.confirm() }
+                    ApexFocusRing { target: confirmBtn }
                 }
             }
         }
     }
 
     // ── Processing card ───────────────────────────────────────────────────────
+    Elevation { target: processingCard; level: "modal" }
     Rectangle {
+        id: processingCard
         anchors.centerIn: parent
         width:  300
         height: processingCol.implicitHeight + 56
         radius: theme.notchRadius
         color:  Theme.background
+        border.width: 1
+        border.color: Theme.outlineSoft
         visible: Popups.confirmRunning
+        opacity: life.content * life.alpha
+        scale:   life.cardScale()
 
         MouseArea { anchors.fill: parent }
 
@@ -311,9 +354,9 @@ PanelWindow {
                     target:      spinnerCanvas
                     from:        0
                     to:          360
-                    duration:    900
+                    duration:    Motion.spinPeriod
                     loops:       Animation.Infinite
-                    running:     Popups.confirmRunning
+                    running:     Popups.confirmRunning && Motion.loops
                     easing.type: Easing.Linear
                 }
 
@@ -323,18 +366,22 @@ PanelWindow {
                     var cx = width / 2, cy = height / 2, r = 16
                     ctx.beginPath()
                     ctx.arc(cx, cy, r, 0, 2 * Math.PI)
-                    ctx.strokeStyle = "rgba(255,255,255,0.1)"
+                    // Palette roles, not white: the card is Theme.background,
+                    // which a light scheme makes light.
+                    ctx.strokeStyle = Theme.outlineSoft
                     ctx.lineWidth   = 3
                     ctx.stroke()
                     ctx.beginPath()
                     ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI)
-                    ctx.strokeStyle = "white"
+                    ctx.strokeStyle = Theme.textPrimary
                     ctx.lineWidth   = 3
                     ctx.lineCap     = "round"
                     ctx.stroke()
                 }
 
                 Component.onCompleted: requestPaint()
+                readonly property color _ink: Theme.textPrimary
+                on_InkChanged: requestPaint()
             }
 
             Text {
@@ -350,7 +397,7 @@ PanelWindow {
                 width:          parent.width
                 text:           "Switching to <b>" + Popups.confirmGfxMode + "</b> graphics mode.<br>"
                                 + "Your system will reboot when finished."
-                color:          Qt.rgba(1, 1, 1, 0.55)
+                color:          Theme.textSecondary
                 font.pixelSize: theme.fs(12)
                 wrapMode:       Text.WordWrap
                 textFormat:     Text.RichText
@@ -362,24 +409,27 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width:  parent.width
                 height: 1
-                color:  Qt.rgba(1, 1, 1, 0.07)
+                color:  Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
             }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           "Do not turn off your computer."
-                color:          Qt.rgba(1, 1, 1, 0.3)
+                color:          Theme.textTertiary
                 font.pixelSize: theme.fs(11)
                 horizontalAlignment: Text.AlignHCenter
             }
         }
     }
 
-    // Escape / Enter
+    // Escape, wherever focus is (the processing card has no buttons). The
+    // buttons take focus when the dialog opens; Return belongs to them.
+    // It takes focus only for the processing card: a `focus: root.visible` here
+    // took it straight back from the confirm button (measured — no ring).
     Item {
         anchors.fill: parent
-        focus: root.visible
-        Keys.onReturnPressed: root.confirm()
+        focus: Popups.confirmRunning
         Keys.onEscapePressed: root.cancel()
     }
+    onVisibleChanged: if (root.visible) Qt.callLater(function () { confirmBtn.forceActiveFocus() })
 }

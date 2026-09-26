@@ -398,12 +398,11 @@ CfgScroll {
 
             Text {
                 id: reason
-                x:       theme.px(10)
-                width:   parent.width - theme.px(20)
+                width:   parent.width
                 anchors.verticalCenter: parent.verticalCenter
                 visible: DisplayService.curveReason !== ""
                 text:    "Calibration curve: " + DisplayService.curveReason
-                font.pixelSize: theme.fs(10)
+                font.pixelSize: theme.typeCaption
                 color:   DisplayService.curveLoadable ? Theme.subtext : Theme.warning
                 wrapMode: Text.WordWrap
             }
@@ -415,12 +414,11 @@ CfgScroll {
         // where one could be" is the answer to the question actually being
         // asked, and it is specific to the profile just chosen.
         Text {
-            x:       theme.px(10)
-            width:   parent.width - theme.px(20)
+            width:   parent.width
             visible: text !== ""
             text:    DisplayService.colourError !== "" ? DisplayService.colourError
                                                        : DisplayService.colourNotice
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:   DisplayService.colourError !== "" ? Theme.warning : Theme.info
             wrapMode: Text.WordWrap
             bottomPadding: theme.px(6)
@@ -474,8 +472,7 @@ CfgScroll {
                 }
 
                 CfgSegmented {
-                    x:       theme.px(10)
-                    width:   parent.width - theme.px(20)
+                    width:   parent.width
                     enabled: DisplayService.colordAvailable
                     opacity: DisplayService.colordAvailable ? 1.0 : 0.32
                     // Greyed out, not removed: a profile the panel cannot show

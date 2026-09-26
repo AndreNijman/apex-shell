@@ -31,6 +31,11 @@ Item {
 
     activeFocusOnTab: true
 
+    // Focus a pointer gave lights no ring; the next key does (ApexPressable's
+    // rule — Qt Quick 6.10 has no Item.focusReason, so it is tracked).
+    property bool _pointerFocus: false
+    onActiveFocusChanged: if (!activeFocus) _pointerFocus = false
+
     // The one control in this library that was already keyboard-operable, and
     // still announced nothing: no role, so a reader called it a plain element,
     // and no value, so the arrow keys moved something unreportable. The name
@@ -60,6 +65,7 @@ Item {
     }
 
     Keys.onPressed: function(event) {
+        root._pointerFocus = false
         switch (event.key) {
         case Qt.Key_Left:
         case Qt.Key_Down:     root._nudge(-1);        break
@@ -81,9 +87,10 @@ Item {
         width:               root.readoutWidth
         horizontalAlignment: Text.AlignRight
         text:           Math.round(root.value) + root.suffix
-        font.pixelSize: theme.fs(11)
-        font.family:    "JetBrains Mono"
-        color:          Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.9)
+        // A value: the readout treatment (UI/UX Phase 17, P2.17).
+        font.pixelSize: theme.typeMono
+        font.family:    Theme.fontMono
+        color:          Theme.textSecondary
     }
 
     Item {
@@ -98,9 +105,9 @@ Item {
         Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             width:  parent.width
-            height: 5
-            radius: 2.5
-            color:  Qt.rgba(1,1,1,0.12)
+            height: 4
+            radius: 2
+            color:  Theme.outlineStrong
             Rectangle {
                 anchors.left:   parent.left
                 anchors.top:    parent.top
@@ -108,17 +115,33 @@ Item {
                 width:  Math.max(parent.radius * 2, parent.width * root._frac)
                 radius: parent.radius
                 color:  Theme.active
-                Behavior on width { NumberAnimation { duration: 60; easing.type: Easing.OutCubic } }
+                // No easing while the thumb is being dragged (brief §E): it is
+                // under the pointer. A value that changes by itself follows
+                // smoothly, by velocity, instead of restarting a tween.
+                Behavior on width {
+                    enabled: !drag.pressed && Motion.valueFollow > 0
+                    SmoothedAnimation { velocity: Math.max(1, bar.width * 4) }
+                }
             }
         }
         Rectangle {
-            width:  bar.thumbD
-            height: bar.thumbD
-            radius: bar.thumbD / 2
-            color:  Theme.fixedLight
+            // 14, and 16 under the pointer or held (brief §E "Slider"): the
+            // accent with a ring of the surface it sits on.
+            readonly property int d: drag.pressed || drag.containsMouse ? bar.thumbD + 2 : bar.thumbD
+            width:  d
+            height: d
+            radius: d / 2
+            color:  Theme.active
+            border.width: 2
+            border.color: Theme.surfaceBase
             anchors.verticalCenter: parent.verticalCenter
-            x: Math.max(0, Math.min(bar.width - width, root._frac * (bar.width - width)))
-            Behavior on x { NumberAnimation { duration: 60; easing.type: Easing.OutCubic } }
+            x: Math.max(0, Math.min(bar.width - bar.thumbD, root._frac * (bar.width - bar.thumbD))) - (d - bar.thumbD) / 2
+            Behavior on width  { MotionMove { role: "pressOut" } }
+            Behavior on height { MotionMove { role: "pressOut" } }
+            Behavior on x {
+                enabled: !drag.pressed && Motion.valueFollow > 0
+                SmoothedAnimation { velocity: Math.max(1, bar.width * 4) }
+            }
         }
         // Focus ring. Keyboard access is worth nothing if you cannot see which
         // control has the keys.
@@ -127,15 +150,21 @@ Item {
             anchors.margins: -4
             radius:          8
             color:           "transparent"
-            border.width:    1
-            border.color:    Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.6)
-            visible:         root.activeFocus
+            // The one ring every control draws: 2 px of accentText, 3:1 or better
+            // on every surface of every shipped palette (color-roles-test). It was
+            // 1 px of the raw accent at 60 %, the faintest ring in the shell.
+            border.width:    2
+            border.color:    Theme.accentText
+            // Keyboard focus only: a drag that takes focus lights no ring.
+            visible:         root.activeFocus && !root._pointerFocus
         }
         MouseArea {
+            id: drag
             anchors.fill: parent
+            hoverEnabled: true
             cursorShape:  Qt.PointingHandCursor
             function _c(mx) { return (mx - bar.thumbD / 2) / (bar.width - bar.thumbD) }
-            onPressed:         function(mouse) { root.forceActiveFocus(); root._apply(_c(mouse.x)) }
+            onPressed:         function(mouse) { root._pointerFocus = true; root.forceActiveFocus(); root._apply(_c(mouse.x)) }
             onPositionChanged: function(mouse) { if (pressed) root._apply(_c(mouse.x)) }
         }
     }

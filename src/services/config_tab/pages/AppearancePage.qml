@@ -1,7 +1,9 @@
 import QtQuick
 import "../../../"
 import "../../"
+import "../../../components"
 import "../../../components/config"
+import "../../../components/controls"
 
 // Config → Appearance
 //   • Live palette preview (matugen output)
@@ -11,6 +13,21 @@ import "../../../components/config"
 CfgScroll {
     id: root
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
+    // ── Keyboard (UI/UX roadmap v3 Phase 21) ─────────────────────────────────
+    // The wallpaper strip is ONE Tab stop: Left/Right move a highlight kept by
+    // the wallpaper's own path (a stable key — a rescan can reorder the list),
+    // Return/Space applies it. It is a single horizontal row, so Up/Down do
+    // nothing here (there is no second row to jump to).
+    property string _curWall: ""
+
+    function _stepWall(d) {
+        var list = WallpaperService.wallpapers
+        if (list.length === 0) return
+        var i = list.indexOf(root._curWall)
+        root._curWall = i < 0 ? list[d > 0 ? 0 : list.length - 1]
+                              : list[Math.max(0, Math.min(list.length - 1, i + d))]
+    }
 
 
     // Criterion 1. Everything on this page writes as you touch it and is
@@ -30,7 +47,6 @@ CfgScroll {
 
             Row {
                 anchors.left:           parent.left
-                anchors.leftMargin:     10
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 14
 
@@ -101,18 +117,20 @@ CfgScroll {
             width:  parent.width
             height: 78
 
-            Text {
-                anchors.centerIn: parent
+            // The shared empty state, inline (UI/UX Phase 17): on the content
+            // edge like the rows, not a centred tertiary line in the strip's slot.
+            EmptyState {
+                anchors.left: parent.left; anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                inline:  true
                 visible: WallpaperService.wallpapers.length === 0
-                text:    WallpaperService.applying ? "Applying…" : "No wallpapers in " + WallpaperService.wallpaperDir
-                font.pixelSize: theme.fs(11)
-                color:   Qt.rgba(1,1,1,0.3)
+                title:   WallpaperService.applying ? "Applying…" : "No wallpapers in " + WallpaperService.wallpaperDir
+                hint:    WallpaperService.applying ? "" : "Add images there, then Rescan."
             }
 
             ListView {
                 id: wallStrip
                 anchors.fill:        parent
-                anchors.leftMargin:  10
                 anchors.rightMargin: 4
                 orientation:  ListView.Horizontal
                 spacing:      8
@@ -120,18 +138,58 @@ CfgScroll {
                 boundsBehavior: Flickable.StopAtBounds
                 model:        WallpaperService.wallpapers
 
+                // Its own currentIndex/arrow handling would fight the stable-
+                // path highlight below (WallpaperService.wallpapers can
+                // reorder on a rescan, so an index is not a safe key).
+                keyNavigationEnabled: false
+                activeFocusOnTab: WallpaperService.wallpapers.length > 0
+                Accessible.role: Accessible.List
+                Accessible.name: "Wallpapers"
+                onActiveFocusChanged: if (activeFocus
+                        && WallpaperService.wallpapers.indexOf(root._curWall) < 0)
+                    root._stepWall(1)
+                Keys.onPressed: function (event) {
+                    // A single row: Up/Down have nowhere to go, so they are
+                    // left unaccepted rather than eaten.
+                    var flip = wallStrip.LayoutMirroring.enabled ? -1 : 1
+                    var list = WallpaperService.wallpapers
+                    if      (event.key === Qt.Key_Right) root._stepWall(flip)
+                    else if (event.key === Qt.Key_Left)  root._stepWall(-flip)
+                    else if (event.key === Qt.Key_Home && list.length > 0) root._curWall = list[0]
+                    else if (event.key === Qt.Key_End   && list.length > 0) root._curWall = list[list.length - 1]
+                    else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                             || event.key === Qt.Key_Space) {
+                        if (!WallpaperService.applying && root._curWall !== "")
+                            WallpaperService.apply(root._curWall)
+                    } else return
+                    event.accepted = true
+                    var idx = list.indexOf(root._curWall)
+                    if (idx >= 0) wallStrip.positionViewAtIndex(idx, ListView.Contain)
+                }
+
                 delegate: Item {
+                    id: thumb
                     required property string modelData
                     width:  118
                     height: 70
                     anchors.verticalCenter: parent ? parent.verticalCenter : undefined
 
                     readonly property bool active: WallpaperService.currentWall === modelData
+                    // ApexFocusRing's contract: radius + focusVisible. The
+                    // container (wallStrip) is the actual Tab stop; this is
+                    // never itself focused, so focusVisible just tracks
+                    // whether it is the keyboard's current thumbnail.
+                    readonly property real radius: 10
+                    readonly property bool focusVisible: root._curWall === modelData && wallStrip.activeFocus
+
+                    Accessible.role: Accessible.ListItem
+                    Accessible.name: modelData.split("/").pop()
+                    Accessible.selected: active
 
                     Rectangle {
                         anchors.fill: parent
                         radius:       10
-                        color:        Qt.rgba(1,1,1,0.04)
+                        color:        Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
                         clip:         true
 
                         Image {
@@ -150,20 +208,22 @@ CfgScroll {
                             border.width: parent.parent.active ? 2 : (wh.hovered ? 1 : 0)
                             border.color: parent.parent.active
                                 ? Theme.active
-                                : Qt.rgba(1,1,1,0.4)
+                                : Qt.rgba(Theme.fixedLight.r, Theme.fixedLight.g, Theme.fixedLight.b, 0.4) // on a fixed surface
 
                             // The same selection ring as WallpaperPopup's thumbnail
                             // grid, which is the other place this control exists.
                             // That one eases; this one snapped its border on and off,
                             // so the two wallpaper pickers felt like different
                             // widgets. Same properties, same 120ms.
-                            Behavior on border.color { ColorAnimation  { duration: 120 } }
-                            Behavior on border.width { NumberAnimation { duration: 120 } }
+                            Behavior on border.color { MotionColor { role: "state" } }
+                            Behavior on border.width { MotionFade {} }
                         }
                     }
+                    ApexFocusRing { target: thumb }
                     HoverHandler { id: wh; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
                         anchors.fill: parent
+                        onPressed: root._curWall = modelData
                         cursorShape:  Qt.PointingHandCursor
                         onClicked:    if (!WallpaperService.applying) WallpaperService.apply(modelData)
                     }
@@ -172,12 +232,38 @@ CfgScroll {
         }
     }
 
-    // There is deliberately no Light/Dark control here. matugen renders both
-    // halves and WallpaperService can ask for either, but 212 `color:` bindings
-    // across src/ are a hardcoded translucent white, which is a foreground on a
-    // dark surface and nothing at all on a light one. A switch that turns the
-    // settings pages blank is worse than no switch. Colors.qml carries the
-    // count, the reason and the way to reach light mode while working on it.
+    // ── Light or dark ─────────────────────────────────────────────────────────
+    // Withheld until every foreground in the shell followed the palette (the
+    // translucent whites, UI/UX Phase 18); tests/agent-state-test.js keeps this
+    // control tied to tests/check-color-tokens.sh's ban on them.
+    CfgSection {
+        title: "Light or dark"
+
+        Item { width: parent.width; height: 4 }
+
+        Text {
+            width:          parent.width
+            text:           "Which half of the wallpaper's palette the shell paints with. "
+                          + "Changing this re-derives the colours from the wallpaper you are on."
+            font.pixelSize: theme.typeCaption
+            color:          Theme.textSecondary
+            wrapMode:       Text.WordWrap
+        }
+        Item { width: parent.width; height: 8 }
+
+        Item {
+            width:  parent.width
+            height: modeSeg.implicitHeight
+
+            CfgSegmented {
+                id: modeSeg
+                width: parent.width
+                options: WallpaperService.modes
+                value:   WallpaperService.mode
+                onSelected: function(v) { WallpaperService.setMode(v) }
+            }
+        }
+    }
 
     // ── Colour scheme ─────────────────────────────────────────────────────────
     CfgSection {
@@ -187,10 +273,9 @@ CfgScroll {
 
         Text {
             width:          parent.width
-            leftPadding:    10
             text:           "How matugen derives the palette from your wallpaper."
-            font.pixelSize: theme.fs(10)
-            color:          Qt.rgba(1,1,1,0.4)
+            font.pixelSize: theme.typeCaption
+            color:          Theme.textSecondary
             wrapMode:       Text.WordWrap
         }
         Item { width: parent.width; height: 8 }
@@ -201,8 +286,7 @@ CfgScroll {
 
             CfgSegmented {
                 id: schemeSeg
-                x:     10
-                width: parent.width - 20
+                width: parent.width
                 options: WallpaperService.schemes
                 value:   WallpaperService.scheme
                 onSelected: function(v) {

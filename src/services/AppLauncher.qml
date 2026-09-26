@@ -131,11 +131,21 @@ Item {
     }
 
     // ── Results ───────────────────────────────────────────────────────────────
-    readonly property var filtered: {
+    readonly property var _liveRows: {
         if (answerMode) return answerRows()
         if (query.trim() === "") return SearchService.restingRows
         return SearchService.results.concat(providers.rows)
     }
+    // The resting list is held through the moments the service has none: the
+    // search stack is released the instant this page stops being on screen,
+    // and re-reads when it comes back, so the page used to flip to "No apps
+    // found" while it faded out (and for a beat as it faded in). A query
+    // that finds nothing still says so — only the resting list is held.
+    property var _restingHeld: []
+    on_LiveRowsChanged: if (!root.answerMode && root.query.trim() === "" && root._liveRows.length > 0)
+        root._restingHeld = root._liveRows
+    readonly property var filtered: (!root.answerMode && root.query.trim() === "" && root._liveRows.length === 0)
+                                    ? root._restingHeld : root._liveRows
 
     // ── The launcher-provider extension point ─────────────────────────────────
     // Non-visual: it hosts one Loader per granted provider, feeds each the
@@ -335,13 +345,42 @@ Item {
         root.selIndex  = 0
         root._forgetPointer()
         searchInput.text = ""
+        // Focus now, so the first key typed is not lost; the timer is the
+        // fallback for the open, when the window's own keyboard grab lands
+        // a few milliseconds after the page is shown.
+        searchInput.forceActiveFocus()
         focusTimer.restart()
+        root._reveal()
     }
 
     Timer {
         id: focusTimer
         interval: 60
         onTriggered: searchInput.forceActiveFocus()
+    }
+
+    // The results' reveal: spatial (clip + settle, gone under Reduce Motion)
+    // and a fade (an effect, which stays). Run each time the page is shown.
+    property real _revealMove: 1
+    property real _revealFade: 1
+    function _reveal() {
+        revealAnim.stop()
+        root._revealMove = Motion.selection > 0 ? 0 : 1
+        root._revealFade = 0
+        revealAnim.start()
+    }
+    ParallelAnimation {
+        id: revealAnim
+        NumberAnimation {
+            target: root; property: "_revealMove"; to: 1
+            duration: Motion.selection
+            easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardDecel
+        }
+        NumberAnimation {
+            target: root; property: "_revealFade"; to: 1
+            duration: Motion.fadeIn
+            easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.effects
+        }
     }
 
     // ── Launch ────────────────────────────────────────────────────────────────
@@ -481,268 +520,305 @@ Item {
                 bottomMargin: previewPanel.visible ? 10 : 0
             }
 
-            // Empty / no results state
-            Column {
-                anchors.centerIn: parent
-                spacing: 10
-                visible: root.filtered.length === 0
+            // ── The reveal (LENS_REVEAL, brief B.6) ───────────────────────────
+            // The field above is the anchor: it is there and focused from the
+            // first frame. The results reveal beneath it as ONE group — clipped
+            // downward from the field's bottom edge while they settle from 8 px
+            // above, over the selection beat, and fade in — never row by row.
+            // Typing afterwards updates the list in place.
+            Item {
+                id: revealClip
+                width:  parent.width
+                height: parent.height * root._revealMove
+                clip:   true
 
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text:           root.query !== "" ? "󰩄" : "󱗃"
-                    font.pixelSize: theme.fs(28)
-                    color:          Qt.rgba(1,1,1,0.18)
-                }
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text:           root.query !== "" ? "No results" : "No apps found"
-                    color:          Qt.rgba(1,1,1,0.25)
-                    font.pixelSize: theme.fs(13)
-                }
-            }
+                Item {
+                    id: revealBody
+                    width:  revealClip.parent.width
+                    height: revealClip.parent.height
+                    opacity: root._revealFade
+                    transform: Translate { y: (1 - root._revealMove) * -Motion.travel(theme.px(8)) }
 
-            ListView {
-                id: appList
-                anchors.fill: parent
-                visible: root.filtered.length > 0
-                clip:    true
-                spacing: 3
-                boundsBehavior: Flickable.StopAtBounds
+                    // Empty / no results state
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 10
+                        visible: root.filtered.length === 0
 
-                // ── Why the model is a COUNT and the row is looked up ──────────
-                // `model: <JS array>` recreates every delegate whenever the
-                // array's CONTENTS change — measured on Qt 6.10.3: a 3-element
-                // model reports created=6, destroyed=3 after one content
-                // change. A search result list is exactly that shape: the array
-                // is rebuilt on every keystroke, so an array model would
-                // destroy and rebuild every delegate as the user types, and a
-                // Behavior does not animate a freshly created object's initial
-                // binding — the colour and border animations below would
-                // silently stop running.
-                //
-                // An integer model does not fix the count changing (it cannot;
-                // the number of results genuinely varies), but it makes a query
-                // that returns the SAME number of rows — every keystroke inside
-                // a directory, every arrow key, every arriving subprocess
-                // answer — reuse its delegates instead of rebuilding them.
-                model: root.filtered.length
-
-                ScrollBar.vertical: ScrollBar {
-                    policy: ScrollBar.AsNeeded
-                    contentItem: Rectangle {
-                        implicitWidth:  3
-                        implicitHeight: 40
-                        radius:         1.5
-                        color:          Qt.rgba(1, 1, 1, 0.22)
-                    }
-                    background: Item {}
-                }
-
-                delegate: Rectangle {
-                    id: rowItem
-                    required property int index
-                    readonly property var modelData: root.filtered[rowItem.index] ?? null
-
-                    // Answer/hint rows carry prose, not a name: they wrap and
-                    // grow instead of eliding, which is the whole point of
-                    // showing the result inline.
-                    readonly property bool isText: rowItem.modelData
-                        && (rowItem.modelData.kind === "answer"
-                            || rowItem.modelData.kind === "calculation"
-                            || rowItem.modelData.kind === "hint")
-
-                    readonly property string klass:
-                        rowItem.modelData ? (rowItem.modelData.klass ?? "safe") : "safe"
-                    readonly property bool isDestructive: rowItem.klass === "destructive"
-                    readonly property bool isChanging:    rowItem.klass === "changes"
-
-                    width:  appList.width - 8
-                    height: isText ? Math.max(46, label.implicitHeight + 26) : 46
-                    radius: 9
-
-                    readonly property bool isSel: root.selIndex === rowItem.index
-
-                    color: isSel
-                           ? (isDestructive ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.16)
-                                            : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14))
-                           : rowH.hovered ? Qt.rgba(1,1,1,0.06) : "transparent"
-                    border.color: isSel
-                                  ? (isDestructive ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.50)
-                                                   : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28))
-                                  : rowH.hovered ? Qt.rgba(1,1,1,0.08) : "transparent"
-                    border.width: 1
-
-                    Behavior on color        { ColorAnimation { duration: 100 } }
-                    Behavior on border.color { ColorAnimation { duration: 100 } }
-
-                    Row {
-                        anchors {
-                            left:   parent.left;  leftMargin:  12
-                            right:  parent.right; rightMargin: 12
-                            verticalCenter: parent.verticalCenter
-                        }
-                        spacing: 12
-
-                        Item {
-                            width: 28; height: 28
-                            anchors.verticalCenter: parent.verticalCenter
-
-                            Image {
-                                id: ico
-                                anchors.fill: parent
-                                source: {
-                                    var s = rowItem.modelData ? (rowItem.modelData.icon ?? "") : ""
-                                    if (!s || s === "")    return ""
-                                    if (s.startsWith("/")) return "file://" + s
-                                    return "image://icon/" + s
-                                }
-                                fillMode:          Image.PreserveAspectFit
-                                smooth:            true
-                                sourceSize.width:  28
-                                sourceSize.height: 28
-                            }
-
-                            // Glyph fallback. A non-safe row gets a warning
-                            // colour here as well as a badge: the shape and the
-                            // colour are both readable before the text is, and
-                            // §15 asks for destructive actions to be
-                            // distinguishable from a search result at a glance.
-                            Rectangle {
-                                anchors.fill: parent
-                                radius:       7
-                                color: rowItem.isDestructive ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.22)
-                                     : rowItem.isChanging    ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.20)
-                                     : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                                visible: ico.status !== Image.Ready
-                                         || !rowItem.modelData
-                                         || (rowItem.modelData.icon ?? "") === ""
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: {
-                                        if (!rowItem.modelData) return ""
-                                        const g = rowItem.modelData.glyph ?? ""
-                                        if (g !== "") return g
-                                        return String(rowItem.modelData.name).charAt(0).toUpperCase()
-                                    }
-                                    font.pixelSize: theme.fs(13); font.bold: true
-                                    color: rowItem.isDestructive ? Theme.danger
-                                         : rowItem.isChanging    ? Theme.warning
-                                         : Theme.active
-                                }
-                            }
-                        }
-
-                        Column {
-                            width: parent.width - 28 - parent.spacing
-                                   - (badge.visible ? badge.width + parent.spacing : 0)
-                                   - (pinBtn.visible ? pinBtn.width + parent.spacing : 0)
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 1
-
-                            Text {
-                                id: label
-                                width:          parent.width
-                                text:           rowItem.modelData ? rowItem.modelData.name : ""
-                                font.pixelSize: theme.fs(13)
-                                color:          rowItem.isSel ? Theme.active : Theme.text
-                                wrapMode:       rowItem.isText ? Text.Wrap : Text.NoWrap
-                                elide:          rowItem.isText ? Text.ElideNone : Text.ElideRight
-                                maximumLineCount: rowItem.isText ? 8 : 1
-                                Behavior on color { ColorAnimation { duration: 100 } }
-                            }
-
-                            // The second line. For a plugin row `detail` always
-                            // ends in the plugin's name AS THE HOST GRANTED IT,
-                            // composed in Manifest.launcherResults() rather than
-                            // here, so a row cannot claim to have come from the
-                            // shell. For a built-in it names the provider and,
-                            // for an action, the privilege it needs.
-                            Text {
-                                width:          parent.width
-                                visible:        rowItem.modelData
-                                                && (rowItem.modelData.detail ?? "") !== ""
-                                text:           rowItem.modelData ? (rowItem.modelData.detail ?? "") : ""
-                                font.pixelSize: theme.fs(10)
-                                color:          Qt.rgba(1, 1, 1, 0.32)
-                                elide:          Text.ElideRight
-                                maximumLineCount: 1
-                            }
-                        }
-
-                        // ── The class badge ───────────────────────────────────
-                        // Present on every row that changes the system and on no
-                        // row that does not, so "this one is different" is
-                        // visible without reading a word of it.
-                        Rectangle {
-                            id: badge
-                            anchors.verticalCenter: parent.verticalCenter
-                            visible: rowItem.isDestructive || rowItem.isChanging
-                            width:   badgeText.implicitWidth + 14
-                            height:  18
-                            radius:  9
-                            color:   rowItem.isDestructive ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.22)
-                                                           : Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.18)
-                            Text {
-                                id: badgeText
-                                anchors.centerIn: parent
-                                text: rowItem.isDestructive ? "cannot be undone" : "changes system"
-                                font.pixelSize: theme.fs(9)
-                                color: rowItem.isDestructive ? Theme.danger : Theme.warning
-                            }
-                        }
-
-                        // Pin toggle, for application rows only. Shown for a
-                        // pinned app always (so the state is visible, not just
-                        // discoverable) and otherwise only on hover or
-                        // selection, to keep the list quiet.
                         Text {
-                            id: pinBtn
-                            anchors.verticalCenter: parent.verticalCenter
-                            visible: rowItem.modelData && rowItem.modelData.kind === "app"
-                                     && (rowItem.modelData.payload ?? "") !== ""
-                                     && (LauncherState.isPinned(rowItem.modelData.payload)
-                                         || rowH.hovered || rowItem.isSel)
-                            text: rowItem.modelData && LauncherState.isPinned(rowItem.modelData.payload)
-                                      ? "󰐃" : "󰤱"
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text:           root.query !== "" ? "󰩄" : "󱗃"
+                            font.pixelSize: theme.fs(28)
+                            color:          Theme.outlineStrong   // decorative, not text
+                        }
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text:           root.query !== "" ? "No results" : "No apps found"
+                            color:          Theme.textTertiary
                             font.pixelSize: theme.fs(13)
-                            color: rowItem.modelData && LauncherState.isPinned(rowItem.modelData.payload)
-                                        ? Theme.active
-                                        : Qt.rgba(1, 1, 1, pinArea.containsMouse ? 0.75 : 0.30)
-                            Behavior on color { ColorAnimation { duration: 100 } }
+                        }
+                    }
+
+                    // The prefixes, once, under the list while the field is empty
+                    // (UI/UX Phase 17, visual roadmap §26): they were the field's
+                    // placeholder — six items of legend where the reader looks to
+                    // type.
+                    Text {
+                        id: prefixHint
+                        anchors { left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: theme.px(10) }
+                        visible: root.query === ""
+                        text: "install …   ·   ssh …   ·   ~/ files   ·   > commands   ·   ? asks"
+                        font.pixelSize: theme.typeCaption
+                        color: Theme.textTertiary
+                        elide: Text.ElideRight
+                    }
+
+                    ListView {
+                        id: appList
+                        anchors { top: parent.top; left: parent.left; right: parent.right
+                                  bottom: prefixHint.visible ? prefixHint.top : parent.bottom
+                                  bottomMargin: prefixHint.visible ? theme.px(8) : 0 }
+                        visible: root.filtered.length > 0
+                        clip:    true
+                        spacing: 3
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        // ── Why the model is a COUNT and the row is looked up ──────────
+                        // `model: <JS array>` recreates every delegate whenever the
+                        // array's CONTENTS change — measured on Qt 6.10.3: a 3-element
+                        // model reports created=6, destroyed=3 after one content
+                        // change. A search result list is exactly that shape: the array
+                        // is rebuilt on every keystroke, so an array model would
+                        // destroy and rebuild every delegate as the user types, and a
+                        // Behavior does not animate a freshly created object's initial
+                        // binding — the colour and border animations below would
+                        // silently stop running.
+                        //
+                        // An integer model does not fix the count changing (it cannot;
+                        // the number of results genuinely varies), but it makes a query
+                        // that returns the SAME number of rows — every keystroke inside
+                        // a directory, every arrow key, every arriving subprocess
+                        // answer — reuse its delegates instead of rebuilding them.
+                        model: root.filtered.length
+
+                        ScrollBar.vertical: ScrollBar {
+                            policy: ScrollBar.AsNeeded
+                            contentItem: Rectangle {
+                                implicitWidth:  3
+                                implicitHeight: 40
+                                radius:         1.5
+                                color:          Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.22)
+                            }
+                            background: Item {}
+                        }
+
+                        delegate: Rectangle {
+                            id: rowItem
+                            required property int index
+                            readonly property var modelData: root.filtered[rowItem.index] ?? null
+
+                            // Answer/hint rows carry prose, not a name: they wrap and
+                            // grow instead of eliding, which is the whole point of
+                            // showing the result inline.
+                            readonly property bool isText: rowItem.modelData
+                                && (rowItem.modelData.kind === "answer"
+                                    || rowItem.modelData.kind === "calculation"
+                                    || rowItem.modelData.kind === "hint")
+
+                            readonly property string klass:
+                                rowItem.modelData ? (rowItem.modelData.klass ?? "safe") : "safe"
+                            readonly property bool isDestructive: rowItem.klass === "destructive"
+                            readonly property bool isChanging:    rowItem.klass === "changes"
+
+                            width:  appList.width - 8
+                            height: isText ? Math.max(46, label.implicitHeight + 26) : 46
+                            radius: 9
+
+                            readonly property bool isSel: root.selIndex === rowItem.index
+
+                            color: isSel
+                                   ? (isDestructive ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.16)
+                                                    : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.14))
+                                   : rowH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06) : "transparent"
+                            // One selected surface, no outline (UI/UX Phase 17, §18/§21):
+                            // it drew the fill AND a 1 px border.
+                            border.width: 0
+
+                            // The selection changing is the one thing in the list that
+                            // moves as you type or arrow: a colour change on the state
+                            // beat. Rows themselves never animate (brief B.6).
+                            Behavior on color        { MotionColor { role: "state" } }
+
+                            Row {
+                                anchors {
+                                    left:   parent.left;  leftMargin:  12
+                                    right:  parent.right; rightMargin: 12
+                                    verticalCenter: parent.verticalCenter
+                                }
+                                spacing: 12
+
+                                Item {
+                                    width: 28; height: 28
+                                    anchors.verticalCenter: parent.verticalCenter
+
+                                    Image {
+                                        id: ico
+                                        anchors.fill: parent
+                                        source: {
+                                            var s = rowItem.modelData ? (rowItem.modelData.icon ?? "") : ""
+                                            if (!s || s === "")    return ""
+                                            if (s.startsWith("/")) return "file://" + s
+                                            return "image://icon/" + s
+                                        }
+                                        fillMode:          Image.PreserveAspectFit
+                                        smooth:            true
+                                        sourceSize.width:  28
+                                        sourceSize.height: 28
+                                    }
+
+                                    // Glyph fallback. A non-safe row gets a warning
+                                    // colour here as well as a badge: the shape and the
+                                    // colour are both readable before the text is, and
+                                    // §15 asks for destructive actions to be
+                                    // distinguishable from a search result at a glance.
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        radius:       7
+                                        color: rowItem.isDestructive ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.22)
+                                             : rowItem.isChanging    ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.20)
+                                             : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
+                                        visible: ico.status !== Image.Ready
+                                                 || !rowItem.modelData
+                                                 || (rowItem.modelData.icon ?? "") === ""
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: {
+                                                if (!rowItem.modelData) return ""
+                                                const g = rowItem.modelData.glyph ?? ""
+                                                if (g !== "") return g
+                                                return String(rowItem.modelData.name).charAt(0).toUpperCase()
+                                            }
+                                            font.pixelSize: theme.fs(13); font.bold: true
+                                            color: rowItem.isDestructive ? Theme.danger
+                                                 : rowItem.isChanging    ? Theme.warning
+                                                 : Theme.active
+                                        }
+                                    }
+                                }
+
+                                Column {
+                                    width: parent.width - 28 - parent.spacing
+                                           - (badge.visible ? badge.width + parent.spacing : 0)
+                                           - (pinBtn.visible ? pinBtn.width + parent.spacing : 0)
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 1
+
+                                    Text {
+                                        id: label
+                                        width:          parent.width
+                                        text:           rowItem.modelData ? rowItem.modelData.name : ""
+                                        font.pixelSize: theme.fs(13)
+                                        color:          rowItem.isSel ? Theme.active : Theme.text
+                                        wrapMode:       rowItem.isText ? Text.Wrap : Text.NoWrap
+                                        elide:          rowItem.isText ? Text.ElideNone : Text.ElideRight
+                                        maximumLineCount: rowItem.isText ? 8 : 1
+                                        Behavior on color { MotionColor { role: "state" } }
+                                    }
+
+                                    // The second line. For a plugin row `detail` always
+                                    // ends in the plugin's name AS THE HOST GRANTED IT,
+                                    // composed in Manifest.launcherResults() rather than
+                                    // here, so a row cannot claim to have come from the
+                                    // shell. For a built-in it names the provider and,
+                                    // for an action, the privilege it needs.
+                                    Text {
+                                        width:          parent.width
+                                        visible:        rowItem.modelData
+                                                        && (rowItem.modelData.detail ?? "") !== ""
+                                        text:           rowItem.modelData ? (rowItem.modelData.detail ?? "") : ""
+                                        font.pixelSize: theme.typeCaption
+                                        color:          Theme.textTertiary
+                                        elide:          Text.ElideRight
+                                        maximumLineCount: 1
+                                    }
+                                }
+
+                                // ── The class badge ───────────────────────────────────
+                                // Present on every row that changes the system and on no
+                                // row that does not, so "this one is different" is
+                                // visible without reading a word of it.
+                                Rectangle {
+                                    id: badge
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    visible: rowItem.isDestructive || rowItem.isChanging
+                                    width:   badgeText.implicitWidth + 14
+                                    height:  18
+                                    radius:  9
+                                    color:   rowItem.isDestructive ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.22)
+                                                                   : Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.18)
+                                    Text {
+                                        id: badgeText
+                                        anchors.centerIn: parent
+                                        text: rowItem.isDestructive ? "cannot be undone" : "changes system"
+                                        font.pixelSize: theme.fs(9)
+                                        color: rowItem.isDestructive ? Theme.danger : Theme.warning
+                                    }
+                                }
+
+                                // Pin toggle, for application rows only. Shown for a
+                                // pinned app always (so the state is visible, not just
+                                // discoverable) and otherwise only on hover or
+                                // selection, to keep the list quiet.
+                                Text {
+                                    id: pinBtn
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    visible: rowItem.modelData && rowItem.modelData.kind === "app"
+                                             && (rowItem.modelData.payload ?? "") !== ""
+                                             && (LauncherState.isPinned(rowItem.modelData.payload)
+                                                 || rowH.hovered || rowItem.isSel)
+                                    text: rowItem.modelData && LauncherState.isPinned(rowItem.modelData.payload)
+                                              ? "󰐃" : "󰤱"
+                                    font.pixelSize: theme.fs(13)
+                                    color: rowItem.modelData && LauncherState.isPinned(rowItem.modelData.payload)
+                                                ? Theme.active
+                                                : pinArea.containsMouse ? Theme.textPrimary : Theme.textTertiary
+                                    Behavior on color { MotionColor {} }
+
+                                    MouseArea {
+                                        id: pinArea
+                                        anchors.fill: parent
+                                        anchors.margins: -6
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: LauncherState.togglePin(rowItem.modelData.payload)
+                                    }
+                                }
+                            }
+
+                            HoverHandler { id: rowH; cursorShape: Qt.PointingHandCursor }
 
                             MouseArea {
-                                id: pinArea
+                                id: rowMouse
                                 anchors.fill: parent
-                                anchors.margins: -6
                                 hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: LauncherState.togglePin(rowItem.modelData.payload)
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                // Sits under the pin button, which has its own MouseArea.
+                                onEntered: root._pointerAt(rowMouse, rowMouse.mouseX, rowMouse.mouseY, rowItem.index)
+                                onPositionChanged: function (mouse) { root._pointerAt(rowMouse, mouse.x, mouse.y, rowItem.index) }
+                                onClicked: function (mouse) {
+                                    if (mouse.button === Qt.RightButton) {
+                                        if (rowItem.modelData && rowItem.modelData.kind === "app"
+                                            && (rowItem.modelData.payload ?? "") !== "")
+                                            LauncherState.togglePin(rowItem.modelData.payload)
+                                        return
+                                    }
+                                    root.selIndex = rowItem.index
+                                    // The SAME decision point the keyboard uses. A click
+                                    // on a destructive row opens the preview; it does not
+                                    // run it.
+                                    root.press("enter", false)
+                                }
                             }
-                        }
-                    }
-
-                    HoverHandler { id: rowH; cursorShape: Qt.PointingHandCursor }
-
-                    MouseArea {
-                        id: rowMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        // Sits under the pin button, which has its own MouseArea.
-                        onEntered: root._pointerAt(rowMouse, rowMouse.mouseX, rowMouse.mouseY, rowItem.index)
-                        onPositionChanged: function (mouse) { root._pointerAt(rowMouse, mouse.x, mouse.y, rowItem.index) }
-                        onClicked: function (mouse) {
-                            if (mouse.button === Qt.RightButton) {
-                                if (rowItem.modelData && rowItem.modelData.kind === "app"
-                                    && (rowItem.modelData.payload ?? "") !== "")
-                                    LauncherState.togglePin(rowItem.modelData.payload)
-                                return
-                            }
-                            root.selIndex = rowItem.index
-                            // The SAME decision point the keyboard uses. A click
-                            // on a destructive row opens the preview; it does not
-                            // run it.
-                            root.press("enter", false)
                         }
                     }
                 }
@@ -793,7 +869,7 @@ Item {
                     width: parent.width
                     text: root.previewInfo ? root.previewInfo.what : ""
                     font.pixelSize: theme.fs(11)
-                    color: Qt.rgba(1, 1, 1, 0.72)
+                    color: Theme.textPrimary
                     wrapMode: Text.WordWrap
                 }
 
@@ -803,7 +879,7 @@ Item {
                     width: parent.width
                     text: root.previewInfo ? "Runs as: " + root.previewInfo.permission : ""
                     font.pixelSize: theme.fs(10)
-                    color: Qt.rgba(1, 1, 1, 0.45)
+                    color: Theme.textSecondary
                     wrapMode: Text.WordWrap
                 }
 
@@ -816,7 +892,7 @@ Item {
                           : ""
                     font.pixelSize: theme.fs(10)
                     color: root.previewInfo && root.previewInfo.undoes === ""
-                               ? Theme.danger : Qt.rgba(1, 1, 1, 0.45)
+                               ? Theme.danger : Theme.textSecondary
                     wrapMode: Text.WordWrap
                 }
 
@@ -835,7 +911,7 @@ Item {
                         text: root.previewInfo ? root.previewInfo.commandLine : ""
                         font.family: "monospace"
                         font.pixelSize: theme.fs(10)
-                        color: Qt.rgba(1, 1, 1, 0.7)
+                        color: Theme.textPrimary
                         wrapMode: Text.WrapAnywhere
                     }
                 }
@@ -852,7 +928,7 @@ Item {
                                  : SearchService.resolveText)
                     font.family: "monospace"
                     font.pixelSize: theme.fs(10)
-                    color: Qt.rgba(1, 1, 1, 0.55)
+                    color: Theme.textSecondary
                     wrapMode: Text.WrapAnywhere
                     maximumLineCount: 8
                     elide: Text.ElideRight
@@ -868,7 +944,7 @@ Item {
                         color: root.previewInfo && root.previewInfo.klass === "destructive"
                                    ? (runHov.hovered ? Theme.dangerFillHover : Theme.dangerFill)
                                    : (runHov.hovered ? Qt.darker(Theme.warning, 1.7) : Qt.darker(Theme.warning, 2.2))
-                        Behavior on color { ColorAnimation { duration: 120 } }
+                        Behavior on color { MotionColor {} }
                         Text {
                             id: runText
                             anchors.centerIn: parent
@@ -891,8 +967,8 @@ Item {
                         width: cancelText.implicitWidth + 26
                         height: 28
                         radius: 8
-                        color: cancelHov.hovered ? Qt.rgba(1,1,1,0.12) : Qt.rgba(1,1,1,0.06)
-                        Behavior on color { ColorAnimation { duration: 120 } }
+                        color: cancelHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
+                        Behavior on color { MotionColor {} }
                         Text {
                             id: cancelText
                             anchors.centerIn: parent
@@ -915,12 +991,12 @@ Item {
             id: searchBar
             anchors { top: parent.top; left: parent.left; right: parent.right }
             height: 44; radius: 12
-            color: Qt.rgba(1,1,1,0.06)
+            color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
             border.color: searchInput.activeFocus
                           ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.50)
-                          : Qt.rgba(1,1,1,0.12)
+                          : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12)
             border.width: 1
-            Behavior on border.color { ColorAnimation { duration: 120 } }
+            Behavior on border.color { MotionColor { role: "state" } }
 
             Row {
                 anchors { fill: parent; leftMargin: 14; rightMargin: 14 }
@@ -931,8 +1007,8 @@ Item {
                     text: "󰍉"; font.pixelSize: theme.fs(16)
                     color: searchInput.activeFocus
                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.7)
-                           : Qt.rgba(1,1,1,0.35)
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                           : Theme.textSecondary
+                    Behavior on color { MotionColor { role: "state" } }
                 }
 
                 Item {
@@ -942,8 +1018,8 @@ Item {
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text:    "Search  ·  install …  ·  ssh …  ·  ~/  ·  > commands  ·  ? asks"
-                        color:   Qt.rgba(1,1,1,0.22)
+                        text:    "Search apps, files and settings"
+                        color:   Theme.textTertiary
                         font.pixelSize: theme.fs(13)
                         visible: searchInput.text === ""
                     }

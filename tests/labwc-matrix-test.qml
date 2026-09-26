@@ -73,7 +73,10 @@ ShellRoot {
     }
 
     ArchMenu    { id: archMenu;  anchorWindow: host }
-    AudioPopup  { id: audio;     anchorWindow: host }
+    // Audio is a pane of the right notch's panel now (RightPanel), whose input
+    // region is its body's bounds — asserted inside the window by
+    // tests/fluid-geometry-test.js. QuickControl is measured OPEN: closed, its
+    // region is empty on purpose, so a closing panel eats no clicks.
     QuickControl{ id: quick;     anchorWindow: host }
 
     // One bar and one dismiss surface per output, the way shell.qml builds them.
@@ -91,8 +94,10 @@ ShellRoot {
             readonly property var barItem: bar
             readonly property var dismissItem: dismiss
             TopBar       { id: bar;     screen: screenScope.modelData }
+            // topBar is required (6b39094): without it no instance is built
+            // at all, and every per-output assertion below measured nothing.
             PopupDismiss { id: dismiss; screen: screenScope.modelData
-                           screenName: screenScope.modelData.name }
+                           screenName: screenScope.modelData.name; topBar: bar }
         }
     }
 
@@ -175,7 +180,22 @@ ShellRoot {
         root.note(label + "  " + detail)
     }
 
+    // A page is measured only once the menu has actually been mapped and
+    // configured at the output's height; a window closed before the compositor
+    // configured it still reports its placeholder size. One retry per page.
+    property int _archRetries: 0
+    function _archReady() {
+        return archMenu.visible && archMenu.height >= archMenu.contentHeight + archMenu.fh * 2
+    }
+
     function _advance() {
+        if (root.archIndex >= 0 && root.archIndex <= root.archPages.length - 1
+                && !root._archReady() && root._archRetries < 3) {
+            root._archRetries++
+            Popups.archMenuOpen = true
+            return
+        }
+        root._archRetries = 0
         root.archIndex++
 
         if (root.archIndex < root.archPages.length) {
@@ -185,38 +205,64 @@ ShellRoot {
                 const prev = root.archPages[root.archIndex - 1]
                 root._measureArch(prev)
             }
+            // ArchMenu is a PanelWindow spanning the left strip: its size is
+            // the one the compositor configures when it maps, so it is kept
+            // open for every page (PopupDismiss closes popups whenever the
+            // compositor's focus moves, which the filler toplevel does).
+            Popups.archMenuOpen = true
             archMenu.page = page
             return
         }
 
         if (root.archIndex === root.archPages.length) {
             root._measureArch(root.archPages[root.archPages.length - 1])
-            root._rest()
             phases.running = false
-            console.log("")
-            console.log("labwc-matrix: passed=" + root.passed + " failed=" + root.failed)
-            Qt.callLater(function() { Qt.exit(root.failed === 0 ? 0 : 1) })
+            root._rest()      // it reports and exits when it is done
         }
     }
 
     function _measureArch(page) {
-        root.maskGeometry("ArchMenu/" + page, archMenu.mask.item,
-                          archMenu.implicitWidth, archMenu.implicitHeight)
+        // Its input region is the body's bounds while open and nothing while it
+        // closes (UI/UX Phase 10), so the region measured is the one it has
+        // once open — its finished bounds — against the window it is drawn in:
+        // a PanelWindow spanning the left strip, whose height is the output's.
+        const b = archMenu.openBounds
+        root.maskGeometry("ArchMenu/" + page, { x: b.x, y: b.y, width: b.w, height: b.h },
+                          archMenu.width, archMenu.height)
         // The window is sized to the largest page, so no page can overflow it.
         // The power page overflowing a stats-sized window by 20px is what drove
         // the input region outside the surface in the first place.
         root.check("ArchMenu/" + page + ": the page fits the window it is drawn in",
-                   archMenu.contentWidth + archMenu.fw <= archMenu.implicitWidth
-                   && archMenu.contentHeight + archMenu.fh * 2 <= archMenu.implicitHeight,
+                   archMenu.contentWidth + archMenu.fw <= archMenu.width
+                   && archMenu.contentHeight + archMenu.fh * 2 <= archMenu.height,
                    "page=" + archMenu.contentWidth + "x" + archMenu.contentHeight
-                   + " window=" + archMenu.implicitWidth + "x" + archMenu.implicitHeight)
+                   + " window=" + archMenu.width + "x" + archMenu.height)
+    }
+
+    // The quick controls are measured OPEN, so they are opened here and given
+    // their own settle window: PopupDismiss closes every popup when the
+    // compositor's focus moves, which the filler toplevel does during the run.
+    property bool _quickMeasured: false
+    Timer {
+        id: quickSettle
+        interval: 900
+        onTriggered: {
+            // A PanelWindow anchored top and bottom: its height is the
+            // output's, not an implicit one.
+            root.maskGeometry("QuickControl", quick.mask.item, quick.width, quick.height)
+            root._quickMeasured = true
+            Popups.quickOpen = false
+            root._rest()
+        }
     }
 
     function _rest() {
-        root.maskGeometry("AudioPopup", audio.mask.item,
-                          audio.implicitWidth, audio.implicitHeight)
-        root.maskGeometry("QuickControl", quick.mask.item,
-                          quick.implicitWidth, quick.implicitHeight)
+        if (!root._quickMeasured) {
+            Popups.closeAll()
+            Popups.quickOpen = true
+            quickSettle.start()
+            return
+        }
 
         console.log("")
         console.log("── One bar and one dismiss surface per output ────────────")
@@ -386,5 +432,9 @@ ShellRoot {
                        wide.visibleApplications.length > 0,
                        "applications=" + wide.applications.length)
         }
+
+        console.log("")
+        console.log("labwc-matrix: passed=" + root.passed + " failed=" + root.failed)
+        Qt.callLater(function() { Qt.exit(root.failed === 0 ? 0 : 1) })
     }
 }

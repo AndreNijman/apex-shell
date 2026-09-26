@@ -269,7 +269,8 @@ PER_OUTPUT="src/windows/DisplayConfirm.qml src/windows/ConfirmDialog.qml \
             src/nexus/Nexus.qml src/windows/Lockscreen.qml \
             src/services/agents/SessionRow.qml \
             src/services/config_tab/pages/RecoveryPage.qml \
-            src/components/StatCard.qml src/shapes/SeamlessBarShape.qml"
+            src/components/StatCard.qml src/shapes/SeamlessBarShape.qml \
+            src/popups/RightPanel.qml src/popups/QuickControl.qml src/popups/ArchMenu.qml"
 
 # The scaled token names come from ThemeSet.qml itself: every property it
 # defines through px(). Reading them from the source of truth means a token
@@ -331,9 +332,7 @@ rm -f "$probe"
 # looks wrong on a single monitor. The file list is written out, and each entry
 # is checked to exist and to still be a PopupWindow, so deleting either fails.
 printf '\n── popup windows resolve from their anchor ──\n'
-POPUPS="src/popups/ArchMenu.qml src/popups/AudioPopup.qml \
-        src/popups/NotificationToast.qml src/popups/NotificationsPopup.qml \
-        src/popups/QuickControl.qml src/popups/ScreenRecOptionsPopup.qml"
+POPUPS="src/popups/ScreenRecOptionsPopup.qml"
 for f in $POPUPS; do
     if [ ! -f "$f" ]; then bad "popup $f is missing"; continue; fi
     if ! grep -qE '^PopupWindow \{' "$f"; then

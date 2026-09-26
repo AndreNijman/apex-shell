@@ -87,7 +87,6 @@ src/modules/Center/DashStats.qml|#cba6f7|RAM gauge series colour — three gauge
 src/modules/Center/DashStats.qml|#89dceb|iGPU gauge series colour — same row, same reason
 src/modules/Center/CenterContent.qml|#ff4444|recording tally light, matching the Qt.rgba(0.9,0.2,0.2) fills around it — not a danger state
 src/modules/Center/CenterContent.qml|#ff9999|a LIGHT red reading on the dark red fill above it — fixed contrast, not the danger accent
-src/services/PowerMenu.qml|#4d2020|full-width danger row TINT, deliberately far dimmer than Theme.dangerFill, which is a button fill
 src/windows/ConfirmDialog.qml|#99000000|modal scrim — has to darken every wallpaper, so it must not follow the palette
 src/windows/DisplayConfirm.qml|#99000000|modal scrim over a layout the user may not be able to read — same reason as ConfirmDialog's, and it must not follow a palette generated from the wallpaper behind it
 src/windows/Lockscreen.qml|black|opaque lock base, so there is never a transparent flash before the wallpaper paints
@@ -101,12 +100,14 @@ src/nexus/Nexus.qml|black|desktop dim behind the settings window; the opacity do
 # which to delete when one of them goes away, which is list rot in the check
 # whose job is preventing list rot. Membership is asserted from these rows and
 # the OCCURRENCE count is asserted separately, below.
+# (TimeInput's blue-tinted near-white digits were the last row: they were
+# foreground text, so the right token was neither the literal nor fixedLight
+# but the palette's text — Theme.textPrimary, UI/UX Phase 21.)
 ALLOW_FRAC_RAW="
-src/components/TimeInput.qml|235/255, 240/255, 255/255|x2 — a blue-tinted near-white, NOT Theme.fixedLight; mapping it onto that token would be a similar-looking token rather than a correct one, which is worse than the literal because the mistake becomes invisible
 "
 
-EXPECT_TOTAL=10
-EXPECT_FRAC=2
+EXPECT_TOTAL=9   # 10 → 9: the PowerMenu row tint is a tint of Theme.danger (UI/UX Phase 17)
+EXPECT_FRAC=0   # 2 → 0: TimeInput's digits are the palette's text (UI/UX Phase 21)
 
 # ── The Agent Center's own rule (roadmap P0-021) ────────────────────────────
 # The colour half of this file's problem had a second shape in src/services/
@@ -337,7 +338,22 @@ fi
 # from KeybindsPage.qml, for a net -1. The ratchet is doing exactly what it was
 # written to do — the debt went down and somebody had to say so here — and light
 # mode is not reachable at 211 either.
-EXPECT_WHITE_FG=211
+#
+# 211 -> 204 with the UI/UX roadmap's Phase 3: CfgButton, CfgTile and
+# ProfileButton draw with the palette's roles (src/theme/roles.js, checked on
+# all twelve shipped palettes) instead of translucent whites. Still not light-
+# mode ready at 204.
+#
+# 204 -> 199 with Phase 16: CfgSwitch, CfgSegmented, CfgSlider, CfgTextField.
+#
+# 199 -> 0 with Phase 18: every remaining site is a palette role (text on its
+# three roles, fills and borders as the palette's text at the same alpha), or,
+# where the surface underneath is fixed rather than the palette's (a scrim over
+# album art, a wallpaper thumbnail, an accent chip), an explicit fixed colour
+# commented as such. Every surface tests/visual can open was captured in both
+# matugen schemes of the default wallpaper. At 0 this is a ban: one new
+# translucent white fails.
+EXPECT_WHITE_FG=0
 n_white=$(grep -rnE '^[[:space:]]*color:.*Qt\.rgba\([[:space:]]*1[[:space:]]*,[[:space:]]*1[[:space:]]*,[[:space:]]*1' "$SRC" \
           | wc -l | tr -d ' ')
 if [ "$n_white" -eq "$EXPECT_WHITE_FG" ]; then
@@ -481,8 +497,10 @@ mutate "an allowlisted literal removed" \
 
 # (c) an allowlisted literal SUBSTITUTED in place. A per-file count would pass
 #     this. It is the reason the list is (file, colour) pairs.
+# (The PowerMenu row tint this used to swap is a tint of Theme.danger since
+# UI/UX Phase 17; the RAM gauge colour is the allowlisted literal it swaps now.)
 mutate "an allowlisted literal swapped for a different one" \
-    "src/services/PowerMenu.qml" '"#4d2020"' '"#5e2828"' recheck_literals
+    "src/modules/Center/DashStats.qml" '"#cba6f7"' '"#cba6f8"' recheck_literals
 
 # (d) a named colour reintroduced on a colour property
 mutate "a named colour on a colour property" \
@@ -590,6 +608,38 @@ else
     bad "self-test inverse: the scanner missed a real literal — comment stripping is too greedy"
 fi
 rm -f "$TMP/src/InverseMutant.qml"
+
+# ── a property the engine never binds ────────────────────────────────────────
+# A QML property called on<X> declared beside a property called x is taken for
+# handler syntax and never bound: Colors.onAccentContainer stayed an invalid
+# colour (valid: false) and drew BLACK — every "on" Home tile's label and glyph
+# and the lifecycle chip's text, on the dark accent container, from Phase 2
+# until 2026-09-26. The role is textOnAccentContainer now; this keeps the shape
+# from coming back anywhere in src/.
+shadowing_on_props() {   # shadowing_on_props <dir> — prints file:on<X> for each offender
+    python3 - "$1" <<'PY2'
+import os, re, sys
+decl = re.compile(r'^\s*(?:readonly\s+|required\s+|default\s+)*property\s+[\w.<>]+\s+(\w+)', re.M)
+for dp, _, fs in os.walk(sys.argv[1]):
+    for f in fs:
+        if not f.endswith(".qml"): continue
+        p = os.path.join(dp, f)
+        names = set(decl.findall(open(p, encoding="utf-8", errors="replace").read()))
+        for n in names:
+            m = re.fullmatch(r'on([A-Z])(\w*)', n)
+            if m and (m.group(1).lower() + m.group(2)) in names:
+                print(f"{p}:{n}")
+PY2
+}
+off="$(shadowing_on_props "$SRC")"
+[ -z "$off" ] && ok "no on<X> property is declared beside a property x (the engine would never bind it)" \
+    || bad "on<X> properties the engine will not bind: $(echo $off)"
+ONT="$(mktemp -d)"; mkdir -p "$ONT/src"
+sed 's/readonly property color textOnAccentContainer:/readonly property color onAccentContainer:/' "$SRC/theme/Colors.qml" > "$ONT/src/Colors.qml"
+if cmp -s "$SRC/theme/Colors.qml" "$ONT/src/Colors.qml"; then bad "self-test ON-SHADOW: the mutation did not apply"
+elif [ -n "$(shadowing_on_props "$ONT/src")" ]; then ok "self-test ON-SHADOW: the old onAccentContainer beside accentContainer is caught"
+else bad "self-test ON-SHADOW: SURVIVED"; fi
+rm -rf "$ONT"
 
 printf '\nself-test: mutants applied=%d, failed-to-apply=%d\n' "$applied" "$noapply"
 printf 'check-color-tokens: passed=%d failed=%d\n' "$pass" "$fail"

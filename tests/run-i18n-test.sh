@@ -50,6 +50,7 @@
 #  run-a11y-controls-test.sh does it, so no plugin that decides to go looking
 #  can find the compositor somebody is working in.
 # ─────────────────────────────────────────────────────────────────────────────
+. "$(dirname "${BASH_SOURCE[0]}")/lib/private-bus.sh"   # the session bus is ours, not the desktop's
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

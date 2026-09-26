@@ -1,5 +1,6 @@
 import QtQuick
 import "../"
+import "controls"
 
 // Unified tab switcher — horizontal or vertical.
 //
@@ -46,6 +47,38 @@ import "../"
 Item {
 	id: root
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
+	// ── Keyboard (UI/UX roadmap v3 Phase 21) ─────────────────────────────────
+	// The tab-list pattern: the whole switcher is ONE Tab stop, and inside it
+	// the arrows along its axis move the selection — as the wheel already did —
+	// with Home and End for the ends. A tab chosen with the pointer never takes
+	// focus, so the ring below is keyboard-only by construction. It was
+	// pointer-only, and it is the tab bar of the Dashboard, the network panel,
+	// the audio pane and the settings column.
+	activeFocusOnTab: root.model.length > 1
+	readonly property bool focusVisible: root.activeFocus
+	Accessible.role: Accessible.PageTabList
+
+	function _stepTo(i) {
+		var n = root.model.length
+		if (n === 0) return
+		i = ((i % n) + n) % n
+		if (root.model[i].key !== root.currentPage) root.pageChanged(root.model[i].key)
+	}
+	Keys.onPressed: function(event) {
+		var horizontal = root.orientation === "horizontal"
+		// A mirrored (right-to-left) row runs the other way under the arrows.
+		var flip = horizontal && root.LayoutMirroring.enabled ? -1 : 1
+		var next = horizontal ? Qt.Key_Right : Qt.Key_Down
+		var prev = horizontal ? Qt.Key_Left  : Qt.Key_Up
+		var i = Math.max(0, root.currentIndex)
+		if      (event.key === next)        root._stepTo(i + flip)
+		else if (event.key === prev)        root._stepTo(i - flip)
+		else if (event.key === Qt.Key_Home) root._stepTo(0)
+		else if (event.key === Qt.Key_End)  root._stepTo(root.model.length - 1)
+		else return
+		event.accepted = true
+	}
 
 
 	property var    model:       []
@@ -185,17 +218,65 @@ Item {
 	}
 
 	// ── HORIZONTAL layout — Row ───────────────────────────────────────────────
+	// ── The selection: ONE object that travels ─────────────────────────────
+	// Tabs used to each own an active background and cross-fade it, so the
+	// selection disappeared from one tab and reappeared on another. Now a single
+	// pill moves to the chosen tab's pill geometry (x and width, on the
+	// selection token), and the tabs draw only their hover. The label colour
+	// changes at once, on the state token, so the choice reads before the pill
+	// lands. Under Reduce Motion the pill is simply there.
+	readonly property int currentIndex: {
+		var m = root.model
+		for (var i = 0; i < m.length; i++)
+			if (m[i].key === root.currentPage) return i
+		return -1
+	}
+	// Behaviours on the pill are armed only after it has been placed once, so
+	// the first time a switcher appears the pill is where it belongs rather
+	// than sliding in from x = 0.
+	property bool _pillPlaced: false
+	Timer { id: pillArm; interval: 1; onTriggered: root._pillPlaced = true }
+
+	Rectangle {
+		id: hSel
+		readonly property Item cur: {
+			hRep.count
+			return root.currentIndex >= 0 ? hRep.itemAt(root.currentIndex) : null
+		}
+		visible: root.orientation === "horizontal" && cur !== null
+		// On springs that keep their velocity when the tab is changed again
+		// mid-travel (SpringFollower: exact at any refresh rate).
+		x:      hSelX.value
+		width:  hSelW.value
+		SpringFollower { id: hSelX; live: root._pillPlaced
+		                 target: hSel.cur ? hSel.cur.x + (hSel.cur.width - hSel.cur.pillW) / 2 : 0 }
+		SpringFollower { id: hSelW; live: root._pillPlaced
+		                 target: hSel.cur ? hSel.cur.pillW : 0 }
+		height: Math.max(0, root.height - theme.px(8))
+		y:      (root.height - height) / 2
+		radius: height / 2
+		// The one selected tint the shell uses (the nav and open pills').
+		color:  Theme.surfaceSelected
+		onCurChanged: if (cur && !root._pillPlaced) pillArm.restart()
+		ApexFocusRing { target: root; targetRadius: hSel.radius }
+	}
+
 	Row {
 		id: hRow
 		anchors.fill: parent
 		visible: root.orientation === "horizontal"
 
 		Repeater {
+			id: hRep
 			model: root.orientation === "horizontal" ? root.model : []
 
 			delegate: Item {
 				id: hTab
 				readonly property bool isActive: root.currentPage === modelData.key
+				Accessible.role: Accessible.PageTab
+				Accessible.name: modelData.label || modelData.key
+				Accessible.selectable: true
+				Accessible.selected: isActive
 
 				width:  root.hSlotWidth
 				height: hRow.height
@@ -213,6 +294,9 @@ Item {
 					Math.max(0, Math.min(root.hPadMax,
 					                     (root.hSlotRoom - contentWidth) / 2))
 
+				// This tab's pill extent, which the shared selection takes.
+				readonly property real pillW: hBg.width
+
 				// Pill background
 				Rectangle {
 					id: hBg
@@ -222,11 +306,11 @@ Item {
 					radius: height / 2
 					clip:   true
 
-					color: hTab.isActive
-					? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-					: (hHov.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent")
+					// Hover only; the selection is the shared pill behind.
+					// A tint of the palette's own text colour, so it reads on a light palette too.
+					color: !hTab.isActive && hHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) : "transparent"
 
-					Behavior on color { ColorAnimation { duration: 120 } }
+					Behavior on color { MotionColor { role: "state" } }
 
 					// Icon + label, drawn INSIDE the pill so the clip above is
 					// the last word on where a glyph may land.
@@ -241,8 +325,8 @@ Item {
 							anchors.verticalCenter: parent.verticalCenter
 							color: hTab.isActive
 							? Theme.active
-							: (hHov.hovered ? Qt.rgba(1, 1, 1, 0.75) : Qt.rgba(1, 1, 1, 0.4))
-							Behavior on color { ColorAnimation { duration: 120 } }
+							: (hHov.hovered ? Theme.textPrimary : Theme.textSecondary)
+							Behavior on color { MotionColor { role: "state" } }
 						}
 
 						Text {
@@ -254,8 +338,8 @@ Item {
 							anchors.verticalCenter: parent.verticalCenter
 							color: hTab.isActive
 							? Theme.active
-							: (hHov.hovered ? Qt.rgba(1, 1, 1, 0.75) : Qt.rgba(1, 1, 1, 0.4))
-							Behavior on color { ColorAnimation { duration: 120 } }
+							: (hHov.hovered ? Theme.textPrimary : Theme.textSecondary)
+							Behavior on color { MotionColor { role: "state" } }
 						}
 					}
 				}
@@ -278,7 +362,7 @@ Item {
 		anchors.left:   parent.left
 		anchors.right:  parent.right
 		height:         1
-		color:          Qt.rgba(1, 1, 1, 0.07)
+		color:          Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
 	}
 
 	// ── VERTICAL metrics ──────────────────────────────────────────────────────
@@ -334,6 +418,39 @@ Item {
 		boundsBehavior: Flickable.StopAtBounds
 		clip: interactive
 
+		Rectangle {
+			id: vSel
+			readonly property Item cur: {
+				vRep.count
+				return root.currentIndex >= 0 ? vRep.itemAt(root.currentIndex) : null
+			}
+			visible: root.orientation === "vertical" && cur !== null
+			x:      vCol.x
+			width:  vCol.width
+			y:      vSelY.value
+			SpringFollower { id: vSelY; live: root._pillPlaced
+			                 target: vSel.cur ? vCol.y + vSel.cur.y : 0 }
+			height: root.vRowHeight
+			radius: theme.cornerRadius * 2
+			// A tint and an accent foreground, like every other selection in
+			// the shell — the solid accent fill this column used was the
+			// heaviest object on screen for the least important state.
+			color:  Theme.surfaceSelected
+			onCurChanged: {
+				if (cur && !root._pillPlaced) pillArm.restart()
+				// A selection moved by the keyboard stays in view. Only then: on
+				// open the column keeps its scroll where it was (nav-geometry
+				// measures the rows from the top of an unscrolled column).
+				if (cur && vFlick.interactive && root.activeFocus) {
+					var top = vCol.y + cur.y
+					if (top < vFlick.contentY) vFlick.contentY = top
+					else if (top + cur.height > vFlick.contentY + vFlick.height)
+						vFlick.contentY = top + cur.height - vFlick.height
+				}
+			}
+			ApexFocusRing { target: root; targetRadius: vSel.radius }
+		}
+
 		Column {
 			id: vCol
 			width:   vFlick.width
@@ -351,22 +468,26 @@ Item {
 				root.model[0].label !== ""
 
 			Repeater {
+				id: vRep
 				model: root.orientation === "vertical" ? root.model : []
 
 				delegate: Rectangle {
 					id: vTab
 					readonly property bool isActive: root.currentPage === modelData.key
 
+					Accessible.role: Accessible.PageTab
+					Accessible.name: modelData.label || modelData.key
+					Accessible.selectable: true
+					Accessible.selected: isActive
+
 					width:  vCol.width
 					height: root.vRowHeight
 					radius: theme.cornerRadius * 2
 					clip:   true
 
-					color: vTab.isActive
-						? Theme.active
-						: (vHov.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
+					color: !vTab.isActive && vHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : "transparent"
 
-					Behavior on color { ColorAnimation { duration: 120 } }
+					Behavior on color { MotionColor { role: "state" } }
 
 					// Icon-only (no label)
 					Text {
@@ -374,8 +495,8 @@ Item {
 						anchors.centerIn: parent
 						text:             modelData.icon
 						font.pixelSize:   theme.fs(16)
-						color: vTab.isActive ? Theme.background : Theme.text
-						Behavior on color { ColorAnimation { duration: 120 } }
+						color: vTab.isActive ? Theme.active : Theme.text
+						Behavior on color { MotionColor { role: "state" } }
 					}
 
 					// Icon + label row
@@ -396,9 +517,9 @@ Item {
 							font.pixelSize: theme.fs(15)
 							anchors.verticalCenter: parent.verticalCenter
 							color: vTab.isActive
-								? Theme.background
-								: (vHov.hovered ? Qt.rgba(1, 1, 1, 0.80) : Qt.rgba(1, 1, 1, 0.42))
-							Behavior on color { ColorAnimation { duration: 120 } }
+								? Theme.active
+								: (vHov.hovered ? Theme.textPrimary : Theme.textSecondary)
+							Behavior on color { MotionColor { role: "state" } }
 						}
 
 						Text {
@@ -413,9 +534,9 @@ Item {
 							font.weight:    vTab.isActive ? Font.Medium : Font.Normal
 							anchors.verticalCenter: parent.verticalCenter
 							color: vTab.isActive
-								? Theme.background
-								: (vHov.hovered ? Qt.rgba(1, 1, 1, 0.80) : Qt.rgba(1, 1, 1, 0.42))
-							Behavior on color { ColorAnimation { duration: 120 } }
+								? Theme.active
+								: (vHov.hovered ? Theme.textPrimary : Theme.textSecondary)
+							Behavior on color { MotionColor { role: "state" } }
 						}
 					}
 

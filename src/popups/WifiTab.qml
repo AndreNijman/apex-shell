@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell.Io
 import "../"
+import "../components/controls"
 import "../components"
 
 // WifiTab
@@ -12,12 +13,22 @@ import "../components"
 
 Item {
     id: root
+
+    // How tall this tab wants to be: the header block (title row, divider,
+    // gap: 49) and the list. The panel sizes its body to it (UI/UX Phase 17,
+    // brief §F.4) instead of a fixed 648 px with most of it empty.
+    readonly property real preferredHeight: 49 + contentCol.height
+    // Set by NetworkPane: the panel has finished opening. Refreshes wait for it
+    // (UI/UX Phase 22 — no process starts, no list rebuilt, under the pour).
+    property bool settled: false
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
     property var    _networks:      []
     property var    _needsPassword: ({})
     property bool   _scanning:      false
+    // What the scan in flight has read so far (see scanProc).
+    property var    _scanBuf:       []
     property bool   _wifiEnabled:   true
     property string _connectingTo:  ""
     property string _forgetSsid:    ""
@@ -43,11 +54,11 @@ Item {
                 root._expandSsid    = ""
                 root._connectingTo  = ""
                 root._needsPassword = ({})
-                root._checkRadio()
-                root._scan(false)
             }
         }
     }
+    // The scan once the panel is up, not as it starts to open.
+    onSettledChanged: if (root.settled && Popups.networkOpen) { root._checkRadio(); root._scan(false) }
 
     // ── Processes ─────────────────────────────────────────────────────────────
 
@@ -77,7 +88,7 @@ Item {
                 var secured = security.trim() !== "" && security.trim() !== "--"
                 // nmcli prints enterprise security as e.g. "WPA2 802.1X"
                 var enterprise = security.trim().indexOf("802.1X") >= 0
-                var nets = root._networks.slice()
+                var nets = root._scanBuf.slice()
                 var found = false
                 for (var i = 0; i < nets.length; i++) {
                     if (nets[i].ssid === ssid) {
@@ -87,10 +98,17 @@ Item {
                     }
                 }
                 if (!found) nets.push({ ssid: ssid, signal: signal, secured: secured, inUse: inUse, enterprise: enterprise })
-                root._networks = nets
+                root._scanBuf = nets
             }
         }
-        onRunningChanged: if (!running) root._scanning = false
+        // The list on screen is replaced once, when the scan has finished — it
+        // used to be emptied when the scan STARTED and refilled line by line,
+        // so every refresh (one runs as the panel finishes opening) blanked
+        // the list to "Searching" and poured it back in a beat later.
+        onRunningChanged: if (!running) {
+            root._networks = root._scanBuf
+            root._scanning = false
+        }
     }
 
     // First attempt — captures stderr to detect secret requirement
@@ -196,6 +214,31 @@ Item {
 
     function _checkRadio() { radioCheckProc.running = false; radioCheckProc.running = true }
 
+    // ── Keyboard (UI/UX roadmap v3 Phase 21) ────────────────────────────────
+    // The network list is ONE Tab stop: Up and Down move a highlight over the
+    // connected network then the available ones, Return does what the row's
+    // own button does (connect, or retry with what was typed). Tab from the
+    // list reaches the highlighted row's buttons, which are Tab stops only
+    // while it is highlighted, so a list of twenty networks is not sixty stops.
+    property string _curSsid: ""
+    readonly property var _rowSsids: (root._current ? [root._current.ssid] : [])
+                                     .concat(root._available.map(function (n) { return n.ssid }))
+    function _stepRow(d) {
+        const list = root._rowSsids
+        if (list.length === 0) return
+        const i = list.indexOf(root._curSsid)
+        root._curSsid = i < 0 ? list[d > 0 ? 0 : list.length - 1]
+                              : list[Math.max(0, Math.min(list.length - 1, i + d))]
+    }
+    function _rowFor(ssid) {
+        if (currentRow.visible && currentRow.net.ssid === ssid) return currentRow
+        for (let i = 0; i < availRows.count; i++) {
+            const r = availRows.itemAt(i)
+            if (r && r.net.ssid === ssid) return r
+        }
+        return null
+    }
+
     function _setWifiEnabled(on) {
         root._wifiEnabled = on
         radioProc.command = ["bash", "-c", "nmcli radio wifi " + (on ? "on" : "off")]
@@ -204,7 +247,7 @@ Item {
 
     function _scan(rescan) {
         if (_scanning || !root._wifiEnabled) return
-        _scanning = true; _networks = []
+        _scanning = true; _scanBuf = []
         scanProc.command = ["bash", "-c",
             "nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi list " +
             (rescan ? "--rescan yes" : "--rescan no") + " 2>/dev/null"]
@@ -296,11 +339,11 @@ Item {
                 border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.80)
                 border.width: 1.5; opacity: 0; scale: 0.08
                 SequentialAnimation {
-                    running: root._scanning; loops: Animation.Infinite
-                    PauseAnimation { duration: index * 650 }
+                    running: root._scanning && Motion.ambient; alwaysRunToEnd: true; loops: Animation.Infinite
+                    PauseAnimation { duration: index * Motion.scanStagger }
                     ParallelAnimation {
-                        NumberAnimation { property: "scale";   from: 0.08; to: 1.0; duration: 2200; easing.type: Easing.OutCubic }
-                        NumberAnimation { property: "opacity"; from: 0.80; to: 0.0; duration: 2200; easing.type: Easing.OutQuad  }
+                        NumberAnimation { property: "scale";   from: 0.08; to: 1.0; duration: Motion.scanPeriod; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardDecel }
+                        NumberAnimation { property: "opacity"; from: 0.80; to: 0.0; duration: Motion.scanPeriod; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardDecel }
                     }
                 }
             }
@@ -309,9 +352,9 @@ Item {
             anchors.centerIn: parent; text: ringsRoot.centerGlyph; font.pixelSize: ringsRoot.glyphSize
             color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
             SequentialAnimation on opacity {
-                running: root._scanning; loops: Animation.Infinite
-                NumberAnimation { to: 0.20; duration: 700; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 0.80; duration: 700; easing.type: Easing.InOutSine }
+                running: root._scanning && Motion.ambient; alwaysRunToEnd: true; loops: Animation.Infinite
+                NumberAnimation { to: 0.20; duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.80; duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
             }
         }
     }
@@ -335,8 +378,8 @@ Item {
                             case 3: return barsRoot.signal > 75
                         }; return false
                     }
-                    color: lit ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.85) : Qt.rgba(1,1,1,0.15)
-                    Behavior on color { ColorAnimation { duration: 200 } }
+                    color: lit ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.85) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.15)
+                    Behavior on color { MotionColor { role: "state" } }
                 }
             }
         }
@@ -346,27 +389,63 @@ Item {
         id: netRow
         required property var  net
         required property bool isCurrent
-        readonly property bool isForgetPending: root._forgetSsid   === net.ssid
-        readonly property bool isExpanded:      root._expandSsid   === net.ssid
-        readonly property bool isConnecting:    root._connectingTo === net.ssid
+        // Never for the placeholder the connected row shows while nothing is
+        // connected (ssid ""): "" === _expandSsid's resting "" made it EXPANDED,
+        // and on every scan and every open it pulled focus into its own hidden
+        // password field (measured, UI/UX Phase 21) — the keyboard lost the list.
+        readonly property bool real:            net.ssid !== ""
+        readonly property bool isForgetPending: real && root._forgetSsid   === net.ssid
+        readonly property bool isExpanded:      real && root._expandSsid   === net.ssid
+        readonly property bool isConnecting:    real && root._connectingTo === net.ssid
         readonly property bool needsPassword:   !!root._needsPassword[net.ssid]
         property bool _showPass: false
         width: parent?.width ?? 0
         height: baseRow.height + expandArea.height
 
+        // Highlighted by the keyboard: its buttons join the Tab order.
+        readonly property bool keyed: real && root._curSsid === net.ssid
+        readonly property bool open: isForgetPending || isExpanded
+        // The Connect button's action, for Return on the list as well.
+        function primary() {
+            if (netRow.isCurrent || netRow.isConnecting) return
+            root._forgetSsid = ""
+            if (netRow.isExpanded && passInput.text !== "") {
+                if (netRow.net.enterprise) {
+                    if (userInput.text !== "")
+                        root._connectEnterprise(netRow.net.ssid, userInput.text, passInput.text)
+                } else {
+                    root._connectWithPassword(netRow.net.ssid, passInput.text)
+                }
+            } else {
+                root._connectFirst(netRow.net.ssid)
+            }
+        }
+        Accessible.role: Accessible.ListItem
+        Accessible.name: net.ssid + (isCurrent ? ", connected" : needsPassword ? ", password required" : "")
+        // Escape closes this row's own panel (the password, the forget
+        // question) and hands the keys back to the list; with nothing open it
+        // passes on, and the pane closes.
+        Keys.onEscapePressed: function (event) {
+            if (!netRow.open) { event.accepted = false; return }
+            root._forgetSsid = ""; root._expandSsid = ""
+            root._curSsid = netRow.net.ssid
+            flick.forceActiveFocus()
+        }
+
         Rectangle {
-            anchors.fill: parent; radius: theme.cornerRadius
+            // Borderless at rest; only the connected row carries a fill
+            // (UI/UX roadmap v3 Phase 17 — rows read as list items, not cards).
+            anchors.fill: parent; radius: theme.radiusS
             color: netRow.isCurrent
-                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.07)
-                : rHov.hovered ? Qt.rgba(1,1,1,0.04) : "transparent"
-            border.color: netRow.isCurrent
-                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                : netRow.needsPassword
-                    ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b,0.30)
-                    : Qt.rgba(1,1,1,0.06)
-            border.width: 1
-            Behavior on color        { ColorAnimation { duration: 130 } }
-            Behavior on border.color { ColorAnimation { duration: 130 } }
+                ? Theme.surfaceSelected
+                : rHov.hovered ? Theme.surfaceHover(Theme.background) : "transparent"
+            Behavior on color { MotionColor { role: "state" } }
+        }
+        Rectangle {
+            anchors.fill: parent; anchors.margins: -3
+            radius: theme.cornerRadius + 3
+            color: "transparent"; border.width: 2; border.color: Theme.accentText
+            visible: netRow.keyed && flick.activeFocus
         }
 
         Item {
@@ -380,7 +459,7 @@ Item {
                 Text {
                     text: netRow.net.ssid; font.pixelSize: theme.fs(13)
                     font.weight: netRow.isCurrent ? Font.Medium : Font.Normal
-                    color: netRow.isCurrent ? Theme.text : Qt.rgba(1,1,1,0.7)
+                    color: netRow.isCurrent ? Theme.textPrimary : Theme.textSecondary
                     width: 170; elide: Text.ElideRight
                 }
                 Text {
@@ -398,7 +477,7 @@ Item {
 
                 Text {
                     visible: netRow.net.secured && !netRow.isCurrent
-                    text: "󰌾"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.28)
+                    text: "󰌾"; font.pixelSize: theme.fs(11); color: Theme.textTertiary
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 Item {
@@ -410,58 +489,58 @@ Item {
                     Text {
                         anchors.centerIn: parent; text: "○"; font.pixelSize: theme.fs(14); color: Theme.active
                         SequentialAnimation on opacity {
-                            running: netRow.isConnecting; loops: Animation.Infinite
-                            NumberAnimation { to: 0.2; duration: 500 }
-                            NumberAnimation { to: 1.0; duration: 500 }
+                            running: netRow.isConnecting && Motion.ambient; alwaysRunToEnd: true; loops: Animation.Infinite
+                            NumberAnimation { to: 0.2; duration: Motion.pulseHalf }
+                            NumberAnimation { to: 1.0; duration: Motion.pulseHalf }
                         }
                     }
                 }
-                // Disconnect
-                Item {
-                    visible: netRow.isCurrent; width: 28; height: 28; anchors.verticalCenter: parent.verticalCenter
-                    Rectangle { anchors.fill: parent; radius: 6; color: dH.hovered ? Qt.rgba(1,1,1,0.10) : "transparent"; Behavior on color { ColorAnimation { duration: 100 } } }
-                    Text { anchors.centerIn: parent; text: "󰖪"; font.pixelSize: theme.fs(14); color: dH.hovered ? Qt.rgba(1,1,1,0.65) : Qt.rgba(1,1,1,0.35); Behavior on color { ColorAnimation { duration: 100 } } }
-                    HoverHandler { id: dH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent; onClicked: root._disconnect() }
+                // Disconnect — same action style as Connect/Forget (UI/UX Phase 17)
+                ApexPressable {
+                    id: disBtn
+                    visible: netRow.isCurrent
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: disLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
+                    hitMargin: 2
+                    activeFocusOnTab: netRow.keyed || netRow.open
+                    Accessible.name: "Disconnect from " + netRow.net.ssid
+                    // The row goes when it disconnects; the keys go back to the list.
+                    onActivated: { root._disconnect(); flick.forceActiveFocus() }
+                    // On the selected row: Theme.surfaceOnSelected (roles.js says why).
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: disBtn.tint(Theme.surfaceOnSelected); Behavior on color { MotionColor {} } }
+                    Text { id: disLbl; anchors.centerIn: parent; text: "Disconnect"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
+                    ApexFocusRing { target: disBtn }
                 }
-                // Forget
-                Item {
-                    visible: netRow.isCurrent; width: 28; height: 28; anchors.verticalCenter: parent.verticalCenter
-                    Rectangle {
-                        anchors.fill: parent; radius: 6
-                        color: fH.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.15) : netRow.isForgetPending ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.10) : "transparent"
-                        Behavior on color { ColorAnimation { duration: 100 } }
-                    }
-                    Text { anchors.centerIn: parent; text: "󰗼"; font.pixelSize: theme.fs(13); color: (fH.hovered || netRow.isForgetPending) ? Theme.danger : Qt.rgba(1,1,1,0.3); Behavior on color { ColorAnimation { duration: 100 } } }
-                    HoverHandler { id: fH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent; onClicked: root._forgetSsid = netRow.isForgetPending ? "" : netRow.net.ssid }
+                // Forget — opens the confirmation below; the destructive action
+                // lives on that confirmation's own Forget button, not here.
+                ApexPressable {
+                    id: forBtn
+                    visible: netRow.isCurrent
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: forLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
+                    hitMargin: 2
+                    activeFocusOnTab: netRow.keyed || netRow.open
+                    Accessible.name: "Forget " + netRow.net.ssid
+                    onActivated: root._forgetSsid = netRow.isForgetPending ? "" : netRow.net.ssid
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: forBtn.tint(Theme.surfaceOnSelected); Behavior on color { MotionColor { role: "state" } } }
+                    Text { id: forLbl; anchors.centerIn: parent; text: "Forget"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
+                    ApexFocusRing { target: forBtn }
                 }
                 // Connect
-                Rectangle {
+                ApexPressable {
+                    id: conBtn
                     visible: !netRow.isCurrent && !netRow.isConnecting
                     anchors.verticalCenter: parent.verticalCenter
-                    width: connectLbl.implicitWidth + 20; height: 28; radius: 8
-                    color: conH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.09)
-                    border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35); border.width: 1
-                    Behavior on color { ColorAnimation { duration: 100 } }
-                    Text { id: connectLbl; anchors.centerIn: parent; text: netRow.isExpanded ? "Retry" : "Connect"; font.pixelSize: theme.fs(11); font.weight: Font.Medium; color: Theme.active }
-                    HoverHandler { id: conH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            root._forgetSsid = ""
-                            if (netRow.isExpanded && passInput.text !== "") {
-                                if (netRow.net.enterprise) {
-                                    if (userInput.text !== "")
-                                        root._connectEnterprise(netRow.net.ssid, userInput.text, passInput.text)
-                                } else {
-                                    root._connectWithPassword(netRow.net.ssid, passInput.text)
-                                }
-                            } else {
-                                root._connectFirst(netRow.net.ssid)
-                            }
-                        }
-                    }
+                    width: connectLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
+                    hitMargin: 2
+                    activeFocusOnTab: netRow.keyed || netRow.open
+                    Accessible.name: (netRow.isExpanded ? "Retry " : "Connect to ") + netRow.net.ssid
+                    // The button goes once the row connects; the keys go back to the list
+                    // (a row that asks for a password takes them for its field instead).
+                    onActivated: { netRow.primary(); flick.forceActiveFocus() }
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: conBtn.tint(Theme.surfaceHigh); Behavior on color { MotionColor {} } }
+                    Text { id: connectLbl; anchors.centerIn: parent; text: netRow.isExpanded ? "Retry" : "Connect"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
+                    ApexFocusRing { target: conBtn }
                 }
             }
         }
@@ -471,7 +550,7 @@ Item {
             anchors { top: baseRow.bottom; left: parent.left; right: parent.right }
             clip: true
             height: netRow.isForgetPending ? forgetRow.implicitHeight + 16 : netRow.isExpanded ? passRow.implicitHeight + 16 : 0
-            Behavior on height { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+            Behavior on height { MotionMove { role: "surfaceEnterSmall" } }
 
             Item {
                 id: forgetRow
@@ -479,28 +558,38 @@ Item {
                 implicitHeight: 32
                 opacity: netRow.isForgetPending ? 1 : 0
                 visible: opacity > 0
-                Behavior on opacity { NumberAnimation { duration: 150 } }
+                Behavior on opacity { MotionFade {} }
                 Rectangle {
                     anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                     radius: 8; color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.07)
                     border.color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.22); border.width: 1
                     Row {
                         anchors.centerIn: parent; spacing: 12
-                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Forget this network?"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.55) }
-                        Rectangle {
-                            width: 54; height: 24; radius: 6; color: cfH.hovered ? Qt.rgba(1,1,1,0.09) : Qt.rgba(1,1,1,0.04)
-                            Behavior on color { ColorAnimation { duration: 80 } }
-                            Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.fs(10); color: Qt.rgba(1,1,1,0.45) }
-                            HoverHandler { id: cfH; cursorShape: Qt.PointingHandCursor }
-                            MouseArea { anchors.fill: parent; onClicked: root._forgetSsid = "" }
+                        Text { anchors.verticalCenter: parent.verticalCenter; text: "Forget this network?"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
+                        ApexPressable {
+                            id: cfBtn
+                            width: cfLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS; hitMargin: 2
+                            Accessible.name: "Keep " + netRow.net.ssid
+                            onActivated: { root._forgetSsid = ""; forBtn.forceActiveFocus() }
+                            Rectangle { anchors.fill: parent; radius: parent.radius; color: cfBtn.tint(Theme.surfaceHigh); Behavior on color { MotionColor {} } }
+                            Text { id: cfLbl; anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
+                            ApexFocusRing { target: cfBtn }
                         }
-                        Rectangle {
-                            width: 54; height: 24; radius: 6
-                            color: ffH.hovered ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.35) : Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18)
-                            Behavior on color { ColorAnimation { duration: 80 } }
-                            Text { anchors.centerIn: parent; text: "Forget"; font.pixelSize: theme.fs(10); font.weight: Font.Medium; color: Theme.danger }
-                            HoverHandler { id: ffH; cursorShape: Qt.PointingHandCursor }
-                            MouseArea { anchors.fill: parent; onClicked: root._forget(netRow.net.ssid) }
+                        // The one destructive action in this pane — Theme.dangerFill,
+                        // matching every other confirm-to-delete button in the shell.
+                        ApexPressable {
+                            id: ffBtn
+                            width: ffLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS; hitMargin: 2
+                            Accessible.name: "Forget " + netRow.net.ssid
+                            onActivated: { root._forget(netRow.net.ssid); flick.forceActiveFocus() }
+                            Rectangle { anchors.fill: parent; radius: parent.radius; color: Theme.dangerFill }
+                            Rectangle {
+                                anchors.fill: parent; radius: parent.radius; color: Theme.dangerFillHover
+                                opacity: ffBtn.hovered || ffBtn.pressed ? 1 : 0
+                                Behavior on opacity { MotionFade {} }
+                            }
+                            Text { id: ffLbl; anchors.centerIn: parent; text: "Forget"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.fixedLight }
+                            ApexFocusRing { target: ffBtn }
                         }
                     }
                 }
@@ -512,7 +601,7 @@ Item {
                 implicitHeight: netRow.net.enterprise ? 80 : 40
                 opacity: netRow.isExpanded ? 1 : 0
                 visible: opacity > 0
-                Behavior on opacity { NumberAnimation { duration: 150 } }
+                Behavior on opacity { MotionFade {} }
                 Column {
                     anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                     spacing: 8
@@ -523,13 +612,14 @@ Item {
                         // undefined to a bool is a hard warning.
                         visible: netRow.net?.enterprise ?? false
                         width: parent.width; height: visible ? 32 : 0; radius: 8
-                        color: Qt.rgba(1,1,1,0.06)
-                        border.color: userInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55) : Qt.rgba(1,1,1,0.12)
-                        border.width: 1; Behavior on border.color { ColorAnimation { duration: 120 } }
+                        color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
+                        border.color: userInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12)
+                        border.width: 1; Behavior on border.color { MotionColor { role: "state" } }
                         Text { anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
-                        text: "Username…"; font.pixelSize: theme.fs(12); color: Qt.rgba(1,1,1,0.22); visible: userInput.text === "" }
+                        text: "Username…"; font.pixelSize: theme.fs(12); color: Theme.textTertiary; visible: userInput.text === "" }
                         TextInput {
                             id: userInput
+                            activeFocusOnTab: true
                             anchors { left: parent.left; leftMargin: 10; right: parent.right; rightMargin: 10; top: parent.top; bottom: parent.bottom }
                             verticalAlignment: TextInput.AlignVCenter; color: Theme.text; font.pixelSize: theme.fs(12)
                             selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35); clip: true
@@ -538,13 +628,14 @@ Item {
                     }
                     Rectangle {
                         width: parent.width; height: 32; radius: 8
-                        color: Qt.rgba(1,1,1,0.06)
-                        border.color: passInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55) : Qt.rgba(1,1,1,0.12)
-                        border.width: 1; Behavior on border.color { ColorAnimation { duration: 120 } }
+                        color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
+                        border.color: passInput.activeFocus ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12)
+                        border.width: 1; Behavior on border.color { MotionColor { role: "state" } }
                         Text { anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
-                        text: "Password…"; font.pixelSize: theme.fs(12); color: Qt.rgba(1,1,1,0.22); visible: passInput.text === "" }
+                        text: "Password…"; font.pixelSize: theme.fs(12); color: Theme.textTertiary; visible: passInput.text === "" }
                         TextInput {
                             id: passInput
+                            activeFocusOnTab: true
                             // Updated anchors to make room for the eye button
                             anchors { left: parent.left; leftMargin: 10; right: eyeBtn.left; rightMargin: 6; top: parent.top; bottom: parent.bottom }
                             verticalAlignment: TextInput.AlignVCenter; color: Theme.text; font.pixelSize: theme.fs(12)
@@ -562,19 +653,21 @@ Item {
                         }
 
                         // Added Show Password Button
-                        Item {
+                        ApexPressable {
                             id: eyeBtn
                             anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                            width: 28; height: 28
-                            Rectangle { anchors.fill: parent; radius: 6; color: eyeH.hovered ? Qt.rgba(1,1,1,0.08) : "transparent" }
+                            width: 28; height: 28; radius: 6; hitMargin: 2
+                            focusOnPress: false
+                            Accessible.name: netRow._showPass ? "Hide password" : "Show password"
+                            onActivated: netRow._showPass = !netRow._showPass
+                            Rectangle { anchors.fill: parent; radius: parent.radius; color: eyeBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : "transparent" }
                             Text { 
                                 anchors.centerIn: parent
                                 text: netRow._showPass ? "" : ""
                                 font.pixelSize: theme.fs(13)
-                                color: netRow._showPass ? Theme.active : Qt.rgba(1,1,1,0.28) 
+                                color: netRow._showPass ? Theme.active : Theme.textTertiary 
                             }
-                            HoverHandler { id: eyeH; cursorShape: Qt.PointingHandCursor }
-                            MouseArea { anchors.fill: parent; onClicked: netRow._showPass = !netRow._showPass }
+                            ApexFocusRing { target: eyeBtn }
                         }
                     }
                 }
@@ -603,64 +696,94 @@ Item {
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                 spacing: 8
 
-                Rectangle {
+                // Header icon trio — borderless, state layer only (UI/UX Phase 17)
+                ApexPressable {
+                    id: pwrBtn
                     width: 32; height: 32; radius: 8
-                    color: wfPwrH.hovered ? (root._wifiEnabled ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.18) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)) : Qt.rgba(1,1,1,0.04)
-                    border.color: root._wifiEnabled ? Qt.rgba(1,1,1,0.10) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30)
-                    border.width: 1
-                    Behavior on color        { ColorAnimation { duration: 120 } }
-                    Behavior on border.color { ColorAnimation { duration: 120 } }
-                    Text { anchors.centerIn: parent; text: "⏻"; font.pixelSize: theme.fs(14); color: root._wifiEnabled ? (wfPwrH.hovered ? Theme.danger : Qt.rgba(1,1,1,0.32)) : Theme.active; Behavior on color { ColorAnimation { duration: 120 } } }
-                    HoverHandler { id: wfPwrH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent; onClicked: root._setWifiEnabled(!root._wifiEnabled) }
+                    Accessible.name: root._wifiEnabled ? "Turn Wi-Fi off" : "Turn Wi-Fi on"
+                    onActivated: root._setWifiEnabled(!root._wifiEnabled)
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: pwrBtn.stateLayer() }
+                    Text {
+                        anchors.centerIn: parent; text: "⏻"; font.pixelSize: theme.fs(14)
+                        // Genuine state colour: accent while off (inviting it back on),
+                        // a hover preview of the disable while on.
+                        color: !root._wifiEnabled ? Theme.active : pwrBtn.hovered ? Theme.danger : Theme.iconDefault
+                        Behavior on color { MotionColor { role: "state" } }
+                    }
+                    ApexFocusRing { target: pwrBtn }
                 }
 
-                Rectangle {
+                ApexPressable {
+                    id: setBtn
                     width: 32; height: 32; radius: 8
-                    color: settH.hovered ? Qt.rgba(1,1,1,0.09) : Qt.rgba(1,1,1,0.03)
-                    border.color: Qt.rgba(1,1,1,0.10); border.width: 1; Behavior on color { ColorAnimation { duration: 100 } }
-                    Text { anchors.centerIn: parent; text: "󰒓"; font.pixelSize: theme.fs(14); color: settH.hovered ? Qt.rgba(1,1,1,0.75) : Qt.rgba(1,1,1,0.30); Behavior on color { ColorAnimation { duration: 100 } } }
-                    HoverHandler { id: settH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea { anchors.fill: parent; onClicked: { nmtuiProc.running = false; nmtuiProc.running = true } }
+                    Accessible.name: "Network settings in a terminal"
+                    onActivated: { nmtuiProc.running = false; nmtuiProc.running = true }
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: setBtn.stateLayer() }
+                    Text { anchors.centerIn: parent; text: "󰒓"; font.pixelSize: theme.fs(14); color: setBtn.hovered ? Theme.textPrimary : Theme.iconDefault; Behavior on color { MotionColor {} } }
+                    ApexFocusRing { target: setBtn }
                 }
 
-                Rectangle {
+                ApexPressable {
+                    id: rfBtn
                     width: 32; height: 32; radius: 8
-                    color: rfH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15) : Qt.rgba(1,1,1,0.05)
-                    border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28); border.width: 1
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    interactive: root._wifiEnabled
+                    Accessible.name: "Scan for networks"
+                    onActivated: if (!root._scanning) root._scan(true)
+                    Rectangle { anchors.fill: parent; radius: parent.radius; color: rfBtn.stateLayer() }
                     Text {
                         id: rfIcon; anchors.centerIn: parent; text: "󰑐"; font.pixelSize: theme.fs(15)
-                        color: root._scanning ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4) : (root._wifiEnabled ? Theme.active : Qt.rgba(1,1,1,0.18))
-                        Behavior on color { ColorAnimation { duration: 150 } }
-                        RotationAnimator { target: rfIcon; from: 0; to: 360; duration: 900; loops: Animation.Infinite; running: root._scanning; easing.type: Easing.Linear }
+                        // Genuine state colour: dimmed accent while the spin runs.
+                        color: root._scanning ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4) : (rfBtn.hovered ? Theme.textPrimary : Theme.iconDefault)
+                        Behavior on color { MotionColor { role: "state" } }
+                        RotationAnimator { target: rfIcon; from: 0; to: 360; duration: Motion.spinPeriod; loops: Animation.Infinite; running: root._scanning && Motion.loops; easing.type: Easing.Linear }
                     }
-                    HoverHandler { id: rfH; cursorShape: root._wifiEnabled ? Qt.PointingHandCursor : Qt.ArrowCursor }
-                    MouseArea { anchors.fill: parent; onClicked: if (!root._scanning && root._wifiEnabled) root._scan(true) }
+                    ApexFocusRing { target: rfBtn }
                 }
             }
         }
 
-        Rectangle { width: parent.width; height: 1; color: Qt.rgba(1,1,1,0.07) }
+        Rectangle { width: parent.width; height: 1; color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) }
         Item      { width: parent.width; height: 8 }
 
         Flickable {
             id: flick; width: parent.width; height: parent.height - 49
             contentWidth: width; contentHeight: contentCol.height; clip: true; boundsBehavior: Flickable.StopAtBounds
+            activeFocusOnTab: root._rowSsids.length > 0
+            Accessible.role: Accessible.List
+            Accessible.name: "Wi-Fi networks"
+            onActiveFocusChanged: if (activeFocus && root._rowSsids.indexOf(root._curSsid) < 0) root._stepRow(1)
+            Keys.onPressed: function (event) {
+                if      (event.key === Qt.Key_Down) root._stepRow(1)
+                else if (event.key === Qt.Key_Up)   root._stepRow(-1)
+                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                    const row = root._rowFor(root._curSsid)
+                    if (row) row.primary()
+                } else return
+                event.accepted = true
+                // Keep the highlighted row in view.
+                const r = root._rowFor(root._curSsid)
+                if (r) {
+                    const top = r.mapToItem(contentCol, 0, 0).y
+                    if (top < flick.contentY) flick.contentY = top
+                    else if (top + r.height > flick.contentY + flick.height)
+                        flick.contentY = top + r.height - flick.height
+                }
+            }
             Column {
                 id: contentCol; width: flick.width; height: implicitHeight; spacing: 4
 
                 Item { width: parent.width; height: visible ? sLbl1.implicitHeight + 4 : 0; visible: root._current !== null
-                    Text { id: sLbl1; text: "CONNECTED"; font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2; color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5) } }
+                    SectionLabel { id: sLbl1; text: "CONNECTED" } }
 
-                NetworkRow { visible: root._current !== null; width: parent.width - 2; x: 1; net: root._current ?? { ssid: "", signal: 0, secured: false, inUse: true }; isCurrent: true }
+                NetworkRow { id: currentRow; visible: root._current !== null; width: parent.width - 2; x: 1; net: root._current ?? { ssid: "", signal: 0, secured: false, inUse: true }; isCurrent: true }
 
                 Item { width: parent.width; height: 10; visible: root._current !== null && root._available.length > 0 }
 
                 Item { width: parent.width; height: visible ? sLbl2.implicitHeight + 4 : 0; visible: root._available.length > 0
-                    Text { id: sLbl2; text: "AVAILABLE"; font.pixelSize: theme.fs(9); font.weight: Font.Bold; font.letterSpacing: 1.2; color: Qt.rgba(1,1,1,0.25) } }
+                    SectionLabel { id: sLbl2; text: "AVAILABLE" } }
 
                 Repeater {
+                    id: availRows
                     model: root._available
                     delegate: NetworkRow { required property var modelData; width: contentCol.width - 2; x: 1; net: modelData; isCurrent: false }
                 }
@@ -668,9 +791,13 @@ Item {
                 Item {
                     width: parent.width; height: 160
                     visible: !root._scanning && root._networks.length === 0 && root._wifiEnabled
-                    Column { anchors.centerIn: parent; spacing: 10
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰤭"; font.pixelSize: theme.fs(34); color: Qt.rgba(1,1,1,0.08) }
-                        Text { anchors.horizontalCenter: parent.horizontalCenter; text: "No networks found"; font.pixelSize: theme.fs(12); color: Qt.rgba(1,1,1,0.2) } }
+                    // The shared empty state (UI/UX Phase 17).
+                    EmptyState {
+                        anchors.centerIn: parent; width: parent.width * 0.8
+                        glyph: "󰤭"
+                        title: "No networks found"
+                        hint: "Nothing in range. Scan again from the header."
+                    }
                 }
 
                 Item {
@@ -700,20 +827,25 @@ Item {
 
         Column {
             anchors.centerIn: parent; spacing: 16
-            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰤭"; font.pixelSize: theme.fs(42); color: Qt.rgba(1,1,1,0.12) }
-            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Wi-Fi is off"; font.pixelSize: theme.fs(14); font.weight: Font.Medium; color: Qt.rgba(1,1,1,0.30) }
-            Rectangle {
+            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰤭"; font.pixelSize: theme.fs(42); color: Theme.outlineStrong }
+            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Wi-Fi is off"; font.pixelSize: theme.fs(14); font.weight: Font.Medium; color: Theme.textTertiary }
+            ApexPressable {
+                id: onBtn
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: wfEnRow.implicitWidth + 24; height: 34; radius: 17
-                color: wfEnH.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12)
+                Accessible.name: "Turn Wi-Fi on"
+                onActivated: root._setWifiEnabled(true)
+              Rectangle {
+                anchors.fill: parent; radius: parent.radius
+                color: onBtn.hovered ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.22) : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12)
                 border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40); border.width: 1
-                Behavior on color { ColorAnimation { duration: 120 } }
+                Behavior on color { MotionColor {} }
+              }
                 Row { id: wfEnRow; anchors.centerIn: parent; spacing: 8
                     Text { anchors.verticalCenter: parent.verticalCenter; text: "󰤨"; font.pixelSize: theme.fs(14); color: Theme.active }
                     Text { anchors.verticalCenter: parent.verticalCenter; text: "Turn On"; font.pixelSize: theme.fs(12); font.weight: Font.Medium; color: Theme.active }
                 }
-                HoverHandler { id: wfEnH; cursorShape: Qt.PointingHandCursor }
-                MouseArea { anchors.fill: parent; onClicked: root._setWifiEnabled(true) }
+                ApexFocusRing { target: onBtn }
             }
         }
     }

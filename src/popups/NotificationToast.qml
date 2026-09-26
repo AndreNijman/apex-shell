@@ -1,58 +1,45 @@
 import QtQuick
-import Quickshell
-import Quickshell.Wayland
 import Quickshell.Services.Notifications
-import "../shapes/"
 import "../services/"
 import "../"
 
-PopupWindow {
+// ─────────────────────────────────────────────────────────────────────────────
+// NotificationToast — one notification at a time, under the right notch.
+//
+// A pane of RightPanel (RIGHT_POUR), which draws the body and reveals this at
+// its finished layout; `showing` is what asks the bar's right clock to open for
+// it (RightPanel pushes it to TopBar.rightToastShowing, per screen). The queue
+// logic is unchanged from when this was its own window: one card, the rest
+// queued, identity deciding whether a delivery is new.
+//
+// Two rules are new with the shared surface:
+//   * it does not show while the network panel or the notification centre is
+//     up (`blocked`) — the body is theirs — and a toast on screen when one of
+//     them opens is dismissed; opening the centre drops the queue as well,
+//     since the centre lists every one of them;
+//   * the next queued toast waits for the surface to have finished closing
+//     (`surfaceIdle`) rather than for a timer's guess at how long that takes.
+// ─────────────────────────────────────────────────────────────────────────────
+Item {
 	id: root
-    // MEASURED: a PopupWindow's own `screen` is NOT the one it is
 
-    // anchored to. On two headless outputs the popup anchored to the
-
-    // bar on the 3840x2160 output reported the 1920x1080 one and
-
-    // would have been sized at 1.0 — silently, on the monitor the
-
-    // global factor was never for. The anchor window is given its
-
-    // screen by shell.qml, so it is the one that knows.
-
-    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForScreen(root.anchorWindow ? root.anchorWindow.screen : null) }
-
-
-	required property var anchorWindow
+	property ThemeSet theme: ThemeSet {}
 
 	readonly property int toastWidth: theme.notificationToastWidth
 	readonly property int fw: theme.notchRadius
-	readonly property int fh: theme.notchRadius
 
-	implicitWidth:  toastWidth + fw
-	implicitHeight: 180
+	// The body's finished size (W1 - the notch radius the pour adds, and D1).
+	width:  toastWidth + fw
+	readonly property int bodyHeight: cardCol.y + cardCol.implicitHeight + 24
 
-	// Standardised pill-popup anchor (same as NotificationsPopup): the window
-	// top sits at the pill's bottom edge; Edges.Bottom grows downward centred
-	// on the anchor point, so the point is the desired card centre-x — the
-	// card's right edge lands flush at the screen edge.
-	anchor.window: root.anchorWindow
-	anchor.rect: Qt.rect(
-		root.anchorWindow.width - root.implicitWidth / 2,
-		theme.notchHeight,
-		0,
-		0
-	)
-	anchor.gravity:    Edges.Bottom
-	anchor.adjustment: PopupAdjustment.None
+	// Set by RightPanel.
+	property bool blocked:     false
+	property bool surfaceIdle: true
 
-	color:   "transparent"
-	visible: windowVisible
-
-	property bool windowVisible: false
 	property bool showing:       false
 	property var  current:       null
 	property var  queue:         []
+	property bool _advancePending: false
 
 	// Called by LazyPopup right after this window is built. The notification
 	// that caused the build was announced before this object existed, so take
@@ -74,7 +61,9 @@ PopupWindow {
 			// second delivery of the same thing — it showed twice, five seconds
 			// apart. Identity decides, so either path may run first.
 			if (n === root.current || root.queue.indexOf(n) !== -1) return
-			if (root.current === null) {
+			// The centre is open and lists it; a toast afterwards would repeat it.
+			if (Popups.notificationsOpen) return
+			if (root.current === null && !root.blocked && !root._advancePending) {
 				root.startShow(n)
 			} else {
 				root.queue = [...root.queue, n]
@@ -85,22 +74,50 @@ PopupWindow {
 	function startShow(n) {
 		root.current       = n
 		root.showing       = false
-		root.windowVisible = true
 		slideInTimer.restart()
 		Popups.notificationToastOpen = false
 	}
 
 	function startDismiss() {
 		autoTimer.stop()
+		slideInTimer.stop()
 		root.showing = false
 		Popups.notificationToastOpen = false
-		slideOutTimer.restart()
+		root._advancePending = true
+		root._advance()
+	}
+
+	// The next toast, once the surface this one was on has actually gone.
+	function _advance() {
+		if (!root._advancePending || !root.surfaceIdle || root.blocked) return
+		root._advancePending = false
+		// A queued notification its sender (or the centre) has closed since it
+		// was queued is gone: it must not toast. Measured by
+		// tests/visual/stress-matrix.sh — a burst of 12, closed at once by
+		// their sender, went on toasting one by one for a minute.
+		const live = root.queue.filter(function (q) { return q && q.tracked })
+		if (live.length > 0) {
+			root.queue = live.slice(1)
+			root.startShow(live[0])
+		} else {
+			root.queue = []
+			root.current = null
+		}
+	}
+	onSurfaceIdleChanged: root._advance()
+	onBlockedChanged: {
+		if (root.blocked) {
+			if (Popups.notificationsOpen) root.queue = []
+			if (root.current !== null) root.startDismiss()
+		} else {
+			root._advance()
+		}
 	}
 
 	Connections {
 		target:               root.current
 		ignoreUnknownSignals: true
-		function onClosed() { root.startDismiss() }
+		function onClosed() { if (root.current !== null && !root._advancePending) root.startDismiss() }
 	}
 
 	Timer {
@@ -115,47 +132,14 @@ PopupWindow {
 		onTriggered: root.startDismiss()
 	}
 
-	Timer {
-		id:       slideOutTimer
-		interval: Theme.animDuration + 20
-		onTriggered: {
-			if (root.queue.length > 0) {
-				const next = root.queue[0]
-				root.queue = root.queue.slice(1)
-				root.startShow(next)
-			} else {
-				root.current       = null
-				root.windowVisible = false
-			}
-		}
-	}
-
 	// ── Card ───────────────────────────────────────────────────
+	// At its finished size; RightPanel's body is the card's silhouette.
 	Item {
 		id:            card
 		anchors.right: parent.right
 		anchors.top:   parent.top
-		clip:           true
-
-
-		width: root.showing
-		? root.toastWidth + root.fw
-		: root.fw
-
-		height: root.showing
-		? (cardCol.y + cardCol.implicitHeight + 24)
-		: 0
-
-		Behavior on width  { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
-		Behavior on height { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
-
-		// Flush-top card merging into the pill above (S-waist at the left join)
-		PopupShape {
-			anchors.fill: parent
-			attachedEdge: "pill-right"
-			color:        Theme.background
-			radius:       theme.cornerRadius
-		}
+		width:         root.width
+		height:        root.bodyHeight
 
 		Rectangle {
 			anchors {
@@ -163,35 +147,31 @@ PopupWindow {
 				top:          parent.top
 				bottom:       parent.bottom
 				topMargin:    12
-				bottomMargin: 12
+				// Clear of the fillet the body melts into the strip with: at 12
+				// the accent and the progress bar met in an L at that corner.
+				bottomMargin: 22
 				rightMargin:  10
 			}
 			width:  3
 			radius: 2
-			// Same urgency accent as NotificationList's card, deliberately: one
-			// notification is shown by both surfaces, first as a toast and then in
-			// the list, and they used to disagree about it. Critical and Low always
-			// matched; normal urgency was #ABB2BF here and Theme.active there, so
-			// the accent bar changed colour as the toast expired.
-			color: {
-				if (!root.current) return Theme.active
-				switch (root.current.urgency) {
-					case NotificationUrgency.Critical: return Theme.danger
-					case NotificationUrgency.Low:      return Qt.rgba(1,1,1,0.25)
-					default:                           return Theme.active
-				}
-			}
+			// The same urgency statement as NotificationList's card, deliberately:
+			// one notification is shown by both, first as a toast and then in the
+			// list. Since UI/UX Phase 17i the card marks Critical alone (a danger
+			// tint) and Normal and Low not at all, so the toast does too: the bar
+			// shows for Critical only. It used to draw for every notification, in
+			// the accent for Normal, which the card no longer says.
+			visible: !!root.current && root.current.urgency === NotificationUrgency.Critical
+			color:   Theme.danger
 		}
 
+		// No fade of its own: the panel's content channel carries it in and out.
 		Item {
 			anchors.fill: parent
-			opacity: root.showing ? 1 : 0
-			Behavior on opacity { NumberAnimation { duration: 150 } }
 			Rectangle {
 				id: progressBar
 				anchors {
 					right:       parent.right
-					rightMargin: 14
+					rightMargin: 26
 					bottom:      cardCol.bottom
 					bottomMargin: -10
 				}
@@ -203,7 +183,7 @@ PopupWindow {
 				property bool running: false
 
 				// Use toastWidth so the bar stays within the visible body, not the flare
-				width: running ? 0 : root.toastWidth - 10
+				width: running ? 0 : root.toastWidth - 22
 				Behavior on width {
 					enabled: progressBar.running
 					NumberAnimation { duration: 5000; easing.type: Easing.Linear }
@@ -269,7 +249,7 @@ PopupWindow {
 						Rectangle {
 							anchors.fill: parent
 							radius:       width / 2
-							color:        Qt.rgba(1,1,1,0.1)
+							color:        Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
 							visible:      toastIcon.status !== Image.Ready
 							Text {
 								anchors.centerIn: parent
@@ -297,8 +277,8 @@ PopupWindow {
 						Rectangle {
 							anchors.fill: parent
 							radius:       width / 2
-							color:        xHover.containsMouse ? Qt.rgba(1,1,1,0.12) : "transparent"
-							Behavior on color { ColorAnimation { duration: 100 } }
+							color:        xHover.containsMouse ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12) : "transparent"
+							Behavior on color { MotionColor {} }
 						}
 						Text {
 							anchors.centerIn: parent
@@ -350,9 +330,9 @@ PopupWindow {
 								anchors.fill: parent
 								radius:       4
 								color:        actHover.containsMouse
-								? Qt.rgba(1,1,1,0.18)
-								: Qt.rgba(1,1,1,0.08)
-								Behavior on color { ColorAnimation { duration: 100 } }
+								? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.18)
+								: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
+								Behavior on color { MotionColor {} }
 							}
 							Text {
 								id:               actionLbl

@@ -6,6 +6,7 @@ import Quickshell.Io
 import Quickshell.Hyprland
 import "../../"
 import "boxes.js" as Boxes
+import "hyprMotion.js" as HyprMotion
 
 // ─── HyprlandBackend ──────────────────────────────────────────────────────────
 // CompositorService's Hyprland adapter. Loaded by URL and only on Hyprland, so
@@ -92,7 +93,8 @@ QtObject {
         tilingLayout:         true,
         keyboardInterception: true,
         screenShader:         true,
-        nightLight:           true
+        nightLight:           true,
+        motion:               true
     })
 
     property bool windowsWanted: false
@@ -310,12 +312,21 @@ QtObject {
                 root.specialWorkspaceOpen = String(event.data).split(",")[0] !== ""
             else if (event.name === "destroyworkspace")
                 root.specialWorkspaceOpen = false
+            // A reload restores the config's own motion and drops every rule
+            // declared at runtime: read the motion again, re-declare the rules.
+            else if (event.name === "configreloaded") {
+                root._motionReread()
+                root._pushLayerRules()
+            }
         }
     }
 
     Component.onCompleted: {
         root._refreshTitle()
         root._refreshWindows()
+        // The provider may already be known (config_Provider.json read before
+        // this backend was built), in which case on_LuaChanged never fires.
+        if (root._lua) root._pushLayerRules()
 
         // One one-shot probe at startup, `hyprctl getoption`. It used to run
         // from QuickSettings.Component.onCompleted instead, so the fork
@@ -326,6 +337,100 @@ QtObject {
         // probe is the facade's, for every compositor at once.
         root.refreshScreenShader()
     }
+
+    // ── Motion (UI/UX roadmap v3 Phase 21) ────────────────────────────────────
+    // The shell's speed and Reduce Motion, applied to Hyprland's animations. The
+    // numbers are Hyprland's own (hyprMotion.js reads them back and scales
+    // them), so apex-os appearance.lua stays the one place they are written.
+    //
+    // A shell restart finds its own previous push in Hyprland and must not
+    // scale it again: what was pushed, and from what base, is kept per Hyprland
+    // instance in $XDG_RUNTIME_DIR, and trusted only while the live table is
+    // still exactly that push. Lua configs only — `keyword` cannot write
+    // animations there, and the hyprlang path is the pre-0.55 config.
+    property real _mScale:   1
+    property bool _mReduced: false
+    property bool _mWanted:  false
+    property var  _mBase:    null
+    readonly property string _mSig: Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE") || ""
+
+    function syncMotion(scale, reduced) {
+        root._mScale = scale
+        root._mReduced = reduced
+        root._mWanted = true
+        if (!root._lua) return          // kept: the provider probe answers later
+        if (root._mBase === null) root._motionReread()
+        else                      root._motionPush()
+    }
+    // configProvider is probed asynchronously and reads "conf" until it
+    // answers, so the first request can arrive before `_lua` is true.
+    on_LuaChanged: {
+        if (root._lua && root._mWanted) root._motionReread()
+        if (root._lua) root._pushLayerRules()
+    }
+
+    // ── The shell's own layers are not the compositor's to animate ──────────
+    // Every shell surface animates itself — a bloom out of the notch, a pour,
+    // a spill, a toast — through SurfaceLifecycle, and at progress 0 each one
+    // coincides exactly with the bar it grows from, so mapping it is invisible.
+    // Hyprland does not know that: on the stock tree every layer that maps is
+    // run through `fadeLayersIn` (inherits `fade`, 400 ms) and its unmap through
+    // `fadeLayersOut`. Measured in a nested 0.56.2 (UI/UX Phase 20): 66–90 % of
+    // the network panel was a translucent blend 240–345 ms into its open — the
+    // body "pops in" half-transparent instead of growing out of the notch, and
+    // keeps fading after it has stopped. On Andre's L16 today the tree is stock
+    // (`hyprctl -j animations`: fade 4 ds `ease`), so every open looked like it.
+    //
+    // apex-os carries the same rule in appearance.lua (feat/hypr-motion) for
+    // the next image; the shell declares it too, at start and after every
+    // config reload (which drops runtime rules), so it holds on any Hyprland
+    // the shell runs under, whatever that config is. Named, so a user can find
+    // it (`require` cannot reach it, but `hyprctl eval` of a rule with the same
+    // name and no_anim = false turns it off). Lua configs only: a hyprlang
+    // `keyword layerrule` is the pre-0.55 path this shell no longer ships.
+    readonly property string _layerRulesLua:
+        'hl.layer_rule({ name = "apex-shell-self-animated", match = { namespace = "^quickshell$" }, no_anim = true })'
+    function _pushLayerRules() {
+        if (Quickshell.env("APEX_PACING_LOG") === "1") console.info("APEX layer rules: push, lua=" + root._lua)
+        if (root._lua) root._start(root._layerRulesProc, ["hyprctl", "eval", root._layerRulesLua])
+    }
+    property Process _layerRulesProc: Process {
+        stdout: StdioCollector { onStreamFinished: if (Quickshell.env("APEX_PACING_LOG") === "1") console.info("APEX layer rules: " + String(this.text).trim()) }
+        stderr: StdioCollector { onStreamFinished: if (String(this.text).trim() !== "") console.warn("APEX layer rules: " + String(this.text).trim()) }
+    }
+
+    function _motionReread() {
+        root._mBase = null
+        if (root._mWanted && root._lua) root._start(root._motionReadProc, ["bash", "-c",
+            'hyprctl -j animations; printf "\\n\\x1e\\n"; cat "${XDG_RUNTIME_DIR:-/tmp}/apex-shell/hypr-motion.json" 2>/dev/null'])
+    }
+
+    function _motionRead(text) {
+        const cut = text.indexOf("\n\x1e\n")
+        const live = cut < 0 ? text : text.slice(0, cut)
+        let state = null
+        try { state = cut < 0 ? null : JSON.parse(text.slice(cut + 3)) } catch (e) { state = null }
+        const base = HyprMotion.chooseBase(live, state, root._mSig)
+        if (!base) return          // unreadable: leave Hyprland as its config has it
+        root._mBase = base
+        root._motionPush()
+    }
+
+    function _motionPush() {
+        const lua = HyprMotion.plan(root._mBase, root._mScale, root._mReduced)
+        const state = JSON.stringify({ signature: root._mSig, base: root._mBase,
+                                       pushed: HyprMotion.expected(root._mBase, root._mScale, root._mReduced) })
+        // The eval and the record in one shell, argv-positional like every other
+        // write in the shell: the Lua and the JSON are data, never script.
+        root._start(root._motionPushProc, ["bash", "-c",
+            'hyprctl eval "$1" >/dev/null && d="${XDG_RUNTIME_DIR:-/tmp}/apex-shell" && mkdir -p "$d" && printf "%s" "$2" > "$d/hypr-motion.json"',
+            "--", lua, state])
+    }
+
+    property Process _motionReadProc: Process {
+        stdout: StdioCollector { onStreamFinished: root._motionRead(String(this.text)) }
+    }
+    property Process _motionPushProc: Process {}
 
     // ── Tiling layout ─────────────────────────────────────────────────────────
     // `hyprctl -j activeworkspace` reports the workspace's layout and window

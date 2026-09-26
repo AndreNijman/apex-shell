@@ -179,55 +179,35 @@ Item {
                 width:  parent.width
                 height: root.rowHeight
 
-                // Subtle alternating background
-                Rectangle {
-                    anchors.fill: parent
-                    radius:       theme.cornerRadius
-                    color:        index % 2 === 0
-                                      ? Qt.rgba(1, 1, 1, 0.04)
-                                      : "transparent"
-                }
-
-                // Key
+                // A plain key/value row on the page's content edge (UI/UX Phase
+                // 17): it was a zebra of rounded pills with an accent key and a
+                // "·" — a table dressed as a list of buttons, inside a page
+                // inside a sheet.
                 Text {
                     id: keyText
                     anchors {
                         left:           parent.left
-                        leftMargin:     10
                         verticalCenter: parent.verticalCenter
                     }
                     text:            modelData.key
-                    color:           Theme.active
-                    font.pixelSize:  theme.fs(12)
-                    font.bold:       true
+                    color:           Theme.textSecondary
+                    font.pixelSize:  theme.typeBodySmall
+                    font.weight:     Font.DemiBold
                     width:           90
                     elide:           Text.ElideRight
-                }
-
-                // Separator dot
-                Text {
-                    id: dot
-                    anchors {
-                        left:           keyText.right
-                        verticalCenter: parent.verticalCenter
-                    }
-                    text:  "·"
-                    color: Qt.rgba(1, 1, 1, 0.25)
-                    font.pixelSize: theme.fs(12)
                 }
 
                 // Value
                 Text {
                     anchors {
-                        left:           dot.right
-                        leftMargin:     6
+                        left:           keyText.right
+                        leftMargin:     theme.spaceM
                         right:          parent.right
-                        rightMargin:    10
                         verticalCenter: parent.verticalCenter
                     }
                     text:            modelData.value
-                    color:           Theme.text
-                    font.pixelSize:  theme.fs(12)
+                    color:           Theme.textPrimary
+                    font.pixelSize:  theme.typeBodySmall
                     elide:           Text.ElideRight
                 }
             }

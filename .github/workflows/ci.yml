@@ -650,6 +650,17 @@ jobs:
           # does not fail the build.
           ./tests/run-labwc-matrix-test.sh
 
+      - name: Hyprland follows the shell's motion settings, live
+        run: |
+          # The real shell in a Hyprland nested in a headless labwc: a slower
+          # shell makes a slower compositor, a shell restart does not scale its
+          # own push again, Reduce Motion switches the spatial classes off, and
+          # a hyprctl reload is followed by a fresh push. Needs labwc, Hyprland
+          # and a GPU render node; skips cleanly without them, which on this
+          # runner it does — the planning it relies on is asserted above by
+          # tests/hypr-motion-test.js.
+          ./tests/run-hypr-motion-sync-test.sh
+
       - name: Display transaction behavioural test
         run: |
           # Needs labwc, wlr-randr and the installed display engine, and skips
@@ -861,10 +872,22 @@ jobs:
 
           # Every popup wrapped in a LazyPopup that gates itself on a
           # windowVisible flag has to expose that entry point.
-          for f in NetworkPopup NotificationsPopup ClipboardPopup WallpaperPopup; do
+          for f in ClipboardPopup WallpaperPopup; do
             grep -q 'function applyOpenState' "src/popups/$f.qml" \
               || { echo "✗ src/popups/$f.qml cannot receive its first open"; fail=1; }
           done
+
+          # The right notch's panel (network, centre, toast) needs no entry
+          # point for its FLAGS: its clock is TopBar.rightLife, which reads the
+          # flags itself and starts once the panel reports it exists. The
+          # toast's trigger is not a flag, so the panel must still hand the
+          # build-time notification to its toast pane.
+          grep -q 'rightHostReady = true' src/popups/RightPanel.qml \
+            && grep -qE 'open: +root\.rightWanted !== "" && root\.rightHostReady' src/windows/TopBar.qml \
+            || { echo "✗ the right panel's clock no longer waits for the panel it drives"; fail=1; }
+          grep -q 'function applyOpenState() { toast.applyOpenState() }' src/popups/RightPanel.qml \
+            && grep -q 'function applyOpenState' src/popups/NotificationToast.qml \
+            || { echo "✗ the toast pane cannot claim the notification that built its panel"; fail=1; }
 
           # The toast's own flag is written ONLY by the toast, so gating its
           # construction on that flag alone is a deadlock: no window, so no
@@ -1484,20 +1507,181 @@ jobs:
         run: |
           ./tests/run-a11y-controls-test.sh
 
-      # How far the Reduce Motion switch actually reaches. It is a real setting
-      # with real UI and it touches 39 of this tree's 450 animation durations —
-      # the other 402 are integer literals written in place, which no switch can
-      # reach. A user who turns it on because motion makes them ill still gets
-      # 89% of the animation, and nothing said so: there was no test of this
-      # setting at all.
+      # Every animation takes its timing from the motion system (UI/UX roadmap
+      # v3, Phase 1). This began as a measurement of how little Reduce Motion
+      # reached — 41 of 453 durations, the rest literals no switch could touch —
+      # and is now the lint that keeps it whole: a literal duration needs an
+      # allowlist entry with a reason, a Motion.spatial(N) with a literal is
+      # caught as a literal in disguise, named Qt easings and the legacy single
+      # duration are ratchets that only go down, and every infinite loop must
+      # be gated on Motion.loops or Motion.ambient.
       #
       # The counts are exact and ratcheted in both directions, the way
-      # check-color-tokens.sh's EXPECT_WHITE_FG is. More literals is the
-      # regression; fewer means somebody fixed some and the constant should be
-      # tightened to lock it in; a moving total means the scanner itself
-      # changed, which is how an exact count becomes a green light for nothing.
+      # check-color-tokens.sh's EXPECT_WHITE_FG is. More is the regression;
+      # fewer means the constant should be tightened to lock it in; a moving
+      # total means the scanner itself changed.
       - name: How far Reduce Motion reaches
         run: ./tests/check-reduce-motion.sh
+
+      # Every button big enough to hit (Phase 21): the design system's
+      # hitMin (32 px) outside the bar, hitBar (24 px) the floor anywhere,
+      # counting hitMargin. Under 24 fails; the count under 32 is ratcheted.
+      - name: Every button is big enough to hit
+        run: ./tests/check-hit-targets.sh
+
+      # The motion table and its policy, in node: exits shorter than entrances,
+      # no curve overshoots, spatial tokens are 0 under Reduce Motion while
+      # effects survive capped, the legacy animDuration migrates by its ratio
+      # to 320 ms. The table lives in src/theme/motion.js so this reads the
+      # same numbers the shell does rather than a copy of them.
+      # And the spring behind every surface's body (src/theme/spring.js): it
+      # arrives and stays, overshoots by exactly the theory's amount, lands the
+      # same at any frame rate, and keeps its velocity through a reversal.
+      - name: The motion system
+        run: |
+          node tests/motion-test.js
+          node tests/spring-test.js
+
+      # The transient-surface state machine (Phase 6): a surface stays mapped
+      # until its close has actually finished, reverses from wherever it is,
+      # survives open/close spam, and opens by itself when a LazyPopup builds it
+      # already open. The real component under qmltestrunner -platform
+      # offscreen; skips here without qt6-declarative's test runner.
+      - name: The surface lifecycle
+        run: ./tests/run-surface-lifecycle-test.sh
+
+      # A value on the closed-form spring, stepped per frame (tab pills, the
+      # Nexus highlight, switch knobs, page widths, notch widths): born on its
+      # target, lands exactly, keeps its velocity through a retarget, jumps when
+      # not live. Replaced Qt's SpringAnimation, which steps at a fixed 16 ms.
+      - name: The spring follower
+        run: ./tests/run-spring-follower-test.sh
+
+      # ApexPressable & co. (UI/UX roadmap Phase 3): the press dip and its
+      # return, keyboard activation that replays it, a ring for keyboard focus
+      # and none for a pointer's, a disabled control that does nothing, and a
+      # hit target larger than the glyph.
+      - name: The shared press, hover and focus primitives
+        run: ./tests/run-controls-primitives-test.sh
+
+      # The shared tab list on the keyboard (Phase 21): the tab bar of the
+      # Dashboard, the network panel, the audio pane and the settings column
+      # is one Tab stop, moves on the arrows along its axis (reversed in a
+      # mirrored row), jumps on Home/End, rings only for keyboard focus, and
+      # a pointer click chooses without taking focus.
+      - name: The tab lists answer the keyboard
+        run: ./tests/run-keyboard-nav-test.sh
+
+      # An application's tray menu on the keyboard: the real TrayMenu on a
+      # fake StatusNotifierItem + DBusMenu (on a private bus), stepped past its
+      # separator and chosen from, with the application told the right row.
+      # Needs labwc and python3-gobject; skips cleanly without them.
+      - name: A tray menu answers the keyboard
+        run: ./tests/run-traymenu-keys-test.sh
+
+      # The Wi-Fi pane on the keyboard, against tests/lib/fake-nmcli (canned
+      # networks; changes are logged, never run): the list is one Tab stop,
+      # Return connects, Tab reaches the highlighted row's Disconnect and
+      # Forget, the Forget question answers the keyboard, and nothing else
+      # was asked of NetworkManager. Skips cleanly without labwc and wtype.
+      - name: The Wi-Fi pane answers the keyboard
+        run: ./tests/run-wifi-keys-test.sh
+
+      # The VPN, Bluetooth and hotspot panes on the same template, against
+      # fake-nmcli and fake-bluetoothctl: a tunnel dropped and raised, a
+      # device disconnected and connected, the hotspot saved — and nothing else
+      # asked of NetworkManager or BlueZ. Skips cleanly without labwc/wtype.
+      - name: The VPN, Bluetooth and hotspot panes answer the keyboard
+        run: ./tests/run-netpanes-keys-test.sh
+
+      # The notification centre and the clipboard history on the keyboard, on
+      # a private bus (the shell owns org.freedesktop.Notifications there): a
+      # card dismissed and a default action invoked, read off the bus with
+      # gdbus monitor; a history entry removed and another copied back,
+      # against fake-cliphist. Skips cleanly without labwc/wtype/gdbus.
+      - name: The notification centre and clipboard history answer the keyboard
+        run: ./tests/run-lists-keys-test.sh
+
+      # The Dashboard's Home and Tasks tabs on the keyboard, against a fake
+      # MPRIS player (tests/lib/fake-mpris.py, on headless.sh's private bus),
+      # fake-brightnessctl and fake-nmcli: Tab in reading order, play and
+      # seek, the brightness slider's steps and floor, a tile toggled; three
+      # seeded Kanban cards moved, deleted, given an urgency and a due date
+      # through the picker's day grid, read back from tasks.json — and nothing
+      # else asked of the player, the backlight, NetworkManager or BlueZ.
+      # Needs labwc, wtype and python3-gobject; skips cleanly without them.
+      - name: The Dashboard's Home and Tasks tabs answer the keyboard
+        run: ./tests/run-dashboard-keys-test.sh
+
+      # The same keys under Reduce Motion, where panels snap shut instead of
+      # collapsing over a few frames.
+      - name: The Dashboard's Home and Tasks tabs answer the keyboard (Reduce Motion)
+        run: REDUCE_MOTION=true ./tests/run-dashboard-keys-test.sh
+
+      # The Agents and Config tabs on the keyboard: the agents guide opens on
+      # its section list, keeps Tab inside it, closes on Escape alone and hands
+      # the keys back; a wallpaper applied from the Appearance strip, read off
+      # a logging awww/swww and ~/.curr_wall. Needs labwc, wtype and PIL.
+      - name: The Agents and Config tabs answer the keyboard
+        run: ./tests/run-config-agents-keys-test.sh
+
+      # The fluid surface geometry (Phases 4-5): every family swept over
+      # progress at three output scales — tangent-continuous joins, no
+      # self-intersection, no collapse mid-morph, attached to its origin
+      # throughout, progress 0 equal to the bar's notch and 1 to the finished
+      # surface, and a content clip that never leaves the body.
+      - name: The fluid surface geometry
+        run: node tests/fluid-geometry-test.js
+
+      # The surface and text roles (src/theme/roles.js) against every palette
+      # the shell ships — six wallpapers, both matugen schemes — with the
+      # fallback rule applied and the fallbacks that fire pinned.
+      - name: Colour roles hold their contrast on every shipped palette
+        run: node tests/color-roles-test.js
+
+      # The compositor on the shell's Motion (UI/UX roadmap v3 Phase 21): the
+      # base read back from Hyprland, every declared class scaled by the
+      # shell's speed, Reduce Motion's spatial-off / effects-capped split, and
+      # a restart that must not scale its own push again. The live half is
+      # tests/run-hypr-motion-sync-test.sh, which needs a nested Hyprland.
+      - name: Hyprland follows the shell's motion settings
+        run: node tests/hypr-motion-test.js
+
+      # The lock screen's (and login screen's) password shapes: one geometric
+      # shape per character instead of bullet dots, and structurally unable to
+      # show WHICH characters. The static half: the component's inputs are a
+      # fixed list whose only secret-related one is an int length, the screen
+      # hands it passwordInput.length and nothing else, the field stays
+      # echoMode Password / mask delay 0 / passwordEdit, the placeholder waits
+      # for the shapes, and a refused attempt clears the field before the error
+      # is set — each rule proved able to fail by a mutant.
+      - name: Password shapes cannot see the password
+        run: ./tests/check-password-shapes.sh
+
+      # Who may lock the session and who may unlock it. A correct password now
+      # releases the lock a beat later (the exit plays first), so a lock asked
+      # for in that beat must CANCEL the release: every request goes through
+      # LockState.lock(), only the release writes `locked = false`, its timer
+      # checks it was not cancelled, and the IPC unlock stays a no-op — each
+      # rule proved able to fail by a mutant.
+      - name: A lock asked for during an unlock holds
+        run: ./tests/check-lock-writes.sh
+
+      # The notification centre's cards arrive and leave (STACK_REFLOW). Four
+      # Qt behaviours each turned that into cards that pop in and vanish with
+      # nothing logged — a replaced-array model, a destroyed QObject as a model
+      # value, a content-sized ListView, untargeted nested exit animations —
+      # plus a polish-time height; each avoiding construct is asserted and
+      # mutated to prove it can fail.
+      - name: Notification cards can arrive and leave
+        run: ./tests/check-notification-stack.sh
+
+      # The behavioural half under qmltestrunner -platform offscreen: one shape
+      # per character, a shape's kind fixed by its position, no two identical
+      # neighbours, a cleared field gone as one gesture, and Reduce Motion as a
+      # fade at full size.
+      - name: Password shapes behave
+        run: ./tests/run-password-shapes-test.sh
 
       # The LOCK screen, for a user who cannot see it (P2-003).
       #

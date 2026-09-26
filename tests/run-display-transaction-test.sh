@@ -45,6 +45,7 @@
 #   dialog    the whole shell — the confirmation has to be mapped on an output
 #             that is still on after an apply that turned off the one the
 #             settings window was on.
+. "$(dirname "${BASH_SOURCE[0]}")/lib/private-bus.sh"   # the session bus is ours, not the desktop's
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -338,6 +339,27 @@ else
         *HEADLESS-2*) ok "Revert brings the output back" ;;
         *)            bad "Revert left HEADLESS-2 off (on: $back)" ;;
     esac
+
+    # The same question answered from the keyboard (UI/UX Phase 21): its two
+    # buttons are real buttons now, so Tab reaches "Put it back now" (the
+    # first) and Return presses it — and the output comes back, as it did for
+    # the IPC revert above. Skipped where wtype is not installed.
+    if command -v wtype >/dev/null 2>&1; then
+        before="$(grep -c "apex-display-confirm: shown on" "$shell_log")"
+        ipc set HEADLESS-2 enabled false >/dev/null; ipc apply >/dev/null
+        for _ in $(seq 1 80); do
+            [ "$(grep -c "apex-display-confirm: shown on" "$shell_log")" -gt "$before" ] && break
+            sleep 0.25
+        done
+        sleep 0.8
+        run wtype -k Shift_L; sleep 0.3                  # the first key of a session is lost
+        run wtype -k Tab; sleep 0.4; run wtype -k Return; sleep 2
+        back="$(run wlr-randr --json | python3 -c 'import json,sys; print(",".join(o["name"] for o in json.load(sys.stdin) if o["enabled"]))')"
+        case "$back" in
+            *HEADLESS-2*) ok "from the keyboard: Tab to \"Put it back now\", Return brings the output back" ;;
+            *)            bad "Tab, Return on the confirmation left HEADLESS-2 off (on: $back)"; ipc revert >/dev/null ;;
+        esac
+    fi
 
     kill -9 "$shell_pid" 2>/dev/null
     wait "$shell_pid" 2>/dev/null

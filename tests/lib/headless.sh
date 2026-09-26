@@ -100,7 +100,8 @@ headless_begin() {
     # `apex recover status`, hyprctl, wlr-randr, a wallpaper scan — and a suite
     # measuring rectangles has no business interrogating, or applying to, the
     # desktop somebody is using. The pages under test are the shipped files;
-    # only the machine they interrogate is a stub.
+    # only the machine they interrogate is a stub. ddcutil too: with no
+    # backlight, a brightness key drives the first external monitor over DDC.
     mkdir -p "$HEADLESS_W/bin"
     cat > "$HEADLESS_W/bin/_stub" <<'FAKE'
 #!/usr/bin/env bash
@@ -113,7 +114,7 @@ FAKE
     chmod +x "$HEADLESS_W/bin/_stub"
     local n
     for n in apex hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
-             brightnessctl pkcheck notify-send swww systemctl loginctl; do
+             brightnessctl ddcutil pkcheck notify-send swww systemctl loginctl; do
         ln -sf "$HEADLESS_W/bin/_stub" "$HEADLESS_W/bin/$n"
     done
     cat > "$HEADLESS_W/bin/git" <<'FAKE'
@@ -162,6 +163,52 @@ FAKE
     export WLR_HEADLESS_OUTPUTS=1
     export XDG_SESSION_TYPE=wayland
     export QT_QPA_PLATFORM=wayland
+
+    # A private session bus. A private XDG_RUNTIME_DIR does not move the bus:
+    # DBUS_SESSION_BUS_ADDRESS still named the desktop's, so every shell under
+    # test saw the user's own media players, tray icons and notification name —
+    # a Tab count on the Dashboard changed with whether music was open, and a
+    # Space on the player's button would have paused it. Started after the
+    # display variables are gone, so nothing it activates can find a display.
+    # A runner already on one (APEX_CAPTURE_BUS=private, via dbus-run-session)
+    # keeps it; atspi.sh replaces this one with its own in atspi_start.
+    HEADLESS_BUS_PID=""
+    if [ "${APEX_CAPTURE_BUS:-}" != private ]; then
+        local bus
+        bus="$(dbus-daemon --session --address="unix:path=$HEADLESS_RUNTIME/bus" \
+                   --fork --nopidfile --print-address=1 --print-pid=1 2>/dev/null)"
+        if [ -n "$bus" ]; then
+            export DBUS_SESSION_BUS_ADDRESS="$(printf '%s\n' "$bus" | sed -n 1p)"
+            HEADLESS_BUS_PID="$(printf '%s\n' "$bus" | sed -n 2p)"
+        else
+            # No daemon: an address nothing listens on, never the desktop's.
+            export DBUS_SESSION_BUS_ADDRESS="unix:path=$HEADLESS_RUNTIME/no-bus"
+        fi
+    fi
+}
+
+# ── The APEX-OS default look, for every test and capture ─────────────────────
+# Andre, 2026-09-26: "use the apex default wallpaper in all tests from now on,
+# not the old brain shell wallpaper." The APEX default is apex-os
+# files/branding/wallpapers/apex-wallpaper-default.jpg (the image the first run
+# selects and the greeter shows), carried here as a fixture so CI has it; its
+# palettes are in tests/fixtures/palettes-matugen-4.2.0.json under the same
+# name. src/assets/wallpapers/apex-shell-default-0.png is upstream's "BRAIN
+# SHELL" image — not a backdrop or palette for any test.
+HEADLESS_WALLPAPER="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/fixtures/wallpapers/apex-wallpaper-default.jpg"
+
+# headless_apex_palette [dark|light] [file] — seed that palette as the shell's
+# colors.json (default: dark, $HOME/.cache/apex-shell/colors.json).
+headless_apex_palette() {
+    local mode="${1:-dark}" dest="${2:-$HOME/.cache/apex-shell/colors.json}"
+    mkdir -p "$(dirname "$dest")"
+    python3 - "$(dirname "$HEADLESS_WALLPAPER")/../palettes-matugen-4.2.0.json" "$mode" "$dest" <<'PY'
+import json, sys
+p = next(x for x in json.load(open(sys.argv[1]))["palettes"]
+         if x["wall"] == "apex-wallpaper-default.jpg" and x["mode"] == sys.argv[2])
+json.dump({k: p[k] for k in ("background", "active", "text", "subtext", "border", "iconFont")},
+          open(sys.argv[3], "w"))
+PY
 }
 
 # Give a tool back its real binary. The stubs exist so a settings page cannot
@@ -244,7 +291,7 @@ headless_start() {
         labwc)
             mkdir -p "$HEADLESS_W/cfg/labwc"
             cp "$here/labwc-test-rc.xml" "$HEADLESS_W/cfg/labwc/rc.xml" 2>/dev/null || true
-            WLR_RENDERER=pixman XDG_CONFIG_HOME="$HEADLESS_W/cfg" \
+            WLR_RENDERER="${HEADLESS_WLR_RENDERER:-pixman}" XDG_CONFIG_HOME="$HEADLESS_W/cfg" \
                 XDG_CURRENT_DESKTOP=labwc:wlroots \
                 labwc > "$HEADLESS_W/comp.log" 2>&1 &
             HEADLESS_COMP_PID=$!
@@ -253,7 +300,7 @@ headless_start() {
             : > "$HEADLESS_W/sway.cfg"
             [ -n "$mode" ] &&
                 printf 'output HEADLESS-1 mode %s\n' "$mode" > "$HEADLESS_W/sway.cfg"
-            WLR_RENDERER=pixman XDG_CURRENT_DESKTOP=sway:wlroots \
+            WLR_RENDERER="${HEADLESS_WLR_RENDERER:-pixman}" XDG_CURRENT_DESKTOP=sway:wlroots \
                 sway -c "$HEADLESS_W/sway.cfg" > "$HEADLESS_W/comp.log" 2>&1 &
             HEADLESS_COMP_PID=$!
             ;;
@@ -516,6 +563,7 @@ headless_cleanup() {
     for pid in "$HEADLESS_FILLER_PID" "$HEADLESS_NESTED_PID" "$HEADLESS_COMP_PID"; do
         [ -n "$pid" ] && kill -9 "$pid" 2>/dev/null || :
     done
+    [ -n "${HEADLESS_BUS_PID:-}" ] && kill "$HEADLESS_BUS_PID" 2>/dev/null || :
     [ -n "$HEADLESS_W" ] && rm -rf "$HEADLESS_W" || :
     return 0
 }

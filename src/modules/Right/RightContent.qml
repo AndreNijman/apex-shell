@@ -9,7 +9,8 @@ Item {
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
-    // The TopBar State handles expanding the notch for notifications/network/toasts
+    // The TopBar widens the notch for whatever pours out of it (RightPanel);
+    // this is only the notch's natural content.
     implicitWidth: contentRow.implicitWidth
 
     //Behavior on implicitWidth {
@@ -17,17 +18,18 @@ Item {
     //}
     implicitHeight: contentRow.implicitHeight
 
-    // ── Normal content — fades out when any right popup opens ─────────────────
+    // ── Status cluster ────────────────────────────────────────────────────────
+    // Right-anchored, and it stays put and visible while a right panel is open:
+    // the notch widens to the left of it, and the control that opened the
+    // panel carries the open state itself (OpenPill, brief §D.5). It used to
+    // fade out for a ▾, so the bar lost its readout exactly while the panel
+    // showed the same thing.
     Row {
         id: contentRow
         //anchors.centerIn: parent
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 6
-
-        opacity: (Popups.notificationsOpen || Popups.networkOpen) ? 0 : 1
-        visible: opacity > 0
-        Behavior on opacity { NumberAnimation { duration: 150 } }
+        spacing: theme.spaceS   // 8 within the cluster (brief §D.4)
 
         // Third-party bar widgets (roadmap §16). Leftmost in the cluster so the
         // shell's own indicators keep the positions users have muscle memory
@@ -40,16 +42,5 @@ Item {
         Battery{}
         Clock{}
         Notifications{}
-    }
-
-    // ── Open indicator — fades in when any right popup opens ──────────────────
-    Text {
-        anchors.centerIn: parent
-        text:           "▾"
-        color:          Theme.active
-        font.pixelSize: theme.fs(14)
-        opacity:        (Popups.notificationsOpen || Popups.networkOpen) ? 1 : 0
-        visible:        opacity > 0
-        Behavior on opacity { NumberAnimation { duration: 150 } }
     }
 }

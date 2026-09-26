@@ -54,8 +54,11 @@ code() { grep -vE '^\s*(//|#)' "$1" 2>/dev/null; }
 # written that way at first: their greps got empty input, and the three
 # negative ones passed because a grep of nothing matches nothing. Every check
 # that needs stripped code is therefore a named function run in THIS shell.
-page_code_has()     { code "$page" | grep -q "$1"; }
-page_code_has_not() { ! code "$page" | grep -qE "$1"; }
+# grep -c, not -q: -q exits at the first match, the writer takes SIGPIPE, and
+# under pipefail the MATCH reads as 141 — this check failed at random for that,
+# and the negated form passed at random on a match. -c reads everything.
+page_code_has()     { code "$page" | grep -c -- "$1" >/dev/null; }
+page_code_has_not() { ! code "$page" | grep -cE -- "$1" >/dev/null; }
 
 want "the behavioural suite exists and is non-empty"  test -s "$suite"
 want "its runner exists and is non-empty"             test -s "$runner"
@@ -170,9 +173,12 @@ want "the element that shows the reason wraps it and never clips it" \
 # Both spellings of the scaler: `Theme.` is the shell-wide set and `theme.` is
 # this output's (P1-040). A rule that knew only one would stop checking the file
 # the moment it was migrated — silently, which is how a guard retires itself.
+# The inset is optional: UI/UX Phase 17 put the pills on the content edge
+# (`width: parent.width`), and the rule is about the width coming from the
+# parent at all, not about the 10 px it used to leave on each side.
 want "the profile control is given a width to wrap against" \
     bash -c 'sed -n "/CfgSegmented {/,/^                }/p" "$1" \
-             | grep -qE "width:[[:space:]]+parent\.width - (Theme|theme)\.px\(20\)"' _ "$page"
+             | grep -qE "width:[[:space:]]+parent\.width([[:space:]]+-[[:space:]]+(Theme|theme)\.px\([0-9]+\))?[[:space:]]*$"' _ "$page"
 
 # ── The suite may never touch the real colour daemon ─────────────────────────
 #

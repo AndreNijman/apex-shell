@@ -116,12 +116,33 @@ QtObject {
                 console.warn("WallpaperService: " + root.configPath
                     + " exists but could not be read or parsed; leaving it and the current wallpaper alone")
             } else if (root.currentWall === "") {
-                var defaultWall = Quickshell.shellDir + "/src/assets/wallpapers/apex-shell-default-0.png"
-                root.apply(defaultWall)
+                root._applyDefault()
             } else {
                 root.rethemeIfStale()
             }
             root.refresh()
+        }
+    }
+
+    // The first wallpaper when nothing is configured: APEX-OS's own default
+    // (the image apex-shell-firstrun seeds and the greeter shows) when this is
+    // an APEX system, and the shell's bundled one only where it is not. The
+    // bundled image is the upstream fork's "BRAIN SHELL" artwork; a config
+    // that went missing on APEX should come back as APEX, not as that.
+    readonly property string _apexDefault: "/usr/share/backgrounds/apex/default.jpg"
+    function _applyDefault() {
+        root._defaultProc.running = false
+        root._defaultProc.running = true
+    }
+    property var _defaultProc: Process {
+        command: ["bash", "-c", "[ -f \"$1\" ] && printf %s \"$1\" || printf %s \"$2\"", "--",
+                  root._apexDefault,
+                  Quickshell.shellDir + "/src/assets/wallpapers/apex-shell-default-0.png"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const path = String(this.text).trim()
+                if (path !== "" && root.currentWall === "") root.apply(path)
+            }
         }
     }
 

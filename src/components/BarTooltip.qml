@@ -18,6 +18,12 @@ import "../"
 
 PopupWindow {
     id: tip
+    // Sized for the output the bar item is on. A PopupWindow's own `screen` is
+    // not the output it is anchored to (measured: tests/check-scale-tokens.sh), so the
+    // factor comes from the anchor's window.
+    readonly property ThemeSet theme: ThemeSet {
+        scale: Theme.factorForScreen(tip.anchor.window ? tip.anchor.window.screen : null)
+    }
 
     required property Item target
     property string text: ""
@@ -49,19 +55,34 @@ PopupWindow {
         onTriggered: tip._armed = true
     }
 
+    // It settles into place as it appears: 96 % → 100 % from its top edge,
+    // toward the bar item, on the spring curve (the compositor fades the popup
+    // itself in). A scale, not a slide: the surface is exactly the label's
+    // size, so any travel would be clipped at its edge.
+    property real _drop: 0
+    onVisibleChanged: if (visible) { tip._drop = 1; dropAnim.restart() }
+    NumberAnimation {
+        id: dropAnim
+        target: tip; property: "_drop"; to: 0
+        duration: Motion.surfaceEnterSmall
+        easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.springCurve
+    }
+
     Rectangle {
         anchors.fill: parent
         radius: 6
         color: Theme.background
         border.color: Theme.border
         border.width: 1
+        transformOrigin: Item.Top
+        scale: Motion.reduced ? 1 : 1 - 0.04 * tip._drop
 
         Text {
             id: label
             anchors.centerIn: parent
             text: tip.text
             color: Theme.text
-            font.pixelSize: Theme.fs(12)
+            font.pixelSize: tip.theme.fs(12)
         }
     }
 }

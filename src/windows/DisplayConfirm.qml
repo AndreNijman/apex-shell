@@ -2,6 +2,8 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import "../"
+import "../components"
+import "../components/controls"
 
 // ─── DisplayConfirm ───────────────────────────────────────────────────────────
 // The Keep / Put it back question that follows every temporary display apply.
@@ -74,13 +76,15 @@ PanelWindow {
                                   || DisplayService.confirmScreen === ""
 
     color: "transparent"
-    visible: DisplayService.pending
+    // On the dialog lifecycle (UI/UX Phase 6): mapped until its exit finishes.
+    DialogLifecycle { id: life; name: "display-confirm"; open: DisplayService.pending }
+    visible: life.mapped
 
     anchors { top: true; left: true; right: true; bottom: true }
     exclusionMode: ExclusionMode.Ignore
 
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: root.visible && root.owner
+    WlrLayershell.keyboardFocus: life.open && root.owner
                                      ? WlrKeyboardFocus.Exclusive
                                      : WlrKeyboardFocus.None
 
@@ -90,12 +94,14 @@ PanelWindow {
     Rectangle {
         anchors.fill: parent
         color: "#99000000"
+        opacity: life.scrimK()
         // Swallows clicks without dismissing. There is no "click away" answer
         // to this question: doing nothing is already an answer, and it is the
         // one that undoes your change.
         MouseArea { anchors.fill: parent }
     }
 
+    Elevation { target: card; level: "modal" }   // over its scrim (UI/UX Phase 18b)
     Rectangle {
         id: card
 
@@ -111,10 +117,16 @@ PanelWindow {
         height: col.implicitHeight + theme.px(48)
         radius: theme.notchRadius
         color:  Theme.background
-        border.color: Qt.rgba(1, 1, 1, 0.08)
+        border.color: Theme.outlineSoft   // the surface rim, as a role (UI/UX Phase 18b)
         border.width: 1
+        opacity: life.content * life.alpha
+        scale:   life.cardScale()
 
         MouseArea { anchors.fill: parent }
+
+        // Escape puts it back from a focused button too: keys climb the focused
+        // item's parents, and the catcher below is a sibling of this card.
+        Keys.onEscapePressed: DisplayService.revertApplied()
 
         Column {
             id: col
@@ -166,7 +178,7 @@ PanelWindow {
                 width:  parent.width
                 height: theme.px(4)
                 radius: height / 2
-                color:  Qt.rgba(1, 1, 1, 0.08)
+                color:  Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08)
 
                 Rectangle {
                     height: parent.height
@@ -184,36 +196,44 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: theme.px(10)
 
-                Rectangle {
+                // Real buttons (UI/UX roadmap v3 Phase 21): Tab reaches them and
+                // Return presses the one with focus. With neither focused,
+                // Return still keeps and Escape still puts back (below).
+                ApexPressable {
+                    id: revertBtn
                     width:  theme.px(160)
                     height: theme.px(38)
                     radius: theme.cornerRadius
-                    color:  revertHov.hovered ? Theme.dangerFillHover : Theme.dangerFill
+                    Accessible.name: "Put it back now"
+                    onActivated: DisplayService.revertApplied()
 
-                    Behavior on color { ColorAnimation { duration: 120 } }
-
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color:  revertBtn.hovered ? Theme.dangerFillHover : Theme.dangerFill
+                        Behavior on color { MotionColor {} }
+                    }
                     Text {
                         anchors.centerIn: parent
                         text: "Put it back now"
                         color: Theme.fixedLight
                         font.pixelSize: theme.fs(13)
                     }
-
-                    HoverHandler { id: revertHov; cursorShape: Qt.PointingHandCursor }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: DisplayService.revertApplied()
-                    }
+                    ApexFocusRing { target: revertBtn }
                 }
 
-                Rectangle {
+                ApexPressable {
+                    id: keepBtn
                     width:  theme.px(160)
                     height: theme.px(38)
                     radius: theme.cornerRadius
-                    color:  keepHov.hovered ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.09)
+                    Accessible.name: "Keep it"
+                    onActivated: DisplayService.confirm()
 
-                    Behavior on color { ColorAnimation { duration: 120 } }
-
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color:  keepBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.16) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09)
+                        Behavior on color { MotionColor {} }
+                    }
                     Text {
                         anchors.centerIn: parent
                         text: "Keep it"
@@ -221,19 +241,14 @@ PanelWindow {
                         font.pixelSize: theme.fs(13)
                         font.bold: true
                     }
-
-                    HoverHandler { id: keepHov; cursorShape: Qt.PointingHandCursor }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: DisplayService.confirm()
-                    }
+                    ApexFocusRing { target: keepBtn }
                 }
             }
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "Enter keeps it. Escape puts it back."
-                color: Qt.rgba(1, 1, 1, 0.3)
+                color: Theme.textTertiary
                 font.pixelSize: theme.fs(11)
             }
         }

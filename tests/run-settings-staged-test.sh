@@ -33,6 +33,7 @@
 #
 #  Run from the repository root: ./tests/run-settings-staged-test.sh
 # ─────────────────────────────────────────────────────────────────────────────
+. "$(dirname "${BASH_SOURCE[0]}")/lib/private-bus.sh"   # the session bus is ours, not the desktop's
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -43,7 +44,7 @@ command -v quickshell >/dev/null 2>&1 || { echo "SKIP: quickshell not installed"
 # Say what is wrong rather than letting QML report it as a missing type.
 for f in src/services/config_tab/KeybindsPage.qml \
          src/services/config_tab/KeybindService.qml \
-         src/services/config_tab/ShellConfig.qml \
+         src/nexus/SettingsHost.qml \
          src/nexus/PageRegistry.qml; do
     [[ -f "$root/$f" ]] || { echo "FAIL: this tree has no $f"; exit 1; }
 done

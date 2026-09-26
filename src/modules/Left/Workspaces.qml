@@ -104,8 +104,8 @@ Rectangle {
         scale:   root.isScratchpad ? 0.8 : 1
         visible: opacity > 0
 
-        Behavior on opacity { NumberAnimation { duration: 200 } }
-        Behavior on scale   { NumberAnimation { duration: 200 } }
+        Behavior on opacity { MotionFade {} }
+        Behavior on scale   { MotionMove { role: "surfaceEnterSmall" } }
 
         // ── Why the model is a COUNT and the entry is looked up ───────────────
         // `model: <JS array>` recreates every delegate whenever the array's
@@ -149,7 +149,10 @@ Rectangle {
 
                 height: theme.wsDotSize
                 radius: height / 2
-                width:  isFocused ? theme.wsActiveWidth : theme.wsDotSize
+                // The focused dot's width on a spring that bends toward a second
+                // workspace change mid-travel (SpringFollower).
+                width:  dotW.value
+                SpringFollower { id: dotW; target: dot.isFocused ? theme.wsActiveWidth : theme.wsDotSize }
 
                 color: {
                     if (dot.isFocused)  return Theme.wsActive
@@ -158,26 +161,28 @@ Rectangle {
                     return Theme.wsEmpty
                 }
 
-                Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
-                Behavior on color { ColorAnimation  { duration: 200 } }
+                Behavior on color { MotionColor { role: "state" } }
 
                 // --- Urgent pulse ---
                 SequentialAnimation {
-                    running: dot.isUrgent && !dot.isFocused
+                    running: dot.isUrgent && !dot.isFocused && Motion.ambient
+                    // Finish the current beat when gated off, so it rests at its
+                    // end value instead of freezing mid-fade (Reduce Motion mid-pulse).
+                    alwaysRunToEnd: true
                     loops:   Animation.Infinite
 
                     NumberAnimation {
                         target:   dot
                         property: "scale"
                         to:       1.35
-                        duration: 400
+                        duration: Motion.pulseHalf
                         easing.type: Easing.InOutSine
                     }
                     NumberAnimation {
                         target:   dot
                         property: "scale"
                         to:       1.0
-                        duration: 400
+                        duration: Motion.pulseHalf
                         easing.type: Easing.InOutSine
                     }
                 }
@@ -208,7 +213,7 @@ Rectangle {
         visible: CompositorService.can.specialWorkspace && opacity > 0
         opacity: root.isScratchpad ? 1 : 0
 
-        Behavior on opacity { NumberAnimation { duration: 200 } }
+        Behavior on opacity { MotionFade {} }
 
         Text {
             anchors.centerIn: parent

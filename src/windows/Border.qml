@@ -155,7 +155,7 @@ PanelWindow {
             }
         }
 
-        // ── Right border — hover opens AudioPopup ─────────────────────────────
+        // ── Right border — hover opens the quick controls (QuickControl) ──────
         Item {
             visible: root.edge === "right"
             anchors{
@@ -166,10 +166,7 @@ PanelWindow {
             height: 300
             HoverHandler {
                 enabled: root.edge === "right"
-                onHoveredChanged: {
-                    Popups.quickTriggerHovered = hovered  
-                    Popups.audioTriggerHovered = hovered
-                }
+                onHoveredChanged: Popups.quickTriggerHovered = hovered
             }
         }
 

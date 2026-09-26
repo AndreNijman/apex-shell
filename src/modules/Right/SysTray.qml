@@ -23,8 +23,10 @@ RowLayout {
         clip: true
         spacing: 2
 
-        Behavior on opacity { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.OutCubic } }
-        Behavior on Layout.preferredWidth { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.OutCubic } }
+        // The shell's beats (UI/UX Phase 1): the row opens like a small
+        // surface and its icons arrive on the content fade.
+        Behavior on opacity { MotionFade { role: "fadeIn" } }
+        Behavior on Layout.preferredWidth { MotionMove { role: "surfaceEnterSmall"; curve: Motion.emphasizedDecel } }
 
         Repeater {
             model: SystemTray.items
@@ -39,13 +41,15 @@ RowLayout {
                 cursorShape: Qt.PointingHandCursor
                 acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
 
-                Rectangle {
+                // No fill: in the bar the icon alone answers a hover (brief
+                // §D.6, as IconBtn does). An application's icon cannot be
+                // recoloured, so it lifts from a quieter rest instead.
+                Item {
                     anchors.fill: parent
-                    radius: 6
-                    color: trayItem.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
-                    Behavior on color { ColorAnimation { duration: 120 } }
 
                     Image {
+                        opacity: trayItem.containsMouse ? 1.0 : 0.8
+                        Behavior on opacity { MotionFade { role: "hover" } }
                         width: 16
                         height: 16
                         anchors.centerIn: parent
@@ -98,6 +102,7 @@ RowLayout {
     IconBtn {
         Layout.alignment: Qt.AlignVCenter
         text: trayRow.isOpen ? "󰅀" : "•••"
+        label: trayRow.isOpen ? "Hide tray icons" : "Show tray icons"
         onClicked: trayRow.isOpen = !trayRow.isOpen
     }
 }

@@ -32,23 +32,42 @@ Item {
     }
 
     // ── Escape closes the guide, and only the guide ───────────────────────────
-    // Dashboard.qml:262 closes the whole dashboard on Escape. Without this
-    // handler taking the key first, one press would throw away the page as well
-    // as the panel. Same shape as KanbanBoard's delete-confirm handler: an Item
-    // that grabs focus while the overlay is up and hands it back after.
-    Item {
-        id: keys
-        Keys.onEscapePressed: function (ev) {
-            if (!AgentHelp.panelOpen) return
-            AgentHelp.close()
-            ev.accepted = true
-        }
+    // Dashboard.qml:262 closes the whole dashboard on Escape. On `panel` itself
+    // (UI/UX roadmap v3 Phase 21) rather than on a sibling proxy item: the nav
+    // list and the close button are now real Tab stops INSIDE `card`, and an
+    // unhandled key only propagates up the FOCUSED item's own ancestor chain —
+    // a sibling never sees it. `panel` is the one item every focusable control
+    // in the guide sits under, so it is where this has to live.
+    Keys.onEscapePressed: function (ev) {
+        if (!AgentHelp.panelOpen) return
+        AgentHelp.close()
+        panel.closedByKey()
+        ev.accepted = true
     }
 
+    // Closed from the keyboard (Escape, or Close activated by a key): the page
+    // puts the keys back on the entry that opens the guide. A pointer close
+    // moves nothing, so no ring lights for a click.
+    signal closedByKey()
+
+    // Hidden while the Dashboard is still open: the page keeps the keys. Not
+    // when the Dashboard itself closes — it resets its own focus then, and
+    // this would undo it.
     onVisibleChanged: {
-        if (panel.visible) keys.forceActiveFocus()
-        else if (panel.parent) panel.parent.forceActiveFocus()
+        if (panel.visible) { panel._keyNav = false; panel._first().forceActiveFocus() }
+        else if (panel.parent && Popups.dashboardOpen) panel.parent.forceActiveFocus()
     }
+
+    // A modal guide owns the keys while it is up (UI/UX roadmap v3 Phase 21):
+    // it opens on its section list, so the arrows work at once, and Tab and
+    // Shift+Tab stay inside it, between the list and Close — they used to walk
+    // on into the tab bar and the help strip BEHIND it. The trap is
+    // KeyNavigation on the two stops: Qt moves Tab focus at the focused item,
+    // so an ancestor's Keys never sees it. The section ring waits for a key,
+    // so a guide opened with the pointer lights nothing.
+    property bool _keyNav: false
+    function _first() { return nav.activeFocusOnTab ? nav : closeBtn }
+    Keys.onPressed: function (ev) { panel._keyNav = true }
 
     // ── Dim the page behind ───────────────────────────────────────────────────
     // Plain decimals, not a palette token: this has to darken whatever the page
@@ -95,11 +114,18 @@ Item {
             }
 
             SmallIconButton {
+                id: closeBtn
+                KeyNavigation.tab:     panel._first()
+                KeyNavigation.backtab: panel._first()
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 icon: "󰅖"
                 tip: "Close  ·  Escape"
-                onActivated: AgentHelp.close()
+                onActivated: {
+                    const byKey = closeBtn.focusVisible   // it takes no focus on a press
+                    AgentHelp.close()
+                    if (byKey) panel.closedByKey()
+                }
             }
         }
 
@@ -113,6 +139,10 @@ Item {
         }
 
         // ── Left: the sections ────────────────────────────────────────────────
+        // A tab list (UI/UX roadmap v3 Phase 21), same pattern as NavPane: one
+        // Tab stop for the whole column, Up/Down move the section, Home/End
+        // jump to the ends. Visuals are untouched — a click still recolours
+        // one row directly, with no shared sliding pill to introduce.
         Column {
             id: nav
             anchors.left: parent.left
@@ -121,6 +151,33 @@ Item {
             anchors.margins: theme.px(8)
             width: Math.min(theme.px(184), Math.floor(card.width * 0.32))
             spacing: theme.px(2)
+
+            activeFocusOnTab: AgentHelpContent.sections.length > 1
+            KeyNavigation.tab:     closeBtn
+            KeyNavigation.backtab: closeBtn
+            Accessible.role: Accessible.PageTabList
+            Accessible.name: "Guide sections"
+
+            function _stepTo(i) {
+                const list = AgentHelpContent.sections
+                if (list.length === 0) return
+                i = Math.max(0, Math.min(list.length - 1, i))
+                if (list[i].id !== AgentHelp.section) AgentHelp.section = list[i].id
+            }
+            function _index() {
+                const list = AgentHelpContent.sections
+                for (let i = 0; i < list.length; i++) if (list[i].id === AgentHelp.section) return i
+                return 0
+            }
+            Keys.onPressed: function (event) {
+                panel._keyNav = true          // it accepts its keys: the panel never sees them
+                if      (event.key === Qt.Key_Down) nav._stepTo(nav._index() + 1)
+                else if (event.key === Qt.Key_Up)   nav._stepTo(nav._index() - 1)
+                else if (event.key === Qt.Key_Home) nav._stepTo(0)
+                else if (event.key === Qt.Key_End)  nav._stepTo(AgentHelpContent.sections.length - 1)
+                else return
+                event.accepted = true
+            }
 
             Repeater {
                 model: AgentHelpContent.sections
@@ -131,6 +188,11 @@ Item {
 
                     readonly property bool current: modelData.id === AgentHelp.section
 
+                    Accessible.role: Accessible.PageTab
+                    Accessible.name: navItem.modelData.title
+                    Accessible.selectable: true
+                    Accessible.selected: navItem.current
+
                     width: nav.width
                     height: theme.px(30)
                     radius: theme.px(7)
@@ -140,7 +202,7 @@ Item {
                           ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
                           : "transparent"
 
-                    Behavior on color { ColorAnimation { duration: 90 } }
+                    Behavior on color { MotionColor { role: "state" } }
 
                     Row {
                         anchors.fill: parent
@@ -164,6 +226,18 @@ Item {
                             font.pixelSize: theme.fs(11)
                             color: navItem.current ? Theme.text : Theme.subtext
                         }
+                    }
+
+                    // Keyboard highlight — outset, list-focus only, same shape
+                    // as the other two panes' row rings. Drawn only for the
+                    // current section: there is no separate "keyed but not
+                    // selected" state here, unlike Wi-Fi/Clipboard's rows —
+                    // arrowing IS choosing, the way NavPane and TabSwitcher do.
+                    Rectangle {
+                        anchors.fill: parent; anchors.margins: -3
+                        radius: navItem.radius + 3
+                        color: "transparent"; border.width: 2; border.color: Theme.accentText
+                        visible: navItem.current && nav.activeFocus && panel._keyNav
                     }
 
                     HoverHandler { id: navHover; cursorShape: Qt.PointingHandCursor }

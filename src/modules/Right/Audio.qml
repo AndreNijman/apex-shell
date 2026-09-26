@@ -10,7 +10,7 @@ Item {
 
     property bool showPercentage: false
 
-    implicitWidth:  row.implicitWidth + 6
+    implicitWidth:  row.implicitWidth
     implicitHeight: row.implicitHeight
 
     readonly property var sink: Pipewire.defaultAudioSink
@@ -41,28 +41,32 @@ Item {
         Text {
             id: iconText
             text:           root.icon
-            color:          hov.hovered ? Theme.active : Theme.text
-            font.pixelSize: theme.fs(18)
+            color:          Popups.audioOpen ? Theme.accentText
+                          : hov.hovered ? Theme.textPrimary : Theme.iconDefault
+            font.pixelSize: theme.typeIcon
+            font.family:    Theme.fontIcon
             anchors.verticalCenter: parent.verticalCenter
-            Behavior on color { ColorAnimation { duration: 120 } }
+            Behavior on color { MotionColor {} }
+            OpenPill { shown: Popups.audioOpen }
         }
 
         Item {
             id: pctWrapper
             property bool show: root.showPercentage || hov.hovered
-            implicitWidth: show ? pctText.implicitWidth + 2 : 0
+            implicitWidth: pctW.value
+            SpringFollower { id: pctW; role: "page"; target: pctWrapper.show ? pctText.implicitWidth + 2 : 0 }
             implicitHeight: pctText.implicitHeight
             clip: true
             anchors.verticalCenter: parent.verticalCenter
-            Behavior on implicitWidth { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
         
             Text {
                 id: pctText
                 text:           root.pct + "%"
-                color:          hov.hovered ? Theme.active : Theme.text
-                font.pixelSize: theme.fs(12)
+                color:          hov.hovered ? Theme.textPrimary : Theme.textSecondary
+                font.pixelSize: theme.typeBodySmall
+                font.features:  { "tnum": 1 }
                 anchors.verticalCenter: parent.verticalCenter
-                Behavior on color { ColorAnimation { duration: 120 } }
+                Behavior on color { MotionColor {} }
             }
         }
     }

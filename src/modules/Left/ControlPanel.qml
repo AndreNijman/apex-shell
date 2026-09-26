@@ -40,7 +40,9 @@ IconBtn {
     text: logo.status === Image.Ready
               ? ""
               : (distroGlyphs[distroId] !== undefined ? distroGlyphs[distroId] : "")
-    textColor: Theme.active
+    label: "APEX menu"
+    // The APEX mark is accent-coloured by design (brief §D.3's one exception).
+    textColor: Theme.accentText
 
     // The asset is a fixed chartreuse spark. Drawn raw it stayed green while the
     // rest of the bar followed the wallpaper, so it is recoloured to the live
@@ -78,6 +80,10 @@ IconBtn {
             if (m) root.distroId = m[1].toLowerCase()
         }
     }
+
+    // The open state of the control that opened the power menu (brief §D.5:
+    // the same rule on the left notch as on the right).
+    OpenPill { shown: Popups.archMenuOpen }
 
     onClicked: {
         var next = !Popups.archMenuOpen

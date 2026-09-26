@@ -6,6 +6,7 @@ import Quickshell.Wayland
 import Quickshell.Services.Pam
 import "../"
 import "../services/"
+import "../components/auth"
 
 // ─────────────────────────────────────────────────────────────
 // Lockscreen — native Wayland session lock, replaces hyprlock.
@@ -41,7 +42,11 @@ WlSessionLock {
     // engaged (or been released), so a lock that fails to engage is never
     // reported to logind as engaged. See LockedHintService for why this has
     // to be the shell's job and not apexd's.
-    onSecureStateChanged: LockedHintService.setLocked(sessionLock.secure)
+    onSecureStateChanged: {
+        LockedHintService.setLocked(sessionLock.secure)
+        LockState.lockSecure = sessionLock.secure
+        if (Motion.pacingLog) console.info("APEX pacing: lock secure=" + sessionLock.secure)
+    }
 
     // The initial sync, and the reason it cannot live in the service itself.
     //
@@ -66,6 +71,32 @@ WlSessionLock {
     // LockedHintService would therefore not run until something else had
     // already used it, which on this path is the lock it exists to report.
     Component.onCompleted: LockedHintService.setLocked(sessionLock.secure)
+
+    // ── Release, after the exit has played ──────────────────────────────
+    // Called ONLY from a surface's PAM success. The lock UI plays its exit
+    // (clock lifting, field fading, the wallpaper sharpening back into the
+    // desktop's) over UnlockCurtain, which has held the desktop wallpaper
+    // behind the lock since it engaged; then the lock lets go and the curtain
+    // fades the desktop in. The
+    // timer IS the release, unconditionally: nothing it waits on can hold the
+    // session locked after a correct password (under Reduce Motion it is one
+    // millisecond).
+    function release() {
+        if (!LockState.locked || LockState.unlocking) return
+        LockState.unlocking = true
+        sessionLock._release.interval = Math.max(1, Motion.surfaceExitSmall)
+        sessionLock._release.restart()
+    }
+    property Timer _release: Timer {
+        repeat: false
+        onTriggered: {
+            // A lock asked for since the password (LockState.lock()) cancelled
+            // the release: stay locked.
+            if (!LockState.unlocking) return
+            LockState.unlocking = false
+            LockState.locked = false
+        }
+    }
 
     // ── Per-output lock surface ──────────────────────────────────────
     WlSessionLockSurface {
@@ -114,9 +145,9 @@ WlSessionLock {
             onCompleted: function(result) {
                 surface.checking = false
                 if (result === PamResult.Success) {
-                    // The one and only unlock path.
+                    // The one and only unlock path (release() is the flip).
                     surface.password = ""
-                    LockState.locked = false
+                    sessionLock.release()
                 } else if (result === PamResult.MaxTries) {
                     surface.fail("Too many attempts — wait and retry")
                 } else {
@@ -145,6 +176,13 @@ WlSessionLock {
         }
 
         function fail(msg) {
+            // Clear the FIELD, not only the buffer. This used to empty
+            // surface.password and leave the TextInput holding the rejected
+            // attempt: the dots stayed, Enter did nothing (the buffer was
+            // empty), and the next key appended to the wrong password. Cleared
+            // before hasError is set, because clearing runs onTextChanged,
+            // which drops hasError as soon as the user types.
+            passwordInput.text = ""
             surface.password  = ""
             surface.hasError  = true
             surface.errorText = msg
@@ -205,6 +243,32 @@ WlSessionLock {
         readonly property string timeText: Time.format("hh:mm")
         readonly property string dateText: Time.format("dddd, d MMMM")
 
+        // ── Arrival and departure (2026-09-26) ───────────────────────
+        // The lock surface is opaque from its first frame — that is the
+        // security property and nothing here touches it. What moves is on
+        // top: the wallpaper starts sharp (the desktop's own) and blurs and
+        // dims in, the clock drops into place, the field rises a beat after.
+        // On a correct password it all plays back out (`leave`) before the
+        // lock releases (sessionLock.release()).
+        property real enter: 0
+        property real leave: LockState.unlocking ? 1 : 0
+        Behavior on leave {
+            NumberAnimation {
+                duration: Motion.surfaceExitSmall
+                easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardAccel
+            }
+        }
+        NumberAnimation {
+            id: enterAnim
+            target: surface; property: "enter"; from: 0; to: 1
+            duration: Motion.reduced ? Motion.fadeIn : Motion.hero
+            easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.springCurve
+        }
+        // The backdrop's strength, the clock's arrival, the card's arrival.
+        readonly property real _veil:  surface.enter * (1 - surface.leave)
+        readonly property real _clock: Math.min(1, surface.enter * 1.3)
+        readonly property real _card:  Math.max(0, Math.min(1, (surface.enter - 0.18) / 0.82))
+
         // ── Content root ─────────────────────────────────────────────
         Item {
             id: content
@@ -257,16 +321,17 @@ WlSessionLock {
                 source:       wallImg
                 visible:      wallImg.status === Image.Ready
                 blurEnabled:  true
-                blur:         1.0
+                blur:         1.0 * surface._veil
                 blurMax:      48
-                brightness:  -0.30
-                saturation:  -0.10
+                brightness:  -0.30 * surface._veil
+                saturation:  -0.10 * surface._veil
             }
 
             // Extra scrim for legibility.
             Rectangle {
                 anchors.fill: parent
                 color: Qt.rgba(0, 0, 0, 0.35)
+                opacity: surface._veil
             }
 
             // Clicking anywhere re-focuses the password field.
@@ -282,6 +347,11 @@ WlSessionLock {
                 anchors.bottom:           card.top
                 anchors.bottomMargin:     56
                 spacing: 4
+                opacity: surface._clock * (1 - surface.leave)
+                transform: Translate {
+                    y: (1 - surface._clock) * -Motion.travel(theme.px(28))
+                       - surface.leave * Motion.travel(theme.px(18))
+                }
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -306,7 +376,12 @@ WlSessionLock {
                 anchors.centerIn: parent
                 anchors.verticalCenterOffset: 90
                 spacing: 14
-                transform: Translate { x: surface.shakeOffset }
+                opacity: surface._card * (1 - surface.leave)
+                scale: Motion.reduced ? 1 : 0.97 + 0.03 * surface._card - 0.02 * surface.leave
+                transform: Translate {
+                    x: surface.shakeOffset
+                    y: (1 - surface._card) * Motion.travel(theme.px(28))
+                }
 
                 // Username
                 Text {
@@ -330,7 +405,7 @@ WlSessionLock {
                     border.color: surface.hasError
                                       ? Theme.danger
                                       : (passwordInput.activeFocus ? Theme.active : Theme.border)
-                    Behavior on border.color { ColorAnimation { duration: 140 } }
+                    Behavior on border.color { MotionColor { role: "state" } }
 
                     // Lock glyph
                     Text {
@@ -360,8 +435,21 @@ WlSessionLock {
                         clip:                    true
                         enabled:                 !surface.checking
                         focus:                   true
-                        color:                   Theme.text
-                        selectionColor:          Theme.active
+                        // The field draws nothing of its own: what it holds is
+                        // shown by PasswordShapes below, which is given its
+                        // LENGTH and nothing else. Still a masked field with no
+                        // echo delay, so no character exists on screen even for
+                        // the frame before the shapes hide it; transparent so
+                        // the mask characters, the cursor and a selection are
+                        // not painted on top of the shapes.
+                        color:                   "transparent"
+                        selectionColor:          "transparent"
+                        selectedTextColor:       "transparent"
+                        // The caret is NOT painted in `color` — it would sit
+                        // where the invisible mask characters end, a bar
+                        // floating left of the shapes. The shapes are the
+                        // position; the caret is drawn by nothing.
+                        cursorDelegate:          Item {}
                         font.family:             "JetBrainsMono Nerd Font"
                         font.pixelSize:          theme.fs(18)
                         echoMode:                TextInput.Password
@@ -428,11 +516,12 @@ WlSessionLock {
                             }
                         }
 
-                        // Placeholder
+                        // Placeholder. Waits for the shapes to have actually
+                        // gone, so it never draws over a row that is leaving.
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.left:           parent.left
-                            visible: passwordInput.text.length === 0 && !surface.checking
+                            visible: shapes.empty && !surface.checking
                             text:  "Enter password"
                             color: Theme.subtext
                             font.family:    passwordInput.font.family
@@ -445,6 +534,27 @@ WlSessionLock {
                             // which disappears the moment a key is pressed.
                             Accessible.ignored: true
                         }
+                    }
+
+                    // What the field holds, as shapes — one per character,
+                    // chosen by position, never by what was typed. Same
+                    // component the login screen loads (apex-greet).
+                    PasswordShapes {
+                        id: shapes
+                        anchors.fill:        passwordInput
+                        length:              passwordInput.length
+                        accent:              Theme.active
+                        text:                Theme.text
+                        background:          Theme.background
+                        danger:              Theme.danger
+                        error:               surface.hasError
+                        busy:                surface.checking
+                        // The raw settings, resolved inside by the motion
+                        // table — the same three the login screen is handed.
+                        speed:               SettingsService.motionSpeed
+                        motionScale:         SettingsService.motionScale
+                        reduced:             SettingsService.reduceMotion
+                        size:                15
                     }
 
                     // Spinner (shown while PAM is checking).
@@ -470,11 +580,14 @@ WlSessionLock {
                             anchors.horizontalCenter: parent.horizontalCenter
                             y: -1
                         }
+                        // A busy spinner, not decoration: it is the only sign
+                        // the password is being checked, so it keeps turning
+                        // under Reduce Motion and stops only with motion off.
                         RotationAnimator on rotation {
-                            running: spinner.visible
+                            running: spinner.visible && Motion.loops
                             loops:   Animation.Infinite
                             from: 0; to: 360
-                            duration: 850
+                            duration: Motion.spinPeriod
                         }
                     }
                 }
@@ -503,17 +616,25 @@ WlSessionLock {
             // ── Error shake ──────────────────────────────────────────
             SequentialAnimation {
                 id: shakeAnim
-                NumberAnimation { target: surface; property: "shakeOffset"; from: 0; to:  14; duration: 45 }
-                NumberAnimation { target: surface; property: "shakeOffset"; to: -14; duration: 45 }
-                NumberAnimation { target: surface; property: "shakeOffset"; to:  10; duration: 45 }
-                NumberAnimation { target: surface; property: "shakeOffset"; to: -10; duration: 45 }
-                NumberAnimation { target: surface; property: "shakeOffset"; to:   6; duration: 45 }
-                NumberAnimation { target: surface; property: "shakeOffset"; to:   0; duration: 45 }
+                NumberAnimation { target: surface; property: "shakeOffset"; from: 0; to:  14; duration: Motion.errorShake }
+                NumberAnimation { target: surface; property: "shakeOffset"; to: -14; duration: Motion.errorShake }
+                NumberAnimation { target: surface; property: "shakeOffset"; to:  10; duration: Motion.errorShake }
+                NumberAnimation { target: surface; property: "shakeOffset"; to: -10; duration: Motion.errorShake }
+                NumberAnimation { target: surface; property: "shakeOffset"; to:   6; duration: Motion.errorShake }
+                NumberAnimation { target: surface; property: "shakeOffset"; to:   0; duration: Motion.errorShake }
             }
         }
 
-        // Grab keyboard focus as soon as the surface appears.
-        Component.onCompleted: passwordInput.forceActiveFocus()
-        onVisibleChanged: if (visible) passwordInput.forceActiveFocus()
+        // Grab keyboard focus as soon as the surface appears, and arrive.
+        Component.onCompleted: {
+            passwordInput.forceActiveFocus()
+            enterAnim.start()
+        }
+        // A surface Quickshell shows again for a later lock arrives again.
+        onVisibleChanged: if (visible) {
+            passwordInput.forceActiveFocus()
+            surface.enter = 0
+            enterAnim.restart()
+        }
     }
 }

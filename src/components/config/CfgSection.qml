@@ -1,5 +1,6 @@
 import QtQuick
 import "../../"
+import "../"
 
 // A titled group of rows. Matches the Keybinds tab's group headers — bare rows,
 // no card, so every Config tab reads as one consistent surface.
@@ -39,16 +40,16 @@ Column {
     width:   parent ? parent.width : 0
     spacing: 2
 
+    // The shared section label (UI/UX Phase 17): it was 9 px bold accent at
+    // .55 in Title case — 2.37:1 on the light sheet.
     Item {
         width:  parent.width
-        height: root.first ? 14 : 28
-        Text {
+        height: root.first ? 18 : 30
+        SectionLabel {
             anchors.bottom:       parent.bottom
-            anchors.bottomMargin: 4
-            text:           root.title
-            font.pixelSize: theme.fs(9)
-            font.weight:    Font.Bold
-            color:          Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
+            anchors.bottomMargin: 6
+            width:                parent.width
+            text:                 root.title
         }
     }
 

@@ -5,6 +5,7 @@ import "./src"
 import "./src/theme"
 import "./src/services"
 import "./src/services/config_tab"
+import "./src/nexus"
 
 // What happens to a staged settings edit when the user goes somewhere else.
 // Run through tests/run-settings-staged-test.sh (P0-023 criteria 3 and 4,
@@ -18,16 +19,18 @@ import "./src/services/config_tab"
 //
 //   1. LazyPage latches `active` on first reveal and never unloads, so a tab
 //      switch inside ONE host keeps the page object alive.
-//   2. The settings pages are presented in TWO hosts — the dashboard's Config
-//      tab and the Nexus window — and each host's Repeater builds its OWN
-//      instance from PageRegistry. Two instances, two sets of member state.
-//   3. shell.qml builds both hosts per entry in Quickshell.screens, so an
+//   2. The settings pages were presented in TWO hosts — the dashboard's Config
+//      tab and the Nexus window — each building its OWN instance from
+//      PageRegistry. UI/UX Phase 19 removed the tab; the next point still
+//      makes more than one instance of every page.
+//   3. shell.qml builds a host per entry in Quickshell.screens, so an
 //      output arriving or leaving destroys and rebuilds every one of them.
 //      A display apply does exactly that, which is how a settings window can
 //      be torn down by another settings page.
 //
-// So the suite holds two KeybindsPage instances the way the two hosts do, plus
-// a real ShellConfig to switch tabs in, and asks the pages themselves.
+// So the suite holds two KeybindsPage instances the way two hosts (two screens'
+// Nexus windows) do, plus a real SettingsHost to switch pages in, and asks the
+// pages themselves.
 //
 // ── WHY IT ALSO BREAKS THE WRITE ────────────────────────────────────────────
 //
@@ -67,8 +70,8 @@ ShellRoot {
     readonly property string newKey:  "T"
 
     // ── The two hosts ────────────────────────────────────────────────────────
-    // hostA stands for the dashboard's Config tab and hostB for the Nexus
-    // window. Nothing here fakes the hosts: these are the same KeybindsPage
+    // hostA and hostB stand for two instances of the same page — two screens'
+    // Nexus windows, or one rebuilt by a display apply. Nothing here fakes the hosts: these are the same KeybindsPage
     // component both Repeaters build, instantiated twice, which is the whole
     // situation.
     Item {
@@ -87,9 +90,10 @@ ShellRoot {
             sourceComponent: Component { KeybindsPage {} }
         }
 
-        // The real dashboard Config tab, for the tab-switch half. Its pages are
-        // built by the same PageRegistry Repeater the shipped one uses.
-        ShellConfig { id: cfg; anchors.fill: parent; onScreen: false }
+        // The real settings host, for the tab-switch half: SettingsHost, the body
+        // of the Nexus window and (since UI/UX Phase 19 removed the dashboard's
+        // Config tab) the one host of the PageRegistry pages.
+        SettingsHost { id: cfg; anchors.fill: parent; live: false }
     }
 
     // Find the KeybindsPage inside a host by what it is rather than by where it
@@ -224,10 +228,10 @@ ShellRoot {
                                 pageA.hasPending === false)
                 rootScope.check("the second host starts clean too",
                                 hostB.item && hostB.item.hasPending === false)
-                // The Config tab opens on its first page, so the Keybinds page
+                // The host opens on its first page, so the Keybinds page
                 // does not exist until somebody selects it — which is the same
                 // first visit a user's is.
-                cfg._page = "keybinds"
+                cfg.page = "keybinds"
                 rootScope.step = 1
                 driver.waited = 0
                 return
@@ -245,27 +249,27 @@ ShellRoot {
                                 && rootScope.pendingCount(pageA) === 1)
 
                 // ── 2. the OTHER surface, on the same machine ───────────────
-                // The user staged this in the dashboard and pressed "Open in
-                // window". Same setting, same session, other object.
+                // The user staged this on one screen's settings window and
+                // looks at another's. Same setting, same session, other object.
                 rootScope.check("the other settings surface is holding it too",
                                 hostB.item && hostB.item.hasPending === true)
 
                 // ── 3. tab switch inside one host ───────────────────────────
                 rootScope.savedPageA = rootScope.findKeybindsPage(cfg)
                 if (!rootScope.savedPageA) {
-                    rootScope.bad("the Config tab built no Keybinds page to switch away from")
+                    rootScope.bad("the settings host built no Keybinds page to switch away from")
                     rootScope.finish()
                     return
                 }
                 rootScope.check("the tab's own Keybinds page sees the staged edit",
                                 rootScope.savedPageA.hasPending === true)
-                cfg._page = "misc"
+                cfg.page = "misc"
                 rootScope.step = 3
                 driver.waited = 0
                 return
 
             case 3:
-                cfg._page = "keybinds"
+                cfg.page = "keybinds"
                 rootScope.step = 4
                 driver.waited = 0
                 return

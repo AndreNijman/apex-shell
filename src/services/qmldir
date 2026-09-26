@@ -35,7 +35,6 @@ singleton DesktopExec 1.0 DesktopExec.qml
 # THROUGH this qmldir, so this directory is not on the import path and relying
 # on implicit sibling resolution gets `PluginLauncher is not a type`.
 PluginLauncher PluginLauncher.qml
-ShellConfig ./config_tab/ShellConfig.qml
 KeybindsPage ./config_tab/KeybindsPage.qml
 AppearancePage ./config_tab/pages/AppearancePage.qml
 LayoutPage ./config_tab/pages/LayoutPage.qml
@@ -93,6 +92,7 @@ SubagentRow agents/SubagentRow.qml
 # through AgentCenter, which is reached through this file.
 TelemetryStrip agents/TelemetryStrip.qml
 UnrestrictedBanner agents/UnrestrictedBanner.qml
+UnrestrictedChip agents/UnrestrictedChip.qml
 SectionHeading agents/SectionHeading.qml
 SmallIconButton agents/SmallIconButton.qml
 StateBadge agents/StateBadge.qml

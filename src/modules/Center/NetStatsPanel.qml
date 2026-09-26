@@ -9,42 +9,23 @@ Item {
 
     required property var service
 
+    // Top-aligned under a section label (UI/UX Phase 17): it sat centred in a
+    // tall card of its own. Up and down in the same colour — green for one and
+    // the accent for the other said nothing.
+    implicitHeight: col.implicitHeight
     Column {
-        anchors.centerIn: parent
-        width:            parent.width - 16
-        spacing:          10
+        id: col
+        anchors { top: parent.top; left: parent.left; right: parent.right }
+        spacing: theme.spaceS
 
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text:           "Network"
-            font.pixelSize: theme.fs(11)
-            font.weight:    Font.Medium
-            color:          Qt.rgba(1, 1, 1, 0.4)
-        }
+        SectionLabel { text: "Network"; width: parent.width }
 
         Column {
             width:   parent.width
-            spacing: 6
-
-            StatRow {
-                width:      parent.width
-                label:      "Interface"
-                value:      root.service.iface
-            }
-
-            StatRow {
-                width:      parent.width
-                label:      "↑ Upload"
-                value:      root.service.upSpeed
-                valueColor: Theme.success
-            }
-
-            StatRow {
-                width:      parent.width
-                label:      "↓ Download"
-                value:      root.service.downSpeed
-                valueColor: Theme.active
-            }
+            spacing: theme.px(4)
+            StatRow { width: parent.width; label: "Interface"; value: root.service.iface }
+            StatRow { width: parent.width; label: "↑ Upload";   value: root.service.upSpeed }
+            StatRow { width: parent.width; label: "↓ Download"; value: root.service.downSpeed }
         }
     }
 }

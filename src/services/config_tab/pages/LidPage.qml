@@ -62,7 +62,7 @@ CfgScroll {
     lifecycle: "live"
     lifecycleError: LidService.lastError
 
-    // Set by ShellConfig and Nexus: "this page is genuinely on screen".
+    // Set by SettingsHost (Nexus): "this page is genuinely on screen".
     // Declared because LidService spawns two `apex` processes per sweep and is
     // refcounted on it; PageRegistry marks this page needsScreen: true so both
     // hosts bind it. NOT `visible` — an Item inside a hidden window still
@@ -94,54 +94,25 @@ CfgScroll {
         title: "Closing the Lid"
         first: true
 
-        Item {
-            width:  parent.width
-            height: theme.px(66)
-
-            Row {
-                x: theme.px(10)
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: theme.px(12)
-
-                Text {
-                    text:           "󰶐"
-                    font.pixelSize: theme.fs(28)
-                    color:          LidService.available
-                                      ? root.toneColor(LidService.decision.tone)
-                                      : Theme.subtext
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: theme.px(3)
-
-                    Text {
-                        // "Not asked yet" and "asked, and the answer is
-                        // nothing" look identical and mean opposite things.
-                        text: LidService.checked
-                                ? LidService.headline
-                                : "Reading what the lid would do…"
-                        font.pixelSize: theme.fs(15)
-                        font.weight:    Font.Medium
-                        color:          Theme.text
-                    }
-                    Text {
-                        text: LidService.available
-                                ? LidService.decision.why
-                                : LidService.unavailableReason
-                        font.pixelSize: theme.fs(10)
-                        color: LidService.available ? Theme.subtext : Theme.danger
-                        font.family:    "JetBrains Mono"
-                        width:          theme.px(420)
-                        wrapMode:       Text.WordWrap
-                    }
-                }
-            }
+        StatusHero {
+            glyph: "󰶐"
+            tone:  LidService.available
+                     ? root.toneColor(LidService.decision.tone)
+                     : Theme.textSecondary
+            // "Not asked yet" and "asked, and the answer is nothing" look
+            // identical and mean opposite things.
+            title: LidService.checked
+                     ? LidService.headline
+                     : "Reading what the lid would do…"
+            detail: LidService.available
+                      ? LidService.decision.why
+                      : LidService.unavailableReason
+            detailColor: LidService.available ? Theme.textSecondary : Theme.danger
+            // The reason the machine will or will not act is the page's whole
+            // criterion ("the owner can see why"), so it is read whole.
+            detailWraps: true
 
             CfgButton {
-                anchors.right:          parent.right
-                anchors.rightMargin:    theme.px(8)
-                anchors.verticalCenter: parent.verticalCenter
                 label:   LidService.busy ? "Reading…" : "Re-check"
                 icon:    "󰑐"
                 enabled: !LidService.busy
@@ -163,13 +134,12 @@ CfgScroll {
 
             Text {
                 id: noteText
-                x:     theme.px(10)
                 y:     theme.px(5)
-                width: parent.width - theme.px(20)
+                width: parent.width
                 text: "Policy files this read could not open: " + LidService.policyNote
                     + ".  Normal on a machine where another account is logged in; "
                     + "the policy actually in force is above."
-                font.pixelSize: theme.fs(10)
+                font.pixelSize: theme.typeCaption
                 color:    Theme.subtext
                 wrapMode: Text.WordWrap
             }
@@ -187,13 +157,15 @@ CfgScroll {
 
             Column {
                 id: logindCol
-                x:       theme.px(10)
                 y:       theme.px(8)
-                width:   parent.width - theme.px(20)
+                width:   parent.width
                 spacing: theme.px(4)
 
                 Text {
                     width:          parent.width
+                    // Not when it is the hero's sentence word for word (UI/UX
+                    // Phase 17): the page said it twice, 60 px apart.
+                    visible:        LidService.logind.headline !== LidService.headline
                     text:           LidService.logind.headline
                     font.pixelSize: theme.fs(12)
                     color:          root.toneColor(LidService.logind.tone)
@@ -202,7 +174,7 @@ CfgScroll {
                 Text {
                     width:          parent.width
                     text:           LidService.logind.detail
-                    font.pixelSize: theme.fs(10)
+                    font.pixelSize: theme.typeCaption
                     color:          Theme.subtext
                     wrapMode:       Text.WordWrap
                     visible:        LidService.logind.detail !== ""
@@ -265,9 +237,8 @@ CfgScroll {
 
             Text {
                 id: guardText
-                x:     theme.px(10)
                 y:     theme.px(5)
-                width: parent.width - theme.px(20)
+                width: parent.width
                 // Said here rather than only in the report, because the moment
                 // to learn that a hot laptop suspends anyway is before the bag,
                 // not after it.
@@ -276,7 +247,7 @@ CfgScroll {
                     + "firmware's critical trip less the headroom below, and a battery guard "
                     + "at the floor, which checkpoints live work first. Whichever fires is "
                     + "named in the report after you reopen it."
-                font.pixelSize: theme.fs(10)
+                font.pixelSize: theme.typeCaption
                 color:    Theme.subtext
                 wrapMode: Text.WordWrap
             }
@@ -347,9 +318,8 @@ CfgScroll {
 
             Text {
                 id: emptyText
-                x:     theme.px(10)
                 y:     theme.px(7)
-                width: parent.width - theme.px(20)
+                width: parent.width
                 // Three answers, not two. A record that EXISTS and could not be
                 // read is not a machine that has never slept.
                 text: !LidService.report.ok
@@ -370,9 +340,8 @@ CfgScroll {
 
             Text {
                 id: summaryText
-                x:     theme.px(10)
                 y:     theme.px(7)
-                width: parent.width - theme.px(20)
+                width: parent.width
                 text:  LidService.report.period.summary
                 font.pixelSize: theme.fs(12)
                 color:          Theme.text
@@ -431,14 +400,13 @@ CfgScroll {
 
             Column {
                 id: downCol
-                x:       theme.px(10)
                 y:       theme.px(8)
-                width:   parent.width - theme.px(20)
+                width:   parent.width
                 spacing: theme.px(3)
 
                 Text {
                     text:           "Powered down"
-                    font.pixelSize: theme.fs(10)
+                    font.pixelSize: theme.typeCaption
                     font.weight:    Font.Bold
                     color:          Theme.subtext
                 }
@@ -452,8 +420,8 @@ CfgScroll {
                         required property int index
                         width:          downCol.width
                         text:           "· " + LidService.report.period.poweredDown[index]
-                        font.family:    "JetBrains Mono"
-                        font.pixelSize: theme.fs(10)
+                        font.family:    Theme.fontMono
+                        font.pixelSize: theme.typeCaption
                         color:          Theme.active
                         wrapMode:       Text.WordWrap
                     }
@@ -469,14 +437,13 @@ CfgScroll {
 
             Column {
                 id: skipCol
-                x:       theme.px(10)
                 y:       theme.px(8)
-                width:   parent.width - theme.px(20)
+                width:   parent.width
                 spacing: theme.px(3)
 
                 Text {
                     text:           "Left alone, and why"
-                    font.pixelSize: theme.fs(10)
+                    font.pixelSize: theme.typeCaption
                     font.weight:    Font.Bold
                     color:          Theme.subtext
                 }
@@ -488,8 +455,8 @@ CfgScroll {
                         readonly property var skip: LidService.report.period.skipped[index]
                         width:          skipCol.width
                         text:           "· " + skip.what + " — " + skip.why
-                        font.family:    "JetBrains Mono"
-                        font.pixelSize: theme.fs(10)
+                        font.family:    Theme.fontMono
+                        font.pixelSize: theme.typeCaption
                         color:          Theme.subtext
                         wrapMode:       Text.WordWrap
                     }

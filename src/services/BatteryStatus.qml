@@ -68,12 +68,14 @@ Item {
     // accretion, not a designed scale, and there is no four-step severity token
     // to express it with. Critical and low now use the same two tokens as
     // BatteryWarning, which is the other surface reporting the same fact.
+    // Charging and full are good news, so the success colour (brief §D.3) — it
+    // used to be the accent, which in the bar is reserved for "you opened this".
     readonly property color iconColor: {
-        if (full)      return Theme.active
-        if (charging)  return Theme.active
+        if (full)      return Theme.success
+        if (charging)  return Theme.success
         if (pct <= 10) return Theme.danger
         if (pct <= 30) return Theme.warning
-        return Theme.text
+        return hov.hovered ? Theme.textPrimary : Theme.iconDefault
     }
 
     // ── Display ───────────────────────────────────────────────────────────────
@@ -86,16 +88,20 @@ Item {
             id: iconText
             text:                   root.icon
             color:                  root.iconColor
-            font.pixelSize:         theme.fs(16)
+            font.pixelSize:         theme.typeIcon
+            font.family:            Theme.fontIcon
             anchors.verticalCenter: parent.verticalCenter
 
             // Pulse when critically low and discharging
             SequentialAnimation on opacity {
                 id: pulseAnim
-                running:  root.pct <= 10 && !root.charging
+                running:  root.pct <= 10 && !root.charging && Motion.ambient
+                // Finish the current beat when gated off, so it rests at its
+                // end value instead of freezing mid-fade (Reduce Motion mid-pulse).
+                alwaysRunToEnd: true
                 loops:    Animation.Infinite
-                NumberAnimation { to: 0.2; duration: 600; easing.type: Easing.InOutSine }
-                NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.2; duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 1.0; duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
             }
 
             // Snap back when animation stops
@@ -110,19 +116,20 @@ Item {
         Item {
             id: pctWrapper
             property bool show: root.showPercentage || hov.hovered
-            implicitWidth: show ? pctText.implicitWidth + 2 : 0
+            implicitWidth: pctW.value
+            SpringFollower { id: pctW; role: "page"; target: pctWrapper.show ? pctText.implicitWidth + 2 : 0 }
             implicitHeight: pctText.implicitHeight
             clip: true
             anchors.verticalCenter: parent.verticalCenter
-            Behavior on implicitWidth { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic } }
 
             Text {
                 id: pctText
                 text:           root.pct + "%"
-                color:          hov.hovered ? Theme.active : Theme.text
-                font.pixelSize: theme.fs(12)
+                color:          hov.hovered ? Theme.textPrimary : Theme.textSecondary
+                font.pixelSize: theme.typeBodySmall
+                font.features:  { "tnum": 1 }
                 anchors.verticalCenter: parent.verticalCenter
-                Behavior on color { ColorAnimation { duration: 120 } }
+                Behavior on color { MotionColor {} }
             }
         }
     }

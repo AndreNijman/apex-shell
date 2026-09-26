@@ -1,5 +1,7 @@
 import QtQuick
 import "../../"
+import "../../components"
+import "../../components/controls"
 
 // A heading between groups in the Agent Center.
 //
@@ -29,33 +31,45 @@ Item {
     width: parent ? parent.width : 0
     height: visible ? label.implicitHeight + theme.fs(14) : 0
 
-    Text {
+    // The shared section label (UI/UX Phase 17); an accent heading keeps its
+    // tone, which says something ("needs you"), where the plain colour does not.
+    SectionLabel {
         id: label
         anchors.left: parent.left
         anchors.leftMargin: theme.px(4)
         anchors.bottom: parent.bottom
         anchors.bottomMargin: theme.px(4)
-        text: heading.text.toUpperCase()
-        color: heading.accent ? heading.tone : Theme.subtext
-        font.pixelSize: theme.fs(9)
-        font.bold: true
-        font.letterSpacing: theme.fs(1)
+        text: heading.text
+        color: heading.accent ? heading.tone : Theme.textSecondary
     }
 
-    Text {
-        id: actionLabel
+    // ApexPressable (UI/UX roadmap v3 Phase 21): was a Text with a
+    // HoverHandler/TapHandler pair and no keyboard path. Only a Tab stop when
+    // there is an action at all — every heading with no `actionText` is
+    // unchanged. No background of its own, so the row still reads as a plain
+    // underlined label at rest and on hover; the ring is the only new mark.
+    ApexPressable {
+        id: actionBtn
         visible: heading.actionText !== ""
         anchors.right: parent.right
         anchors.rightMargin: heading.theme.px(6)
         anchors.bottom: parent.bottom
         anchors.bottomMargin: heading.theme.px(4)
-        text: heading.actionText
-        color: actionHover.hovered ? Theme.text : Theme.subtext
-        font.pixelSize: heading.theme.fs(10)
-        font.underline: actionHover.hovered
-        HoverHandler { id: actionHover; cursorShape: Qt.PointingHandCursor }
-        TapHandler { onTapped: heading.action() }
-        Accessible.role: Accessible.Button
+        width: actionLabel.implicitWidth
+        height: actionLabel.implicitHeight
+        hitMargin: heading.theme.px(4)
         Accessible.name: heading.actionText
+        onActivated: heading.action()
+
+        Text {
+            id: actionLabel
+            anchors.fill: parent
+            text: heading.actionText
+            color: actionBtn.hovered ? Theme.text : Theme.subtext
+            font.pixelSize: heading.theme.fs(10)
+            font.underline: actionBtn.hovered
+        }
+
+        ApexFocusRing { target: actionBtn }
     }
 }

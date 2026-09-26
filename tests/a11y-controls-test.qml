@@ -428,9 +428,13 @@ Item {
                        items[i].objectName + " cannot be reached with Tab")
             var input = fixture.named("cfgTextFieldInput")
             verify(input.activeFocusOnTab, "the text field cannot be reached with Tab")
+            // A segmented control is a radio group (Phase 21): one Tab stop,
+            // the chosen pill; the arrows reach the others.
             var pills = fixture.allNamed("cfgSegmentedPill")
-            for (var j = 0; j < pills.length; j++)
-                verify(pills[j].activeFocusOnTab, "segmented pill " + j + " is not a tab stop")
+            var stops = 0
+            for (var j = 0; j < pills.length; j++) if (pills[j].activeFocusOnTab) stops++
+            compare(stops, 1, "the segmented control is not exactly one Tab stop")
+            verify(pills[0].activeFocusOnTab, "the Tab stop is not the chosen pill")
         }
 
         // Pressed, not inspected: Tab walks the real chain in visual order.
@@ -475,6 +479,31 @@ Item {
             keyClick(Qt.Key_Space)
             compare(fixture.segmentPicks, before + 1, "Space did not choose the pill")
             compare(fixture.lastSegment, "Manual", "the wrong option was chosen")
+        }
+
+        // Arrows move between pills without choosing (a page that applies at
+        // once must not apply every option on the way); Space chooses; Tab
+        // back in lands on the chosen pill, wherever the arrows last were.
+        function test_046_arrows_walk_a_segmented_group_without_choosing() {
+            var pills = fixture.allNamed("cfgSegmentedPill")
+            var before = fixture.segmentPicks
+            pills[0].forceActiveFocus()
+            keyClick(Qt.Key_Right)
+            verify(pills[1].activeFocus, "Right did not move to the next pill")
+            compare(fixture.segmentPicks, before, "an arrow chose a pill")
+            keyClick(Qt.Key_Right)
+            verify(pills[1].activeFocus, "Right stepped past the last pill")
+            keyClick(Qt.Key_Home)
+            verify(pills[0].activeFocus, "Home did not reach the first pill")
+            keyClick(Qt.Key_End)
+            verify(pills[1].activeFocus, "End did not reach the last pill")
+            keyClick(Qt.Key_Space)
+            compare(fixture.segmentPicks, before + 1, "Space on an arrowed-to pill did not choose it")
+            compare(fixture.lastSegment, "Manual")
+            theSwitch.forceActiveFocus()          // leave the group
+            wait(0)
+            verify(pills[0].activeFocusOnTab && !pills[1].activeFocusOnTab,
+                   "after leaving, the Tab stop is not the chosen pill")
         }
 
         function test_043_space_toggles_the_tile() {

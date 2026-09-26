@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────────────────────
+#  fake-nmcli — a NetworkManager that changes nothing, for keyboard tests of
+#  the network panes (UI/UX roadmap v3 Phase 21).
+#
+#  The headless harness reads the machine's REAL NetworkManager by default, so
+#  a test that pressed Return on a Wi-Fi row would disconnect the laptop it
+#  runs on, and "Forget" would delete a saved profile. A runner links this in
+#  front of the real one (tests/lib/headless.sh stubs, runner-local) and:
+#
+#    * answers the list queries with four canned networks;
+#    * records every command that would change something to $FAKE_NMCLI_LOG
+#      (one line: the arguments) and reports success, doing nothing else.
+# ─────────────────────────────────────────────────────────────────────────────
+args="$*"
+case "$args" in
+    *"dev wifi list"*|*"device wifi list"*)
+        printf '%s\n' '*:HomeNet:82:WPA2' ':Cafe Corner:61:WPA2' ':Guest:44:' ':Office:30:WPA2 802.1X'
+        ;;
+    *"radio wifi"*)
+        case "$args" in
+            *" on"|*" off") echo "$args" >> "${FAKE_NMCLI_LOG:-/dev/null}" ;;
+            *) echo enabled ;;
+        esac
+        ;;
+    *"802-11-wireless.ssid connection show"*)
+        echo "${@: -1}"          # a profile's SSID is its name, here
+        ;;
+    *"NAME,TYPE,ACTIVE"*)
+        printf '%s\n' 'HomeNet:802-11-wireless:yes' 'Office:802-11-wireless:no' \
+                      'HomeVPN:wireguard:yes' 'WorkVPN:wireguard:no'
+        ;;
+    *"--active"*)
+        printf '%s\n' 'HomeNet:802-11-wireless' 'HomeVPN:wireguard'
+        ;;
+    *"connection show"*|*"con show"*)
+        printf '%s\n' 'HomeNet:802-11-wireless' 'Office:802-11-wireless' \
+                      'HomeVPN:wireguard' 'WorkVPN:wireguard'
+        ;;
+    *monitor*)
+        : ;;
+    *"general status"*|*"networking"*)
+        echo "connected"
+        ;;
+    *"wifi rescan"*)
+        : ;;
+    *connect*|*" down"*|*" up"*|*delete*|*modify*|*hotspot*)
+        echo "$args" >> "${FAKE_NMCLI_LOG:-/dev/null}"
+        ;;
+    *)
+        : ;;
+esac
+exit 0

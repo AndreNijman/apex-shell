@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQuick
 import "."
+import "roles.js" as Roles
 
 QtObject {
     id: root
@@ -58,34 +59,27 @@ QtObject {
     // the difference between a status family that works on both and one that
     // only ever got looked at on the maintainer's own wallpaper.
     //
-    // ── LIGHT MODE IS NOT SUPPORTED YET, AND THIS IS WHERE THAT IS RECORDED ──
+    // ── LIGHT MODE ───────────────────────────────────────────────────────────
     //
     // The light values below are measured, not guessed: tests/agent-state-test.js
     // checks all twelve palettes — six shipped wallpapers, both matugen modes —
     // and tests/run-agent-state-render-test.sh drives both through the real
-    // Theme in a headless compositor, worst light contrast 4.81:1. They are
-    // correct. They are also not something a user should be able to switch on
-    // today, and the reason is not in this file:
+    // Theme in a headless compositor, worst light contrast 4.81:1.
     //
-    //   212 `color:` bindings across src/ are Qt.rgba(1, 1, 1, α)
+    // For a long time they could not be offered: 212 `color:` bindings across
+    // src/ were Qt.rgba(1, 1, 1, α), a translucent white foreground that reads
+    // on the dark surface and is invisible on matugen's light one (#fdf9f3 on
+    // the default wallpaper) — a Light/Dark toggle would have handed the user a
+    // blank Settings window. UI/UX Phase 18 took that count to zero: every one
+    // is a palette role now, or a fixed colour on a surface that really is
+    // fixed. Every surface tests/visual can open — the bar, each panel and
+    // pane, every Dashboard tab and Nexus page, the toast, the stack, the OSD
+    // and the lock screen — was captured in both schemes of the default
+    // wallpaper; the Clock card's Timer and Alarm tabs were not.
     //
-    // — a translucent white foreground, which reads on the dark surface that has
-    // always been the only reachable one and is invisible on matugen's light
-    // surface (#fdf9f3 on the default wallpaper). 20 of them are in the settings
-    // pages, including the description text under every section heading. A
-    // Light/Dark toggle would hand the user a blank Settings window. So APEX
-    // Shell is a dark shell, on purpose, until those are tokens.
-    //
-    // It is REACHABLE, so the palette above is not dead code and can be worked
-    // on: WallpaperService passes matugen `-m <mode>` and takes the mode from
-    // ~/.config/apex-shell/src/user_data/wallpaper.json. Set `"mode": "light"`
-    // there and re-apply a wallpaper. There is no control in Settings, by the
-    // paragraph above.
-    //
-    // tests/check-color-tokens.sh counts those 212 sites and fails if the number
-    // goes UP, so this comment cannot quietly stop being true and the debt can
-    // only be paid down. When it reaches zero, wire the toggle back into
-    // AppearancePage — WallpaperService.setMode() is already there.
+    // WallpaperService passes matugen `-m <mode>` and takes the mode from
+    // ~/.config/apex-shell/src/user_data/wallpaper.json (setMode()).
+    // tests/check-color-tokens.sh bans the translucent white from coming back.
     //
     // The dark values are byte-identical to the ones already dominant in the
     // tree, so nothing moves on an existing install: `danger` was #f87171 at 12
@@ -151,11 +145,58 @@ QtObject {
     property color dangerFill:      "#993030"
     property color dangerFillHover: "#cc3a3a"
 
+    // ── Surface and text roles (UI/UX roadmap v3 Phase 2; roles.js) ─────────
+    // Named roles over the palette's own background, accent and text, each a
+    // mix of those three, so they follow the wallpaper AND the scheme — which
+    // the translucent whites they replace cannot. Resolved once per palette,
+    // with the fallback rule applied and reported; tests/color-roles-test.js
+    // holds every one to its contrast target on all twelve shipped palettes.
+    readonly property var _roleSet: Roles.resolve({ background: root.background,
+                                                    active: root.active, text: root.text })
+    function _c(o) { return Qt.rgba(o.r, o.g, o.b, 1) }
+    on_RoleSetChanged: if (root._roleSet.fired.length > 0)
+        console.info("APEX colour roles: this palette needed a fallback — "
+                     + root._roleSet.fired.join("; "))
+
+    readonly property color surfaceBase:       _c(_roleSet.roles.surfaceBase)
+    readonly property color surfaceRaised:     _c(_roleSet.roles.surfaceRaised)
+    readonly property color surfaceOverlay:    _c(_roleSet.roles.surfaceOverlay)
+    readonly property color surfaceHigh:       _c(_roleSet.roles.surfaceHigh)
+    readonly property color surfaceSelected:   _c(_roleSet.roles.surfaceSelected)
+    readonly property color surfaceOnSelected: _c(_roleSet.roles.surfaceOnSelected)
+    readonly property color accentContainer:   _c(_roleSet.roles.accentContainer)
+    // NOT `onAccentContainer`, the role's name in roles.js: a QML property called
+    // on<X> beside a property called x is never bound — the engine takes the
+    // name for handler syntax — so it stayed an invalid colour and drew BLACK:
+    // every "on" Home tile's label and glyph, and the lifecycle chip's text, were
+    // black on the dark accent container from Phase 2 until 2026-09-26 (found by
+    // a light/dark capture of the power-profile choice; measured valid:false).
+    // check-color-tokens.sh now fails any on<X> property that shadows one.
+    readonly property color textOnAccentContainer: _c(_roleSet.roles.onAccentContainer)
+    readonly property color accentText:        _c(_roleSet.roles.accentText)
+    readonly property color outlineSoft:       _c(_roleSet.roles.outlineSoft)
+    readonly property color outlineStrong:     _c(_roleSet.roles.outlineStrong)
+    readonly property color hairline:          _c(_roleSet.roles.hairline)
+    readonly property color textPrimary:       _c(_roleSet.roles.textPrimary)
+    readonly property color textSecondary:     _c(_roleSet.roles.textSecondary)
+    readonly property color textTertiary:      _c(_roleSet.roles.textTertiary)
+    readonly property color iconDefault:       _c(_roleSet.roles.iconDefault)
+    readonly property color iconActive:        _c(_roleSet.roles.iconActive)
+    // The readable foreground on the accent itself (the existing best-of-two).
+    readonly property color onAccent:          onStatus(root.active)
+
+    // The two state layers, over whatever surface a control is on.
+    function surfaceHover(c)   { return _c(Roles.hover(c, root.text)) }
+    function surfacePressed(c) { return _c(Roles.pressed(c, root.text)) }
+
     // --- Workspace Visuals ---
-    property color wsBackground: "#20000000"
-    property color wsActive:     "#FFFFFF"
-    property color wsOccupied:   "#80FFFFFF"
-    property color wsEmpty:      "#30FFFFFF"
+    // On the palette's roles (brief §C.5): the active workspace was the one
+    // pure white in the shell, the others translucent whites that only ever
+    // read on a dark surface.
+    property color wsBackground: root.surfaceHigh
+    property color wsActive:     root.textPrimary
+    property color wsOccupied:   root.textSecondary
+    property color wsEmpty:      root.outlineStrong
     property color wsOverlay:    "#CC1e1e2e"
     property color wsUrgent:     "#fa6b94"
 }

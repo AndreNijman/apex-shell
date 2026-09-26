@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Services.Pipewire
 import "../"
+import "../components"
 import "../services"
 
 // ============================================================
@@ -46,16 +47,30 @@ PanelWindow {
     mask: Region {}   // no input region → never blocks clicks
 
     implicitHeight: pillH + slideRoom
-    visible:        windowVisible
+    visible:        life.mapped
 
     // ── Config ────────────────────────────────────────────────
     readonly property int pillW:     264
     readonly property int pillH:     46
     readonly property int slideRoom: 14
 
-    // Reduce-motion collapses every OSD animation to an instant cut.
-    readonly property int showAnim: SettingsService.reduceMotion ? 0 : 220
-    readonly property int valAnim:  SettingsService.reduceMotion ? 0 : 200
+    // ── CAPSULE (UI/UX roadmap v3 Phase 14, brief B.7) ──────────────────────
+    // In: a fade on the state beat while it drops 10 px into place on the
+    // selection beat, both standardDecel. Out: the fade, rising 6 px. A value
+    // changing while it is up never replays the entrance — only the hide timer
+    // restarts — and the bar follows the value with a SmoothedAnimation, so a
+    // held key tracks a moving target instead of restarting a tween per step.
+    // Under Reduce Motion nothing travels and the fade stays.
+    SurfaceLifecycle {
+        name: "osd"
+        id: life
+        open:          root.showing
+        enterDuration: Motion.selection
+        exitDuration:  Motion.state
+        contentDelay:  0
+        contentIn:     Motion.state
+        contentOut:    Motion.state
+    }
 
     // ── Live display state ────────────────────────────────────
     property string kind:    "volume"   // "volume" | "brightness" | "mic"
@@ -65,7 +80,6 @@ PanelWindow {
     property string label:   ""
     property bool   showing: false
 
-    property bool windowVisible: false
 
     // ── Startup suppression ───────────────────────────────────
     property bool _booting: true
@@ -84,15 +98,11 @@ PanelWindow {
         root.muted   = mut
         root.glyph   = g
         root.label   = lbl
-        root.windowVisible = true
         root.showing = true
         hideTimer.restart()
     }
 
     Timer { id: hideTimer; interval: 1300; onTriggered: root.showing = false }
-    Timer { id: goneTimer; interval: root.showAnim + 60
-            onTriggered: if (!root.showing) root.windowVisible = false }
-    onShowingChanged: if (!showing) goneTimer.restart()
 
     Component.onCompleted: bootGuard.start()
 
@@ -236,18 +246,19 @@ PanelWindow {
         height: root.pillH
         anchors.horizontalCenter: parent.horizontalCenter
 
-        y:       root.showing ? root.slideRoom : 0
-        opacity: root.showing ? 1 : 0
-        Behavior on y       { NumberAnimation { duration: root.showAnim; easing.type: Easing.OutCubic } }
-        Behavior on opacity { NumberAnimation { duration: root.showAnim; easing.type: Easing.OutCubic } }
+        // Settled at slideRoom; 10 px above it arriving, 6 px above leaving.
+        y: root.slideRoom - (1 - life.progress)
+                          * Motion.travel(theme.px(life.closing ? 6 : 10))
+        opacity: life.content * life.alpha
 
         Rectangle {
             id: bg
             anchors.fill: parent
-            radius:       theme.cornerRadius
+            // A capsule: fully round ends.
+            radius:       height / 2
             color:        Theme.background
             border.width: 1
-            border.color: Qt.rgba(1, 1, 1, 0.06)
+            border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
         }
 
         // Icon
@@ -259,7 +270,7 @@ PanelWindow {
             text:           root.glyph
             font.pixelSize: theme.fs(18)
             color:          root.muted ? Theme.subtext : Theme.text
-            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on color { MotionColor { role: "state" } }
         }
 
         // Value / label text (fixed width so the bar doesn't jump)
@@ -274,7 +285,7 @@ PanelWindow {
             font.pixelSize: theme.fs(13)
             font.bold:      true
             color:          root.muted ? Theme.subtext : Theme.text
-            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on color { MotionColor { role: "state" } }
         }
 
         // Filled progress bar
@@ -290,15 +301,24 @@ PanelWindow {
                 id: track
                 anchors.fill: parent
                 radius:       height / 2
-                color:        Qt.rgba(1, 1, 1, 0.10)
+                color:        Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)
 
                 Rectangle {
                     anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                     width:  Math.max(parent.height, parent.width * root.value)
                     radius: parent.radius
-                    color:  root.muted ? Qt.rgba(1, 1, 1, 0.20) : Theme.active
-                    Behavior on width { NumberAnimation { duration: root.valAnim; easing.type: Easing.OutCubic } }
-                    Behavior on color { ColorAnimation  { duration: 150 } }
+                    color:  root.muted ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.20) : Theme.active
+                    // About three track-widths a second: fast enough to keep up
+                    // with a held key, smooth enough not to jump per step. Only
+                    // while the capsule is up — arriving, it shows the value it
+                    // has instead of growing from wherever the last one left it
+                    // (which read as the volume rising from 0) — and off with
+                    // spatial motion (valueFollow is 0 under Reduce Motion).
+                    Behavior on width {
+                        enabled: Motion.valueFollow > 0 && life.progress >= 1 && !life.closing
+                        SmoothedAnimation { velocity: Math.max(1, track.width * 3) }
+                    }
+                    Behavior on color { MotionColor { role: "state" } }
                 }
             }
         }

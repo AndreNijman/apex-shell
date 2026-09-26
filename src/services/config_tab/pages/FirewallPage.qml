@@ -33,7 +33,7 @@ CfgScroll {
 
     lifecycle: "live"
 
-    // Set by ShellConfig: "the Firewall page is genuinely on screen". Without
+    // Set by SettingsHost (Nexus): "the Firewall page is genuinely on screen". Without
     // it the service sweeps three processes every 30 seconds from shell startup
     // to logout, for a page most users open once.
     property bool onScreen: false
@@ -57,58 +57,29 @@ CfgScroll {
         title: "Incoming connections"
         first: true
 
-        Rectangle {
-            x:      theme.px(10)
-            width:  parent.width - theme.px(20)
-            height: theme.px(66)
-            radius: 8
-            color:        Qt.rgba(root._tone.r, root._tone.g, root._tone.b, 0.06)
-            border.color: Qt.rgba(root._tone.r, root._tone.g, root._tone.b, 0.18)
-            border.width: 1
-
-            Row {
-                anchors.left:           parent.left
-                anchors.leftMargin:     theme.px(12)
-                anchors.verticalCenter: parent.verticalCenter
-                spacing:                theme.px(10)
-
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text:  FirewallService.enforcing ? "󰕥" : "󰦝"
-                    color: root._tone
-                    font.pixelSize: theme.fs(20)
-                }
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: theme.px(3)
-
-                    Text {
-                        text: FirewallService.checked
-                            ? FirewallService.statusLine
-                            : "Reading this machine…"
-                        font.pixelSize: theme.fs(13)
-                        font.weight:    Font.Medium
-                        color:          Theme.text
-                    }
-                    Text {
-                        // Says what was actually read, so the claim above can
-                        // be judged. The unit's state is not the same question
-                        // as "is the ruleset loaded" — someone with root can
-                        // flush the table behind a running unit — and the page
-                        // must not pretend it is.
-                        text: "apex-firewall.service: " + FirewallService.unit
-                            + "  ·  to read the live ruleset: " + FirewallService.readCommand
-                        font.pixelSize: theme.fs(10)
-                        font.family:    "JetBrains Mono"
-                        color:          Theme.subtext
-                    }
-                }
-            }
+        // The shared hero (UI/UX Phase 17): no box — it was the one hero in a
+        // tinted bordered card, with the state said by the fill, the border, the
+        // glyph and the words — and the mono line bounded by the button, which
+        // it ran to within 0–4 px of.
+        StatusHero {
+            id: fwHero
+            glyph: FirewallService.enforcing ? "󰕥" : "󰦝"
+            tone:  root._tone
+            title: FirewallService.checked
+                ? FirewallService.statusLine
+                : "Reading this machine…"
+            // Says what was actually read, so the claim above can be judged.
+            // The unit's state is not the same question as "is the ruleset
+            // loaded" — someone with root can flush the table behind a running
+            // unit — and the page must not pretend it is.
+            detail: "apex-firewall.service: " + FirewallService.unit
+                + "  ·  to read the live ruleset: " + FirewallService.readCommand
+            // Wrapped, not elided: the tail is the command the line exists to
+            // show, and at the sheet's width it was the part cut to "…".
+            detailWraps: true
 
             CfgButton {
-                anchors.right:          parent.right
-                anchors.rightMargin:    theme.px(8)
-                anchors.verticalCenter: parent.verticalCenter
+                id: fwRecheck
                 label:   FirewallService.busy ? "Checking…" : "Re-check"
                 icon:    "󰑐"
                 enabled: !FirewallService.busy
@@ -126,10 +97,12 @@ CfgScroll {
                          && FirewallService.unit !== "unknown"
                          && FirewallService.unit !== "absent"
             Text {
+                // A command to copy: the mono role, in the text-safe accent
+                // (UI/UX Phase 17 — every command in a row's slot reads alike).
                 text:           FirewallService.startCommand
-                font.pixelSize: theme.fs(11)
-                font.family:    "JetBrains Mono"
-                color:          Theme.active
+                font.pixelSize: theme.typeMono
+                font.family:    Theme.fontMono
+                color:          Theme.accentText
             }
         }
     }
@@ -163,8 +136,7 @@ CfgScroll {
         title: "Ports you have opened"
 
         Text {
-            x:              theme.px(10)
-            width:          parent.width - theme.px(20)
+            width:          parent.width
             visible:        FirewallService.exceptions.length === 0
                                 && FirewallService.emptyLine !== ""
             text:           FirewallService.emptyLine
@@ -198,11 +170,10 @@ CfgScroll {
         visible: FirewallService.openable.length > 0
 
         Text {
-            x:              theme.px(10)
-            width:          parent.width - theme.px(20)
+            width:          parent.width
             text:           "By name rather than by port number, because \"5353/udp\" is something you paste from a forum and \"mdns\" is something you can decide about — and read back in six months and still understand. Each opens on every interface."
             wrapMode:       Text.WordWrap
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:          Theme.subtext
         }
 
@@ -214,8 +185,8 @@ CfgScroll {
                 description: modelData.description
                 Text {
                     text:           FirewallService.allowCommand(modelData.name)
-                    font.pixelSize: theme.fs(10)
-                    font.family:    "JetBrains Mono"
+                    font.pixelSize: theme.typeCaption
+                    font.family:    Theme.fontMono
                     color:          Theme.active
                 }
             }

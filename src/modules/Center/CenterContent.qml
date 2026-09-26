@@ -114,7 +114,7 @@ Item {
 		}
 
 		root._carouselIndex = idx
-		statusList.contentY = idx * root._itemStride
+		carouselY.target = idx * root._itemStride
 	}
 
 	// Force-scroll to a specific type regardless of where the user is
@@ -122,7 +122,7 @@ Item {
 		var idx = root._items.indexOf(type)
 		if (idx < 0) return
 		root._carouselIndex = idx
-		statusList.contentY = idx * root._itemStride
+		carouselY.target = idx * root._itemStride
 	}
 
 	onPlayerChanged: _rebuildItems(player !== null ? "music" : null)
@@ -201,7 +201,7 @@ Item {
 
 		opacity: Popups.dashboardOpen ? 0 : 1
 		visible: opacity > 0
-		Behavior on opacity { NumberAnimation { duration: 150 } }
+		Behavior on opacity { MotionFade {} }
 
 		WheelHandler {
 			acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
@@ -218,7 +218,7 @@ Item {
 				else
 				root._carouselIndex = Math.max(0, root._carouselIndex - 1)
 
-				statusList.contentY = root._carouselIndex * root._itemStride
+				carouselY.target = root._carouselIndex * root._itemStride
 			}
 		}
 
@@ -231,9 +231,11 @@ Item {
 			snapMode:     ListView.SnapOneItem
 			interactive:  false
 
-			Behavior on contentY {
-				NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
-			}
+			// The carousel scrolls on a spring: a second scroll mid-travel bends
+			// toward the next item instead of restarting (SpringFollower). Written
+			// imperatively, not bound: a ListView writes its own contentY (a model
+			// change, a snap), and a binding it overwrote would stop following.
+			SpringFollower { id: carouselY; role: "page"; onValueChanged: statusList.contentY = value }
 
 			model: root._items
 
@@ -400,7 +402,7 @@ Item {
 								text:           "󰔟"
 								font.pixelSize: theme.fs(16)
 								color:          root.timerUrgent ? Theme.danger : Theme.active
-								Behavior on color { ColorAnimation { duration: 200 } }
+								Behavior on color { MotionColor { role: "state" } }
 							}
 
 							// Time display — centered in remaining space
@@ -419,15 +421,18 @@ Item {
 								font.family:    "JetBrains Mono"
 								horizontalAlignment: Text.AlignHCenter
 								color:          root.timerUrgent ? Theme.danger : Theme.text
-								Behavior on color { ColorAnimation { duration: 200 } }
+								Behavior on color { MotionColor { role: "state" } }
 
 								// Blink when urgent — opacity pulses 1 → 0.25 → 1
 								SequentialAnimation on opacity {
 									id: timerBlink
-									running:  root.timerUrgent
+									running:  root.timerUrgent && Motion.ambient
+									// Finish the current beat when gated off, so it rests at its
+									// end value instead of freezing mid-fade (Reduce Motion mid-pulse).
+									alwaysRunToEnd: true
 									loops:    Animation.Infinite
-									NumberAnimation { to: 0.25; duration: 500; easing.type: Easing.InOutSine }
-									NumberAnimation { to: 1.0;  duration: 500; easing.type: Easing.InOutSine }
+									NumberAnimation { to: 0.25; duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
+									NumberAnimation { to: 1.0;  duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
 								}
 
 								// Snap back to full opacity when blink stops
@@ -582,13 +587,13 @@ Item {
 										radius:       height / 2
 										color: ScreenRecService.openStrip === "capture"
 										? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15)
-										: csH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
+										: csH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
 										border.color: ScreenRecService.openStrip === "capture"
 										? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.3)
-										: Qt.rgba(1,1,1,0.1)
+										: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
 										border.width: 1
-										Behavior on color        { ColorAnimation { duration: 100 } }
-										Behavior on border.color { ColorAnimation { duration: 100 } }
+										Behavior on color        { MotionColor { role: "state" } }
+										Behavior on border.color { MotionColor { role: "state" } }
 									}
 									Row {
 										id: csRow
@@ -598,21 +603,21 @@ Item {
 											text: ScreenRecService.captureIcon
 											font.pixelSize: theme.fs(13)
 											color: ScreenRecService.openStrip === "capture"
-											? Theme.active : Qt.rgba(1,1,1,0.7)
+											? Theme.active : Theme.textPrimary
 											anchors.verticalCenter: parent.verticalCenter
-											Behavior on color { ColorAnimation { duration: 100 } }
+											Behavior on color { MotionColor { role: "state" } }
 										}
 										Text {
 											text: ScreenRecService.captureLabel
 											font.pixelSize: theme.fs(11)
 											color: ScreenRecService.openStrip === "capture"
-											? Theme.active : Qt.rgba(1,1,1,0.7)
+											? Theme.active : Theme.textPrimary
 											anchors.verticalCenter: parent.verticalCenter
-											Behavior on color { ColorAnimation { duration: 100 } }
+											Behavior on color { MotionColor { role: "state" } }
 										}
 										Text {
 											text: "▾"; font.pixelSize: theme.fs(8)
-											color: Qt.rgba(1,1,1,0.35)
+											color: Theme.textSecondary
 											anchors.verticalCenter: parent.verticalCenter
 										}
 									}
@@ -644,13 +649,13 @@ Item {
 										radius:       height / 2
 										color: ScreenRecService.openStrip === "audio"
 										? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15)
-										: asH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
+										: asH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
 										border.color: ScreenRecService.openStrip === "audio"
 										? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.3)
-										: Qt.rgba(1,1,1,0.1)
+										: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
 										border.width: 1
-										Behavior on color        { ColorAnimation { duration: 100 } }
-										Behavior on border.color { ColorAnimation { duration: 100 } }
+										Behavior on color        { MotionColor { role: "state" } }
+										Behavior on border.color { MotionColor { role: "state" } }
 									}
 									Row {
 										id: asRow
@@ -664,13 +669,13 @@ Item {
 											text: ScreenRecService.audioLabel
 											font.pixelSize: theme.fs(11)
 											color: ScreenRecService.openStrip === "audio"
-											? Theme.active : Qt.rgba(1,1,1,0.7)
+											? Theme.active : Theme.textPrimary
 											anchors.verticalCenter: parent.verticalCenter
-											Behavior on color { ColorAnimation { duration: 100 } }
+											Behavior on color { MotionColor { role: "state" } }
 										}
 										Text {
 											text: "▾"; font.pixelSize: theme.fs(8)
-											color: Qt.rgba(1,1,1,0.35)
+											color: Theme.textSecondary
 											anchors.verticalCenter: parent.verticalCenter
 										}
 									}
@@ -711,7 +716,7 @@ Item {
 									color:  recBtnH.hovered
 									? Qt.rgba(0.9, 0.2, 0.2, 0.85)
 									: Qt.rgba(0.8, 0.1, 0.1, 0.7)
-									Behavior on color { ColorAnimation { duration: 100 } }
+									Behavior on color { MotionColor {} }
 									Row {
 										anchors.centerIn: parent
 										spacing: 5
@@ -762,10 +767,13 @@ Item {
 									color:  "#ff4444"
 									anchors.verticalCenter: parent.verticalCenter
 									SequentialAnimation on opacity {
-										running: ScreenRecService.recording
+										running: ScreenRecService.recording && Motion.ambient
+										// Finish the current beat when gated off, so it rests at its
+										// end value instead of freezing mid-fade (Reduce Motion mid-pulse).
+										alwaysRunToEnd: true
 										loops:   Animation.Infinite
-										NumberAnimation { to: 0.25; duration: 600; easing.type: Easing.InOutSine }
-										NumberAnimation { to: 1.0;  duration: 600; easing.type: Easing.InOutSine }
+										NumberAnimation { to: 0.25; duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
+										NumberAnimation { to: 1.0;  duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
 									}
 								}
 
@@ -808,10 +816,7 @@ Item {
 												radius: width / 2
 												color: ScreenRecService.audioMic || ScreenRecService.audioSystem
 												? Qt.rgba(0.95, 0.3, 0.3, 0.30 + _amp * 0.70)
-												: Qt.rgba(1, 1, 1, 0.10)
-												Behavior on height {
-													NumberAnimation { duration: 50; easing.type: Easing.OutCubic }
-												}
+												: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10)
 											}
 										}
 									}
@@ -832,17 +837,17 @@ Item {
 									anchors.verticalCenter: parent.verticalCenter
 									width: 22; height: 22; radius: 5
 									color: recDiscardH.hovered
-									? Qt.rgba(1, 1, 1, 0.12)
-									: Qt.rgba(1, 1, 1, 0.05)
-									Behavior on color { ColorAnimation { duration: 100 } }
+									? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12)
+									: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05)
+									Behavior on color { MotionColor {} }
 									Text {
 										anchors.centerIn: parent
 										text:           "󰩺"
 										font.pixelSize: theme.fs(11)
 										color:          recDiscardH.hovered
 										? Qt.rgba(1, 0.4, 0.4, 1.0)
-										: Qt.rgba(1, 1, 1, 0.4)
-										Behavior on color { ColorAnimation { duration: 100 } }
+										: Theme.textSecondary
+										Behavior on color { MotionColor {} }
 									}
 									HoverHandler { id: recDiscardH }
 									MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: ScreenRecService.discardRecording() }
@@ -855,7 +860,7 @@ Item {
 									color: recStopH.hovered
 									? Qt.rgba(0.9, 0.2, 0.2, 0.55)
 									: Qt.rgba(0.8, 0.1, 0.1, 0.32)
-									Behavior on color { ColorAnimation { duration: 100 } }
+									Behavior on color { MotionColor {} }
 									Text {
 										anchors.centerIn: parent
 										text:           "⏹"
@@ -914,10 +919,13 @@ Item {
 									width:  8; height: 8; radius: 4
 									color:  PushToTalkService.micOpen ? Theme.danger : Theme.subtext
 									SequentialAnimation on opacity {
-										running: PushToTalkService.micOpen
+										running: PushToTalkService.micOpen && Motion.ambient
+										// Finish the current beat when gated off, so it rests at its
+										// end value instead of freezing mid-fade (Reduce Motion mid-pulse).
+										alwaysRunToEnd: true
 										loops:   Animation.Infinite
-										NumberAnimation { to: 0.25; duration: 600; easing.type: Easing.InOutSine }
-										NumberAnimation { to: 1.0;  duration: 600; easing.type: Easing.InOutSine }
+										NumberAnimation { to: 0.25; duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
+										NumberAnimation { to: 1.0;  duration: Motion.pulseHalf; easing.type: Easing.InOutSine }
 									}
 								}
 

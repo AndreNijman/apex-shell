@@ -47,7 +47,7 @@ CfgScroll {
 
     lifecycle: "live"
 
-    // Set by ShellConfig: "this page is genuinely on screen". Without it the
+    // Set by SettingsHost (Nexus): "this page is genuinely on screen". Without it the
     // service sweeps for the whole life of the shell, and — worse here than
     // elsewhere — the page would mint a pairing code for somebody who never
     // opened it.
@@ -90,8 +90,7 @@ CfgScroll {
         // is QrCode's, not this container's — see that file on why four
         // modules of light are part of the symbol rather than padding.
         Rectangle {
-            x: theme.px(10)
-            width: parent.width - theme.px(20)
+            width: parent.width
             height: theme.px(260)
             radius: theme.px(10)
             color: Theme.fixedLight
@@ -114,8 +113,8 @@ CfgScroll {
 
             Text {
                 text: RemotePairingService.countdown
-                font.pixelSize: theme.fs(13)
-                font.family: "JetBrains Mono"
+                font.pixelSize: theme.typeMono
+                font.family: Theme.fontMono
                 // The countdown is a fact, not a warning. It does not turn red
                 // near zero: an expiring code is replaced by asking for a new
                 // one, which is a button, not an emergency.
