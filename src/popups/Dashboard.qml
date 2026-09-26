@@ -86,7 +86,21 @@ PanelWindow {
     // the dashboard closes and one that runs until logout. Item-level `visible`
     // is NOT a substitute: an Item inside an unmapped window still reports
     // visible === true.
-    readonly property bool pageLive: life.phase === "Open" && !LockState.locked
+    // Live from the moment the open FINISHES (UI/UX Phase 22 — its services
+    // fork and its lists rebuild, and doing that under the bloom was the
+    // hitch), and still live through the close: dropping at the close's start
+    // reset the launcher's query and blanked live content mid-exit. So a latch,
+    // not the phase: set on Open, cleared once the window is gone or a new open
+    // begins.
+    property bool _settled: false
+    Connections {
+        target: life
+        function onPhaseChanged() {
+            if (life.phase === "Open") root._settled = true
+            else if (life.phase === "Closed" || life.phase === "Opening") root._settled = false
+        }
+    }
+    readonly property bool pageLive: root._settled && life.mapped && !LockState.locked
 
     // ── Per-page content width ────────────────────────────────────────────────
     // The rule lives in DashboardLayout, not here: this is a PanelWindow, and a
@@ -103,6 +117,12 @@ PanelWindow {
         property: "dashboardPageWidth"
         value:    DashboardLayout.widthFor(root.theme, root.page, root.width)
         when:     root.open
+        // Keep the last width when the close starts. Qt 6's default restores the
+        // value from before the Binding took over — 900 — the moment `open` goes
+        // false: closing the launcher (560) re-flowed its content to the Home
+        // width while the body was still the lens, and the body swelled 24 px a
+        // side as it retracted (Fable's slow-motion review, UI/UX Phase 23).
+        restoreMode: Binding.RestoreNone
     }
 
     // The finished width the bloom is heading for. A page change while open
