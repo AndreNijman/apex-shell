@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import "../"
+import "../components/controls"
 
 // ─── DisplayConfirm ───────────────────────────────────────────────────────────
 // The Keep / Put it back question that follows every temporary display apply.
@@ -116,6 +117,10 @@ PanelWindow {
 
         MouseArea { anchors.fill: parent }
 
+        // Escape puts it back from a focused button too: keys climb the focused
+        // item's parents, and the catcher below is a sibling of this card.
+        Keys.onEscapePressed: DisplayService.revertApplied()
+
         Column {
             id: col
             anchors {
@@ -184,36 +189,44 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: theme.px(10)
 
-                Rectangle {
+                // Real buttons (UI/UX roadmap v3 Phase 21): Tab reaches them and
+                // Return presses the one with focus. With neither focused,
+                // Return still keeps and Escape still puts back (below).
+                ApexPressable {
+                    id: revertBtn
                     width:  theme.px(160)
                     height: theme.px(38)
                     radius: theme.cornerRadius
-                    color:  revertHov.hovered ? Theme.dangerFillHover : Theme.dangerFill
+                    Accessible.name: "Put it back now"
+                    onActivated: DisplayService.revertApplied()
 
-                    Behavior on color { MotionColor {} }
-
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color:  revertBtn.hovered ? Theme.dangerFillHover : Theme.dangerFill
+                        Behavior on color { MotionColor {} }
+                    }
                     Text {
                         anchors.centerIn: parent
                         text: "Put it back now"
                         color: Theme.fixedLight
                         font.pixelSize: theme.fs(13)
                     }
-
-                    HoverHandler { id: revertHov; cursorShape: Qt.PointingHandCursor }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: DisplayService.revertApplied()
-                    }
+                    ApexFocusRing { target: revertBtn }
                 }
 
-                Rectangle {
+                ApexPressable {
+                    id: keepBtn
                     width:  theme.px(160)
                     height: theme.px(38)
                     radius: theme.cornerRadius
-                    color:  keepHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.16) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09)
+                    Accessible.name: "Keep it"
+                    onActivated: DisplayService.confirm()
 
-                    Behavior on color { MotionColor {} }
-
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color:  keepBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.16) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09)
+                        Behavior on color { MotionColor {} }
+                    }
                     Text {
                         anchors.centerIn: parent
                         text: "Keep it"
@@ -221,12 +234,7 @@ PanelWindow {
                         font.pixelSize: theme.fs(13)
                         font.bold: true
                     }
-
-                    HoverHandler { id: keepHov; cursorShape: Qt.PointingHandCursor }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: DisplayService.confirm()
-                    }
+                    ApexFocusRing { target: keepBtn }
                 }
             }
 
