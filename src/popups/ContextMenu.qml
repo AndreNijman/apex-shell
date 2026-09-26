@@ -41,10 +41,11 @@ PanelWindow {
     color: "transparent"
 
     WlrLayershell.layer: WlrLayer.Overlay
-    // OnDemand, not Exclusive: the menu takes the keyboard while it is up so
-    // Escape closes it, but it must not steal focus from whatever the user was
-    // typing into once it is gone.
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    // Exclusive while it is open, and nothing once it is gone, so it never keeps
+    // focus from whatever the user was typing into. It was OnDemand, which a
+    // compositor may grant only on a click — measured on labwc: Escape and the
+    // arrows reached nothing and the menu stayed open (UI/UX Phase 21).
+    WlrLayershell.keyboardFocus: Popups.contextMenuOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     // The window maps with the flag, so the catcher below can learn where the
     // pointer is; the menu's own entrance starts once it has been placed.
@@ -176,11 +177,13 @@ PanelWindow {
 
                 delegate: Loader {
                     required property var modelData
+                    required property int index
                     width: itemColumn.width
                     sourceComponent: modelData.separator ? separatorItem : menuItem
                     onLoaded: if (!modelData.separator) {
                         item.label = modelData.label
                         item.action = modelData.action
+                        item.idx = index
                     }
                 }
             }
@@ -203,6 +206,27 @@ PanelWindow {
         { label: "Lock",                 action: "lock",       separator: false },
         { label: "Log out",              action: "logout",     separator: false }
     ]
+
+    // ── Keyboard (UI/UX roadmap v3 Phase 21) ────────────────────────────────
+    // The menu pattern: nothing is highlighted when it opens (it opens under
+    // the pointer), Down or Up takes the first or last item, the arrows walk
+    // the items and skip the separators, Home and End jump, Return, Enter or
+    // Space choose. The pointer and the keyboard move the SAME highlight, so
+    // there is never one item lit by each.
+    property int current: -1
+    onWindowVisibleChanged: if (root.windowVisible) root.current = -1
+    function _step(d) {
+        const n = root.entries.length
+        let i = root.current
+        for (let k = 0; k < n; k++) {
+            i = i < 0 ? (d > 0 ? 0 : n - 1) : (i + d + n) % n
+            if (!root.entries[i].separator) { root.current = i; return }
+        }
+    }
+    function _edge(first) {
+        root.current = -1
+        root._step(first ? 1 : -1)
+    }
 
     function run(action) {
         root.close()
@@ -240,10 +264,15 @@ PanelWindow {
         Rectangle {
             property string label: ""
             property string action: ""
+            property int idx: -1
 
             height: 32
-            // The state layer, not a full accent flood (brief §E list row).
-            color: hover.hovered ? Theme.surfaceHover(Theme.background) : "transparent"
+            // The state layer, not a full accent flood (brief §E list row) —
+            // on the one highlight the pointer and the arrows share.
+            color: root.current === idx ? Theme.surfaceHover(Theme.background) : "transparent"
+            Accessible.role: Accessible.MenuItem
+            Accessible.name: label
+            Accessible.onPressAction: root.run(action)
             Behavior on color { MotionColor {} }
             radius: theme.cornerRadius > 6 ? 6 : theme.cornerRadius
 
@@ -267,7 +296,10 @@ PanelWindow {
                 elide: Text.ElideRight
             }
 
-            HoverHandler { id: hover }
+            HoverHandler {
+                id: hover
+                onHoveredChanged: if (hovered) root.current = parent.idx
+            }
             TapHandler {
                 acceptedButtons: Qt.LeftButton
                 onTapped: root.run(parent.action)
@@ -275,10 +307,23 @@ PanelWindow {
         }
     }
 
-    // Escape closes, which is the reason this window takes keyboard focus.
+    // Escape closes, and the arrows and Return drive the menu — the reason this
+    // window takes keyboard focus.
     Item {
         anchors.fill: parent
         focus: root.windowVisible
+        Accessible.role: Accessible.PopupMenu
         Keys.onEscapePressed: root.close()
+        Keys.onPressed: function(event) {
+            if      (event.key === Qt.Key_Down) root._step(1)
+            else if (event.key === Qt.Key_Up)   root._step(-1)
+            else if (event.key === Qt.Key_Home) root._edge(true)
+            else if (event.key === Qt.Key_End)  root._edge(false)
+            else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                      || event.key === Qt.Key_Space) && root.current >= 0)
+                root.run(root.entries[root.current].action)
+            else return
+            event.accepted = true
+        }
     }
 }

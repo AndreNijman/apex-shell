@@ -1546,6 +1546,14 @@ jobs:
       - name: The shared press, hover and focus primitives
         run: ./tests/run-controls-primitives-test.sh
 
+      # The shared tab list on the keyboard (Phase 21): the tab bar of the
+      # Dashboard, the network panel, the audio pane and the settings column
+      # is one Tab stop, moves on the arrows along its axis (reversed in a
+      # mirrored row), jumps on Home/End, rings only for keyboard focus, and
+      # a pointer click chooses without taking focus.
+      - name: The tab lists answer the keyboard
+        run: ./tests/run-keyboard-nav-test.sh
+
       # The fluid surface geometry (Phases 4-5): every family swept over
       # progress at three output scales — tangent-continuous joins, no
       # self-intersection, no collapse mid-morph, attached to its origin

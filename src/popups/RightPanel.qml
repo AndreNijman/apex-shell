@@ -82,9 +82,18 @@ PanelWindow {
     color:         "transparent"
 
     WlrLayershell.layer:         WlrLayer.Overlay
-    // Only the network pane has anything to type into.
-    WlrLayershell.keyboardFocus: (root.life.open && root.pane === "network")
-                                 ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    // The keyboard while a pane the user opened is up, never for a toast (it
+    // arrives unasked). It was the network pane only, and OnDemand — which a
+    // compositor may grant only on a click — so the audio pane and the centre
+    // took no key at all, not even Escape (UI/UX Phase 21).
+    WlrLayershell.keyboardFocus: root.life.open && root.pane !== "" && root.pane !== "toast"
+                                 ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    // Escape for the panes with nothing focused of their own (the network pane
+    // takes focus itself and handles it).
+    Item {
+        focus: root.life.open && root.pane !== "network"
+        Keys.onEscapePressed: Popups.closeAll()
+    }
 
     visible: root.life.mapped
 

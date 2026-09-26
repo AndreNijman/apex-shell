@@ -81,7 +81,14 @@ PanelWindow {
 	exclusionMode: ExclusionMode.Ignore
 	color:         "transparent"
 	WlrLayershell.layer:         WlrLayer.Overlay
-	WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+	// The keyboard while it is open (UI/UX Phase 21): it took none, so its
+	// power rows — ApexPressable, Tab-ready — could not be reached, and on labwc
+	// (where PopupDismiss stands aside for it) nothing closed it but a click.
+	WlrLayershell.keyboardFocus: Popups.archMenuOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+	Item {
+		focus: Popups.archMenuOpen
+		Keys.onEscapePressed: Popups.archMenuOpen = false
+	}
 
 	SurfaceLifecycle {
 		id: life
@@ -151,6 +158,9 @@ PanelWindow {
 		x: body.result.clip.x; y: body.result.clip.y
 		width: body.result.clip.w; height: body.result.clip.h
 		clip: true
+		// Keys travel up from the focused row, so Escape lives on an ancestor
+		// of the rows too — the catcher above only has it before any Tab.
+		Keys.onEscapePressed: Popups.archMenuOpen = false
 
 		Item {
 			// Window coordinates: the finished body, inset.

@@ -51,7 +51,14 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     color:         "transparent"
     WlrLayershell.layer:         WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    // The keyboard only when its keybind opened it (Popups.quickOpen): opened
+    // by the pointer resting on the edge it must never take the keys from the
+    // window being typed into (UI/UX Phase 21).
+    WlrLayershell.keyboardFocus: Popups.quickOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    Item {
+        focus: Popups.quickOpen
+        Keys.onEscapePressed: Popups.quickOpen = false
+    }
 
     // ── Open state: the flag, or the pointer on the strip or on the panel ────
     property bool _selfHovered: false

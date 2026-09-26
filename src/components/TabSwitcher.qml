@@ -1,5 +1,6 @@
 import QtQuick
 import "../"
+import "controls"
 
 // Unified tab switcher — horizontal or vertical.
 //
@@ -46,6 +47,38 @@ import "../"
 Item {
 	id: root
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
+
+	// ── Keyboard (UI/UX roadmap v3 Phase 21) ─────────────────────────────────
+	// The tab-list pattern: the whole switcher is ONE Tab stop, and inside it
+	// the arrows along its axis move the selection — as the wheel already did —
+	// with Home and End for the ends. A tab chosen with the pointer never takes
+	// focus, so the ring below is keyboard-only by construction. It was
+	// pointer-only, and it is the tab bar of the Dashboard, the network panel,
+	// the audio pane and the settings column.
+	activeFocusOnTab: root.model.length > 1
+	readonly property bool focusVisible: root.activeFocus
+	Accessible.role: Accessible.PageTabList
+
+	function _stepTo(i) {
+		var n = root.model.length
+		if (n === 0) return
+		i = ((i % n) + n) % n
+		if (root.model[i].key !== root.currentPage) root.pageChanged(root.model[i].key)
+	}
+	Keys.onPressed: function(event) {
+		var horizontal = root.orientation === "horizontal"
+		// A mirrored (right-to-left) row runs the other way under the arrows.
+		var flip = horizontal && root.LayoutMirroring.enabled ? -1 : 1
+		var next = horizontal ? Qt.Key_Right : Qt.Key_Down
+		var prev = horizontal ? Qt.Key_Left  : Qt.Key_Up
+		var i = Math.max(0, root.currentIndex)
+		if      (event.key === next)        root._stepTo(i + flip)
+		else if (event.key === prev)        root._stepTo(i - flip)
+		else if (event.key === Qt.Key_Home) root._stepTo(0)
+		else if (event.key === Qt.Key_End)  root._stepTo(root.model.length - 1)
+		else return
+		event.accepted = true
+	}
 
 
 	property var    model:       []
@@ -216,8 +249,10 @@ Item {
 		height: Math.max(0, root.height - theme.px(8))
 		y:      (root.height - height) / 2
 		radius: height / 2
-		color:  Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
+		// The one selected tint the shell uses (the nav and open pills').
+		color:  Theme.surfaceSelected
 		onCurChanged: if (cur && !root._pillPlaced) pillArm.restart()
+		ApexFocusRing { target: root; targetRadius: hSel.radius }
 		Behavior on x     { enabled: root._pillPlaced; MotionMove { curve: Motion.emphasizedDecel } }
 		Behavior on width { enabled: root._pillPlaced; MotionMove { curve: Motion.emphasizedDecel } }
 	}
@@ -234,6 +269,10 @@ Item {
 			delegate: Item {
 				id: hTab
 				readonly property bool isActive: root.currentPage === modelData.key
+				Accessible.role: Accessible.PageTab
+				Accessible.name: modelData.label || modelData.key
+				Accessible.selectable: true
+				Accessible.selected: isActive
 
 				width:  root.hSlotWidth
 				height: hRow.height
@@ -390,9 +429,21 @@ Item {
 			// A tint and an accent foreground, like every other selection in
 			// the shell — the solid accent fill this column used was the
 			// heaviest object on screen for the least important state.
-			color:  Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
-			onCurChanged: if (cur && !root._pillPlaced) pillArm.restart()
+			color:  Theme.surfaceSelected
+			onCurChanged: {
+				if (cur && !root._pillPlaced) pillArm.restart()
+				// A selection moved by the keyboard stays in view. Only then: on
+				// open the column keeps its scroll where it was (nav-geometry
+				// measures the rows from the top of an unscrolled column).
+				if (cur && vFlick.interactive && root.activeFocus) {
+					var top = vCol.y + cur.y
+					if (top < vFlick.contentY) vFlick.contentY = top
+					else if (top + cur.height > vFlick.contentY + vFlick.height)
+						vFlick.contentY = top + cur.height - vFlick.height
+				}
+			}
 			Behavior on y { enabled: root._pillPlaced; MotionMove { curve: Motion.emphasizedDecel } }
+			ApexFocusRing { target: root; targetRadius: vSel.radius }
 		}
 
 		Column {
@@ -418,6 +469,11 @@ Item {
 				delegate: Rectangle {
 					id: vTab
 					readonly property bool isActive: root.currentPage === modelData.key
+
+					Accessible.role: Accessible.PageTab
+					Accessible.name: modelData.label || modelData.key
+					Accessible.selectable: true
+					Accessible.selected: isActive
 
 					width:  vCol.width
 					height: root.vRowHeight

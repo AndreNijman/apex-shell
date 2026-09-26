@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Wayland
 import "../"
 import "../components"
+import "../components/controls"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Nexus — the standalone settings window.
@@ -233,7 +234,7 @@ PanelWindow {
                         elide: Text.ElideRight
                     }
 
-                    Rectangle {
+                    ApexIconButton {
                         id: closeBtn
                         anchors {
                             right: parent.right
@@ -241,25 +242,10 @@ PanelWindow {
                             top: parent.top
                             topMargin: theme.px(12)
                         }
-                        width: theme.px(28)
-                        height: theme.px(28)
-                        radius: width / 2
-                        color: closeHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : "transparent"
-                        Behavior on color { MotionColor {} }
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "󰅖"
-                            color: closeHov.hovered ? Theme.text : Theme.subtext
-                            font.pixelSize: theme.fs(13)
-                        }
-
-                        HoverHandler { id: closeHov; cursorShape: Qt.PointingHandCursor }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: NexusState.close()
-                        }
+                        glyph: "󰅖"
+                        label: "Close settings"
+                        radius: height / 2
+                        onActivated: NexusState.close()
                     }
                 }
 

@@ -235,6 +235,48 @@ lens_switch() {
     echo "captured lens"
 }
 
+# The keyboard (UI/UX roadmap v3 Phase 21), typed with wtype into the headless
+# compositor: the context menu walked with Down and chosen from with Escape,
+# the Dashboard's tab bar reached with Tab and moved with Right, Nexus's page
+# list moved with Down. One settled frame per step (keys-*).
+keys_seq() {
+    command -v wtype >/dev/null 2>&1 || { echo "keys: skipped — wtype is not installed"; return; }
+    # The first wtype of a session loses its key (a fresh virtual keyboard
+    # racing its keymap — measured: the menu's first Down never arrived), so a
+    # modifier tap goes first and every counted key after it lands.
+    wtype -k Shift_L; sleep 0.3
+    ipc context-menu open; sleep 1.0
+    grab "keys-menu-0-open"
+    wtype -k Down; sleep 0.4; grab "keys-menu-1-down"
+    wtype -k Down; sleep 0.4; grab "keys-menu-2-down"
+    wtype -k End;  sleep 0.4; grab "keys-menu-3-end"
+    wtype -k Escape; sleep 1.0; grab "keys-menu-4-escape"
+    ipc dashboard-home toggle; sleep 1.2
+    wtype -k Tab; sleep 0.4; grab "keys-dash-0-tab"
+    wtype -k Right; sleep 1.2; grab "keys-dash-1-right"
+    wtype -k Escape; sleep 1.2
+    ipc nexus open appearance; sleep 1.2
+    wtype -k Tab; sleep 0.4; grab "keys-nexus-0-tab"
+    wtype -k Down; sleep 1.2; grab "keys-nexus-1-down"
+    wtype -k Escape; sleep 1.2; grab "keys-nexus-2-escape"
+    ipc PowerMenu-toggle toggle; sleep 1.2
+    wtype -k Tab; sleep 0.4; grab "keys-power-0-tab"
+    wtype -k Down; sleep 0.4; grab "keys-power-1-down"
+    wtype -k Escape; sleep 1.2; grab "keys-power-2-escape"
+    # The confirm dialog, opened from the power menu's Shutdown row (which only
+    # ever asks — confirm: true). Nothing is pressed INSIDE the dialog but Left
+    # and Escape: its confirm button is never activated here, stub or not.
+    ipc PowerMenu-toggle toggle; sleep 1.2
+    wtype -k Tab; sleep 0.3; wtype -k Return; sleep 1.2; grab "keys-confirm-0-open"
+    wtype -k Left; sleep 0.4; grab "keys-confirm-1-left"
+    wtype -k Escape; sleep 1.2; grab "keys-confirm-2-escape"
+    ipc notification-toggle toggle; sleep 1.2; grab "keys-centre-0-open"
+    wtype -k Escape; sleep 1.2; grab "keys-centre-1-escape"
+    ipc quick-toggle toggle; sleep 1.2; grab "keys-quick-0-open"
+    wtype -k Escape; sleep 1.2; grab "keys-quick-1-escape"
+    echo "captured keys"
+}
+
 # Every Nexus page, settled: one frame each (nexus-pages).
 nexus_pages() {
     local p
@@ -263,6 +305,7 @@ for s in "${want[@]}"; do
     if [ "$s" = tabs ]; then tab_switch; continue; fi
     if [ "$s" = nexus-nav ]; then nexus_nav; continue; fi
     if [ "$s" = nexus-pages ]; then nexus_pages; continue; fi
+    if [ "$s" = keys ]; then keys_seq; continue; fi
     if [ "$s" = lens ]; then lens_switch; continue; fi
     if [ "$s" = stack ]; then stack_seq; continue; fi
     if [ "$s" = switch ]; then pane_switch; continue; fi

@@ -218,7 +218,21 @@ Column {
         }
     }
 
+    // A menu on the keyboard (UI/UX roadmap v3 Phase 21): Tab reaches the first
+    // row, Up and Down walk the rows and stop at the ends.
+    Keys.onPressed: function (event) {
+        if (event.key !== Qt.Key_Up && event.key !== Qt.Key_Down) return
+        for (let i = 0; i < rows.count; i++) {
+            if (!rows.itemAt(i) || !rows.itemAt(i).activeFocus) continue
+            const j = Math.max(0, Math.min(rows.count - 1, i + (event.key === Qt.Key_Down ? 1 : -1)))
+            rows.itemAt(j).forceActiveFocus()
+            event.accepted = true
+            return
+        }
+    }
+
     Repeater {
+        id: rows
         model: root.visibleActions
 
         delegate: ApexPressable {

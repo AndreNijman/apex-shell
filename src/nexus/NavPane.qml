@@ -1,6 +1,7 @@
 import QtQuick
 import "../"
 import "../components"
+import "../components/controls"
 
 // NavPane — the page list down the left of the Nexus window.
 //
@@ -26,6 +27,35 @@ Item {
     signal pageSelected(string id)
 
     implicitWidth: 240
+
+    // ── Keyboard (UI/UX roadmap v3 Phase 21) ─────────────────────────────────
+    // One Tab stop for the whole list, like a tab list: Up and Down move the
+    // selection a page at a time (reveal() keeps it in view), Home and End jump
+    // to the ends. Its rows were pointer-only; a row clicked never takes focus,
+    // so the ring on the pill is keyboard-only by construction.
+    activeFocusOnTab: true
+    readonly property bool focusVisible: root.activeFocus
+    Accessible.role: Accessible.PageTabList
+    Accessible.name: "Settings pages"
+    function _stepTo(i) {
+        const list = PageRegistry.pages
+        if (list.length === 0) return
+        i = Math.max(0, Math.min(list.length - 1, i))
+        if (list[i].id !== root.currentPage) root.pageSelected(list[i].id)
+    }
+    function _index() {
+        const list = PageRegistry.pages
+        for (let i = 0; i < list.length; i++) if (list[i].id === root.currentPage) return i
+        return 0
+    }
+    Keys.onPressed: function(event) {
+        if      (event.key === Qt.Key_Down) root._stepTo(root._index() + 1)
+        else if (event.key === Qt.Key_Up)   root._stepTo(root._index() - 1)
+        else if (event.key === Qt.Key_Home) root._stepTo(0)
+        else if (event.key === Qt.Key_End)  root._stepTo(PageRegistry.pages.length - 1)
+        else return
+        event.accepted = true
+    }
 
     // Scrolls, and is clipped to the window. The list is sixteen pages and
     // growing; as a bare Column it simply ran past the bottom of the Settings
@@ -90,6 +120,7 @@ Item {
         Behavior on height { enabled: sel._placed; MotionMove { curve: Motion.emphasizedDecel } }
         onTargetChanged: if (sel.target && !sel._placed) armTimer.restart()
         Timer { id: armTimer; interval: 0; onTriggered: sel._placed = true }
+        ApexFocusRing { target: root; targetRadius: sel.radius }
 
         // Active marker: a bar rather than only a tint, so the selected page
         // is still obvious at low contrast or with a pale accent.
@@ -141,6 +172,10 @@ Item {
                 required property var modelData
 
                 readonly property bool active: root.currentPage === row.modelData.id
+                Accessible.role: Accessible.PageTab
+                Accessible.name: row.modelData.title
+                Accessible.selectable: true
+                Accessible.selected: row.active
 
                 width: parent.width
                 // 36, not 44: sixteen pages nearly fit the sheet without
