@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Services.Notifications
 import "../"
 import "../../"
+import "../../components/controls"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NotificationList — the notification centre's stack (NotificationsPane, in
@@ -65,6 +66,55 @@ Item {
     function clearAll() {
         root.clearRequested(NotificationService.list.slice())
         NotificationService.dismissAll()
+        root._curId = null
+    }
+
+    // ── Keyboard ──────────────────────────────────────────────────────────
+    // The card stack is ONE Tab stop: Up and Down move a highlight over the
+    // cards in display order, Return/Enter/Space invokes the highlighted
+    // card's own "default" action if the notification declared one (the
+    // org.freedesktop.Notifications convention for what a body click would
+    // invoke — this pane draws no click handler on the card body itself,
+    // only its labelled action buttons and the ✕, so Return is a no-op
+    // unless the app asked for one), and Delete/BackSpace dismiss it. A
+    // dismissed card hands the highlight to the next one (or the previous,
+    // if it was last), so clearing several with the keyboard reads down the
+    // list instead of snapping back to the top each time.
+    //
+    // The sentinel is null, not "" or 0: ids are the server's own `uint`
+    // (org.freedesktop.Notifications never assigns 0 to a live
+    // notification), and unlike WifiTab's placeholder row this pane never
+    // synthesizes an entry, so there is no resting value a real id could
+    // collide with.
+    property var _curId: null
+    readonly property var _cardIds: root.entries.map(function (w) { return w.note.id })
+    function _stepCard(d) {
+        const list = root._cardIds
+        if (list.length === 0) return
+        const i = list.indexOf(root._curId)
+        root._curId = i < 0 ? list[d > 0 ? 0 : list.length - 1]
+                            : list[Math.max(0, Math.min(list.length - 1, i + d))]
+    }
+    function _cardFor(id) {
+        for (let i = 0; i < contentList.count; i++) {
+            const item = contentList.itemAtIndex(i)
+            if (item && item.notification && item.notification.id === id) return item
+        }
+        return null
+    }
+    // Shared by the list's Delete/BackSpace and the card's own ✕ — "the same
+    // call" both make. Dismiss, then move the highlight to the next card, or
+    // the previous one if the dismissed card was last; with none left, hand
+    // focus nowhere, so the pane can still take Escape.
+    function _dismissCard(id) {
+        const list = root._cardIds
+        const i = list.indexOf(id)
+        if (i < 0) return
+        const nextId = i + 1 < list.length ? list[i + 1] : (i > 0 ? list[i - 1] : null)
+        const c = root._cardFor(id)
+        c?.notification?.dismiss()
+        root._curId = nextId
+        if (nextId !== null) contentList.forceActiveFocus()
     }
 
 
@@ -90,16 +140,21 @@ Item {
         }
 
         // Clear-all — only visible when there are notifications
-        Item {
+        ApexPressable {
+            id:      clearBtn
             anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
             width:   clearLabel.width + 16
             height:  26
+            radius:  13
+            hitMargin: 3
             visible: NotificationService.count > 0
+            Accessible.name: "Clear all notifications"
+            onActivated: root.clearAll()
 
             Rectangle {
                 anchors.fill: parent
-                radius:       13
-                color:        clearHover.containsMouse ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : "transparent"
+                radius:       parent.radius
+                color:        clearBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : "transparent"
                 Behavior on color { MotionColor {} }
             }
             Text {
@@ -109,8 +164,7 @@ Item {
                 color:            Theme.subtext
                 font.pixelSize:   theme.fs(12)
             }
-            HoverHandler { id: clearHover }
-            TapHandler   { onTapped: root.clearAll() }
+            ApexFocusRing { target: clearBtn }
         }
     }
 
@@ -151,6 +205,26 @@ Item {
             clip:           contentList.contentHeight > listArea.maxListHeight
             spacing:        1
             boundsBehavior: Flickable.StopAtBounds
+
+            // ── Keyboard — the stack is ONE Tab stop ────────────────────
+            activeFocusOnTab: root._cardIds.length > 0
+            Accessible.role: Accessible.List
+            Accessible.name: "Notifications"
+            onActiveFocusChanged: if (activeFocus && root._cardIds.indexOf(root._curId) < 0) root._stepCard(1)
+            Keys.onPressed: function (event) {
+                if      (event.key === Qt.Key_Down) root._stepCard(1)
+                else if (event.key === Qt.Key_Up)   root._stepCard(-1)
+                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                    const c = root._cardFor(root._curId)
+                    if (c) c.primary()
+                } else if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
+                    root._dismissCard(root._curId)
+                } else return
+                event.accepted = true
+                // Keep the highlighted card in view.
+                const i = root._cardIds.indexOf(root._curId)
+                if (i >= 0) contentList.positionViewAtIndex(i, ListView.Contain)
+            }
 
             delegate: NotificationCard {
                 required property var modelData
@@ -290,6 +364,20 @@ Item {
         // closed and destroyed it becomes null AND says so, which is what
         // switches the card over to its own copy (`live` below).
         required property QtObject notification
+
+        // Highlighted by the keyboard: its buttons join the Tab order.
+        readonly property bool keyed: !!card.notification && root._curId === card.notification.id
+        // The card's default action, for Return/Enter/Space on the list: the
+        // notification's own "default" action (the org.freedesktop.Notifications
+        // convention for what clicking the body would invoke). This pane draws
+        // no click handler on the card body itself — only the labelled action
+        // buttons and the ✕ — so this is a no-op unless the app declared one.
+        function primary() {
+            for (const a of card.tActions)
+                if (a && a.identifier === "default") { a.invoke(); return }
+        }
+        Accessible.role: Accessible.ListItem
+        Accessible.name: card.tApp !== "" ? (card.tApp + ": " + card.tSummary) : card.tSummary
 
         // ── What it shows ────────────────────────────────────────────────────
         // Read straight from the notification while there is one — so the
@@ -540,15 +628,21 @@ Item {
 
                     Repeater {
                         model: card.tActions
-                        delegate: Item {
+                        delegate: ApexPressable {
+                            id: actBtn
                             required property var modelData
                             width:  actionLbl.width + 20
                             height: card.actionH
+                            radius: 3
+                            hitMargin: 5
+                            activeFocusOnTab: card.keyed
+                            Accessible.name: (modelData?.text ?? "") !== "" ? modelData.text : "Action"
+                            onActivated: modelData?.invoke()
 
                             Rectangle {
                                 anchors.fill: parent
-                                radius:       3
-                                color:        actHover.containsMouse
+                                radius:       parent.radius
+                                color:        actBtn.hovered
                                               ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.15)
                                               : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
                                 Behavior on color { MotionColor {} }
@@ -560,23 +654,27 @@ Item {
                                 color:            Theme.text
                                 font.pixelSize:   theme.fs(11)
                             }
-                            HoverHandler { id: actHover }
-                            TapHandler   { onTapped: modelData?.invoke() }
+                            ApexFocusRing { target: actBtn }
                         }
                     }
                 }
             }
 
             // Dismiss ✕
-            Item {
+            ApexPressable {
                 id:     dismissBtn
                 width:  24
                 height: 24
+                radius: 12
+                hitMargin: 4
+                activeFocusOnTab: card.keyed
+                Accessible.name: "Dismiss notification"
+                onActivated: root._dismissCard(card.notification?.id)
 
                 Rectangle {
                     anchors.fill: parent
-                    radius:       width / 2
-                    color:        xHover.containsMouse ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12) : "transparent"
+                    radius:       parent.radius
+                    color:        dismissBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.12) : "transparent"
                     Behavior on color { MotionColor {} }
                 }
                 Text {
@@ -585,12 +683,19 @@ Item {
                     color:            Theme.subtext
                     font.pixelSize:   theme.fs(10)
                 }
-                HoverHandler { id: xHover }
-                TapHandler   { onTapped: card.notification?.dismiss() }
+                ApexFocusRing { target: dismissBtn }
             }
         }
         }
 
         HoverHandler { id: cardHover }
+
+        // Keyboard-focus ring — outside face, so it does not travel with the
+        // card during a drag-to-dismiss.
+        Rectangle {
+            anchors.fill: parent; anchors.margins: -2
+            color: "transparent"; border.width: 2; border.color: Theme.accentText
+            visible: card.keyed && contentList.activeFocus
+        }
     }
 }

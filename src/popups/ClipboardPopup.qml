@@ -26,7 +26,10 @@ PanelWindow {
     color:         "transparent"
 
     WlrLayershell.layer:         WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    // The keyboard while it is open (UI/UX Phase 21): it was OnDemand, which a
+    // compositor may grant only on a click — measured, typed keys reached
+    // nothing — and it had no Escape of its own.
+    WlrLayershell.keyboardFocus: Popups.clipboardOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     mask: Region { item: maskProxy }
     Item {
@@ -81,6 +84,10 @@ PanelWindow {
 
         Item {
             id: content
+            // Escape from anywhere inside (keys travel up from the focused item),
+            // and before any Tab: it holds focus itself when the popup opens.
+            focus: true
+            Keys.onEscapePressed: Popups.clipboardOpen = false
             anchors {
                 fill:         parent
                 topMargin:    root.fh + 8
