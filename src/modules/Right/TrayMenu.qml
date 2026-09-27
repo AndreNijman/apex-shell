@@ -38,12 +38,38 @@ PopupWindow {
         else {
             stack = []
             widest = 0
+            curItem = null
             visible = true
+            popIn.restart()
         }
     }
     function close() { visible = false }
-    function push(entry) { widest = 0; stack = stack.concat([entry]) }
-    function pop() { widest = 0; stack = stack.slice(0, -1) }
+    function push(entry) { widest = 0; stack = stack.concat([entry]); curItem = null }
+    function pop() { widest = 0; stack = stack.slice(0, -1); curItem = null }
+
+    // ── Keyboard (UI/UX roadmap v3 Phase 21) ────────────────────────────────
+    // The menu pattern, as the desktop menu has it: one highlight that the
+    // pointer and the arrows share, Up/Down over the rows that can be chosen
+    // (separators and disabled rows skipped), Return/Enter/Space to choose,
+    // Right into a submenu, Left or Backspace back out of one.
+    property Item curItem: null
+    function _rows() {
+        const out = []
+        if (backRow.visible) out.push(backRow)
+        for (let i = 0; i < entryRows.count; i++) {
+            const slot = entryRows.itemAt(i)
+            const row = slot ? slot.item : null
+            if (row && row.enabledRow !== undefined && row.enabledRow) out.push(row)
+        }
+        return out
+    }
+    function _step(d) {
+        const rows = root._rows()
+        if (rows.length === 0) return
+        const i = rows.indexOf(root.curItem)
+        root.curItem = i < 0 ? rows[d > 0 ? 0 : rows.length - 1]
+                             : rows[Math.max(0, Math.min(rows.length - 1, i + d))]
+    }
 
     anchor.item: target
     anchor.edges: Edges.Bottom | Edges.Left
@@ -91,6 +117,39 @@ PopupWindow {
 
         focus: true
         Keys.onEscapePressed: root.close()
+        Keys.onPressed: function (event) {
+            const cur = root.curItem
+            if      (event.key === Qt.Key_Down) root._step(1)
+            else if (event.key === Qt.Key_Up)   root._step(-1)
+            else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                      || event.key === Qt.Key_Space) && cur) cur.activated()
+            else if (event.key === Qt.Key_Right && cur && cur.chevron) cur.activated()
+            else if ((event.key === Qt.Key_Left || event.key === Qt.Key_Backspace)
+                     && root.stack.length > 0) root.pop()
+            else return
+            event.accepted = true
+        }
+
+        // PIVOT_POP's entrance (brief B.8): from the corner at the tray icon,
+        // a fade on the state beat and a scale 0.97 → 1 on emphasizedDecel.
+        // No exit: a click elsewhere is the compositor dismissing the popup,
+        // and it is gone before any fade could run.
+        transformOrigin: Item.TopLeft
+        opacity: 1
+        scale: 1
+        ParallelAnimation {
+            id: popIn
+            NumberAnimation {
+                target: card; property: "opacity"; from: 0; to: 1
+                duration: Motion.state
+                easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardDecel
+            }
+            NumberAnimation {
+                target: card; property: "scale"; from: Motion.selection > 0 ? 0.97 : 1; to: 1
+                duration: Motion.selection
+                easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.emphasizedDecel
+            }
+        }
 
         // Scrolls only when a menu is taller than maxH.
         Flickable {
@@ -108,6 +167,7 @@ PopupWindow {
 
                 // ── Back, inside a submenu ───────────────────────────
                 MenuRow {
+                    id: backRow
                     visible: root.stack.length > 0
                     glyph: "󰁍"
                     label: qsTr("Back")
@@ -121,6 +181,7 @@ PopupWindow {
                 }
 
                 Repeater {
+                    id: entryRows
                     model: opener.children
 
                     delegate: Loader {
@@ -181,15 +242,19 @@ PopupWindow {
         readonly property bool checkable: entry !== null
             && entry.buttonType !== QsMenuButtonType.None
         readonly property bool checked: checkable && entry.checkState === Qt.Checked
-        readonly property bool lit: hov.hovered && enabledRow
-        readonly property color ink: lit ? Theme.fixedDark : Theme.text
+        readonly property bool lit: (hov.hovered || root.curItem === row) && enabledRow
+        Accessible.role: Accessible.MenuItem
+        Accessible.name: row.label
+        Accessible.onPressAction: if (row.enabledRow) row.activated()
+        readonly property color ink: Theme.textPrimary
 
         width: parent ? parent.width : 0
         height: root.rowH
         radius: root.radius - 2
-        color: lit ? Theme.active : "transparent"
+        // The state layer, not a full accent flood (brief §E list row).
+        color: lit ? Theme.surfaceHover(Theme.background) : "transparent"
         opacity: enabledRow ? 1 : 0.4
-        Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on color { MotionColor { role: "state" } }
 
         readonly property real needed: content.implicitWidth + (chevron ? root.theme.px(24) : 0) + root.theme.px(20)
         onNeededChanged: root.widest = Math.max(root.widest, needed)
@@ -255,6 +320,7 @@ PopupWindow {
         HoverHandler {
             id: hov
             cursorShape: row.enabledRow ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onHoveredChanged: if (hovered && row.enabledRow) root.curItem = row
         }
 
         MouseArea {

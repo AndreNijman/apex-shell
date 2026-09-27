@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────────────────────
+#  fake-cliphist — a clipboard history that changes nothing, for keyboard
+#  tests of the clipboard popup (UI/UX roadmap v3 Phase 21). Three canned
+#  entries; `delete` and `wipe` are written to $FAKE_CLIPHIST_LOG instead of
+#  being done. (The real history is the user's clipboard: never read in a test.)
+# ─────────────────────────────────────────────────────────────────────────────
+LOG="${FAKE_CLIPHIST_LOG:-/dev/null}"
+case "${1:-}" in
+    list)   printf '12\tfirst entry text\n11\tsecond entry text\n10\tthird entry text\n' ;;
+    decode) case "${2:-}" in
+                12*) printf 'first entry text' ;;
+                11*) printf 'second entry text' ;;
+                10*) printf 'third entry text' ;;
+            esac ;;
+    delete) while IFS= read -r line; do printf 'delete %s\n' "${line%%$'\t'*}" >> "$LOG"; done ;;
+    wipe)   echo "wipe" >> "$LOG" ;;
+    *)      : ;;
+esac
+exit 0

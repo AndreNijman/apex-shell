@@ -173,7 +173,9 @@ grep -q "ServiceRef" src/services/agents/AgentCenter.qml \
     || { echo "    the Agent Center does not hold a ServiceRef"; lazy=1; }
 grep -q "refCount" src/services/AgentService.qml \
     || { echo "    AgentService has no refCount"; lazy=1; }
-grep -q 'shown: root.page === "agents"' src/popups/Dashboard.qml \
+# `shownPage`, not `page`: the Dashboard sets it after the page direction, so
+# a page never reads a stale direction (UI/UX roadmap Phase 7).
+grep -q 'shown: root.shownPage === "agents"' src/popups/Dashboard.qml \
     || { echo "    the Agents tab is not lazily built"; lazy=1; }
 if [ "$lazy" -eq 0 ]; then
     ok "the Agents tab is lazily built and the service is refcounted"

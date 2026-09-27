@@ -25,7 +25,7 @@ Column {
         radius: 9
         color:  root.swatchColor
         border.width: 1
-        border.color: Qt.rgba(1,1,1,0.15)
+        border.color: Qt.rgba(Theme.fixedLight.r, Theme.fixedLight.g, Theme.fixedLight.b, 0.15) // on a fixed surface
     }
     Text {
         visible: root.label !== ""
@@ -33,7 +33,7 @@ Column {
         horizontalAlignment: Text.AlignHCenter
         text:           root.label
         font.pixelSize: theme.fs(8)
-        color:          Qt.rgba(1,1,1,0.4)
+        color:          Theme.textSecondary
         elide:          Text.ElideRight
     }
 }

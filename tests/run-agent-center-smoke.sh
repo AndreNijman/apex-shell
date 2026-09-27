@@ -212,6 +212,45 @@ sleep 3.5
 quickshell -p "$root/shell.qml" ipc call dashboard-agents toggle >/dev/null 2>&1
 sleep 0.5
 
+# ── the list on the keyboard (UI/UX roadmap v3 Phase 21j) ───────────────────
+# The rows are one Tab stop over everything in visual order — the request,
+# then "needs you", then the rest — and a highlighted row's own buttons join
+# the Tab order. Proved against the daemon, not a picture: Tab ×5 reaches the
+# list (the tab bar, the guide's entry, the first-run card's two buttons),
+# Down moves off the request onto the first session that needs you, Tab
+# reaches THAT row's first control — Pause, a live session with no graph —
+# and Space presses it. The runtime must then report exactly that session
+# paused. (Return would open its terminal through /usr/libexec, so not here.)
+if command -v wtype >/dev/null 2>&1; then
+    paused_ids() {
+        apex agent list --all --json 2>/dev/null | python3 -c '
+import json, sys
+def walk(o):
+    if isinstance(o, dict):
+        if o.get("paused") is True and "id" in o: yield str(o["id"])
+        for v in o.values(): yield from walk(v)
+    elif isinstance(o, list):
+        for v in o: yield from walk(v)
+print(" ".join(sorted(set(walk(json.load(sys.stdin))))))'
+    }
+    [[ -z "$(paused_ids)" ]] || { echo "FAIL: a session was paused before any key"; exit 1; }
+    quickshell -p "$root/shell.qml" ipc call dashboard-agents toggle >/dev/null 2>&1
+    sleep 3.5
+    wtype -k Shift_L; sleep 0.3                      # the first key of a session is lost
+    for k in Tab Tab Tab Tab Tab Down Tab space; do wtype -k "$k"; sleep 0.35; done
+    got=""
+    for _ in $(seq 1 20); do got="$(paused_ids)"; [[ -n "$got" ]] && break; sleep 0.25; done
+    quickshell -p "$root/shell.qml" ipc call dashboard-agents toggle >/dev/null 2>&1
+    sleep 0.5
+    case " $got " in
+        " $id_blocked "|" $id_waiting ")
+            echo "keyboard:             Tab to the list, Down, Tab to the row's Pause, Space — session $got paused" ;;
+        *)  echo "FAIL: the keyboard path paused '${got:-nothing}' (wanted exactly one of the sessions that need you: $id_blocked or $id_waiting)"
+            exit 1 ;;
+    esac
+    apex agent resume "$got" >/dev/null 2>&1
+fi
+
 # ── what counts as an error ──────────────────────────────────────────────────
 #
 # Absent hardware and absent session services are not shell faults. A build box

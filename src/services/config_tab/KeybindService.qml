@@ -46,7 +46,7 @@ QtObject {
         "dashboard-stats":    { mods: "CTRL + SHIFT",  key: "ESCAPE", label: "Dashboard: System",     group: "Dashboard"      },
         "dashboard-kanban":   { mods: "SUPER",        key: "Z",      label: "Dashboard: Tasks",     group: "Dashboard"      },
         "dashboard-launcher": { mods: "ALT",          key: "SPACE",  label: "Dashboard: Apps",      group: "Dashboard"      },
-        "dashboard-config":   { mods: "SUPER",        key: "C",      label: "Dashboard: Config",    group: "Dashboard"      },
+        "dashboard-config":   { mods: "SUPER",        key: "C",      label: "Settings",             group: "Popups"         },
         "PowerMenu-toggle":   { mods: "SUPER",        key: "ESCAPE", label: "Power Menu",           group: "Popups"         },
         "notification-toggle":{ mods: "SUPER",        key: "N",      label: "Notifications",        group: "Popups"         },
         "wallpaper-toggle":   { mods: "SUPER + SHIFT", key: "W",      label: "Wallpaper",            group: "Popups"         },
@@ -167,8 +167,9 @@ QtObject {
     //
     // These used to live on KeybindsPage, as a `_pending` object on the page's
     // root Item. That was wrong in a way nothing on the page could show: the
-    // settings pages are presented in TWO hosts — the dashboard's Config tab
-    // and the Nexus window — and each host's Repeater builds its own instance
+    // settings pages were presented in TWO hosts — the dashboard's Config tab
+    // and the Nexus window (one since UI/UX Phase 19) — and each host's
+    // Repeater built its own instance
     // from PageRegistry. Two instances, two `_pending` maps. A user who staged
     // four rebinds in the dashboard and pressed "Open in window" arrived at an
     // empty Keybinds page and was told nothing.

@@ -402,9 +402,12 @@ mutate L13 "$LOCK" \
 #       counted sites and required two, so this mutant SURVIVED it: three sites
 #       minus one is still two. It is caught now because the count asks whether
 #       a pointer causes each grab.
+#       (Since Fluid F3 the creation route is a block that also starts the
+#       arrival: the anchor is its forceActiveFocus line, told apart from the
+#       re-show route's by the line after it.)
 mutate L14 "$LOCK" \
-    '        Component.onCompleted: passwordInput.forceActiveFocus()' \
-    '        // Component.onCompleted: passwordInput.forceActiveFocus()' \
+    $'            passwordInput.forceActiveFocus()\n            surface._presentGuard.restart()' \
+    $'            // passwordInput.forceActiveFocus()\n            surface._presentGuard.restart()' \
     "the field takes focus without a pointer, on both routes"
 
 # L15 — the refusal stops being announced. Note the mutant is a COMMENT: the

@@ -90,6 +90,20 @@ Rectangle {
 
     required property var session
 
+    // Set by AgentCenter's flat keyboard list (UI/UX roadmap v3 Phase 21).
+    // See RequestRow for what the two mean; SessionRow uses them the same way.
+    property bool keyed: false
+    property bool listFocused: false
+    // The list itself, so a control that may make ITS OWN ROW disappear (the
+    // session list is a live poll — AgentService can reassign `sessions`
+    // under any of these at any time) can send the keys back to it, the same
+    // defensive move as WifiTab's Disconnect/Forget and HistoryTab's Pin.
+    property Item list: null
+
+    // What Return does on the list, and what a tap on the header does — one
+    // definition so the two can never disagree.
+    function primary() { AgentService.focusTerminal(row.session.id) }
+
     readonly property bool live:
         session.exit_code === null && session.exit_signal === null
     readonly property bool needsYou: AgentState.needsYou(session.state)
@@ -137,6 +151,10 @@ Rectangle {
         onTriggered: row.nowMs = Date.now()
     }
 
+    Accessible.role: Accessible.ListItem
+    Accessible.name: AgentState.agentName(row.session.agent) + " session #" + row.session.id
+                     + ", " + AgentService.stateLabel(row.session.state)
+
     height: header.height + (row.expanded ? kidsBlock.height + theme.px(8) : 0)
     radius: theme.px(8)
     color: hover.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
@@ -152,9 +170,22 @@ Rectangle {
         ? Math.max(1, theme.px(1)) : 0
     border.color: (row.breakGlass && row.live) ? Theme.danger : badge.toneColor
 
-    Behavior on color { ColorAnimation { duration: 90 } }
+    Behavior on color { MotionColor {} }
 
     HoverHandler { id: hover }
+
+    // Keyboard highlight ring — inset rather than outset like WifiTab's
+    // NetworkRow, because this row sits flush at x=0 inside AgentCenter's
+    // ScrollView (`clip: true`, no per-row inset): an outward ring's left edge
+    // would land outside the clip and never draw. Same fix as HistoryTab's
+    // ClipRow, for a different reason (its own `clip: true` there). Covers the
+    // whole card, expanded subagent block included, same as the border above.
+    Rectangle {
+        anchors.fill: parent; anchors.margins: 2
+        radius: Math.max(row.radius - 2, 0)
+        color: "transparent"; border.width: 2; border.color: Theme.accentText
+        visible: row.keyed && row.listFocused
+    }
 
     // The header is the row as it always was, and the clickable part. The
     // child list below is NOT inside it: a tap meant for a subagent row must
@@ -174,7 +205,7 @@ Rectangle {
     // The whole row focuses the terminal. §3: "Focus the existing terminal when
     // the user clicks an agent in APEX Shell."
     TapHandler {
-        onTapped: AgentService.focusTerminal(row.session.id)
+        onTapped: row.primary()
     }
 
     // The state, at the scale you notice without looking. Inset from the
@@ -190,7 +221,7 @@ Rectangle {
         height: parent.height - theme.px(16)
         radius: width / 2
         color: (row.breakGlass && row.live) ? Theme.danger : badge.toneColor
-        Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on color { MotionColor { role: "state" } }
     }
 
     Row {
@@ -435,7 +466,9 @@ Rectangle {
         Row {
             id: controls
             anchors.verticalCenter: parent.verticalCenter
-            spacing: theme.px(2)
+            // 6 px so each SmallIconButton's 32 px target (hitMargin 3) meets
+            // its neighbour's, not its glyph (UI/UX Phase 21; it was 2).
+            spacing: theme.px(6)
 
             // The graph, when there is one. Absent — not disabled — when the
             // runtime cannot tell: a control that is permanently greyed out
@@ -444,6 +477,7 @@ Rectangle {
             // graph in that case either.
             SmallIconButton {
                 visible: row.hasGraph
+                activeFocusOnTab: row.keyed
                 icon: row.expanded ? "󰅃" : "󰅀"
                 tip: row.expanded ? "Hide what it started"
                                   : "Show what it started"
@@ -455,11 +489,18 @@ Rectangle {
             // `paused` precisely so the shell does not have to guess.
             SmallIconButton {
                 visible: row.live
+                activeFocusOnTab: row.keyed
                 icon: row.session.paused ? "󰐊" : "󰏤"
                 tip:  row.session.paused ? "Resume" : "Pause"
-                onActivated: row.session.paused
-                    ? AgentService.resume(row.session.id)
-                    : AgentService.pause(row.session.id)
+                // A poll can reassign `sessions` at any moment, not only in
+                // reaction to this click, but the keys go back to the list
+                // right after asking either way — same defensiveness as
+                // WifiTab's Disconnect.
+                onActivated: {
+                    row.session.paused ? AgentService.resume(row.session.id)
+                                        : AgentService.pause(row.session.id)
+                    if (row.list) row.list.forceActiveFocus()
+                }
             }
             // §3.4: "revocation control always visible". Beside the state it
             // is about, present for exactly as long as there is something to
@@ -467,28 +508,41 @@ Rectangle {
             SmallIconButton {
                 id: revokeButton
                 visible: row.breakGlass && row.live
+                activeFocusOnTab: row.keyed
                 icon: "󰌾"
                 tip: "End break-glass now (" + row.grantLabel + ")"
-                onActivated: AgentService.revokeGrant(Policy.sessionGrant(row.session))
+                onActivated: {
+                    AgentService.revokeGrant(Policy.sessionGrant(row.session))
+                    if (row.list) row.list.forceActiveFocus()
+                }
             }
             SmallIconButton {
                 visible: row.live
+                activeFocusOnTab: row.keyed
                 icon: "󰓛"
                 tip: "Stop"
-                onActivated: AgentService.kill(row.session.id)
+                onActivated: {
+                    AgentService.kill(row.session.id)
+                    if (row.list) row.list.forceActiveFocus()
+                }
             }
             SmallIconButton {
+                activeFocusOnTab: row.keyed
                 icon: "󰆍"
                 tip: row.live ? "Open terminal" : "Show output"
-                onActivated: AgentService.focusTerminal(row.session.id)
+                onActivated: row.primary()
             }
             // Finished sessions only — a running one is stopped, not
             // dismissed. Dismissing forgets it and deletes its transcript.
             SmallIconButton {
                 visible: !row.live
+                activeFocusOnTab: row.keyed
                 icon: "󰅖"
                 tip: "Dismiss (forgets it and its transcript)"
-                onActivated: AgentService.dismiss(row.session.id)
+                onActivated: {
+                    AgentService.dismiss(row.session.id)
+                    if (row.list) row.list.forceActiveFocus()
+                }
             }
         }
     }

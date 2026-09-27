@@ -13,12 +13,39 @@ PanelWindow {
     property int thickness: theme.borderWidth      
     property int radius: theme.cornerRadius        
     property color fillColor: Theme.background 
-    
-    implicitWidth: (edge === "left" || edge === "right") ? radius : 0
-    implicitHeight: (edge === "bottom") ? radius : 0
+    // The frame's rim: the bar's hairline, carried on along the strips and
+    // round their fillets (SeamlessBarShape stops its own where a strip
+    // attaches), so bar and frame read as one silhouette with one edge.
+    property color rimColor: Theme.hairline
+    // A strip starts one row inside the bar, so its flare meets the bar's
+    // bottom edge (and its hairline) exactly rather than a row below it.
+    readonly property int overlap: 1
+
+    // Wide / tall enough for the whole fillet: a strip's flare reaches
+    // thickness + radius along the notch's bottom, and the bottom strip's
+    // fillets rise thickness + radius from the screen's bottom. Sized to the
+    // radius alone (as they were), every fillet was cut off short of its
+    // tangent and met the straight edge with a step (Andre, 2026-09-27: "the
+    // corners fillets dont merge properly").
+    implicitWidth: (edge === "left" || edge === "right") ? thickness + radius : 0
+    implicitHeight: (edge === "bottom") ? thickness + radius : 0
 
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
+
+    // Input: the footprint the strips always had — a radius wide (or tall) at
+    // the screen's edge. The surface grew to hold its whole fillet, but that
+    // extra room is drawing only; it lies over the edges of the windows beside
+    // it, whose clicks it must not take (nor move where the edge hovers and
+    // taps open their menus).
+    mask: Region { item: inputArea }
+    Item {
+        id: inputArea
+        x: root.edge === "right" ? parent.width - root.radius : 0
+        y: root.edge === "bottom" ? parent.height - root.radius : 0
+        width:  root.edge === "bottom" ? parent.width : root.radius
+        height: root.edge === "bottom" ? root.radius : parent.height
+    }
 
     // The three border strips are layer-shell surfaces on `top` too — three MORE
     // surfaces the compositor draws over a fullscreen game, purely decorative.
@@ -34,10 +61,11 @@ PanelWindow {
     }
 
     margins {
-        top: (edge !== "bottom") ? ShellState.focusMode ? theme.borderWidth : theme.notchHeight: 0
+        top: (edge !== "bottom") ? (ShellState.focusMode ? theme.borderWidth : theme.notchHeight) - root.overlap : 0
         Behavior on top { NumberAnimation { duration: Theme.animDuration; easing.type: Easing.InOutCubic }}
         
-        bottom: (edge !== "bottom") ? radius : 0
+        // A side strip ends exactly where the bottom strip (and its fillet) begins.
+        bottom: (edge !== "bottom") ? thickness + radius : 0
     }
 
     Item {
@@ -58,85 +86,78 @@ PanelWindow {
             Connections {
                 target: root
                 function onFillColorChanged() { shape.requestPaint() }
+                function onRimColorChanged()  { shape.requestPaint() }
             }
 
             onPaint: {
                 var ctx = getContext("2d");
                 ctx.reset();
-                ctx.fillStyle = root.fillColor;
-                ctx.beginPath();
 
                 var w = width;
                 var h = height;
                 var t = root.thickness;
                 var r = root.radius;
+                var o = root.overlap;          // the side strips' first row is the bar's last
+                var i = 0.5;                   // the rim lies wholly inside the fill
 
+                // ── Fill ──
+                ctx.fillStyle = root.fillColor;
+                ctx.beginPath();
                 if (root.edge === "left") {
-                    // == LEFT BORDER (Top Melt) ==
-                
-                // 1. Top-Left (Outer Corner) - Touches the notch
-                    ctx.moveTo(0, 0); 
-                
-                // 2. Top-Right "Flare" (The Melt Connection)
-                // Extends out along the notch bottom, then curves in
-                    ctx.lineTo(t + r, 0); 
-                
-                // Curve Inwards to the vertical strip
-                // Control Point: (t, 0) -> The inner corner
-                // End Point: (t, r) -> Start of straight line
-                    ctx.arcTo(t, 0, t, r, r);
-                
-                // 3. Vertical Strip Down
+                    // The flare out of the notch's bottom (tangent to it at
+                    // x = t + r), then straight down the strip.
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(t + r, 0);
+                    ctx.lineTo(t + r, o);
+                    ctx.arcTo(t, o, t, o + r, r);
                     ctx.lineTo(t, h);
-                
-                // 4. Close Left Edge
                     ctx.lineTo(0, h);
-                    ctx.lineTo(0, 0);
-                } 
-                else if (root.edge === "right") {
-                    // == RIGHT BORDER (Top Melt) ==
-                
-                // 1. Top-Right (Outer Corner)
+                    ctx.closePath();
+                } else if (root.edge === "right") {
                     ctx.moveTo(w, 0);
-                
-                // 2. Top-Left "Flare"
                     ctx.lineTo(w - (t + r), 0);
-                
-                // Curve Inwards
-                    ctx.arcTo(w - t, 0, w - t, r, r);
-                
-                // 3. Vertical Strip Down
+                    ctx.lineTo(w - (t + r), o);
+                    ctx.arcTo(w - t, o, w - t, o + r, r);
                     ctx.lineTo(w - t, h);
-                
-                // 4. Close Right Edge
+                    ctx.lineTo(w, h);
+                    ctx.closePath();
+                } else if (root.edge === "bottom") {
+                    // Square outside, a fillet at each inner corner that ends
+                    // vertical at this surface's top, where the side strip
+                    // carries straight on (h = t + r).
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(0, h);
                     ctx.lineTo(w, h);
                     ctx.lineTo(w, 0);
-                }
-                else if (root.edge === "bottom") {
-                // == BOTTOM BORDER ==
-                
-                // 1. Outer Bottom-Left Corner (SQUARE)
-                    ctx.moveTo(0, 0);       
-                    ctx.lineTo(0, h);       
-                    ctx.lineTo(w, h);       
-                    ctx.lineTo(w, 0);       
-                
-                // 2. Inner Right Corner (ROUNDED)
-                    ctx.lineTo(w - t, 0);   
+                    ctx.lineTo(w - t, 0);
                     ctx.arcTo(w - t, h - t, w - t - r, h - t, r);
-                
-                // 3. Inner Bottom Line
                     ctx.lineTo(t + r, h - t);
-                
-                // 4. Inner Left Corner (ROUNDED)
                     ctx.arcTo(t, h - t, t, 0, r);
-                
-                // 5. Close Loop
-                    ctx.lineTo(t, 0);
-                    ctx.lineTo(0, 0);
+                    ctx.closePath();
                 }
-
                 ctx.fill();
+
+                // ── Rim ──
+                // The same 1 px hairline as the bar's edge, inset half a pixel:
+                // round each fillet at r + ½ from the same centre, so it meets
+                // the bar's line at the flare's tangent and the next strip's
+                // line where this surface ends.
+                ctx.strokeStyle = root.rimColor;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                if (root.edge === "left") {
+                    ctx.arc(t + r, o + r, r + i, -Math.PI / 2, Math.PI, true);
+                    ctx.lineTo(t - i, h);
+                } else if (root.edge === "right") {
+                    ctx.arc(w - t - r, o + r, r + i, -Math.PI / 2, 0, false);
+                    ctx.lineTo(w - t + i, h);
+                } else if (root.edge === "bottom") {
+                    ctx.moveTo(t - i, 0);
+                    ctx.arc(t + r, 0, r + i, Math.PI, Math.PI / 2, true);
+                    ctx.lineTo(w - t - r, h - t + i);
+                    ctx.arc(w - t - r, 0, r + i, Math.PI / 2, 0, true);
+                }
+                ctx.stroke();
             }
         }
 
@@ -155,7 +176,7 @@ PanelWindow {
             }
         }
 
-        // ── Right border — hover opens AudioPopup ─────────────────────────────
+        // ── Right border — hover opens the quick controls (QuickControl) ──────
         Item {
             visible: root.edge === "right"
             anchors{
@@ -166,10 +187,7 @@ PanelWindow {
             height: 300
             HoverHandler {
                 enabled: root.edge === "right"
-                onHoveredChanged: {
-                    Popups.quickTriggerHovered = hovered  
-                    Popups.audioTriggerHovered = hovered
-                }
+                onHoveredChanged: Popups.quickTriggerHovered = hovered
             }
         }
 

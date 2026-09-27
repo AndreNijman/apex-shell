@@ -116,39 +116,30 @@ Item {
             }
         }
 
-        // Net | Disk | Power
-        Row {
+        // Net + Power | Disks — ONE card, two top-aligned columns (UI/UX
+        // Phase 17). They were three cards of the full height, each over 70 %
+        // empty: the network rows centred in a narrow one, one disk bar with
+        // the card's height below it, three pills stacked in the widest. The
+        // empty space is now the disk list's room to grow, inside one card.
+        StatCard {
             width: parent.width
             height: parent.height - speedoRow.height - parent.spacing
-            spacing: 8
+            padding: theme.spaceL
 
-            // Network — narrow, only 3 rows
-            StatCard {
-                width: Math.round(parent.width * 0.20)
-                height: parent.height
-                NetStatsPanel {
-                    anchors.fill: parent
-                    service: NetService
+            Row {
+                anchors.fill: parent
+                spacing: theme.spaceXL
+
+                Column {
+                    width: Math.round((parent.width - parent.spacing) * 0.4)
+                    spacing: theme.spaceXL
+                    NetStatsPanel { width: parent.width; service: NetService }
+                    PowerPanel    { width: parent.width; powerProfileService: PowerProfileService }
                 }
-            }
-
-            // Disks — moderate, horizontal bars stack vertically
-            StatCard {
-                width: Math.round(parent.width * 0.35)
-                height: parent.height
                 DiskPanel {
-                    anchors.fill: parent
+                    width: parent.width - Math.round((parent.width - parent.spacing) * 0.4) - parent.spacing
+                    height: parent.height
                     service: DiskService
-                }
-            }
-
-            // Power — widest, two button rows need space
-            StatCard {
-                width: parent.width - Math.round(parent.width * 0.20) - Math.round(parent.width * 0.35) - parent.spacing * 2
-                height: parent.height
-                PowerPanel {
-                    anchors.fill: parent
-                    powerProfileService: PowerProfileService
                 }
             }
         }

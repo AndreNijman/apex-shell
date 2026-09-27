@@ -28,7 +28,7 @@ Item {
         anchors.verticalCenter: barTrack.verticalCenter
         text:           root.mount
         font.pixelSize: theme.fs(10)
-        color:          Qt.rgba(1, 1, 1, 0.5)
+        color:          Theme.textSecondary
         width:          32
         elide:          Text.ElideRight
     }
@@ -47,21 +47,23 @@ Item {
         Rectangle {
             anchors.fill: parent
             radius:       height / 2
-            color:        Qt.rgba(1, 1, 1, 0.07)
-            border.color: Qt.rgba(1, 1, 1, 0.06)
+            color:        Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
+            border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
             border.width: 1
         }
 
         Rectangle {
+            id: diskFill
             anchors.left:   parent.left
             anchors.top:    parent.top
             anchors.bottom: parent.bottom
-            width:          parent.width * Math.max(0, Math.min(1, root.usedPct / 100))
+            width:          diskW.value
             radius:         height / 2
             color:          root.barColor
 
-            Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
-            Behavior on color { ColorAnimation  { duration: 300 } }
+            SpringFollower { id: diskW; role: "valueFollow"
+                             target: diskFill.parent.width * Math.max(0, Math.min(1, root.usedPct / 100)) }
+            Behavior on color { MotionColor { role: "state" } }
         }
     }
 
@@ -76,7 +78,7 @@ Item {
         color:          root.barColor
         width:          28
         horizontalAlignment: Text.AlignRight
-        Behavior on color { ColorAnimation { duration: 300 } }
+        Behavior on color { MotionColor { role: "state" } }
     }
 
     // Size info — below the bar, aligned with bar
@@ -86,6 +88,6 @@ Item {
         anchors.topMargin: 4
         text:           root.usedStr + " / " + root.totalStr + "  ·  " + root.source
         font.pixelSize: theme.fs(9)
-        color:          Qt.rgba(1, 1, 1, 0.45)
+        color:          Theme.textSecondary
     }
 }

@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import "../"
+import "../components"
 import "../services"
 import "../theme"
 
@@ -47,7 +48,10 @@ PanelWindow {
             && Quickshell.screens[0].name === root.screenName
     }
 
-    visible: WindowSwitcherService.open && root.mine
+    // On the dialog lifecycle (UI/UX Phase 6). Its scrim had a fade-out that
+    // never showed: the window was unmapped the instant the switcher closed.
+    DialogLifecycle { id: life; name: "switcher"; open: WindowSwitcherService.open && root.mine }
+    visible: life.mapped
 
     color: "transparent"
     anchors { top: true; left: true; right: true; bottom: true }
@@ -65,11 +69,11 @@ PanelWindow {
     Rectangle {
         anchors.fill: parent
         color: Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.45)
-        opacity: root.visible ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: root.theme.animDuration } }
+        opacity: life.scrimK()
     }
 
     // ── The card ─────────────────────────────────────────────────────────────
+    Elevation { target: card; level: "modal" }   // over its scrim (UI/UX Phase 18b)
     Rectangle {
         id: card
         anchors.centerIn: parent
@@ -77,8 +81,12 @@ PanelWindow {
         height: content.implicitHeight + root.theme.px(36)
         radius: root.theme.cornerRadius
         color: Theme.background
-        border.width: root.theme.borderWidth
-        border.color: Theme.border
+        // The 1 px surface rim every floating surface has (UI/UX Phase 18b); it
+        // was the bar's border colour at the bar's user-set border width.
+        border.width: 1
+        border.color: Theme.outlineSoft
+        opacity: life.content * life.alpha
+        scale:   life.cardScale()
 
         ColumnLayout {
             id: content

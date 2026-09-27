@@ -85,7 +85,8 @@ ShellRoot {
                     bottomBorder: bottomBorder
                 }
 
-                // Volume / brightness / mic OSD — transient top-centre pill
+                // Volume / brightness / mic level: in the centre notch now
+                // (TopBar); this capsule is the fallback where that notch cannot show it
                 Osd { screen: modelData }
 
                 // ALT+Tab. One per output, and only the one on the focused
@@ -96,7 +97,7 @@ ShellRoot {
                 // Standalone settings window. Not part of PopupLayer on
                 // purpose: it is a window you leave open, so it must not be
                 // subject to the popup fleet's click-outside dismissal.
-                Nexus { screen: modelData; screenName: modelData.name }
+                Nexus { screen: modelData; screenName: modelData.name; topBar: topBar }
 
                 // Keep / Put it back, after a temporary display apply.
                 //
@@ -114,5 +115,10 @@ ShellRoot {
     // ── Native session lock ──────────────────────────────────
     // Top-level (NOT per-screen): WlSessionLock manages one surface per
     // output itself. Engages when LockState.locked is set.
+    // Its first frame: the desktop as it was, taken just before the lock
+    // engages (windows/LockCapture.qml).
+    LockCapture {}
     Lockscreen {}
+    // The desktop fading back in after an unlock (windows/UnlockCurtain.qml).
+    UnlockCurtain {}
 }

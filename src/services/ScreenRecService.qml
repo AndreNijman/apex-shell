@@ -292,7 +292,7 @@ QtObject {
                 // complete with View Folder / Open in MPV buttons, for a file
                 // that was never created.
                 _notifyProc.command = ["bash", "-c",
-                    "FILE=\"" + savedFile + "\"; " +
+                    "FILE=" + root._shq(savedFile) + "; " +
                     "if [ ! -s \"$FILE\" ]; then " +
                     "notify-send --app-name 'ScreenRec' --icon 'dialog-error'" +
                     " 'Recording failed' " +
@@ -317,11 +317,29 @@ QtObject {
         }
     }
 
+    // ── Where recordings go (SettingsService.recordingDir, 2026-09-27) ──────
+    // Empty is the old place. A setting is typed by a person, so it is made
+    // absolute here (~ and $HOME expanded), refused back to the default if it
+    // is not a path at all, and single-quoted wherever it meets a shell: the
+    // old "$HOME/..." was spliced raw, which a folder named with a quote or a
+    // $(…) would have turned into a command.
+    readonly property string _home: Quickshell.env("HOME") || ""
+    readonly property string defaultDir: root._home + "/Videos/screen_recordings"
+    readonly property string saveDir: {
+        let d = String(SettingsService.recordingDir || "").trim()
+        if (d === "") return root.defaultDir
+        if (d === "~" || d.startsWith("~/")) d = root._home + d.slice(1)
+        else if (d === "$HOME" || d.startsWith("$HOME/")) d = root._home + d.slice(5)
+        if (!d.startsWith("/") || /[\x00-\x1f]/.test(d)) return root.defaultDir
+        return d.replace(/\/+$/, "") || "/"
+    }
+    function _shq(v) { return "'" + String(v).replace(/'/g, "'\\''") + "'" }
+
     function _buildCmd() {
     var ts  = Qt.formatDateTime(new Date(), "yyyyMMdd_HHmmss")
-    root._currentFile = "$HOME/Videos/screen_recordings/" + ts + ".mp4"
+    root._currentFile = root.saveDir + "/" + ts + ".mp4"
     
-    var cmd = "mkdir -p $HOME/Videos/screen_recordings && " +
+    var cmd = "mkdir -p " + root._shq(root.saveDir) + " && " +
               "wf-recorder -c libx264" +
               " -x yuv420p" +
               " -r 30" +                       // Limit FPS to 30
@@ -332,7 +350,7 @@ QtObject {
               " -p colorspace=bt709" +         // Tags the correct HD color matrix
               " -p color_primaries=bt709" +
               " -p color_trc=bt709" +
-              " -f " + root._currentFile
+              " -f " + root._shq(root._currentFile)
               
     if (root._pendingGeometry !== "")
         cmd += " -g '" + root._pendingGeometry + "'"
@@ -406,7 +424,7 @@ QtObject {
             if (fileToDelete !== "") {
                 var f = fileToDelete
                 _discardDeleteProc.command = ["bash", "-c",
-                    "rm -f \"" + f + "\" && " +
+                    "rm -f -- " + root._shq(f) + " && " +
                     "notify-send" +
                     " --app-name 'ScreenRec'" +
                     " --icon 'video-x-generic'" +

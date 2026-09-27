@@ -33,14 +33,17 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: 7
-        color:  input.activeFocus ? Qt.rgba(1,1,1,0.07) : Qt.rgba(1,1,1,0.04)
+        // Brief §E "Text field": the high surface with a soft outline, the
+        // strong one under the pointer, and the accent while focused — the
+        // field IS the focus mark, so no ring.
+        radius: theme.radiusS
+        color:  Theme.surfaceHigh
         border.width: 1
-        border.color: input.activeFocus
-            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.5)
-            : Qt.rgba(1,1,1,0.10)
-        Behavior on border.color { ColorAnimation { duration: 120 } }
+        border.color: input.activeFocus ? Theme.accentText
+                    : fieldHover.hovered ? Theme.outlineStrong : Theme.outlineSoft
+        Behavior on border.color { MotionColor { role: "state" } }
     }
+    HoverHandler { id: fieldHover; cursorShape: Qt.IBeamCursor }
     TextInput {
         id: input
         objectName:          "cfgTextFieldInput"
@@ -49,8 +52,8 @@ Item {
         anchors.rightMargin: 10
         verticalAlignment:   TextInput.AlignVCenter
         font.pixelSize:      theme.fs(11)
-        font.family:         "JetBrains Mono"
-        color:               Theme.text
+        font.family:         Theme.fontMono
+        color:               Theme.textPrimary
         clip:                true
         selectByMouse:       true
         selectionColor:      Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.4)
@@ -72,7 +75,7 @@ Item {
             visible:            input.text === "" && !input.activeFocus
             text:               root.placeholder
             font:               input.font
-            color:              Qt.rgba(1,1,1,0.3)
+            color:              Theme.textTertiary
             elide:              Text.ElideRight
         }
     }

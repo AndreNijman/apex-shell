@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────────────────────
+#  fake-brightnessctl — a backlight that changes nothing, for keyboard tests of
+#  the brightness slider (UI/UX roadmap v3 Phase 21). The companion of
+#  fake-nmcli.
+#
+#  headless.sh's own stub answers `brightnessctl -m` with nothing, so the
+#  brightness service sees no panel and the slider has nothing to drive. A
+#  runner links this in front instead, and it:
+#
+#    * reports one panel, `fake_bl`, at 50 of 100;
+#    * records every `set` to $FAKE_BRIGHTNESSCTL_LOG (one line: the
+#      arguments) and reports success, doing nothing else.
+# ─────────────────────────────────────────────────────────────────────────────
+case "${1:-}" in
+    -m)  echo "fake_bl,backlight,50,50%,100" ;;
+    set) echo "$*" >> "${FAKE_BRIGHTNESSCTL_LOG:-/dev/null}" ;;
+    *)   : ;;
+esac
+exit 0

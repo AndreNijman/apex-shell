@@ -55,7 +55,7 @@ CfgScroll {
     lifecycle: "live"
     lifecycleError: PermissionsService.lastError
 
-    // Set by ShellConfig and Nexus: "this page is genuinely on screen".
+    // Set by SettingsHost (Nexus): "this page is genuinely on screen".
     // Declared because PermissionsService costs a `flatpak info` per installed
     // application per sweep and is refcounted on it; PageRegistry marks this
     // page needsScreen: true so both hosts bind it. NOT `visible` — an Item
@@ -87,51 +87,23 @@ CfgScroll {
         title: "Privacy & Permissions"
         first: true
 
-        Item {
-            width:  parent.width
-            height: theme.px(62)
-
-            Row {
-                x: theme.px(10)
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: theme.px(12)
-
-                Text {
-                    text:           "󰒃"
-                    font.pixelSize: theme.fs(28)
-                    color:          PermissionsService.available ? Theme.active : Theme.subtext
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: theme.px(3)
-
-                    Text {
-                        text: {
-                            if (!PermissionsService.checked) return "Reading what this session enforces…"
-                            if (!PermissionsService.available) return "Permissions could not be read"
-                            return PermissionsService.apps.length
-                                + " application" + (PermissionsService.apps.length === 1 ? "" : "s")
-                        }
-                        font.pixelSize: theme.fs(15)
-                        font.weight:    Font.Medium
-                        color:          Theme.text
-                    }
-                    Text {
-                        text: PermissionsService.available
-                            ? (PermissionsService.session.desktop + "  ·  " + PermissionsService.session.summary)
-                            : PermissionsService.unavailableReason
-                        font.pixelSize: theme.fs(10)
-                        color:          Theme.subtext
-                        font.family:    "JetBrains Mono"
-                    }
-                }
+        StatusHero {
+            glyph: "󰒃"
+            tone:  PermissionsService.available ? Theme.active : Theme.textSecondary
+            title: {
+                if (!PermissionsService.checked) return "Reading what this session enforces…"
+                if (!PermissionsService.available) return "Permissions could not be read"
+                return PermissionsService.apps.length
+                    + " application" + (PermissionsService.apps.length === 1 ? "" : "s")
             }
+            detail: PermissionsService.available
+                ? (PermissionsService.session.desktop + "  ·  " + PermissionsService.session.summary)
+                : PermissionsService.unavailableReason
+            // The reason is a sentence to be read whole; the session line is a
+            // status with a list in it.
+            detailWraps: !PermissionsService.available
 
             CfgButton {
-                anchors.right:          parent.right
-                anchors.rightMargin:    theme.px(8)
-                anchors.verticalCenter: parent.verticalCenter
                 label:   PermissionsService.busy ? "Reading…" : "Re-check"
                 icon:    "󰑐"
                 enabled: !PermissionsService.busy
@@ -140,8 +112,7 @@ CfgScroll {
         }
 
         Text {
-            x:     theme.px(10)
-            width: parent.width - theme.px(20)
+            width: parent.width
             text: "These are not all the same kind of permission, and this page "
                 + "will not pretend they are. Some are brokered by the desktop "
                 + "portal and can be withdrawn from one app. Some are built into "
@@ -149,7 +120,7 @@ CfgScroll {
                 + "come from your login session itself — every program you run "
                 + "has them, and nothing here can take them from one app alone. "
                 + "Each row says which it is."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.subtext
             wrapMode: Text.WordWrap
         }
@@ -174,8 +145,8 @@ CfgScroll {
             Text {
                 width: theme.px(230)
                 text: PermissionsService.session.brokered.join(", ")
-                font.family:    "JetBrains Mono"
-                font.pixelSize: theme.fs(10)
+                font.family:    Theme.fontMono
+                font.pixelSize: theme.typeCaption
                 color:          Theme.active
                 wrapMode:       Text.WordWrap
             }
@@ -199,13 +170,12 @@ CfgScroll {
             visible: !!app
 
             Text {
-                x:     theme.px(10)
-                width: parent.width - theme.px(20)
+                width: parent.width
                 text: (app && app.native
                        ? "A program installed outside a sandbox. "
                        : "")
                     + (app ? app.summary : "")
-                font.pixelSize: theme.fs(10)
+                font.pixelSize: theme.typeCaption
                 color:          Theme.subtext
                 wrapMode:       Text.WordWrap
             }
@@ -227,8 +197,7 @@ CfgScroll {
 
                     Column {
                         id: col
-                        x:       theme.px(10)
-                        width:   parent.width - theme.px(20)
+                        width:   parent.width
                         y:       theme.px(7)
                         spacing: theme.px(3)
 
@@ -254,8 +223,8 @@ CfgScroll {
                             }
                             Text {
                                 text:           "· enforced by " + rowItem.row.enforcerLabel
-                                font.family:    "JetBrains Mono"
-                                font.pixelSize: theme.fs(10)
+                                font.family:    Theme.fontMono
+                                font.pixelSize: theme.typeCaption
                                 color:          Theme.subtext
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -268,7 +237,7 @@ CfgScroll {
                         Text {
                             width:          parent.width
                             text:           "from: " + rowItem.row.originLabel
-                            font.pixelSize: theme.fs(10)
+                            font.pixelSize: theme.typeCaption
                             color:          Theme.subtext
                             wrapMode:       Text.WordWrap
                         }
@@ -281,7 +250,7 @@ CfgScroll {
                             width:          parent.width
                             visible:        text !== ""
                             text:           rowItem.controls.length === 0 ? rowItem.row.enforcerWhy : ""
-                            font.pixelSize: theme.fs(10)
+                            font.pixelSize: theme.typeCaption
                             color:          Theme.subtext
                             wrapMode:       Text.WordWrap
                         }
@@ -289,7 +258,7 @@ CfgScroll {
                             width:          parent.width
                             visible:        rowItem.row.caveat !== ""
                             text:           rowItem.row.caveat
-                            font.pixelSize: theme.fs(10)
+                            font.pixelSize: theme.typeCaption
                             color:          Theme.warning
                             wrapMode:       Text.WordWrap
                         }
@@ -307,7 +276,7 @@ CfgScroll {
                             width:          parent.width
                             visible:        rowItem.controls.length > 0
                             text:           rowItem.row.timingLabel
-                            font.pixelSize: theme.fs(10)
+                            font.pixelSize: theme.typeCaption
                             color:          Theme.subtext
                             wrapMode:       Text.WordWrap
                         }
@@ -344,10 +313,12 @@ CfgScroll {
     CfgSection {
         title: "Nothing could be read"
         visible: PermissionsService.checked && !PermissionsService.available
+        // The page's declared unavailable state, for tests/nav-geometry-test.qml
+        // (a rowless page is measured as text only when it says it is one).
+        readonly property bool pageUnavailable: true
 
         Text {
-            x:     theme.px(10)
-            width: parent.width - theme.px(20)
+            width: parent.width
             text: PermissionsService.unavailableReason
                 + "\n\nThis is not the same as having no permissions. Nothing "
                 + "below this line was checked, so nothing below this line is "

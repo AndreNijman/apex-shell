@@ -55,7 +55,7 @@ trap 'rm -rf "$work"' EXIT INT TERM
 # with /usr/bin on it makes every "the tool is missing" case run the real tool
 # against no display — three assertions here passed for that reason before the
 # PATH was closed, and the missing-grim mutant went undetected.
-HOST_TOOLS=(bash timeout date mkdir ps tr sleep setsid)
+HOST_TOOLS=(bash timeout date mkdir ps tr sleep setsid dirname)
 mkbin() {
     local dir="$1"
     mkdir -p "$dir"
@@ -75,11 +75,29 @@ mkstubs() {
 printf '%s\t%s\t%s\n' "$tool" "\$(ps -o pgid= -p \$\$ | tr -d ' ')" "\$*" >> "\$CALLS"
 STUB
         cat >> "$dir/$tool" <<'STUB'
+# Whether the freeze is still up when this tool runs: hyprpicker's stub leaves
+# its pid beside the log, and a live pid means the screen is still frozen.
+frozen() {
+    local hp
+    [ -f "$CALLS.hyprpicker.pid" ] || return 1
+    read -r hp < "$CALLS.hyprpicker.pid"
+    kill -0 "$hp" 2>/dev/null
+}
 case "$STUB_NAME" in
     grim)
+        frozen && : > "$CALLS.frozen-during-grim"
         # grim writes the file the rest of the script then reads and reports.
         for a in "$@"; do :; done
         : > "$a"
+        ;;
+    hyprpicker)
+        # The real one stays up until it is killed or a colour is picked. exec
+        # keeps the pid the script was given, so killing that pid ends this.
+        printf '%s\n' "$$" > "$CALLS.hyprpicker.pid"
+        exec sleep "${STUB_HYPRPICKER_SLEEP:-20}"
+        ;;
+    notify-send)
+        frozen && : > "$CALLS.frozen-during-notify"
         ;;
     slurp)
         [ "${STUB_SLURP_CANCEL:-0}" = "1" ] && exit 1
@@ -151,22 +169,81 @@ called()     { grep -q "^$1	" "$CALLS"; }
 not_called() { ! grep -q "^$1	" "$CALLS"; }
 argv_of()    { grep -m1 "^$1	" "$CALLS" | cut -f3-; }
 pgid_of()    { grep -m1 "^$1	" "$CALLS" | cut -f2; }
+line_of()    { grep -n -m1 "^$1	" "$CALLS" | cut -d: -f1; }
 
-echo "── Hyprland keeps the path it had ───────────────────────────────────────"
+# The freeze's pid, and whether it outlived the script. A stub left running is
+# the test's to reap, so each check that finds one kills it.
+freeze_pid_of() { [ -f "$CALLS.hyprpicker.pid" ] && read -r p < "$CALLS.hyprpicker.pid" && echo "$p"; }
+# Released = the freeze process has exited. The script kills it on the way
+# out, and a SIGTERM lands a moment later than the script's exit: give it up
+# to a second. A zombie counts as exited — it draws nothing — and in a CI
+# container with no init to reap an orphan, `kill -0` answers yes to one
+# forever (why this failed there and passed here). Still running after that:
+# not released (and it is killed so it cannot leak).
+freeze_released() {
+    local p s
+    p="$(freeze_pid_of)" || return 1
+    for _ in $(seq 1 20); do
+        kill -0 "$p" 2>/dev/null || return 0
+        s="$(awk '{print $3}' "/proc/$p/stat" 2>/dev/null)"
+        [ "$s" = Z ] && return 0
+        sleep 0.05
+    done
+    kill "$p" 2>/dev/null
+    return 1
+}
 
-# The point of the fix was that Hyprland's behaviour did not change. grimblast
-# still handles clipboard and notification itself, so nothing else may run.
-shot hypr grimblast grim slurp wl-copy notify-send \
+echo "── Hyprland: grimblast, frozen ──────────────────────────────────────────"
+
+# grimblast still handles clipboard and notification itself, so nothing else
+# may run — and it is asked to freeze the screen while an area is picked.
+shot hypr grimblast grim slurp wl-copy notify-send hyprctl hyprpicker \
      -- HYPRLAND_INSTANCE_SIGNATURE=sig123 XDG_CURRENT_DESKTOP=Hyprland \
      -- output
 want "on Hyprland the script succeeds"            test "$RC" -eq 0
 want "on Hyprland grimblast is what runs"         called grimblast
 want "on Hyprland grim is not reached"            not_called grim
 want "on Hyprland wl-copy is grimblast's job"     not_called wl-copy
-if [[ "$(argv_of grimblast)" == "-n copysave output "*"/Pictures/Screenshots/Screenshot_"*.png ]]; then
-    ok "grimblast is still called -n copysave <target> <path>"
+want "on Hyprland the freeze is grimblast's job"  not_called hyprpicker
+if [[ "$(argv_of grimblast)" == "-n --freeze copysave output "*"/Pictures/Screenshots/Screenshot_"*.png ]]; then
+    ok "grimblast is called -n --freeze copysave <target> <path>"
 else
     bad "grimblast's invocation changed: $(argv_of grimblast)"
+fi
+want "a capture that is instant pushes no layer rule" not_called hyprctl
+
+# grimblast's own `keyword layerrule noanim,selection` is refused by a Lua
+# config, so the still and slurp's overlay fade: the rule has to come from here,
+# through eval, naming both layers, guarded so it is pushed once per load.
+shot hypr_area grimblast grim slurp wl-copy notify-send hyprctl hyprpicker \
+     -- HYPRLAND_INSTANCE_SIGNATURE=sig123 XDG_CURRENT_DESKTOP=Hyprland \
+     -- area
+want "a Hyprland area capture succeeds"           test "$RC" -eq 0
+case "$(argv_of hyprctl)" in
+    "eval if not APEX_SCREENSHOT_NO_ANIM then hl.layer_rule("*'namespace = "^(hyprpicker|selection)$"'*"no_anim = true"*"APEX_SCREENSHOT_NO_ANIM = true end")
+        ok "the freeze and selection layers are exempted from animation, once per load" ;;
+    *)  bad "no guarded no_anim rule for hyprpicker|selection: $(argv_of hyprctl)" ;;
+esac
+if [ -n "$(line_of hyprctl)" ] && [ "$(line_of hyprctl)" -lt "$(line_of grimblast)" ]; then
+    ok "the rule is in place before grimblast maps a layer"
+else
+    bad "the layer rule is pushed after grimblast has run, or not at all"
+fi
+
+# A copy of the script with no compositor.sh beside it (a user's ~/.local/bin,
+# say) still captures and still freezes; it goes without the exemption only.
+mkdir -p "$work/standalone"
+cp "$script" "$work/standalone/screenshot.sh"
+keep="$script"; script="$work/standalone/screenshot.sh"
+shot hypr_standalone grimblast grim slurp wl-copy notify-send hyprctl hyprpicker \
+     -- HYPRLAND_INSTANCE_SIGNATURE=sig123 XDG_CURRENT_DESKTOP=Hyprland \
+     -- area
+script="$keep"
+want "a copy without the adapter still captures" test "$RC" -eq 0
+if [[ "$(argv_of grimblast)" == "-n --freeze copysave area "* ]]; then
+    ok "...frozen"
+else
+    bad "a copy without the adapter lost the freeze: $(argv_of grimblast)"
 fi
 
 # A Hyprland session without grimblast installed must not silently do nothing:
@@ -181,12 +258,14 @@ echo "── labwc and niri capture, rather than exiting ───────�
 
 for desktop in labwc:wlroots niri; do
     tag="${desktop%%:*}"
-    shot "off_$tag" grimblast grim slurp wl-copy notify-send \
+    shot "off_$tag" grimblast grim slurp wl-copy notify-send hyprctl hyprpicker \
          -- XDG_CURRENT_DESKTOP="$desktop" \
          -- output
     want "on $tag the script succeeds"        test "$RC" -eq 0
     want "on $tag grim is what runs"          called grim
     want "on $tag grimblast is not reached"   not_called grimblast
+    want "on $tag hyprctl is not reached"     not_called hyprctl
+    want "on $tag an instant capture does not freeze" not_called hyprpicker
     shot_file="$(argv_of grim)"
     if [[ "$shot_file" == *"/Pictures/Screenshots/Screenshot_"*.png ]]; then
         ok "on $tag a file is written under Pictures/Screenshots"
@@ -199,7 +278,7 @@ done
 echo
 echo "── Region capture, and a cancelled region ───────────────────────────────"
 
-shot area grim slurp wl-copy notify-send -- XDG_CURRENT_DESKTOP=labwc:wlroots -- area
+shot area grim slurp wl-copy notify-send hyprpicker -- XDG_CURRENT_DESKTOP=labwc:wlroots -- area
 want "area capture asks slurp for a region"   called slurp
 if [[ "$(argv_of grim)" == "-g 10,20 100x200 "* ]]; then
     ok "the region slurp returned is passed to grim"
@@ -207,14 +286,38 @@ else
     bad "grim did not receive slurp's region: $(argv_of grim)"
 fi
 
+# The freeze, off Hyprland: up before the selection starts, still up when grim
+# reads the screen (grim then captures the still, not whatever moved since),
+# and gone before the "saved" toast — by pid, so nothing else is killed.
+if [ "$(argv_of hyprpicker)" = "-rz" ]; then
+    ok "the screen is frozen with hyprpicker -rz (no lens, no colour readout)"
+else
+    bad "no freeze, or not -rz: '$(argv_of hyprpicker)'"
+fi
+if [ -n "$(line_of hyprpicker)" ] && [ "$(line_of hyprpicker)" -lt "$(line_of slurp)" ]; then
+    ok "the freeze is up before the selection starts"
+else
+    bad "slurp ran over the live screen: the freeze came after it, or never"
+fi
+want "grim captures while the screen is frozen"  test -f "$CALLS.frozen-during-grim"
+want "the freeze is released before the toast"   test ! -f "$CALLS.frozen-during-notify"
+want "the freeze does not outlive the script"    freeze_released
+
+shot area_nopicker grim slurp wl-copy notify-send -- XDG_CURRENT_DESKTOP=labwc:wlroots -- area
+want "without hyprpicker an area capture still works" test "$RC" -eq 0
+want "...and still captures the region"          called grim
+
 # Escape during a selection is a choice, not a failure. It must not capture the
 # whole screen instead, and it must not report an error the user just made.
-shot area_cancel grim slurp wl-copy notify-send \
+shot area_cancel grim slurp wl-copy notify-send hyprpicker \
      -- XDG_CURRENT_DESKTOP=labwc:wlroots STUB_SLURP_CANCEL=1 \
      -- area
 want "a cancelled selection exits zero"       test "$RC" -eq 0
 want "a cancelled selection captures nothing" not_called grim
 want "a cancelled selection notifies nothing" not_called notify-send
+# The case the EXIT trap exists for: without it the script leaves by `exit 0`
+# with the still up, and the screen looks hung until something is clicked.
+want "a cancelled selection unfreezes the screen" freeze_released
 
 echo
 echo "── 'active' is honest about what it captured ────────────────────────────"
@@ -275,8 +378,8 @@ esac
 
 # ── self-test: can these checks fail? ────────────────────────────────────────
 # Three checks in this repo have shipped green over the case they existed for.
-# So each of the two invariants above is re-run against a copy of the script
-# with that invariant deliberately broken, and has to come back red.
+# So each invariant above is re-run against a copy of the script with that
+# invariant deliberately broken, and has to come back red.
 echo
 echo "── self-test: can these checks fail? ────────────────────────────────────"
 
@@ -285,6 +388,8 @@ mutate() {
     local name="$1" ; shift
     local dst="$work/mutant-$name.sh"
     cp "$script" "$dst"
+    # The adapter it sources on Hyprland, beside the copy as it is in the tree.
+    cp "$(dirname "$script")/compositor.sh" "$work/compositor.sh"
     "$@" "$dst" || return 1
     ! cmp -s "$script" "$dst" || return 1
     printf '%s' "$dst"
@@ -355,12 +460,78 @@ else
     bad "self-test could not build the silent-missing-grim mutant"
 fi
 
-# ...and the control, or the four verdicts above would hold with the harness
-# broken outright: the unmutated script, copied, still reaches grim on labwc.
+# Mutant 5: grimblast loses --freeze, so an area is picked over the live screen.
+drop_freeze_flag() { sed -i 's/grimblast -n --freeze copysave/grimblast -n copysave/' "$1"; }
+if m="$(mutate no-freeze-flag drop_freeze_flag)"; then
+    mutants=$((mutants + 1))
+    run_mutant "$m" grimblast grim slurp wl-copy notify-send hyprctl hyprpicker \
+        -- HYPRLAND_INSTANCE_SIGNATURE=sig123 XDG_CURRENT_DESKTOP=Hyprland -- area
+    if [[ "$(argv_of grimblast)" != "-n --freeze copysave "* ]]; then
+        ok "self-test grimblast without --freeze: caught"
+    else
+        bad "self-test the argv check cannot see a missing --freeze"
+    fi
+else
+    bad "self-test could not build the no-freeze-flag mutant"
+fi
+
+# Mutant 6: the layer rule is not pushed, so on a Lua config the still fades
+# in and slurp's border is captured on its way out.
+drop_layer_rule() {
+    sed -i 's/&& apex_screenshot_layers_command hyprland; then/\&\& false; then/' "$1"
+}
+if m="$(mutate no-layer-rule drop_layer_rule)"; then
+    mutants=$((mutants + 1))
+    run_mutant "$m" grimblast grim slurp wl-copy notify-send hyprctl hyprpicker \
+        -- HYPRLAND_INSTANCE_SIGNATURE=sig123 XDG_CURRENT_DESKTOP=Hyprland -- area
+    # grimblast must still have run: a mutant that merely broke the script
+    # would pass the hyprctl half for the wrong reason.
+    want "self-test an area capture with no layer rule: caught" not_called hyprctl
+    want "self-test ...on a script that still captured"          called grimblast
+else
+    bad "self-test could not build the no-layer-rule mutant"
+fi
+
+# Mutant 7: no EXIT trap, so a cancelled selection leaves the screen frozen.
+drop_trap() { sed -i '/^trap unfreeze EXIT$/d' "$1"; }
+if m="$(mutate no-unfreeze-trap drop_trap)"; then
+    mutants=$((mutants + 1))
+    run_mutant "$m" grim slurp wl-copy notify-send hyprpicker \
+        -- XDG_CURRENT_DESKTOP=labwc:wlroots STUB_SLURP_CANCEL=1 -- area
+    if freeze_released; then
+        bad "self-test the release check cannot see a freeze left up"
+    else
+        ok "self-test a cancelled selection left frozen: caught"
+    fi
+else
+    bad "self-test could not build the no-unfreeze-trap mutant"
+fi
+
+# Mutant 8: no release after the capture; the trap still ends the freeze, but
+# only once the toast and the clipboard hand-off are done with.
+drop_early_release() { sed -i '/^unfreeze$/d' "$1"; }
+if m="$(mutate late-release drop_early_release)"; then
+    mutants=$((mutants + 1))
+    run_mutant "$m" grim slurp wl-copy notify-send hyprpicker \
+        -- XDG_CURRENT_DESKTOP=labwc:wlroots -- area
+    want "self-test the screen still frozen at the toast: caught" test -f "$CALLS.frozen-during-notify"
+    freeze_released || :
+else
+    bad "self-test could not build the late-release mutant"
+fi
+
+# ...and the control, or the verdicts above would hold with the harness broken
+# outright: the unmutated script, copied, still reaches grim on labwc, and
+# still freezes for the capture and releases before the toast.
 cp "$script" "$work/control.sh"
 run_mutant "$work/control.sh" grim slurp wl-copy notify-send \
     -- XDG_CURRENT_DESKTOP=labwc:wlroots -- output
 want "the same harness still passes on an unmutated copy" called grim
+run_mutant "$work/control.sh" grim slurp wl-copy notify-send hyprpicker \
+    -- XDG_CURRENT_DESKTOP=labwc:wlroots -- area
+want "...and still sees the freeze held for the capture" test -f "$CALLS.frozen-during-grim"
+want "...and released before the toast"                  test ! -f "$CALLS.frozen-during-notify"
+want "...and not left behind"                            freeze_released
 
 echo
 echo "self-test: mutants applied=$mutants"

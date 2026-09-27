@@ -41,6 +41,7 @@
 #
 #  Run from anywhere: ./tests/run-a11y-controls-test.sh
 # ─────────────────────────────────────────────────────────────────────────────
+. "$(dirname "${BASH_SOURCE[0]}")/lib/private-bus.sh"   # the session bus is ours, not the desktop's
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -66,6 +67,10 @@ trap cleanup EXIT INT TERM
 cp -r "$root/src/components/config" "$stage/components-config-tmp"
 mkdir -p "$stage/components"
 mv "$stage/components-config-tmp" "$stage/components/config"
+# The controls the config components are built on (ApexPressable & co.,
+# UI/UX roadmap Phase 3), at the same relative path.
+cp -r "$root/src/components/controls" "$stage/components/controls"
+cp "$root/src/components/SectionLabel.qml" "$stage/components/SectionLabel.qml"   # CfgSection's heading (UI/UX Phase 17)
 cp "$here/a11y-controls-test.qml" "$stage/a11y-controls-test.qml"
 
 # The staged tree must BE the shipped one. A copy that silently lost a file
@@ -114,6 +119,10 @@ THEME
 . "$here/lib/theme-stub.sh"
 stage_theme_set "$stage" "$root" "$stage/components" || {
     echo "RESULT: the staged token set could not be built"; exit 1; }
+# The motion system the staged controls take their timing from (Phase 1 of the
+# UI/UX roadmap): copied from src/theme at the shipped defaults.
+stage_motion "$stage" "$root" || {
+    echo "RESULT: the staged motion system could not be built"; exit 1; }
 
 # WAYLAND_DISPLAY is removed from the environment rather than merely unused.
 # The offscreen platform does not need it, but a plugin that ever decides to
@@ -147,7 +156,7 @@ echo "passed=$n_pass failed=$n_fail"
 # reads names CfgRow supplies; a fixture that found none would simply be quiet,
 # and a floor would let a dropped test function hide behind an added one.
 # QtTest's total is initTestCase + the test functions + cleanupTestCase.
-EXPECT_TESTS=26
+EXPECT_TESTS=27
 n_ran=$(( n_pass + n_fail ))
 if [[ "$n_ran" -ne "$EXPECT_TESTS" ]]; then
     echo "RESULT: $n_ran test functions ran, expected $EXPECT_TESTS"

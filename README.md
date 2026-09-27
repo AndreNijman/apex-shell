@@ -488,3 +488,9 @@ Additional thanks to the projects and communities that make this shell possible:
 </h2>
 
 This project is licensed under the MIT License – see the [LICENSE](LICENSE) file for details.
+
+Third-party code keeps its own licence: `src/shapes/material/` is a vendored
+port of AndroidX's graphics-shapes library and Google's Material 3 Expressive
+shapes ([rounded-polygon-qmljs](https://github.com/end-4/rounded-polygon-qmljs)),
+under the Apache License 2.0 — see [its LICENSE](src/shapes/material/LICENSE)
+and [README](src/shapes/material/README.md).

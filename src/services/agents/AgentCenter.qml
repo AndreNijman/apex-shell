@@ -98,20 +98,100 @@ Item {
     // it in a binding.
     readonly property bool _hasRemote: RemoteAgentService.hosts.length > 0
 
-    // ── The help strip (§43) ──────────────────────────────────────────────────
-    // Pinned, never scrolled away, and present in all three page states.
+    // ── Keyboard (UI/UX roadmap v3 Phase 21) ────────────────────────────────
+    // One Tab stop over ALL rows in visual order — requests, then "needs you",
+    // then everything else — rather than one stop per section. The three
+    // sections read as one list ("what needs me, in order"), and Up/Down
+    // crossing a section boundary is what makes that order legible; three
+    // separate stops would make the same list feel like three unrelated ones
+    // for the price of extra Tab presses. Remote devices (§20) are NOT in this
+    // list: RemoteHostRow is outside this page's edit scope, and a device row
+    // backed by ssh cannot safely share a "highlight, then Return" model with
+    // local rows that mutate the local runtime.
+    //
+    // Keys are request ids and session ids prefixed by kind, because the two
+    // id spaces are independent — a request "5" and a session "5" existing at
+    // once is not implausible (the same sentinel trap WifiTab's note covers).
+    readonly property var _rows: {
+        var r = []
+        for (var i = 0; i < root._requests.length; i++)
+            r.push({ kind: "request", id: root._requests[i].id, key: "req:" + root._requests[i].id })
+        for (var j = 0; j < root._needsYou.length; j++)
+            r.push({ kind: "session", id: root._needsYou[j].id, key: "sess:" + root._needsYou[j].id })
+        for (var k = 0; k < root._others.length; k++)
+            r.push({ kind: "session", id: root._others[k].id, key: "sess:" + root._others[k].id })
+        return r
+    }
+    property string _curKey: ""
+    readonly property var _rowKeys: root._rows.map(function (m) { return m.key })
+    function _stepRow(d) {
+        const list = root._rowKeys
+        if (list.length === 0) return
+        const i = list.indexOf(root._curKey)
+        root._curKey = i < 0 ? list[d > 0 ? 0 : list.length - 1]
+                             : list[Math.max(0, Math.min(list.length - 1, i + d))]
+    }
+    // The actual row Item for a key, so the list can call ITS primary()
+    // rather than duplicating what a tap does. Three Repeaters, like WifiTab's
+    // single one, because requests and sessions are different delegate types.
+    function _rowItemFor(key) {
+        for (let i = 0; i < reqRepeater.count; i++) {
+            const it = reqRepeater.itemAt(i)
+            if (it && "req:" + it.request.id === key) return it
+        }
+        for (let i = 0; i < needsYouRepeater.count; i++) {
+            const it = needsYouRepeater.itemAt(i)
+            if (it && "sess:" + it.session.id === key) return it
+        }
+        for (let i = 0; i < othersRepeater.count; i++) {
+            const it = othersRepeater.itemAt(i)
+            if (it && "sess:" + it.session.id === key) return it
+        }
+        return null
+    }
+
+    // ── The header and help strip (§43) ───────────────────────────────────────
+    // Pinned, never scrolled away, and present in all three page states. The
+    // header is ONE line (UI/UX Phase 17, Andre): Always Unrestricted as a
+    // danger chip on the left when it is on, the guide as a help button on the
+    // right — both always reachable, neither a card. Declared chip first, so
+    // Tab meets the warning before the help.
     Column {
         id: helpStrip
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.topMargin: theme.px(8)
+        anchors.topMargin: theme.px(6)
         anchors.leftMargin: theme.px(10)
         anchors.rightMargin: theme.px(10)
-        spacing: theme.px(7)
+        spacing: theme.px(6)
 
-        AgentHelpEntry { width: parent.width }
-        AgentHelpCard   { width: parent.width }
+        Item {
+            width: parent.width
+            height: theme.px(32)
+            // §42.1 criterion 9: the reader who most needs to know the sandbox
+            // default is off is the one looking at an empty list or at "the
+            // runtime is not running", so it is pinned here, in every state.
+            // It says nothing about the sessions below, which carry their own
+            // recorded modes. This is about the next one.
+            UnrestrictedChip {
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                visible: AgentPolicyService.alwaysUnrestricted
+            }
+            AgentHelpEntry {
+                id: helpEntry
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+            }
+        }
+        // Dismissed from the keyboard, the card leaves with the button that had
+        // the keys: they go to the permanent entry above it (UI/UX roadmap v3
+        // Phase 21). A click dismisses and moves nothing.
+        AgentHelpCard {
+            width: parent.width
+            onDismissedByKey: Qt.callLater(function() { helpEntry.forceActiveFocus() })
+        }
 
         // §P1-021's account-wide windows. Pinned, for the reason the banner
         // below it is: it is a fact about the machine rather than about any
@@ -120,17 +200,6 @@ Item {
         // nothing has reported one — see TelemetryStrip.
         TelemetryStrip { width: parent.width }
 
-        // §42.1 criterion 9. Pinned for the same reason the help strip is: the
-        // reader who most needs to know the sandbox default is off is the one
-        // looking at an empty list or at "the runtime is not running", and
-        // neither of those draws the session list at all.
-        //
-        // It says nothing about the sessions below it, which have their own
-        // recorded modes on their own rows. This is about the next one.
-        UnrestrictedBanner {
-            width:   parent.width
-            visible: AgentPolicyService.alwaysUnrestricted
-        }
     }
 
     // Everything the page had before, moved down by the strip's height. An
@@ -154,75 +223,68 @@ Item {
         // runtime and a desktop full of agents is a real configuration, and a
         // full-page "the agent runtime is not running" would hide the answer the
         // user came for. The list says the same thing in one line instead.
-        Column {
+        EmptyState {
             anchors.centerIn: parent
             width: parent.width * 0.8
-            spacing: theme.px(10)
             visible: AgentService.everChecked && !AgentService.daemonUp
                      && !root._hasRemote
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "󰒲"
-                font.pixelSize: theme.fs(42)
-                color: Theme.subtext
-            }
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "The agent runtime is not running"
-                color: Theme.text
-                font.pixelSize: theme.fs(14)
-            }
-            Text {
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-                text: "apex agent enable\n\n" +
-                      "It is opt-in. Running claude, opencode or codex directly " +
-                      "works exactly as it always did."
-                color: Theme.subtext
-                font.pixelSize: theme.fs(11)
-            }
+            glyph: "󰒲"
+            title: "The agent runtime is not running"
+            hint: "It is opt-in. Running claude, opencode or codex directly "
+                + "works exactly as it always did. To turn it on:"
+            command: "apex agent enable"
         }
 
         // ── Nothing to show ──────────────────────────────────────────────────────
-        Column {
+        // The shared empty state (UI/UX Phase 17): both of these were a 42 px
+        // glyph in subtext over a 14 px line and an 11 px hint, with the
+        // command run into the hint's prose.
+        EmptyState {
             anchors.centerIn: parent
             width: parent.width * 0.8
-            spacing: theme.px(8)
             visible: AgentService.daemonUp && root._empty && !root._hasRemote
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "󰚩"
-                font.pixelSize: theme.fs(42)
-                color: Theme.subtext
-            }
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "No agent sessions"
-                color: Theme.text
-                font.pixelSize: theme.fs(14)
-            }
-            Text {
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-                text: "Start one with  a  or  apex agent run"
-                color: Theme.subtext
-                font.pixelSize: theme.fs(11)
-            }
+            glyph: "󰚩"
+            title: "No agent sessions"
+            hint: "Start one from a terminal with the a command, or:"
+            command: "apex agent run"
         }
 
         // ── The list ─────────────────────────────────────────────────────────────
+        // ONE Tab stop for the whole scroll area — see the keyboard note above
+        // for why the three local sections share it. Remote devices scroll
+        // inside the same view but are not part of the Up/Down order.
         ScrollView {
+            id: scrollView
             anchors.fill: parent
             anchors.margins: theme.px(6)
             clip: true
             visible: (AgentService.daemonUp && !root._empty) || root._hasRemote
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
+            activeFocusOnTab: root._rows.length > 0
+            Accessible.role: Accessible.List
+            Accessible.name: "Agent sessions and requests"
+            onActiveFocusChanged: if (activeFocus && root._rowKeys.indexOf(root._curKey) < 0) root._stepRow(1)
+            Keys.onPressed: function (event) {
+                if      (event.key === Qt.Key_Down) root._stepRow(1)
+                else if (event.key === Qt.Key_Up)   root._stepRow(-1)
+                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                    const r = root._rowItemFor(root._curKey)
+                    if (r) r.primary()
+                } else return
+                event.accepted = true
+                // Keep the highlighted row in view.
+                const r2 = root._rowItemFor(root._curKey)
+                if (r2 && scrollView.contentItem) {
+                    const top = r2.mapToItem(contentCol, 0, 0).y
+                    if (top < scrollView.contentItem.contentY) scrollView.contentItem.contentY = top
+                    else if (top + r2.height > scrollView.contentItem.contentY + scrollView.height)
+                        scrollView.contentItem.contentY = top + r2.height - scrollView.height
+                }
+            }
+
             Column {
+                id: contentCol
                 width: root.width - theme.fs(20)
                 spacing: theme.px(6)
 
@@ -236,6 +298,7 @@ Item {
                     tone: Theme.attention
                 }
                 Repeater {
+                    id: reqRepeater
                     model: root._requests
                     delegate: RequestRow {
                         // Declared required rather than reached for implicitly:
@@ -245,6 +308,8 @@ Item {
                         required property var modelData
                         width: parent.width
                         request: modelData
+                        keyed: root._curKey === "req:" + modelData.id
+                        listFocused: scrollView.activeFocus
                     }
                 }
 
@@ -255,11 +320,15 @@ Item {
                     accent: true
                 }
                 Repeater {
+                    id: needsYouRepeater
                     model: root._needsYou
                     delegate: SessionRow {
                         required property var modelData
                         width: parent.width
                         session: modelData
+                        keyed: root._curKey === "sess:" + modelData.id
+                        listFocused: scrollView.activeFocus
+                        list: scrollView
                     }
                 }
 
@@ -276,14 +345,22 @@ Item {
                     readonly property int finished:
                         root._others.filter(s => !AgentService._isLive(s)).length
                     actionText: finished > 0 ? "Clear " + finished + " finished" : ""
-                    onAction: AgentService.dismissFinished()
+                    // "Clear finished" removes rows out from under the list;
+                    // its own button vanishes with them the instant `finished`
+                    // recomputes to 0, so the keys go back to the list rather
+                    // than to a control that just disappeared.
+                    onAction: { AgentService.dismissFinished(); Qt.callLater(function() { scrollView.forceActiveFocus() }) }
                 }
                 Repeater {
+                    id: othersRepeater
                     model: root._others
                     delegate: SessionRow {
                         required property var modelData
                         width: parent.width
                         session: modelData
+                        keyed: root._curKey === "sess:" + modelData.id
+                        listFocused: scrollView.activeFocus
+                        list: scrollView
                     }
                 }
 
@@ -345,9 +422,9 @@ Item {
                         onActivated: RemoteAgentService.refresh()
 
                         RotationAnimation on rotation {
-                            running: RemoteAgentService.busy
+                            running: RemoteAgentService.busy && Motion.loops
                             loops: Animation.Infinite
-                            from: 0; to: 360; duration: 1400
+                            from: 0; to: 360; duration: Motion.spinPeriod
                         }
                         onRotationChanged: if (!RemoteAgentService.busy) rotation = 0
                     }
@@ -399,5 +476,7 @@ Item {
     // ── The guide (§43) ───────────────────────────────────────────────────────
     // Last child, so it draws over the strip and the list alike. It anchors
     // itself and carries its own z; opening it is AgentHelp.open().
-    AgentHelpPanel {}
+    // Closed from the keyboard, the guide hands the keys back to the entry that
+    // opens it (a pointer close moves nothing).
+    AgentHelpPanel { onClosedByKey: Qt.callLater(function() { helpEntry.forceActiveFocus() }) }
 }

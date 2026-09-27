@@ -87,7 +87,7 @@ ShellRoot {
         "windows", "windowGeometry", "outputGeometry",
         "windowFocus", "windowMove", "windowClose",
         "overview", "accentBorder", "gaps", "tilingLayout",
-        "keyboardInterception", "screenShader", "nightLight"
+        "keyboardInterception", "screenShader", "nightLight", "motion"
     ]
 
     // The product names, duplicated on purpose for the same reason as the
@@ -237,7 +237,8 @@ ShellRoot {
                 ["gaps",                 function () { return CompositorService.setGaps(0, 0) }],
                 ["keyboardInterception", function () { return CompositorService.setKeyboardInterception(true) }],
                 ["screenShader",         function () { return CompositorService.setScreenShader("") }],
-                ["nightLight",           function () { return CompositorService.setNightLight(true) }]
+                ["nightLight",           function () { return CompositorService.setNightLight(true) }],
+                ["motion",               function () { return CompositorService.syncMotion() }]
             ]
 
             let refusedCount  = 0

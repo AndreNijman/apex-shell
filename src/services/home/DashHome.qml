@@ -25,7 +25,16 @@ Item {
     readonly property int clockH:   220
 
     // ── Avatar path ───────────────────────────────────────────────────────────
+    // A picture the user chose (Settings → Appearance → Profile picture), or,
+    // by default, a still of the wallpaper.
     property string _avatarPath: ""
+    function _currentAvatar() {
+        return SettingsService.avatarFile !== "" ? SettingsService.avatarFile : root._staticJpg
+    }
+    Connections {
+        target: SettingsService
+        function onAvatarFileChanged() { root._avatarPath = root._currentAvatar() }
+    }
     property string _staticJpg:  ""   // resolved once: $HOME/.curr_wall_static.jpg
 
     // Resolve $HOME once, then set the fixed path.
@@ -39,7 +48,7 @@ Item {
                 var h = line.trim()
                 if (h === "") return
                 root._staticJpg  = h + "/.curr_wall_static.jpg"
-                root._avatarPath = root._staticJpg
+                root._avatarPath = root._currentAvatar()
             }
         }
     }
@@ -51,6 +60,7 @@ Item {
     Connections {
         target: WallpaperService
         function onWallpaperApplied(path) {
+            if (SettingsService.avatarFile !== "") return    // a chosen picture does not follow the wallpaper
             root._avatarPath = ""
             reloadTimer.restart()
         }
@@ -60,7 +70,7 @@ Item {
         id: reloadTimer
         interval: 0
         repeat:   false
-        onTriggered: root._avatarPath = root._staticJpg
+        onTriggered: root._avatarPath = root._currentAvatar()
     }
 
     // ── Left column ───────────────────────────────────────────────────────────
@@ -83,14 +93,6 @@ Item {
                 bottom: parent.bottom
             }
         }
-    }
-
-    // ── Right column — QuickSettings fills full height ────────────────────────
-    QuickSettings {
-        id: rightCard
-        anchors { right: parent.right; top: parent.top; bottom: parent.bottom; topMargin: root.gap }
-        width: root.colW
-        onScreen: root.onScreen
     }
 
     // ── Center column ─────────────────────────────────────────────────────────
@@ -117,5 +119,15 @@ Item {
                 bottom: parent.bottom
             }
         }
+    }
+
+    // ── Right column — QuickSettings fills full height ────────────────────────
+    // Declared last: Tab follows declaration order, and reading order is left,
+    // centre, right (the centre column anchors to this one by id either way).
+    QuickSettings {
+        id: rightCard
+        anchors { right: parent.right; top: parent.top; bottom: parent.bottom; topMargin: root.gap }
+        width: root.colW
+        onScreen: root.onScreen
     }
 }

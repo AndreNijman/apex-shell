@@ -6,6 +6,7 @@ import Quickshell.Wayland
 import Quickshell.Services.Pam
 import "../"
 import "../services/"
+import "../components/auth"
 
 // ─────────────────────────────────────────────────────────────
 // Lockscreen — native Wayland session lock, replaces hyprlock.
@@ -41,7 +42,11 @@ WlSessionLock {
     // engaged (or been released), so a lock that fails to engage is never
     // reported to logind as engaged. See LockedHintService for why this has
     // to be the shell's job and not apexd's.
-    onSecureStateChanged: LockedHintService.setLocked(sessionLock.secure)
+    onSecureStateChanged: {
+        LockedHintService.setLocked(sessionLock.secure)
+        LockState.lockSecure = sessionLock.secure
+        if (Motion.pacingLog) console.info("APEX pacing: lock secure=" + sessionLock.secure)
+    }
 
     // The initial sync, and the reason it cannot live in the service itself.
     //
@@ -66,6 +71,32 @@ WlSessionLock {
     // LockedHintService would therefore not run until something else had
     // already used it, which on this path is the lock it exists to report.
     Component.onCompleted: LockedHintService.setLocked(sessionLock.secure)
+
+    // ── Release, after the exit has played ──────────────────────────────
+    // Called ONLY from a surface's PAM success. The lock UI plays its exit
+    // (clock lifting, field fading, the wallpaper sharpening back into the
+    // desktop's) over UnlockCurtain, which has held the desktop wallpaper
+    // behind the lock since it engaged; then the lock lets go and the curtain
+    // fades the desktop in. The
+    // timer IS the release, unconditionally: nothing it waits on can hold the
+    // session locked after a correct password (under Reduce Motion it is one
+    // millisecond).
+    function release() {
+        if (!LockState.locked || LockState.unlocking) return
+        LockState.unlocking = true
+        sessionLock._release.interval = Math.max(1, Motion.hero)
+        sessionLock._release.restart()
+    }
+    property Timer _release: Timer {
+        repeat: false
+        onTriggered: {
+            // A lock asked for since the password (LockState.lock()) cancelled
+            // the release: stay locked.
+            if (!LockState.unlocking) return
+            LockState.unlocking = false
+            LockState.locked = false
+        }
+    }
 
     // ── Per-output lock surface ──────────────────────────────────────
     WlSessionLockSurface {
@@ -114,9 +145,9 @@ WlSessionLock {
             onCompleted: function(result) {
                 surface.checking = false
                 if (result === PamResult.Success) {
-                    // The one and only unlock path.
+                    // The one and only unlock path (release() is the flip).
                     surface.password = ""
-                    LockState.locked = false
+                    sessionLock.release()
                 } else if (result === PamResult.MaxTries) {
                     surface.fail("Too many attempts — wait and retry")
                 } else {
@@ -145,6 +176,13 @@ WlSessionLock {
         }
 
         function fail(msg) {
+            // Clear the FIELD, not only the buffer. This used to empty
+            // surface.password and leave the TextInput holding the rejected
+            // attempt: the dots stayed, Enter did nothing (the buffer was
+            // empty), and the next key appended to the wrong password. Cleared
+            // before hasError is set, because clearing runs onTextChanged,
+            // which drops hasError as soon as the user types.
+            passwordInput.text = ""
             surface.password  = ""
             surface.hasError  = true
             surface.errorText = msg
@@ -202,8 +240,164 @@ WlSessionLock {
         // used to be a 1 Hz Timer that ran for the whole session even
         // though the lock surface only exists while locked, and it woke
         // the process 59 times a minute to redraw nothing.
-        readonly property string timeText: Time.format("hh:mm")
+        // 12 or 24 h (SettingsService.clockFormat); a 12-hour AM/PM is drawn
+        // beside the digits, small, not at the clock's 120 px.
+        readonly property string timeText: Time.clock(false, false)
         readonly property string dateText: Time.format("dddd, d MMMM")
+
+        // ── Arrival and departure: the notch pours down (2026-09-27) ────
+        // The lock surface is opaque from its first frame — that is the
+        // security property and nothing here touches it. What moves is drawn
+        // on it.
+        //
+        // Andre, twice: "make the transition to lock screen actually cleaner
+        // and sleek not just fading", then, of a desktop that drew back and
+        // dissolved: "It's still just fading. I want a real animation." So
+        // nothing here dissolves the desktop. The shell's surfaces pour out
+        // of the notch, and so does the lock: its first frame is the notch
+        // itself — a notch-coloured shape exactly over the bar's notch — which
+        // spreads into a band, then falls down the screen, its lower corners
+        // rounding into a drop and flattening as it lands, carrying the lock's
+        // blurred backdrop in with it. Underneath, the desktop as it was
+        // (windows/LockCapture.qml's picture, or the bare wallpaper without
+        // one) sinks and darkens and is COVERED, never faded. The clock and
+        // the card ride in once the shade is most of the way down.
+        //
+        // A correct password plays it backwards (`leave`): the shade retracts
+        // up into the notch over the sharp wallpaper, which is exactly what
+        // UnlockCurtain holds behind the lock, and the lock lets go.
+        //
+        // `enter` and `leave` are plain time; each part shapes its share of
+        // it. Under Reduce Motion nothing travels: the shade is whole and
+        // fades in and out.
+        property real enter: 0
+        property real leave: LockState.unlocking ? 1 : 0
+        // The unlock is the arrival run backwards, frame for frame, so it
+        // takes the arrival's time (Andre: "make the unlock the exact same but
+        // in reverse").
+        Behavior on leave {
+            NumberAnimation { duration: Motion.hero; easing.type: Easing.Linear }
+        }
+        NumberAnimation {
+            id: enterAnim
+            target: surface; property: "enter"; from: 0; to: 1
+            duration: Motion.reduced ? Motion.fadeIn : Motion.hero
+            easing.type: Easing.Linear
+        }
+        // APEX_PACING_LOG: the arrival's own frames (count, worst gap), the
+        // measurement a recording of a nested session cannot make.
+        property var _pace: ({ n: 0, worst: 0, last: 0 })
+        property Connections _paceFrames: Connections {
+            target: (Motion.pacingLog && enterAnim.running) ? content.Window.window : null
+            ignoreUnknownSignals: true
+            function onFrameSwapped() {
+                const now = Date.now(), p = surface._pace
+                if (p.last > 0) { p.worst = Math.max(p.worst, now - p.last); p.gaps = (p.gaps || "") + (now - p.last) + "," }
+                p.last = now; p.n += 1
+            }
+        }
+        property Connections _paceEnd: Connections {
+            target: Motion.pacingLog ? enterAnim : null
+            function onRunningChanged() {
+                if (enterAnim.running) { surface._pace = { n: 0, worst: 0, last: 0 }; return }
+                console.info("APEX pacing: lock arrival frames=" + surface._pace.n + " worst="
+                             + surface._pace.worst + "ms over " + enterAnim.duration + "ms gaps=" + (surface._pace.gaps || ""))
+            }
+        }
+        // Started once the surface is on screen, not at its creation: the
+        // frames before that are never seen, and a clock started at creation
+        // spent the start of the arrival in them (measured in a nested
+        // Hyprland: the picture was half gone in the first frame shown). On
+        // screen means both: this window has swapped a frame, and the
+        // compositor has engaged the lock (`secure`) — a lock surface's first
+        // frame is drawn before the compositor shows it, and it shows it only
+        // once the lock holds. SurfaceLifecycle's guard covers a compositor
+        // that reports neither.
+        property bool _swapped: false
+        property bool _presented: false
+        property real _createdAt: 0
+        property Connections _firstFrame: Connections {
+            target: surface._swapped ? null : content.Window.window
+            ignoreUnknownSignals: true
+            function onFrameSwapped() { surface._swapped = true; surface._maybeArrive() }
+        }
+        property Connections _engaged: Connections {
+            target: sessionLock
+            function onSecureStateChanged() { surface._maybeArrive() }
+        }
+        property Timer _presentGuard: Timer { interval: 250; onTriggered: surface._arrive() }
+        function _maybeArrive() { if (surface._swapped && sessionLock.secure) surface._arrive() }
+        function _arrive() {
+            if (surface._presented) return
+            surface._presented = true
+            surface._presentGuard.stop()
+            if (Motion.pacingLog)
+                console.info("APEX pacing: lock arrival start ms=" + (Date.now() - surface._createdAt)
+                             + " picture=" + surface._fromCapture)
+            enterAnim.restart()
+        }
+
+        // The desktop as it was: LockCapture's picture of this output, taken
+        // just before the lock engaged. Read once per arrival; dropped the
+        // frame the shade has covered it.
+        property string capture: ""
+        function _takeCapture() {
+            const shots = LockState.captures
+            const name = surface.screen ? surface.screen.name : ""
+            surface.capture = (shots && name !== "" && shots[name]) ? String(shots[name]) : ""
+        }
+        readonly property bool _fromCapture: surface.capture !== "" && capImg.status === Image.Ready
+        // Kept for the whole lock, in memory only (never drawn while the shade
+        // covers it): after a correct password the pour runs backwards over it
+        // and the desktop rises back to where the real one takes over. So the
+        // curtain that fades the desktop in after an unlock stands down on this
+        // output (LockState.revealScreens). A surface built later in the lock
+        // (a monitor plugged in) finds no picture — LockCapture empties the
+        // table once the arrival is over — and unlocks the old way.
+        property Connections _reveal: Connections {
+            target: LockState
+            function onUnlockingChanged() {
+                if (!LockState.unlocking || !surface._fromCapture || !surface.screen) return
+                const m = Object.assign({}, LockState.revealScreens)
+                m[surface.screen.name] = true
+                LockState.revealScreens = m
+            }
+        }
+
+        function _clamp01(v) { return Math.max(0, Math.min(1, v)) }
+        readonly property bool _still: Motion.reduced || Motion.hero <= 0
+        // The one timeline: the arrival's time, or — unlocking — the same time
+        // run backwards. Every part below reads only this, so the unlock
+        // retraces the arrival exactly.
+        readonly property real _t: surface.leave > 0 ? 1 - surface.leave : surface.enter
+        // The shade's spread (width) and fall (height), 0 = the notch, 1 = the
+        // screen. Width leads: a band first, then down (and back up, then in).
+        readonly property real _shadeW: surface._still ? 1
+            : Motion.ease(Motion.emphasizedDecel, surface._clamp01(surface._t / 0.5))
+        readonly property real _shadeH: surface._still ? 1
+            : Motion.ease(Motion.emphasized, surface._clamp01((surface._t - 0.08) / 0.92))
+        // Under Reduce Motion the whole shade fades instead. Unlocking over the
+        // desktop picture, the last frame is the notch over the picture's own
+        // notch — what the real desktop shows a frame later. Without a picture
+        // the notch it has become fades in the last fifth, so the lock's last
+        // frame is the sharp wallpaper UnlockCurtain then shows.
+        readonly property real _shadeAlpha: surface._still ? surface._t
+            : (surface._fromCapture ? 1 : 1 - surface._clamp01((surface.leave - 0.8) / 0.2))
+        // The notch colour it starts as, dissolving into the backdrop as it spreads.
+        readonly property real _notchInk: surface._still ? 0
+            : 1 - Motion.ease(Motion.standard, surface._clamp01(Math.min(surface._shadeW, surface._shadeH * 4)))
+        // The shade's rectangle, in this surface's pixels.
+        readonly property real _sw: theme.cNotchMinWidth + (surface.width - theme.cNotchMinWidth) * surface._shadeW
+        readonly property real _sh: theme.notchHeight + (surface.height - theme.notchHeight) * surface._shadeH
+        // Lower corners: the notch's own, a drop's while it falls, square as it lands.
+        readonly property real _sr: (theme.notchBottom + (theme.px(64) - theme.notchBottom) * surface._shadeW)
+                                    * (1 - surface._shadeH)
+
+        // The clock and the card, once the shade is most of the way down.
+        readonly property real _clock: surface._still ? surface._t
+            : Motion.ease(Motion.emphasizedDecel, surface._clamp01((surface._t - 0.45) / 0.55))
+        readonly property real _card:  surface._still ? surface._t
+            : Motion.ease(Motion.emphasizedDecel, surface._clamp01((surface._t - 0.55) / 0.45))
 
         // ── Content root ─────────────────────────────────────────────
         Item {
@@ -214,26 +408,14 @@ WlSessionLock {
             // Any stray keystroke lands in the password field.
             Keys.forwardTo: [passwordInput]
 
-            // ── Background: Colors-derived gradient fallback ─────────
-            // Always present so an empty/broken wallpaper path can never
-            // leave a blank (or transparent) surface.
-            Rectangle {
-                anchors.fill: parent
-                gradient: Gradient {
-                    orientation: Gradient.Vertical
-                    GradientStop { position: 0.0; color: Qt.darker(Theme.background, 1.15) }
-                    GradientStop { position: 1.0; color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 1.0) }
-                }
-            }
-
             // Wallpaper texture source (hidden; fed into the blur effect).
             //
             // SettingsService.lockBackground overrides the desktop wallpaper so
             // the lock screen can show something else (or something the desktop
             // wallpaper rotation will not clobber). Empty means "follow the
             // desktop wallpaper", which is the historical behaviour. A path that
-            // fails to load falls through to the gradient underneath, exactly as
-            // a broken wallpaper path already did.
+            // fails to load falls through to the gradient in the shade, exactly
+            // as a broken wallpaper path already did.
             Image {
                 id: wallImg
                 anchors.fill: parent
@@ -250,23 +432,138 @@ WlSessionLock {
                 visible:      false
             }
 
-            // Blurred + dimmed wallpaper. Hidden automatically if the image
-            // fails to load, revealing the gradient underneath.
-            MultiEffect {
+            // ── Under the shade: the desktop as it was ───────────────
+            // Synchronous: the picture is already decoded in the pixmap cache
+            // (LockCapture) and the first frame has to have it. Same URL and
+            // default fill mode as the preload, or the cache misses and the
+            // file is already gone.
+            Item {
+                id: under
                 anchors.fill: parent
-                source:       wallImg
-                visible:      wallImg.status === Image.Ready
-                blurEnabled:  true
-                blur:         1.0
-                blurMax:      48
-                brightness:  -0.30
-                saturation:  -0.10
+                visible: surface._shadeH < 0.999 || surface._shadeW < 0.999 || surface._shadeAlpha < 1
+                // Sinks as the shade falls over it.
+                scale: surface._still ? 1 : 1 - 0.06 * surface._shadeH
+
+                Image {
+                    id: capImg
+                    anchors.fill: parent
+                    source:       surface.capture
+                    asynchronous: false
+                    cache:        true
+                }
+                // Without a picture, and on the way out: the wallpaper, sharp —
+                // the desktop's own, and what UnlockCurtain holds behind the lock.
+                Image {
+                    anchors.fill: parent
+                    visible:      !surface._fromCapture
+                    source:       wallImg.source
+                    fillMode:     Image.PreserveAspectCrop
+                    asynchronous: true
+                    cache:        true
+                }
+                // A scrim, like the shade's own (not a theme colour).
+                Rectangle {
+                    anchors.fill: parent
+                    color: Qt.rgba(0, 0, 0, 1)
+                    opacity: surface._still ? 0 : 0.5 * surface._shadeH
+                }
             }
 
-            // Extra scrim for legibility.
+            // The shade's edge throws a shadow on what it is falling over.
             Rectangle {
+                visible: !surface._still && surface._shadeH < 0.999
+                x: (surface.width - surface._sw) / 2
+                y: surface._sh - theme.px(8)
+                width: surface._sw
+                height: theme.px(72)
+                opacity: 0.55 * Math.min(1, surface._shadeH * 6)
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.6) }
+                    GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
+                }
+            }
+
+            // ── The shade: the lock's own backdrop, masked to its shape ──
+            // Nothing inside this layer changes while the shade moves, so the
+            // full-screen blur is rendered once and every frame of the pour is
+            // one masked composite. (A parallax shift on the wallpaper in here
+            // re-rendered the blur each frame: the shade moved at 20-30 fps in
+            // the nested measurement. The shift now moves the whole effect.)
+            Item {
+                id: shade
                 anchors.fill: parent
-                color: Qt.rgba(0, 0, 0, 0.35)
+                visible: false
+                layer.enabled: true
+
+                // Colors-derived gradient: always present, so an empty or broken
+                // wallpaper can never leave a blank (or transparent) lock.
+                Rectangle {
+                    anchors.fill: parent
+                    gradient: Gradient {
+                        orientation: Gradient.Vertical
+                        GradientStop { position: 0.0; color: Qt.darker(Theme.background, 1.15) }
+                        GradientStop { position: 1.0; color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 1.0) }
+                    }
+                }
+                // Blurred + dimmed wallpaper.
+                MultiEffect {
+                    anchors.fill: parent
+                    source:       wallImg
+                    visible:      wallImg.status === Image.Ready
+                    blurEnabled:  true
+                    blur:         1.0
+                    blurMax:      48
+                    brightness:  -0.30
+                    saturation:  -0.10
+                }
+                // Extra scrim for legibility.
+                Rectangle {
+                    anchors.fill: parent
+                    color: Qt.rgba(0, 0, 0, 0.35)
+                }
+            }
+            // Its shape: top-anchored (the rectangle reaches above the screen by
+            // its radius, so only the lower corners round), centred.
+            // The backdrop rides down with the shade a little (a sheet being
+            // drawn down, not a window onto a still picture): the whole effect
+            // is shifted up by _drift and the mask down by as much, so the
+            // shape stays where it is and only what is inside it moves.
+            readonly property real _drift: surface._still ? 0 : theme.px(90) * (1 - surface._shadeH)
+            Item {
+                id: shadeMask
+                anchors.fill: parent
+                visible: false
+                layer.enabled: true
+                Rectangle {
+                    x: (surface.width - surface._sw) / 2
+                    y: -surface._sr + content._drift
+                    width: surface._sw
+                    height: surface._sh + surface._sr
+                    radius: surface._sr
+                    color: Theme.background   // the mask reads only its coverage
+                    antialiasing: true
+                }
+            }
+            MultiEffect {
+                anchors.fill: parent
+                source:      shade
+                opacity:     surface._shadeAlpha
+                maskEnabled: true
+                maskSource:  shadeMask
+                transform: Translate { y: -content._drift }
+            }
+            // The notch it starts as: the same shape in the bar's colour,
+            // dissolving as it spreads.
+            Rectangle {
+                visible: surface._notchInk > 0.001
+                x: (surface.width - surface._sw) / 2
+                y: -surface._sr
+                width: surface._sw
+                height: surface._sh + surface._sr
+                radius: surface._sr
+                color: Theme.background
+                opacity: surface._notchInk * surface._shadeAlpha
+                antialiasing: true
             }
 
             // Clicking anywhere re-focuses the password field.
@@ -282,14 +579,32 @@ WlSessionLock {
                 anchors.bottom:           card.top
                 anchors.bottomMargin:     56
                 spacing: 4
+                // Gone in the first part of the retract, before the shade lifts past them.
+                opacity: surface._clock
+                transform: Translate {
+                    y: (1 - surface._clock) * -Motion.travel(theme.px(28))
+                }
 
-                Text {
+                Row {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text:           surface.timeText
-                    color:          Theme.text
-                    font.family:    "JetBrainsMono Nerd Font"
-                    font.pixelSize: theme.fs(120)
-                    font.bold:      true
+                    spacing: theme.px(10)
+                    Text {
+                        id: bigTime
+                        text:           surface.timeText
+                        color:          Theme.text
+                        font.family:    "JetBrainsMono Nerd Font"
+                        font.pixelSize: theme.fs(120)
+                        font.bold:      true
+                    }
+                    Text {
+                        visible:        Time.meridiem !== ""
+                        text:           Time.meridiem
+                        color:          Theme.subtext
+                        font.family:    "JetBrainsMono Nerd Font"
+                        font.pixelSize: theme.fs(28)
+                        font.bold:      true
+                        anchors.baseline: bigTime.baseline
+                    }
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -306,7 +621,12 @@ WlSessionLock {
                 anchors.centerIn: parent
                 anchors.verticalCenterOffset: 90
                 spacing: 14
-                transform: Translate { x: surface.shakeOffset }
+                opacity: surface._card
+                scale: Motion.reduced ? 1 : 0.97 + 0.03 * surface._card
+                transform: Translate {
+                    x: surface.shakeOffset
+                    y: (1 - surface._card) * Motion.travel(theme.px(28))
+                }
 
                 // Username
                 Text {
@@ -330,7 +650,7 @@ WlSessionLock {
                     border.color: surface.hasError
                                       ? Theme.danger
                                       : (passwordInput.activeFocus ? Theme.active : Theme.border)
-                    Behavior on border.color { ColorAnimation { duration: 140 } }
+                    Behavior on border.color { MotionColor { role: "state" } }
 
                     // Lock glyph
                     Text {
@@ -360,8 +680,21 @@ WlSessionLock {
                         clip:                    true
                         enabled:                 !surface.checking
                         focus:                   true
-                        color:                   Theme.text
-                        selectionColor:          Theme.active
+                        // The field draws nothing of its own: what it holds is
+                        // shown by PasswordShapes below, which is given its
+                        // LENGTH and nothing else. Still a masked field with no
+                        // echo delay, so no character exists on screen even for
+                        // the frame before the shapes hide it; transparent so
+                        // the mask characters, the cursor and a selection are
+                        // not painted on top of the shapes.
+                        color:                   "transparent"
+                        selectionColor:          "transparent"
+                        selectedTextColor:       "transparent"
+                        // The caret is NOT painted in `color` — it would sit
+                        // where the invisible mask characters end, a bar
+                        // floating left of the shapes. The shapes are the
+                        // position; the caret is drawn by nothing.
+                        cursorDelegate:          Item {}
                         font.family:             "JetBrainsMono Nerd Font"
                         font.pixelSize:          theme.fs(18)
                         echoMode:                TextInput.Password
@@ -428,11 +761,12 @@ WlSessionLock {
                             }
                         }
 
-                        // Placeholder
+                        // Placeholder. Waits for the shapes to have actually
+                        // gone, so it never draws over a row that is leaving.
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.left:           parent.left
-                            visible: passwordInput.text.length === 0 && !surface.checking
+                            visible: shapes.empty && !surface.checking
                             text:  "Enter password"
                             color: Theme.subtext
                             font.family:    passwordInput.font.family
@@ -445,6 +779,27 @@ WlSessionLock {
                             // which disappears the moment a key is pressed.
                             Accessible.ignored: true
                         }
+                    }
+
+                    // What the field holds, as shapes — one per character,
+                    // chosen by position, never by what was typed. Same
+                    // component the login screen loads (apex-greet).
+                    PasswordShapes {
+                        id: shapes
+                        anchors.fill:        passwordInput
+                        length:              passwordInput.length
+                        accent:              Theme.active
+                        text:                Theme.text
+                        background:          Theme.background
+                        danger:              Theme.danger
+                        error:               surface.hasError
+                        busy:                surface.checking
+                        // The raw settings, resolved inside by the motion
+                        // table — the same three the login screen is handed.
+                        speed:               SettingsService.motionSpeed
+                        motionScale:         SettingsService.motionScale
+                        reduced:             SettingsService.reduceMotion
+                        size:                18
                     }
 
                     // Spinner (shown while PAM is checking).
@@ -470,11 +825,14 @@ WlSessionLock {
                             anchors.horizontalCenter: parent.horizontalCenter
                             y: -1
                         }
+                        // A busy spinner, not decoration: it is the only sign
+                        // the password is being checked, so it keeps turning
+                        // under Reduce Motion and stops only with motion off.
                         RotationAnimator on rotation {
-                            running: spinner.visible
+                            running: spinner.visible && Motion.loops
                             loops:   Animation.Infinite
                             from: 0; to: 360
-                            duration: 850
+                            duration: Motion.spinPeriod
                         }
                     }
                 }
@@ -503,17 +861,34 @@ WlSessionLock {
             // ── Error shake ──────────────────────────────────────────
             SequentialAnimation {
                 id: shakeAnim
-                NumberAnimation { target: surface; property: "shakeOffset"; from: 0; to:  14; duration: 45 }
-                NumberAnimation { target: surface; property: "shakeOffset"; to: -14; duration: 45 }
-                NumberAnimation { target: surface; property: "shakeOffset"; to:  10; duration: 45 }
-                NumberAnimation { target: surface; property: "shakeOffset"; to: -10; duration: 45 }
-                NumberAnimation { target: surface; property: "shakeOffset"; to:   6; duration: 45 }
-                NumberAnimation { target: surface; property: "shakeOffset"; to:   0; duration: 45 }
+                NumberAnimation { target: surface; property: "shakeOffset"; from: 0; to:  14; duration: Motion.errorShake }
+                NumberAnimation { target: surface; property: "shakeOffset"; to: -14; duration: Motion.errorShake }
+                NumberAnimation { target: surface; property: "shakeOffset"; to:  10; duration: Motion.errorShake }
+                NumberAnimation { target: surface; property: "shakeOffset"; to: -10; duration: Motion.errorShake }
+                NumberAnimation { target: surface; property: "shakeOffset"; to:   6; duration: Motion.errorShake }
+                NumberAnimation { target: surface; property: "shakeOffset"; to:   0; duration: Motion.errorShake }
             }
         }
 
-        // Grab keyboard focus as soon as the surface appears.
-        Component.onCompleted: passwordInput.forceActiveFocus()
-        onVisibleChanged: if (visible) passwordInput.forceActiveFocus()
+        // Grab keyboard focus as soon as the surface appears, and arrive.
+        Component.onCompleted: {
+            surface._createdAt = Date.now()
+            surface._takeCapture()
+            passwordInput.forceActiveFocus()
+            surface._presentGuard.restart()
+        }
+        // A surface Quickshell shows again for a later lock arrives again.
+        onVisibleChanged: if (!visible) {
+            surface.capture = ""          // the lock is over: let the picture go
+        } else {
+            surface._takeCapture()
+            passwordInput.forceActiveFocus()
+            enterAnim.stop()
+            surface.enter = 0
+            surface._createdAt = Date.now()
+            surface._swapped = false
+            surface._presented = false
+            surface._presentGuard.restart()
+        }
     }
 }

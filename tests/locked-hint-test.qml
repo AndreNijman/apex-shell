@@ -419,7 +419,7 @@ ShellRoot {
     // acknowledged it, and `onSecureStateChanged` is what reaches logind. That
     // is the whole path P0-015 depends on and none of it has ever been run.
     function phase9() {
-        LockState.locked = true
+        LockState.lock()
         waitFor(function () { return lock.secure }, 200, function (got) {
             if (!got) {
                 console.log("locked-hint: compositor-did-not-acknowledge")
@@ -431,7 +431,30 @@ ShellRoot {
                 readLog(function () {
                     rootScope.expectChain("a real compositor lock reaches logind", rootScope.fresh(), "true")
                     rootScope.keep()
-                    LockState.locked = false
+                    // The PAM-success path (2026-09-26): release() plays the lock
+                    // UI's exit and maps the unlock curtain, and the lock lets go
+                    // on a timer — unconditionally, so a correct password can
+                    // never be left holding the session locked.
+                    // A lock asked for INSIDE the release window (a lid closed
+                    // just after Enter) must cancel it and hold.
+                    lock.release()
+                    LockState.lock()
+                    rootScope.check("a lock asked for during the release cancels it",
+                                    LockState.locked && !LockState.unlocking)
+                    waitFor(function () { return !LockState.locked }, 12, function (unlockedAnyway) {
+                    rootScope.check("…and the session stays locked past the release's beat",
+                                    !unlockedAnyway && lock.secure)
+                    lock.release()
+                    rootScope.check("a correct password starts the exit: still locked, unlocking, the curtain (raised with the lock) up",
+                                    LockState.locked && LockState.unlocking && LockState.curtain)
+                    rootScope.check("the curtain was armed only by the compositor's acknowledgement",
+                                    LockState.lockSecure && LockState.curtainArmed)
+                    const t0 = Date.now()
+                    waitFor(function () { return !LockState.locked }, 200, function (unlocked) {
+                    const took = Date.now() - t0
+                    rootScope.check("and the lock releases once the exit has played, never later ("
+                                    + took + " ms)", unlocked && took < 1500)
+                    rootScope.check("unlocking is over once it has", !LockState.unlocking)
                     waitFor(function () { return !lock.secure }, 200, function (released) {
                         rootScope.check("the lock was released again", released)
                         settle(function () {
@@ -441,6 +464,8 @@ ShellRoot {
                                 finish()
                             })
                         })
+                    })
+                    })
                     })
                 })
             })

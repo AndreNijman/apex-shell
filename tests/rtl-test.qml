@@ -193,10 +193,13 @@ Item {
                 return Qt.application.layoutDirection === Qt.RightToLeft
             })
 
-            compare(ltrX, 2, "unmirrored the banner keeps its 2px inset on the left")
-            compare(rtlX, scroll.width - 2 - b.width,
-                    "mirrored, the 2px inset is on the RIGHT — x moves to "
-                    + (scroll.width - 2 - b.width) + ", not " + ltrX)
+            // 12 since UI/UX Phase 17: the line starts on the rows' text edge
+            // and runs out to the scroll lane (4), so its two insets differ and
+            // mirroring still has to move it.
+            compare(ltrX, 12, "unmirrored the banner starts on the content edge, 12px from the left")
+            compare(rtlX, scroll.width - 12 - b.width,
+                    "mirrored, the 12px inset is on the RIGHT — x moves to "
+                    + (scroll.width - 12 - b.width) + ", not " + ltrX)
         }
 
         // The direct child of the scroll container that carries a lifecycle.
@@ -216,7 +219,7 @@ Item {
             var rtl = Qt.application.layoutDirection === Qt.RightToLeft
             var b = bannerOf(scroll2)
             verify(b !== null, "the scroll container has a lifecycle banner")
-            var want = rtl ? scroll2.width - 2 - b.width : 2
+            var want = rtl ? scroll2.width - 12 - b.width : 12
             compare(b.x, want,
                     "nothing was ever set on this container, so its shipped "
                     + "declaration decides the side (direction="

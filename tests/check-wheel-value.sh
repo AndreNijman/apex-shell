@@ -83,8 +83,7 @@ src/popups/WallpaperPopup.qml|turns a vertical wheel into horizontal scroll|the 
 # file | the call that sets the value | what the bar is
 DENY_RAW="
 src/components/config/CfgSlider.qml|root._apply(|the shared settings slider, on every settings page inside a CfgScroll — where UI-004 was reported
-src/services/AudioControl.qml|col.volumeChanged(|output, input and mixer volume columns, inside a PopupPage that scrolls
-src/popups/QuickControl.qml|col.volumeChanged(|volume, internal brightness and one column per DDC monitor
+src/popups/ChannelColumn.qml|col.volumeChanged(|the quick controls (volume, internal brightness, one column per DDC monitor) and the audio pane's output and input columns inside a PopupPage that scrolls — out of QuickControl.qml and AudioControl.qml since UI/UX Phase 21
 src/services/home/QuickSettings.qml|root._setBright(|the dashboard brightness bar
 src/components/TimeInput.qml|root.incH()|the HH:MM spinners behind the sleep timer and the alarm
 "
@@ -368,9 +367,12 @@ mutate "a wheel handler on the brightness bar" \
 recheck_cfg() { grep -q "^src/components/config/" < <(mut_found); }
 mutate "a bare onWheel on a MouseArea in a settings control" \
     "src/components/config/CfgSwitch.qml" \
-    "        onClicked:    { root.forceActiveFocus(); root.toggle() }" \
-    "        onClicked:    { root.forceActiveFocus(); root.toggle() }
-        onWheel:      function(w) { root.toggle() }" \
+    "    ApexFocusRing { target: root }" \
+    "    ApexFocusRing { target: root }
+    MouseArea {
+        anchors.fill: parent
+        onWheel:      function(w) { root.toggle() }
+    }" \
     recheck_cfg
 
 # (d) a second handler in a file that is already allowlisted — membership alone

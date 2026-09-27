@@ -152,6 +152,37 @@ apex_dpms_command() {
     esac
 }
 
+# apex_screenshot_layers_command <compositor> — stop the compositor animating
+# screenshot.sh's two layer surfaces: the freeze (hyprpicker's still) and
+# slurp's selection. Run, not exec'd: the capture carries on after it.
+#
+# hyprland: APEX's appearance.lua fades layers in and out, and grimblast's own
+# exemption, `keyword layerrule noanim,selection`, is refused by a Lua config
+# ("keyword can't work with non-legacy parsers. Use eval."). Measured in a
+# nested 0.56.2 with the live appearance.lua: the still took more than 120 ms
+# to become opaque, and grim 20 ms after slurp exited captured its overlay half
+# faded — slurp's border, on the edges of every area screenshot.
+#
+# So the rule goes in through eval, once per config load. A named rule is
+# reused when pushed again, but each push appends another copy of its effect
+# (v0.56.2, LuaBindingsConfigRules.cpp: `rule->addEffect` on the existing rule),
+# so pushing on every screenshot would grow it without bound. The Lua global is
+# the guard: it survives between evals and, measured, a reload clears it along
+# with the runtime rules it guards. On a hyprlang config eval fails, and
+# grimblast's keyword works there.
+#
+# labwc animates no layer surface, so there is nothing to exempt. niri's layer
+# animations were not measured; it gets no rule rather than a guessed one.
+apex_screenshot_layers_command() {
+    APEX_CMD=()
+    case "${1:-}" in
+        hyprland)
+            APEX_CMD=(hyprctl eval 'if not APEX_SCREENSHOT_NO_ANIM then hl.layer_rule({ name = "apex-screenshot-freeze", match = { namespace = "^(hyprpicker|selection)$" }, no_anim = true }); APEX_SCREENSHOT_NO_ANIM = true end')
+            ;;
+        *)  return 1 ;;
+    esac
+}
+
 # ── Session ids ──────────────────────────────────────────────────────────────
 # Entering and leaving Gaming Mode is "tell the greeter which session to
 # preselect, then end this one". The session id is a filename in

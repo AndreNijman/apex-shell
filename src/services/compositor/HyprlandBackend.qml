@@ -6,6 +6,8 @@ import Quickshell.Io
 import Quickshell.Hyprland
 import "../../"
 import "boxes.js" as Boxes
+import "hyprMotion.js" as HyprMotion
+import "../../shapes/fluid/geometry.js" as Geo
 
 // ─── HyprlandBackend ──────────────────────────────────────────────────────────
 // CompositorService's Hyprland adapter. Loaded by URL and only on Hyprland, so
@@ -92,7 +94,8 @@ QtObject {
         tilingLayout:         true,
         keyboardInterception: true,
         screenShader:         true,
-        nightLight:           true
+        nightLight:           true,
+        motion:               true
     })
 
     property bool windowsWanted: false
@@ -132,7 +135,12 @@ QtObject {
     // the shell until Hyprland is restarted. A wallpaper apply landing while
     // focus mode is mid-write is the mundane version: gaps half-applied.
     property Process _keywordProc: Process { command: []; running: false }
-    property Process _gapsWriteProc: Process { command: []; running: false }
+    property Process _gapsWriteProc: Process {
+        command: []; running: false
+        // New gaps move the band between a window and the frame: keep the
+        // window's corner concentric with the fillet (syncWindowCorners).
+        onRunningChanged: if (!running) root.syncWindowCorners()
+    }
     property Process _submapProc:  Process { command: []; running: false }
     property Process _shaderApplyProc: Process {
         command: []
@@ -310,12 +318,23 @@ QtObject {
                 root.specialWorkspaceOpen = String(event.data).split(",")[0] !== ""
             else if (event.name === "destroyworkspace")
                 root.specialWorkspaceOpen = false
+            // A reload restores the config's own motion and drops every rule
+            // declared at runtime: read the motion again, re-declare the rules.
+            else if (event.name === "configreloaded") {
+                root._motionReread()
+                root._pushLayerRules()
+                root.syncWindowCorners()
+            }
         }
     }
 
     Component.onCompleted: {
         root._refreshTitle()
         root._refreshWindows()
+        // The provider may already be known (config_Provider.json read before
+        // this backend was built), in which case on_LuaChanged never fires.
+        if (root._lua) root._pushLayerRules()
+        root.syncWindowCorners()
 
         // One one-shot probe at startup, `hyprctl getoption`. It used to run
         // from QuickSettings.Component.onCompleted instead, so the fork
@@ -326,6 +345,165 @@ QtObject {
         // probe is the facade's, for every compositor at once.
         root.refreshScreenShader()
     }
+
+    // ── Motion (UI/UX roadmap v3 Phase 21) ────────────────────────────────────
+    // The shell's speed and Reduce Motion, applied to Hyprland's animations. The
+    // numbers are Hyprland's own (hyprMotion.js reads them back and scales
+    // them), so apex-os appearance.lua stays the one place they are written.
+    //
+    // A shell restart finds its own previous push in Hyprland and must not
+    // scale it again: what was pushed, and from what base, is kept per Hyprland
+    // instance in $XDG_RUNTIME_DIR, and trusted only while the live table is
+    // still exactly that push. Lua configs only — `keyword` cannot write
+    // animations there, and the hyprlang path is the pre-0.55 config.
+    property real _mScale:   1
+    property bool _mReduced: false
+    property bool _mWanted:  false
+    property var  _mBase:    null
+    readonly property string _mSig: Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE") || ""
+
+    function syncMotion(scale, reduced) {
+        root._mScale = scale
+        root._mReduced = reduced
+        root._mWanted = true
+        if (!root._lua) return          // kept: the provider probe answers later
+        if (root._mBase === null) root._motionReread()
+        else                      root._motionPush()
+    }
+    // configProvider is probed asynchronously and reads "conf" until it
+    // answers, so the first request can arrive before `_lua` is true.
+    on_LuaChanged: {
+        if (root._lua && root._mWanted) root._motionReread()
+        if (root._lua) root._pushLayerRules()
+        root.syncWindowCorners()
+    }
+
+    // ── Window corners follow the frame ───────────────────────────────────────
+    // A window's outer corner (its rounding + its border) is kept concentric
+    // with the frame's inner fillet across the band between them (Andre,
+    // 2026-09-27: "is the hyprland window corner radii consistent with the
+    // actual corner frame fillets … make it exactly"): Geo.windowRounding.
+    // apex-os appearance.lua's rounding was a free number (10), so a window's
+    // corner ran a pixel inside the fillet's curve, and changing the shell's
+    // corner radius moved the frame and not the windows. Read gaps_out and
+    // border_size live (either can change under it), then write the rounding
+    // — at start, after every config reload (which drops runtime values), after
+    // the gaps slider, and when the corner radius or strip width changes.
+    function syncWindowCorners() { root._cornersDebounce.restart() }
+    property Timer _cornersDebounce: Timer {
+        interval: 150
+        onTriggered: root._start(root._cornersReadProc, ["bash", "-c",
+            "hyprctl -j getoption general:gaps_out; hyprctl -j getoption general:border_size"])
+    }
+    // The first number of an option's answer, whichever form Hyprland gives it
+    // in: `int`, or `css` / `custom` for a gap ("10 10 10 10").
+    function _optionNumber(o) {
+        if (!o) return NaN
+        if (o.int !== undefined) return parseInt(o.int)
+        const g = o.css !== undefined ? o.css : o.custom
+        if (g !== undefined && g !== "") return parseInt(String(g).trim().split(/\s+/)[0])
+        return NaN
+    }
+    function _cornersRead(text) {
+        const nums = []
+        const parts = String(text).split("}")
+        for (let i = 0; i < parts.length; i++) {
+            let v = NaN
+            try { v = root._optionNumber(JSON.parse((parts[i] + "}").trim())) } catch (e) { v = NaN }
+            if (!isNaN(v)) nums.push(v)
+        }
+        if (nums.length < 2) return            // unreadable: leave Hyprland's own
+        const t = root._cornersTheme
+        const r = Geo.windowRounding(t.cornerRadius, t.borderWidth, nums[0], nums[1])
+        if (Quickshell.env("APEX_PACING_LOG") === "1")
+            console.info("APEX window corners: gaps_out=" + nums[0] + " border=" + nums[1] + " -> rounding " + r)
+        root._start(root._cornersWriteProc, root._lua
+            ? ["hyprctl", "eval", "hl.config({ decoration = { rounding = " + r + " } })"]
+            : ["hyprctl", "keyword", "decoration:rounding", String(r)])
+    }
+    property Process _cornersReadProc: Process {
+        stdout: StdioCollector { onStreamFinished: root._cornersRead(String(this.text)) }
+    }
+    property Process _cornersWriteProc: Process {}
+    // The frame's sizes are each output's own (P1-040); Hyprland's rounding is
+    // one value, so it follows the output being worked on — the focused one,
+    // else the first.
+    readonly property var _cornersScreen: {
+        const want = Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
+        const list = Quickshell.screens
+        for (let i = 0; i < list.length; i++) if (list[i].name === want) return list[i]
+        return list.length > 0 ? list[0] : null
+    }
+    on_CornersScreenChanged: root.syncWindowCorners()
+    property ThemeSet _cornersTheme: ThemeSet { scale: Theme.factorForScreen(root._cornersScreen) }
+    property Connections _cornersThemeChanges: Connections {
+        target: root._cornersTheme
+        function onCornerRadiusChanged() { root.syncWindowCorners() }
+        function onBorderWidthChanged()  { root.syncWindowCorners() }
+    }
+
+    // ── The shell's own layers are not the compositor's to animate ──────────
+    // Every shell surface animates itself — a bloom out of the notch, a pour,
+    // a spill, a toast — through SurfaceLifecycle, and at progress 0 each one
+    // coincides exactly with the bar it grows from, so mapping it is invisible.
+    // Hyprland does not know that: on the stock tree every layer that maps is
+    // run through `fadeLayersIn` (inherits `fade`, 400 ms) and its unmap through
+    // `fadeLayersOut`. Measured in a nested 0.56.2 (UI/UX Phase 20): 66–90 % of
+    // the network panel was a translucent blend 240–345 ms into its open — the
+    // body "pops in" half-transparent instead of growing out of the notch, and
+    // keeps fading after it has stopped. On Andre's L16 today the tree is stock
+    // (`hyprctl -j animations`: fade 4 ds `ease`), so every open looked like it.
+    //
+    // apex-os carries the same rule in appearance.lua (feat/hypr-motion) for
+    // the next image; the shell declares it too, at start and after every
+    // config reload (which drops runtime rules), so it holds on any Hyprland
+    // the shell runs under, whatever that config is. Named, so a user can find
+    // it (`require` cannot reach it, but `hyprctl eval` of a rule with the same
+    // name and no_anim = false turns it off). Lua configs only: a hyprlang
+    // `keyword layerrule` is the pre-0.55 path this shell no longer ships.
+    readonly property string _layerRulesLua:
+        'hl.layer_rule({ name = "apex-shell-self-animated", match = { namespace = "^quickshell$" }, no_anim = true })'
+    function _pushLayerRules() {
+        if (Quickshell.env("APEX_PACING_LOG") === "1") console.info("APEX layer rules: push, lua=" + root._lua)
+        if (root._lua) root._start(root._layerRulesProc, ["hyprctl", "eval", root._layerRulesLua])
+    }
+    property Process _layerRulesProc: Process {
+        stdout: StdioCollector { onStreamFinished: if (Quickshell.env("APEX_PACING_LOG") === "1") console.info("APEX layer rules: " + String(this.text).trim()) }
+        stderr: StdioCollector { onStreamFinished: if (String(this.text).trim() !== "") console.warn("APEX layer rules: " + String(this.text).trim()) }
+    }
+
+    function _motionReread() {
+        root._mBase = null
+        if (root._mWanted && root._lua) root._start(root._motionReadProc, ["bash", "-c",
+            'hyprctl -j animations; printf "\\n\\x1e\\n"; cat "${XDG_RUNTIME_DIR:-/tmp}/apex-shell/hypr-motion.json" 2>/dev/null'])
+    }
+
+    function _motionRead(text) {
+        const cut = text.indexOf("\n\x1e\n")
+        const live = cut < 0 ? text : text.slice(0, cut)
+        let state = null
+        try { state = cut < 0 ? null : JSON.parse(text.slice(cut + 3)) } catch (e) { state = null }
+        const base = HyprMotion.chooseBase(live, state, root._mSig)
+        if (!base) return          // unreadable: leave Hyprland as its config has it
+        root._mBase = base
+        root._motionPush()
+    }
+
+    function _motionPush() {
+        const lua = HyprMotion.plan(root._mBase, root._mScale, root._mReduced)
+        const state = JSON.stringify({ signature: root._mSig, base: root._mBase,
+                                       pushed: HyprMotion.expected(root._mBase, root._mScale, root._mReduced) })
+        // The eval and the record in one shell, argv-positional like every other
+        // write in the shell: the Lua and the JSON are data, never script.
+        root._start(root._motionPushProc, ["bash", "-c",
+            'hyprctl eval "$1" >/dev/null && d="${XDG_RUNTIME_DIR:-/tmp}/apex-shell" && mkdir -p "$d" && printf "%s" "$2" > "$d/hypr-motion.json"',
+            "--", lua, state])
+    }
+
+    property Process _motionReadProc: Process {
+        stdout: StdioCollector { onStreamFinished: root._motionRead(String(this.text)) }
+    }
+    property Process _motionPushProc: Process {}
 
     // ── Tiling layout ─────────────────────────────────────────────────────────
     // `hyprctl -j activeworkspace` reports the workspace's layout and window
@@ -451,21 +629,16 @@ QtObject {
                 root._gapsCallback = null
                 if (!cb) return
 
-                // Two JSON objects back to back. `custom` is the "5 5 5 5" form
-                // Hyprland reports for a CSS-style gap, and `int` is the plain
-                // one; take the first number of whichever is present.
+                // Two JSON objects back to back. A CSS-style gap comes as
+                // "5 5 5 5" under `css` (0.56; `custom` before it), a plain one
+                // as `int`; take the first number of whichever is present.
+                // (Reading only `custom` and `int`, 0.56's gaps were unreadable.)
                 const nums = []
                 const parts = this.text.split("}")
                 for (let i = 0; i < parts.length; i++) {
                     const chunk = parts[i] + "}"
                     let v = NaN
-                    try {
-                        const d = JSON.parse(chunk.trim())
-                        if (d.custom !== undefined && d.custom !== "")
-                            v = parseInt(String(d.custom).trim().split(/\s+/)[0])
-                        else if (d.int !== undefined)
-                            v = parseInt(d.int)
-                    } catch (e) { v = NaN }
+                    try { v = root._optionNumber(JSON.parse(chunk.trim())) } catch (e) { v = NaN }
                     if (!isNaN(v)) nums.push(v)
                 }
 

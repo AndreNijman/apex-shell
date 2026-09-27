@@ -52,7 +52,7 @@ CfgScroll {
     // password belongs next to the switch that asked for it.
     lifecycle: "live"
 
-    // Set by ShellConfig and Nexus. AgentService is refcounted and forks
+    // Set by SettingsHost (Nexus). AgentService is refcounted and forks
     // `apex agent list` on a timer, so the session section below has to be told
     // whether anyone is looking.
     property bool onScreen: false
@@ -103,7 +103,7 @@ CfgScroll {
                 checked: root._on
                 opacity: (AgentPolicyService.busy
                           || (!root._on && root._refusal !== "")) ? 0.4 : 1
-                Behavior on opacity { NumberAnimation { duration: 120 } }
+                Behavior on opacity { MotionFade {} }
                 onToggled: function(v) {
                     if (AgentPolicyService.busy) return
                     if (v && root._refusal !== "") return
@@ -116,13 +116,12 @@ CfgScroll {
         // wants a password at the desktop's own prompt; switching off wants
         // nothing, which §42.1 asks for in as many words.
         Text {
-            width: parent.width - theme.px(20)
-            x:     theme.px(10)
+            width: parent.width
             text: root._on
                 ? "Switching this off takes effect at once and asks for nothing."
                 : "Switching this on asks for your password at the desktop's "
                   + "authentication prompt, not in an agent's terminal."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.subtext
             wrapMode: Text.WordWrap
         }
@@ -131,12 +130,11 @@ CfgScroll {
         // Why the toggle will not move, when it will not.
         Text {
             id: refusalText
-            width:   parent.width - theme.px(20)
-            x:       theme.px(10)
+            width:   parent.width
             visible: !root._on && root._refusal !== ""
             text:    "Cannot switch on: " + root._refusal
                    + ". Fix " + AgentPolicyService.configPath + " first."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.warning
             wrapMode: Text.WordWrap
         }
@@ -146,11 +144,10 @@ CfgScroll {
         // dismissed password.
         Text {
             id: errorText
-            width:   parent.width - theme.px(20)
-            x:       theme.px(10)
+            width:   parent.width
             visible: AgentPolicyService.lastError !== ""
             text:    AgentPolicyService.lastError
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.danger
             wrapMode: Text.WordWrap
         }
@@ -164,12 +161,14 @@ CfgScroll {
             hoverable: false
 
             Text {
+                // A value: CfgRow's readout treatment (UI/UX Phase 17), keeping
+                // the mode's own colour — unrestricted is the danger tone.
                 text: AgentPolicyService.busy ? "saving…"
                                               : AgentPolicyService.defaultSandbox
-                font.pixelSize: theme.fs(11)
-                font.bold: true
+                font.pixelSize: theme.typeMono
+                font.family: Theme.fontMono
                 color: AgentPolicyService.busy
-                     ? Theme.subtext
+                     ? Theme.textSecondary
                      : root._modeColor(AgentPolicyService.defaultSandbox)
             }
         }
@@ -204,8 +203,6 @@ CfgScroll {
                     id: line
                     anchors.left:           parent.left
                     anchors.right:          parent.right
-                    anchors.leftMargin:     theme.px(10)
-                    anchors.rightMargin:    theme.px(10)
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: theme.px(3)
 
@@ -218,7 +215,7 @@ CfgScroll {
                     Text {
                         width:          parent.width
                         text:           claimLine.modelData.d
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         color:          Theme.subtext
                         wrapMode:       Text.WordWrap
                     }
@@ -237,13 +234,12 @@ CfgScroll {
         // boundary and one that oversells it.
         Item { width: parent.width; height: theme.px(6) }
         Text {
-            width: parent.width - theme.px(20)
-            x:     theme.px(10)
+            width: parent.width
             text: "The caveat is not sudo inside the session, which fails. It is what "
                 + "an unconfined session can leave behind: your shell startup files, "
                 + "a git hook, a systemd user unit. Those run as you the next time "
                 + "you start a shell, with none of a session's limits on them."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.warning
             wrapMode: Text.WordWrap
         }
@@ -260,15 +256,14 @@ CfgScroll {
         title: "Sessions running now"
 
         Text {
-            width: parent.width - theme.px(20)
-            x:     theme.px(10)
+            width: parent.width
             text: root._live.length === 0
                 ? (AgentService.daemonUp
                    ? "Nothing is running. The setting above applies to the next session you start."
                    : "The agent runtime is not running. Start it with  apex agent enable")
                 : "Each session keeps the mode it started with. Changing the setting above "
                 + "does not move any of them."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.subtext
             wrapMode: Text.WordWrap
         }
@@ -288,7 +283,6 @@ CfgScroll {
 
                 Row {
                     anchors.left:           parent.left
-                    anchors.leftMargin:     theme.px(10)
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: theme.px(8)
 
@@ -300,7 +294,7 @@ CfgScroll {
                     }
                     Text {
                         text:           "#" + sessionLine.modelData.id
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         color:          Theme.subtext
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -308,14 +302,13 @@ CfgScroll {
 
                 Row {
                     anchors.right:          parent.right
-                    anchors.rightMargin:    theme.px(10)
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: theme.px(8)
 
                     Text {
                         visible:        sessionLine.nativeMode !== "inherit"
                         text:           "native " + sessionLine.nativeMode
-                        font.pixelSize: theme.fs(10)
+                        font.pixelSize: theme.typeCaption
                         color:          Theme.subtext
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -332,14 +325,13 @@ CfgScroll {
 
         Item { width: parent.width; height: theme.px(6) }
         Text {
-            width:   parent.width - theme.px(20)
-            x:       theme.px(10)
+            width:   parent.width
             visible: root._elsewhere.length > 0
             text: root._elsewhere.length === 1
                 ? "1 running session is on a different mode from the setting above."
                 : root._elsewhere.length
                   + " running sessions are on a different mode from the setting above."
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:    Theme.warning
             wrapMode: Text.WordWrap
         }

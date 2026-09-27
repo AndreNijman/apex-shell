@@ -60,6 +60,7 @@
 #
 #  Run from anywhere: ./tests/run-rtl-test.sh
 # ─────────────────────────────────────────────────────────────────────────────
+. "$(dirname "${BASH_SOURCE[0]}")/lib/private-bus.sh"   # the session bus is ours, not the desktop's
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -531,6 +532,10 @@ trap 'rm -rf "$probe" "$stage"' EXIT INT TERM
 cp -r "$root/src/components/config" "$stage/components-config-tmp"
 mkdir -p "$stage/components"
 mv "$stage/components-config-tmp" "$stage/components/config"
+# The controls the config components are built on (ApexPressable & co.,
+# UI/UX roadmap Phase 3), at the same relative path.
+cp -r "$root/src/components/controls" "$stage/components/controls"
+cp "$root/src/components/SectionLabel.qml" "$stage/components/SectionLabel.qml"   # CfgSection's heading (UI/UX Phase 17)
 cp "$here/rtl-test.qml" "$stage/rtl-test.qml"
 
 # The staged tree must BE the shipped one. A copy that silently lost a file
@@ -571,6 +576,10 @@ THEME
 . "$here/lib/theme-stub.sh"
 stage_theme_set "$stage" "$root" "$stage/components" || {
     bad "the staged token set could be built" ""; finish; exit 1; }
+# The motion system the staged controls take their timing from (Phase 1 of the
+# UI/UX roadmap): copied from src/theme at the shipped defaults.
+stage_motion "$stage" "$root" || {
+    echo "RESULT: the staged motion system could not be built"; exit 1; }
 
 # The fixture is run TWICE — scrubbed, and under the RTL locale with the image's
 # platform theme. Round 22 ran it once, in whatever direction the operator's
@@ -681,7 +690,12 @@ section "3. what mirroring does NOT reach, pinned in both directions"
 win_total="$(grep -rlE '^\s*PanelWindow\b|^\s*FloatingWindow\b' "$root/src" 2>/dev/null | wc -l)"
 win_mirrored="$(grep -rlE '^\s*PanelWindow\b|^\s*FloatingWindow\b' "$root/src" 2>/dev/null \
                  | xargs -r grep -l 'LayoutMirroring' | wc -l)"
-WIN_TOTAL_EXPECT=15
+# 16 since UI/UX Phase 9b and 17 since Phase 10: QuickControl and ArchMenu
+# became PanelWindows spanning their strips (both were PopupWindows placed by
+# an anchor rectangle). 18 since Fluid F3: UnlockCurtain, the desktop wallpaper
+# that fades the desktop back in after an unlock (it draws one Image — nothing
+# in it has a reading direction).
+WIN_TOTAL_EXPECT=18
 WIN_MIRRORED_EXPECT=0
 [ "$win_total" -eq "$WIN_TOTAL_EXPECT" ] \
     && ok "the shell paints from $WIN_TOTAL_EXPECT window roots — counted $win_total" \
@@ -850,17 +864,14 @@ fi
 #     LabwcBackend.qml      x1  a JavaScript object literal, a geometry record
 #     NiriService.qml       x1  the same literal, in the niri backend
 #
-#   WIDTH-COMPENSATED (8) — an arithmetic no-op, not luck. Mirrored, x becomes
-#   `parent.width - x - width`; with `x: N, width: parent.width - 2N` that is N
-#   again, and with `x: 0, width: root.width` it is 0. Identical geometry both
-#   ways, so converting them to anchors would change nothing a reader sees.
-#     AppearancePage.qml    x1  x:10 width: parent.width - 20
-#     DataPage.qml          x2  x:10 width: parent.width - 20
-#     MiscPage.qml          x3  x:10 width: parent.width - 20
-#     KeybindsPage.qml      x2  x:0  width: root.width  (full bleed)
+#   WIDTH-COMPENSATED (0) — an arithmetic no-op when mirrored. Appearance's,
+#   Data's and Misc's six `x: 10; width: parent.width - 20` blocks and
+#   KeybindsPage's two full-bleed `x: 0; width: root.width` were here; UI/UX
+#   Phase 17 put the first on the content edge (plain full width) and anchored
+#   the second on CfgScroll's banner line, so the bucket is empty.
 #
-#   GEOMETRY PLUMBING (1)
-#     ArchMenu.qml          x1  a mask proxy whose x feeds the popup's mask
+#   GEOMETRY PLUMBING (0) — ArchMenu's mask proxy (`x: 0`) went with UI/UX
+#   Phase 10: its input region is the spill body's bounds now.
 #
 # What is NOT on this list is the point: the three sites that were a bare left
 # inset with an intrinsic or asymmetric width — CfgScroll's lifecycle banner
@@ -868,12 +879,7 @@ fi
 # mirroring), and MiscPage's About row and Update button — are now anchored, and
 # a new one anywhere in src/ fails this.
 x_expect="$(cat <<'XEOF'
-1 src/popups/ArchMenu.qml x: 0
 1 src/services/compositor/LabwcBackend.qml x: 0, y: 0, width: 0, height: 0
-2 src/services/config_tab/KeybindsPage.qml x: 0
-1 src/services/config_tab/pages/AppearancePage.qml x: 10
-2 src/services/config_tab/pages/DataPage.qml x: 10
-3 src/services/config_tab/pages/MiscPage.qml x: 10
 1 src/services/system/NiriService.qml x: 0, y: 0, width: 0, height: 0
 2 src/windows/TopBar.qml x: 0; y: 0
 XEOF

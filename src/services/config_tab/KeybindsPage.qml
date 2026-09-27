@@ -2,7 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import "../"
 import "../../"
+import "../../components"
 import "../../components/config"
+import "../../components/controls"
 import "../../components/config/settings-semantics.js" as Semantics
 
 // Config → Keybinds
@@ -56,17 +58,84 @@ Item {
         return order.map(function(g) { return { name: g, actions: groups[g] } })
     }
 
+    // ── Keyboard (UI/UX roadmap v3 Phase 21) ─────────────────────────────────
+    // The list template (src/popups/WifiTab.qml): the whole scroller is ONE
+    // Tab stop. Up/Down move a highlight by the action's own key — never an
+    // index, since _groups is rebuilt from an object and nothing promises a
+    // stable order across it — and Return/Space opens capture on the
+    // highlighted row (its pill's own action). A row's Clear/Reset/pill only
+    // join the Tab order while their row is highlighted, so 70 keybinds is
+    // not 70+ Tab stops.
+    property string _curAction:   ""
+    property bool   _listFocused: false
+
+    readonly property var _allActions: {
+        var out = []
+        for (var i = 0; i < root._groups.length; i++)
+            out = out.concat(root._groups[i].actions)
+        return out
+    }
+
+    function _stepRow(d) {
+        var list = root._allActions
+        if (list.length === 0) return
+        var i = list.indexOf(root._curAction)
+        root._curAction = i < 0 ? list[d > 0 ? 0 : list.length - 1]
+                                : list[Math.max(0, Math.min(list.length - 1, i + d))]
+    }
+
+    // Reaches into the two nested Repeaters (groups, then their rows) by the
+    // stable action key. _groupsRepeater's delegate aliases its own row
+    // Repeater as `actionsRepeater` for exactly this.
+    function _rowFor(action) {
+        for (var g = 0; g < _groupsRepeater.count; g++) {
+            var grp = _groupsRepeater.itemAt(g)
+            if (!grp) continue
+            var rep = grp.actionsRepeater
+            for (var i = 0; i < rep.count; i++) {
+                var r = rep.itemAt(i)
+                if (r && r.action === action) return r
+            }
+        }
+        return null
+    }
+
+    // Keeps the highlighted row in the Flickable's viewport, and is also what
+    // a completed row action (Clear, Reset, or capture finishing) calls after
+    // handing focus back to the list.
+    function _scrollToCurrent() {
+        var r = root._rowFor(root._curAction)
+        if (!r) return
+        var top = r.mapToItem(_col, 0, 0).y
+        if (top < _list.contentY) _list.contentY = top
+        else if (top + r.height > _list.contentY + _list.height)
+            _list.contentY = top + r.height - _list.height
+    }
+
+    // A row's own button just acted and, for Clear/Reset, may have hidden
+    // itself (the pill read "Unbound", or the value is now the default) —
+    // there is nothing left under the keyboard's focus, so it goes back to
+    // the list, on the row that was just touched.
+    function _focusList() {
+        _list.forceActiveFocus()
+        root._scrollToCurrent()
+    }
+
     // ── What this page does, and what it is holding ───────────────────────
     // Two lines, both shared with every other settings page: the lifecycle
     // statement, and the bar that appears only while there is a draft. Neither
     // is hand-drawn here any more — the old banner had its own geometry, its
     // own hardcoded colours and its own words ("Discard", "Save"), none of
     // which any other page used.
+    // On CfgScroll's banner line (UI/UX Phase 17): 12 px in, like every other
+    // page's lifecycle line and the list below it. At x: 0 it sat 12 px left of
+    // the page's own content.
     CfgLifecycle {
         id: _lifecycle
-        x: 0
-        y: 0
-        width: root.width
+        anchors.left: parent.left
+        anchors.leftMargin: 12
+        y: 8
+        width: root.width - 16
         lifecycle: "staged"
 
         // One place at a time, the rule the Display page follows: while there
@@ -80,9 +149,10 @@ Item {
 
     CfgCommit {
         id: _commit
-        x: 0
-        y: _lifecycle.height + (_commit.visible ? 6 : 0)
-        width: root.width
+        anchors.left: parent.left
+        anchors.leftMargin: 12
+        y: _lifecycle.y + _lifecycle.height + (_commit.visible ? 6 : 0)
+        width: root.width - 16
 
         count: Object.keys(root._pending).length
         noun:  "shortcut"
@@ -101,13 +171,17 @@ Item {
 
     // ── Scrollable list ───────────────────────────────────────────────────────
     Flickable {
+        id: _list
         anchors {
             top:         _commit.visible ? _commit.bottom : _lifecycle.bottom
             left:        parent.left
             right:       parent.right
             bottom:      parent.bottom
-            leftMargin:  12
-            rightMargin: 12
+            // CfgScroll's geometry (UI/UX Phase 17): the flick 4 in from the page,
+            // so a row's surface reaches 8 past its text, which sits on the same
+            // 12 px edge as the lifecycle line and every other page's rows.
+            leftMargin:  4
+            rightMargin: 4
             bottomMargin: 12
             topMargin:   6
         }
@@ -116,42 +190,71 @@ Item {
         clip:           true
         boundsBehavior: Flickable.StopAtBounds
 
+        activeFocusOnTab: root._allActions.length > 0
+        Accessible.role:  Accessible.List
+        Accessible.name:  "Keyboard shortcuts"
+        onActiveFocusChanged: {
+            root._listFocused = activeFocus
+            if (activeFocus && root._allActions.indexOf(root._curAction) < 0)
+                root._stepRow(1)
+        }
+        Keys.onPressed: function (event) {
+            if      (event.key === Qt.Key_Down) root._stepRow(1)
+            else if (event.key === Qt.Key_Up)   root._stepRow(-1)
+            else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                     || event.key === Qt.Key_Space) {
+                var row = root._rowFor(root._curAction)
+                if (row) row.primary()
+            } else return
+            event.accepted = true
+            root._scrollToCurrent()
+        }
+
         ScrollBar.vertical: ScrollBar {
             policy: ScrollBar.AsNeeded
             contentItem: Rectangle {
                 implicitWidth: 3; implicitHeight: 40; radius: 1.5
-                color: Qt.rgba(1, 1, 1, 0.22)
+                color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.22)
             }
             background: Item {}
         }
 
         Column {
             id: _col
-            width:   parent.width - 12
+            width:   parent.width - 8   // the scrollbar's lane
             spacing: 2
 
             Repeater {
+                id: _groupsRepeater
                 model: root._groups
                 delegate: Column {
+                    id: _groupDelegate
                     required property var modelData
                     required property int index
+                    // Exposed so root._rowFor() can reach into this group's
+                    // own row Repeater from outside — two nested Repeaters,
+                    // one lookup by the row's stable action key.
+                    readonly property Repeater actionsRepeater: _rowsRepeater
                     width:   _col.width
                     spacing: 2
 
+                    // The shared section label (UI/UX Phase 17) — this was the last
+                    // copy of the old 9 px accent-at-.55 heading, 2.37:1 on the light
+                    // sheet — in CfgSection's slot (18 first, 30 after), on the edge.
                     Item {
                         width:  parent.width
-                        height: index > 0 ? 30 : 16
-                        Text {
+                        height: index > 0 ? 30 : 18
+                        SectionLabel {
+                            anchors.left:         parent.left
+                            anchors.leftMargin:   8
                             anchors.bottom:       parent.bottom
-                            anchors.bottomMargin: 4
-                            text:           modelData.name
-                            font.pixelSize: theme.fs(9)
-                            font.weight:    Font.Bold
-                            color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
+                            anchors.bottomMargin: 6
+                            text:                 modelData.name
                         }
                     }
 
                     Repeater {
+                        id: _rowsRepeater
                         model: modelData.actions
                         delegate: BindRow {
                             id: _br
@@ -232,9 +335,25 @@ Item {
         }
         readonly property bool _hasConflict: _conflictLabel !== ""
 
+        // Highlighted by the keyboard (root._curAction, a stable action key —
+        // see root's Keyboard comment above _allActions): this row's own
+        // Clear/Reset/pill join the Tab order only while it is true.
+        readonly property bool keyed: root._curAction === br.action
+
+        // The list's Return/Space (KeybindsPage's Flickable Keys.onPressed):
+        // same act as clicking the pill.
+        function primary() {
+            if (!br._interactive) return
+            if (!CompositorService.can.keyboardInterception) return
+            br.requestCapture()
+        }
+
+        Accessible.role: Accessible.ListItem
+        Accessible.name: (br._b ? br._b.label : br.action) + ", " + br._pillText
+
         height: isCapturing ? 58 : 36
         clip: true
-        Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+        Behavior on height { MotionMove { role: "surfaceEnterSmall" } }
 
         onIsCapturingChanged: {
             if (isCapturing) {
@@ -242,8 +361,15 @@ Item {
                 br._liveMods    = ""
                 br.capturedMods = ""
                 br.capturedKey  = ""
+                _captureArea._keyDown = false
                 KeybindService.loadHyprBinds()   // refresh for conflict detection
                 Qt.callLater(function() { _captureArea.forceActiveFocus() })
+            } else {
+                // Capture just ended (Escape, or a clean auto-accept): the
+                // invisible capture Item can no longer hold focus, so it goes
+                // back to the list, on the row that was just captured.
+                root._curAction = br.action
+                root._focusList()
             }
         }
 
@@ -253,14 +379,29 @@ Item {
             radius: 8
             color: br.isCapturing
                 ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.07)
-                : _rH.hovered ? Qt.rgba(1, 1, 1, 0.04) : "transparent"
+                : _rH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04) : "transparent"
             border.color: br._savedDupe
                 ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.35)
                 : br.isCapturing
                     ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.20)
                     : "transparent"
             border.width: 1
-            Behavior on color { ColorAnimation { duration: 120 } }
+            Behavior on color { MotionColor { role: "state" } }
+        }
+
+        // Keyboard highlight — visible only while the LIST has focus, so it
+        // never lingers after a pointer click and never shows during capture
+        // (the capture UI below is its own indication). No negative margin:
+        // `br` clips (below, for the capture-height Behavior), and a
+        // Rectangle's border draws INSIDE its bounds, so an outset ring here
+        // would be entirely in the clipped region — invisible. Drawn flush
+        // instead; it overdraws the background's own 1px border, on the
+        // highlighted row only.
+        Rectangle {
+            anchors.fill: parent
+            radius: 8
+            color: "transparent"; border.width: 2; border.color: Theme.accentText
+            visible: br.keyed && root._listFocused && !br.isCapturing
         }
 
         // ── Invisible focus target for key capture ────────────────────────────
@@ -270,14 +411,29 @@ Item {
             focus:   br.isCapturing
             visible: br.isCapturing
 
+            // Set on a real key press seen HERE, cleared once consumed. Guards
+            // against the Return/Space that OPENED capture: ApexPressable (the
+            // pill) and the list's own Keys.onPressed fire on PRESS, and
+            // forceActiveFocus() lands on this Item (via Qt.callLater) before
+            // that same key comes back up — so its RELEASE arrives here with
+            // no matching press, and without this guard every keyboard-opened
+            // capture would bind itself to Return. A pointer-opened capture
+            // never has a stray release, so this only ever gates that case.
+            property bool _keyDown: false
+
             Keys.onPressed: function(event) {
                 event.accepted = true
                 if (_isMod(event.key)) {
                     br._liveMods = _mods(event.modifiers)
                     return
                 }
+                // A held Return/Space that OPENED capture auto-repeats a press
+                // here once focus arrives — ignore the repeats, or a long-ish
+                // hold captures itself the same way the bare release used to.
+                if (event.isAutoRepeat) return
                 br._pressedMods = event.modifiers
                 br._liveMods    = _mods(event.modifiers)
+                _captureArea._keyDown = true
             }
 
             Keys.onReleased: function(event) {
@@ -286,7 +442,12 @@ Item {
                     if (!br.capturedKey) br._liveMods = _mods(event.modifiers)
                     return
                 }
-                // Bare Escape = cancel without saving
+                if (!_captureArea._keyDown) return   // see _keyDown above
+                _captureArea._keyDown = false
+                // Bare Escape = cancel without saving. Escape WITH a modifier
+                // (e.g. dashboard-stats' CTRL + SHIFT + ESCAPE) is still
+                // capturable below — this is the only place that convention
+                // is enforced, so a bare Escape can never be bound.
                 if (event.key === Qt.Key_Escape && br._pressedMods === Qt.NoModifier) {
                     br.releaseCapture()
                     return
@@ -311,7 +472,7 @@ Item {
         // ── Normal display ────────────────────────────────────────────────────
         Item {
             anchors { top: parent.top; left: parent.left; right: parent.right
-                      leftMargin: 10; rightMargin: 8 }
+                      leftMargin: 8; rightMargin: 8 }
             height: 36
             visible: !br.isCapturing
 
@@ -319,8 +480,8 @@ Item {
                 anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                 text:           br._b ? br._b.label : br.action
                 font.pixelSize: theme.fs(12)
-                color:          br._savedDupe ? Theme.danger : (br._isUnbound ? Qt.rgba(1, 1, 1, 0.35) : Qt.rgba(1, 1, 1, 0.68))
-                Behavior on color { ColorAnimation { duration: 120 } }
+                color:          br._savedDupe ? Theme.danger : (br._isUnbound ? Theme.textTertiary : Theme.textSecondary)
+                Behavior on color { MotionColor { role: "state" } }
             }
 
             Row {
@@ -332,100 +493,82 @@ Item {
                     visible: br._savedDupe
                     anchors.verticalCenter: parent.verticalCenter
                     text:           "⚠ " + KeybindService.conflictsWith(br.action)
-                    font.pixelSize: theme.fs(9)
-                    color:          Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.75)
+                    // A conflict is information, not decoration: the caption
+                    // size in full danger (it was 9 px at .75).
+                    font.pixelSize: theme.typeCaption
+                    color:          Theme.danger
                 }
 
-				// Clear bind
-                Rectangle {
+				// Clear bind. activeFocusOnTab only while this row is
+                // highlighted (root._curAction) — see root's Keyboard comment.
+                ApexPressable {
+                    id: _clrBtn
                     visible: br._pillText !== "Unbound"
                     width: 22; height: 22; radius: 6
-                    color: _clrH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
-                    Behavior on color { ColorAnimation { duration: 100 } }
-                    Text { anchors.centerIn: parent; text: "󰩺"; font.pixelSize: theme.fs(11)
-                        color: _clrH.hovered ? Theme.danger : Qt.rgba(1,1,1,0.28) }
-                    HoverHandler { id: _clrH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea {
-                        anchors.fill: parent
-                        enabled: br._interactive
-                        onClicked: {
-                            root._addPending(br.action, "", "")
-                        }
+                    hitMargin: 5   // 32 px; 6 px from its neighbours, so a margin never reaches their glyphs
+                    interactive: br._interactive
+                    activeFocusOnTab: br.keyed
+                    Accessible.name: "Clear shortcut for " + (br._b ? br._b.label : br.action)
+                    onActivated: {
+                        root._addPending(br.action, "", "")
+                        root._curAction = br.action
+                        root._focusList()
                     }
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color: _clrBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : "transparent"
+                        Behavior on color { MotionColor {} }
+                    }
+                    Text { anchors.centerIn: parent; text: "󰩺"; font.pixelSize: theme.fs(11)
+                        color: _clrBtn.hovered ? Theme.danger : Theme.textTertiary }
+                    ApexFocusRing { target: _clrBtn }
                 }
 
                 // Reset to default
-                Rectangle {
+                ApexPressable {
+                    id: _rstBtn
                     visible: !br._isDefault
                     width: 22; height: 22; radius: 6
-                    color: _rstH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
-                    Behavior on color { ColorAnimation { duration: 100 } }
-                    Text { anchors.centerIn: parent; text: "↺"; font.pixelSize: theme.fs(11)
-                        color: _rstH.hovered ? Theme.active : Qt.rgba(1,1,1,0.28) }
-                    HoverHandler { id: _rstH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea {
-                        anchors.fill: parent
-                        enabled: br._interactive
-                        onClicked: {
-                            if (br._isPending) {
-                                // If the saved value is already default, just drop pending
-                                var def = KeybindService._defaults[br.action]
-                                if (br._b && br._b.mods === def.mods && br._b.key === def.key)
-                                    root._clearPending(br.action)
-                                else
-                                    root._addPending(br.action, def.mods, def.key)
-                            } else {
-                                // No pending → immediate save (reset is always safe)
-                                KeybindService.resetBinding(br.action)
-                            }
+                    hitMargin: 5
+                    interactive: br._interactive
+                    activeFocusOnTab: br.keyed
+                    Accessible.name: "Reset " + (br._b ? br._b.label : br.action) + " to default"
+                    onActivated: {
+                        if (br._isPending) {
+                            // If the saved value is already default, just drop pending
+                            var def = KeybindService._defaults[br.action]
+                            if (br._b && br._b.mods === def.mods && br._b.key === def.key)
+                                root._clearPending(br.action)
+                            else
+                                root._addPending(br.action, def.mods, def.key)
+                        } else {
+                            // No pending → immediate save (reset is always safe)
+                            KeybindService.resetBinding(br.action)
                         }
+                        root._curAction = br.action
+                        root._focusList()
                     }
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color: _rstBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : "transparent"
+                        Behavior on color { MotionColor {} }
+                    }
+                    Text { anchors.centerIn: parent; text: "↺"; font.pixelSize: theme.fs(11)
+                        color: _rstBtn.hovered ? Theme.active : Theme.textTertiary }
+                    ApexFocusRing { target: _rstBtn }
                 }
 
-                // Binding pill — amber tint when a pending change is staged
-                Rectangle {
+                // Binding pill — amber tint when a pending change is staged.
+                // This row's primary action: the list's Return/Space calls
+                // br.primary(), which does the same thing as activating this.
+                ApexPressable {
+                    id: _pillBtn
                     height: 24; radius: 6
                     width:  _pillT.implicitWidth + 18
-                    
-                    color: br._isUnbound
-                        ? Qt.rgba(1, 1, 1, 0.04)
-                        : ((_pillH.hovered && br._interactive)
-                            ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
-                            : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08))
-                            
-                    // The staged tint is Theme.warning, the same one CfgCommit
-                    // paints its bar with, so the pill and the bar telling you
-                    // about it are visibly the same fact. It used to be
-                    // Qt.rgba(1.0, 0.74, 0.22) written out by hand — a colour
-                    // check-color-tokens.sh does not bound, because it does not
-                    // look at plain decimals, and so it drifted alone.
-                    border.color: br._isUnbound
-                        ? Qt.rgba(1, 1, 1, 0.1)
-                        : (br._isPending
-                            ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.55)
-                            : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.24))
-                            
-                    border.width: 1
-                    
-                    opacity: br._interactive ? (br._isUnbound ? 0.7 : 1.0) : 0.4
-                    
-                    Behavior on color        { ColorAnimation { duration: 100 } }
-                    Behavior on border.color { ColorAnimation { duration: 150 } }
-                    Behavior on opacity      { NumberAnimation { duration: 120 } }
+                    hitMargin: 2
+                    interactive: br._interactive
+                    activeFocusOnTab: br.keyed
 
-                    Text {
-                        id: _pillT
-                        anchors.centerIn: parent
-                        text:           br._pillText
-                        font.pixelSize: theme.fs(10); font.family: "JetBrains Mono"
-                        font.italic:    br._isUnbound 
-                        
-                        color: br._isUnbound
-                            ? Qt.rgba(1, 1, 1, 0.45)
-                            : (br._isPending ? Theme.warning : Theme.active)
-                            
-                        Behavior on color { ColorAnimation { duration: 150 } }
-                    }
                     // Live key capture needs the compositor to route every key
                     // to the shell while recording — a Hyprland submap. The
                     // capability says who can; the guard used to say `isNiri`,
@@ -440,18 +583,68 @@ Item {
                     readonly property bool _canCapture:
                         CompositorService.can.keyboardInterception
 
-                    ToolTip.visible: !_canCapture && _pillH.hovered
+                    Accessible.name: (br._isUnbound ? "Set shortcut for " : "Change shortcut for ")
+                                     + (br._b ? br._b.label : br.action) + ", currently " + br._pillText
+
+                    // interactive stays tied to br._interactive, not
+                    // _canCapture, so the control still looks and hovers the
+                    // same as before on a compositor that can't intercept —
+                    // only the click/activate is the no-op it always was.
+                    // (One deliberate miss: ApexPressable's hover cursor is
+                    // always the pointing hand; the old code showed an arrow
+                    // when !_canCapture. Everywhere else this control speaks
+                    // for itself; here that's the one pointer-only nuance a
+                    // shared primitive doesn't carry over.)
+                    onActivated: if (_pillBtn._canCapture) br.requestCapture()
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+
+                        color: br._isUnbound
+                            ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                            : (_pillBtn.hovered
+                                ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
+                                : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08))
+
+                        // The staged tint is Theme.warning, the same one CfgCommit
+                        // paints its bar with, so the pill and the bar telling you
+                        // about it are visibly the same fact. It used to be
+                        // Qt.rgba(1.0, 0.74, 0.22) written out by hand — a colour
+                        // check-color-tokens.sh does not bound, because it does not
+                        // look at plain decimals, and so it drifted alone.
+                        border.color: br._isUnbound
+                            ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.1)
+                            : (br._isPending
+                                ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.55)
+                                : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.24))
+
+                        border.width: 1
+                        opacity: br._isUnbound ? 0.7 : 1.0
+
+                        Behavior on color        { MotionColor { role: "state" } }
+                        Behavior on border.color { MotionColor { role: "state" } }
+                        Behavior on opacity      { MotionFade {} }
+                    }
+
+                    Text {
+                        id: _pillT
+                        anchors.centerIn: parent
+                        text:           br._pillText
+                        font.pixelSize: theme.typeCaption; font.family: Theme.fontMono
+                        font.italic:    br._isUnbound
+
+                        color: br._isUnbound
+                            ? Theme.textSecondary
+                            : (br._isPending ? Theme.warning : Theme.active)
+
+                        Behavior on color { MotionColor { role: "state" } }
+                    }
+
+                    ToolTip.visible: !_pillBtn._canCapture && _pillBtn.hovered
                     ToolTip.text:    "Live capture needs a compositor that can route every key to the shell.\nEdit keybinds.json, ApexShellKeybinds.kdl or rc.xml by hand here."
 
-                    HoverHandler { id: _pillH; cursorShape: (br._interactive && parent._canCapture) ? Qt.PointingHandCursor : Qt.ArrowCursor }
-                    MouseArea {
-                        anchors.fill: parent
-                        enabled: br._interactive
-                        onClicked: {
-                            if (!parent._canCapture) return
-                            br.requestCapture()
-                        }
-                    }
+                    ApexFocusRing { target: _pillBtn }
                 }
             }
         }
@@ -459,7 +652,7 @@ Item {
         // ── Capture display ───────────────────────────────────────────────────
         Column {
             anchors { top: parent.top; left: parent.left; right: parent.right
-                      leftMargin: 10; rightMargin: 8 }
+                      leftMargin: 8; rightMargin: 8 }
             spacing: 0
             visible: br.isCapturing
 
@@ -471,7 +664,7 @@ Item {
                     anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                     text:           br._b ? br._b.label : br.action
                     font.pixelSize: theme.fs(12)
-                    color:          Qt.rgba(1, 1, 1, 0.68)
+                    color:          Theme.textSecondary
                 }
 
                 Row {
@@ -488,12 +681,12 @@ Item {
                             : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b,
                                       br.capturedKey !== "" ? 0.40 : 0.18)
                         border.width: 1
-                        Behavior on border.color { ColorAnimation { duration: 120 } }
+                        Behavior on border.color { MotionColor { role: "state" } }
 
                         Text {
                             id: _capT
                             anchors.centerIn: parent
-                            font.pixelSize: theme.fs(10); font.family: "JetBrains Mono"
+                            font.pixelSize: theme.typeCaption; font.family: Theme.fontMono
                             color: br._hasConflict
                                 ? Theme.danger
                                 : br.capturedKey !== ""
@@ -512,10 +705,10 @@ Item {
                     // Cancel — Escape also cancels
                     Rectangle {
                         width: 28; height: 24; radius: 6
-                        color: _cnH.hovered ? Qt.rgba(1,1,1,0.09) : "transparent"
-                        Behavior on color { ColorAnimation { duration: 100 } }
+                        color: _cnH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09) : "transparent"
+                        Behavior on color { MotionColor {} }
                         Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(10)
-                            color: Qt.rgba(1,1,1,0.38) }
+                            color: Theme.textSecondary }
                         HoverHandler { id: _cnH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: br.releaseCapture() }
                     }
@@ -526,12 +719,12 @@ Item {
             Item {
                 width: parent.width; height: 22
                 opacity: (br.capturedKey !== "" && br._hasConflict) ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: 140 } }
+                Behavior on opacity { MotionFade {} }
 
                 Text {
                     anchors { left: parent.left; leftMargin: 2; verticalCenter: parent.verticalCenter }
                     text:           "⚠  Conflicts with: " + br._conflictLabel
-                    font.pixelSize: theme.fs(10)
+                    font.pixelSize: theme.typeCaption
                     color:          Theme.danger
                 }
             }

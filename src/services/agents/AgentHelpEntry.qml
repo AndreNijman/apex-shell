@@ -1,64 +1,29 @@
 import QtQuick
+import QtQuick.Controls
 import "../../"
+import "../../components/controls"
 
-// The permanent way into the guide, pinned above the Agents list (roadmap §43).
+// The permanent way into the guide (roadmap §43), in the Agents panel's
+// header: a help button, one click from anywhere on the page.
 //
-// §43 asks for a prominent entry that does not get in the way, which pulls in
-// two directions. The accent glyph and the accent-tinted border make it the
-// first thing the eye lands on; one row of height and no dismiss control keep
-// it out of the way. A banner the user has to close on every visit would fail
-// the second half, which is what the separate first-run card is for.
-
-Rectangle {
+// It was a full-width bordered row above everything, on every visit — the
+// first thing the eye landed on, long after the reader had learned what it
+// said. Andre: it should not always be displayed, but it should be easy to get
+// back to. So it keeps its place and its reach (always there, Tab + Return, the
+// guide's keyboard close hands the keys back here) and gives up the row: a
+// glyph with the full sentence as its tooltip and its accessible name. The
+// first-run card below it is still what introduces the guide to a newcomer.
+ApexIconButton {
     id: entry
-    readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
+    glyph: "󰋗"
+    label: AgentHelpContent.entryLabel
+    glyphColor: entry.hovered ? Theme.textPrimary : Theme.accentText
+    onActivated: AgentHelp.open("start")
 
-    height: theme.px(32)
-    radius: theme.px(8)
-    color: hover.hovered
-        ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
-        : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.08)
-    border.width: 1
-    border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.28)
+    ToolTip.visible: entry.hovered
+    ToolTip.text: AgentHelpContent.entryLabel
+    ToolTip.delay: 400
 
-    Behavior on color { ColorAnimation { duration: 90 } }
-
-    // The row exists only once the Agents page has been built, so this line in
-    // the log means "a user opening the tab saw the way in". §43's requirement
-    // is that the entry survives dismissing the first-run card, and
-    // tests/run-agent-center-smoke.sh reads this before and after a dismissal.
     Component.onCompleted: console.info("AgentHelp: entry row shown")
-
-    Row {
-        anchors.left: parent.left
-        anchors.leftMargin: theme.px(10)
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: theme.px(9)
-
-        Text {
-            anchors.verticalCenter: parent.verticalCenter
-            text: "󰋗"
-            font.pixelSize: theme.fs(13)
-            color: Theme.active
-        }
-        Text {
-            anchors.verticalCenter: parent.verticalCenter
-            text: AgentHelpContent.entryLabel
-            font.pixelSize: theme.fs(11)
-            color: Theme.text
-        }
-    }
-
-    Text {
-        anchors.right: parent.right
-        anchors.rightMargin: theme.px(11)
-        anchors.verticalCenter: parent.verticalCenter
-        text: "󰅂"
-        font.pixelSize: theme.fs(12)
-        color: hover.hovered ? Theme.text : Theme.subtext
-    }
-
-    HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor }
-    TapHandler { onTapped: AgentHelp.open("start") }
 }
