@@ -15,6 +15,9 @@
 #    3. Reduce Motion switches the spatial classes off and caps the fades;
 #    4. `hyprctl reload` (which restores the config's values) is followed by a
 #       fresh push;
+#    and springs through all of it: a spring leaf with an APEX_SPRINGS entry
+#    moves onto a scaled copy of its spring, one without an entry stays on its
+#    own (Hyprland reports a spring leaf as "spring:<name>", nothing more);
 #    and the control: with no shell running, the config's own values stand.
 #
 #  Nested Hyprland comes up with NO output until one is made
@@ -71,6 +74,11 @@ hl.animation({ leaf = "windowsOut", enabled = true, speed = 1.6, bezier = "tDece
 hl.animation({ leaf = "workspaces", enabled = true, speed = 2.0, bezier = "tDecel", style = "slide" })
 hl.animation({ leaf = "fadeIn",     enabled = true, speed = 1.2, bezier = "tFx" })
 hl.animation({ leaf = "border",     enabled = true, speed = 0.4, bezier = "tFx" })
+APEX_SPRINGS = { tGlide = { mass = 1, stiffness = 246.74, dampening = 27.02 } }
+hl.curve("tGlide", { type = "spring", mass = 1, stiffness = 246.74, dampening = 27.02 })
+hl.curve("tBare",  { type = "spring", mass = 1, stiffness = 200, dampening = 24 })
+hl.animation({ leaf = "windowsMove",      enabled = true, speed = 4.0, spring = "tGlide" })
+hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 3.0, spring = "tBare", style = "slidevert" })
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1.0 })
 LUA
 
@@ -100,6 +108,14 @@ for x in a:
     if isinstance(x, dict) and x.get("name") == sys.argv[1]:
         print(("on" if x["enabled"] else "off"), format(round(float(x["speed"]), 2), "g")); break
 else: print("missing")' "$1"; }
+# leaf NAME → "enabled speed curve"
+leafc() { HC -j animations | python3 -c '
+import json, sys
+d = json.load(sys.stdin); a = d[0] if d and isinstance(d[0], list) else d
+for x in a:
+    if isinstance(x, dict) and x.get("name") == sys.argv[1]:
+        print(("on" if x["enabled"] else "off"), format(round(float(x["speed"]), 2), "g"), x.get("bezier")); break
+else: print("missing")' "$1"; }
 
 settings() {   # settings <motionSpeed> <motionScale> <reduceMotion>
     mkdir -p "$HOME/.config/apex-shell/src/user_data"
@@ -119,6 +135,8 @@ stop_shell() { [ -n "$qs" ] && kill "$qs" 2>/dev/null; wait "$qs" 2>/dev/null; q
 # ── control: the config's own values, with no shell ──────────────────────────
 [ "$(leaf windowsIn)" = "on 2.4" ] && ok "control: with no shell the config's own values stand (windowsIn 2.4)" \
     || bad "control: config values — got $(leaf windowsIn)"
+[ "$(leafc windowsMove)" = "on 4 spring:tGlide" ] && ok "control: a spring leaf reads back as spring:<name> (windowsMove on tGlide)" \
+    || bad "control: spring leaf — got $(leafc windowsMove)"
 
 # ── 1. relaxed × 2 = 2.5 ─────────────────────────────────────────────────────
 settings relaxed 2 false
@@ -127,6 +145,13 @@ w="$(leaf windowsIn)"; f="$(leaf fadeIn)"; b="$(leaf border)"
 [ "$w" = "on 6" ] && [ "$f" = "on 3" ] && [ "$b" = "on 1" ] \
     && ok "a slower shell is a slower compositor: every class × 2.5 (windowsIn 6, fadeIn 3, border 1)" \
     || bad "scale 2.5 — windowsIn $w, fadeIn $f, border $b"
+m="$(leafc windowsMove)"; sw="$(leafc specialWorkspace)"
+[ "$m" = "on 10 spring:tGlide__apexs250" ] \
+    && ok "a spring with an APEX_SPRINGS entry moves onto its copy 2.5x slower (windowsMove on tGlide__apexs250)" \
+    || bad "spring scale 2.5 — windowsMove $m"
+[ "$sw" = "on 7.5 spring:tBare" ] \
+    && ok "…and one without an entry stays on its own spring, not guessed at (specialWorkspace on tBare)" \
+    || bad "spring fallback — specialWorkspace $sw"
 
 # ── 2. a restart does not compound ───────────────────────────────────────────
 stop_shell
@@ -134,16 +159,20 @@ start_shell b
 w="$(leaf windowsIn)"
 [ "$w" = "on 6" ] && ok "a shell restart does not scale its own push again (still 6, not 15)" \
     || bad "restart compounded — windowsIn $w"
+m="$(leafc windowsMove)"
+[ "$m" = "on 10 spring:tGlide__apexs250" ] && ok "…nor its springs (windowsMove still 10 on tGlide__apexs250)" \
+    || bad "restart compounded a spring — windowsMove $m"
 
 # ── 3. Reduce Motion ─────────────────────────────────────────────────────────
 stop_shell
 settings relaxed 2 true
 start_shell c
 w="$(leaf windowsIn)"; ws="$(leaf workspaces)"; f="$(leaf fadeIn)"; b="$(leaf border)"
-if [ "${w%% *}" = "off" ] && [ "${ws%% *}" = "off" ]; then
-    ok "Reduce Motion switches the spatial classes off (windowsIn, workspaces)"
+m="$(leafc windowsMove)"; sw="$(leafc specialWorkspace)"
+if [ "${w%% *}" = "off" ] && [ "${ws%% *}" = "off" ] && [ "${m%% *}" = "off" ] && [ "${sw%% *}" = "off" ]; then
+    ok "Reduce Motion switches the spatial classes off, springs too (windowsIn, workspaces, windowsMove, specialWorkspace)"
 else
-    bad "Reduce Motion spatial — windowsIn $w, workspaces $ws"
+    bad "Reduce Motion spatial — windowsIn $w, workspaces $ws, windowsMove $m, specialWorkspace $sw"
 fi
 [ "$f" = "on 1.5" ] && [ "$b" = "on 1" ] \
     && ok "…and keeps the fades, capped at 150 ms (fadeIn 1.5; border 1 already under it)" \

@@ -97,5 +97,97 @@ const naive = HM.baseFrom(JSON.stringify(liveAfter(HM.expected(base, 2, false)))
 check("self-test: re-reading our own push as a base WOULD compound (the case chooseBase avoids)",
       naive.find(x => x.name === "windowsIn").speed === 4.8);
 
+// ── springs (apex-os appearance.lua, 2026-09-27) ─────────────────────────────
+// Measured in a nested 0.56.2: a spring leaf reads back as bezier
+// "spring:<name>" with nothing about the spring itself; config globals are
+// visible to `hyprctl eval`; a curve eval'd from one works as a leaf's spring;
+// `hyprctl reload` restores the config's leaves (and keeps eval'd curves).
+const SLIVE = [[
+    leaf("windowsIn",   { speed: 4.8, bezier: "spring:apexArrive", style: "popin 80%" }),
+    leaf("windowsMove", { speed: 4.0, bezier: "spring:apexGlide" }),
+    leaf("windowsOut",  { speed: 2.0, bezier: "emphasizedAccel", style: "popin 85%" }),
+    leaf("fadeIn",      { speed: 1.8, bezier: "apexEffects" }),
+    leaf("fadeGlow",    { speed: 3.0, bezier: "spring:glowSpring" }),                // an effect on a spring
+    leaf("zoomFactor",  { speed: 3.0, bezier: 'spring:x"]) os.execute("y' }),      // not a name: dropped
+]];
+const sbase = HM.baseFrom(JSON.stringify(SLIVE));
+const sb = n => sbase.find(x => x.name === n);
+check("a spring leaf is part of the base, by its spring's name",
+      sb("windowsIn") && sb("windowsIn").spring === true && sb("windowsIn").bezier === "apexArrive"
+      && sb("windowsOut") && !sb("windowsOut").spring,
+      JSON.stringify(sbase));
+check("…and a spring that is not a name never reaches the eval",
+      !sb("zoomFactor") && !JSON.stringify(sbase).includes("os.execute"));
+check("a scaled copy read back is taken for its base, never a base of its own",
+      HM.baseFrom(JSON.stringify([[leaf("windowsMove", { speed: 10, bezier: "spring:apexGlide__apexs250" })]]))[0].bezier === "apexGlide");
+
+const s1 = HM.plan(sbase, 1, false);
+check("at the default speed a spring leaf is re-declared on its own spring, nothing derived",
+      s1.includes('hl.animation({ leaf = "windowsIn", enabled = true, speed = 4.8, spring = "apexArrive", style = "popin 80%" })')
+      && !s1.includes("APEX_SPRINGS"), s1);
+const s25 = HM.plan(sbase, 2.5, false);
+check("at another speed the push derives a scaled copy from APEX_SPRINGS",
+      s25.includes('APEX_SPRINGS["apexArrive"]') && s25.includes('hl.curve("apexArrive__apexs250"')
+      && s25.includes("stiffness = s.stiffness / 6.25") && s25.includes("dampening = s.dampening / 2.5")
+      && s25.includes('speed = 12, spring = ok and "apexArrive__apexs250" or "apexArrive", style = "popin 80%"'), s25);
+
+const srm = HM.expected(sbase, 2.5, true);
+const sr = n => srm.find(x => x.name === n);
+check("Reduce Motion switches spatial spring leaves off like any other",
+      !sr("windowsIn").enabled && !sr("windowsMove").enabled);
+check("…and an effect on a spring runs on the default curve, capped (a spring cannot be)",
+      sr("fadeGlow").enabled && sr("fadeGlow").bezier === "default" && sr("fadeGlow").speed === 1.5 && !sr("fadeGlow").spring,
+      JSON.stringify(sr("fadeGlow")));
+
+// What Hyprland reports after `table`, with or without the APEX_SPRINGS entries.
+function sliveAfter(table, withTable) {
+    return [table.map(t => !t.enabled ? leaf(t.name, { enabled: false, bezier: "default", speed: 1, style: "" })
+        : leaf(t.name, { speed: t.speed, style: t.style,
+                         bezier: t.spring ? "spring:" + (withTable ? t.scaled : t.bezier) : t.bezier }))];
+}
+const spushed = HM.expected(sbase, 2.5, false);
+check("our spring push matches, on the scaled copy",
+      HM.matches(JSON.stringify(sliveAfter(spushed, true)), spushed));
+check("…and on the unscaled fallback (no APEX_SPRINGS entry)",
+      HM.matches(JSON.stringify(sliveAfter(spushed, false)), spushed));
+check("a reload (the config's own springs and speeds) does not match a scaled push",
+      !HM.matches(JSON.stringify(SLIVE), spushed));
+const sstate = { signature: "sig-A", base: sbase, pushed: spushed };
+check("a restart scales springs from the recorded base, not from its own push",
+      HM.chooseBase(JSON.stringify(sliveAfter(spushed, true)), sstate, "sig-A") === sbase);
+
+// The Lua itself, where a Lua is at hand (the L16 has luajit; CI may not):
+// a stub `hl` records what the push declares, with and without the table.
+const { spawnSync } = require("child_process");
+const lua = ["luajit", "lua", "lua5.4"].find(l => spawnSync(l, ["-v"]).status === 0);
+if (!lua) {
+    console.log("skip the pushed Lua, run: no lua interpreter here");
+} else {
+    const stub = `
+        local out = {}
+        hl = { config = function() end,
+               curve = function(n, t) out[#out+1] = string.format("curve %s %s %.4f %.4f %.4f", n, t.type, t.mass, t.stiffness, t.dampening) end,
+               animation = function(t) out[#out+1] = string.format("leaf %s %s %s", t.leaf, tostring(t.spring or t.bezier), tostring(t.speed)) end }
+    `;
+    const run = pre => {
+        const r = spawnSync(lua, ["-"], { input: stub + pre + "\n" + s25 + "\nprint(table.concat(out, '\\n'))\n", encoding: "utf8" });
+        return (r.stdout || "") + (r.stderr || "");
+    };
+    const withT = run('APEX_SPRINGS = { apexArrive = { mass = 1, stiffness = 171.3, dampening = 20.94 }, apexGlide = { mass = 1, stiffness = 246.74, dampening = 27.02 } }');
+    check("run: the scaled copy is the same spring 2.5× slower (stiffness / 6.25, dampening / 2.5)",
+          withT.includes("curve apexArrive__apexs250 spring 1.0000 27.4080 8.3760")
+          && withT.includes("leaf windowsIn apexArrive__apexs250 12"), withT);
+    check("run: every spring in the table is scaled, and one missing from it stays on its own curve",
+          withT.includes("leaf windowsMove apexGlide__apexs250 10")
+          && withT.includes("leaf fadeGlow glowSpring 7.5") && !withT.includes("glowSpring__apexs"), withT);
+    const noT = run("");
+    check("run: with no APEX_SPRINGS at all every spring leaf falls back to its own spring, and nothing errors",
+          noT.includes("leaf windowsIn apexArrive 12") && noT.includes("leaf windowsMove apexGlide 10")
+          && !noT.includes("curve ") && !/error|attempt to/.test(noT), noT);
+    const partial = run("APEX_SPRINGS = { apexArrive = { stiffness = 'stiff' } }");
+    check("run: an entry that is not numbers is not guessed at", partial.includes("leaf windowsIn apexArrive 12")
+          && !/error|attempt to/.test(partial), partial);
+}
+
 console.log(`\nhypr-motion: passed=${passed} failed=${failed}`);
 process.exit(failed === 0 ? 0 : 1);
