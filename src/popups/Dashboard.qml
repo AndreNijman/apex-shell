@@ -293,13 +293,14 @@ PanelWindow {
                 spacing: 0
 
                 // ── Tab bar ───────────────────────────────────────────────────
-                TabSwitcher {
+                // The tabs, and at their end the door to Settings (the Nexus,
+                // a window of its own): DashTabBar.qml.
+                DashTabBar {
                     id: tabBar
-                    orientation: "horizontal"
                     width:       parent.width
+                    height:      implicitHeight
                     currentPage: root.page
-                    model:       DashboardLayout.tabs
-                    onPageChanged: function(key) { Popups.dashboardPage = key }
+                    onPicked: function (key) { Popups.dashboardPage = key }
                 }
 
                 // ── Page area ─────────────────────────────────────────────────

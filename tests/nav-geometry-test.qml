@@ -6,6 +6,7 @@ import "./src/services"
 import "./src/nexus"
 import "./src/components"
 import "./src/components/config"
+import "./src/popups"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The dashboard and settings navigation, measured. Run via
@@ -177,13 +178,13 @@ ShellRoot {
             id: hHost
             y: 0
             width:  884
-            height: hSwitcher.implicitHeight
-            TabSwitcher {
-                id: hSwitcher
+            height: hBar.tabs.implicitHeight
+            // The Dashboard's own tab bar: the tabs, and the door to Settings
+            // at their end (popups/DashTabBar.qml).
+            DashTabBar {
+                id: hBar
                 anchors.fill: parent
-                orientation:  "horizontal"
                 currentPage:  "stats"
-                model:        DashboardLayout.tabs
             }
         }
 
@@ -245,7 +246,7 @@ ShellRoot {
     readonly property var audioTabs: [
         { key: "output", icon: "󰕾" },
         { key: "input",  icon: "󰍬" },
-        { key: "mixer",  icon: "󰾝" }
+        { key: "mixer",  icon: "󰙪" }
     ]
 
     // ── Reading a switcher back ──────────────────────────────────────────────
@@ -519,7 +520,7 @@ ShellRoot {
     // ── Horizontal ───────────────────────────────────────────────────────────
     function measureHorizontal(label, barWidth) {
         const n = DashboardLayout.tabs.length
-        const s = root.slotsOf(hSwitcher, n, 4)
+        const s = root.slotsOf(hBar.tabs, n, 4)
         if (s.length !== n) {
             root.check(label + ": the bar laid out " + n + " tabs", false,
                        "found " + s.length)
@@ -604,13 +605,51 @@ ShellRoot {
                    + "px, floor " + root.minTouch() + "px")
     }
 
+    // ── The door to Settings, at the tab bar's end ──────────────────────────
+    // Andre (2026-09-27): settings must be findable from the tabs. It is drawn
+    // like a tab, so it is held to what a tab is held to — inside the bar, clear
+    // of its neighbour, never drawing its label outside its pill, hittable —
+    // and to the bar's verbosity: spelt out exactly when the tabs are.
+    function measureDoor(label) {
+        const n = DashboardLayout.tabs.length
+        const s = root.slotsOf(hBar.tabs, n, 4)
+        if (s.length !== n) return
+        const last = s[n - 1], lastPill = last.children[0]
+        const lastRight = last.mapToItem(hHost, 0, 0).x + (last.width + lastPill.width) / 2
+        const pill = root.doorPill()
+        if (!pill) { root.check(label + ": the door to Settings is drawn", false, "no pill"); return }
+        const pl = pill.mapToItem(hHost, 0, 0).x, pr = pl + pill.width
+        root.check(label + ": the door to Settings stays inside the bar",
+                   pl >= -0.5 && pr <= hHost.width + 0.5, "pill " + pl.toFixed(1) + ".." + pr.toFixed(1)
+                   + " in a " + hHost.width + "px bar")
+        root.check(label + ": the door to Settings is clear of the last tab",
+                   pl - lastRight >= 0, "gap " + (pl - lastRight).toFixed(1) + "px")
+        root.check(label + ": the door is spelt out exactly when the tabs are",
+                   hBar.door.showLabel === hBar.tabs.hShowLabels,
+                   "door " + hBar.door.showLabel + ", tabs " + hBar.tabs.hShowLabels)
+        const row = root.contentRowOf(pill, 2)
+        root.check(label + ": the door's label stays inside its pill",
+                   row !== null && row.width <= pill.width + 0.5,
+                   row ? row.width.toFixed(1) + " in " + pill.width.toFixed(1) : "no content row")
+        root.check(label + ": the door to Settings stays hittable",
+                   Math.min(hBar.door.width, hBar.door.height) >= root.minTouch(),
+                   Math.min(hBar.door.width, hBar.door.height).toFixed(1) + "px, floor " + root.minTouch() + "px")
+    }
+    function doorPill() {
+        for (var i = 0; i < hBar.door.children.length; i++) {
+            const c = hBar.door.children[i]
+            if (c.radius !== undefined && c.width > 4 && c.height > 4 && root.contentRowOf(c, 2)) return c
+        }
+        return null
+    }
+
     // The bar has to be at least as tall as the text it holds, or the labels are
     // drawn over whichever page is underneath. Measured from the tallest Text in
     // the bar rather than from the font size, because line height is not the
     // pixel size.
     function measureHorizontalHeight(label) {
         const n = DashboardLayout.tabs.length
-        const s = root.slotsOf(hSwitcher, n, 4)
+        const s = root.slotsOf(hBar.tabs, n, 4)
         if (s.length !== n)
             return
         var tallest = 0
@@ -626,9 +665,9 @@ ShellRoot {
             }
         }
         root.check(label + ": the bar is tall enough for its own text",
-                   tallest > 0 && tallest <= hSwitcher.height,
+                   tallest > 0 && tallest <= hBar.tabs.height,
                    "tallest label " + tallest.toFixed(1)
-                   + "px in a " + hSwitcher.height + "px bar")
+                   + "px in a " + hBar.tabs.height + "px bar")
     }
 
 
@@ -742,7 +781,7 @@ ShellRoot {
                    "bar " + bar)
 
         const n = DashboardLayout.tabs.length
-        const s = root.slotsOf(hSwitcher, n, 4)
+        const s = root.slotsOf(hBar.tabs, n, 4)
         if (s.length !== n) {
             root.check(label + ": the bar still lays out " + n + " tabs", false,
                        "found " + s.length)
@@ -806,7 +845,7 @@ ShellRoot {
                                     root.livePartsOf(pg, root.isUnavailable)) !== "none"
         }
         const v  = root.vRigFor(stepData)
-        const sw = v ? v.sw : hSwitcher
+        const sw = v ? v.sw : hBar.tabs
         const n  = v ? v.n  : DashboardLayout.tabs.length
         const s  = (v && v.short) ? root.vRowsOf(sw, n) : root.slotsOf(sw, n, 4)
         if (s.length !== n)
@@ -814,7 +853,8 @@ ShellRoot {
         if (v)
             return Math.abs(s[0].width - v.host.width) <= 1.5
         const last = s[n - 1]
-        return Math.abs(last.x + last.width - hHost.width) <= 1.5
+        return Math.abs(last.x + last.width - hBar.tabs.width) <= 1.5
+            && Math.abs(hBar.door.x + hBar.door.width - hHost.width) <= 1.5
     }
 
     function signatureOf(stepData) {
@@ -836,7 +876,7 @@ ShellRoot {
             return sig
         }
         const v  = root.vRigFor(stepData)
-        const sw = v ? v.sw : hSwitcher
+        const sw = v ? v.sw : hBar.tabs
         const n  = v ? v.n  : DashboardLayout.tabs.length
         const s  = (v && v.short) ? root.vRowsOf(sw, n) : root.slotsOf(sw, n, 4)
         if (s.length !== n)
@@ -925,7 +965,7 @@ ShellRoot {
         } else if (stepData.kind === "h" || stepData.kind === "stress"
                 || stepData.kind === "live") {
             hHost.width  = DashboardLayout.barWidthFor(Metrics, stepData.page, stepData.screen.w)
-            hHost.height = hSwitcher.implicitHeight
+            hHost.height = hBar.tabs.implicitHeight
         }
     }
 
@@ -934,14 +974,16 @@ ShellRoot {
             const ltag = "live " + stepData.screen.name + " @"
                        + Metrics.scale + "x " + stepData.page
             root.measureWidth(ltag, stepData.page, stepData.screen.w)
-            root.measureHorizontal(ltag + " bar=" + hHost.width, hHost.width)
+            root.measureHorizontal(ltag + " bar=" + hHost.width, hBar.tabs.width)
             root.measureHorizontalHeight(ltag)
+            root.measureDoor(ltag + " bar=" + hHost.width)
         } else if (stepData.kind === "h") {
             const tag = "h " + stepData.scale + "x " + stepData.screen.name
                       + " " + stepData.page
             root.measureWidth(tag, stepData.page, stepData.screen.w)
-            root.measureHorizontal(tag + " bar=" + hHost.width, hHost.width)
+            root.measureHorizontal(tag + " bar=" + hHost.width, hBar.tabs.width)
             root.measureHorizontalHeight(tag)
+            root.measureDoor(tag + " bar=" + hHost.width)
         } else if (stepData.kind === "stress") {
             // A scale this output cannot carry. Not graded on fitting between
             // the notches or on the touch floor — neither is achievable, and

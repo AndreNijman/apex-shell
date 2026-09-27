@@ -11,7 +11,8 @@
 #  board's own tasks.json, are the observable:
 #
 #    Home   Tab order is reading order — left column, centre, right:
-#             the tab bar, the calendar's ‹ ›, the clock's mode tabs, then the
+#             the tab bar, the door to Settings at its end, the calendar's
+#             ‹ ›, the clock's mode tabs, then the
 #             player's ⏮ ⏯ ⏭ and seek bar, then brightness and the tiles;
 #           Return on ⏯                       → Play
 #           Tab ×2 to the seek bar, Right      → SetPosition … 65000000 (+5 s)
@@ -23,6 +24,8 @@
 #           first key lost would be "qv" → Qvkeytest)
 #    Escape reopened after a close (focus starts above the page area):
 #           Escape closes the Dashboard
+#    Settings  Tab to the door at the tab bar's end, Return → the Nexus opens
+#           and the Dashboard closes
 #    Clock  (reopened: every open starts at the tab bar) Right ×2 on the mode
 #           tabs to Alarm; Tab into the panel, +, Return; the HH:MM spin boxes
 #           Up; Set → a row in the list; Tab to its switch, Space → its time
@@ -30,10 +33,10 @@
 #           frames — the clock keeps no file) — and no script error
 #    Tasks  three seeded cards; the first has id 0, which the board must not
 #           read as "no card":
-#           Tab ×3 reaches the To Do list (tab bar, +, list) on card 0;
+#           Tab ×4 reaches the To Do list (tab bar, Settings, +, list) on card 0;
 #           Ctrl+Right, Ctrl+Right             → card 0 in Ongoing, then Done
 #           Delete, Return                     → card 0 gone
-#           reopen; Tab ×3 lands on card 1; Return opens it; Tab ×5 to the
+#           reopen; Tab ×4 lands on card 1; Return opens it; Tab ×5 to the
 #           High chip, Space                   → urgency high
 #           Tab to Due, Return; Home, Right in the day grid; Tab ×4 wraps
 #           to ‹, Return (a month back); Shift+Tab wraps to Done, Return
@@ -152,9 +155,9 @@ if [ "${PROBE:-0}" = 1 ]; then
     echo "PROBE: frames in $out"; exit 0
 fi
 
-keys Tab Tab Tab Tab Tab Tab Return
+keys Tab Tab Tab Tab Tab Tab Tab Return
 logged "$MPRIS_LOG" "Play" 5 \
-    && ok "Tab ×6 reaches ⏯ in reading order (after ‹ › and the clock); Return plays" \
+    && ok "Tab ×7 reaches ⏯ in reading order (after the Settings door, ‹ › and the clock); Return plays" \
     || bad "Return on ⏯ — the player was asked: $(tr '\n' '|' < "$MPRIS_LOG")"
 keys Tab Tab Right
 logged "$MPRIS_LOG" "SetPosition /apex/track/1 65000000" 5 \
@@ -212,6 +215,27 @@ else
               || ok "reopened after a close, Escape closes the Dashboard (focus starts above the page area)"
 fi
 
+# ── The door to Settings ─────────────────────────────────────────────────────
+# Settings live in the Nexus, a window of its own; the Dashboard's tab bar ends
+# with the way in (Andre, 2026-09-27: "people will have no idea how to reach a
+# kind of config/settings"). From the keyboard it is the stop after the tab
+# bar: Tab, Tab, Return opens the Nexus and the Dashboard gets out of its way.
+nexus_open() { [ "$(grep -c 'pacing: nexus mapped=true' "$log")" -gt "$(grep -c 'pacing: nexus mapped=false' "$log")" ]; }
+dash_open && { ipc dashboard-home toggle; sleep 1.2; }
+ipc dashboard-home toggle; sleep 1.2
+if ! dash_open; then
+    bad "the Settings door — the Dashboard did not open"
+else
+    keys Tab Tab Return; sleep 1.4
+    if nexus_open && ! dash_open; then
+        ok "Tab to the Settings door, Return: the Nexus opens and the Dashboard closes"
+    else
+        bad "the Settings door by keyboard — Nexus open: $(nexus_open && echo yes || echo no), Dashboard open: $(dash_open && echo yes || echo no)"
+        dash_open && { ipc dashboard-home toggle; sleep 1.2; }
+    fi
+    nexus_open && { ipc nexus toggle ""; sleep 1.2; }
+fi
+
 # ── The clock's alarms ───────────────────────────────────────────────────────
 # Kept in memory only (ClockState: no file, no IPC), so the observable is the
 # card itself, read off frames of the Dashboard (480,0 960x600): the alarm list
@@ -238,7 +262,7 @@ LABEL_BG="340,122,380,138"   # the row's own surface between the time and its sw
 TIMERBAND="380,170,580,240"   # presets + Start/Reset when shut, HH:MM + Set Timer when open (Δ 11.6)
 errs_before="$(grep -cE 'ReferenceError|TypeError' "$log")"
 ipc dashboard-home toggle; sleep 1.5
-keys Tab Tab Tab Tab Right Right; sleep 0.8; grab clock-1-empty
+keys Tab Tab Tab Tab Tab Right Right; sleep 0.8; grab clock-1-empty
 keys Tab Return; sleep 0.6                       # the mode tabs → + (the panel follows its tabs)
 keys Tab Up Tab Up; grab clock-2-time            # HH, MM
 keys Tab Return; sleep 0.8; grab clock-3-added   # Set Alarm; focus back on +
@@ -281,9 +305,9 @@ ipc dashboard-home toggle; sleep 1.2
 
 # ── Tasks ────────────────────────────────────────────────────────────────────
 ipc dashboard-kanban toggle; sleep 1.5
-keys Tab Tab Tab
+keys Tab Tab Tab Tab
 ctrl Right
-becomes 0 "1 - -" 5 && ok "Tab ×3 reaches the To Do list on card 0; Ctrl+Right moves it to Ongoing" \
+becomes 0 "1 - -" 5 && ok "Tab ×4 reaches the To Do list on card 0; Ctrl+Right moves it to Ongoing" \
     || bad "Ctrl+Right on card 0 — it is: $(task 0)"
 ctrl Right
 becomes 0 "2 - -" 5 && ok "the moved card kept the highlight; Ctrl+Right again moves it to Done" \
@@ -293,10 +317,10 @@ becomes 0 "gone" 5 && ok "Delete asks, Return deletes it" || bad "Delete, Return
 ipc dashboard-kanban toggle; sleep 1.2
 ipc dashboard-kanban toggle; sleep 1.5
 
-keys Tab Tab Tab Return; shot kanban-1-open
+keys Tab Tab Tab Tab Return; shot kanban-1-open
 keys Tab Tab Tab Tab Tab; shot kanban-2-high
 keys space; sleep 0.4; shot kanban-3-urgency
-becomes 1 "0 high -" 5 && ok "reopened: Tab ×3 lands on card 1; Return opens it; Tab ×5 to High, Space" \
+becomes 1 "0 high -" 5 && ok "reopened: Tab ×4 lands on card 1; Return opens it; Tab ×5 to High, Space" \
     || bad "the High chip on card 1 — it is: $(task 1)"
 keys Tab; shot kanban-4-due
 keys Return
