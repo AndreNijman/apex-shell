@@ -87,6 +87,7 @@ Item {
         }
         width: 1
         color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
+        opacity: host._part(0, 0.7)   // with the navigation it divides
     }
 
     // ── Right: header + page ────────────────────────────────────────
