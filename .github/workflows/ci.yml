@@ -244,6 +244,14 @@ jobs:
           # input region covering it while it holds the keyboard.
           ./tests/check-exclusive-focus.sh
 
+      - name: The level in the centre notch does not stretch
+        run: |
+          # Volume and brightness show in the centre notch, which widens as the
+          # level scrolls in; sized to its live width the row stretched and its
+          # bar's end slid (2026-09-27). It is laid out at the final width, and
+          # a volume <-> brightness switch cuts rather than slides.
+          ./tests/check-notch-osd.sh
+
       - name: Firewall surface logic
         run: |
           # P1-044. Drives src/services/firewall.js — the file the shell loads

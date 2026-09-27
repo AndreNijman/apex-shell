@@ -298,9 +298,14 @@ PanelWindow {
                 transform: Translate { y: -root._osdP.value * root._osdStride }
             }
 
+            // Laid out at the width the notch is widening TO, not the width it
+            // has reached: sized to the live notch, the bar stretched 60 px as
+            // it came in and its end slid (Andre: "the osd shows up in the
+            // notch, and the thumb slides" — ±18 px at 20 % or 80 %). Now
+            // nothing in it moves sideways; the widening notch reveals it.
             NotchOsd {
                 anchors.horizontalCenter: parent.horizontalCenter
-                width:   root.cWidth - theme.notchPadding * 2
+                width:   theme.cNotchMaxWidth - theme.notchPadding * 2
                 height:  theme.notchHeight
                 y:       (1 - root._osdP.value) * root._osdStride
                 opacity: root.osdAlpha

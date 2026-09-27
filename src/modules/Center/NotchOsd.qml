@@ -23,6 +23,11 @@ Item {
     // Fully in place: the bar follows a held key smoothly only then, so it
     // arrives showing the value it has rather than growing from the last one.
     property bool settled: false
+    // A switch between volume and brightness is a different quantity, not a
+    // move: it cuts. (OsdState sets the kind before the value.)
+    property bool _cut: false
+    readonly property string _kind: OsdState.kind
+    on_KindChanged: { root._cut = true; Qt.callLater(function () { root._cut = false }) }
 
     Text {
         id: glyph
@@ -76,7 +81,7 @@ Item {
             // without jumping per step. Off with spatial motion (valueFollow
             // is 0 under Reduce Motion).
             Behavior on width {
-                enabled: Motion.valueFollow > 0 && root.settled
+                enabled: Motion.valueFollow > 0 && root.settled && !root._cut
                 SmoothedAnimation { velocity: Math.max(1, track.width * 3) }
             }
             Behavior on color { MotionColor { role: "state" } }
