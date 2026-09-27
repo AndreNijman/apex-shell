@@ -174,11 +174,23 @@ line_of()    { grep -n -m1 "^$1	" "$CALLS" | cut -d: -f1; }
 # The freeze's pid, and whether it outlived the script. A stub left running is
 # the test's to reap, so each check that finds one kills it.
 freeze_pid_of() { [ -f "$CALLS.hyprpicker.pid" ] && read -r p < "$CALLS.hyprpicker.pid" && echo "$p"; }
+# Released = the freeze process has exited. The script kills it on the way
+# out, and a SIGTERM lands a moment later than the script's exit: give it up
+# to a second. A zombie counts as exited — it draws nothing — and in a CI
+# container with no init to reap an orphan, `kill -0` answers yes to one
+# forever (why this failed there and passed here). Still running after that:
+# not released (and it is killed so it cannot leak).
 freeze_released() {
-    local p
+    local p s i
     p="$(freeze_pid_of)" || return 1
-    if kill -0 "$p" 2>/dev/null; then kill "$p" 2>/dev/null; return 1; fi
-    return 0
+    for i in $(seq 1 20); do
+        kill -0 "$p" 2>/dev/null || return 0
+        s="$(awk '{print $3}' "/proc/$p/stat" 2>/dev/null)"
+        [ "$s" = Z ] && return 0
+        sleep 0.05
+    done
+    kill "$p" 2>/dev/null
+    return 1
 }
 
 echo "── Hyprland: grimblast, frozen ──────────────────────────────────────────"
