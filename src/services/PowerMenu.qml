@@ -2,14 +2,22 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import "../"
+import "../components/controls"
 
 // Power menu — vertical list of power action buttons.
+//
+// Rows (UI/UX roadmap v3 Phase 17, brief §F.6): 40 px, no gaps, the glyph in
+// a fixed column so the labels line up — they used to be centred and padded
+// with trailing spaces to fake it — and the state layer on hover instead of
+// flooding the row with the accent. A destructive row tints toward danger. Each
+// row is an ApexPressable, so the menu is reachable with Tab and operable with
+// Space/Return; it was pointer-only.
 
 Column {
     id: root
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
-    spacing: 4
+    spacing: 0
     width: parent.width
 
     readonly property var actions: [
@@ -24,7 +32,7 @@ Column {
             action:  "shutdown"
         },
         {
-            label:   "Reboot     ",
+            label:   "Reboot",
             icon:    "↺",
             danger:  true,
             confirm: true,
@@ -34,7 +42,7 @@ Column {
             action:  "reboot"
         },
         {
-            label:   "Windows ",
+            label:   "Windows",
             icon:    "󰖳",
             danger:  false,
             confirm: true,
@@ -44,7 +52,7 @@ Column {
             action:  "windows"
         },
         {
-            label:   "Gaming  ",
+            label:   "Gaming",
             icon:    "󰊴",
             danger:  false,
             confirm: true,
@@ -54,7 +62,7 @@ Column {
             action:  "gamingmode"
         },
         {
-            label:   "Log Out  ",
+            label:   "Log Out",
             icon:    "󰍃",
             danger:  true,
             confirm: true,
@@ -64,14 +72,14 @@ Column {
             action:  "logout"
         },
         {
-            label:   "Lock        ",
+            label:   "Lock",
             icon:    "󰌾",
             danger:  false,
             confirm: false,
             action:  "lock"
         },
         {
-            label:   "Suspend ",
+            label:   "Suspend",
             icon:    "⏾",
             danger:  false,
             confirm: false,
@@ -189,7 +197,7 @@ Column {
         // Lock routes through shared state (engages windows/Lockscreen.qml
         // instantly) rather than spawning hyprlock. No external round-trip.
         if (action === "lock") {
-            LockState.locked = true
+            LockState.lock()
             Popups.archMenuOpen = false
             return
         }
@@ -200,60 +208,77 @@ Column {
         Popups.archMenuOpen = false
     }
 
+    function activate(entry) {
+        if (entry.confirm) {
+            // Close menu first, then show confirm dialog
+            Popups.closeAll()
+            Popups.showConfirm(entry.title, entry.message, entry.label2, entry.action)
+        } else {
+            root.runDirect(entry.action)
+        }
+    }
+
+    // A menu on the keyboard (UI/UX roadmap v3 Phase 21): Tab reaches the first
+    // row, Up and Down walk the rows and stop at the ends.
+    Keys.onPressed: function (event) {
+        if (event.key !== Qt.Key_Up && event.key !== Qt.Key_Down) return
+        for (let i = 0; i < rows.count; i++) {
+            if (!rows.itemAt(i) || !rows.itemAt(i).activeFocus) continue
+            const j = Math.max(0, Math.min(rows.count - 1, i + (event.key === Qt.Key_Down ? 1 : -1)))
+            rows.itemAt(j).forceActiveFocus()
+            event.accepted = true
+            return
+        }
+    }
+
     Repeater {
+        id: rows
         model: root.visibleActions
 
-        delegate: Rectangle {
+        delegate: ApexPressable {
+            id: row
+            required property var modelData
             width:  root.width
-            height: 44
-            radius: theme.cornerRadius
-            // KEPT deliberately. This is a full-width row tint, not a button fill,
-            // so it is far dimmer than Theme.dangerFill — using that token here
-            // would light the whole menu row up like a confirm button.
-            color:  hov.hovered
-                        ? (modelData.danger ? "#4d2020" : Theme.active)
-                        : "transparent"
+            height: theme.rowHeight
+            radius: theme.radiusM
+            Accessible.name: row.modelData.label
+            onActivated: root.activate(row.modelData)
 
-            Behavior on color { ColorAnimation { duration: 120 } }
+            readonly property color _fg: row.modelData.danger && (row.hovered || row.pressed)
+                                         ? Theme.danger : Theme.textPrimary
 
-            Row {
-                anchors.centerIn: parent
-                spacing: 10
-
-                Text {
-                    text:           modelData.icon
-                    font.pixelSize: theme.fs(16)
-                    color:          modelData.danger && hov.hovered ? Theme.danger : hov.hovered?Theme.fixedDark:Theme.text
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-
-                Text {
-                    text:           modelData.label
-                    font.pixelSize: theme.fs(13)
-                    color:          modelData.danger && hov.hovered ? Theme.danger : hov.hovered?Theme.fixedDark:Theme.text
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-            }
-
-            HoverHandler { id: hov; cursorShape: Qt.PointingHandCursor }
-
-            MouseArea {
+            Rectangle {
                 anchors.fill: parent
-                onClicked: {
-                    if (modelData.confirm) {
-                        // Close menu first, then show confirm dialog
-                        Popups.closeAll()
-                        Popups.showConfirm(
-                            modelData.title,
-                            modelData.message,
-                            modelData.label2,
-                            modelData.action
-                        )
-                    } else {
-                        root.runDirect(modelData.action)
-                    }
-                }
+                radius: row.radius
+                color: row.modelData.danger && (row.hovered || row.pressed)
+                       ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, row.pressed ? 0.20 : 0.14)
+                       : row.stateLayer()
+                Behavior on color { MotionColor {} }
             }
+
+            // The glyph in a 20 px column, the label after it.
+            Text {
+                id: glyph
+                x: theme.px(12)
+                width: theme.px(20)
+                anchors.verticalCenter: parent.verticalCenter
+                horizontalAlignment: Text.AlignHCenter
+                text:           row.modelData.icon
+                font.family:    Theme.fontIcon
+                font.pixelSize: theme.typeIcon
+                color:          row.modelData.danger && (row.hovered || row.pressed) ? Theme.danger : Theme.iconDefault
+                Behavior on color { MotionColor {} }
+            }
+            Text {
+                anchors.left: glyph.right
+                anchors.leftMargin: theme.px(10)
+                anchors.verticalCenter: parent.verticalCenter
+                text:           row.modelData.label
+                font.pixelSize: theme.typeBody
+                color:          row._fg
+                Behavior on color { MotionColor {} }
+            }
+            ApexFocusRing { target: row }
         }
     }
 }

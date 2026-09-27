@@ -170,6 +170,10 @@ const THEME_QML = fs.readFileSync(path.join(SRC, "theme", "Theme.qml"), "utf8");
 // ── the palettes, from matugen 4.2.0 ────────────────────────────────────────
 // wallpaper, mode, and the two fields a status colour is drawn against.
 const PALETTES = [
+    // The APEX-OS default wallpaper (tests/fixtures/wallpapers/), the look every
+    // harness uses; then the six shipped apex-shell-default-* wallpapers.
+    ["apex-wallpaper-default.jpg", "dark",  "#121315", "#e3e2e5", "#c4c6ce"],
+    ["apex-wallpaper-default.jpg", "light", "#faf9fb", "#1b1c1e", "#44474d"],
     ["apex-shell-default-0.png", "dark",  "#141311", "#e6e2dd", "#ccc6b9"],
     ["apex-shell-default-0.png", "light", "#fdf9f3", "#1d1b19", "#4a473c"],
     ["apex-shell-default-1.png", "dark",  "#121316", "#e2e2e5", "#c2c7cf"],
@@ -410,13 +414,13 @@ if (Object.keys(COLORS.pairs).length) {
 // every contrast assertion.
 //
 // It is worth LESS than nothing if a user can switch to it and get a shell they
-// cannot read. 212 `color:` bindings across src/ are Qt.rgba(1, 1, 1, alpha), a
-// foreground that only works on a dark surface — 20 of them in the settings
-// pages, including the description under every section heading.
+// cannot read. For a long time 212 `color:` bindings across src/ were
+// Qt.rgba(1, 1, 1, alpha), a foreground that only works on a dark surface, and
+// the Settings control was withheld (3790c37). UI/UX Phase 18 took that count to
+// zero, and the control came back.
 //
-// So: the mechanism exists and the mode is reachable from wallpaper.json, and
-// there is deliberately NO control in Settings. Both halves are asserted here,
-// because either one drifting turns Colors.qml's explanation into a lie.
+// So the gate is no longer "no control": it is "a control only while nothing is
+// left for light to blank" — counted here, in the tree, rather than trusted.
 {
     const wall = fs.readFileSync(
         path.join(SRC, "services", "WallpaperService.qml"), "utf8");
@@ -447,23 +451,33 @@ if (Object.keys(COLORS.pairs).length) {
     check("the choice is persisted with the wallpaper",
           /mode:\s*root\.mode/.test(wall) && /obj\.mode\s*===\s*"light"/.test(wall));
 
-    // The gate. A toggle appearing on the Appearance page without those 212
-    // sites being fixed hands the user a blank Settings window.
+    // The gate. A toggle offered while any translucent-white foreground is
+    // left hands the user a label that vanishes on a light surface.
     const appearance = fs.readFileSync(
         path.join(SRC, "services", "config_tab", "pages", "AppearancePage.qml"),
         "utf8");
-    check("no Settings control switches the palette while light is unreadable",
-          !/WallpaperService\.setMode\(/.test(appearance));
-    check("and the page says why, rather than just not having one",
-          /no Light\/Dark control/.test(appearance));
+    const whiteFg = /^[ \t]*color:.*Qt\.rgba\(\s*1\s*,\s*1\s*,\s*1/;
+    let whites = 0;
+    (function walk(dir) {
+        for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+            const p = path.join(dir, e.name);
+            if (e.isDirectory()) walk(p);
+            else if (e.name.endsWith(".qml"))
+                whites += fs.readFileSync(p, "utf8").split("\n").filter(l => whiteFg.test(l)).length;
+        }
+    })(SRC);
+    const offers = /WallpaperService\.setMode\(/.test(appearance);
+    check("the Appearance page offers Light or dark", offers);
+    check("…only because no translucent-white foreground is left for it to blank",
+          !offers || whites === 0, `${whites} left`);
 
     // The explanation a reader is meant to find, beside the values it is about.
     const colors = fs.readFileSync(path.join(SRC, "theme", "Colors.qml"), "utf8");
-    check("Colors.qml records that light mode is unsupported, and the blocker",
-          /LIGHT MODE IS NOT SUPPORTED YET/.test(colors)
-          && /Qt\.rgba\(1, 1, 1/.test(colors));
-    check("and how to reach it anyway, so the palette is not dead code",
-          /wallpaper\.json/.test(colors) && /"mode": "light"/.test(colors));
+    check("Colors.qml records light mode's history and the ban that keeps it readable",
+          /── LIGHT MODE ─/.test(colors) && /Qt\.rgba\(1, 1, 1/.test(colors)
+          && /check-color-tokens\.sh bans/.test(colors));
+    check("and how the mode is carried, so the palette is not dead code",
+          /wallpaper\.json/.test(colors) && /setMode\(\)/.test(colors));
 }
 
 console.log(`\nagent-state: passed=${passed} failed=${failed}`);

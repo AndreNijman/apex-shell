@@ -32,6 +32,7 @@
 # HYPRLAND_INSTANCE_SIGNATURE, NIRI_SOCKET and DISPLAY are removed. The reload
 # helper is also absent from a sandbox, so nothing reaches a live compositor
 # even if detection went wrong.
+. "$(dirname "${BASH_SOURCE[0]}")/lib/private-bus.sh"   # the session bus is ours, not the desktop's
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

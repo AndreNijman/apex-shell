@@ -83,7 +83,8 @@ QtObject {
         // wlsunset would work here through wlr-gamma-control, which labwc does
         // implement, but APEX does not ship it. See NiriBackend for the same
         // note — one `true` when it does.
-        nightLight:           true
+        nightLight:           true,
+        motion:               false
     })
 
     // Both feeds are protocol objects the compositor pushes. Nothing polls, so
@@ -225,6 +226,7 @@ QtObject {
     function moveWindowToWorkspace(handle, ws) { /* unreachable: capability is false */ }
     function toggleOverview()                  { /* unreachable: capability is false */ }
     function setAccentBorder(hex)              { /* unreachable: capability is false */ }
+    function syncMotion(scale, reduced)        { /* unreachable: capability is false */ }
     function setGaps(inner, outer)             { /* unreachable: capability is false */ }
     function readGaps(callback)                { callback(false, null) }
     function setLayout(name)                   { /* unreachable: capability is false */ }

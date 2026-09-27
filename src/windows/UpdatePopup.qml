@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import "../"
+import "../components"
 
 // UpdatePopup — centered overlay popup for shell update notifications.
 // Same structural pattern as ConfirmDialog: PanelWindow Overlay, dim background,
@@ -27,31 +28,23 @@ PanelWindow {
     WlrLayershell.layer:         WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
 
-    property bool windowVisible: false
+    // On the dialog lifecycle (UI/UX Phase 6): mapped from the flag until the
+    // exit has finished — it used to unmap on a 20 ms timer, with no motion.
+    DialogLifecycle { id: life; name: "update"; open: UpdateService.showPopup }
+    readonly property bool windowVisible: life.mapped
     visible: windowVisible
-    
+
     Connections {
         target: UpdateService
         function onShowPopupChanged() {
-            if (UpdateService.showPopup) {
-                UpdateService.refreshStashCount()
-                root.windowVisible = true
-            } else {
-                closeTimer.restart()
-            }
+            if (UpdateService.showPopup) UpdateService.refreshStashCount()
         }
-    }
-    
-    Timer {
-        id: closeTimer
-        interval: 20
-        onTriggered: if (!UpdateService.showPopup) root.windowVisible = false
     }
 
     // Auto-dismiss success state after 10s
     Timer {
         interval: 3000
-        running:  UpdateService.updateSuccess && root.windowVisible
+        running:  UpdateService.updateSuccess && life.open
         onTriggered: UpdateService.dismiss()
     }
 
@@ -59,6 +52,7 @@ PanelWindow {
     Rectangle {
         anchors.fill: parent
         color: Qt.rgba(0, 0, 0, 0.50)
+        opacity: life.scrimK()
         // Pass through clicks in the dim area — update is non-blocking
         MouseArea {
             anchors.fill: parent
@@ -67,14 +61,17 @@ PanelWindow {
     }
 
     // ── Card ──────────────────────────────────────────────────────────────────
+    Elevation { target: card; level: "modal" }   // over its scrim (UI/UX Phase 18b)
     Rectangle {
         id: card
         anchors.centerIn: parent
         width:  380
         radius: theme.notchRadius
         color:  Theme.background
-        border.color: Qt.rgba(1, 1, 1, 0.08)
+        border.color: Theme.outlineSoft   // the surface rim, as a role (UI/UX Phase 18b)
         border.width: 1
+        opacity: life.content * life.alpha
+        scale:   life.cardScale()
 
         // Size to content
         height: cardCol.implicitHeight + 48
@@ -96,7 +93,7 @@ PanelWindow {
                  : (UpdateService.lastError !== "" &&
                     !UpdateService.updating)        ? Theme.danger
                  : Theme.active
-            Behavior on color { ColorAnimation { duration: 200 } }
+            Behavior on color { MotionColor { role: "state" } }
         }
         Item {
             visible: !UpdateService.updating
@@ -105,13 +102,13 @@ PanelWindow {
         
             Rectangle {
                 anchors.fill: parent; radius: 6
-                color: xHov.hovered ? Qt.rgba(1,1,1,0.10) : "transparent"
-                Behavior on color { ColorAnimation { duration: 100 } }
+                color: xHov.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : "transparent"
+                Behavior on color { MotionColor {} }
             }
             Text {
                 anchors.centerIn: parent
                 text: "✕"; font.pixelSize: theme.fs(11)
-                color: Qt.rgba(1,1,1,0.35)
+                color: Theme.textSecondary
             }
             HoverHandler { id: xHov; cursorShape: Qt.PointingHandCursor }
             MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
@@ -145,14 +142,14 @@ PanelWindow {
                          : (UpdateService.lastError !== "" &&
                             !UpdateService.updating)        ? Theme.danger
                          : Theme.active
-                    Behavior on color { ColorAnimation { duration: 200 } }
+                    Behavior on color { MotionColor { role: "state" } }
 
                     RotationAnimator {
                         target:      headerIcon
                         from:        0; to: 360
-                        duration:    900
+                        duration:    Motion.spinPeriod
                         loops:       Animation.Infinite
-                        running:     UpdateService.updating || UpdateService.checking
+                        running:     (UpdateService.updating || UpdateService.checking) && Motion.loops
                         easing.type: Easing.Linear
                     }
                 }
@@ -173,7 +170,7 @@ PanelWindow {
 
             Rectangle {
                 width: parent.width; height: 1
-                color: Qt.rgba(1, 1, 1, 0.07)
+                color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
             }
 
             // ── Stranded stash warning (shown in any state) ───────────────────
@@ -254,7 +251,7 @@ PanelWindow {
                             : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.13)
                         border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.40)
                         border.width: 1
-                        Behavior on color { ColorAnimation { duration: 120 } }
+                        Behavior on color { MotionColor {} }
                         Text {
                             anchors.centerIn: parent
                             text:           "Update Now"
@@ -268,10 +265,10 @@ PanelWindow {
                     // Skip (dismiss this check)
                     Rectangle {
                         width: 58; height: 30; radius: 8
-                        color:        skH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
-                        border.color: Qt.rgba(1,1,1,0.09); border.width: 1
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                        Text { anchors.centerIn: parent; text: "Skip"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
+                        color:        skH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09); border.width: 1
+                        Behavior on color { MotionColor {} }
+                        Text { anchors.centerIn: parent; text: "Skip"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
                         HoverHandler { id: skH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
                     }
@@ -279,10 +276,10 @@ PanelWindow {
                     // Disable auto-update
                     Rectangle {
                         width: 82; height: 30; radius: 8
-                        color:        disH.hovered ? Qt.rgba(1,1,1,0.06) : "transparent"
-                        border.color: Qt.rgba(1,1,1,0.07); border.width: 1
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                        Text { anchors.centerIn: parent; text: "Disable"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.28) }
+                        color:        disH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06) : "transparent"
+                        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07); border.width: 1
+                        Behavior on color { MotionColor {} }
+                        Text { anchors.centerIn: parent; text: "Disable"; font.pixelSize: theme.fs(11); color: Theme.textTertiary }
                         HoverHandler { id: disH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: UpdateService.disableAutoUpdate() }
                     }
@@ -305,7 +302,7 @@ PanelWindow {
                 Text {
                     text:           "Do not close the shell."
                     font.pixelSize: theme.fs(10)
-                    color:          Qt.rgba(1, 1, 1, 0.25)
+                    color:          Theme.textTertiary
                 }
             }
 
@@ -335,7 +332,7 @@ PanelWindow {
                             ? Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.22)
                             : Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.10)
                         border.color: Qt.rgba(Theme.warning.r, Theme.warning.g, Theme.warning.b, 0.38); border.width: 1
-                        Behavior on color { ColorAnimation { duration: 120 } }
+                        Behavior on color { MotionColor {} }
                         Text {
                             anchors.centerIn: parent
                             text:           "Stash & Update"
@@ -349,10 +346,10 @@ PanelWindow {
                     // Cancel
                     Rectangle {
                         width: 72; height: 30; radius: 8
-                        color:        cxH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
-                        border.color: Qt.rgba(1,1,1,0.09); border.width: 1
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                        Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
+                        color:        cxH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09); border.width: 1
+                        Behavior on color { MotionColor {} }
+                        Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
                         HoverHandler { id: cxH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
                     }
@@ -377,10 +374,10 @@ PanelWindow {
                 // Dismiss
                 Rectangle {
                     width: 72; height: 30; radius: 8
-                    color:        dmH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
-                    border.color: Qt.rgba(1,1,1,0.09); border.width: 1
-                    Behavior on color { ColorAnimation { duration: 120 } }
-                    Text { anchors.centerIn: parent; text: "Dismiss"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
+                    color:        dmH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                    border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09); border.width: 1
+                    Behavior on color { MotionColor {} }
+                    Text { anchors.centerIn: parent; text: "Dismiss"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
                     HoverHandler { id: dmH; cursorShape: Qt.PointingHandCursor }
                     MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
                 }
@@ -389,7 +386,7 @@ PanelWindow {
                 Text {
                     text:           "Auto-dismissing in a few seconds…"
                     font.pixelSize: theme.fs(10)
-                    color:          Qt.rgba(1, 1, 1, 0.22)
+                    color:          Theme.textTertiary
                 }
             }
 
@@ -420,7 +417,7 @@ PanelWindow {
                             : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.09)
                         border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30)
                         border.width: 1
-                        Behavior on color { ColorAnimation { duration: 120 } }
+                        Behavior on color { MotionColor {} }
                         Text { anchors.centerIn: parent; text: "Retry"; font.pixelSize: theme.fs(11); color: Theme.active }
                         HoverHandler { id: rtH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: UpdateService.check() }
@@ -429,10 +426,10 @@ PanelWindow {
                     // Close
                     Rectangle {
                         width: 72; height: 30; radius: 8
-                        color:        clH.hovered ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.04)
-                        border.color: Qt.rgba(1,1,1,0.09); border.width: 1
-                        Behavior on color { ColorAnimation { duration: 120 } }
-                        Text { anchors.centerIn: parent; text: "Close"; font.pixelSize: theme.fs(11); color: Qt.rgba(1,1,1,0.52) }
+                        color:        clH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+                        border.color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09); border.width: 1
+                        Behavior on color { MotionColor {} }
+                        Text { anchors.centerIn: parent; text: "Close"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
                         HoverHandler { id: clH; cursorShape: Qt.PointingHandCursor }
                         MouseArea { anchors.fill: parent; onClicked: UpdateService.dismiss() }
                     }

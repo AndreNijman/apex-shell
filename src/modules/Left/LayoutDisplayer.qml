@@ -95,11 +95,9 @@ Item {
         id: bg
         anchors.fill: parent
         radius: 6
-        color: mouseArea.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+        color: mouseArea.containsMouse ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : "transparent"
 
-        Behavior on color {
-            ColorAnimation { duration: 120 }
-        }
+        Behavior on color { MotionColor {} }
 
         MouseArea {
             id: mouseArea
@@ -129,13 +127,15 @@ Item {
                 SequentialAnimation {
                     NumberAnimation {
                         target: icon; property: "scale"
-                        to: 0.6; duration: 80
-                        easing.type: Easing.InQuad
+                        to: 0.6; duration: Motion.pressIn
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Motion.standardAccel
                     }
                     NumberAnimation {
                         target: icon; property: "scale"
-                        to: 1.0; duration: 120
-                        easing.type: Easing.OutBack
+                        to: 1.0; duration: Motion.pressOut
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Motion.standardDecel
                     }
                 }
             }

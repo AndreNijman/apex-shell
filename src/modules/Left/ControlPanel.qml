@@ -40,7 +40,23 @@ IconBtn {
     text: logo.status === Image.Ready
               ? ""
               : (distroGlyphs[distroId] !== undefined ? distroGlyphs[distroId] : "")
-    textColor: Theme.active
+    label: "APEX menu"
+    // The APEX mark is accent-coloured by design (brief §D.3's one exception).
+    textColor: Theme.accentText
+
+    // Hover and press. The other bar icons answer by lighting their glyph; this
+    // one is an image drawn in the accent, so it had no answer at all (Andre,
+    // 2026-09-27: "the apex button … when you hover should show its
+    // interactable"). A soft state layer behind the mark — the controls' own
+    // 6 % / 10 % — and the spark itself lifts a little.
+    Rectangle {
+        anchors.centerIn: parent
+        width: root.height + theme.px(8)
+        height: width
+        radius: width / 2
+        color: root.stateLayer()
+        Behavior on color { MotionColor { role: "hover" } }
+    }
 
     // The asset is a fixed chartreuse spark. Drawn raw it stayed green while the
     // rest of the bar followed the wallpaper, so it is recoloured to the live
@@ -67,7 +83,8 @@ IconBtn {
         // colorization 1.0 replaces the hue outright and keeps the spark's own
         // luminance, so the shape survives on both light and dark accents.
         colorization: 1.0
-        colorizationColor: Theme.active
+        colorizationColor: root.hovered || root.pressed ? Qt.lighter(Theme.active, 1.25) : Theme.active
+        Behavior on colorizationColor { MotionColor { role: "hover" } }
         visible: logo.status === Image.Ready
     }
 
@@ -78,6 +95,10 @@ IconBtn {
             if (m) root.distroId = m[1].toLowerCase()
         }
     }
+
+    // The open state of the control that opened the power menu (brief §D.5:
+    // the same rule on the left notch as on the right).
+    OpenPill { shown: Popups.archMenuOpen }
 
     onClicked: {
         var next = !Popups.archMenuOpen

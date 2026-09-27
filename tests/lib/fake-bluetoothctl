@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────────────────────
+#  fake-bluetoothctl — a BlueZ that changes nothing, for keyboard tests of the
+#  Bluetooth pane (UI/UX roadmap v3 Phase 21). The companion of fake-nmcli.
+#
+#  The headless harness reads the machine's REAL BlueZ by default, so a test
+#  that pressed Return on a device row would drop the mouse of the laptop it
+#  runs on, and "Remove" would unpair it. A runner links this in front of the
+#  real one and:
+#
+#    * answers the queries with three devices — a connected mouse, paired
+#      headphones, an unpaired speaker — and the adapter powered;
+#    * records every command that would change something to
+#      $FAKE_BLUETOOTHCTL_LOG (arguments, or each line piped to it on stdin as
+#      the pane's pairing script does) and reports success, doing nothing else.
+# ─────────────────────────────────────────────────────────────────────────────
+LOG="${FAKE_BLUETOOTHCTL_LOG:-/dev/null}"
+MOUSE="AA:BB:CC:00:00:01"; PHONES="AA:BB:CC:00:00:02"; SPEAKER="AA:BB:CC:00:00:03"
+
+case "${1:-}" in
+    show)
+        printf 'Controller 00:11:22:33:44:55 (public)\n\tName: fake\n\tPowered: yes\n' ;;
+    devices)
+        case "${2:-}" in
+            Paired)    printf 'Device %s Fake Mouse\nDevice %s Fake Headphones\n' "$MOUSE" "$PHONES" ;;
+            Connected) printf 'Device %s Fake Mouse\n' "$MOUSE" ;;
+            *)         printf 'Device %s Fake Mouse\nDevice %s Fake Headphones\nDevice %s Fake Speaker\n' \
+                              "$MOUSE" "$PHONES" "$SPEAKER" ;;
+        esac ;;
+    info)
+        printf 'Device %s\n\tConnected: no\n' "${2:-}" ;;
+    connect|disconnect|remove|untrust|trust|pair|power|scan)
+        echo "$*" >> "$LOG" ;;
+    "")
+        # Interactive: the pairing and scan scripts pipe commands in.
+        while IFS= read -r line; do
+            case "$line" in
+                trust\ *|pair\ *|connect\ *|remove\ *|power\ *) echo "$line" >> "$LOG" ;;
+            esac
+        done ;;
+    *) : ;;
+esac
+exit 0

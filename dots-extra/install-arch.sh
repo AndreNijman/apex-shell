@@ -488,7 +488,7 @@ DEFAULTS = {
     "dashboard-stats":     {"mods": "CTRL + SHIFT", "key": "ESCAPE", "label": "Dashboard: Home"},
     "dashboard-kanban":    {"mods": "SUPER",        "key": "Z",      "label": "Dashboard: Tasks"},
     "dashboard-launcher":  {"mods": "SUPER",        "key": "Q",      "label": "Dashboard: Apps"},
-    "dashboard-config":    {"mods": "SUPER",        "key": "C",      "label": "Dashboard: Config"},
+    "dashboard-config":    {"mods": "SUPER",        "key": "C",      "label": "Settings"},
     "PowerMenu-toggle":    {"mods": "SUPER",        "key": "ESCAPE", "label": "Power Menu"},
     "notification-toggle": {"mods": "SUPER",        "key": "N",      "label": "Notifications"},
     "wallpaper-toggle":    {"mods": "SUPER",        "key": "W",      "label": "Wallpaper"},

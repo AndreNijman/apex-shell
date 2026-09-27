@@ -17,25 +17,21 @@ Item {
 
     required property var powerProfileService
 
+    // Top-aligned, the profiles in one row (UI/UX Phase 17): three pills stacked
+    // in the middle of the widest card on the page.
+    implicitHeight: col.implicitHeight
     Column {
-        anchors.centerIn: parent
-        spacing:          12
+        id: col
+        anchors { top: parent.top; left: parent.left; right: parent.right }
+        spacing: theme.spaceS
 
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text:           "Power Profile"
-            font.pixelSize: theme.fs(11)
-            font.weight:    Font.Medium
-            color:          Qt.rgba(1, 1, 1, 0.4)
-        }
+        SectionLabel { text: "Power profile"; width: parent.width }
 
-        Column {
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 6
-
+        Flow {
+            width: parent.width
+            spacing: theme.px(6)
             Repeater {
                 model: root.powerProfileService.profiles
-
                 ProfileButton {
                     required property var modelData
                     label:     modelData.label

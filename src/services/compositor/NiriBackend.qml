@@ -74,7 +74,8 @@ QtObject {
         // here through wlr-gamma-control, but APEX does not ship it. Declared
         // false rather than dispatching a binary that is probably absent — the
         // day it ships, this is the one line that changes.
-        nightLight:           true
+        nightLight:           true,
+        motion:               false
     })
 
     // Nothing here costs anything — the event stream runs for the workspace
@@ -195,6 +196,7 @@ QtObject {
     function toggleOverview() { root._action(["toggle-overview"]) }
 
     function setAccentBorder(hex)        { /* unreachable: capability is false */ }
+    function syncMotion(scale, reduced)        { /* unreachable: capability is false */ }
     function setGaps(inner, outer)       { /* unreachable: capability is false */ }
     function readGaps(callback)          { callback(false, null) }
     function setLayout(name)             { /* unreachable: capability is false */ }

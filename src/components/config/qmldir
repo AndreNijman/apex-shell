@@ -10,3 +10,5 @@ CfgSegmented  CfgSegmented.qml
 CfgSwatch     CfgSwatch.qml
 CfgTextField  CfgTextField.qml
 CfgTile       CfgTile.qml
+StatusHero    StatusHero.qml
+CfgPickPath   CfgPickPath.qml

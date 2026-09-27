@@ -357,8 +357,11 @@ want "an open microphone force-scrolls the carousel to itself" \
           && grep -qE "autoScrollType === \"voice\"" < <(grep -vE "^[[:space:]]*//" "$1")' \
     -- "$notch"
 
+# The pulse is decorative on top of the dot's danger colour, so it is also
+# gated on Motion.ambient (Reduce Motion stops it; the colour still says the
+# microphone is live). What must never happen is a constant `running: true`.
 want "the tally light pulses on micOpen rather than on a constant" \
-    grep -qE '^[[:space:]]*running: PushToTalkService\.micOpen[[:space:]]*$' < <(notch_code)
+    grep -qE '^[[:space:]]*running: PushToTalkService\.micOpen([[:space:]]*&&[[:space:]]*Motion\.ambient)?[[:space:]]*$' < <(notch_code)
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  8. A refusal is allowed to go away, and only a refusal

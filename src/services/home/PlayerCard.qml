@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Services.Mpris
 import "../../"
 import "../../components"
+import "../../components/controls"
 
 Item {
     id: root
@@ -71,6 +72,14 @@ Item {
 
     readonly property bool   isPlaying: root.player?.playbackState === MprisPlaybackState.Playing ?? false
     readonly property string artUrl:    root.player?.trackArtUrl ?? ""
+
+    // The card's ink. Over album art it sits on a fixed dark scrim, so it is
+    // white; with no art there is no scrim and the card is an ordinary palette
+    // surface, so it is the palette's text (UI/UX Phase 18: a scrim over
+    // nothing was a dark slab in a light Dashboard).
+    readonly property bool  onArt: root.artUrl !== ""
+    readonly property color ink:   root.onArt ? Theme.fixedLight : Theme.textPrimary
+    function inkA(a) { return Qt.rgba(root.ink.r, root.ink.g, root.ink.b, a) }
 
     readonly property string title: {
         var t = root.player?.trackTitle
@@ -148,6 +157,14 @@ Item {
     }
 
     // ── Background visuals ────────────────────────────────────────────────────
+    // With no art, the card is filled like every other Home card (StatCard).
+    Rectangle {
+        anchors.fill: parent
+        radius:       theme.cornerRadius
+        visible:      !root.onArt
+        color:        Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04)
+    }
+
     Item {
         id: bgSource
         anchors.fill:  parent
@@ -175,11 +192,12 @@ Item {
             blur:         0.5
             blurMax:      32
             saturation:   0.2
-            Behavior on opacity { NumberAnimation { duration: 400 } }
+            Behavior on opacity { MotionFade { role: "fadeIn" } }
         }
 
         Rectangle {
             anchors.fill: parent
+            visible: root.onArt
             gradient: Gradient {
                 GradientStop { position: 0.0; color: Qt.rgba(0,0,0,0.38) }
                 GradientStop { position: 0.4; color: Qt.rgba(0,0,0,0.50) }
@@ -228,15 +246,19 @@ Item {
                 id: titleText
                 text: root.title
                 font.pixelSize: theme.fs(18); font.weight: Font.Bold
-                color: Theme.fixedLight
+                color: root.ink
                 anchors.horizontalCenter: titleMetrics.width <= parent.width ? parent.horizontalCenter : undefined
                 NumberAnimation on x {
                     id: marqueeAnim
-                    running: titleMetrics.width > titleText.parent.width && root.isPlaying
+                    running: titleMetrics.width > titleText.parent.width && root.isPlaying && Motion.ambient
                     from: titleText.parent.width
                     to: -titleMetrics.width
                     duration: Math.max(0, (titleMetrics.width + titleText.parent.width) * 20)
                     loops: Animation.Infinite
+                    // Stopped — paused, or gated off by Reduce Motion — the
+                    // title rests at its start rather than wherever the scroll
+                    // happened to be.
+                    onStopped: titleText.x = 0
                 }
                 onTextChanged: marqueeAnim.restart()
             }
@@ -246,8 +268,8 @@ Item {
             text:    root.artist
             visible: root.artist !== ""
             font.pixelSize: theme.fs(13)
-            color: Qt.rgba(1,1,1,0.55) 
-            
+            color: root.inkA(0.55)
+
             maximumLineCount: 1
             elide: Text.ElideRight
             
@@ -270,7 +292,8 @@ Item {
             spacing: 28
             Repeater {
                 model: [ { key: "prev" }, { key: "play" }, { key: "next" } ]
-                delegate: Rectangle {
+                delegate: ApexPressable {
+                    id: ctrlBtn
                     required property var  modelData
                     required property int  index
                     readonly property bool isPlay: modelData.key === "play"
@@ -279,39 +302,50 @@ Item {
                         if (modelData.key === "next") return "󰒬"
                         return !root.isPlaying ? "󰐊" : "󰏤"
                     }
-                    width: 36; height: 36 
+                    width: 36; height: 36
                     radius: height / 2
-                    color: isPlay
-                           ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                           : cH.hovered ? Qt.rgba(1,1,1,0.14) : Qt.rgba(1,1,1,0.06)
-                    border.color: isPlay ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.3) : "transparent"
-                    border.width: 1
-                    Behavior on color { ColorAnimation { duration: 100 } }
-                    Text {
-                        anchors.centerIn: parent
-                        text: parent.dispIcon
-                        font.pixelSize: isPlay ? 18 : 14
-                        color: isPlay ? Theme.active : Qt.rgba(1,1,1,0.7)
+                    // Disabled (dimmed, no Tab stop) for what this player cannot
+                    // do — and all three with no player at all.
+                    interactive: {
+                        if (!root.player) return false
+                        if (modelData.key === "prev") return root.player.canGoPrevious
+                        if (modelData.key === "next") return root.player.canGoNext
+                        return root.player.canTogglePlaying
                     }
-                    HoverHandler { id: cH; cursorShape: Qt.PointingHandCursor }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            if (!root.player) return
-                            switch (modelData.key) {
-                                case "play":
-                                    if (root.player.canTogglePlaying)
-                                        root.player.isPlaying = !root.player.isPlaying
-                                    break
-                                case "prev":
-                                    if (root.player.canGoPrevious) root.player.previous()
-                                    break
-                                case "next":
-                                    if (root.player.canGoNext) root.player.next()
-                                    break
-                            }
+                    Accessible.name: modelData.key === "prev" ? "Previous track"
+                                     : modelData.key === "next" ? "Next track"
+                                     : (root.isPlaying ? "Pause" : "Play")
+                    onActivated: {
+                        if (!root.player) return
+                        switch (modelData.key) {
+                            case "play":
+                                if (root.player.canTogglePlaying)
+                                    root.player.isPlaying = !root.player.isPlaying
+                                break
+                            case "prev":
+                                if (root.player.canGoPrevious) root.player.previous()
+                                break
+                            case "next":
+                                if (root.player.canGoNext) root.player.next()
+                                break
                         }
                     }
+                    Rectangle {
+                        anchors.fill: parent; radius: parent.radius
+                        color: ctrlBtn.isPlay
+                               ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
+                               : ctrlBtn.hovered ? root.inkA(0.14) : root.inkA(0.06)
+                        border.color: ctrlBtn.isPlay ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.3) : "transparent"
+                        border.width: 1
+                        Behavior on color { MotionColor { role: "state" } }
+                    }
+                    Text {
+                        anchors.centerIn: parent
+                        text: ctrlBtn.dispIcon
+                        font.pixelSize: ctrlBtn.isPlay ? 18 : 14
+                        color: ctrlBtn.isPlay ? (root.onArt ? Theme.fixedLight : Theme.accentText) : root.inkA(0.7)
+                    }
+                    ApexFocusRing { target: ctrlBtn }
                 }
             }
         }
@@ -320,12 +354,47 @@ Item {
         Column {
             width: parent.width; spacing: 3
             Item {
+                id: seekBar
                 width: parent.width; height: 6
+
+                // On the keyboard: a Tab stop while the player can seek;
+                // Left/Right 5 s, Page Up/Down 30 s, Home the start.
+                readonly property bool seekable: !!root.player && root.player.canSeek && root.length > 0
+                activeFocusOnTab: seekBar.seekable
+                Accessible.role: Accessible.Slider
+                Accessible.name: "Seek"
+                Accessible.description: root._fmt(root._pos) + " of " + root._fmt(root.length)
+                function _seekTo(s) {
+                    const t = Math.max(0, Math.min(root.length, s))
+                    root.player.position = t
+                    root._pos = t
+                }
+                Keys.onPressed: function (event) {
+                    if (!seekBar.seekable) return
+                    if      (event.key === Qt.Key_Right)    seekBar._seekTo(root._pos + 5)
+                    else if (event.key === Qt.Key_Left)     seekBar._seekTo(root._pos - 5)
+                    else if (event.key === Qt.Key_PageUp)   seekBar._seekTo(root._pos + 30)
+                    else if (event.key === Qt.Key_PageDown) seekBar._seekTo(root._pos - 30)
+                    else if (event.key === Qt.Key_Home)     seekBar._seekTo(0)
+                    else return
+                    event.accepted = true
+                }
+                Rectangle {
+                    anchors.fill: parent; anchors.margins: -4
+                    radius: height / 2
+                    color: "transparent"; border.width: 2; border.color: Theme.accentText
+                    visible: seekBar.activeFocus
+                }
+
                 Rectangle {
                     anchors.fill: parent; radius: height / 2
-                    color: Qt.rgba(1,1,1,0.2)
+                    color: root.inkA(0.2)
                     MouseArea {
-                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        // A 6 px bar with a 29 px target: up to the buttons 6 px
+                        // above, down over the timestamps (not pressable) to the
+                        // player chooser below; x still maps 1:1.
+                        anchors.fill: parent; anchors.topMargin: -6; anchors.bottomMargin: -17
+                        cursorShape: Qt.PointingHandCursor
                         onClicked: function(mouse) {
                             if (root.player && root.length > 0) {
                                 var f = mouse.x / width
@@ -338,7 +407,7 @@ Item {
                         anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                         width:  Math.max(radius * 2, parent.width * root._progress)
                         radius: parent.radius; color: Theme.active
-                        Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                        Behavior on width { MotionMove { role: "valueFollow"; curve: Motion.fastSpatial } }
                     }
                 }
             }
@@ -349,14 +418,14 @@ Item {
                     anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                     text: root._fmt(root._pos)
                     font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"
-                    color: Qt.rgba(1,1,1,0.4)
+                    color: root.inkA(0.4)
                 }
 
                 Text {
                     anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                     text: root._fmt(root.length)
                     font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"
-                    color: Qt.rgba(1,1,1,0.4)
+                    color: root.inkA(0.4)
                 }
             }
         }
@@ -390,7 +459,7 @@ Item {
             height: root._dropdownOpen 
                     ? (_rowH * root.filteredPlayers.length) 
                     : _rowH
-            Behavior on height { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+            Behavior on height { MotionMove { role: "surfaceEnterSmall" } }
 
             radius:       _rowH / 2
             clip:         true
@@ -399,7 +468,7 @@ Item {
                           ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30)
                           : "transparent"
             border.width: 1
-            Behavior on border.color { ColorAnimation { duration: 150 } }
+            Behavior on border.color { MotionColor { role: "state" } }
 
             // Stacks downward from the top
             Column {
@@ -409,9 +478,15 @@ Item {
                 spacing: 0
 
                 // ── Active player row (Always at the top) ─────────────
-                Item {
+                ApexPressable {
+                    id: activeRowBtn
                     height: pill._rowH
                     width:  parent.width
+                    Accessible.checkable: true
+                    Accessible.checked: root._dropdownOpen
+                    Accessible.name: "Player: " + (root.player ? root._playerLabel(root.player) : "Player")
+                                     + ", choose player"
+                    onActivated: root._dropdownOpen = !root._dropdownOpen
 
                     Row {
                         id: activeRow
@@ -429,24 +504,21 @@ Item {
                             text:           root.player ? root._playerLabel(root.player) : "Player"
                             font.pixelSize: theme.fs(11)
                             font.weight:    Font.Medium
-                            color:          Qt.rgba(1,1,1,0.92)
+                            color:          root.inkA(0.92)
                             // Cap width so crazy browser identities don't stretch the pill
-                            width:          Math.min(implicitWidth, 120) 
+                            width:          Math.min(implicitWidth, 120)
                             elide:          Text.ElideRight
                         }
                     }
 
-                    HoverHandler { cursorShape: Qt.PointingHandCursor }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked:    root._dropdownOpen = !root._dropdownOpen
-                    }
+                    ApexFocusRing { target: activeRowBtn }
                 }
 
                 // ── Other player rows (Drop down below active) ─────────
                 Repeater {
                     model: root.filteredPlayers
-                    delegate: Item {
+                    delegate: ApexPressable {
+                        id: dropBtn
                         required property var modelData
                         required property int index
                         readonly property bool isCurrent: index === root.selectedPlayerIndex
@@ -454,10 +526,19 @@ Item {
                         width:  parent.width
                         height: isCurrent ? 0 : (root._dropdownOpen ? pill._rowH : 0)
                         visible: !isCurrent
+                        interactive: root._dropdownOpen && !isCurrent
                         opacity: root._dropdownOpen ? 1 : 0
-                        
-                        Behavior on height  { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-                        Behavior on opacity { NumberAnimation { duration: 140 } }
+                        Accessible.name: "Switch to " + root._playerLabel(modelData)
+
+                        Behavior on height  { MotionMove { role: "surfaceEnterSmall" } }
+                        Behavior on opacity { MotionFade {} }
+
+                        onActivated: {
+                            const byKey = dropBtn.focusVisible
+                            root.selectedPlayerIndex = index
+                            root._dropdownOpen = false
+                            if (byKey) activeRowBtn.forceActiveFocus()   // this row just hid itself
+                        }
 
                         Row {
                             anchors.centerIn: parent
@@ -467,28 +548,21 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text:           root._playerIcon(modelData)
                                 font.pixelSize: theme.fs(11)
-                                color:          rowH.hovered ? Qt.rgba(1,1,1,0.90) : Qt.rgba(1,1,1,0.55)
-                                Behavior on color { ColorAnimation { duration: 100 } }
+                                color:          dropBtn.hovered ? root.inkA(0.90) : root.inkA(0.55)
+                                Behavior on color { MotionColor {} }
                             }
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text:           root._playerLabel(modelData)
                                 font.pixelSize: theme.fs(11)
-                                color:          rowH.hovered ? Qt.rgba(1,1,1,0.90) : Qt.rgba(1,1,1,0.55)
+                                color:          dropBtn.hovered ? root.inkA(0.90) : root.inkA(0.55)
                                 width:          Math.min(implicitWidth, 120)
                                 elide:          Text.ElideRight
-                                Behavior on color { ColorAnimation { duration: 100 } }
+                                Behavior on color { MotionColor {} }
                             }
                         }
 
-                        HoverHandler { id: rowH; cursorShape: Qt.PointingHandCursor }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                root.selectedPlayerIndex = index
-                                root._dropdownOpen = false
-                            }
-                        }
+                        ApexFocusRing { target: dropBtn }
                     }
                 }
             }
@@ -496,9 +570,15 @@ Item {
     } 
 
     // ── Cava bars — independent, always flush with the card bottom ────────────
+    // Only while something plays (UI/UX Phase 17): at rest the 2 px minimum
+    // bars drew a dashed line along the card's bottom that read as a broken
+    // border.
     Item {
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: 7; rightMargin: 7; bottomMargin: 4 }
         height: 32
+        opacity: root.isPlaying ? 1 : 0
+        visible: opacity > 0
+        Behavior on opacity { MotionFade {} }
         Row {
             anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
             spacing: 2
@@ -536,7 +616,7 @@ Item {
         anchors.fill: parent
         radius:       theme.cornerRadius
         color:        "transparent"
-        border.color: Qt.rgba(1,1,1,0.08)
+        border.color: root.inkA(0.08)
         border.width: 1
     }
 

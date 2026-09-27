@@ -40,7 +40,9 @@ Item {
     // the content (an explanation, not a caption), where "…" would cut off the
     // half of the sentence that answers the question.
     property int    descriptionLines: 2
-    property bool   hoverable:   true
+    // A row lights on hover only when it holds a control (UI/UX Phase 17):
+    // prose rows — a heading's explanation, a readout — lit up and did nothing.
+    property bool   hoverable:   slot.children.length > 0
     // Why the running compositor cannot do this. Non-empty means the control is
     // switched off and the reason is shown in place of the description — the
     // honest alternative to a switch that moves and changes nothing, which is
@@ -170,18 +172,23 @@ Item {
                              slot.height + 12, readout.height + 12)
     height:         implicitHeight
 
+    // The row's text sits on the page's one left edge — the page title's, the
+    // section labels' (UI/UX Phase 17; it hung 10 px inside them) — and its
+    // control on the right edge; the hover layer bleeds 8 px past both, into
+    // the room CfgScroll leaves for it.
     Rectangle {
-        anchors.fill: parent
-        radius:       8
-        color:        (root.hoverable && hov.hovered) ? Qt.rgba(1,1,1,0.03) : "transparent"
-        Behavior on color { ColorAnimation { duration: 120 } }
+        anchors.fill:        parent
+        anchors.leftMargin:  -8
+        anchors.rightMargin: -8
+        radius:       theme.radiusS
+        color:        (root.hoverable && hov.hovered) ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.03) : "transparent"
+        Behavior on color { MotionColor {} }
     }
     HoverHandler { id: hov; enabled: root.hoverable }
 
     Column {
         id: texts
         anchors.left:           parent.left
-        anchors.leftMargin:     10
         anchors.right:          readout.visible ? readout.left : slot.left
         anchors.rightMargin:    12
         anchors.verticalCenter: parent.verticalCenter
@@ -190,16 +197,16 @@ Item {
         Text {
             width:          parent.width
             text:           root.label
-            font.pixelSize: theme.fs(12)
-            color:          root.unavailable ? Qt.rgba(1,1,1,0.42) : Qt.rgba(1,1,1,0.75)
+            font.pixelSize: theme.typeBody
+            color:          root.unavailable ? Theme.textSecondary : Theme.textPrimary
             elide:          Text.ElideRight
         }
         Text {
             width:          parent.width
             visible:        text !== ""
             text:           root.unavailable ? root.disabledReason : root.description
-            font.pixelSize: theme.fs(10)
-            color:          Qt.rgba(1,1,1,0.38)
+            font.pixelSize: theme.typeCaption
+            color:          Theme.textSecondary
             wrapMode:       Text.WordWrap
             maximumLineCount: root.descriptionLines > 0 ? root.descriptionLines : 1000
             elide:          Text.ElideRight
@@ -208,7 +215,7 @@ Item {
             width:          parent.width
             visible:        root._effectNote !== ""
             text:           root._effectNote
-            font.pixelSize: theme.fs(10)
+            font.pixelSize: theme.typeCaption
             color:          Theme.info
             wrapMode:       Text.WordWrap
             maximumLineCount: 2
@@ -224,11 +231,10 @@ Item {
         enabled:                !root.unavailable
         opacity:                root.unavailable ? 0.32 : 1.0
         anchors.right:          parent.right
-        anchors.rightMargin:    8
         anchors.verticalCenter: parent.verticalCenter
         width:  childrenRect.width
         height: childrenRect.height
-        Behavior on opacity { NumberAnimation { duration: 120 } }
+        Behavior on opacity { MotionFade {} }
     }
 
     // The effective value. Sits to the LEFT of the control when there is one,
@@ -241,10 +247,10 @@ Item {
         visible:                root.status !== "" && !root.unavailable
         text:                   root.status
         anchors.right:          slot.children.length > 0 ? slot.left : parent.right
-        anchors.rightMargin:    slot.children.length > 0 ? 10 : 8
+        anchors.rightMargin:    slot.children.length > 0 ? 10 : 0
         anchors.verticalCenter: parent.verticalCenter
-        font.pixelSize:         theme.fs(10)
-        font.family:            "JetBrains Mono"
-        color:                  root.statusWarns ? Theme.attention : Qt.rgba(1,1,1,0.38)
+        font.pixelSize:         theme.typeMono
+        font.family:            Theme.fontMono
+        color:                  root.statusWarns ? Theme.attention : Theme.textSecondary
     }
 }

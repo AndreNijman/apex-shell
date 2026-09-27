@@ -76,7 +76,7 @@ Item {
         border.width: badge.weight === "outline" ? Math.max(1, theme.px(1)) : 0
         border.color: badge.toneColor
 
-        Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on color { MotionColor { role: "state" } }
     }
 
     Text {
@@ -94,10 +94,13 @@ Item {
         // — a pulsing fill next to four static ones reads as a rendering fault
         // rather than as progress.
         SequentialAnimation on opacity {
-            running: badge.sessionState === "working"
+            running: badge.sessionState === "working" && Motion.ambient
+            // Finish the current beat when gated off, so it rests at its
+            // end value instead of freezing mid-fade (Reduce Motion mid-pulse).
+            alwaysRunToEnd: true
             loops: Animation.Infinite
-            NumberAnimation { to: 0.45; duration: 900; easing.type: Easing.InOutQuad }
-            NumberAnimation { to: 1.0;  duration: 900; easing.type: Easing.InOutQuad }
+            NumberAnimation { to: 0.45; duration: Motion.pulseHalf; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standard }
+            NumberAnimation { to: 1.0;  duration: Motion.pulseHalf; easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standard }
         }
         onOpacityChanged: if (badge.sessionState !== "working") opacity = 1.0
     }

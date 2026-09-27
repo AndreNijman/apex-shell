@@ -6,6 +6,7 @@ import "./src/services"
 import "./src/nexus"
 import "./src/components"
 import "./src/components/config"
+import "./src/popups"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The dashboard and settings navigation, measured. Run via
@@ -17,7 +18,7 @@ import "./src/components/config"
 // nothing about the source of TabSwitcher.qml says where they end up. The pill
 // behind a horizontal tab is sized from the width its own icon and label report
 // AFTER the font engine has measured them at the current scale factor, and the
-// rows of the vertical tab column are spaced by a subtraction that can come out
+// rows of a vertical tab column are spaced by a subtraction that can come out
 // negative. Both are numbers only the engine can produce. So this builds the
 // REAL TabSwitcher against a live Theme, moves it through every width, height
 // and scale factor the shell supports, and reads back the rectangles.
@@ -95,6 +96,8 @@ ShellRoot {
     }
 
     function reportKinds() {
+        // The rowless-page self-test must have had a page to run on.
+        root.check("self-test: the rowless-page gate was exercised on a real page", root._mutantDone)
         if (root.kindOrder.length === 0)
             return
         console.log("")
@@ -121,8 +124,6 @@ ShellRoot {
         { w: 1920, h: 1200, name: "eDP-1"       }
     ]
 
-    // The dashboard height slider's two ends and its default.
-    readonly property var dashHeights: [360, 520, 900]
 
     // The scales and pane widths the settings pages are laid out at. 0.85 and
     // 2.00 are the ends of the range the shell supports; 1.00 and 1.50 are the
@@ -130,9 +131,12 @@ ShellRoot {
     readonly property var pageScales: [0.85, 1.00, 1.50, 2.00]
 
     // 560 is what a 920-wide Nexus card leaves after the 244px navigation pane
-    // and the margins; 360 is the narrower one the dashboard's Config tab hands
-    // a page at 70% of a 1080p bar.
-    readonly property var pagePanes: [560, 360]
+    // and the margins. There was a second, 360 — the dashboard's Config tab's
+    // pane — until UI/UX Phase 19 removed that tab. The Privacy page's two
+    // standing "baseline" failures were the suite, not the page: on this stubbed
+    // machine it reads no permissions service and shows a text section saying
+    // so, and only rows were measured. Text-only pages are measured as text now.
+    readonly property var pagePanes: [560]
 
     // Unscaled column heights for the three-tab switcher, in the range the
     // audio popup lives in. Every one of them has room for three rows at every
@@ -174,29 +178,16 @@ ShellRoot {
             id: hHost
             y: 0
             width:  884
-            height: hSwitcher.implicitHeight
-            TabSwitcher {
-                id: hSwitcher
+            height: hBar.tabs.implicitHeight
+            // The Dashboard's own tab bar: the tabs, and Settings as the last
+            // slot (popups/DashTabBar.qml).
+            DashTabBar {
+                id: hBar
                 anchors.fill: parent
-                orientation:  "horizontal"
                 currentPage:  "stats"
-                model:        DashboardLayout.tabs
             }
         }
 
-        Item {
-            id: vHost
-            y: 120
-            width:  244
-            height: 381
-            TabSwitcher {
-                id: vSwitcher
-                anchors.fill: parent
-                orientation:  "vertical"
-                currentPage:  vSwitcher.model.length > 0 ? vSwitcher.model[0].key : ""
-                model:        root.configTabs
-            }
-        }
 
         // A settings page, in a pane the size the Nexus window hands one. The
         // Loader is swapped per matrix point rather than ten pages being built
@@ -231,8 +222,9 @@ ShellRoot {
             }
         }
 
-        // The other vertical switcher in the shell, and the one the nine-row
-        // column's fix nearly broke. Three icon-only tabs down the side of the
+        // The vertical switcher in the shell (there were two until UI/UX Phase 19
+        // removed the dashboard's Config tab and its long column). Three
+        // icon-only tabs down the side of the
         // audio popup, sized the way AudioControl.qml sizes them: height from
         // the parent, width left to implicitWidth.
         Item {
@@ -254,17 +246,8 @@ ShellRoot {
     readonly property var audioTabs: [
         { key: "output", icon: "󰕾" },
         { key: "input",  icon: "󰍬" },
-        { key: "mixer",  icon: "󰾝" }
+        { key: "mixer",  icon: "󰙪" }
     ]
-
-    // The real settings page set, so the count this measures is the count the
-    // Config tab draws rather than a number copied into a test and left behind.
-    readonly property var configTabs: {
-        const out = []
-        for (const p of PageRegistry.pages)
-            out.push({ "key": p.id, "icon": p.icon, "label": p.title })
-        return out
-    }
 
     // ── Reading a switcher back ──────────────────────────────────────────────
     // The delegates are anonymous items inside a Row, or inside a Column inside
@@ -379,6 +362,20 @@ ShellRoot {
     }
     function isCtl(o)  { return o.variant !== undefined && o.label !== undefined }
     function isText(o) { return o.text !== undefined && o.wrapMode !== undefined }
+    // A page's declared "there is nothing to list" state: the shared EmptyState
+    // (glyph + hint + command), or a section that sets `pageUnavailable` (the
+    // Privacy page's "Nothing could be read"). Only a page showing one of these
+    // may be measured without rows; any other rowless page fails as before.
+    function isUnavailable(o) {
+        return o.pageUnavailable === true
+            || (o.glyph !== undefined && o.hint !== undefined && o.command !== undefined
+                && o.inline === false)      // an inline EmptyState is a row's note, not the page's
+    }
+    // "rows" | "unavailable" | "none" — the one decision the three readers share.
+    function pageStateOf(rows, markers) {
+        return rows.length > 0 ? "rows" : (markers.length > 0 ? "unavailable" : "none")
+    }
+    property bool _mutantDone: false
 
     function livePartsOf(page, pred) {
         const all = root.partsOf(page, pred, [], 12)
@@ -419,9 +416,39 @@ ShellRoot {
             return
         }
         const rows = root.livePartsOf(page, root.isRow)
+        const markers = root.livePartsOf(page, root.isUnavailable)
+        // Can the fallback below fail? A page with rows and no unavailable
+        // state, its rows taken away, must read as "none" — i.e. be failed,
+        // not accepted as text. Checked once, on the first rowed page.
+        if (rows.length > 0 && markers.length === 0 && !root._mutantDone) {
+            root._mutantDone = true
+            root.check("self-test: a rowed page that lost its rows is failed, not accepted as text",
+                       root.pageStateOf([], markers) === "none", "markers: " + markers.length)
+        }
         if (rows.length === 0) {
-            root.check(label + ": the page laid out at least one row", false,
-                       "found none")
+            // A page with nothing to list is not a page that failed to lay out:
+            // on this stubbed machine Privacy reads no permissions service and
+            // says so in a section of TEXT ("Nothing could be read"). That
+            // DECLARED state is measured as what it is — its text blocks fit
+            // the page — instead of failing for want of rows (it was the
+            // suite's two standing "baseline" failures, per scale). A rowless
+            // page WITHOUT such a state still fails: every page has a header
+            // Text, so "any text" would accept a page that lost its rows.
+            if (root.pageStateOf(rows, markers) === "none") {
+                root.check(label + ": the page laid out at least one row", false, "found none")
+                return
+            }
+            const texts = root.livePartsOf(page, root.isText)
+            root.check(label + ": the unavailable page laid out its text", texts.length > 0, "found none")
+            var spill = -1e9, spillAt = ""
+            for (const t of texts) {
+                const q = t.mapToItem(page, 0, 0)
+                const over = q.x + Math.min(t.width, t.paintedWidth !== undefined ? t.paintedWidth : t.width) - page.width
+                if (over > spill) { spill = over; spillAt = String(t.text).substring(0, 30) }
+            }
+            if (texts.length > 0)
+                root.check(label + ": its text stays inside the page", spill <= 0.5,
+                           spill.toFixed(1) + " px past the edge at \"" + spillAt + "\"")
             return
         }
 
@@ -492,8 +519,8 @@ ShellRoot {
 
     // ── Horizontal ───────────────────────────────────────────────────────────
     function measureHorizontal(label, barWidth) {
-        const n = DashboardLayout.tabs.length
-        const s = root.slotsOf(hSwitcher, n, 4)
+        const n = DashboardLayout.tabBar.length
+        const s = root.slotsOf(hBar.tabs, n, 4)
         if (s.length !== n) {
             root.check(label + ": the bar laid out " + n + " tabs", false,
                        "found " + s.length)
@@ -524,7 +551,7 @@ ShellRoot {
 
             if (i > 0 && pl - prevRight < worstGap) {
                 worstGap = pl - prevRight
-                worstGapAt = DashboardLayout.tabs[i].label
+                worstGapAt = DashboardLayout.tabBar[i].label
             }
             prevRight = pr
 
@@ -533,7 +560,7 @@ ShellRoot {
             const spill = pill.width - tab.width
             if (spill > worstSpill) {
                 worstSpill = spill
-                worstSpillAt = DashboardLayout.tabs[i].label
+                worstSpillAt = DashboardLayout.tabBar[i].label
             }
 
             // Icon and label are drawn from a Row. Found wherever it is —
@@ -544,10 +571,10 @@ ShellRoot {
                 const bleed = content.width - pill.width
                 if (bleed > worstBleed) {
                     worstBleed = bleed
-                    worstBleedAt = DashboardLayout.tabs[i].label
+                    worstBleedAt = DashboardLayout.tabBar[i].label
                 }
             } else {
-                root.check(label + ": " + DashboardLayout.tabs[i].label
+                root.check(label + ": " + DashboardLayout.tabBar[i].label
                            + " draws an icon", false, "no content row found")
             }
 
@@ -558,7 +585,7 @@ ShellRoot {
                 if (tab.children[m].width >= tab.width - 0.5
                         && tab.children[m].height >= tab.height - 0.5)
                     hit = Math.max(hit, tab.children[m].width)
-            root.check(label + ": " + DashboardLayout.tabs[i].label
+            root.check(label + ": " + DashboardLayout.tabBar[i].label
                        + "'s hit target is the whole slot", hit >= tab.width - 0.5,
                        "widest full-height child is " + hit.toFixed(1)
                        + " of " + tab.width.toFixed(1))
@@ -578,13 +605,41 @@ ShellRoot {
                    + "px, floor " + root.minTouch() + "px")
     }
 
+    // ── Settings, at the tab bar's end ──────────────────────────────────────
+    // Andre (2026-09-27): settings must be findable from the tabs, "spaced like
+    // an actual tab and look like an actual tab". It is one more slot of the
+    // same switcher, so measureHorizontal holds it to everything a tab is held
+    // to; here, what makes it a tab and not a button beside them — the same
+    // slot and pill height as its neighbours, spelt out exactly when they
+    // are — and what makes it not a PLACE: the selection never lands on it.
+    function measureSettingsTab(label) {
+        const m = DashboardLayout.tabBar, n = m.length
+        const s = root.slotsOf(hBar.tabs, n, 4)
+        if (s.length !== n) return
+        const k = n - 1
+        root.check(label + ": Settings is the bar's last slot, and an action",
+                   m[k].key === "settings" && m[k].action === true, JSON.stringify(m[k]))
+        root.check(label + ": Settings is spaced like a tab (the same slot as its neighbours)",
+                   Math.abs(s[k].width - s[0].width) <= 0.5 && Math.abs(s[k].height - s[0].height) <= 0.5,
+                   s[k].width.toFixed(1) + " vs " + s[0].width.toFixed(1))
+        root.check(label + ": Settings looks like a tab (the same pill height)",
+                   Math.abs(s[k].children[0].height - s[0].children[0].height) <= 0.5,
+                   s[k].children[0].height.toFixed(1) + " vs " + s[0].children[0].height.toFixed(1))
+        const row = root.contentRowOf(s[k], 3), row0 = root.contentRowOf(s[0], 3)
+        const texts = r => r ? r.children.filter(c => c.text !== undefined && c.visible).length : -1
+        root.check(label + ": Settings is spelt out exactly when the tabs are",
+                   texts(row) === texts(row0), texts(row) + " vs " + texts(row0))
+        root.check(label + ": the selection never lands on Settings",
+                   hBar.tabs.currentIndex !== k && !s[k].isActive, "currentIndex " + hBar.tabs.currentIndex)
+    }
+
     // The bar has to be at least as tall as the text it holds, or the labels are
     // drawn over whichever page is underneath. Measured from the tallest Text in
     // the bar rather than from the font size, because line height is not the
     // pixel size.
     function measureHorizontalHeight(label) {
-        const n = DashboardLayout.tabs.length
-        const s = root.slotsOf(hSwitcher, n, 4)
+        const n = DashboardLayout.tabBar.length
+        const s = root.slotsOf(hBar.tabs, n, 4)
         if (s.length !== n)
             return
         var tallest = 0
@@ -600,86 +655,16 @@ ShellRoot {
             }
         }
         root.check(label + ": the bar is tall enough for its own text",
-                   tallest > 0 && tallest <= hSwitcher.height,
+                   tallest > 0 && tallest <= hBar.tabs.height,
                    "tallest label " + tallest.toFixed(1)
-                   + "px in a " + hSwitcher.height + "px bar")
+                   + "px in a " + hBar.tabs.height + "px bar")
     }
 
-    // ── Vertical ─────────────────────────────────────────────────────────────
-    function measureVertical(label, columnHeight) {
-        const n = root.configTabs.length
-        const s = root.slotsOf(vSwitcher, n, 4)
-        if (s.length !== n) {
-            root.check(label + ": the column laid out " + n + " rows", false,
-                       "found " + s.length)
-            return
-        }
-
-        var worstGap = 1e9, worstGapAt = ""
-        var minRow = 1e9
-        var prevBottom = -1e9
-        var top = 1e9, bottom = -1e9
-        var worstLabelBleed = -1e9, worstLabelAt = ""
-
-        for (var i = 0; i < n; i++) {
-            const rowItem = s[i]
-            // Mapped rather than read from .y: once the rows live inside a
-            // Flickable's content item, .y is relative to a thing that scrolls.
-            const y = rowItem.mapToItem(vSwitcher, 0, 0).y
-            if (i > 0 && y - prevBottom < worstGap) {
-                worstGap = y - prevBottom
-                worstGapAt = root.configTabs[i].label
-            }
-            prevBottom = y + rowItem.height
-            top = Math.min(top, y)
-            bottom = Math.max(bottom, y + rowItem.height)
-            minRow = Math.min(minRow, rowItem.height)
-
-            const content = root.contentRowOf(rowItem, 3)
-            if (content) {
-                const right = content.mapToItem(vSwitcher, 0, 0).x + content.width
-                if (right - vSwitcher.width > worstLabelBleed) {
-                    worstLabelBleed = right - vSwitcher.width
-                    worstLabelAt = root.configTabs[i].label
-                }
-            }
-        }
-
-        // Rows that do not fit have to go somewhere. Scrolling is the deliberate
-        // answer and overlapping is the defect, so the bound depends on which
-        // one the component chose: a scroller's own content height when it is
-        // scrolling, the column otherwise.
-        const scroller = root.scrollerOf(vSwitcher, 3)
-        const scrolling = scroller !== null && scroller.interactive
-        const bound = scrolling ? scroller.contentHeight : columnHeight
-
-        root.check(label + ": no two rows overlap", worstGap >= 0,
-                   "closest pair above " + worstGapAt
-                   + ", gap " + worstGap.toFixed(1) + "px")
-        root.check(label + ": the rows stay inside what holds them",
-                   top >= -0.5 && bottom <= bound + 0.5,
-                   "rows span " + top.toFixed(1) + ".." + bottom.toFixed(1)
-                   + " in " + (scrolling ? "a " + bound + "px scroller"
-                                         : "a " + bound + "px column"))
-        root.check(label + ": rows that overflow are reachable by scrolling",
-                   bottom <= columnHeight + 0.5 || scrolling,
-                   "rows reach " + bottom.toFixed(1) + " in a " + columnHeight
-                   + "px column and nothing scrolls")
-        root.check(label + ": a scrolling column clips what it hides",
-                   !scrolling || scroller.clip,
-                   "the scroller paints outside its viewport")
-        root.check(label + ": a row stays big enough to hit",
-                   minRow >= root.minTouch(),
-                   "shortest row " + minRow.toFixed(1)
-                   + "px, floor " + root.minTouch() + "px")
-        root.check(label + ": no label is drawn outside the column",
-                   worstLabelBleed <= 0.5,
-                   worstLabelAt + " overhangs by " + worstLabelBleed.toFixed(1) + "px")
-    }
 
     // ── Vertical, short ──────────────────────────────────────────────────────
-    // The nine-row column and the three-row one pull in opposite directions and
-    // one component serves both. Giving every row a fixed gap stops nine rows
+    // A long column and a short one pull in opposite directions and one
+    // component serves both (the long one was the dashboard's Config tab until
+    // UI/UX Phase 19). Giving every row a fixed gap stops many rows
     // overlapping in a column too short for them, and it also bunches three
     // rows into the middle of a column that has room to spare — which is what
     // the audio popup is, and what the first pass at the overlap did to it.
@@ -765,13 +750,13 @@ ShellRoot {
         root.check(label + ": the dashboard clears both notches", w <= room,
                    "wants " + w + "px, " + room + "px between the notches")
 
-        // The bar inside it has to be able to hold six tabs. Asserted through
+        // The bar inside it has to be able to hold every tab. Asserted through
         // the same helper the window uses, so the two cannot drift.
         const bar = DashboardLayout.barWidthFor(Metrics, page, screenW)
         root.check(label + ": the tab bar gets a usable width",
-                   bar >= DashboardLayout.tabs.length * root.minTouch(),
-                   "bar " + bar + "px for " + DashboardLayout.tabs.length
-                   + " tabs, floor " + (DashboardLayout.tabs.length * root.minTouch()) + "px")
+                   bar >= DashboardLayout.tabBar.length * root.minTouch(),
+                   "bar " + bar + "px for " + DashboardLayout.tabBar.length
+                   + " tabs, floor " + (DashboardLayout.tabBar.length * root.minTouch()) + "px")
     }
 
     // What has to hold even where the geometry is hopeless.
@@ -785,8 +770,8 @@ ShellRoot {
         root.check(label + ": the tab bar keeps a positive width", bar > 0,
                    "bar " + bar)
 
-        const n = DashboardLayout.tabs.length
-        const s = root.slotsOf(hSwitcher, n, 4)
+        const n = DashboardLayout.tabBar.length
+        const s = root.slotsOf(hBar.tabs, n, 4)
         if (s.length !== n) {
             root.check(label + ": the bar still lays out " + n + " tabs", false,
                        "found " + s.length)
@@ -806,18 +791,6 @@ ShellRoot {
                    "closest gap " + worstGap.toFixed(1) + "px")
     }
 
-    // The height ShellConfig hands its tab column, from the chrome between the
-    // dashboard's outer edge and the column: the sizer's top flare and its 8px
-    // content inset, the horizontal tab bar, the Row's 8px margins top and
-    // bottom, the column's own 8px top and 6px bottom margins, and the
-    // "Open in window" button with its 8px margin.
-    function configNavHeight(dashHeight) {
-        const content  = Theme.px(dashHeight)
-                       - (Theme.notchRadius + DashboardLayout.contentInset(Metrics))
-                       - DashboardLayout.contentInset(Metrics)
-        const pageArea = content - hSwitcher.implicitHeight
-        return pageArea - 16 - 8 - 6 - Theme.px(30) - 8
-    }
 
     // ── Driver ───────────────────────────────────────────────────────────────
     property var plan: []
@@ -845,8 +818,6 @@ ShellRoot {
         if (stepData.kind === "vShort")
             return { sw: vShortSwitcher, host: vShortHost,
                      n: root.audioTabs.length, short: true }
-        if (stepData.kind === "v" || stepData.kind === "liveV")
-            return { sw: vSwitcher, host: vHost, n: root.configTabs.length }
         return null
     }
 
@@ -860,11 +831,12 @@ ShellRoot {
             // reporting the previous pane's width is a stale read, which is the
             // whole reason this function exists.
             return Math.abs(pg.width - pageHost.width) <= 1.5
-                && root.livePartsOf(pg, root.isRow).length > 0
+                && root.pageStateOf(root.livePartsOf(pg, root.isRow),
+                                    root.livePartsOf(pg, root.isUnavailable)) !== "none"
         }
         const v  = root.vRigFor(stepData)
-        const sw = v ? v.sw : hSwitcher
-        const n  = v ? v.n  : DashboardLayout.tabs.length
+        const sw = v ? v.sw : hBar.tabs
+        const n  = v ? v.n  : DashboardLayout.tabBar.length
         const s  = (v && v.short) ? root.vRowsOf(sw, n) : root.slotsOf(sw, n, 4)
         if (s.length !== n)
             return false
@@ -878,7 +850,11 @@ ShellRoot {
         if (stepData.kind === "page") {
             const pg = pageLoader.item
             if (!pg) return "incomplete:0"
-            const rows = root.livePartsOf(pg, root.isRow)
+            var rows = root.livePartsOf(pg, root.isRow)
+            // A page in its declared unavailable state (see measurePage)
+            // settles on its text; any other rowless page is incomplete.
+            if (rows.length === 0 && root.livePartsOf(pg, root.isUnavailable).length > 0)
+                rows = root.livePartsOf(pg, root.isText)
             if (rows.length === 0) return "incomplete:0"
             var sig = "p" + stepData.pageIndex + ":" + pageHost.width + ":"
             for (const r of rows) {
@@ -889,8 +865,8 @@ ShellRoot {
             return sig
         }
         const v  = root.vRigFor(stepData)
-        const sw = v ? v.sw : hSwitcher
-        const n  = v ? v.n  : DashboardLayout.tabs.length
+        const sw = v ? v.sw : hBar.tabs
+        const n  = v ? v.n  : DashboardLayout.tabBar.length
         const s  = (v && v.short) ? root.vRowsOf(sw, n) : root.slotsOf(sw, n, 4)
         if (s.length !== n)
             return "incomplete:" + s.length
@@ -928,8 +904,6 @@ ShellRoot {
             for (var l = 0; l < DashboardLayout.tabs.length; l++)
                 out.push({ kind: "live", screen: root.liveScreen,
                            page: DashboardLayout.tabs[l].key })
-            for (var m = 0; m < root.dashHeights.length; m++)
-                out.push({ kind: "liveV", dashHeight: root.dashHeights[m] })
         }
 
         for (var a = 0; a < root.scales.length; a++) {
@@ -941,17 +915,14 @@ ShellRoot {
                     out.push({ kind: full ? "h" : "stress", scale: sc, screen: scr,
                                page: DashboardLayout.tabs[c].key })
             }
-            for (var d = 0; d < root.dashHeights.length; d++)
-                out.push({ kind: "v", scale: sc, dashHeight: root.dashHeights[d] })
             for (var e = 0; e < root.shortColumns.length; e++)
                 out.push({ kind: "vShort", scale: sc,
                            columnBase: root.shortColumns[e] })
         }
 
         // Every settings page, at the four scales that bracket the range, in
-        // the two pane widths the Nexus window and the dashboard's Config tab
-        // hand one. The full eight-scale sweep is what the tab column needs
-        // because its spacing is arithmetic on the height; a page's rows are
+        // the pane the Nexus window hands one (the dashboard's Config tab and
+        // its narrower 360 px pane are gone, UI/UX Phase 19). A page's rows are
         // stacked by a Column and the failure mode is a row that does not grow
         // with its text, which the ends and the middle catch.
         for (var f = 0; f < root.pageScales.length; f++)
@@ -963,7 +934,7 @@ ShellRoot {
     }
 
     function stage(stepData) {
-        const live = stepData.kind === "live" || stepData.kind === "liveV"
+        const live = stepData.kind === "live"
         if (live) {
             SettingsService.set("scaleMode", "auto")
         } else {
@@ -983,12 +954,7 @@ ShellRoot {
         } else if (stepData.kind === "h" || stepData.kind === "stress"
                 || stepData.kind === "live") {
             hHost.width  = DashboardLayout.barWidthFor(Metrics, stepData.page, stepData.screen.w)
-            hHost.height = hSwitcher.implicitHeight
-        } else {
-            vHost.height = root.configNavHeight(stepData.dashHeight)
-            vHost.width  = Math.round(
-                (DashboardLayout.barWidthFor(Metrics, "config",
-                    live ? root.liveScreen.w : 1920) - 12) * 0.30)
+            hHost.height = hBar.tabs.implicitHeight
         }
     }
 
@@ -999,23 +965,20 @@ ShellRoot {
             root.measureWidth(ltag, stepData.page, stepData.screen.w)
             root.measureHorizontal(ltag + " bar=" + hHost.width, hHost.width)
             root.measureHorizontalHeight(ltag)
-        } else if (stepData.kind === "liveV") {
-            root.measureVertical("live " + root.liveScreen.name + " @"
-                                 + Metrics.scale + "x dashHeight="
-                                 + stepData.dashHeight + " col=" + vHost.height,
-                                 vHost.height)
+            root.measureSettingsTab(ltag + " bar=" + hHost.width)
         } else if (stepData.kind === "h") {
             const tag = "h " + stepData.scale + "x " + stepData.screen.name
                       + " " + stepData.page
             root.measureWidth(tag, stepData.page, stepData.screen.w)
             root.measureHorizontal(tag + " bar=" + hHost.width, hHost.width)
             root.measureHorizontalHeight(tag)
+            root.measureSettingsTab(tag + " bar=" + hHost.width)
         } else if (stepData.kind === "stress") {
             // A scale this output cannot carry. Not graded on fitting between
             // the notches or on the touch floor — neither is achievable, and
             // asserting them would only ever say "1280x720 is not a 4K panel".
             // Graded on degrading rather than collapsing: a width that is still
-            // a width, six tabs, and no two of them on top of each other.
+            // a width, every tab, and no two of them on top of each other.
             const stag = "stress " + stepData.scale + "x " + stepData.screen.name
                        + " " + stepData.page
             root.measureDegraded(stag, stepData.page, stepData.screen.w)
@@ -1027,9 +990,6 @@ ShellRoot {
             root.measureVerticalSpread(
                 "vShort " + stepData.scale + "x col=" + vShortHost.height,
                 vShortHost.height)
-        } else {
-            const vtag = "v " + stepData.scale + "x dashHeight=" + stepData.dashHeight
-            root.measureVertical(vtag + " col=" + vHost.height, vHost.height)
         }
     }
 
@@ -1120,7 +1080,7 @@ ShellRoot {
                         + " " + root.liveScreen.w + "x" + root.liveScreen.h
                         + " autoScale=" + Metrics.autoScale)
             console.log("[rig] " + DashboardLayout.tabs.length + " dashboard tabs, "
-                        + root.configTabs.length + " settings pages, "
+                        + PageRegistry.pages.length + " settings pages, "
                         + root.audioTabs.length + " audio tabs, "
                         + (root.pageScales.length * root.pagePanes.length
                            * PageRegistry.pages.length) + " page layouts, "

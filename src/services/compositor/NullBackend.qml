@@ -44,7 +44,8 @@ QtObject {
         tilingLayout:         false,
         keyboardInterception: false,
         screenShader:         false,
-        nightLight:           false
+        nightLight:           false,
+        motion:               false
     })
 
     // Demand, pushed in by CompositorService. Nothing here costs anything, so
@@ -94,6 +95,7 @@ QtObject {
     function toggleOverview()                  {}
     function setAccentBorder(hex)              {}
     function setGaps(inner, outer)             {}
+    function syncMotion(scale, reduced)        {}
     function readGaps(callback)                { callback(false, null) }
     function setLayout(name)                   { /* unreachable: capability is false */ }
     function setKeyboardInterception(on)       {}

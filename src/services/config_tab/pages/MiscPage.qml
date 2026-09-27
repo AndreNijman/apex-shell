@@ -25,7 +25,7 @@ CfgScroll {
     lifecycle: "live"
     lifecycleError: SettingsService.lastError
 
-    // Set by ShellConfig and Nexus: "the Misc page is genuinely on screen".
+    // Set by SettingsHost (Nexus): "the Misc page is genuinely on screen".
     // Declared because SystemStats costs a subprocess and is refcounted on it;
     // PageRegistry marks this page needsScreen: true so both hosts bind it.
     property bool onScreen: false
@@ -84,7 +84,6 @@ CfgScroll {
             // LayoutMirroring resolves anchors and cannot touch an x.
             Row {
                 anchors.left:           parent.left
-                anchors.leftMargin:     10
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 12
 
@@ -106,9 +105,9 @@ CfgScroll {
                     }
                     Text {
                         text:        root.version + "  ·  APEX-OS"
-                        font.pixelSize: theme.fs(10)
-                        color:       Qt.rgba(1,1,1,0.4)
-                        font.family: "JetBrains Mono"
+                        font.pixelSize: theme.typeCaption
+                        color:       Theme.textSecondary
+                        font.family: Theme.fontMono
                     }
                 }
             }
@@ -128,10 +127,11 @@ CfgScroll {
             label:     "Config provider"
             hoverable: false
             Text {
+                // A value, not a command: CfgRow's readout treatment (UI/UX Phase 17).
                 text:        ShellState.configProvider
-                font.family: "JetBrains Mono"
-                font.pixelSize: theme.fs(11)
-                color:       Theme.active
+                font.family: Theme.fontMono
+                font.pixelSize: theme.typeMono
+                color:       Theme.textSecondary
             }
         }
     }
@@ -152,8 +152,8 @@ CfgScroll {
         // The subprocess runs only while this page is genuinely on screen.
         // NOT `active: sysStats.visible` — an Item inside a hidden window
         // reports visible: true, so that would mean "always". `onScreen` is
-        // bound by ShellConfig and Nexus to window visibility AND page
-        // selection AND, in Nexus, not-locked.
+        // bound by SettingsHost (Nexus) to window visibility AND page
+        // selection AND not-locked.
         ServiceRef {
             service: sysStats
             active:  root.onScreen
@@ -163,10 +163,11 @@ CfgScroll {
             width:  parent.width
             height: sysStats.implicitHeight
 
+            // On the content edge with the rows around it (UI/UX Phase 17): it
+            // sat 10 px inside them.
             SystemStats {
                 id: sysStats
-                x:     10
-                width: parent.width - 20
+                width: parent.width
             }
         }
     }
@@ -203,15 +204,14 @@ CfgScroll {
                 text:        (Compositor.modeName !== "" ? Compositor.modeName
                                                          : "Not a compositor APEX supports")
                              + (Compositor.overrideName === "" ? "  ·  auto" : "  ·  override")
-                font.family: "JetBrains Mono"
+                font.family: Theme.fontMono
                 font.pixelSize: theme.fs(11)
                 color:       Theme.active
             }
         }
 
         Text {
-            x:        10
-            width:    parent.width - 20
+            width:    parent.width
             // The old wording printed `Compositor.detected`, a raw id, and named
             // only niri as the degrading target — which left a Floating user
             // reading a sentence about two compositors that were not theirs and
@@ -225,8 +225,8 @@ CfgScroll {
             // is niri's alone; windowMove is false on labwc only; nightLight is
             // true on all three, so it is deliberately NOT listed as degrading.
             text:     "Auto follows what APEX detects at login; pick one to pin it instead. Tiling is the only one the shell can give window gaps, an accent border, a layout indicator, a shader filter and a special workspace. Scrolling has an overview the other two do not. On Floating the shell cannot move a window to another workspace."
-            font.pixelSize: theme.fs(10)
-            color:    Qt.rgba(1,1,1,0.4)
+            font.pixelSize: theme.typeCaption
+            color:    Theme.textSecondary
             wrapMode: Text.WordWrap
         }
         Item { width: parent.width; height: 8 }
@@ -237,8 +237,7 @@ CfgScroll {
 
             CfgSegmented {
                 id: compSeg
-                x:     10
-                width: parent.width - 20
+                width: parent.width
                 // VALUES ARE IDS AND MUST NOT BE TRANSLATED — setOverride
                 // writes them straight into config_Provider.json's `compositor`
                 // key and Compositor.isValidName is what accepts them. Only the
@@ -299,7 +298,6 @@ CfgScroll {
             // Anchored, not `x: 10` — same reason as the About row above.
             CfgButton {
                 anchors.left:           parent.left
-                anchors.leftMargin:     10
                 anchors.verticalCenter: parent.verticalCenter
                 variant: "accent"
                 label:   "Update now"

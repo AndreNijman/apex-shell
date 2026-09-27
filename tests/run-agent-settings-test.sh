@@ -42,6 +42,7 @@
 #
 #  Run from anywhere: ./tests/run-agent-settings-test.sh
 # ─────────────────────────────────────────────────────────────────────────────
+. "$(dirname "${BASH_SOURCE[0]}")/lib/private-bus.sh"   # the session bus is ours, not the desktop's
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

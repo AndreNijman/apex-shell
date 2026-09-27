@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Wayland
 import "../services"
 import "../"
+import "../components"
 
 // ScreenRecOptionsPopup — minimal dropdown under the center notch.
 //
@@ -45,7 +46,11 @@ PopupWindow {
     )
 
     color:   "transparent"
-    visible: ScreenRecService.openStrip !== ""
+    // On the surface lifecycle (UI/UX Phase 6): mapped until its fade-out has
+    // finished, instead of vanishing on the flag. A fade, not the dialogs'
+    // settle — it is a dropdown under the notch, not a card over a scrim.
+    DialogLifecycle { id: life; name: "screenrec-strip"; open: ScreenRecService.openStrip !== "" }
+    visible: life.mapped
 
     HoverHandler {
         onHoveredChanged: {
@@ -58,12 +63,14 @@ PopupWindow {
         anchors.fill: parent
         radius:       theme.cornerRadius - 6
         color:        Theme.background
-        border.color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.15)
+        border.color: Theme.outlineSoft   // the surface rim (UI/UX Phase 18b)
         border.width: 1
+        opacity:      life.content * life.alpha
     }
 
     Column {
         id: optCol
+        opacity: life.content * life.alpha
         x:       _padH
         y:       _padV
         spacing: 2
@@ -78,7 +85,10 @@ PopupWindow {
                 _icon:     ScreenRecService._captureIcons[modelData]  ?? ""
                 _label:    ScreenRecService._captureLabels[modelData] ?? ""
                 _selected: ScreenRecService.captureTarget === modelData
-                onClicked: ScreenRecService.captureTarget = modelData
+                // Saved on change, as the Data page's switches are (UI/UX Phase
+                // 19): this popup's choices were written only when a recording
+                // started, so changing them and closing the strip lost them.
+                onClicked: { ScreenRecService.captureTarget = modelData; ScreenRecService.saveConfig() }
             }
         }
 
@@ -110,6 +120,7 @@ PopupWindow {
                     } else {
                         ScreenRecService.audioSystem = !ScreenRecService.audioSystem
                     }
+                    ScreenRecService.saveConfig()
                 }
             }
         }
@@ -133,8 +144,8 @@ PopupWindow {
             radius:       5
             color: row._selected
                    ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.18)
-                   : rH.hovered ? Qt.rgba(1, 1, 1, 0.07) : "transparent"
-            Behavior on color { ColorAnimation { duration: 100 } }
+                   : rH.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07) : "transparent"
+            Behavior on color { MotionColor { role: "state" } }
         }
 
         Row {
@@ -144,17 +155,17 @@ PopupWindow {
             Text {
                 text:           row._icon
                 font.pixelSize: theme.fs(13)
-                color:          row._selected ? Theme.active : Qt.rgba(1, 1, 1, 0.45)
+                color:          row._selected ? Theme.active : Theme.textSecondary
                 anchors.verticalCenter: parent.verticalCenter
-                Behavior on color { ColorAnimation { duration: 100 } }
+                Behavior on color { MotionColor { role: "state" } }
             }
             Text {
                 id:             _lbl
                 text:           row._label
                 font.pixelSize: theme.fs(12)
-                color:          row._selected ? Theme.active : Qt.rgba(1, 1, 1, 0.70)
+                color:          row._selected ? Theme.active : Theme.textPrimary
                 anchors.verticalCenter: parent.verticalCenter
-                Behavior on color { ColorAnimation { duration: 100 } }
+                Behavior on color { MotionColor { role: "state" } }
             }
         }
 

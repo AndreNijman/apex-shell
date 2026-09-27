@@ -143,7 +143,7 @@ Row {
                     : appButton.containsMouse
                         ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09)
                         : "transparent"
-                Behavior on color { ColorAnimation { duration: 120 } }
+                Behavior on color { MotionColor { role: "state" } }
 
                 Image {
                     id: appIcon

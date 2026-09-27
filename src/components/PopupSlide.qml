@@ -16,14 +16,14 @@ import "../"
 //       // content
 //   }
 //
-// Usage (hover popup — e.g. AudioPopup):
+// Usage (hover popup — e.g. ArchMenu's strip hover):
 //   PopupSlide {
 //       id: slide
-//       edge: "right"
-//       open: Popups.audioOpen
+//       edge: "left"
+//       open: Popups.archMenuOpen
 //       hoverEnabled:    true
-//       triggerHovered:  Popups.audioTriggerHovered
-//       onCloseRequested: Popups.audioOpen = false
+//       triggerHovered:  Popups.archMenuTriggerHovered
+//       onCloseRequested: Popups.archMenuOpen = false
 //       // content
 //   }
 //

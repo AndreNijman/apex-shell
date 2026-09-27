@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# fake-wl-copy — records what would have been put on the clipboard to
+# $FAKE_WLCOPY_LOG (one line per copy) instead of setting it (UI/UX Phase 21).
+printf 'COPY %s\n' "$(cat)" >> "${FAKE_WLCOPY_LOG:-/dev/null}"
+exit 0
