@@ -131,6 +131,7 @@ for _ in $(seq 1 20); do grep -q 'bbb-second.png' "$SETTER_LOG" && break; sleep 
 grep -q 'img .*bbb-second.png' "$SETTER_LOG" \
     && ok "Tab ×6 to the wallpaper strip, Right, Return: the setter was told the second wallpaper" \
     || bad "the wallpaper strip by keyboard — the setter was told: $(tr '\n' '|' < "$SETTER_LOG")"
+# shellcheck disable=SC2088  # "~/.curr_wall" is prose in the verdicts, not a path
 [ "$(readlink "$HOME/.curr_wall" 2>/dev/null)" = "$HOME/Pictures/Wallpapers/bbb-second.png" ] \
     && ok "and ~/.curr_wall points at it" || bad "~/.curr_wall is $(readlink "$HOME/.curr_wall" 2>/dev/null || echo unset)"
 ipc nexus close; sleep 1

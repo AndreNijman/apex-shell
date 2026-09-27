@@ -128,14 +128,14 @@ below_goal="$(awk '$1 != "unmeasured" && $3 == 0 && $1 < 32' <<<"$report")"
 n_below="$(grep -c . <<<"$below_goal")"
 
 [ -z "$under_floor" ] && ok "no button under 24 px ($measured measured, $unmeasured sized by bindings)" \
-    || bad "under the 24 px floor:$(printf '\n        %s' $(awk '{print $2"="$1"px"}' <<<"$under_floor"))"
+    || bad "under the 24 px floor:$(awk '{printf "\n        %s=%spx", $2, $1}' <<<"$under_floor")"
 
 if [ "$n_below" -eq "$EXPECT_BELOW_GOAL" ]; then
     ok "$n_below outside the bar under hitMin (32 px), unchanged"
 elif [ "$n_below" -lt "$EXPECT_BELOW_GOAL" ]; then
     bad "under hitMin dropped to $n_below; lower EXPECT_BELOW_GOAL to $n_below"
 else
-    bad "under hitMin rose to $n_below from $EXPECT_BELOW_GOAL:$(printf '\n        %s' $(awk '{print $2"="$1"px"}' <<<"$below_goal"))"
+    bad "under hitMin rose to $n_below from $EXPECT_BELOW_GOAL:$(awk '{printf "\n        %s=%spx", $2, $1}' <<<"$below_goal")"
 fi
 
 # ── self-test: the scanner measures code, not prose, in both directions ─────
