@@ -833,6 +833,14 @@ function notchExtrudeField(p, g) {
     var hw = CHW - (CHW - b0) * (1 - gW) + (B > 1 ? softCap((CHW - b0) * (B - 1), 3) : 0);
     var hh = CHH - (CHH - b0) * (1 - gH) + (B > 1 ? softCap((CHH - b0) * (B - 1), 3) : 0);
     var top = g.card.y - (g.card.y - (cyB - b0)) * (1 - gT);
+    // Closing, the notch recovers the material (Andre, 2026-09-27: "sides
+    // draw inward, the remaining mass climbs"): the trail runs ahead of the
+    // body only while it drains, and by that much the mass rises and its
+    // sides draw in — a few dozen pixels at most, nothing opening, nothing
+    // at rest.
+    var lag = Math.max(0, N - Bc);
+    top -= 0.25 * gap * lag;
+    hw -= 0.25 * (hw - b0) * lag;
     var cy = top + hh, cx = cardCX - (cardCX - g.cx) * (1 - Bc);
     // Corners: organic while it moves, architectural when it settles
     // (Andre, 2026-09-27): fully round while it is a bulb, broad and soft

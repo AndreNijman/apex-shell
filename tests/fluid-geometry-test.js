@@ -567,12 +567,12 @@ function liquidSweep(name, fn, g, contact, caps) {
     const dg = { cx: 960, notchW: 300, notchH: 40, notchBottom: 14,
                  card: { x: 500, y: 230, w: 920, h: 620 }, r: 28 };
     const at = (w, d, n, g) => G.notchExtrudeField(0, Object.assign({}, g || dg, { ch: { w: w, d: d, n: n } }));
-    // As Nexus.qml wires its lifecycle: the hero open (the body at 0.88 of
+    // As Nexus.qml wires its lifecycle: the hero open (the body at 0.98 of
     // it, damping 0.85), the morphEnter close, the spread once the extrusion
-    // is at 0.25, the mass drawn up once the window is at 0.2, the neck
+    // is at 0.2, the mass drawn up once the window is at 0.2, the neck
     // trailing at 0.38.
     const DP = Object.assign({}, LP, { enter: MJ.BASE.hero / 1000, exit: MJ.BASE.morphEnter / 1000,
-                                       bodyIn: 0.88, bodyZ: 0.85, trail: 0.38, openRel: 0.25, closeRel: 0.2 });
+                                       bodyIn: 0.98, bodyZ: 0.85, trail: 0.38, openRel: 0.2, closeRel: 0.2 });
     const RUNS = Object.assign({}, SCRIPTS, {
         "reversed at a quarter of the open":        [[0, true], [0.07, false], [1.2, null]],
         "reversed half-way through the open":       [[0, true], [0.16, false], [1.2, null]],
@@ -727,6 +727,27 @@ function liquidSweep(name, fn, g, contact, caps) {
     check("closing: the neck reaches the window before the mass is drawn up", reconnected);
     check("closing: the mass is drawn up on its neck, never cut loose", released && lost.length === 0, lost.slice(0, 4).join(", "));
     check("closing: the window contracts toward its top, never falls", fell.length === 0, fell.slice(0, 4).join(", "));
+    // And the notch recovers it: the mass only climbs. Through the close
+    // the body's centre never moves down, and the closing lift puts it
+    // higher than the same channels would without it (the trail ahead of
+    // the body is what lifts it; opening, the trail is behind and there is
+    // no lift at all).
+    let sank = [], prevCy = null, lifted = 0, openLift = 0;
+    frames.forEach(fr => {
+        const f = at(fr.lead, fr.body, fr.trail), p = f.params;
+        const noLift = at(fr.lead, fr.body, Math.min(fr.trail, fr.body)).params;
+        // (the frame AT 1.6 is the close's first: liquidRun steps, then flips)
+        if (fr.t < 1.6 - 1e-6) { openLift = Math.max(openLift, Math.abs(p.cy - noLift.cy)); prevCy = null; return; }
+        if (p.hw <= 0 || p.form < 0.99) return;
+        if (prevCy !== null && p.cy > prevCy + 0.01) sank.push(fr.t.toFixed(3));
+        prevCy = p.cy;
+        lifted = Math.max(lifted, noLift.cy - p.cy);
+    });
+    check("closing: the mass only climbs, and higher than it would without the lift",
+          sank.length === 0 && lifted > 10, "sank at " + sank.slice(0, 3).join(", ") + "; lift " + lifted.toFixed(1) + " px");
+    // (the open's own settle — a whisper of undershoot after its overshoot —
+    // can put the trail a hundred-thousandth ahead: thousandths of a pixel)
+    check("opening: no lift (under a hundredth of a pixel)", openLift < 0.01, openLift.toFixed(4));
     // A jump, as the parameter audit above defines one: fast is not the
     // fault — the neck thins "rapidly" by design — a discontinuity is, and it
     // has a signature speed does not: at 1200 Hz a continuous parameter's

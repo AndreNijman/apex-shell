@@ -96,11 +96,14 @@ PanelWindow {
         // The spread starts as the neck comes out with its bulb; on the way
         // out the mass is drawn up once the window has gone into it (the neck
         // is whole long before: geometry.js notchExtrudeField).
-        openRelease:   0.25
+        openRelease:   0.2
         closeRelease:  0.2
-        // The body a little slower and calmer than a morph's (response 0.56 s,
-        // under the hero beat; a whisper of overshoot, capped at 3 px).
-        bodyIn:        0.88
+        // The body a little slower and calmer than a morph's (response 0.63 s,
+        // under the hero beat; a whisper of overshoot, capped at 3 px). It
+        // starts a touch early and forms over ~11 % more time than it did, so
+        // the width opens progressively instead of a skinny shape suddenly
+        // going wide (Andre, 2026-09-27) — the first response is unchanged.
+        bodyIn:        0.98
         bodyDamping:   0.85
         // The neck follows the spread closely: thinning as the window forms,
         // gone by ~520 ms, not dangling the finished window for longer.
