@@ -77,6 +77,24 @@ Item {
             verify(ring.visible, "the ring is not drawn for keyboard focus")
         }
 
+        // :focus-visible (2026-09-27). Focus a surface sets as it opens is not
+        // the user's: no ring until they use the keyboard — "the selection
+        // circle shows when using mouse navigation", Andre.
+        function test_045_focus_set_by_code_lights_no_ring_until_a_key() {
+            InputModality.surfaceOpened()           // a surface opening
+            btn.forceActiveFocus()                  // …and focusing its first control itself
+            verify(btn.activeFocus, "forceActiveFocus did not focus the control")
+            verify(btn.focusVisible, "the control itself still reports keyboard-style focus")
+            verify(!ring.visible, "the ring lit for focus the user never gave")
+            keyClick(Qt.Key_Tab); keyClick(Qt.Key_Backtab)
+            verify(btn.activeFocus, "Backtab did not come back to the control")
+            verify(InputModality.keyboard, "Tab did not count as keyboard use")
+            verify(ring.visible, "the first key did not bring the ring back")
+            mouseClick(btn, 50, 16)
+            verify(!InputModality.keyboard, "a pointer press did not count as pointer use")
+            verify(!ring.visible, "the ring stayed after a pointer press")
+        }
+
         function test_050_space_and_return_activate_and_replay_the_dip() {
             btn.forceActiveFocus()
             const before = fixture.clicks

@@ -5,6 +5,7 @@ import "../shapes/fluid"
 import "../components"
 import "../services/"
 import "../"
+import "../components/controls"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RightPanel — what pours out of the right notch (UI/UX roadmap v3 Phase 9,
@@ -34,9 +35,11 @@ import "../"
 //   * Changing pane while the panel is up keeps the body open: the width and
 //     depth retarget over a page beat and the panes cross-fade.
 //
-// The window is sized once for the largest pane; its input region is the body
-// while open and nothing while it closes, so a closing panel never eats the
-// click that follows it.
+// The window spans the screen. While a pane the user opened is up, its input
+// region is ALL of it: the body takes its own clicks and a click anywhere else
+// closes the pane (see `grabbing`). For a toast it is the body alone, and
+// nothing while it closes, so a closing panel never eats the click that
+// follows it.
 // ─────────────────────────────────────────────────────────────────────────────
 PanelWindow {
     id: root
@@ -76,24 +79,47 @@ PanelWindow {
 
     // y = 0 is the screen top: the band is drawn over the bar's strip, and
     // the seam (the notch's bottom edge) is at y = notchHeight.
-    anchors.top:   true
-    anchors.right: true
+    anchors.top:    true
+    anchors.right:  true
+    anchors.left:   true
+    anchors.bottom: true
 
     exclusionMode: ExclusionMode.Ignore
     color:         "transparent"
 
     WlrLayershell.layer:         WlrLayer.Overlay
-    // The keyboard while a pane the user opened is up, never for a toast (it
-    // arrives unasked). It was the network pane only, and OnDemand — which a
+    // A pane the user opened holds the keyboard, never a toast (it arrives
+    // unasked). It was the network pane only, and OnDemand — which a
     // compositor may grant only on a click — so the audio pane and the centre
     // took no key at all, not even Escape (UI/UX Phase 21).
-    WlrLayershell.keyboardFocus: root.life.open && root.pane !== "" && root.pane !== "toast"
-                                 ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    // Escape for the panes with nothing focused of their own (the network pane
-    // takes focus itself and handles it).
+    //
+    // And while it does, it must also catch the click outside itself. Hyprland
+    // pins the POINTER to a layer surface holding exclusive keyboard focus, so
+    // the dismiss layer underneath (PopupDismiss) never saw that click: the
+    // Wi-Fi and notification panes could not be closed at all (Andre,
+    // 2026-09-27: "when i open anything from right notch … i cant close it").
+    // One condition drives both, so the grab and the catcher cannot disagree.
+    readonly property bool grabbing: root.life.open && root.pane !== "" && root.pane !== "toast"
+    WlrLayershell.keyboardFocus: root.grabbing ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+
+    // Outside the body: a click there closes the pane. Lowest in the stack.
+    MouseArea {
+        id: outside
+        anchors.fill: parent
+        enabled: root.grabbing
+        acceptedButtons: Qt.AllButtons
+        onClicked: Popups.closeAll()
+    }
+
+    // Holds the keyboard when the pane opens, whichever pane: Escape closes.
+    // A pane's own controls take the focus once the user Tabs into them or
+    // clicks one, and their Escape still goes first (the network pane's
+    // sub-pages). Starting here, rather than inside a pane, also keeps a focus
+    // ring off the pane until the keyboard is actually used.
     Item {
-        focus: root.life.open && root.pane !== "network"
+        focus: root.grabbing
         Keys.onEscapePressed: Popups.closeAll()
+        Keys.onPressed: function (event) { InputModality.key(event); event.accepted = false }
     }
 
     visible: root.life.mapped
@@ -139,12 +165,6 @@ PanelWindow {
         MotionMove { id: dMove; target: root; property: "targetD"; role: "page"; curve: Motion.standard }
     }
 
-    // The window: wide enough for the widest pane plus the band's shoulder,
-    // deep enough for the bar, the deepest pane and the fillet into the strip.
-    implicitWidth:  Math.max(theme.networkPopupWidth, theme.notificationsWidth,
-                             theme.notificationToastWidth, theme.rNotchMaxWidth)
-                    + theme.notchRadius + theme.notchShoulder
-    implicitHeight: theme.notchHeight + Math.max(root.networkDepth, theme.px(700)) + theme.radiusL
 
     // ── Body ────────────────────────────────────────────────────────────────
     // Under Reduce Motion a close holds the finished shape and fades it. The
@@ -187,11 +207,25 @@ PanelWindow {
         }
     }
 
-    mask: Region { item: root.life.open ? hit : null }
+    mask: Region { item: root.grabbing ? outside : root.life.open ? hit : null }
     Item {
         id: hit
         x: body.result.bounds.x; y: body.result.bounds.y
         width: body.result.bounds.w; height: body.result.bounds.h
+        // The body keeps its own clicks from the catcher beneath it.
+        MouseArea {
+            anchors.fill: parent
+            enabled: root.grabbing
+            acceptedButtons: Qt.AllButtons
+        }
+        // The band over the notch: clicking the notch again closes the pane,
+        // as it would have had the bar been on top.
+        MouseArea {
+            width: parent.width
+            height: Math.max(0, theme.notchHeight - parent.y)
+            enabled: root.grabbing
+            onClicked: Popups.closeAll()
+        }
     }
 
     // ── Content, at its finished layout, revealed by the body's clip ────────
@@ -238,6 +272,7 @@ PanelWindow {
         // anything inside a pane takes it (measured on ArchMenu). A pane that
         // handles Escape itself (the network pane's sub-pages) still does first.
         Keys.onEscapePressed: Popups.closeAll()
+        Keys.onPressed: function (event) { InputModality.key(event); event.accepted = false }
 
         Item {
             id: content

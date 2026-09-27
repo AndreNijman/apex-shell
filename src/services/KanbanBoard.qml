@@ -588,6 +588,7 @@ Item {
                             Accessible.name: colItem.cLabel
                             onActiveFocusChanged: if (activeFocus && colItem._idList().indexOf(colItem._curId) < 0) colItem._stepCard(1)
                             Keys.onPressed: function (event) {
+                                InputModality.key(event)
                                 if      (event.key === Qt.Key_Down) colItem._stepCard(1)
                                 else if (event.key === Qt.Key_Up)   colItem._stepCard(-1)
                                 else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
@@ -766,6 +767,7 @@ Item {
                     root.pickerDay   = t.getDate()
                 }
                 Keys.onPressed: function (event) {
+                    InputModality.key(event)
                     const dim = new Date(root.pickerYear, root.pickerMonth + 1, 0).getDate()
                     const d   = root.pickerDay > 0 ? root.pickerDay : dayGrid.cursorDay
                     const k   = event.key
@@ -838,7 +840,7 @@ Item {
                             anchors.centerIn: parent
                             width: Math.min(dayGrid.cW, dayGrid.cH) + 2; height: width; radius: width / 2
                             color: "transparent"; border.width: 2; border.color: Theme.accentText
-                            visible: dayGrid.activeFocus && dayBtn.modelData.cur && dayBtn.modelData.n === dayGrid.cursorDay
+                            visible: dayGrid.activeFocus && dayBtn.modelData.cur && dayBtn.modelData.n === dayGrid.cursorDay && InputModality.keyboard
                         }
                     }
                 }
@@ -1192,7 +1194,7 @@ Item {
                 anchors.fill: parent; anchors.margins: -3
                 radius: cardBg.radius + 3
                 color: "transparent"; border.width: 2; border.color: Theme.accentText
-                visible: card.keyed && card.col !== null && card.col.flick.activeFocus
+                visible: card.keyed && card.col !== null && card.col.flick.activeFocus && InputModality.keyboard
             }
 
             // Drag direction tint

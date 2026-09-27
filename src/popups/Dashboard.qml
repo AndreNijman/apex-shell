@@ -9,6 +9,7 @@ import "../modules/Center/"
 import '../services/'
 import "../shapes/fluid/geometry.js" as Geo
 import "../"
+import "../components/controls"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Dashboard — the centre notch, grown into the shell's workspace.
@@ -369,6 +370,7 @@ PanelWindow {
                     }
 
                     Keys.onEscapePressed: Popups.dashboardOpen = false
+                    Keys.onPressed: function (event) { InputModality.key(event); event.accepted = false }
                 }
             }
         }

@@ -388,7 +388,7 @@ Item {
             anchors.fill: parent; anchors.margins: -3
             radius: theme.cornerRadius + 3
             color: "transparent"; border.width: 2; border.color: Theme.accentText
-            visible: dRow.keyed && devFlick.activeFocus
+            visible: dRow.keyed && devFlick.activeFocus && InputModality.keyboard
         }
 
         Item {
@@ -713,6 +713,7 @@ Item {
             Accessible.name: "Bluetooth devices"
             onActiveFocusChanged: if (activeFocus && root._rowMacs.indexOf(root._curMac) < 0) root._stepRow(1)
             Keys.onPressed: function (event) {
+                InputModality.key(event)
                 if      (event.key === Qt.Key_Down) root._stepRow(1)
                 else if (event.key === Qt.Key_Up)   root._stepRow(-1)
                 else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {

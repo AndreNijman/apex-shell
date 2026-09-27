@@ -7,6 +7,7 @@ import "../shapes/fluid"
 import "../components"
 import "../shapes/fluid/geometry.js" as Geo
 import "../"
+import "../components/controls"
 
 PanelWindow {
     id: root
@@ -18,13 +19,13 @@ PanelWindow {
     readonly property int fw: theme.cornerRadius
     readonly property int fh: theme.cornerRadius
 
+    // The whole screen, so that while it holds the keyboard it can also catch
+    // the click outside itself (see `grabbing`); its shape is measured from the
+    // right and bottom edges, which have not moved.
     anchors.right:  true
     anchors.bottom: true
-
-    // The finished sheet, its fillets into both strips, and a few pixels for
-    // the swell a liquid open passes through before it settles.
-    implicitWidth:  popupWidth  + fw + theme.borderWidth + 6
-    implicitHeight: popupHeight + fh + theme.borderWidth + 6
+    anchors.top:    true
+    anchors.left:   true
 
     exclusionMode: ExclusionMode.Ignore
     color:         "transparent"
@@ -33,15 +34,30 @@ PanelWindow {
     // The keyboard while it is open (UI/UX Phase 21): it was OnDemand, which a
     // compositor may grant only on a click — measured, typed keys reached
     // nothing — and it had no Escape of its own.
-    WlrLayershell.keyboardFocus: Popups.clipboardOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    //
+    // Holding it, it must catch the click outside itself too: Hyprland pins the
+    // pointer to a layer surface with exclusive keyboard focus, so the dismiss
+    // layer (PopupDismiss) never saw that click (2026-09-27, found with the
+    // right-notch panes).
+    readonly property bool grabbing: Popups.clipboardOpen
+    WlrLayershell.keyboardFocus: root.grabbing ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    MouseArea {
+        id: outside
+        anchors.fill: parent
+        enabled: root.grabbing
+        acceptedButtons: Qt.AllButtons
+        onClicked: Popups.closeAll()
+    }
 
-    mask: Region { item: maskProxy }
+    mask: Region { item: root.grabbing ? outside : maskProxy }
     Item {
         id: maskProxy
         x:      body.result.bounds.x
         y:      body.result.bounds.y
         width:  body.result.bounds.w
         height: body.result.bounds.h
+        // The body keeps its own clicks from the catcher beneath it.
+        MouseArea { anchors.fill: parent; enabled: root.grabbing; acceptedButtons: Qt.AllButtons }
     }
 
     // On the shared lifecycle (UI/UX roadmap v3 Phase 21): the sheet grows out
@@ -109,6 +125,7 @@ PanelWindow {
             // and before any Tab: it holds focus itself when the popup opens.
             focus: true
             Keys.onEscapePressed: Popups.clipboardOpen = false
+            Keys.onPressed: function (event) { InputModality.key(event); event.accepted = false }
             // Window coordinates, whatever the clip is doing.
             x: root.riseGeometry.x1 - root.popupWidth + 10 - reveal.x
             y: root.riseGeometry.y1 - root.popupHeight + 8 - reveal.y

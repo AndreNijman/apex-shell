@@ -66,6 +66,7 @@ Item {
 		if (root.model[i].key !== root.currentPage) root.pageChanged(root.model[i].key)
 	}
 	Keys.onPressed: function(event) {
+		InputModality.key(event)
 		var horizontal = root.orientation === "horizontal"
 		// A mirrored (right-to-left) row runs the other way under the arrows.
 		var flip = horizontal && root.LayoutMirroring.enabled ? -1 : 1
@@ -349,6 +350,7 @@ Item {
 				// an icon is still clicked anywhere in its sixth of the bar.
 				MouseArea {
 					anchors.fill: parent
+					onPressed:    InputModality.pointer()
 					onClicked:    root.pageChanged(modelData.key)
 				}
 			}
@@ -543,6 +545,7 @@ Item {
 					HoverHandler { id: vHov; cursorShape: Qt.PointingHandCursor }
 					MouseArea {
 						anchors.fill: parent
+						onPressed:    InputModality.pointer()
 						onClicked:    root.pageChanged(modelData.key)
 					}
 				}

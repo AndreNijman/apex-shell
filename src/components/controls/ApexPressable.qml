@@ -92,6 +92,7 @@ Item {
 
     // Space / Return: the same dip, then the action — never a delayed one.
     Keys.onPressed: function (event) {
+        InputModality.key(event)
         if (!root.interactive) return
         if (event.key === Qt.Key_Space || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             root._pointerFocus = false
@@ -115,6 +116,7 @@ Item {
         anchors.margins: -root.hitMargin
         enabled: root.interactive
         onPressed: {
+            InputModality.pointer()
             if (root.focusOnPress) {
                 root._pointerFocus = true
                 root.forceActiveFocus()

@@ -49,6 +49,7 @@ Item {
         return 0
     }
     Keys.onPressed: function(event) {
+        InputModality.key(event)
         if      (event.key === Qt.Key_Down) root._stepTo(root._index() + 1)
         else if (event.key === Qt.Key_Up)   root._stepTo(root._index() - 1)
         else if (event.key === Qt.Key_Home) root._stepTo(0)
@@ -261,6 +262,7 @@ Item {
 
                     MouseArea {
                         anchors.fill: parent
+                        onPressed: InputModality.pointer()
                         onClicked: root.pageSelected(row.modelData.id)
                     }
                 }

@@ -184,6 +184,8 @@ PanelWindow {
     readonly property SurfaceLifecycle rightLife: SurfaceLifecycle {
         name: "right-panel"
         open:          root.rightWanted !== "" && root.rightHostReady
+        // A toast arrives unasked and takes no focus.
+        resetsFocusRing: root.rightWanted !== "toast"
         // A morph out of a notch, the same class as the Dashboard's bloom. Liquid:
         // the right edge drops first, the body pours left after it, the front
         // thins and its corner rounds out with its speed. It waits for the

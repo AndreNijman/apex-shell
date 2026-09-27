@@ -1,5 +1,6 @@
 import QtQuick
 import "../"
+import "controls"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SurfaceLifecycle — Closed → Opening → Open → Closing, driven by springs.
@@ -465,8 +466,17 @@ QtObject {
         }
     }
 
+    // Opening a surface hides focus rings until the keyboard is used again:
+    // whatever focus a surface sets on its way in is its own doing, not the
+    // user's (InputModality). Off for what arrives unasked and takes no focus
+    // (a toast, the OSD), so it cannot hide a keyboard user's ring elsewhere.
+    property bool resetsFocusRing: true
+
     onOpenChanged: {
-        if (life.open) life._openedAt = Date.now()
+        if (life.open) {
+            life._openedAt = Date.now()
+            if (life.resetsFocusRing) InputModality.surfaceOpened()
+        }
         life._drive()
     }
     Component.onCompleted: if (life.open) { life._openedAt = Date.now(); life._drive() }

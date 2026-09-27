@@ -159,6 +159,7 @@ PanelWindow {
         focus: true
 
         Keys.onEscapePressed: NexusState.close()
+        Keys.onPressed: function (event) { InputModality.key(event); event.accepted = false }
 
         // Depth (UI/UX Phase 18b): the modal level. The scrim says the sheet is
         // modal; nothing said it was in front — on the light scheme the sheet sat

@@ -6,6 +6,7 @@ import "../shapes/fluid/geometry.js" as Geo
 import "../services"
 import "../components"
 import "../"
+import "../components/controls"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ArchMenu — the power menu, out of the left screen strip
@@ -21,12 +22,13 @@ import "../"
 // revealed by the body's clip; a page change retargets width and height over a
 // page beat.
 //
-// A PanelWindow with the left strip's own extent, on the Overlay layer. It was
-// a PopupWindow of the strip, placed by an anchor rectangle, sized to the
+// A PanelWindow on the Overlay layer, spanning the screen. It was a
+// PopupWindow of the strip, placed by an anchor rectangle, sized to the
 // largest page so its input region could not leave the surface (labwc clips
 // such a region strictly and the menu then ignored every click; see
-// tests/labwc-matrix-test.qml). Its input region is the body's bounds while
-// open and nothing while it closes.
+// tests/labwc-matrix-test.qml). While open its input region is the whole
+// window — the body takes its clicks, a click anywhere else closes it (see
+// `grabbing`) — and while it closes it is nothing.
 // ─────────────────────────────────────────────────────────────────────────────
 PanelWindow {
 	id: root
@@ -71,12 +73,15 @@ PanelWindow {
 		return theme.px(m)
 	}
 
+	// The whole screen, so that while it holds the keyboard it can also catch
+	// the click outside itself (see `grabbing`). It used to span the left strip
+	// between the bar and the bottom corner; that band's middle is still where
+	// it centres (midY).
 	anchors.top:    true
 	anchors.bottom: true
 	anchors.left:   true
-	margins.top:    theme.notchHeight
-	margins.bottom: theme.cornerRadius
-	implicitWidth:  theme.borderWidth + root.inL + root.maxPageWidth + root.pad + root.fw
+	anchors.right:  true
+	readonly property real midY: theme.notchHeight + (root.height - theme.notchHeight - theme.cornerRadius) / 2
 
 	exclusionMode: ExclusionMode.Ignore
 	color:         "transparent"
@@ -84,10 +89,24 @@ PanelWindow {
 	// The keyboard while it is open (UI/UX Phase 21): it took none, so its
 	// power rows — ApexPressable, Tab-ready — could not be reached, and on labwc
 	// (where PopupDismiss stands aside for it) nothing closed it but a click.
-	WlrLayershell.keyboardFocus: Popups.archMenuOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+	//
+	// Holding it, it must catch the click outside itself too: Hyprland pins the
+	// pointer to a layer surface with exclusive keyboard focus, so the dismiss
+	// layer (PopupDismiss) never saw that click and the menu could not be
+	// closed by one (2026-09-27, found with the right-notch panes).
+	readonly property bool grabbing: Popups.archMenuOpen
+	WlrLayershell.keyboardFocus: root.grabbing ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+	MouseArea {
+		id: outside
+		anchors.fill: parent
+		enabled: root.grabbing
+		acceptedButtons: Qt.AllButtons
+		onClicked: Popups.closeAll()
+	}
 	Item {
 		focus: Popups.archMenuOpen
 		Keys.onEscapePressed: Popups.archMenuOpen = false
+		Keys.onPressed: function (event) { InputModality.key(event); event.accepted = false }
 	}
 
 	SurfaceLifecycle {
@@ -114,7 +133,7 @@ PanelWindow {
 
 	readonly property var spillGeometry: ({
 		x0: theme.borderWidth,
-		cy: Math.round(root.height / 2),
+		cy: Math.round(root.midY),
 		w:  root.targetW,
 		h:  root.targetH,
 		r:  theme.radiusL,
@@ -153,13 +172,15 @@ PanelWindow {
 		}
 	}
 
-	mask: Region { item: hit }
+	mask: Region { item: root.grabbing ? outside : hit }
 	Item {
 		id: hit
 		x: life.open ? body.result.bounds.x : 0
 		y: life.open ? body.result.bounds.y : 0
 		width:  life.open ? body.result.bounds.w : 0
 		height: life.open ? body.result.bounds.h : 0
+		// The body keeps its own clicks from the catcher beneath it.
+		MouseArea { anchors.fill: parent; enabled: root.grabbing; acceptedButtons: Qt.AllButtons }
 	}
 
 	// ── Content, at its finished layout, revealed by the body's clip ─────────
@@ -171,11 +192,12 @@ PanelWindow {
 		// Keys travel up from the focused row, so Escape lives on an ancestor
 		// of the rows too — the catcher above only has it before any Tab.
 		Keys.onEscapePressed: Popups.archMenuOpen = false
+		Keys.onPressed: function (event) { InputModality.key(event); event.accepted = false }
 
 		Item {
 			// Window coordinates: the finished body, inset.
 			x: theme.borderWidth + root.inL - reveal.x
-			y: Math.round(root.height / 2 - root.contentHeight / 2) - reveal.y
+			y: Math.round(root.midY - root.contentHeight / 2) - reveal.y
 			width:  root.contentWidth
 			height: root.contentHeight
 

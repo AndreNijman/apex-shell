@@ -806,10 +806,17 @@ section("parameter audit self-test");
 section("input masks follow the body");
 {
     const fs = require("fs");
+    // Since 2026-09-27 a popup holding the keyboard masks its whole window
+    // while it does (`root.grabbing ? outside : <body>` — see
+    // tests/check-exclusive-focus.sh); the body's own item is the one that
+    // is not the catcher, and it is what must follow the silhouette.
     const maskFollowsBody = src => {
-        const m = src.match(/mask:\s*Region\s*\{\s*item:[^}]*?\b(\w+)\s*:\s*null\s*\}|mask:\s*Region\s*\{\s*item:\s*(\w+)\s*\}/);
-        const id = m && (m[1] || m[2]);
-        if (!id) return false;
+        const m = src.match(/mask:\s*Region\s*\{\s*item:\s*([^}]*)\}/);
+        if (!m) return false;
+        const declared = new Set([...src.matchAll(/\bid:\s*(\w+)/g)].map(x => x[1]));
+        const ids = (m[1].match(/\b[A-Za-z_]\w*\b/g) || []).filter(x => declared.has(x) && x !== "outside" && x !== "root");
+        if (ids.length !== 1) return false;
+        const id = ids[0];
         const at = src.indexOf("id: " + id);
         if (at < 0) return false;
         const block = src.slice(at, at + 600);

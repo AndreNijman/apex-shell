@@ -18,6 +18,8 @@ Rectangle {
     color: "transparent"
     border.width: 2
     border.color: Theme.accentText
-    visible: ring.target && ring.target.focusVisible === true
+    // Focus the keyboard gave, and the keyboard the last thing used
+    // (InputModality: a surface setting focus as it opens is not the user).
+    visible: ring.target && ring.target.focusVisible === true && InputModality.keyboard
     z: 100
 }

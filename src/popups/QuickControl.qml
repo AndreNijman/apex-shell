@@ -26,9 +26,10 @@ import "../"
 // is now built by the hover itself, and its lifecycle opens from
 // construction, so the hover that builds it also shows it.
 //
-// A PanelWindow with the right strip's own extent (bar bottom to one corner
-// radius above the screen bottom), so the spill centres on the strip's hover
-// zone by construction instead of through a popup anchor rectangle.
+// The spill centres on the right strip's hover zone — the band from the bar's
+// bottom to one corner radius above the screen's (midY) — by construction
+// instead of through a popup anchor rectangle. The window itself spans the
+// screen so it can catch a click outside the panel (see `grabbing`).
 // ─────────────────────────────────────────────────────────────────────────────
 PanelWindow {
     id: root
@@ -42,12 +43,15 @@ PanelWindow {
     readonly property int popupWidth:  theme.px(180)
     readonly property int popupHeight: theme.px(300)
 
+    // The whole screen, so that while it holds the keyboard it can also catch
+    // the click outside itself (see `grabbing`). It used to span the right
+    // strip between the bar and the bottom corner; that band's middle is still
+    // where it centres (midY).
     anchors.top:    true
     anchors.bottom: true
     anchors.right:  true
-    margins.top:    theme.notchHeight
-    margins.bottom: theme.cornerRadius
-    implicitWidth:  root.popupWidth + theme.radiusL + theme.borderWidth
+    anchors.left:   true
+    readonly property real midY: theme.notchHeight + (root.height - theme.notchHeight - theme.cornerRadius) / 2
 
     exclusionMode: ExclusionMode.Ignore
     color:         "transparent"
@@ -55,7 +59,28 @@ PanelWindow {
     // The keyboard only when its keybind opened it (Popups.quickOpen): opened
     // by the pointer resting on the edge it must never take the keys from the
     // window being typed into (UI/UX Phase 21).
-    WlrLayershell.keyboardFocus: Popups.quickOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    //
+    // Holding it, it must catch the click outside itself too: Hyprland pins the
+    // pointer to a layer surface with exclusive keyboard focus, so the dismiss
+    // layer (PopupDismiss) never saw that click (2026-09-27, found with the
+    // right-notch panes). Opened by hover it holds no keys and needs no catcher.
+    readonly property bool grabbing: Popups.quickOpen
+    WlrLayershell.keyboardFocus: root.grabbing ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    MouseArea {
+        id: outside
+        anchors.fill: parent
+        enabled: root.grabbing
+        acceptedButtons: Qt.AllButtons
+        onClicked: Popups.closeAll()
+    }
+    // Holds the keyboard when it opens, so Escape has somewhere to land: the
+    // one on the content below only hears it once a slider has focus, and on
+    // open nothing had (Escape did nothing, measured under Hyprland).
+    Item {
+        focus: root.grabbing
+        Keys.onEscapePressed: Popups.quickOpen = false
+        Keys.onPressed: function (event) { InputModality.key(event); event.accepted = false }
+    }
 
     // ── Open state: the flag, or the pointer on the strip or on the panel ────
     property bool _selfHovered: false
@@ -148,7 +173,7 @@ PanelWindow {
             geometry: ({
                 x1:    root.width - theme.borderWidth,
                 edgeW: theme.borderWidth,
-                cy:    Math.round(root.height / 2),
+                cy:    Math.round(root.midY),
                 w:     root.popupWidth,
                 h:     root.popupHeight,
                 r:     theme.radiusL,
@@ -157,7 +182,7 @@ PanelWindow {
         }
     }
 
-    mask: Region { item: hit }
+    mask: Region { item: root.grabbing ? outside : hit }
     Item {
         id: hit
         x: life.open ? body.result.bounds.x : 0
@@ -165,6 +190,8 @@ PanelWindow {
         width:  life.open ? body.result.bounds.w : 0
         height: life.open ? body.result.bounds.h : 0
         HoverHandler { onHoveredChanged: root._selfHovered = hovered }
+        // The body keeps its own clicks from the catcher beneath it.
+        MouseArea { anchors.fill: parent; enabled: root.grabbing; acceptedButtons: Qt.AllButtons }
     }
 
     // ── Content, at its finished layout, revealed by the body's clip ─────────
@@ -175,12 +202,13 @@ PanelWindow {
         clip: true
         // An ancestor of every slider, so Escape reaches it from whichever has focus.
         Keys.onEscapePressed: Popups.quickOpen = false
+        Keys.onPressed: function (event) { InputModality.key(event); event.accepted = false }
 
         Item {
             id: sizer
             // Window coordinates: the finished body.
             x: root.width - theme.borderWidth - root.popupWidth - reveal.x
-            y: Math.round(root.height / 2 - root.popupHeight / 2) - reveal.y
+            y: Math.round(root.midY - root.popupHeight / 2) - reveal.y
             width:  root.popupWidth
             height: root.popupHeight
 

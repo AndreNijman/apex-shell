@@ -203,6 +203,7 @@ Item {
                 Accessible.name: "Clipboard history"
                 onActiveFocusChanged: if (activeFocus && root._entryIds.indexOf(root._curId) < 0) root._stepEntry(1)
                 Keys.onPressed: function (event) {
+                    InputModality.key(event)
                     if      (event.key === Qt.Key_Down) root._stepEntry(1)
                     else if (event.key === Qt.Key_Up)   root._stepEntry(-1)
                     else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
@@ -377,7 +378,7 @@ component ClipRow: Item {
             anchors.fill: parent; anchors.margins: 2
             radius: Math.max(card.radius - 2, 0)
             color: "transparent"; border.width: 2; border.color: Theme.accentText
-            visible: row.keyed && mainList.activeFocus
+            visible: row.keyed && mainList.activeFocus && InputModality.keyboard
         }
 
         // ── Inner layout ──────────────────────────────────────────────────────

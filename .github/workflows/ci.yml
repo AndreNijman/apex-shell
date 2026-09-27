@@ -233,6 +233,17 @@ jobs:
           pacman -S --needed --noconfirm qt6-shadertools
           ./tests/check-shaders.sh
 
+      - name: A surface holding the keyboard catches the click outside it
+        run: |
+          # Hyprland pins the pointer to a layer surface with exclusive
+          # keyboard focus; a small popup holding it swallowed every click
+          # outside itself, and the Wi-Fi, notification and audio panes, the
+          # power menu, quick controls and the clipboard could not be closed
+          # by one (2026-09-27). labwc does not pin, so no headless suite saw
+          # it. Every such surface is discovered and must be fullscreen with an
+          # input region covering it while it holds the keyboard.
+          ./tests/check-exclusive-focus.sh
+
       - name: Firewall surface logic
         run: |
           # P1-044. Drives src/services/firewall.js — the file the shell loads

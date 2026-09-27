@@ -613,6 +613,7 @@ Item {
             Accessible.name: "VPN connections"
             onActiveFocusChanged: if (activeFocus && root._rowKeys.indexOf(root._curKey) < 0) root._stepRow(1)
             Keys.onPressed: function (event) {
+                InputModality.key(event)
                 if      (event.key === Qt.Key_Down) root._stepRow(1)
                 else if (event.key === Qt.Key_Up)   root._stepRow(-1)
                 else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
@@ -749,7 +750,7 @@ Item {
                         anchors.fill: parent; anchors.margins: -3
                         radius: theme.cornerRadius + 3
                         color: "transparent"; border.width: 2; border.color: Theme.accentText
-                        visible: sbRow.keyed && flick.activeFocus
+                        visible: sbRow.keyed && flick.activeFocus && InputModality.keyboard
                     }
 
                     Row {
@@ -886,7 +887,7 @@ Item {
             anchors.fill: parent; anchors.margins: -3
             radius: theme.cornerRadius + 3
             color: "transparent"; border.width: 2; border.color: Theme.accentText
-            visible: vRow.keyed && flick.activeFocus
+            visible: vRow.keyed && flick.activeFocus && InputModality.keyboard
         }
 
         Row {

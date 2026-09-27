@@ -116,7 +116,7 @@ echo "passed=$n_pass failed=$n_fail"
 # reads names CfgRow supplies; a fixture that found none would simply be quiet,
 # and a floor would let a dropped test function hide behind an added one.
 # QtTest's total is initTestCase + the test functions + cleanupTestCase.
-EXPECT_TESTS=10  # 8 + initTestCase/cleanupTestCase
+EXPECT_TESTS=11  # 9 + initTestCase/cleanupTestCase
 n_ran=$(( n_pass + n_fail ))
 if [[ "$n_ran" -ne "$EXPECT_TESTS" ]]; then
     echo "RESULT: $n_ran test functions ran, expected $EXPECT_TESTS"

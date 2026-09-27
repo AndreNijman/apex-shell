@@ -27,6 +27,9 @@ trap cleanup EXIT INT TERM
 
 mkdir -p "$stage/components"
 cp "$root/src/components/SurfaceLifecycle.qml" "$root/src/components/Spring.qml" "$stage/components/"
+# The lifecycle resets the focus-ring modality when a surface opens
+# (components/controls/InputModality), so the controls directory comes too.
+cp -r "$root/src/components/controls" "$stage/components/controls"
 cp "$here/surface-lifecycle-test.qml" "$stage/"
 : > "$stage/qmldir"
 

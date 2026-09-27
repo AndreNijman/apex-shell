@@ -1,4 +1,5 @@
 import QtQuick
+import "../controls"
 import "../../"
 
 // Horizontal slider with a monospace readout on the right.
@@ -65,6 +66,7 @@ Item {
     }
 
     Keys.onPressed: function(event) {
+        InputModality.key(event)
         root._pointerFocus = false
         switch (event.key) {
         case Qt.Key_Left:
@@ -156,7 +158,7 @@ Item {
             border.width:    2
             border.color:    Theme.accentText
             // Keyboard focus only: a drag that takes focus lights no ring.
-            visible:         root.activeFocus && !root._pointerFocus
+            visible:         root.activeFocus && !root._pointerFocus && InputModality.keyboard
         }
         MouseArea {
             id: drag

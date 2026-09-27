@@ -231,6 +231,7 @@ Item {
             Accessible.name: "Notifications"
             onActiveFocusChanged: if (activeFocus && root._cardIds.indexOf(root._curId) < 0) root._stepCard(1)
             Keys.onPressed: function (event) {
+                InputModality.key(event)
                 if      (event.key === Qt.Key_Down) root._stepCard(1)
                 else if (event.key === Qt.Key_Up)   root._stepCard(-1)
                 else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
@@ -728,7 +729,7 @@ Item {
         Rectangle {
             anchors.fill: parent; anchors.margins: -2
             color: "transparent"; border.width: 2; border.color: Theme.accentText
-            visible: card.keyed && contentList.activeFocus
+            visible: card.keyed && contentList.activeFocus && InputModality.keyboard
         }
     }
 }
