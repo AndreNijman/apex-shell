@@ -4,20 +4,24 @@ import "./src/services"
 import "./src/popups"
 import "./src"
 
-// OSD harness (tests/visual/osd-harness.sh): the REAL Osd on the first output,
-// driven through its own _trigger — the headless session has no PipeWire and no
-// backlight to do it — so its CAPSULE motion can be captured. Prints a
-// "TRIGGER <name> <epoch ms>" line at each step; the runner bursts frames from it.
+// OSD harness (tests/visual/osd-harness.sh): the REAL Osd capsule on the first
+// output, driven through OsdState._trigger — the headless session has no
+// PipeWire and no backlight to do it — so its CAPSULE motion can be captured.
+// Since 2026-09-27 the level shows in the centre notch and the capsule is the
+// fallback for a screen without one; focus mode is set here to take that path.
+// Prints a "TRIGGER <name> <epoch ms>" line at each step; the runner bursts
+// frames from it.
 ShellRoot {
     id: r
     Osd { id: osd; screen: Quickshell.screens[0] }
+    Component.onCompleted: ShellState.focusMode = true
 
     property int step: 0
     Timer {
         interval: 1500; running: true
         onTriggered: {                    // past the OSD's 900 ms boot guard
             console.warn("TRIGGER show " + Date.now())
-            osd._trigger("volume", 0.42, false, "󰕾", "42%")
+            OsdState._trigger("volume", 0.42, false, "󰕾", "42%")
             held.start()
         }
     }
@@ -31,7 +35,7 @@ ShellRoot {
         onTriggered: {
             r.step++
             const v = Math.min(1, 0.42 + r.step * 0.03)
-            osd._trigger("volume", v, false, "󰕾", Math.round(v * 100) + "%")
+            OsdState._trigger("volume", v, false, "󰕾", Math.round(v * 100) + "%")
             if (r.step >= 16) { tick.stop(); console.warn("TRIGGER release " + Date.now()); quit.start() }
         }
     }

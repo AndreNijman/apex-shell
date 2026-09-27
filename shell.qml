@@ -85,7 +85,8 @@ ShellRoot {
                     bottomBorder: bottomBorder
                 }
 
-                // Volume / brightness / mic OSD — transient top-centre pill
+                // Volume / brightness / mic level: in the centre notch now
+                // (TopBar); this capsule is the fallback where that notch cannot show it
                 Osd { screen: modelData }
 
                 // ALT+Tab. One per output, and only the one on the focused

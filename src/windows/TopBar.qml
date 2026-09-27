@@ -134,9 +134,29 @@ PanelWindow {
     readonly property int cWidth: Math.round(root._cW.value)
     readonly property SpringFollower _cW: SpringFollower {
         role: "page"
-        target: Math.max(theme.cNotchMinWidth,
+        target: root.osdHere ? theme.cNotchMaxWidth
+              : Math.max(theme.cNotchMinWidth,
                          Math.min(theme.cNotchMaxWidth, centerContent.implicitWidth + theme.notchPadding * 2))
     }
+
+    // ── The level display, in the notch (2026-09-27) ────────────────────────
+    // Volume, brightness and mic-mute used to show in a capsule floating below
+    // the notch (popups/Osd.qml, now only the fallback for where this notch
+    // cannot take it). Here the notch itself takes it, the way the island
+    // takes anything: it widens to its widest on the same page spring, the
+    // island's item scrolls up out of it and the level scrolls in from below,
+    // one island stride, and back again when it hides. The travel is a spring
+    // (it snaps under Reduce Motion); the cross-fade is an effect (it stays,
+    // shortened).
+    readonly property bool osdHere: OsdState.showing && OsdState.inNotch && !ShellState.focusMode
+    readonly property SpringFollower _osdP: SpringFollower {
+        role: "page"
+        epsilon: 0.002
+        target: root.osdHere ? 1 : 0
+    }
+    property real osdAlpha: root.osdHere ? 1 : 0
+    Behavior on osdAlpha { MotionFade {} }
+    readonly property real _osdStride: theme.px(45)     // the island carousel's item stride
 
     // ── The right notch, and the clock of what pours out of it ──────────────
     // (UI/UX roadmap v3 Phase 9, RIGHT_POUR)
@@ -266,11 +286,26 @@ PanelWindow {
             width:            root.cWidth
             height:           theme.notchHeight
             anchors.centerIn: parent
+            // What scrolls in and out (the island's items, the level) stays
+            // inside the notch.
+            clip:             true
 
             CenterContent {
                 id: centerContent
                 screenName: root.screenName
                 anchors.centerIn: parent
+                opacity: 1 - root.osdAlpha
+                transform: Translate { y: -root._osdP.value * root._osdStride }
+            }
+
+            NotchOsd {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width:   root.cWidth - theme.notchPadding * 2
+                height:  theme.notchHeight
+                y:       (1 - root._osdP.value) * root._osdStride
+                opacity: root.osdAlpha
+                visible: opacity > 0.001
+                settled: root.osdHere && root._osdP.value > 0.85
             }
         }
 

@@ -25,6 +25,7 @@ singleton ShellState state/ShellState.qml
 singleton ClockState state/ClockState.qml
 singleton Time       state/Time.qml
 singleton LockState  state/LockState.qml
+singleton OsdState   state/OsdState.qml
 singleton Compositor state/Compositor.qml
 singleton CompositorService 1.0 services/compositor/CompositorService.qml
 singleton PluginService 1.0 services/plugins/PluginService.qml

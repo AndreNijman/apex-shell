@@ -1,30 +1,19 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Services.Pipewire
 import "../"
 import "../components"
 import "../services"
 
 // ============================================================
-// Osd — transient on-screen-display pill for volume / brightness
-// (and mic-mute). Floats top-centre just below the notch, shows
-// briefly on a hardware-key change, then auto-hides.
+// Osd — the volume / brightness / mic level as a floating capsule, for where
+// the centre notch cannot show it (2026-09-27). The notch is where it lives
+// now (modules/Center/NotchOsd.qml in TopBar); OsdState decides what shows.
+// This one opens only on a screen whose notch is gone or empty — a fullscreen
+// window unmaps the bar, focus mode empties it — or while the Dashboard or
+// the Nexus is pouring out of the centre notch (OsdState.inNotch false).
 //
 // One instance per screen (created in shell.qml's Variants delegate).
-//
-// Change detection
-//   • volume / mute → Pipewire.defaultAudioSink.audio {volume,muted}
-//   • brightness    → BrightnessService.changedExternally, which is
-//                     driven by inotify on the backlight sysfs
-//                     `brightness` file (fires on every write, incl.
-//                     hardware keys via brightnessctl). No polling, and
-//                     the shell's own slider writes do not raise it.
-//   • mic-mute      → Pipewire.defaultAudioSource.audio.muted
-//
-// Startup is suppressed two ways: a short boot-grace timer AND a
-// per-channel "primed" step that swallows the first settled value.
 // ============================================================
 
 PanelWindow {
@@ -73,172 +62,15 @@ PanelWindow {
         contentOut:    Motion.state
     }
 
-    // ── Live display state ────────────────────────────────────
-    property string kind:    "volume"   // "volume" | "brightness" | "mic"
-    property real   value:   0.0         // 0..1 bar fill
-    property bool   muted:   false
-    property string glyph:   ""
-    property string label:   ""
-    property bool   showing: false
-
-
-    // ── Startup suppression ───────────────────────────────────
-    property bool _booting: true
-    Timer { id: bootGuard; interval: 900; onTriggered: root._booting = false }
-
-    function _blocked() {
-        // Don't show during startup, or while the audio / quick-control
-        // popups are open — they already give live feedback.
-        return root._booting || Popups.audioOpen || Popups.quickOpen
-    }
-
-    // ── Show / hide ───────────────────────────────────────────
-    function _trigger(k, v, mut, g, lbl) {
-        root.kind    = k
-        root.value   = Math.max(0.0, Math.min(1.0, v))
-        root.muted   = mut
-        root.glyph   = g
-        root.label   = lbl
-        root.showing = true
-        hideTimer.restart()
-    }
-
-    Timer { id: hideTimer; interval: 1300; onTriggered: root.showing = false }
-
-    Component.onCompleted: bootGuard.start()
-
-    // ── Audio: default sink (volume + mute) ───────────────────
-    readonly property var sink: Pipewire.defaultAudioSink
-    PwObjectTracker { objects: root.sink ? [root.sink] : [] }
-
-    property var  _primedSink: null
-    property real _lastVol:    -1
-    property bool _lastMuted:  false
-
-    Connections {
-        target:               root.sink?.audio ?? null
-        ignoreUnknownSignals: true
-        // PwNodeAudio.volume notifies via `volumesChanged` (per-channel signal).
-        function onVolumesChanged() { root._onVol() }
-        function onMutedChanged()   { root._onMute() }
-    }
-
-    // Prime the sink's baseline as soon as it's ready (and on any sink swap),
-    // so the user's first real change isn't swallowed by the "new sink" guard.
-    onSinkChanged: root._primeSink()
-    Connections {
-        target:               root.sink ?? null
-        ignoreUnknownSignals: true
-        function onReadyChanged() { root._primeSink() }
-    }
-    function _primeSink() {
-        var s = root.sink
-        if (!s || !s.ready || !s.audio || s === root._primedSink) return
-        root._primedSink = s
-        root._lastVol    = s.audio.volume
-        root._lastMuted  = s.audio.muted
-    }
-
-    function _volGlyph(v, m) {
-        if (m)         return "󰝟"
-        if (v > 0.6)   return "󰕾"
-        if (v > 0.2)   return "󰖀"
-        return "󰕿"
-    }
-
-    function _onVol() {
-        var s = root.sink
-        if (!s || !s.ready || !s.audio) return
-        var v = s.audio.volume
-        // A changed/new default sink primes silently (no OSD on switch).
-        if (s !== root._primedSink) {
-            root._primedSink = s
-            root._lastVol    = v
-            root._lastMuted  = s.audio.muted
-            return
-        }
-        if (Math.abs(v - root._lastVol) < 0.0005) return
-        root._lastVol = v
-        if (root._blocked()) return
-        root._trigger("volume", v, s.audio.muted,
-                      root._volGlyph(v, s.audio.muted),
-                      Math.round(v * 100) + "%")
-    }
-
-    function _onMute() {
-        var s = root.sink
-        if (!s || !s.ready || !s.audio) return
-        if (s !== root._primedSink) {
-            root._primedSink = s
-            root._lastVol    = s.audio.volume
-            root._lastMuted  = s.audio.muted
-            return
-        }
-        if (root._lastMuted === s.audio.muted) return
-        root._lastMuted = s.audio.muted
-        if (root._blocked()) return
-        root._trigger("volume", s.audio.volume, s.audio.muted,
-                      root._volGlyph(s.audio.volume, s.audio.muted),
-                      Math.round(s.audio.volume * 100) + "%")
-    }
-
-    // ── Audio: default source (mic-mute) ──────────────────────
-    readonly property var source: Pipewire.defaultAudioSource
-    PwObjectTracker { objects: root.source ? [root.source] : [] }
-
-    property var  _primedSource: null
-    property bool _lastMicMuted: false
-
-    Connections {
-        target:               root.source?.audio ?? null
-        ignoreUnknownSignals: true
-        function onMutedChanged() { root._onMicMute() }
-    }
-
-    onSourceChanged: root._primeSource()
-    Connections {
-        target:               root.source ?? null
-        ignoreUnknownSignals: true
-        function onReadyChanged() { root._primeSource() }
-    }
-    function _primeSource() {
-        var s = root.source
-        if (!s || !s.ready || !s.audio || s === root._primedSource) return
-        root._primedSource = s
-        root._lastMicMuted = s.audio.muted
-    }
-
-    function _onMicMute() {
-        var s = root.source
-        if (!s || !s.ready || !s.audio) return
-        if (s !== root._primedSource) {
-            root._primedSource = s
-            root._lastMicMuted = s.audio.muted
-            return
-        }
-        if (root._lastMicMuted === s.audio.muted) return
-        root._lastMicMuted = s.audio.muted
-        if (root._blocked()) return
-        var m = s.audio.muted
-        root._trigger("mic", m ? 0.0 : 1.0, m,
-                      m ? "󰍭" : "󰍬", m ? "Muted" : "On")
-    }
-
-    // ── Brightness ────────────────────────────────────────────
-    // The sysfs inotify watch and the device discovery that used to live here
-    // now belong to BrightnessService, which is shared with the two brightness
-    // sliders. This popup only wants to know "someone changed it" — its own
-    // writes are not interesting, and `changedExternally` is exactly that
-    // signal, so the OSD no longer pops up in response to its own slider.
-    Connections {
-        target: BrightnessService
-
-        function onChangedExternally(value) {
-            if (root._blocked()) return
-            root._trigger("brightness", value, false, "󰃠",
-                          Math.round(value * 100) + "%")
-        }
-    }
+    // ── What it shows: OsdState's; where: here only without a notch ──────
+    readonly property string kind:  OsdState.kind
+    readonly property real   value: OsdState.value
+    readonly property bool   muted: OsdState.muted
+    readonly property string glyph: OsdState.glyph
+    readonly property string label: OsdState.label
+    readonly property string _screenName: root.screen ? root.screen.name : ""
+    readonly property bool showing: OsdState.showing
+        && (!OsdState.inNotch || ShellState.focusMode || ShellState.fullscreenCovers(root._screenName))
 
     // ── Pill ──────────────────────────────────────────────────
     Item {
