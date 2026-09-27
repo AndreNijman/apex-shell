@@ -1,11 +1,11 @@
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
-import QtQuick.Shapes
 import "../"
 import "../components"
 import "../components/controls"
 import "../shapes/fluid"
+import "../shapes/fluid/geometry.js" as Geo
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Nexus — the standalone settings window.
@@ -33,17 +33,24 @@ import "../shapes/fluid"
 // Andre: "make the nexus actually flow in / liquid in from the top notch,
 // becoming the window it is now, instead of just appearing." It floats in the
 // middle of the screen, not under the bar, so it cannot bloom out of the notch
-// and stay attached the way the Dashboard does. It DRIPS (geometry.js
-// notchDrop): a drop swells out of the centre notch and falls on a liquid neck,
-// inflates at the window's place into the card, and the neck thins, pinches
-// and pulls back — half into the notch, half into the card, which settles
-// flat. Closing plays it backwards: the card drains into a drop and is drawn
-// up into the notch. Three springs (SurfaceLifecycle, liquid): the drip leads,
-// the inflation follows it, the thread trails. The card's rim and its shadow
-// arrive once the neck has let go — a shadow under a shape that is still
-// pouring would be the wrong shape. Under Reduce Motion the card is simply
-// there and fades, as before. Its window's lifetime is the lifecycle's
-// `mapped` — completion, not a timer.
+// and stay attached the way the Dashboard does. It DRIPS: a drop gathers at
+// the centre notch and hangs, lets go and falls on a thread, the window swells
+// out of it at its place, and the thread pinches — each tail drawing back into
+// its own side, the upper into the notch, the lower into the window. Closing
+// plays it backwards: the tails reach out and join, the window drains into a
+// drop, and the drop is drawn up into the notch. Three springs
+// (SurfaceLifecycle, liquid): the fall leads, the inflation follows it, the
+// thread trails.
+//
+// It is drawn as a FIELD (shapes/fluid/FluidDrop, geometry.js
+// notchDropField): round primitives smooth-unioned per pixel, so every join is
+// a meniscus and every tip is round. The first version joined curves by hand;
+// Andre found it ugly — a pipe with a lollipop, and tails that swelled after
+// the pinch. Its duration is the hero beat: a drip needs time to read as one.
+// The card's rim and its shadow arrive once the thread has let go — a shadow
+// under a shape that is still pouring would be the wrong shape. Under Reduce
+// Motion the card is simply there and fades, as before. Its window's lifetime
+// is the lifecycle's `mapped` — completion, not a timer.
 // ─────────────────────────────────────────────────────────────────────────────
 
 PanelWindow {
@@ -70,8 +77,9 @@ PanelWindow {
         name: "nexus"
         id: life
         open:          root.live
-        // A morph, the same class as the Dashboard's bloom.
-        enterDuration: Motion.morphEnter
+        // The hero beat: a drop has to gather, fall and swell, and at the
+        // morph beat the fall was over in 150 ms — too quick to read as one.
+        enterDuration: Motion.hero
         exitDuration:  Motion.morphExit
         liquid:        true
         surface:       body
@@ -138,9 +146,12 @@ PanelWindow {
         card:        { x: root.cardX, y: root.cardY, w: root.cardW, h: root.cardH },
         r:           theme.radiusXL
     })
-    // The rim and the shadow: once the neck has let go, gone the moment a
-    // close begins (on a short fade, not a cut).
-    readonly property bool _settled: life.open && !life.closing && life.trail >= 0.9
+    // The rim and the shadow: in as the thread's tails finish drawing back
+    // (they are fully back at trail 0.9), out as the window begins to drain —
+    // both read off the springs, so the fade is continuous through a reversal
+    // and never outlives the body it outlines.
+    readonly property real _rim: life.alpha * Geo.smooth(Geo.span(life.trail, 0.9, 1))
+                                            * Geo.smooth(Geo.span(life.body, 0.6, 1))
 
     Item {
         id: content
@@ -154,30 +165,31 @@ PanelWindow {
         // 3.6:1 over the scrimmed desk with only its hairline for an edge.
         Elevation { target: card; level: "modal" }
 
-        // The drop, the neck and the card: one liquid body.
-        FluidShape {
+        // The drop, the thread and the card: one liquid body.
+        FluidDrop {
             id: body
             anchors.fill: parent
-            family:   "notchDrop"
-            progress: life.progress
             channels: ({ w: life.lead, d: life.body, n: life.trail })
             geometry: root.dropGeometry
-            fillRule: ShapePath.WindingFill
             color:    Theme.background
             opacity:  life.alpha
         }
 
-        // The finished card's rim (and the shadow's target), over the body.
+        // The card's rim (and the shadow's target), over the body. It follows
+        // the body's own box rather than the finished window's, and leaves as
+        // the body drains: held at the finished place on a 220 ms fade, it
+        // stayed on screen as a ghost outline while the body had already
+        // drained away beneath it (captured, 2026-09-27).
         Rectangle {
             id: card
-            x: root.cardX; y: root.cardY
-            width: root.cardW; height: root.cardH
-            radius: theme.radiusXL
+            readonly property var _box: body.result.card
+            x: _box.cx - _box.hw; y: _box.cy - _box.hh
+            width: 2 * _box.hw; height: 2 * _box.hh
+            radius: _box.r
             color: "transparent"
             border.color: Theme.outlineSoft   // the surface rim, as a role (UI/UX Phase 18b)
             border.width: 1
-            opacity: root._settled ? life.alpha : 0
-            Behavior on opacity { MotionFade { role: "state" } }
+            opacity: root._rim
         }
 
         // Content at its finished layout, revealed where the drop already

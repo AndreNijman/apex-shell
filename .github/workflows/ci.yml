@@ -222,6 +222,17 @@ jobs:
           # everything below in ways that read like real defects.
           ./tests/check-no-conflict-markers.sh
 
+      - name: Shaders are built from their sources
+        run: |
+          # Fluid F9. Qt 6 loads shaders as precompiled .qsb packages: a .frag
+          # edited without rebuilding changes nothing on screen, and a uniform
+          # the QML does not declare is silently zero (a Nexus with no body).
+          # tests/check-shaders.sh pins every package to its source and its
+          # QML interface. It FAILS without qsb, by design — a shader check
+          # that skips passes everything — so the tool is installed here.
+          pacman -S --needed --noconfirm qt6-shadertools
+          ./tests/check-shaders.sh
+
       - name: Firewall surface logic
         run: |
           # P1-044. Drives src/services/firewall.js — the file the shell loads
@@ -1556,6 +1567,16 @@ jobs:
       # not live. Replaced Qt's SpringAnimation, which steps at a fixed 16 ms.
       - name: The spring follower
         run: ./tests/run-spring-follower-test.sh
+
+      # The Nexus drip (Fluid F9) is a signed-distance field drawn by a shader
+      # (src/shapes/fluid/fluiddrop.frag): this renders the real shader at every
+      # stage of a drip and holds each pixel to the JavaScript field the
+      # geometry suite checks, with three drifted shaders that must be caught.
+      # A shader needs a hardware scene graph, so it runs on a private headless
+      # compositor and skips here when there is none (offscreen is the software
+      # scene graph, where ShaderEffect draws nothing).
+      - name: The Nexus drip's shader against its field
+        run: ./tests/run-fluid-drop-test.sh
 
       # ApexPressable & co. (UI/UX roadmap Phase 3): the press dip and its
       # return, keyboard activation that replays it, a ring for keyboard focus

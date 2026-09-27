@@ -786,9 +786,9 @@ function notchDrop(p, g) {
     var hB = size(1.12 * w0 * form, g.card.h, B, 6);      // a falling drop is a little long
     var xC = lerp(g.cx, cardCX, Math.min(1, B));
     // The neck's footprints: on the notch's flat bottom, and on the drop.
-    // Wide at the notch — the liquid clings to it like honey to a spout — and
-    // never past the flat of its bottom (its rounded corners stay the bar's).
-    var nTop = 0.8 * flat * form;
+    // Half the notch's flat bottom: it leaves the notch like a drop from a
+    // tap, not a funnel, and never reaches the notch's rounded corners.
+    var nTop = 0.5 * flat * form;
     var nBot = Math.min(0.9 * w0, 0.5 * wB) * form;
     // Corners: fully round while it is a drop, the window's own once it is one.
     var rB = lerp(Math.min(wB, hB) / 2, g.r, smooth(Math.min(1, B)));
@@ -837,13 +837,14 @@ function notchDrop(p, g) {
     var xbL = xC - dx, xbR = xC + dx;
     // The waist, from where the neck actually lands: never wider than either
     // end, or a side would run back on itself.
-    var nW = 0.55 * Math.min(nTop, 2 * dx) * (1 - thin);
+    var nW = 0.6 * Math.min(nTop, 2 * dx) * (1 - thin);
     // No neck until there is room for one (a few pixels of fall and of drop).
     if (len > 3 && nTop > 1 && nBot > 1 && hasBody && (X1 - X0) >= 4) {
+        var xwC = (g.cx + xC) / 2;
+        var yTail = landY - ym, k2 = 0.55 * Math.max(1, Math.hypot(xbR - xwC - nW / 2, yTail));
         if (thin < 1) {
             necked = true;
-            var xwC = (g.cx + xC) / 2, xwL = xwC - nW / 2, xwR = xwC + nW / 2;
-            var yTail = landY - ym, k2 = 0.55 * Math.max(1, Math.hypot(xbR - xwR, yTail));
+            var xwL = xwC - nW / 2, xwR = xwC + nW / 2;
             // The landing handle follows the drop's tangent, but never reaches
             // back past the waist (a tiny footprint under a long fall would
             // otherwise cross the centre line).
@@ -864,30 +865,41 @@ function notchDrop(p, g) {
             K.close();
         } else if (retract < 1) {
             halves = true;
-            // The thread has snapped: a drop hangs from the notch and one stands
-            // on the card, each pulling back into its side.
-            var fT = nTop * (1 - retract), fB = nBot * (1 - retract);
-            var tipT = lerp(ym, y0, retract), tipB = lerp(ym, yb, retract);
-            if (fT > 0.5 && tipT - y0 > 0.5) {
-                var aL = g.cx - fT / 2, aR = g.cx + fT / 2;
+            // The thread has snapped. Each half STARTS as exactly the piece of
+            // neck it was — the same curves, meeting at the waist — so nothing
+            // jumps at the pinch (it used to be drawn as a fatter drop from the
+            // first frame after it, and visibly swelled before shrinking:
+            // Andre, 2026-09-27). Then it pulls back into its side, its tip
+            // rounding off from the snapped point as it goes.
+            var rnd = smooth(Math.min(1, retract / 0.4));
+            var tipT = lerp(ym, y0, retract), tipB = lerp(ym, landY, retract);
+            var hT = (nTop / 2) * (1 - retract), hBt = dx * (1 - retract);
+            if (hT > 0.25 && tipT - y0 > 0.5) {
+                var aL = g.cx - hT, aR = g.cx + hT;
+                var c2yv = y0 + 0.45 * (tipT - y0);
                 K.move(aL, y0 - ov);
                 K.step(aR, y0 - ov);
                 K.step(aR, y0);
-                // A hanging drop: leaves the notch level (concave), meets
-                // itself level at the tip (convex) — one S per side.
-                K.cubic(aR - 0.5 * (aR - g.cx), y0, g.cx + 0.35 * (aR - g.cx), tipT, g.cx, tipT);
-                K.cubic(g.cx - 0.35 * (g.cx - aL), tipT, aL + 0.5 * (g.cx - aL), y0, aL, y0);
+                K.cubic(aR - 0.55 * hT, y0,
+                        lerp(g.cx, g.cx + 0.35 * hT, rnd), lerp(c2yv, tipT, rnd), g.cx, tipT);
+                K.cubic(lerp(g.cx, g.cx - 0.35 * hT, rnd), lerp(c2yv, tipT, rnd),
+                        aL + 0.55 * hT, y0, aL, y0);
                 K.close();
             }
-            if (fB > 0.5 && yb - tipB > 0.5) {
-                var bL = xC - fB / 2, bR = xC + fB / 2;
+            if (hBt > 0.25 && landY - tipB > 0.5) {
+                var bL = xC - hBt, bR = xC + hBt;
+                var kb = 0.55 * Math.max(1, Math.hypot(hBt, landY - tipB));
+                var hb = Math.min(0.7 * kb, 0.95 * hBt / Math.max(1e-3, tx));
+                var c1yv = tipB + 0.45 * (landY - tipB);
                 var M = new Path();
                 M.move(xC, tipB);
-                M.cubic(xC + 0.35 * (bR - xC), tipB, bR - 0.5 * (bR - xC), yb, bR, yb);
-                M.step(bR, yb + ov);
-                M.step(bL, yb + ov);
-                M.step(bL, yb);
-                M.cubic(bL + 0.5 * (xC - bL), yb, xC - 0.35 * (xC - bL), tipB, xC, tipB);
+                M.cubic(lerp(xC, xC + 0.35 * hBt, rnd), lerp(c1yv, tipB, rnd),
+                        bR - tx * hb, landY - ty * hb, bR, landY);
+                M.step(xC + 0.6 * hBt, Math.max(landY, yb) + ov + 1);
+                M.step(xC - 0.6 * hBt, Math.max(landY, yb) + ov + 1);
+                M.step(bL, landY);
+                M.cubic(bL + tx * hb, landY - ty * hb,
+                        lerp(xC, xC - 0.35 * hBt, rnd), lerp(c1yv, tipB, rnd), xC, tipB);
                 M.close();
                 K.d = K.d.concat(M.d);
                 K.segs = K.segs.concat(M.segs.map(function (sg, i) { return i === 0 ? Object.assign({ brk: true }, sg) : sg; }));
@@ -912,6 +924,162 @@ function notchDrop(p, g) {
     };
 }
 
+// ── NOTCH_DROP as a FIELD (what the Nexus draws) ────────────────────────────
+// notchDrop above builds the drip out of curves; Andre found it ugly
+// (2026-09-27): a pipe with a lollipop, and needle tips after the pinch. This
+// is the same drip as a signed-distance field, which components/FluidDrop.qml
+// evaluates per pixel in a fragment shader (shaders/fluiddrop.frag). Every
+// part is round by construction, and the parts are SMOOTH-UNIONED (polynomial
+// smin, blend radius k), which grows a meniscus wherever two of them meet —
+// the way liquid actually joins.
+//
+//   notch   a box from far above the screen down to the notch's flat bottom
+//           (the seam), inset inside it, so it never shows past the notch
+//   card    the drop, then the window: a rounded box (cx, cy, hw, hh, r)
+//   upper   the thread's upper half: a ROUND CONE (two circles and their
+//           tangents) from inside the notch down to the pinch
+//   lower   the thread's lower half: a round cone from the pinch into the card
+//
+//   d = min( smin(notch, upper, kN), smin(card, lower, kC) )
+//
+// The notch and the card are never blended with each other, so at rest the
+// field is exactly the notch and the card: nothing lingers. The two halves
+// share the pinch circle, so the waist is smooth (both cones are tangent to
+// it). Channels as notchDrop: w = the fall (lead), d = the inflation (body),
+// n = the thread (trail): it thins, pinches, and each half draws back into
+// its own side — the upper into the notch, the lower into the card — as a
+// tapering tail with a round tip, never a needle and never a bulb.
+function notchDropField(p, g) {
+    p = clamp01(p);
+    var ch = g.ch || notchDropDerived(p);
+    var L = clamp01(ch.w), B = Math.max(0, ch.d);
+    // The thread follows the trail, but closing, the trail lags the body and
+    // would leave the drop to be drawn up into the notch with nothing joining
+    // them. So the tails also follow the body back: they reach out again as
+    // the window starts to drain and are whole by the time 60 % of it has
+    // drained — over the first ~100 ms of a close, not in one frame. At rest
+    // on 1 this is 0.9: fully drawn back.
+    var N = clamp01(Math.min(ch.n, 0.5 + (B - 0.4) / 1.5));
+    var y0 = g.notchH;
+    var flat = Math.max(4, g.notchW - 2 * g.notchBottom);
+    var nhw = 0.36 * flat;
+    var dropR = Math.max(14, Math.min(0.42 * nhw, 0.15 * g.notchW));
+    var cardCX = g.card.x + g.card.w / 2;
+    var infl = Math.min(1, B);
+    // A drip: the drop gathers at the notch and hangs there, then lets go and
+    // falls — slow to start, as anything let go of is — onto the window's place.
+    var form = smooth(Math.min(1, L / 0.3));
+    var fall = smooth(span(L, 0.1, 1));
+    var dhw = dropR * form, dhh = 1.1 * dropR * form;
+    var hw = size(dhw, g.card.w / 2, B, 3);
+    var hh = size(dhh, g.card.h / 2, B, 3);
+    var yFall = lerp(y0 - 0.6 * dhh, g.card.y + dhh, fall) + (L > 1 ? (L - 1) * (g.card.y - y0) : 0);
+    var cy = lerp(yFall, g.card.y + hh, infl);
+    var cx = lerp(g.cx, cardCX, infl);
+    var r = Math.max(0, Math.min(lerp(Math.min(hw, hh), g.r, smooth(infl)), hw, hh));
+    var top = cy - hh;
+    var gap = Math.max(0, top - y0);
+    // The blends: a meniscus at each end, sized to what is joining.
+    var kN = 22 * form;
+    var kC = Math.min(30, 0.7 * Math.max(hw, 1)) * form;
+    // The thread. Its ends hang inside the notch and inside the card, deep
+    // enough that a retracted tail has no effect at all (depth > k + radius).
+    var ay = y0 - kN - 3, by = top + Math.min(hh, kC + 3);
+    // Thinner as it stretches (a thread of fixed volume), then the trail
+    // thins it to the pinch.
+    var rt = form * 0.5 * dropR * Math.sqrt(60 / (60 + gap));
+    var thin = smooth(span(N, 0.0, 0.5));
+    var rootR = rt * (1 - 0.4 * thin);
+    var pinchR = rt * 0.65 * (1 - thin);
+    var yp = lerp(Math.max(ay, y0), top, 0.56);
+    var xp = lerp(g.cx, cx, 0.56);
+    var upper = null, lower = null, broken = N >= 0.5;
+    var retract = broken ? span(N, 0.5, 0.9) : 0;
+    // The waist the thread pinches down to. After the pinch each tail starts
+    // from exactly this and rounds off as it draws back — a tail never begins
+    // bigger than the thread it was (Andre, 2026-09-27: "after letting go the
+    // drops become big"; tests/fluid-geometry-test.js, "no pop at the pinch").
+    var waist = Math.max(pinchR, 0.4);
+    if (form > 0.001 && rt > 0.05) {
+        if (!broken) {
+            upper = { ax: g.cx, ay: ay, ra: rootR, bx: xp, by: yp, rb: waist };
+            lower = { ax: xp, ay: yp, ra: waist, bx: cx, by: by, rb: rootR };
+        } else if (retract < 1) {
+            // Each tail draws back into its own side on an ease-out; the lower
+            // one has less far to go and is gone sooner. Its tip rounds off to
+            // at most 0.6 of its root's radius.
+            var round = smooth(Math.min(1, retract / 0.3));
+            var ru = 1 - smooth(retract), rl = 1 - smooth(Math.min(1, retract / 0.7));
+            var rootU = rootR * ru, rootL = rootR * rl;
+            var tipU = lerp(waist, 0.6 * rootU, round) * ru;
+            var tipL = lerp(waist, 0.6 * rootL, round) * rl;
+            var uy = lerp(yp, ay - tipU, 1 - ru);
+            var ly = lerp(yp, by + tipL, 1 - rl);
+            if (uy > ay + 0.5) upper = { ax: g.cx, ay: ay, ra: rootU, bx: xp, by: uy, rb: tipU };
+            if (ly < by - 0.5) lower = { ax: xp, ay: ly, ra: tipL, bx: cx, by: by, rb: rootL };
+        }
+    }
+    // The content is revealed inside the body: inset from its corners while
+    // they are still big and round, exactly the window once it has arrived.
+    var ins = 0.3 * r * (1 - smooth(infl));
+    var clipX0 = Math.max(cx - hw + ins, g.card.x), clipY0 = Math.max(cy - hh + ins, g.card.y);
+    var clipX1 = Math.min(cx + hw - ins, g.card.x + g.card.w), clipY1 = Math.min(cy + hh - ins, g.card.y + g.card.h);
+    // Where the field can be inside: the seam down to the body's bottom, and
+    // across the notch box and the body, with room for the edge's antialiasing.
+    // What draws it (FluidDrop) covers only this.
+    var bx0 = Math.min(g.cx - nhw, cx - hw) - 4, bx1 = Math.max(g.cx + nhw, cx + hw) + 4;
+    var by1 = Math.max(y0 + 4, cy + hh + 4);
+    return {
+        notch: { x0: g.cx - nhw, x1: g.cx + nhw, y: y0, r: Math.min(10, nhw) },
+        card: { cx: cx, cy: cy, hw: hw, hh: hh, r: r },
+        upper: upper, lower: lower, kN: kN, kC: kC,
+        bounds: { x: bx0, y: y0, w: bx1 - bx0, h: by1 - y0 },
+        clip: { x: clipX0, y: clipY0, w: Math.max(0, clipX1 - clipX0), h: Math.max(0, clipY1 - clipY0) },
+        params: { L: L, B: B, N: N, hw: hw, hh: hh, cx: cx, cy: cy, r: r, gap: gap, rt: rt,
+                  rootR: rootR, pinchR: pinchR, broken: broken, retract: retract, form: form }
+    };
+}
+// The field, exactly as shaders/fluiddrop.frag evaluates it (the tests
+// rasterise it; the shader is checked against it).
+function sdRoundBox(px, py, cx, cy, hw, hh, r) {
+    var qx = Math.abs(px - cx) - hw + r, qy = Math.abs(py - cy) - hh + r;
+    var ox = Math.max(qx, 0), oy = Math.max(qy, 0);
+    return Math.sqrt(ox * ox + oy * oy) + Math.min(Math.max(qx, qy), 0) - r;
+}
+// A round cone: circle (a, ra), circle (b, rb) and their outer tangents
+// (Inigo Quilez's sdRoundCone). One circle inside the other is that circle.
+function sdRoundCone(px, py, s) {
+    var bax = s.bx - s.ax, bay = s.by - s.ay;
+    var l2 = bax * bax + bay * bay, rr = s.ra - s.rb, a2 = l2 - rr * rr;
+    if (a2 <= 1e-6) {
+        var da = Math.hypot(px - s.ax, py - s.ay) - s.ra, db = Math.hypot(px - s.bx, py - s.by) - s.rb;
+        return Math.min(da, db);
+    }
+    var il2 = 1 / l2, pax = px - s.ax, pay = py - s.ay;
+    var y = pax * bax + pay * bay, z = y - l2;
+    var qx = pax * l2 - bax * y, qy = pay * l2 - bay * y;
+    var x2 = qx * qx + qy * qy, y2 = y * y * l2, z2 = z * z * l2;
+    var k = Math.sign(rr) * rr * rr * x2;
+    if (Math.sign(z) * a2 * z2 > k) return Math.sqrt(x2 + z2) * il2 - s.rb;
+    if (Math.sign(y) * a2 * y2 < k) return Math.sqrt(x2 + y2) * il2 - s.ra;
+    return (Math.sqrt(x2 * a2 * il2) + y * rr) * il2 - s.ra;
+}
+function smin(a, b, k) {
+    if (!(k > 0)) return Math.min(a, b);
+    var h = Math.max(k - Math.abs(a - b), 0) / k;
+    return Math.min(a, b) - h * h * k * 0.25;
+}
+var FIELD_FAR = 1e5;
+function dropField(f, px, py) {
+    var n = f.notch, c = f.card;
+    var nhh = (n.y + 400) / 2;                      // from 400 px above the screen
+    var dn = sdRoundBox(px, py, (n.x0 + n.x1) / 2, n.y - nhh, (n.x1 - n.x0) / 2, nhh, n.r);
+    var dc = (c.hw > 0 && c.hh > 0) ? sdRoundBox(px, py, c.cx, c.cy, c.hw, c.hh, c.r) : FIELD_FAR;
+    var du = f.upper ? sdRoundCone(px, py, f.upper) : FIELD_FAR;
+    var dl = f.lower ? sdRoundCone(px, py, f.lower) : FIELD_FAR;
+    return Math.min(smin(dn, du, f.kN), smin(dc, dl, f.kC));
+}
+
 if (typeof module !== "undefined" && module.exports)
     module.exports = {
         KAPPA: KAPPA,
@@ -927,5 +1095,6 @@ if (typeof module !== "undefined" && module.exports)
         spillRidge: spillRidge, leftSpillWidth: leftSpillWidth, edgeSpillWidth: edgeSpillWidth,
         riseRidge: riseRidge, bottomRise: bottomRise, bottomRiseHeight: bottomRiseHeight,
         cornerRise: cornerRise, cornerRiseWidth: cornerRiseWidth, cornerRiseHeight: cornerRiseHeight,
-        notchDrop: notchDrop, notchDropDerived: notchDropDerived
+        notchDrop: notchDrop, notchDropDerived: notchDropDerived,
+        notchDropField: notchDropField, dropField: dropField, sdRoundBox: sdRoundBox, sdRoundCone: sdRoundCone, smin: smin
     };
