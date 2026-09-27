@@ -262,12 +262,85 @@ WlSessionLock {
             id: enterAnim
             target: surface; property: "enter"; from: 0; to: 1
             duration: Motion.reduced ? Motion.fadeIn : Motion.hero
-            easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.springCurve
+            // From a picture of the desktop, `enter` is plain time and each
+            // part shapes its own share of it (_recede, _capAlpha): the
+            // desktop has to be SEEN to move back before it goes, and on any
+            // eased progress the fade was over before the move had registered.
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: surface._fromCapture ? Motion.linear : Motion.springCurve
         }
+        // Started once the surface is on screen, not at its creation: the
+        // frames before that are never seen, and a clock started at creation
+        // spent the start of the arrival in them (measured in a nested
+        // Hyprland: the picture was half gone in the first frame shown). On
+        // screen means both: this window has swapped a frame, and the
+        // compositor has engaged the lock (`secure`) — a lock surface's first
+        // frame is drawn before the compositor shows it, and it shows it only
+        // once the lock holds. SurfaceLifecycle's guard covers a compositor
+        // that reports neither.
+        property bool _swapped: false
+        property bool _presented: false
+        property real _createdAt: 0
+        property Connections _firstFrame: Connections {
+            target: surface._swapped ? null : content.Window.window
+            ignoreUnknownSignals: true
+            function onFrameSwapped() { surface._swapped = true; surface._maybeArrive() }
+        }
+        property Connections _engaged: Connections {
+            target: sessionLock
+            function onSecureStateChanged() { surface._maybeArrive() }
+        }
+        property Timer _presentGuard: Timer { interval: 250; onTriggered: surface._arrive() }
+        function _maybeArrive() { if (surface._swapped && sessionLock.secure) surface._arrive() }
+        function _arrive() {
+            if (surface._presented) return
+            surface._presented = true
+            surface._presentGuard.stop()
+            if (Motion.pacingLog)
+                console.info("APEX pacing: lock arrival start ms=" + (Date.now() - surface._createdAt)
+                             + " picture=" + surface._fromCapture)
+            enterAnim.restart()
+        }
+        // ── The desktop as it was (2026-09-27) ───────────────────────
+        // Andre: "make the transition to lock screen actually cleaner and
+        // sleek not just fading." The arrival above started from the bare
+        // wallpaper, so every window vanished in the first frame and only the
+        // blur moved. Now, where windows/LockCapture.qml took a picture of
+        // this output just before the lock engaged, the first frame IS the
+        // desktop as it was, and it recedes into the lock — back a little,
+        // blurring, dimming, rounding its corners, letting go — over a lock
+        // backdrop that is already whole and settles in from a slight zoom.
+        // Read once per arrival and dropped the moment the arrival ends. With
+        // no picture (Reduce Motion, no grim, too slow) the arrival is the
+        // one above, unchanged.
+        property string capture: ""
+        function _takeCapture() {
+            const shots = LockState.captures
+            const name = surface.screen ? surface.screen.name : ""
+            surface.capture = (shots && name !== "" && shots[name]) ? String(shots[name]) : ""
+        }
+        onEnterChanged: if (surface.enter >= 1 && surface.capture !== "") surface.capture = ""
+        readonly property bool _fromCapture: surface.capture !== "" && capImg.status === Image.Ready
+        // How far back the picture has gone: on the hero curve, so it is
+        // moving from the first frame while still whole.
+        readonly property real _recede: surface._fromCapture ? Motion.ease(Motion.emphasized, surface.enter) : 0
+        // Its opacity, by time: whole for the first quarter, gone by three.
+        readonly property real _capAlpha: {
+            const t = Math.max(0, Math.min(1, (surface.enter - 0.25) / 0.5))
+            return 1 - t * t * (3 - 2 * t)
+        }
+
         // The backdrop's strength, the clock's arrival, the card's arrival.
-        readonly property real _veil:  surface.enter * (1 - surface.leave)
-        readonly property real _clock: Math.min(1, surface.enter * 1.3)
-        readonly property real _card:  Math.max(0, Math.min(1, (surface.enter - 0.18) / 0.82))
+        // Behind a picture the backdrop is whole from the first frame (it is
+        // what the picture reveals), and the clock and card wait until the
+        // picture has mostly gone rather than drawing over the desktop.
+        readonly property real _veil:  (surface._fromCapture ? 1 : surface.enter) * (1 - surface.leave)
+        readonly property real _clock: surface._fromCapture
+                                       ? Motion.ease(Motion.emphasizedDecel, Math.max(0, Math.min(1, (surface.enter - 0.4) / 0.6)))
+                                       : Math.min(1, surface.enter * 1.3)
+        readonly property real _card:  surface._fromCapture
+                                       ? Motion.ease(Motion.emphasizedDecel, Math.max(0, Math.min(1, (surface.enter - 0.5) / 0.5)))
+                                       : Math.max(0, Math.min(1, (surface.enter - 0.18) / 0.82))
 
         // ── Content root ─────────────────────────────────────────────
         Item {
@@ -320,6 +393,8 @@ WlSessionLock {
                 anchors.fill: parent
                 source:       wallImg
                 visible:      wallImg.status === Image.Ready
+                // Settles in from a slight zoom while the desktop recedes.
+                scale:        surface._fromCapture ? 1.04 - 0.04 * surface._recede : 1
                 blurEnabled:  true
                 blur:         1.0 * surface._veil
                 blurMax:      48
@@ -332,6 +407,39 @@ WlSessionLock {
                 anchors.fill: parent
                 color: Qt.rgba(0, 0, 0, 0.35)
                 opacity: surface._veil
+            }
+
+            // The desktop as it was, receding (see `capture`). Synchronous:
+            // it is already decoded in the pixmap cache (LockCapture), and the
+            // first frame has to have it. Same URL and default fill mode as
+            // the preload, or the cache misses and the file is already gone.
+            Image {
+                id: capImg
+                anchors.fill: parent
+                source:       surface.capture
+                asynchronous: false
+                cache:        true
+                visible:      false
+            }
+            Rectangle {
+                id: capMask
+                anchors.fill: parent
+                radius:  theme.px(28) * Math.min(1, surface._recede * 3)
+                visible: false
+                layer.enabled: true
+            }
+            MultiEffect {
+                anchors.fill: parent
+                source:       capImg
+                visible:      surface._fromCapture && opacity > 0
+                opacity:      surface._capAlpha
+                scale:        1 - 0.08 * surface._recede
+                blurEnabled:  true
+                blurMax:      48
+                blur:         0.8 * surface._recede
+                brightness:  -0.3 * surface._recede
+                maskEnabled:  true
+                maskSource:   capMask
             }
 
             // Clicking anywhere re-focuses the password field.
@@ -627,14 +735,21 @@ WlSessionLock {
 
         // Grab keyboard focus as soon as the surface appears, and arrive.
         Component.onCompleted: {
+            surface._createdAt = Date.now()
+            surface._takeCapture()
             passwordInput.forceActiveFocus()
-            enterAnim.start()
+            surface._presentGuard.restart()
         }
         // A surface Quickshell shows again for a later lock arrives again.
         onVisibleChanged: if (visible) {
+            surface._takeCapture()
             passwordInput.forceActiveFocus()
+            enterAnim.stop()
             surface.enter = 0
-            enterAnim.restart()
+            surface._createdAt = Date.now()
+            surface._swapped = false
+            surface._presented = false
+            surface._presentGuard.restart()
         }
     }
 }

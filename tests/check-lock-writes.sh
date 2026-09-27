@@ -16,8 +16,21 @@
 #      LockState.lock().
 #   3. The release unlocks only if it has not been cancelled: its timer
 #      returns early unless LockState.unlocking is still set, and
-#      LockState.lock() clears unlocking.
+#      LockState.lock() clears unlocking before anything else.
 #   4. The IPC unlock() stays a no-op: it touches no lock state at all.
+#
+#  Since 2026-09-27 a fresh lock may wait for windows/LockCapture.qml's
+#  picture of the desktop (the arrival's first frame) before it engages. A
+#  lock that waits is a lock that can be lost, so two more rules:
+#
+#   5. IMMEDIATE — a lock asked for while locked (the release window
+#      included: that is rule 3's hold), while a capture is already running,
+#      or with no capture available engages AT ONCE; and _engage() sets
+#      locked = true with no condition of its own.
+#   6. BOUNDED — the waiting path always arms _captureCap before it asks for
+#      the picture, the cap is at most 150 ms, and when it fires it engages,
+#      unconditionally. Nothing the capture does (or fails to do) can hold the
+#      session unlocked past it.
 #
 #  Each rule is mutated on a copy to prove it can fail (repo idiom: a mutant
 #  that did not apply is reported as such, never as caught).
@@ -60,15 +73,44 @@ verdict("CALLERS",
         "the IPC lock() and the power menu's lock must call LockState.lock()")
 
 st = code("src/state/LockState.qml")
-lock_body = re.search(r'function\s+lock\s*\(\s*\)\s*\{([^}]*)\}', st)
+
+def body(src, head):
+    """The brace-balanced body of the first `head {`, or None."""
+    m = re.search(head + r'\s*\{', src)
+    if not m: return None
+    i = m.end(); depth = 1
+    while i < len(src) and depth:
+        depth += {"{": 1, "}": -1}.get(src[i], 0); i += 1
+    return src[m.end():i - 1] if depth == 0 else None
+
+lock_body = body(st, r'function\s+lock\s*\(\s*\)') or ""
+engage_body = body(st, r'function\s+_engage\s*\(\s*\)') or ""
+cap_body = body(st, r'property\s+Timer\s+_captureCap\s*:\s*Timer') or ""
 ls = code("src/windows/Lockscreen.qml")
 rel_timer = re.search(r'property\s+Timer\s+_release\s*:\s*Timer\s*\{(.*?)\n    \}', ls, re.S)
 guarded = bool(rel_timer) and re.search(
     r'onTriggered\s*:\s*\{\s*if\s*\(\s*!\s*LockState\.unlocking\s*\)\s*return', rel_timer.group(1)) is not None
-verdict("CANCEL",
-        guarded and bool(lock_body) and re.search(r'unlocking\s*=\s*false', lock_body.group(1)) is not None
-        and re.search(r'locked\s*=\s*true', lock_body.group(1)) is not None,
-        "the release must return unless still unlocking, and lock() must clear unlocking")
+first = [l.strip() for l in lock_body.split("\n") if l.strip()]
+verdict("CANCEL", guarded and bool(first) and re.fullmatch(r'root\.unlocking\s*=\s*false;?', first[0]) is not None,
+        "the release must return unless still unlocking, and lock() must clear unlocking first")
+
+imm = re.search(r'if\s*\(([^)]*)\)\s*\{\s*root\._engage\(\)\s*;?\s*return\s*;?\s*\}', lock_body)
+cond = imm.group(1) if imm else ""
+verdict("IMMEDIATE",
+        bool(imm) and re.search(r'root\.locked\b', cond) is not None and re.search(r'root\.capturing\b', cond) is not None
+        and re.search(r'!\s*root\.captureEnabled\b', cond) is not None and "&&" not in cond
+        and re.search(r'^\s*root\.locked\s*=\s*true\s*;?\s*$', engage_body, re.M) is not None
+        and not re.search(r'\bif\b|\breturn\b|\?', engage_body),
+        "lock() must engage at once while locked, while capturing, or with no capture; _engage() must lock unconditionally")
+
+iv = re.search(r'interval\s*:\s*(\d+)', cap_body)
+defer = lock_body[imm.end():] if imm else ""
+arm, ask = defer.find("root._captureCap.restart()"), defer.find("root.captureRequested(")
+verdict("BOUNDED",
+        bool(iv) and int(iv.group(1)) <= 150 and re.search(r'repeat\s*:\s*false', cap_body) is not None
+        and re.search(r'onTriggered\s*:\s*root\._engage\(\)\s*$', cap_body, re.M) is not None
+        and arm >= 0 and ask >= 0 and arm < ask,
+        "the waiting path must arm a cap of at most 150 ms before asking, and the cap must engage unconditionally")
 
 verdict("NOUNLOCK", bool(unlockfn) and "LockState" not in unlockfn.group(1),
         "the IPC unlock() must not touch lock state")
@@ -79,7 +121,9 @@ label() {
     case "$1" in
         WRITERS)  echo "only LockState and Lockscreen's release (= false) write LockState.locked" ;;
         CALLERS)  echo "the IPC lock and the power menu both lock through LockState.lock()" ;;
-        CANCEL)   echo "a lock asked for during the release cancels it (lock() clears unlocking, the timer checks it)" ;;
+        CANCEL)   echo "a lock asked for during the release cancels it (lock() clears unlocking first, the timer checks it)" ;;
+        IMMEDIATE) echo "a lock while locked, while capturing, or with no capture engages at once; _engage() is unconditional" ;;
+        BOUNDED)  echo "a lock waiting for its picture is capped (<= 150 ms, armed first) and the cap always engages" ;;
         NOUNLOCK) echo "the IPC unlock() is still a no-op" ;;
     esac
 }
@@ -90,7 +134,7 @@ while read -r rule verdict detail; do
     [ -n "$rule" ] || continue
     if [ "$verdict" = PASS ]; then ok "$(label "$rule")"; else bad "$(label "$rule") — $detail"; fi
 done <<<"$verdicts"
-[ "$(grep -c . <<<"$verdicts")" -eq 4 ] && ok "all four rules were evaluated" || bad "expected four verdicts, got: $verdicts"
+[ "$(grep -c . <<<"$verdicts")" -eq 6 ] && ok "all six rules were evaluated" || bad "expected six verdicts, got: $verdicts"
 
 echo "── self-test: can these checks fail? ──"
 MW="$(mktemp -d)"; trap 'rm -rf "$MW"' EXIT INT TERM
@@ -110,8 +154,17 @@ PY
 mutant "a direct write from IPC" src/state/IpcManager.qml "LockState.lock()" "LockState.locked = true" WRITERS
 mutant "the power menu bypassing lock()" src/services/PowerMenu.qml "LockState.lock()" "LockState.locked = true" CALLERS
 mutant "an unguarded release" src/windows/Lockscreen.qml "if (!LockState.unlocking) return" "if (false) return" CANCEL
-mutant "lock() not cancelling" src/state/LockState.qml "root.unlocking = false
-        root.locked = true" "root.locked = true" CANCEL
+mutant "lock() not cancelling" src/state/LockState.qml "        root.unlocking = false
+        if (root.locked" "        if (root.locked" CANCEL
+mutant "a lock while locked waiting for a picture" src/state/LockState.qml "if (root.locked || root.capturing ||" "if (root.capturing ||" IMMEDIATE
+mutant "a second request made to wait" src/state/LockState.qml "if (root.locked || root.capturing ||" "if (root.locked ||" IMMEDIATE
+mutant "an engage with a condition" src/state/LockState.qml "        root._captureCap.stop()
+        root.locked = true" "        root._captureCap.stop()
+        if (root.captureSeq > 0) root.locked = true" IMMEDIATE
+mutant "an unbounded wait" src/state/LockState.qml "interval: 120" "interval: 5000" BOUNDED
+mutant "a cap that does not engage" src/state/LockState.qml "onTriggered: root._engage()" "onTriggered: {}" BOUNDED
+mutant "a wait with no cap armed" src/state/LockState.qml "        root._captureCap.restart()
+" "" BOUNDED
 mutant "an unlock over IPC" src/state/IpcManager.qml "            // Deliberately does nothing. See note above." "            LockState.unlocking = true" NOUNLOCK
 
 echo

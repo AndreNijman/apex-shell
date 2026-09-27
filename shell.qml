@@ -114,6 +114,9 @@ ShellRoot {
     // ── Native session lock ──────────────────────────────────
     // Top-level (NOT per-screen): WlSessionLock manages one surface per
     // output itself. Engages when LockState.locked is set.
+    // Its first frame: the desktop as it was, taken just before the lock
+    // engages (windows/LockCapture.qml).
+    LockCapture {}
     Lockscreen {}
     // The desktop fading back in after an unlock (windows/UnlockCurtain.qml).
     UnlockCurtain {}

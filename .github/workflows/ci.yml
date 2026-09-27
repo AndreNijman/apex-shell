@@ -1715,6 +1715,13 @@ jobs:
       - name: Password shapes behave
         run: ./tests/run-password-shapes-test.sh
 
+      # A lock waiting for the arrival's picture (LockCapture): at most ~120 ms,
+      # always ending locked; immediate for a repeated request, during the
+      # unlock release and with no capture; a late or stale picture ignored.
+      # The real LockState.qml under qmltestrunner -platform offscreen.
+      - name: A lock waiting for its picture always locks
+        run: ./tests/run-lock-capture-test.sh
+
       # The LOCK screen, for a user who cannot see it (P2-003).
       #
       # The LOGIN screen is covered three ways in apex-os. The lock screen — the

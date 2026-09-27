@@ -11,7 +11,9 @@ import QtQuick
 //                 Lockscreen.qml. Never flip this to false from IPC or any
 //                 other path — that would be a trivial lock bypass.
 //
-// Written by:  IpcManager "lockscreen" handler (lock only), PowerMenu.
+// Written by:  IpcManager "lockscreen" handler (lock only), PowerMenu — both
+//              through lock(), which may take up to 120 ms to engage while
+//              windows/LockCapture.qml takes the arrival's first frame.
 // Read by:     windows/Lockscreen.qml (WlSessionLock.locked binding).
 // ─────────────────────────────────────────────────────────────
 
@@ -65,8 +67,62 @@ QtObject {
     // unlocked anyway — so a lid closed within ~240 ms of Enter would suspend
     // and resume UNLOCKED (found by review, 2026-09-26). Cancelling the
     // release is what makes a lock asked for in that window hold.
+    //
+    // It no longer engages in the same instant (2026-09-27): the lock screen's
+    // first frame is the desktop as it was, which then recedes into the lock
+    // (Andre: "make the transition to lock screen actually cleaner and sleek
+    // not just fading"), and that picture has to be taken BEFORE the lock
+    // engages — once it has, the compositor shows nothing but the lock. So a
+    // fresh lock asks windows/LockCapture.qml for it and engages when it is
+    // ready, or when _captureCap runs out (120 ms; a capture takes 16-31 ms on
+    // the L16), whichever is first. Nothing waits on the capture beyond that:
+    // with no capture the lock arrives the way it did before.
+    //
+    // At once, with no capture: a lock asked for while locked — the release
+    // window included, which is what makes it hold — or while a capture is
+    // already running (a second request is never made to wait), or when there
+    // is nothing to capture with (LockCapture absent, no grim, Reduce Motion).
     function lock() {
         root.unlocking = false
+        if (root.locked || root.capturing || !root.captureEnabled) { root._engage(); return }
+        root.capturing = true
+        root.captures = ({})
+        root.captureSeq += 1
+        root._captureCap.restart()
+        root.captureRequested(root.captureSeq)
+    }
+
+    // ── The desktop as it was, for the arrival ──────────────────────────────
+    // Presentation only, like `unlocking` and `curtain`: none of this can hold
+    // the session unlocked past _captureCap, and none of it unlocks anything.
+    //   captureEnabled  LockCapture exists and can take the picture
+    //   capturing       a lock is waiting (at most _captureCap) for it
+    //   captures        screen name → image URL, for THIS lock only; published
+    //                   by captured(), read once by each lock surface as it
+    //                   arrives, emptied by the next lock
+    property bool captureEnabled: false
+    property bool capturing: false
+    property var captures: ({})
+    property int captureSeq: 0
+    signal captureRequested(int seq)
+
+    // LockCapture: every output's picture for request `seq` is ready (or has
+    // failed; a screen missing from `shots` arrives without one). Ignored once
+    // the lock has engaged without them: a late picture never appears mid-way.
+    function captured(seq, shots) {
+        if (seq !== root.captureSeq || !root.capturing) return
+        root.captures = shots
+        root._engage()
+    }
+
+    function _engage() {
+        root.capturing = false
+        root._captureCap.stop()
         root.locked = true
+    }
+    property Timer _captureCap: Timer {
+        interval: 120
+        repeat: false
+        onTriggered: root._engage()
     }
 }
