@@ -158,8 +158,8 @@ mutant "lock() not cancelling" src/state/LockState.qml "        root.unlocking =
         if (root.locked" "        if (root.locked" CANCEL
 mutant "a lock while locked waiting for a picture" src/state/LockState.qml "if (root.locked || root.capturing ||" "if (root.capturing ||" IMMEDIATE
 mutant "a second request made to wait" src/state/LockState.qml "if (root.locked || root.capturing ||" "if (root.locked ||" IMMEDIATE
-mutant "an engage with a condition" src/state/LockState.qml "        root._captureCap.stop()
-        root.locked = true" "        root._captureCap.stop()
+mutant "an engage with a condition" src/state/LockState.qml "        root.revealScreens = ({})
+        root.locked = true" "        root.revealScreens = ({})
         if (root.captureSeq > 0) root.locked = true" IMMEDIATE
 mutant "an unbounded wait" src/state/LockState.qml "interval: 120" "interval: 5000" BOUNDED
 mutant "a cap that does not engage" src/state/LockState.qml "onTriggered: root._engage()" "onTriggered: {}" BOUNDED

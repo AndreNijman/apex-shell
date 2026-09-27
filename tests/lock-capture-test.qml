@@ -109,6 +109,26 @@ TestCase {
         compare(got.length, 0)
     }
 
+    // The unlock that runs the pour backwards over the lock's picture tells
+    // UnlockCurtain to stand down on that output (revealScreens). That must
+    // never outlive the unlock it was for.
+    function test_a_lock_that_engages_forgets_any_reveal() {
+        var s = make()
+        s.revealScreens = { "eDP-1": true }
+        s.lock()
+        compare(Object.keys(s.revealScreens).length, 0, "a fresh lock starts with the curtain armed everywhere")
+    }
+
+    function test_a_lock_during_the_release_rearms_the_curtain() {
+        var s = make()
+        s.lock()
+        s.unlocking = true
+        s.revealScreens = { "eDP-1": true }
+        s.lock()
+        compare(s.locked, true)
+        compare(Object.keys(s.revealScreens).length, 0, "the cancelled unlock's reveal is gone with it")
+    }
+
     function test_every_lock_asks_afresh() {
         var s = make({ captureEnabled: true })
         var got = requests(s)

@@ -38,7 +38,13 @@ Variants {
         mask: Region {}
 
         // Armed only once the compositor has engaged the lock (LockState).
-        visible: LockState.curtainArmed
+        // Not where the unlock reveals the desktop itself (the pour run
+        // backwards over the lock's picture of it, LockState.revealScreens):
+        // there the lock's last frame IS the desktop, and a curtain fading
+        // over it is the fade the reverse pour replaces. It stands down while
+        // still behind the lock, so nothing is seen to go.
+        readonly property bool _revealed: !!LockState.revealScreens[win.modelData.name]
+        visible: LockState.curtainArmed && !win._revealed
         property real fade: 1
         onVisibleChanged: if (visible) { fadeOut.stop(); win.fade = 1 }
 

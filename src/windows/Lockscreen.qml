@@ -84,7 +84,7 @@ WlSessionLock {
     function release() {
         if (!LockState.locked || LockState.unlocking) return
         LockState.unlocking = true
-        sessionLock._release.interval = Math.max(1, Motion.morphExit)
+        sessionLock._release.interval = Math.max(1, Motion.hero)
         sessionLock._release.restart()
     }
     property Timer _release: Timer {
@@ -272,8 +272,11 @@ WlSessionLock {
         // fades in and out.
         property real enter: 0
         property real leave: LockState.unlocking ? 1 : 0
+        // The unlock is the arrival run backwards, frame for frame, so it
+        // takes the arrival's time (Andre: "make the unlock the exact same but
+        // in reverse").
         Behavior on leave {
-            NumberAnimation { duration: Motion.morphExit; easing.type: Easing.Linear }
+            NumberAnimation { duration: Motion.hero; easing.type: Easing.Linear }
         }
         NumberAnimation {
             id: enterAnim
@@ -344,25 +347,42 @@ WlSessionLock {
             surface.capture = (shots && name !== "" && shots[name]) ? String(shots[name]) : ""
         }
         readonly property bool _fromCapture: surface.capture !== "" && capImg.status === Image.Ready
-        on_ShadeHChanged: if (surface._shadeH >= 0.999 && surface.leave === 0 && surface.capture !== "") surface.capture = ""
+        // Kept for the whole lock, in memory only (never drawn while the shade
+        // covers it): after a correct password the pour runs backwards over it
+        // and the desktop rises back to where the real one takes over. So the
+        // curtain that fades the desktop in after an unlock stands down on this
+        // output (LockState.revealScreens). A surface built later in the lock
+        // (a monitor plugged in) finds no picture — LockCapture empties the
+        // table once the arrival is over — and unlocks the old way.
+        property Connections _reveal: Connections {
+            target: LockState
+            function onUnlockingChanged() {
+                if (!LockState.unlocking || !surface._fromCapture || !surface.screen) return
+                const m = Object.assign({}, LockState.revealScreens)
+                m[surface.screen.name] = true
+                LockState.revealScreens = m
+            }
+        }
 
         function _clamp01(v) { return Math.max(0, Math.min(1, v)) }
         readonly property bool _still: Motion.reduced || Motion.hero <= 0
+        // The one timeline: the arrival's time, or — unlocking — the same time
+        // run backwards. Every part below reads only this, so the unlock
+        // retraces the arrival exactly.
+        readonly property real _t: surface.leave > 0 ? 1 - surface.leave : surface.enter
         // The shade's spread (width) and fall (height), 0 = the notch, 1 = the
-        // screen. Width leads: a band first, then down. Leaving, the fall
-        // retracts first and the band draws in last.
+        // screen. Width leads: a band first, then down (and back up, then in).
         readonly property real _shadeW: surface._still ? 1
-            : surface.leave > 0 ? 1 - Motion.ease(Motion.emphasizedAccel, surface._clamp01((surface.leave - 0.45) / 0.55))
-            : Motion.ease(Motion.emphasizedDecel, surface._clamp01(surface.enter / 0.5))
+            : Motion.ease(Motion.emphasizedDecel, surface._clamp01(surface._t / 0.5))
         readonly property real _shadeH: surface._still ? 1
-            : surface.leave > 0 ? 1 - Motion.ease(Motion.emphasizedAccel, surface._clamp01(surface.leave / 0.75))
-            : Motion.ease(Motion.emphasized, surface._clamp01((surface.enter - 0.08) / 0.92))
-        // Under Reduce Motion the whole shade fades instead. Leaving, the
-        // notch it has become fades in the last fifth: the lock's last frame
-        // is then the sharp wallpaper, which is what UnlockCurtain shows the
-        // moment the lock lets go — no shape left to pop out.
-        readonly property real _shadeAlpha: surface._still ? surface.enter * (1 - surface.leave)
-            : 1 - surface._clamp01((surface.leave - 0.8) / 0.2)
+            : Motion.ease(Motion.emphasized, surface._clamp01((surface._t - 0.08) / 0.92))
+        // Under Reduce Motion the whole shade fades instead. Unlocking over the
+        // desktop picture, the last frame is the notch over the picture's own
+        // notch — what the real desktop shows a frame later. Without a picture
+        // the notch it has become fades in the last fifth, so the lock's last
+        // frame is the sharp wallpaper UnlockCurtain then shows.
+        readonly property real _shadeAlpha: surface._still ? surface._t
+            : (surface._fromCapture ? 1 : 1 - surface._clamp01((surface.leave - 0.8) / 0.2))
         // The notch colour it starts as, dissolving into the backdrop as it spreads.
         readonly property real _notchInk: surface._still ? 0
             : 1 - Motion.ease(Motion.standard, surface._clamp01(Math.min(surface._shadeW, surface._shadeH * 4)))
@@ -374,10 +394,10 @@ WlSessionLock {
                                     * (1 - surface._shadeH)
 
         // The clock and the card, once the shade is most of the way down.
-        readonly property real _clock: surface._still ? surface.enter
-            : Motion.ease(Motion.emphasizedDecel, surface._clamp01((surface.enter - 0.45) / 0.55))
-        readonly property real _card:  surface._still ? surface.enter
-            : Motion.ease(Motion.emphasizedDecel, surface._clamp01((surface.enter - 0.55) / 0.45))
+        readonly property real _clock: surface._still ? surface._t
+            : Motion.ease(Motion.emphasizedDecel, surface._clamp01((surface._t - 0.45) / 0.55))
+        readonly property real _card:  surface._still ? surface._t
+            : Motion.ease(Motion.emphasizedDecel, surface._clamp01((surface._t - 0.55) / 0.45))
 
         // ── Content root ─────────────────────────────────────────────
         Item {
@@ -422,7 +442,7 @@ WlSessionLock {
                 anchors.fill: parent
                 visible: surface._shadeH < 0.999 || surface._shadeW < 0.999 || surface._shadeAlpha < 1
                 // Sinks as the shade falls over it.
-                scale: surface._still ? 1 : 1 - 0.06 * surface._shadeH * (surface.leave > 0 ? 0 : 1)
+                scale: surface._still ? 1 : 1 - 0.06 * surface._shadeH
 
                 Image {
                     id: capImg
@@ -445,7 +465,7 @@ WlSessionLock {
                 Rectangle {
                     anchors.fill: parent
                     color: Qt.rgba(0, 0, 0, 1)
-                    opacity: surface._still ? 0 : 0.5 * surface._shadeH * (surface.leave > 0 ? 0 : 1)
+                    opacity: surface._still ? 0 : 0.5 * surface._shadeH
                 }
             }
 
@@ -560,10 +580,9 @@ WlSessionLock {
                 anchors.bottomMargin:     56
                 spacing: 4
                 // Gone in the first part of the retract, before the shade lifts past them.
-                opacity: surface._clock * (1 - surface._clamp01(surface.leave * 2.5))
+                opacity: surface._clock
                 transform: Translate {
                     y: (1 - surface._clock) * -Motion.travel(theme.px(28))
-                       - surface.leave * Motion.travel(theme.px(18))
                 }
 
                 Row {
@@ -602,8 +621,8 @@ WlSessionLock {
                 anchors.centerIn: parent
                 anchors.verticalCenterOffset: 90
                 spacing: 14
-                opacity: surface._card * (1 - surface._clamp01(surface.leave * 2.5))
-                scale: Motion.reduced ? 1 : 0.97 + 0.03 * surface._card - 0.02 * surface.leave
+                opacity: surface._card
+                scale: Motion.reduced ? 1 : 0.97 + 0.03 * surface._card
                 transform: Translate {
                     x: surface.shakeOffset
                     y: (1 - surface._card) * Motion.travel(theme.px(28))
@@ -859,7 +878,9 @@ WlSessionLock {
             surface._presentGuard.restart()
         }
         // A surface Quickshell shows again for a later lock arrives again.
-        onVisibleChanged: if (visible) {
+        onVisibleChanged: if (!visible) {
+            surface.capture = ""          // the lock is over: let the picture go
+        } else {
             surface._takeCapture()
             passwordInput.forceActiveFocus()
             enterAnim.stop()

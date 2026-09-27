@@ -103,6 +103,11 @@ QtObject {
     property bool captureEnabled: false
     property bool capturing: false
     property var captures: ({})
+    // Outputs whose unlock runs the pour backwards over that picture (set by
+    // each lock surface as the unlock starts): UnlockCurtain stands down there,
+    // because the lock's last frame already is the desktop. Emptied whenever a
+    // lock engages, a cancelled release included.
+    property var revealScreens: ({})
     property int captureSeq: 0
     signal captureRequested(int seq)
 
@@ -118,6 +123,7 @@ QtObject {
     function _engage() {
         root.capturing = false
         root._captureCap.stop()
+        root.revealScreens = ({})
         root.locked = true
     }
     property Timer _captureCap: Timer {

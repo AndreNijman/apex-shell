@@ -66,7 +66,8 @@ Scope {
         }
         // Engaged: the surfaces have taken their pictures from the cache by
         // now (they load them synchronously as they are built); let go of ours
-        // once the arrival is over. Unlocked: nothing is left either way.
+        // once the arrival is over — each surface keeps its own for the unlock.
+        // Unlocked: nothing is left either way.
         function onLockedChanged() {
             if (LockState.locked) root._dropAfter.restart()
             else root._dropAll()
@@ -80,6 +81,10 @@ Scope {
     function _dropAll() {
         const all = shooters.instances
         for (let i = 0; i < all.length; i++) all[i].drop()
+        // The surfaces that arrived hold their own copy (for the unlock, which
+        // runs backwards over it); nothing built later in this lock — a
+        // monitor plugged in while locked — may open on the desktop.
+        LockState.captures = ({})
     }
 
     // One output's result for request `seq`: its image URL, or "" (failed).
