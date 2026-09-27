@@ -690,6 +690,27 @@ function liquidSweep(name, fn, g, contact, caps) {
         if (p.hw > CW / 3 && p.hw < 0.75 * CW && p.hw / p.hh > aspect / 1.15) scaled.push(fr.t.toFixed(3) + " (" + (p.hw / p.hh).toFixed(2) + ")");
     });
     check("depth leads width through the open", lag.length === 0, lag.slice(0, 4).join(", "));
+    // The flare is the same material stretching, not a neck joining two
+    // masses (Andre, 2026-09-27: "a narrow neck, then shoulders that flare
+    // hard into the body … slightly too literal"). What made the second mass
+    // was a DOME: the bell's circle riding above the sheet's top, whose
+    // convex shoulders the neck then had to join. So once the sheet spreads,
+    // the bell stays inside it and the flare is the blend alone (while the
+    // neck is attached: drawing back, its tip rises past the sheet's top
+    // into the notch). And the
+    // corners stay organic — at least 0.45 of the sheet's half-size — until
+    // the last fifth of the spread ("organic while moving, architectural when
+    // settled"); before, they were halfway to the window's own by 0.76.
+    let domes = [], early = [];
+    frames.forEach(fr => {
+        if (fr.t > 1.6) return;
+        const f = at(fr.lead, fr.body, fr.trail), p = f.params;
+        if (p.B > 0.02 && p.B < 0.8 && p.hw > 150 && p.r < 0.45 * Math.min(p.hw, p.hh)) early.push(fr.t.toFixed(3) + " (r " + p.r.toFixed(0) + ")");
+        if (p.B >= 0.35 && p.ret === 0 && f.lower && f.lower.by - f.lower.rb < p.top - 0.5) domes.push(fr.t.toFixed(3));
+    });
+    check("the flare is the blend, not a dome over the sheet (no second mass for the neck to join)",
+          domes.length === 0, domes.slice(0, 4).join(", "));
+    check("the corners stay organic until the last fifth of the spread", early.length === 0, early.slice(0, 4).join(", "));
     check("the sheet is never the window scaled down", scaled.length === 0, scaled.slice(0, 4).join(", "));
     // Closing: the neck is whole before the mass is drawn up (the lead is
     // released at closeRelease) and stays whole until the mass is in the
@@ -765,7 +786,13 @@ function liquidSweep(name, fn, g, contact, caps) {
                 // is not seen, and moves as fast as the sheet does.
                 for (let y = dg.notchH + 1; y < 400; y += 0.5) cur.d.push(Math.min(2, G.dropField(f, dg.cx, y)));
                 if (prev) {
-                    const lim = Math.min(top, prev.top) - f.kC - 4;
+                    // Clear of the sheet's own blend — but never more than
+                    // 0.4 of the neck: the flare's blend is wide now, and
+                    // skipping all of it left nothing to measure while the
+                    // neck was thick (the self-test below stopped catching
+                    // a neck that vanishes).
+                    const t0 = Math.min(top, prev.top);
+                    const lim = t0 - Math.min(f.kC, 0.4 * Math.max(0, t0 - dg.notchH)) - 4;
                     for (let i = 0; dg.notchH + 1 + i * 0.5 < lim && i < cur.d.length; i++)
                         w = Math.max(w, Math.abs(cur.d[i] - prev.d[i]));
                 }

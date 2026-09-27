@@ -107,9 +107,14 @@ PanelWindow {
         trailScale:    0.38
         // Nothing to read until the silhouette is established.
         contentAt:     0.82
-        // Content leaves ahead of its surface, at once. Under Reduce Motion
-        // the alpha takes the same beat, so the short fade stays.
-        contentOut:    Motion.fadeOut
+        // Content leaves ahead of its surface, at once, and on a soft start
+        // that still drops most of the way early: the settings are gone
+        // before the window is noticeably a bulb (Andre: "by the time the
+        // body becomes noticeably bulb-shaped, the detailed settings UI
+        // should already be essentially gone"). Under Reduce Motion the alpha
+        // takes the same beat, so the short fade stays.
+        contentOut:      Motion.fadeOut
+        contentOutCurve: Motion.standardDecel
     }
 
     // The window stays mapped for the duration of the close animation.

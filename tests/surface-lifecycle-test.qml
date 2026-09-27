@@ -169,6 +169,28 @@ TestCase {
         tryCompare(l, "mapped", false, 2000)
     }
 
+    // The Nexus leaves its content on standardDecel (Motion's soft-start
+    // curve, 0.15 0.55 0.25 1) so its settings are gone before the window is
+    // a bulb; the default stays the effects ease. Same clock, same close:
+    // a quarter into the fade, the decel content is well further gone, and
+    // both still finish.
+    function test_content_can_leave_on_its_own_curve() {
+        var a = make()
+        var b = make({ contentOutCurve: [0.15, 0.55, 0.25, 1, 1, 1] })
+        a.open = true; b.open = true
+        tryCompare(a, "content", 1, 2000); tryCompare(b, "content", 1, 2000)
+        tryCompare(a, "phase", "Open", 2000); tryCompare(b, "phase", "Open", 2000)
+        a.open = false; b.open = false
+        wait(Math.round(a.contentOut / 4))
+        verify(b.content < a.content - 0.15, "a quarter in: decel " + b.content.toFixed(2)
+               + " vs effects " + a.content.toFixed(2))
+        tryCompare(b, "content", 0, 2000); tryCompare(a, "content", 0, 2000)
+        tryCompare(b, "mapped", false, 2000)
+        // Reopened, it arrives on the effects ease as ever.
+        b.open = true
+        tryCompare(b, "content", 1, 2000)
+    }
+
     function test_open_is_perceptual_not_physics_rest() {
         // A spring's last half-percent takes about as long again as the rest.
         // Pages start their services on Open; they must not wait for a tail

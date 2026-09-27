@@ -36,7 +36,8 @@ Item {
     // 0..1, how far the host window has brought its content in (Nexus: the
     // lifecycle's content fade). The navigation and the title arrive first,
     // the page a beat after, so what arrives reads as an order rather than
-    // one flash; leaving, the page goes first. 1 when nothing drives it.
+    // one flash; leaving, the page goes first and is gone by the time the
+    // fade is two thirds done. 1 when nothing drives it.
     property real reveal: 1
     function _part(a, b) {
         const t = Math.max(0, Math.min(1, (host.reveal - a) / (b - a)))
@@ -73,7 +74,7 @@ Item {
             bottom: parent.bottom
         }
         currentPage: host.page
-        opacity: host._part(0, 0.7)
+        opacity: host._part(0.05, 0.65)
         onPageSelected: function (id) { host.pageSelected(id) }
     }
 
@@ -87,7 +88,7 @@ Item {
         }
         width: 1
         color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.07)
-        opacity: host._part(0, 0.7)   // with the navigation it divides
+        opacity: host._part(0.05, 0.65)   // with the navigation it divides
     }
 
     // ── Right: header + page ────────────────────────────────────────
@@ -112,7 +113,7 @@ Item {
                 top: parent.top
             }
             height: theme.px(58)
-            opacity: host._part(0, 0.7)
+            opacity: host._part(0.05, 0.65)
 
             Text {
                 id: title
@@ -169,7 +170,7 @@ Item {
                 top: parent.top
                 bottom: parent.bottom
             }
-            opacity: host._part(0.3, 1)
+            opacity: host._part(0.35, 1)
 
             Repeater {
                 model: PageRegistry.pages

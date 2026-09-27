@@ -117,6 +117,11 @@ QtObject {
     property real contentAt:     0.30
     property int contentIn:      Motion.reduced ? Motion.hover : Motion.fadeIn
     property int contentOut:     Motion.fadeOut
+    // The curve content LEAVES on. The effects ease by default; a surface
+    // whose body starts changing shape at once can leave on standardDecel, a
+    // soft start that still drops most of the way early, so detailed content
+    // is gone before the silhouette is (the Nexus).
+    property var contentOutCurve: Motion.effects
 
     // A content or alpha fade reversed part-way takes the share of its full
     // duration that is left to travel, with a floor. (The body needs no such
@@ -350,6 +355,7 @@ QtObject {
         cDelay.duration = 0
         cMove.from = cFrom
         cMove.to = to
+        cMove.easing.bezierCurve = life.open ? Motion.effects : life.contentOutCurve
         cMove.duration = life._dur(life.open ? life.contentIn : life.contentOut, cFrom, to)
         if (cMove.duration <= 0) life.content = to
         else life._cAnim.start()
