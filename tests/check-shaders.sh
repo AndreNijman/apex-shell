@@ -146,12 +146,13 @@ mutant "a uniform the QML no longer declares" src/shapes/fluid/FluidDrop.qml \
        "property vector4d blends:" "property vector4d blendz:" UNIFORMS
 # A package from another source, with the lock rewritten to match it: the
 # source and package hashes both agree with the lock, and only the rebuild
-# can tell.
+# can tell. The lock's qsb version is set to THIS qsb's, so the byte
+# comparison runs wherever the check does (CI's qsb need not be the lock's).
 rm -rf "$MW/t"; mkdir -p "$MW/t/tests"; cp -r src "$MW/t/src"
 sed 's/h \* h \* k \* 0.25/h * h * k * 0.5/' src/shapes/fluid/fluiddrop.frag > "$MW/other.frag"
 "$qsb" "${QSB_FLAGS[@]}" -o "$MW/t/src/shapes/fluid/fluiddrop.frag.qsb" "$MW/other.frag" >/dev/null 2>&1
 osha="$(sha256sum < "$MW/t/src/shapes/fluid/fluiddrop.frag.qsb" | cut -c1-64)"
-awk -v o="$osha" '$1=="src/shapes/fluid/fluiddrop.frag"{$4=o}1' "$LOCK" > "$MW/t/tests/shaders.lock"
+awk -v v="$qsb_version" -v o="$osha" '$1=="src/shapes/fluid/fluiddrop.frag"{$3=v; $4=o}1' "$LOCK" > "$MW/t/tests/shaders.lock"
 if check_tree "$MW/t" | grep -q "^REBUILD[^ ]* FAIL"; then ok "self-test a package built from other source, lock and all: caught"
 else bad "self-test a package built from other source, lock and all: SURVIVED"; fi
 mutant "a package the lock does not record" tests/shaders.lock \
@@ -160,7 +161,7 @@ mutant "a package the lock does not record" tests/shaders.lock \
 # With the lock claiming another qsb version only the interface can be
 # compared — so that path must PASS on the real tree, not fail everything.
 rm -rf "$MW/t"; mkdir -p "$MW/t/tests"; cp -r src "$MW/t/src"
-sed "s/ $qsb_version / 0.0.0 /" "$LOCK" > "$MW/t/tests/shaders.lock"
+awk '{$3="0.0.0"}1' "$LOCK" > "$MW/t/tests/shaders.lock"
 if check_tree "$MW/t" | grep -q "^REBUILD[^ ]* PASS"; then
     ok "self-test: under another qsb version the interface is compared, and the real one matches"
 else
