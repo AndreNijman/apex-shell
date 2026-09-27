@@ -181,9 +181,9 @@ freeze_pid_of() { [ -f "$CALLS.hyprpicker.pid" ] && read -r p < "$CALLS.hyprpick
 # forever (why this failed there and passed here). Still running after that:
 # not released (and it is killed so it cannot leak).
 freeze_released() {
-    local p s i
+    local p s
     p="$(freeze_pid_of)" || return 1
-    for i in $(seq 1 20); do
+    for _ in $(seq 1 20); do
         kill -0 "$p" 2>/dev/null || return 0
         s="$(awk '{print $3}' "/proc/$p/stat" 2>/dev/null)"
         [ "$s" = Z ] && return 0
