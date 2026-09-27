@@ -32,6 +32,17 @@ QtObject {
         { key: "launcher", icon: "󱓞", label: "Apps"   }
     ]
 
+    // ── The way to Settings ──────────────────────────────────────────────────
+    // Settings have one home, the Nexus, a window of its own — and nothing
+    // visible led there (Andre, 2026-09-27: "people will have no idea how to
+    // reach a kind of config/settings"). So the tab bar ends with one more
+    // slot, drawn and spaced exactly like a tab ("make it spaced like an
+    // actual tab and look like an actual tab") but an action: it opens the
+    // Nexus and is never the selected tab (TabSwitcher, `action`). Not a page:
+    // `tabs` above is the pages; `tabBar` is what the bar draws.
+    readonly property var settingsTab: ({ key: "settings", icon: "󰒓", label: "Settings", action: true })
+    readonly property var tabBar: root.tabs.concat([root.settingsTab])
+
     // ── Per-page content width ───────────────────────────────────────────────
     // The launcher is narrower on purpose: it is a search field over a list, and
     // a 900-wide result row reads as a mistake. "agents" is absent and takes the

@@ -11,9 +11,15 @@ import "controls"
 // Vertical:   icon-only solid pill. Used by ArchMenu, and icon + label by the
 //             Config tab.
 //
-// Model: [{ key: string, icon: string, label?: string, spoken?: string }]
+// Model: [{ key: string, icon: string, label?: string, spoken?: string,
+//           action?: bool }]
 // label is optional — drawn beside the icon when present. spoken is what a
 // screen reader says for an icon-only tab (a label would be drawn; this is not).
+// action: drawn exactly as a tab — its own equal slot, the same pill, glyph,
+// label and hover — but it is not a place: it is never the selected one,
+// clicking it emits actionTriggered(key) instead of pageChanged, the arrows,
+// the wheel and Home/End step over it, and it is a Tab stop of its own after
+// the list (Return or Space fires it). The Dashboard's Settings is one.
 //
 // Sizing contract:
 //   Horizontal — parent MUST set width.  implicitHeight is Theme.px(40).
@@ -60,11 +66,20 @@ Item {
 	readonly property bool focusVisible: root.activeFocus
 	Accessible.role: Accessible.PageTabList
 
-	function _stepTo(i) {
-		var n = root.model.length
+	// The places: every entry that is not an action. The arrows, the wheel and
+	// Home/End move among these only — stepping onto an action would fire it.
+	readonly property var _places: {
+		var out = []
+		for (var i = 0; i < root.model.length; i++)
+			if (!root.model[i].action) out.push(i)
+		return out
+	}
+	function _stepTo(k) {
+		var p = root._places, n = p.length
 		if (n === 0) return
-		i = ((i % n) + n) % n
-		if (root.model[i].key !== root.currentPage) root.pageChanged(root.model[i].key)
+		k = ((k % n) + n) % n
+		var key = root.model[p[k]].key
+		if (key !== root.currentPage) root.pageChanged(key)
 	}
 	Keys.onPressed: function(event) {
 		InputModality.key(event)
@@ -73,11 +88,11 @@ Item {
 		var flip = horizontal && root.LayoutMirroring.enabled ? -1 : 1
 		var next = horizontal ? Qt.Key_Right : Qt.Key_Down
 		var prev = horizontal ? Qt.Key_Left  : Qt.Key_Up
-		var i = Math.max(0, root.currentIndex)
+		var i = Math.max(0, root._places.indexOf(root.currentIndex))
 		if      (event.key === next)        root._stepTo(i + flip)
 		else if (event.key === prev)        root._stepTo(i - flip)
 		else if (event.key === Qt.Key_Home) root._stepTo(0)
-		else if (event.key === Qt.Key_End)  root._stepTo(root.model.length - 1)
+		else if (event.key === Qt.Key_End)  root._stepTo(root._places.length - 1)
 		else return
 		event.accepted = true
 	}
@@ -88,11 +103,12 @@ Item {
 	property string orientation: "horizontal"   // "horizontal" | "vertical"
 
 	signal pageChanged(string key)
+	signal actionTriggered(string key)
 
 	// ── Default page & reset ──────────────────────────────────────────────────
 	// defaultPage auto-resolves to the first model entry.
 	// Call reset() from the popup's close handler to restore it off-screen.
-	property string defaultPage: model.length > 0 ? model[0].key : ""
+	property string defaultPage: root._places.length > 0 ? model[root._places[0]].key : ""
 
 	function reset() {
 		pageChanged(defaultPage)
@@ -209,7 +225,7 @@ Item {
 			if (root.scrollBusy) return
 			root.scrollBusy = true
 			scrollCooldown.restart()
-			var keys = root.model.map(function(m) { return m.key })
+			var keys = root._places.map(function(i) { return root.model[i].key })
 			var idx  = keys.indexOf(root.currentPage)
 			if (event.angleDelta.y < 0)
 			idx = (idx + 1) % keys.length
@@ -274,11 +290,25 @@ Item {
 
 			delegate: Item {
 				id: hTab
-				readonly property bool isActive: root.currentPage === modelData.key
-				Accessible.role: Accessible.PageTab
+				readonly property bool isAction: modelData.action === true
+				readonly property bool isActive: !isAction && root.currentPage === modelData.key
+				Accessible.role: isAction ? Accessible.Button : Accessible.PageTab
 				Accessible.name: modelData.spoken || modelData.label || modelData.key
-				Accessible.selectable: true
+				Accessible.selectable: !isAction
 				Accessible.selected: isActive
+				Accessible.onPressAction: if (isAction) root.actionTriggered(modelData.key)
+				// An action is a Tab stop of its own, after the list's one.
+				activeFocusOnTab: isAction
+				readonly property bool focusVisible: activeFocus
+				readonly property real radius: hBg.radius
+				Keys.onPressed: function (event) {
+					InputModality.key(event)
+					if (isAction && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+					                 || event.key === Qt.Key_Space)) {
+						root.actionTriggered(modelData.key)
+						event.accepted = true
+					}
+				}
 
 				width:  root.hSlotWidth
 				height: hRow.height
@@ -346,13 +376,18 @@ Item {
 					}
 				}
 
+				// An action's keyboard ring, on its pill (the pill clips, so the
+				// ring sits beside it rather than in it).
+				Item { anchors.fill: hBg; ApexFocusRing { target: hTab } }
+
 				HoverHandler { id: hHov; cursorShape: Qt.PointingHandCursor }
 				// Fills the SLOT, not the pill. A tab whose pill has shrunk to
 				// an icon is still clicked anywhere in its sixth of the bar.
 				MouseArea {
 					anchors.fill: parent
 					onPressed:    InputModality.pointer()
-					onClicked:    root.pageChanged(modelData.key)
+					onClicked:    hTab.isAction ? root.actionTriggered(modelData.key)
+					                            : root.pageChanged(modelData.key)
 				}
 			}
 		}
@@ -476,7 +511,7 @@ Item {
 
 				delegate: Rectangle {
 					id: vTab
-					readonly property bool isActive: root.currentPage === modelData.key
+					readonly property bool isActive: modelData.action !== true && root.currentPage === modelData.key
 
 					Accessible.role: Accessible.PageTab
 					Accessible.name: modelData.spoken || modelData.label || modelData.key
@@ -547,7 +582,8 @@ Item {
 					MouseArea {
 						anchors.fill: parent
 						onPressed:    InputModality.pointer()
-						onClicked:    root.pageChanged(modelData.key)
+						onClicked:    modelData.action === true ? root.actionTriggered(modelData.key)
+						                                        : root.pageChanged(modelData.key)
 					}
 				}
 			}

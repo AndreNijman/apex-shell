@@ -179,8 +179,8 @@ ShellRoot {
             y: 0
             width:  884
             height: hBar.tabs.implicitHeight
-            // The Dashboard's own tab bar: the tabs, and the door to Settings
-            // at their end (popups/DashTabBar.qml).
+            // The Dashboard's own tab bar: the tabs, and Settings as the last
+            // slot (popups/DashTabBar.qml).
             DashTabBar {
                 id: hBar
                 anchors.fill: parent
@@ -519,7 +519,7 @@ ShellRoot {
 
     // ── Horizontal ───────────────────────────────────────────────────────────
     function measureHorizontal(label, barWidth) {
-        const n = DashboardLayout.tabs.length
+        const n = DashboardLayout.tabBar.length
         const s = root.slotsOf(hBar.tabs, n, 4)
         if (s.length !== n) {
             root.check(label + ": the bar laid out " + n + " tabs", false,
@@ -551,7 +551,7 @@ ShellRoot {
 
             if (i > 0 && pl - prevRight < worstGap) {
                 worstGap = pl - prevRight
-                worstGapAt = DashboardLayout.tabs[i].label
+                worstGapAt = DashboardLayout.tabBar[i].label
             }
             prevRight = pr
 
@@ -560,7 +560,7 @@ ShellRoot {
             const spill = pill.width - tab.width
             if (spill > worstSpill) {
                 worstSpill = spill
-                worstSpillAt = DashboardLayout.tabs[i].label
+                worstSpillAt = DashboardLayout.tabBar[i].label
             }
 
             // Icon and label are drawn from a Row. Found wherever it is —
@@ -571,10 +571,10 @@ ShellRoot {
                 const bleed = content.width - pill.width
                 if (bleed > worstBleed) {
                     worstBleed = bleed
-                    worstBleedAt = DashboardLayout.tabs[i].label
+                    worstBleedAt = DashboardLayout.tabBar[i].label
                 }
             } else {
-                root.check(label + ": " + DashboardLayout.tabs[i].label
+                root.check(label + ": " + DashboardLayout.tabBar[i].label
                            + " draws an icon", false, "no content row found")
             }
 
@@ -585,7 +585,7 @@ ShellRoot {
                 if (tab.children[m].width >= tab.width - 0.5
                         && tab.children[m].height >= tab.height - 0.5)
                     hit = Math.max(hit, tab.children[m].width)
-            root.check(label + ": " + DashboardLayout.tabs[i].label
+            root.check(label + ": " + DashboardLayout.tabBar[i].label
                        + "'s hit target is the whole slot", hit >= tab.width - 0.5,
                        "widest full-height child is " + hit.toFixed(1)
                        + " of " + tab.width.toFixed(1))
@@ -605,42 +605,32 @@ ShellRoot {
                    + "px, floor " + root.minTouch() + "px")
     }
 
-    // ── The door to Settings, at the tab bar's end ──────────────────────────
-    // Andre (2026-09-27): settings must be findable from the tabs. It is drawn
-    // like a tab, so it is held to what a tab is held to — inside the bar, clear
-    // of its neighbour, never drawing its label outside its pill, hittable —
-    // and to the bar's verbosity: spelt out exactly when the tabs are.
-    function measureDoor(label) {
-        const n = DashboardLayout.tabs.length
+    // ── Settings, at the tab bar's end ──────────────────────────────────────
+    // Andre (2026-09-27): settings must be findable from the tabs, "spaced like
+    // an actual tab and look like an actual tab". It is one more slot of the
+    // same switcher, so measureHorizontal holds it to everything a tab is held
+    // to; here, what makes it a tab and not a button beside them — the same
+    // slot and pill height as its neighbours, spelt out exactly when they
+    // are — and what makes it not a PLACE: the selection never lands on it.
+    function measureSettingsTab(label) {
+        const m = DashboardLayout.tabBar, n = m.length
         const s = root.slotsOf(hBar.tabs, n, 4)
         if (s.length !== n) return
-        const last = s[n - 1], lastPill = last.children[0]
-        const lastRight = last.mapToItem(hHost, 0, 0).x + (last.width + lastPill.width) / 2
-        const pill = root.doorPill()
-        if (!pill) { root.check(label + ": the door to Settings is drawn", false, "no pill"); return }
-        const pl = pill.mapToItem(hHost, 0, 0).x, pr = pl + pill.width
-        root.check(label + ": the door to Settings stays inside the bar",
-                   pl >= -0.5 && pr <= hHost.width + 0.5, "pill " + pl.toFixed(1) + ".." + pr.toFixed(1)
-                   + " in a " + hHost.width + "px bar")
-        root.check(label + ": the door to Settings is clear of the last tab",
-                   pl - lastRight >= 0, "gap " + (pl - lastRight).toFixed(1) + "px")
-        root.check(label + ": the door is spelt out exactly when the tabs are",
-                   hBar.door.showLabel === hBar.tabs.hShowLabels,
-                   "door " + hBar.door.showLabel + ", tabs " + hBar.tabs.hShowLabels)
-        const row = root.contentRowOf(pill, 2)
-        root.check(label + ": the door's label stays inside its pill",
-                   row !== null && row.width <= pill.width + 0.5,
-                   row ? row.width.toFixed(1) + " in " + pill.width.toFixed(1) : "no content row")
-        root.check(label + ": the door to Settings stays hittable",
-                   Math.min(hBar.door.width, hBar.door.height) >= root.minTouch(),
-                   Math.min(hBar.door.width, hBar.door.height).toFixed(1) + "px, floor " + root.minTouch() + "px")
-    }
-    function doorPill() {
-        for (var i = 0; i < hBar.door.children.length; i++) {
-            const c = hBar.door.children[i]
-            if (c.radius !== undefined && c.width > 4 && c.height > 4 && root.contentRowOf(c, 2)) return c
-        }
-        return null
+        const k = n - 1
+        root.check(label + ": Settings is the bar's last slot, and an action",
+                   m[k].key === "settings" && m[k].action === true, JSON.stringify(m[k]))
+        root.check(label + ": Settings is spaced like a tab (the same slot as its neighbours)",
+                   Math.abs(s[k].width - s[0].width) <= 0.5 && Math.abs(s[k].height - s[0].height) <= 0.5,
+                   s[k].width.toFixed(1) + " vs " + s[0].width.toFixed(1))
+        root.check(label + ": Settings looks like a tab (the same pill height)",
+                   Math.abs(s[k].children[0].height - s[0].children[0].height) <= 0.5,
+                   s[k].children[0].height.toFixed(1) + " vs " + s[0].children[0].height.toFixed(1))
+        const row = root.contentRowOf(s[k], 3), row0 = root.contentRowOf(s[0], 3)
+        const texts = r => r ? r.children.filter(c => c.text !== undefined && c.visible).length : -1
+        root.check(label + ": Settings is spelt out exactly when the tabs are",
+                   texts(row) === texts(row0), texts(row) + " vs " + texts(row0))
+        root.check(label + ": the selection never lands on Settings",
+                   hBar.tabs.currentIndex !== k && !s[k].isActive, "currentIndex " + hBar.tabs.currentIndex)
     }
 
     // The bar has to be at least as tall as the text it holds, or the labels are
@@ -648,7 +638,7 @@ ShellRoot {
     // the bar rather than from the font size, because line height is not the
     // pixel size.
     function measureHorizontalHeight(label) {
-        const n = DashboardLayout.tabs.length
+        const n = DashboardLayout.tabBar.length
         const s = root.slotsOf(hBar.tabs, n, 4)
         if (s.length !== n)
             return
@@ -764,9 +754,9 @@ ShellRoot {
         // the same helper the window uses, so the two cannot drift.
         const bar = DashboardLayout.barWidthFor(Metrics, page, screenW)
         root.check(label + ": the tab bar gets a usable width",
-                   bar >= DashboardLayout.tabs.length * root.minTouch(),
-                   "bar " + bar + "px for " + DashboardLayout.tabs.length
-                   + " tabs, floor " + (DashboardLayout.tabs.length * root.minTouch()) + "px")
+                   bar >= DashboardLayout.tabBar.length * root.minTouch(),
+                   "bar " + bar + "px for " + DashboardLayout.tabBar.length
+                   + " tabs, floor " + (DashboardLayout.tabBar.length * root.minTouch()) + "px")
     }
 
     // What has to hold even where the geometry is hopeless.
@@ -780,7 +770,7 @@ ShellRoot {
         root.check(label + ": the tab bar keeps a positive width", bar > 0,
                    "bar " + bar)
 
-        const n = DashboardLayout.tabs.length
+        const n = DashboardLayout.tabBar.length
         const s = root.slotsOf(hBar.tabs, n, 4)
         if (s.length !== n) {
             root.check(label + ": the bar still lays out " + n + " tabs", false,
@@ -846,15 +836,14 @@ ShellRoot {
         }
         const v  = root.vRigFor(stepData)
         const sw = v ? v.sw : hBar.tabs
-        const n  = v ? v.n  : DashboardLayout.tabs.length
+        const n  = v ? v.n  : DashboardLayout.tabBar.length
         const s  = (v && v.short) ? root.vRowsOf(sw, n) : root.slotsOf(sw, n, 4)
         if (s.length !== n)
             return false
         if (v)
             return Math.abs(s[0].width - v.host.width) <= 1.5
         const last = s[n - 1]
-        return Math.abs(last.x + last.width - hBar.tabs.width) <= 1.5
-            && Math.abs(hBar.door.x + hBar.door.width - hHost.width) <= 1.5
+        return Math.abs(last.x + last.width - hHost.width) <= 1.5
     }
 
     function signatureOf(stepData) {
@@ -877,7 +866,7 @@ ShellRoot {
         }
         const v  = root.vRigFor(stepData)
         const sw = v ? v.sw : hBar.tabs
-        const n  = v ? v.n  : DashboardLayout.tabs.length
+        const n  = v ? v.n  : DashboardLayout.tabBar.length
         const s  = (v && v.short) ? root.vRowsOf(sw, n) : root.slotsOf(sw, n, 4)
         if (s.length !== n)
             return "incomplete:" + s.length
@@ -974,16 +963,16 @@ ShellRoot {
             const ltag = "live " + stepData.screen.name + " @"
                        + Metrics.scale + "x " + stepData.page
             root.measureWidth(ltag, stepData.page, stepData.screen.w)
-            root.measureHorizontal(ltag + " bar=" + hHost.width, hBar.tabs.width)
+            root.measureHorizontal(ltag + " bar=" + hHost.width, hHost.width)
             root.measureHorizontalHeight(ltag)
-            root.measureDoor(ltag + " bar=" + hHost.width)
+            root.measureSettingsTab(ltag + " bar=" + hHost.width)
         } else if (stepData.kind === "h") {
             const tag = "h " + stepData.scale + "x " + stepData.screen.name
                       + " " + stepData.page
             root.measureWidth(tag, stepData.page, stepData.screen.w)
-            root.measureHorizontal(tag + " bar=" + hHost.width, hBar.tabs.width)
+            root.measureHorizontal(tag + " bar=" + hHost.width, hHost.width)
             root.measureHorizontalHeight(tag)
-            root.measureDoor(tag + " bar=" + hHost.width)
+            root.measureSettingsTab(tag + " bar=" + hHost.width)
         } else if (stepData.kind === "stress") {
             // A scale this output cannot carry. Not graded on fitting between
             // the notches or on the touch floor — neither is achievable, and
