@@ -769,18 +769,21 @@ StatCard {
                         Rectangle {
                             anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                             width: bfillW.value
-                            // Follows only while the Dashboard is on screen: behind a
-                            // closed one the follower is not stepped and kept an old
-                            // level, then slid to the new one as it opened (the
-                            // "jitter"). Hidden, it snaps. (ChannelColumn, the same.)
+                            // Glides only for a change made elsewhere (a brightness
+                            // key) while the Dashboard is on screen; hidden or under
+                            // the pointer it snaps, so it neither opens on an old
+                            // level nor trails the finger (the "jitter";
+                            // ChannelColumn, the same).
                             SpringFollower { id: bfillW; role: "valueFollow"
-                                             live: btrack.Window.window ? btrack.Window.window.visible : false
+                                             live: !bdrag.pressed
+                                                   && (btrack.Window.window ? btrack.Window.window.visible : false)
                                              target: Math.max(btrack.radius * 2, btrack.width * root._brightVal) }
                             radius: parent.radius; color: Theme.active
                         }
                         // Drag or click to set brightness. No wheel handler: a
                         // value bar in this shell never reads the wheel.
                         MouseArea {
+                            id: bdrag
                             // A 5 px bar with a 32 px target (hitMin): its row
                             // holds nothing else to press; x still maps 1:1.
                             anchors.fill: parent; anchors.topMargin: -13.5; anchors.bottomMargin: -13.5
@@ -799,7 +802,8 @@ StatCard {
                         color: Theme.fixedLight; anchors.verticalCenter: parent.verticalCenter
                         x: bthumbX.value
                         SpringFollower { id: bthumbX; role: "valueFollow"
-                                         live: btrack.Window.window ? btrack.Window.window.visible : false
+                                         live: !bdrag.pressed
+                                               && (btrack.Window.window ? btrack.Window.window.visible : false)
                                          target: Math.max(0, Math.min(btw.width - btw.thumbD, root._brightVal * (btw.width - btw.thumbD))) }
                     }
                 }

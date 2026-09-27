@@ -48,6 +48,28 @@ TestCase {
         pop.visible = false
     }
 
+    // Under the pointer the thumb IS the finger, and the fill must be with it:
+    // it used to chase the thumb on its spring — measured, 120 px behind at the
+    // press and 16-36 px behind through a drag (the rest of the "jitter").
+    function test_under_the_pointer_the_fill_is_with_the_finger() {
+        pop.visible = true
+        ch.value = 0.2
+        tryVerify(function () { return Math.abs(fill().height - want(0.2)) < 0.5 }, 2000)
+        const owner = function (v) { ch.value = v }      // the popup writes it back
+        ch.volumeChanged.connect(owner)
+        const track = fill().parent
+        mousePress(track, track.width / 2, track.height * 0.2)
+        verify(ch.value > 0.7, "the press set the value: " + ch.value.toFixed(2))
+        verify(Math.abs(fill().height - want(ch.value)) < 0.5,
+               "at the press the fill is already at the finger: " + fill().height.toFixed(1)
+               + " want " + want(ch.value).toFixed(1))
+        mouseMove(track, track.width / 2, track.height * 0.5)
+        verify(Math.abs(fill().height - want(ch.value)) < 0.5, "and stays with it while dragged")
+        mouseRelease(track, track.width / 2, track.height * 0.5)
+        ch.volumeChanged.disconnect(owner)
+        pop.visible = false
+    }
+
     function test_while_open_the_level_still_follows_rather_than_jumping() {
         pop.visible = true
         ch.value = 0.3

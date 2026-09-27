@@ -99,15 +99,18 @@ Item {
                     objectName: "levelFill"
                     anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
                     height: fillH.value
-                    // Follows only while its window is on screen (Andre: "when i
-                    // open the brightness slider at first it like jitters a bit").
-                    // A follower is stepped by rendered frames, so one left
-                    // running behind a closed popup kept the level from before a
-                    // brightness or volume key, and at the next open slid across
-                    // to the new one while the thumb already stood there. Hidden,
-                    // it snaps; the first frame shown is the true level.
+                    // Glides only for a change made ELSEWHERE — a brightness or
+                    // volume key — and only while its window is on screen. Andre:
+                    // "when i open the brightness slider at first it like jitters
+                    // a bit". Two ways it did: behind a closed popup the follower
+                    // was not stepped, so it opened on an old level and slid; and
+                    // under the pointer, where the thumb is the finger, the fill
+                    // chased it — measured in a nested session, 120 px behind at
+                    // the press, springing down over 130 ms, then 16-36 px behind
+                    // for the whole drag. Hidden or dragged, it snaps.
                     SpringFollower { id: fillH; role: "valueFollow"
-                                     live: fill.Window.window ? fill.Window.window.visible : false
+                                     live: !dragArea.pressed
+                                           && (fill.Window.window ? fill.Window.window.visible : false)
                                      target: Math.max(fill.radius * 2, fill.parent.height * col.value) }
                     radius: parent.radius
                     color:  col.muted ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.15) : Theme.active
@@ -132,6 +135,7 @@ Item {
                 // Drag to change value. No wheel handler: a value bar in this
                 // shell never reads the wheel, so scrolling stays scrolling.
                 MouseArea {
+                    id: dragArea
                     // 22 px wide drawn, 32 px to grab (hitMin); the value is
                     // read off y alone, so the margins change nothing else.
                     anchors.fill: parent; anchors.leftMargin: -5; anchors.rightMargin: -5

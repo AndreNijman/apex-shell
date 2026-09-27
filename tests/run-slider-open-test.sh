@@ -118,7 +118,7 @@ echo "passed=$n_pass failed=$n_fail"
 # reads names CfgRow supplies; a fixture that found none would simply be quiet,
 # and a floor would let a dropped test function hide behind an added one.
 # QtTest's total is initTestCase + the test functions + cleanupTestCase.
-EXPECT_TESTS=4   # 2 + initTestCase/cleanupTestCase
+EXPECT_TESTS=5   # 3 + initTestCase/cleanupTestCase
 n_ran=$(( n_pass + n_fail ))
 if [[ "$n_ran" -ne "$EXPECT_TESTS" ]]; then
     echo "RESULT: $n_ran test functions ran, expected $EXPECT_TESTS"
@@ -131,4 +131,4 @@ if [[ "$n_fail" -ne 0 || "$status" -ne 0 ]]; then
     exit 1
 fi
 
-echo "RESULT: a slider opened after its value changed behind it shows the new level on its first frame, and on screen still follows a change instead of cutting"
+echo "RESULT: a slider opened after its value changed behind it shows the new level on its first frame; under the pointer the fill is with the finger; a change from elsewhere still glides"
