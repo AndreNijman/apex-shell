@@ -66,6 +66,29 @@ QtObject {
     property int  dashboardHeight:   520
     property int  notificationsWidth: 400
 
+    // ── Bar readouts, clock, recordings, avatar (2026-09-27) ─────────────────
+    // Andre: "make the sound percentage and the battery percentage always
+    // visible … 12/24h clock … system default, or 12 or 24 … screen recording
+    // save directory … a custom avatar". Every default is what the shell did
+    // before: percentages on hover only, the locale's clock (C.UTF-8 → 24 h),
+    // ~/Videos/screen_recordings, the avatar drawn from the wallpaper.
+    property bool   showVolumePercent:  false
+    property bool   showBatteryPercent: false
+    property string clockFormat:        "system"   // "system" | "12" | "24"
+    property string recordingDir:       ""         // empty → ~/Videos/screen_recordings
+    property string avatarPath:         ""         // empty → a still of the wallpaper
+
+    /// A path a person typed, made absolute: "~" and "$HOME" expanded.
+    function expandPath(p) {
+        let d = String(p || "").trim()
+        const home = Quickshell.env("HOME") || ""
+        if (d === "~" || d.startsWith("~/")) d = home + d.slice(1)
+        else if (d === "$HOME" || d.startsWith("$HOME/")) d = home + d.slice(5)
+        return d
+    }
+    // The chosen avatar as a file path; "" = follow the wallpaper.
+    readonly property string avatarFile: expandPath(avatarPath)
+
     // ── Derived (not persisted) ───────────────────────────────────────────────
     // The one duration the shell ran on before theme/Motion.qml: what 320 ms
     // became at the user's speed, still 0 when reduce-motion is on. Kept for the
@@ -80,7 +103,8 @@ QtObject {
         "motionSpeed", "motionScale",
         "dashboardWidth", "dashboardHeight", "notificationsWidth",
         "lockBackground", "scaleMode", "scaleManual", "scaleScreen",
-        "nightLightTemp"
+        "nightLightTemp",
+        "showVolumePercent", "showBatteryPercent", "clockFormat", "recordingDir", "avatarPath"
     ]
     readonly property var _defaults: ({
         cornerRadius: 17, borderWidth: 6, notchRadius: 15, notchHeight: 40,
@@ -90,7 +114,9 @@ QtObject {
         notificationsWidth: 400,
         lockBackground: "",
         scaleMode: "auto", scaleManual: 1.0, scaleScreen: "",
-        nightLightTemp: 5600
+        nightLightTemp: 5600,
+        showVolumePercent: false, showBatteryPercent: false, clockFormat: "system",
+        recordingDir: "", avatarPath: ""
     })
 
     // Bounds used by the UI sliders AND clamped on load so a hand-edited file
@@ -128,7 +154,8 @@ QtObject {
     // hand-edited typo — falls back to the default instead of reaching Motion
     // as a preset name nobody defined.
     readonly property var _choices: ({
-        motionSpeed: ["snappy", "balanced", "relaxed"]
+        motionSpeed: ["snappy", "balanced", "relaxed"],
+        clockFormat: ["system", "12", "24"]
     })
     function _choice(k, v) {
         var c = _choices[k]
@@ -185,6 +212,11 @@ QtObject {
     onScaleManualChanged:       _scheduleSave()
     onScaleScreenChanged:       _scheduleSave()
     onNightLightTempChanged:    _scheduleSave()
+    onShowVolumePercentChanged: _scheduleSave()
+    onShowBatteryPercentChanged:_scheduleSave()
+    onClockFormatChanged:       _scheduleSave()
+    onRecordingDirChanged:      _scheduleSave()
+    onAvatarPathChanged:        _scheduleSave()
 
     function _scheduleSave() { if (_loaded) _saveTimer.restart() }
 

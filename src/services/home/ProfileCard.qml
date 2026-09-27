@@ -98,11 +98,14 @@ StatCard {
             }
 
             Image {
+                id: avatarImg
                 anchors.fill: parent
                 source:   root.avatarPath !== "" ? ("file://" + root.avatarPath) : ""
                 fillMode: Image.PreserveAspectCrop
                 smooth:   true
-                visible:  root.avatarPath !== ""
+                // A path that does not load (a moved or unreadable picture)
+                // shows the glyph below, not an empty circle.
+                visible:  root.avatarPath !== "" && status === Image.Ready
                 layer.enabled: true
                 layer.effect: MultiEffect {
                     maskEnabled:      true
@@ -117,7 +120,7 @@ StatCard {
                 text:           "󰀄"
                 font.pixelSize: theme.fs(28)
                 color:          Theme.active
-                visible:        root.avatarPath === ""
+                visible:        !avatarImg.visible
             }
         }
 

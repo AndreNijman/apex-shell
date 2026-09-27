@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import "../../../"
 import "../../"
@@ -40,6 +41,13 @@ CfgScroll {
     }
 
     property var _openProc: Process { command: []; running: false }
+    // A folder the user chose: passed as an argument, never spliced into the
+    // script (openPath below is for this page's own fixed ~/… literals).
+    function openDir(abs) {
+        _openProc.command = ["bash", "-c", 'mkdir -p -- "$1" && { xdg-open "$1" >/dev/null 2>&1 & disown; }', "--", abs]
+        _openProc.running = false
+        _openProc.running = true
+    }
     function openPath(p) {
         _openProc.command = ["bash", "-c", "xdg-open " + p + " & disown"]
         _openProc.running = false
@@ -157,13 +165,48 @@ CfgScroll {
                 }
             }
         }
+        // Where recordings are saved (SettingsService.recordingDir; "" = the
+        // default). ScreenRecService.saveDir is what will actually be used, so
+        // the description says so when a typed value is not a usable path.
         CfgRow {
             label:       "Recordings folder"
-            description: "~/Videos/screen_recordings"
+            description: {
+                const home = Quickshell.env("HOME") || ""
+                const shown = ScreenRecService.saveDir.indexOf(home + "/") === 0
+                              ? "~" + ScreenRecService.saveDir.slice(home.length) : ScreenRecService.saveDir
+                if (SettingsService.recordingDir === "") return shown + " (default)"
+                if (ScreenRecService.saveDir === ScreenRecService.defaultDir
+                        && SettingsService.expandPath(SettingsService.recordingDir) !== ScreenRecService.defaultDir)
+                    return "Not a full path; recordings go to " + shown
+                return shown
+            }
+            Row {
+                spacing: 8
+                CfgTextField {
+                    text:        SettingsService.recordingDir
+                    placeholder: "~/Videos/screen_recordings"
+                    onAccepted:  function(t) { SettingsService.set("recordingDir", t.trim()) }
+                    onEdited:    function(t) { SettingsService.set("recordingDir", t.trim()) }
+                }
+                CfgPickPath {
+                    directory: true
+                    start:     ScreenRecService.saveDir
+                    onPicked:  function(p) { SettingsService.set("recordingDir", p) }
+                }
+                CfgButton {
+                    label:   "Open"
+                    icon:    "󰝰"
+                    onClicked: root.openDir(ScreenRecService.saveDir)
+                }
+            }
+        }
+        CfgRow {
+            label:       "Recordings folder"
+            description: "Return to the shipped default: ~/Videos/screen_recordings"
             CfgButton {
-                label:   "Open"
-                icon:    "󰝰"
-                onClicked: root.openPath("~/Videos/screen_recordings")
+                label: "Reset"
+                icon:  "↺"
+                onClicked: SettingsService.set("recordingDir", "")
             }
         }
     }

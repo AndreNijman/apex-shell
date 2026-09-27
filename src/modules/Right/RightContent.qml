@@ -38,8 +38,9 @@ Item {
         PluginWidgets{}
 
         Network{}
-        Audio{}
-        Battery{}
+        // Percentages beside the icons: on hover, or always (Settings → Layout → Bar).
+        Audio   { showPercentage: SettingsService.showVolumePercent }
+        Battery { showPercentage: SettingsService.showBatteryPercent }
         Clock{}
         Notifications{}
     }

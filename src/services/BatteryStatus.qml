@@ -81,7 +81,7 @@ Item {
     // ── Display ───────────────────────────────────────────────────────────────
     Row {
         id: statusRow
-        spacing: 4
+        spacing: 3      // the volume readout's, so the two read as one pair
         anchors.centerIn: parent
 
         Text {

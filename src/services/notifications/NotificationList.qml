@@ -619,7 +619,7 @@ Item {
                         id: timeLine
                         anchors.right:    parent.right
                         anchors.baseline: parent.baseline
-                        text:             TimeFmt.ago(card.tTime, root._now)
+                        text:             TimeFmt.ago(card.tTime, root._now, Time.use24h)
                         color:            Theme.textSecondary
                         font.pixelSize:   theme.typeCaption
                         font.features:    { "tnum": 1 }

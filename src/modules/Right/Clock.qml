@@ -23,11 +23,11 @@ Text {
     text: {
         switch (clock.formatMode) {
         case 1:
-            return Time.formatSeconds("hh:mm:ss")
+            return Time.clock(true)
         case 2:
             return Time.format("dd-MM-yyyy")
         default:
-            return Time.format("hh:mm")
+            return Time.clock(false)       // 12 or 24 h: SettingsService.clockFormat
         }
     }
     // 14 / 600 / tabular figures in the UI face (brief §C.4, §D.4): the bar's

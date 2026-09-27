@@ -240,7 +240,9 @@ WlSessionLock {
         // used to be a 1 Hz Timer that ran for the whole session even
         // though the lock surface only exists while locked, and it woke
         // the process 59 times a minute to redraw nothing.
-        readonly property string timeText: Time.format("hh:mm")
+        // 12 or 24 h (SettingsService.clockFormat); a 12-hour AM/PM is drawn
+        // beside the digits, small, not at the clock's 120 px.
+        readonly property string timeText: Time.clock(false, false)
         readonly property string dateText: Time.format("dddd, d MMMM")
 
         // ── Arrival and departure: the notch pours down (2026-09-27) ────
@@ -564,13 +566,26 @@ WlSessionLock {
                        - surface.leave * Motion.travel(theme.px(18))
                 }
 
-                Text {
+                Row {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text:           surface.timeText
-                    color:          Theme.text
-                    font.family:    "JetBrainsMono Nerd Font"
-                    font.pixelSize: theme.fs(120)
-                    font.bold:      true
+                    spacing: theme.px(10)
+                    Text {
+                        id: bigTime
+                        text:           surface.timeText
+                        color:          Theme.text
+                        font.family:    "JetBrainsMono Nerd Font"
+                        font.pixelSize: theme.fs(120)
+                        font.bold:      true
+                    }
+                    Text {
+                        visible:        Time.meridiem !== ""
+                        text:           Time.meridiem
+                        color:          Theme.subtext
+                        font.family:    "JetBrainsMono Nerd Font"
+                        font.pixelSize: theme.fs(28)
+                        font.bold:      true
+                        anchors.baseline: bigTime.baseline
+                    }
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter

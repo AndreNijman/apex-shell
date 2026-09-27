@@ -22,6 +22,8 @@ StatCard {
     property string _hStr:     "00"
     property string _mStr:     "00"
     property string _sec:      "00"
+    property string _mer:      ""
+    Connections { target: Time; function onUse24hChanged() { root._tick() } }
     property int    _currentH: 0
     property int    _currentM: 0
 
@@ -121,7 +123,9 @@ StatCard {
         var h = d.getHours(), m = d.getMinutes(), s = d.getSeconds()
         _currentH = h; _currentM = m
         _hm  = _zp(h) + ":" + _zp(m) + ":" + _zp(s)
-        _hStr = _zp(h)
+        // 12 or 24 h (Time.use24h, from SettingsService.clockFormat).
+        _hStr = _zp(Time.use24h ? h : (h % 12 || 12))
+        _mer  = Time.use24h ? "" : (h < 12 ? "AM" : "PM")
         _mStr = _zp(m)
         _sec = _zp(s)
     }
@@ -329,13 +333,24 @@ StatCard {
                     }
                 }
 
-                // Seconds — vertically centered beside the stack
-                Text {
+                // Seconds — vertically centered beside the stack, and a
+                // 12-hour clock's AM/PM under them.
+                Column {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: root._sec
-                    font.pixelSize: theme.fs(22); font.weight: Font.Medium
-                    font.family: "JetBrains Mono"
-                    color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.45)
+                    spacing: 2
+                    Text {
+                        text: root._sec
+                        font.pixelSize: theme.fs(22); font.weight: Font.Medium
+                        font.family: "JetBrains Mono"
+                        color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.45)
+                    }
+                    Text {
+                        visible: root._mer !== ""
+                        text: root._mer
+                        font.pixelSize: theme.fs(14); font.weight: Font.Bold
+                        font.family: "JetBrains Mono"
+                        color: Theme.active
+                    }
                 }
             }
         }

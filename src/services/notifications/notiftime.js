@@ -25,7 +25,9 @@ function sameDay(a, b) {
         && a.getDate() === b.getDate();
 }
 
-function ago(ts, now) {
+// `use24` (default true): false writes a same-day time as "2:05 PM", the
+// shell's 12-hour clock (Time.use24h).
+function ago(ts, now, use24) {
     if (!ts || ts <= 0 || !now) return "";
     var d = now - ts;
     // A few seconds ahead is the reader's clock lagging the arrival (it ticks
@@ -34,7 +36,13 @@ function ago(ts, now) {
     if (d < 60 * 1000) return "now";
     if (d < 60 * 60 * 1000) return Math.floor(d / 60000) + " min";
     var t = new Date(ts), n = new Date(now);
-    if (sameDay(t, n)) return pad2(t.getHours()) + ":" + pad2(t.getMinutes());
+    if (sameDay(t, n)) {
+        if (use24 === false) {
+            var h = t.getHours();
+            return (h % 12 || 12) + ":" + pad2(t.getMinutes()) + (h < 12 ? " AM" : " PM");
+        }
+        return pad2(t.getHours()) + ":" + pad2(t.getMinutes());
+    }
     var y = new Date(now); y.setDate(y.getDate() - 1);
     if (sameDay(t, y)) return "Yesterday";
     return MONTHS[t.getMonth()] + " " + t.getDate();

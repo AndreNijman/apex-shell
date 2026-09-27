@@ -89,6 +89,47 @@ CfgScroll {
                 onToggled: function(v) { SettingsService.set("barEnabled", v) }
             }
         }
+        // The readouts beside the volume and battery icons. Off, each still
+        // slides out while the pointer is over its icon.
+        CfgRow {
+            label:       "Volume percentage"
+            description: SettingsService.showVolumePercent ? "Always shown beside the volume icon"
+                                                           : "Shown while you point at the volume icon"
+            CfgSwitch {
+                checked:   SettingsService.showVolumePercent
+                onToggled: function(v) { SettingsService.set("showVolumePercent", v) }
+            }
+        }
+        CfgRow {
+            label:       "Battery percentage"
+            description: SettingsService.showBatteryPercent ? "Always shown beside the battery icon"
+                                                            : "Shown while you point at the battery icon"
+            CfgSwitch {
+                checked:   SettingsService.showBatteryPercent
+                onToggled: function(v) { SettingsService.set("showBatteryPercent", v) }
+            }
+        }
+    }
+
+    // ── Clock ─────────────────────────────────────────────────────────────────
+    // One setting for every clock the shell draws: the bar, the lock screen,
+    // the dashboard and a notification's time (Time.clock / Time.use24h).
+    CfgSection {
+        title: "Clock"
+
+        CfgRow {
+            label:       "Time format"
+            description: "Now " + Time.clock(false)
+            CfgSegmented {
+                options: [
+                    { value: "system", label: "System (" + (Time.localeIs12h ? "12 h" : "24 h") + ")" },
+                    { value: "12",     label: "12-hour" },
+                    { value: "24",     label: "24-hour" }
+                ]
+                value:      SettingsService.clockFormat
+                onSelected: function(v) { SettingsService.set("clockFormat", v) }
+            }
+        }
     }
 
     // ── Motion ────────────────────────────────────────────────────────────────

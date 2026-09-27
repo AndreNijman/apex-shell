@@ -1,4 +1,6 @@
 import QtQuick
+import Quickshell
+import QtQuick.Effects
 import "../../../"
 import "../../"
 import "../../../components"
@@ -57,6 +59,85 @@ CfgScroll {
                 CfgSwatch { swatchColor: Theme.icon;       label: "icon" }
                 CfgSwatch { swatchColor: Theme.border;     label: "border" }
                 CfgSwatch { swatchColor: Theme.iconFont;   label: "iconfont" }
+            }
+        }
+    }
+
+    // ── Profile picture ───────────────────────────────────────────────────────
+    // The dashboard's avatar. By default a still of the wallpaper (what it has
+    // always been); a chosen picture replaces it and stops following the
+    // wallpaper. SettingsService.avatarPath, "" = the default.
+    CfgSection {
+        title: "Profile picture"
+
+        CfgRow {
+            label:       "Picture"
+            description: SettingsService.avatarPath === "" ? "Follows the wallpaper"
+                       : avatarPreview.status === Image.Error ? "Can't read that image; the dashboard shows the default"
+                       : SettingsService.avatarFile.split("/").pop()
+
+            Row {
+                spacing: 8
+
+                Item {
+                    width: 32; height: 32
+                    anchors.verticalCenter: parent.verticalCenter
+                    Rectangle {
+                        id: avatarMask
+                        anchors.fill: parent
+                        radius: width / 2
+                        visible: false
+                        layer.enabled: true
+                    }
+                    Image {
+                        id: avatarPreview
+                        anchors.fill: parent
+                        source: {
+                            const f = SettingsService.avatarFile !== "" ? SettingsService.avatarFile
+                                    : (Quickshell.env("HOME") || "") + "/.curr_wall_static.jpg"
+                            return "file://" + f
+                        }
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                        sourceSize: Qt.size(64, 64)
+                        visible: false
+                    }
+                    MultiEffect {
+                        anchors.fill: parent
+                        source: avatarPreview
+                        visible: avatarPreview.status === Image.Ready
+                        maskEnabled: true
+                        maskSource: avatarMask
+                        maskThresholdMin: 0.5
+                        maskSpreadAtMin: 1.0
+                    }
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: width / 2
+                        color: "transparent"
+                        border.width: 1
+                        border.color: Theme.border
+                    }
+                }
+                CfgTextField {
+                    text:        SettingsService.avatarPath
+                    placeholder: "~/Pictures/me.png"
+                    onAccepted:  function(t) { SettingsService.set("avatarPath", t.trim()) }
+                    onEdited:    function(t) { SettingsService.set("avatarPath", t.trim()) }
+                }
+                CfgPickPath {
+                    start:    SettingsService.avatarFile
+                    onPicked: function(p) { SettingsService.set("avatarPath", p) }
+                }
+            }
+        }
+        CfgRow {
+            label:       "Profile picture"
+            description: "Return to the shipped default: a still of the wallpaper"
+            CfgButton {
+                label: "Reset"
+                icon:  "↺"
+                onClicked: SettingsService.set("avatarPath", "")
             }
         }
     }

@@ -33,6 +33,13 @@ eq("late yesterday is Yesterday, not a time", T.ago(at(25, 23, 58), now), "Yeste
 eq("early yesterday", T.ago(at(25, 0, 10), now), "Yesterday");
 eq("older is a date", T.ago(at(24, 9, 0), now), "Sep 24");
 eq("across a month", T.ago(new Date(2026, 7, 31, 12, 0).getTime(), now), "Aug 31");
+// The shell's 12-hour clock (SettingsService.clockFormat → Time.use24h).
+eq("12 h: an afternoon time", T.ago(at(26, 14, 5), now, false), "2:05 PM");
+eq("12 h: the morning, hour unpadded", T.ago(at(26, 7, 3), now, false), "7:03 AM");
+eq("12 h: just after midnight is 12, not 0", T.ago(at(26, 0, 1), now, false), "12:01 AM");
+eq("12 h: noon is 12 PM", T.ago(at(26, 12, 0), now, false), "12:00 PM");
+eq("24 h stays the default when the flag is omitted", T.ago(at(26, 14, 5), now), "14:05");
+eq("12 h leaves relative times alone", T.ago(now - 5 * 60 * 1000, now, false), "5 min");
 
 console.log("\nnotif-time: passed=" + pass + " failed=" + fail);
 process.exit(fail === 0 ? 0 : 1);
