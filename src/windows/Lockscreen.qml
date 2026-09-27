@@ -554,7 +554,7 @@ WlSessionLock {
                         speed:               SettingsService.motionSpeed
                         motionScale:         SettingsService.motionScale
                         reduced:             SettingsService.reduceMotion
-                        size:                15
+                        size:                18
                     }
 
                     // Spinner (shown while PAM is checking).

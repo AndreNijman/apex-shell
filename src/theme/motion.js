@@ -86,6 +86,25 @@ var SPRINGS = {
     toggle:       { response: 0.30, damping: 0.82 }
 };
 
+// ── Expressive springs ──────────────────────────────────────────────────────
+// Deliberately apart from SPRINGS, whose rule is "a whisper of overshoot at
+// most": a surface that bounces reads as a toy. These are for small feedback
+// marks that are MEANT to pop — the lock screen's password shapes, after
+// Google's own PIN entry and end-4's lock screen (Andre, 2026-09-27). Material
+// 3 Expressive specifies them as springs; its "fast spatial" is damping 0.6,
+// stiffness 800, i.e. a response of 2π/√800 = 0.222 s — about 9.5 % over, the
+// same peak as its published bezier approximation [0.42, 1.67, 0.21, 0.90].
+// tests/motion-test.js keeps them small and quick.
+var EXPRESSIVE = {
+    fastSpatial: { response: 0.222, damping: 0.6 }
+};
+
+function expressive(role, scale, reduced) {
+    var sp = EXPRESSIVE.hasOwnProperty(role) ? EXPRESSIVE[role] : EXPRESSIVE.fastSpatial;
+    if (reduced || !(scale > 0)) return { response: 0, damping: sp.damping };
+    return { response: sp.response * scale, damping: sp.damping };
+}
+
 // ── Loops ───────────────────────────────────────────────────────────────────
 // Not transitions, so not scaled by speed: a spinner that turns faster because
 // the user asked for snappier menus would be a bug. They are GATED instead —
@@ -226,6 +245,8 @@ if (typeof module !== "undefined" && module.exports)
         LOOPS: LOOPS,
         SPRINGS: SPRINGS,
         spring: spring,
+        EXPRESSIVE: EXPRESSIVE,
+        expressive: expressive,
         SPEEDS: SPEEDS,
         SCALE_MIN: SCALE_MIN,
         SCALE_MAX: SCALE_MAX,

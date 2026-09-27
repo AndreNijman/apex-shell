@@ -18,15 +18,20 @@ done
 [[ -n "$runner" ]] || { echo "SKIP: qmltestrunner not installed (qt6-qtdeclarative-devel)"; exit 0; }
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT INT TERM
-mkdir -p "$stage/components/auth" "$stage/theme"
+mkdir -p "$stage/components/auth" "$stage/theme" "$stage/shapes"
 cp "$root/src/components/auth/PasswordShapes.qml" "$stage/components/auth/"
-cp "$root/src/theme/motion.js" "$stage/theme/"
+cp "$root/src/theme/motion.js" "$root/src/theme/spring.js" "$stage/theme/"
+# The Material shapes (vendored, Apache-2.0) and the path helper. Staged by
+# relative path only — which is how apex-greet loads the file from
+# /usr/share/apex-shell, so a load here is a load there.
+cp "$root/src/shapes/materialpath.js" "$stage/shapes/"
+cp -r "$root/src/shapes/material" "$stage/shapes/material"
 cp "$here/password-shapes-test.qml" "$stage/"
 out="$(QT_QPA_PLATFORM=offscreen timeout 120 "$runner" -platform offscreen -input "$stage/password-shapes-test.qml" 2>&1)"
 rc=$?
 echo "$out" | grep -E -A3 '^(FAIL|Totals)|is not a type|Error' | head -40
 grep -q 'is not a type\|module .* is not installed' <<<"$out" && { echo "RESULT: the component did not load"; exit 1; }
 passed="$(sed -n 's/^Totals: \([0-9]*\) passed.*/\1/p' <<<"$out")"
-[[ -n "$passed" && "$passed" -ge 7 ]] || { echo "RESULT: too few assertions ran (${passed:-0})"; exit 1; }
+[[ -n "$passed" && "$passed" -ge 13 ]] || { echo "RESULT: too few assertions ran (${passed:-0})"; exit 1; }
 [[ $rc -eq 0 ]] || { echo "RESULT: failing assertions"; exit 1; }
-echo "RESULT: one shape per character, chosen by position, cleared as one gesture, a fade under Reduce Motion"
+echo "RESULT: one Material shape per character, chosen by position, popping on the expressive spring, born in the accent and settling to the text colour; cleared as one gesture, a fade under Reduce Motion"

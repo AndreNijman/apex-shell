@@ -1,26 +1,37 @@
 import QtQuick
+import QtQuick.Shapes
 import "../../theme/motion.js" as MotionTable
+import "../../theme/spring.js" as Spring
+import "../../shapes/materialpath.js" as MaterialPath
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PasswordShapes — what a password field shows instead of bullet dots.
 //
-// Each character typed adds one small geometric shape — a circle, a rounded
-// square, a pill or a diamond — that grows out of a dot into its form; each
-// character deleted takes the last shape away, and the row closes up behind it.
-// The lock screen (src/windows/Lockscreen.qml) and the login screen
-// (apex-os files/desktop/apex-greet/GreetSurface.qml, which loads this very
-// file from /usr/share/apex-shell) draw it over their password fields, so the
-// two are one implementation, not two that drift.
+// Each character typed adds one Material 3 Expressive shape — a clover, an
+// arrow, a pill, a soft burst, a diamond, a clamshell, a pentagon — that pops
+// in on a spring, born in the accent and settling to the text colour; a caret
+// rides after the last one. Each character deleted shrinks the last shape
+// away and the row closes up behind it. After Google's own PIN entry and
+// end-4's lock screen, which is modelled on it (Andre, 2026-09-27: "make lock
+// pin typing animation like end4"). The shapes are Google's (AndroidX
+// graphics-shapes, vendored under src/shapes/material, Apache-2.0), drawn as
+// GPU paths (src/shapes/materialpath.js); the code here is APEX's own.
+//
+// The lock screen (src/windows/Lockscreen.qml) and the login screen (apex-os
+// files/desktop/apex-greet/GreetSurface.qml, which loads this very file from
+// /usr/share/apex-shell) draw it over their password fields, so the two are one
+// implementation, not two that drift. Everything it imports is by relative
+// path, so it loads outside the shell too.
 //
 // ── What it knows about the secret: its LENGTH, and nothing else ────────────
 // `length` is the only input. There is deliberately no `text` property, no
 // signal carrying a key, and nothing here reads the field it decorates: a
-// shape's kind and tone are chosen by its POSITION alone (plus a per-screen
-// shuffle that is fixed before anything is typed), so the row reveals exactly
-// what a row of bullet dots always revealed — how many characters there are —
-// and the field itself stays a masked TextInput with passwordMaskDelay 0, so no
-// character is ever drawn, even for a frame. tests/check-password-shapes.sh
-// holds both halves of that.
+// shape's kind is chosen by its POSITION alone (plus a per-screen shuffle that
+// is fixed before anything is typed), its colour by its age, and the caret by
+// the count — so the row reveals exactly what a row of bullet dots always
+// revealed, how many characters there are — and the field itself stays a
+// masked TextInput with passwordMaskDelay 0, so no character is ever drawn,
+// even for a frame. tests/check-password-shapes.sh holds both halves of that.
 //
 // ── Motion ───────────────────────────────────────────────────────────────────
 // The login screen runs before any session, so the shell's Motion singleton
@@ -28,21 +39,19 @@ import "../../theme/motion.js" as MotionTable
 // (theme/motion.js — the same numbers Motion.qml applies) and takes the user's
 // three motion settings as they are stored: `speed`, `motionScale` and
 // `reduced`. Both screens hand over the RAW settings and this file resolves
-// them with the table's own speedScale(), so the two cannot disagree: the lock
-// screen reads them from SettingsService, the login screen from what the last
-// user's session published (/var/lib/apex-greet/motion/<user>).
+// them with the table's own speedScale(), so the two cannot disagree.
 //
-//   enter   spatial surfaceEnterSmall (190 ms Balanced): the slot opens on
-//           fastDecel, the shape grows from a dot on emphasizedDecel and — in
-//           the same beat — morphs from a circle into its form; pills and
-//           diamonds turn the last 14° into place
-//   exit    spatial surfaceExitSmall (135 ms): the reverse, quicker
-//   fade    effect fadeIn / fadeOut — the one thing Reduce Motion keeps: under
-//           it a shape is simply there at full size and fades in over the hover
-//           beat, and leaves the same way
+//   enter   Material 3 Expressive "fast spatial": a spring (motion.js
+//           EXPRESSIVE, damping 0.6 — about 9.5 % over) takes the shape from
+//           nothing to its size, turning the last few degrees into place; the
+//           slot opens on fastDecel under it, so the row makes room smoothly
+//   colour  born in the accent, settling to the text colour over `settle` —
+//           while typing, the last few shapes glow and fade in a trail
+//   exit    spatial surfaceExitSmall: the shape shrinks away, quicker
+//   fade    under Reduce Motion a shape is simply there at full size and fades
+//           in over the hover beat, and leaves the same way
 //   several at once (a paste, clearing after a failed attempt) stagger by a
 //   notification-stack step, capped, so a cleared field reads as one gesture
-// Nothing overshoots and nothing loops.
 // ─────────────────────────────────────────────────────────────────────────────
 Item {
     id: root
@@ -73,8 +82,8 @@ Item {
     readonly property real _scale: MotionTable.speedScale(root.speed, root.motionScale)
 
     // ── Geometry ────────────────────────────────────────────────────────────
-    property int size: 14            // the box one shape is drawn in
-    property int gap: 7
+    property int size: 18            // the box one shape is drawn in
+    property int gap: 3
     // Slots built. Past what fits, the row scrolls (the newest stays in view),
     // so every keystroke still adds a shape; only a password longer than this
     // stops adding them. At 32 a 40-character passphrase went silent for its
@@ -82,7 +91,7 @@ Item {
     property int maxShapes: 64
 
     implicitHeight: root.size
-    implicitWidth:  row.width
+    implicitWidth:  row.width + root._caretSpace
     clip: true
 
     /// No shape is on screen any more — not merely `length` 0, but every
@@ -92,8 +101,11 @@ Item {
     property int _alive: 0
 
     // ── Timing, from the table ──────────────────────────────────────────────
-    readonly property int tEnter: MotionTable.spatial(MotionTable.BASE.surfaceEnterSmall,
-                                                      root._scale, root.reduced)
+    readonly property var _pop: MotionTable.expressive("fastSpatial", root._scale, root.reduced)
+    // The spring runs until it is within 0.2 % of its size (0.395 s Balanced).
+    readonly property int tEnter: root._pop.response > 0
+                                  ? Math.round(1000 * Spring.settleTime(root._pop.response, root._pop.damping, 0, 1, 0.002))
+                                  : 0
     readonly property int tExit:  MotionTable.spatial(MotionTable.BASE.surfaceExitSmall,
                                                       root._scale, root.reduced)
     readonly property int tStep:  MotionTable.spatial(MotionTable.BASE.staggerStep,
@@ -107,36 +119,26 @@ Item {
                                                        root._scale, root.reduced)
     readonly property int tState: MotionTable.effect(MotionTable.BASE.state,
                                                      root._scale, root.reduced)
+    readonly property int tSettle: MotionTable.effect(MotionTable.BASE.settle,
+                                                      root._scale, root.reduced)
 
-    // ── Shape and tone, by position only ────────────────────────────────────
+    // The spring's position at progress p of its run (from rest, to 1).
+    function _popAt(p) {
+        if (p >= 1) return 1
+        if (p <= 0 || root.tEnter <= 0) return p <= 0 ? 0 : 1
+        return Spring.step(0, 0, 1, root._pop.response, root._pop.damping, p * root.tEnter / 1000)[0]
+    }
+
+    // ── Shape, by position only ─────────────────────────────────────────────
     // A fixed shuffle per screen, chosen at construction — before any key —
     // so the pattern differs between sessions but never depends on input.
     readonly property int _seed: Math.floor(Math.random() * 1000)
-    // Twelve steps, each kind three times, no kind next to itself — including
-    // across the wrap from the last step back to the first — so a long
-    // password never shows two identical shapes side by side and has no short
-    // visible period. Rotated by the seed per screen.
-    readonly property var _pattern: ["circle", "square", "pill", "diamond",
-                                     "square", "circle", "diamond", "pill",
-                                     "circle", "diamond", "square", "pill"]
+    // Seven distinct shapes in turn (end-4's set, from the Material 3
+    // Expressive library), rotated by the seed per screen: no shape ever sits
+    // next to itself, across the wrap included.
+    readonly property var _pattern: ["clover4Leaf", "arrow", "pill", "softBurst",
+                                     "diamond", "clamShell", "pentagon"]
     function kindAt(i) { return root._pattern[(i + root._seed) % root._pattern.length] }
-    // Tone has its OWN pattern over the same twelve steps. Deriving it from
-    // the same index (`(i + seed) % 3`) tied it to the shape — 3 divides 12,
-    // so every square was always the pale tone and every diamond the accent —
-    // which is not variation, only a colour per kind. This one gives each kind
-    // all three tones and never repeats a tone side by side, wrap included.
-    readonly property var _tonePattern: [0, 1, 2, 0, 2, 1, 2, 0, 2, 1, 0, 1]
-    function toneAt(i) { return root._tonePattern[(i + root._seed) % root._tonePattern.length] }
-
-    function _mix(a, b, k) {
-        return Qt.rgba(a.r + (b.r - a.r) * k, a.g + (b.g - a.g) * k,
-                       a.b + (b.b - a.b) * k, 1)
-    }
-    // Close together on purpose: variety a glance registers, never a tone that
-    // reads as disabled (the busy state already owns "dimmer").
-    readonly property var _tones: [root.accent,
-                                   _mix(root.accent, root.text, 0.30),
-                                   _mix(root.accent, root.background, 0.12)]
 
     // The length the row last saw, so a change of several characters at once
     // can be staggered from the right end.
@@ -148,7 +150,7 @@ Item {
         var n = Math.min(root.length, root.maxShapes)
         for (var i = 0; i < n; i++) {
             var s = slots.itemAt(i)
-            if (s) { s.shown = true; s.p = 1; s.f = 1 }
+            if (s) s.settleNow()
         }
         root._prev = n
     }
@@ -170,12 +172,17 @@ Item {
     opacity: root.busy ? 0.55 : 1
     Behavior on opacity { NumberAnimation { duration: root.tState } }
 
+    // The caret rides after the last shape (end-4's row has one too); room for
+    // it is always kept, so the row does not shift when it comes and goes.
+    readonly property int _caretSpace: 2 + root.gap * 2
+
     Row {
         id: row
         // Centred in the field while it fits; once full, the newest shape
         // stays in view at the right end, the way a text field scrolls.
-        x: row.width <= root.width ? Math.round((root.width - row.width) / 2)
-                                   : root.width - row.width
+        x: row.width + root._caretSpace <= root.width
+           ? Math.round((root.width - row.width - root._caretSpace) / 2)
+           : root.width - row.width - root._caretSpace
         anchors.verticalCenter: parent.verticalCenter
 
         Repeater {
@@ -187,7 +194,6 @@ Item {
                 required property int index
 
                 readonly property string kind: root.kindAt(slot.index)
-                readonly property color tone:  root._tones[root.toneAt(slot.index)]
 
                 property bool shown: false
                 readonly property bool alive: slot.p > 0 || slot.f > 0
@@ -197,16 +203,27 @@ Item {
                 property real p: 0
                 property real f: 0
 
-                // Two channels. With spatial motion on, `p` carries everything,
-                // opacity included, and `f` simply stays 1 until the shape has
-                // actually gone — a separate fade would run ahead of the shrink
-                // and the shape would vanish before it visibly left. Under
-                // Reduce Motion `p` jumps and `f` is the whole transition.
-                readonly property bool spatialOn: (slot.shown ? root.tEnter : root.tExit) > 0
+                // Born in the accent, settling to the text colour. Bound back
+                // to the palette once settled, so a theme change reaches it.
+                property color tint: root.text
+
+                function settleNow() {
+                    slot.shown = true; slot.p = 1; slot.f = 1
+                    tintAnim.stop()
+                    slot.tint = Qt.binding(function () { return root.text })
+                }
 
                 function go(on, delay) {
                     slot.shown = on
                     pSeq.stop(); fAnim.stop()
+                    if (on) {
+                        tintAnim.stop()
+                        slot.tint = root.accent
+                        tintAnim.to = root.text
+                        tintAnim.duration = root.tSettle
+                        tintWait.duration = delay
+                        tintSeq.restart()
+                    }
                     pPause.duration = delay
                     pMove.from = slot.p
                     pMove.to = on ? 1 : 0
@@ -219,8 +236,7 @@ Item {
                     }
                     // No spatial motion (Reduce Motion): the shape keeps its
                     // full form and its slot while it fades, and only then
-                    // gives the slot up — it leaves the way it arrived, rather
-                    // than snapping to a tilted dot in a zero-width slot.
+                    // gives the slot up — it leaves the way it arrived.
                     if (on) slot.p = 1
                     fAnim.from = slot.f
                     fAnim.to = on ? 1 : 0
@@ -241,24 +257,25 @@ Item {
                     easing.bezierCurve: MotionTable.CURVES.effects
                     onFinished: if (!slot.shown && slot.f <= 0) slot.p = 0
                 }
+                SequentialAnimation {
+                    id: tintSeq
+                    PauseAnimation { id: tintWait }
+                    ColorAnimation {
+                        id: tintAnim; target: slot; property: "tint"
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: MotionTable.CURVES.effects
+                    }
+                    onFinished: if (slot.shown) slot.tint = Qt.binding(function () { return root.text })
+                }
 
-                // Box sizes per kind, balanced for optical mass: a pill is
-                // wider and flatter, a diamond smaller because its diagonal is
-                // what the eye measures.
-                readonly property real bw: slot.kind === "pill"    ? root.size * 1.18
-                                         : slot.kind === "diamond" ? root.size * 0.62
-                                         : slot.kind === "square"  ? root.size * 0.74
-                                         :                           root.size * 0.80
-                readonly property real bh: slot.kind === "pill"    ? root.size * 0.62
-                                         : slot.bw
-                readonly property real cellW: (slot.kind === "pill" ? root.size * 1.18 : root.size) + root.gap
+                readonly property real cellW: root.size + root.gap
 
-                // ── Derived from p (enter reads forward, exit backward) ────
-                readonly property real wP:     MotionTable.ease(MotionTable.CURVES.fastDecel, slot.p)
-                readonly property real growP:  MotionTable.ease(MotionTable.CURVES.emphasizedDecel,
-                                                                Math.max(0, Math.min(1, (slot.p - 0.08) / 0.92)))
-                readonly property real formP:  MotionTable.ease(MotionTable.CURVES.standard,
-                                                                Math.max(0, Math.min(1, (slot.p - 0.18) / 0.82)))
+                // ── Derived from p ─────────────────────────────────────────
+                // The slot opens on fastDecel; the shape pops on the spring
+                // arriving, and shrinks on an accelerating curve leaving.
+                readonly property real wP:  MotionTable.ease(MotionTable.CURVES.fastDecel, slot.p)
+                readonly property real pop: slot.shown ? root._popAt(slot.p)
+                                                       : MotionTable.ease(MotionTable.CURVES.standardDecel, slot.p)
 
                 width:  Math.round(slot.cellW * slot.wP)
                 height: root.size
@@ -271,33 +288,42 @@ Item {
                     return left >= 0 ? 1 : Math.max(0, 1 + 2 * left / Math.max(1, slot.cellW))
                 }
 
-                Rectangle {
-                    id: shape
+                // Built when first needed: 64 idle paths are not drawn or kept.
+                Loader {
                     anchors.centerIn: parent
-                    width:  slot.bw
-                    height: slot.bh
-                    // Every shape starts as a dot and settles into its form.
-                    radius: {
-                        var round = Math.min(width, height) / 2
-                        var finalR = slot.kind === "square"  ? width * 0.26
-                                   : slot.kind === "diamond" ? width * 0.20
-                                   : round
-                        return round + (finalR - round) * slot.formP
+                    active: slot.shown || slot.alive
+                    sourceComponent: Shape {
+                        width:  root.size
+                        height: root.size
+                        preferredRendererType: Shape.CurveRenderer
+                        scale:   Math.max(0, slot.pop)
+                        // The last few degrees into place, carried past zero a
+                        // little by the spring's overshoot.
+                        rotation: slot.shown ? -18 * (1 - slot.pop) : 0
+                        opacity: slot.f * (root.reduced ? 1 : Math.min(1, slot.p * 6)) * slot.edge
+                        ShapePath {
+                            strokeWidth: -1
+                            fillColor: root.error && !slot.shown ? root.danger : slot.tint
+                            PathSvg { path: MaterialPath.path(slot.kind, root.size) }
+                        }
                     }
-                    color: root.error && !slot.shown ? root.danger : slot.tone
-                    Behavior on color { ColorAnimation { duration: root.tState } }
-
-                    scale:   0.22 + 0.78 * slot.growP
-                    opacity: slot.f * (root.reduced ? 1 : Math.min(1, slot.p * 2.2)) * slot.edge
-                    // Pills and diamonds turn a little way into place (a diamond
-                    // settles at 45°); circles and squares do not — on a circle
-                    // it is invisible and on a square it read as a wobble.
-                    rotation: (slot.kind === "diamond" ? 45 : 0)
-                              - ((slot.kind === "pill" || slot.kind === "diamond") ? 14 : 0) * (1 - slot.formP)
-                    antialiasing: true
                 }
             }
         }
+    }
+
+    // The caret: after the last shape, in the accent, while there are any.
+    Rectangle {
+        id: caret
+        width: 2
+        height: Math.round(root.size * 0.9)
+        radius: 1
+        x: row.x + row.width + root.gap
+        anchors.verticalCenter: parent.verticalCenter
+        color: root.accent
+        opacity: root.length > 0 && !root.busy ? 1 : 0
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: root.tFadeIn } }
     }
 
     // Nothing in here is for a screen reader: the field it decorates is the

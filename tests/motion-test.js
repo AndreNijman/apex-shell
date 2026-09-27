@@ -51,6 +51,22 @@ for (const k of Object.keys(M.SPRINGS)) {
     check(k + ": damping 0.8..1 (a whisper of overshoot at most)", sp.damping >= 0.8 && sp.damping <= 1, sp.damping);
 }
 check("a surface folds away quicker than it grows", M.SPRINGS.surfaceClose.response < M.SPRINGS.surfaceOpen.response);
+
+console.log("── expressive springs (small marks that are meant to pop) ──");
+const S = require(path.join(SRC, "theme", "spring.js"));
+for (const k of Object.keys(M.EXPRESSIVE)) {
+    const sp = M.EXPRESSIVE[k];
+    // The overshoot from rest of a damped spring: exp(-ζπ/√(1-ζ²)).
+    const over = sp.damping >= 1 ? 0 : Math.exp(-sp.damping * Math.PI / Math.sqrt(1 - sp.damping * sp.damping));
+    check(k + ": quick (response 0.15..0.35 s)", sp.response >= 0.15 && sp.response <= 0.35, sp.response);
+    check(k + ": a pop, not a wobble (overshoot 3..12 %)", over >= 0.03 && over <= 0.12, (over * 100).toFixed(1) + " %");
+    let peak = 0;
+    for (let t = 0; t <= 1.5; t += 0.002) peak = Math.max(peak, S.step(0, 0, 1, sp.response, sp.damping, t)[0]);
+    check(k + ": spring.js agrees with the theory (" + (peak * 100 - 100).toFixed(1) + " %)", Math.abs(peak - 1 - over) < 0.005);
+}
+check("expressive(): Reduce Motion snaps", M.expressive("fastSpatial", 1, true).response === 0);
+check("expressive(): the speed scales the response",
+      Math.abs(M.expressive("fastSpatial", 1.25, false).response - 1.25 * M.EXPRESSIVE.fastSpatial.response) < 1e-9);
 check("surface springs land without overshoot (the geometry clamps progress)",
       M.SPRINGS.surfaceOpen.damping === 1 && M.SPRINGS.surfaceClose.damping === 1);
 check("spring(): the speed scales the response", Math.abs(M.spring("page", 1.25, false).response - 1.25 * M.SPRINGS.page.response) < 1e-9);

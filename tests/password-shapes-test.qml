@@ -127,19 +127,87 @@ TestCase {
         tryCompare(s, "p", 0, 500)
     }
 
-    function test_tone_is_not_a_colour_per_kind() {
-        // A real palette: the component has no defaults on purpose.
-        var o = make({ accent: "#fab898", text: "#ece0dc", background: "#171210" })
-        o.length = 24
-        tryCompare(o, "_alive", 24, 1500)
+    // End-4's and Google's PIN entry (2026-09-27): a new shape is born in the
+    // accent and settles to the text colour; one leaving after a refused
+    // attempt turns danger. Colour by AGE, never by what was typed.
+    function test_born_in_the_accent_settling_to_the_text_colour() {
+        var o = make({ accent: "#fab898", text: "#ece0dc", background: "#171210", danger: "#ffb4ab" })
+        o.length = 1
+        var s = slotsOf(o)[0]
+        compare(String(s.tint), "#fab898", "born in the accent")
+        tryCompare(s, "tint", o.text, 2000, "settles to the text colour")
+        o.length = 4
+        var fresh = slotsOf(o)[3]
+        tryVerify(function () { return fresh.alive }, 1000)
+        verify(String(fresh.tint) !== String(o.text), "the newest is still glowing while the first has settled")
+        tryCompare(fresh, "tint", o.text, 2000)
+        // Settled, it follows the palette.
+        o.text = "#d0c4c0"
+        compare(String(s.tint), "#d0c4c0", "a settled shape follows a palette change")
+    }
+
+    function test_every_kind_is_a_real_material_shape() {
+        var o = make()
         var seen = {}
-        var slots = slotsOf(o).slice(0, 24)
-        for (var i = 0; i < slots.length; i++) {
-            var k = slots[i].kind
-            seen[k] = seen[k] || {}
-            seen[k][String(slots[i].tone)] = true
+        for (var i = 0; i < 7; i++) seen[o.kindAt(i)] = true
+        compare(Object.keys(seen).length, 7, "seven different shapes in turn")
+        o.length = 7
+        tryCompare(o, "_alive", 7, 1500)
+        var shapes = slotsOf(o).slice(0, 7)
+        for (var j = 0; j < shapes.length; j++) {
+            var shape = shapes[j].children[0].item      // Loader → Shape
+            verify(shape !== null, shapes[j].kind + ": its shape was built")
+            var path = shape.data[0].pathElements[0].path
+            verify(/^M [\d.]+ [\d.]+ C /.test(path), shapes[j].kind + ": a real path, not a fallback: " + path.slice(0, 40))
+            var nums = path.match(/-?[\d.]+/g).map(Number)
+            verify(Math.min.apply(null, nums) >= -0.5 && Math.max.apply(null, nums) <= o.size + 0.5,
+                   shapes[j].kind + ": drawn inside its " + o.size + " px box")
         }
-        for (var kind in seen)
-            verify(Object.keys(seen[kind]).length >= 2, kind + " appears in more than one tone")
+    }
+
+    function test_it_pops_on_the_expressive_spring() {
+        var o = make()
+        o.length = 1
+        var s = slotsOf(o)[0]
+        var peak = 0
+        tryVerify(function () { peak = Math.max(peak, s.pop); return s.p >= 1 }, 2000)
+        verify(peak > 1.03, "overshoots its size on the way in (peak " + peak.toFixed(3) + ")")
+        compare(s.pop, 1, "and lands exactly on it")
+        verify(o.tEnter >= 250 && o.tEnter <= 600, "the spring's run at Balanced: " + o.tEnter + " ms")
+        verify(o._popAt(0.5) > 1.0, "past its size half-way through the run")
+    }
+
+    function test_leaving_shrinks_without_an_overshoot() {
+        var o = make()
+        o.length = 2
+        tryCompare(o, "_alive", 2, 1500)
+        tryVerify(function () { return slotsOf(o)[1].p >= 1 }, 1500)
+        var s = slotsOf(o)[1]
+        o.length = 1
+        var low = 1
+        tryVerify(function () { low = Math.min(low, s.pop); return !s.alive }, 2000)
+        verify(low >= 0, "never shrinks below nothing (" + low + ")")
+    }
+
+    function test_the_caret_rides_after_the_last_shape() {
+        var o = make({ accent: "#fab898", text: "#ece0dc", background: "#171210", danger: "#ffb4ab" })
+        var caret = o.children[1]
+        compare(caret.opacity, 0, "no caret over an empty field (the placeholder is there)")
+        o.length = 3
+        tryCompare(caret, "opacity", 1, 1000)
+        tryVerify(function () { return slotsOf(o)[2].p >= 1 }, 1500)
+        var last = slotsOf(o)[2]
+        verify(Math.abs(caret.x - (o.children[0].x + last.x + last.width + o.gap)) < 1.5,
+               "just after the last shape")
+        o.busy = true
+        tryCompare(caret, "opacity", 0, 1000, "it steps back while a check runs")
+    }
+
+    function test_under_reduce_motion_nothing_pops() {
+        var o = make({ reduced: true })
+        compare(o.tEnter, 0, "no spring run under Reduce Motion")
+        o.length = 1
+        var s = slotsOf(o)[0]
+        compare(s.pop, 1, "at its size from the first frame")
     }
 }
