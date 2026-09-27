@@ -7,6 +7,7 @@ import Quickshell.Hyprland
 import "../../"
 import "boxes.js" as Boxes
 import "hyprMotion.js" as HyprMotion
+import "../../shapes/fluid/geometry.js" as Geo
 
 // ─── HyprlandBackend ──────────────────────────────────────────────────────────
 // CompositorService's Hyprland adapter. Loaded by URL and only on Hyprland, so
@@ -134,7 +135,12 @@ QtObject {
     // the shell until Hyprland is restarted. A wallpaper apply landing while
     // focus mode is mid-write is the mundane version: gaps half-applied.
     property Process _keywordProc: Process { command: []; running: false }
-    property Process _gapsWriteProc: Process { command: []; running: false }
+    property Process _gapsWriteProc: Process {
+        command: []; running: false
+        // New gaps move the band between a window and the frame: keep the
+        // window's corner concentric with the fillet (syncWindowCorners).
+        onRunningChanged: if (!running) root.syncWindowCorners()
+    }
     property Process _submapProc:  Process { command: []; running: false }
     property Process _shaderApplyProc: Process {
         command: []
@@ -317,6 +323,7 @@ QtObject {
             else if (event.name === "configreloaded") {
                 root._motionReread()
                 root._pushLayerRules()
+                root.syncWindowCorners()
             }
         }
     }
@@ -327,6 +334,7 @@ QtObject {
         // The provider may already be known (config_Provider.json read before
         // this backend was built), in which case on_LuaChanged never fires.
         if (root._lua) root._pushLayerRules()
+        root.syncWindowCorners()
 
         // One one-shot probe at startup, `hyprctl getoption`. It used to run
         // from QuickSettings.Component.onCompleted instead, so the fork
@@ -367,6 +375,71 @@ QtObject {
     on_LuaChanged: {
         if (root._lua && root._mWanted) root._motionReread()
         if (root._lua) root._pushLayerRules()
+        root.syncWindowCorners()
+    }
+
+    // ── Window corners follow the frame ───────────────────────────────────────
+    // A window's outer corner (its rounding + its border) is kept concentric
+    // with the frame's inner fillet across the band between them (Andre,
+    // 2026-09-27: "is the hyprland window corner radii consistent with the
+    // actual corner frame fillets … make it exactly"): Geo.windowRounding.
+    // apex-os appearance.lua's rounding was a free number (10), so a window's
+    // corner ran a pixel inside the fillet's curve, and changing the shell's
+    // corner radius moved the frame and not the windows. Read gaps_out and
+    // border_size live (either can change under it), then write the rounding
+    // — at start, after every config reload (which drops runtime values), after
+    // the gaps slider, and when the corner radius or strip width changes.
+    function syncWindowCorners() { root._cornersDebounce.restart() }
+    property Timer _cornersDebounce: Timer {
+        interval: 150
+        onTriggered: root._start(root._cornersReadProc, ["bash", "-c",
+            "hyprctl -j getoption general:gaps_out; hyprctl -j getoption general:border_size"])
+    }
+    // The first number of an option's answer, whichever form Hyprland gives it
+    // in: `int`, or `css` / `custom` for a gap ("10 10 10 10").
+    function _optionNumber(o) {
+        if (!o) return NaN
+        if (o.int !== undefined) return parseInt(o.int)
+        const g = o.css !== undefined ? o.css : o.custom
+        if (g !== undefined && g !== "") return parseInt(String(g).trim().split(/\s+/)[0])
+        return NaN
+    }
+    function _cornersRead(text) {
+        const nums = []
+        const parts = String(text).split("}")
+        for (let i = 0; i < parts.length; i++) {
+            let v = NaN
+            try { v = root._optionNumber(JSON.parse((parts[i] + "}").trim())) } catch (e) { v = NaN }
+            if (!isNaN(v)) nums.push(v)
+        }
+        if (nums.length < 2) return            // unreadable: leave Hyprland's own
+        const t = root._cornersTheme
+        const r = Geo.windowRounding(t.cornerRadius, t.borderWidth, nums[0], nums[1])
+        if (Quickshell.env("APEX_PACING_LOG") === "1")
+            console.info("APEX window corners: gaps_out=" + nums[0] + " border=" + nums[1] + " -> rounding " + r)
+        root._start(root._cornersWriteProc, root._lua
+            ? ["hyprctl", "eval", "hl.config({ decoration = { rounding = " + r + " } })"]
+            : ["hyprctl", "keyword", "decoration:rounding", String(r)])
+    }
+    property Process _cornersReadProc: Process {
+        stdout: StdioCollector { onStreamFinished: root._cornersRead(String(this.text)) }
+    }
+    property Process _cornersWriteProc: Process {}
+    // The frame's sizes are each output's own (P1-040); Hyprland's rounding is
+    // one value, so it follows the output being worked on — the focused one,
+    // else the first.
+    readonly property var _cornersScreen: {
+        const want = Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
+        const list = Quickshell.screens
+        for (let i = 0; i < list.length; i++) if (list[i].name === want) return list[i]
+        return list.length > 0 ? list[0] : null
+    }
+    on_CornersScreenChanged: root.syncWindowCorners()
+    property ThemeSet _cornersTheme: ThemeSet { scale: Theme.factorForScreen(root._cornersScreen) }
+    property Connections _cornersThemeChanges: Connections {
+        target: root._cornersTheme
+        function onCornerRadiusChanged() { root.syncWindowCorners() }
+        function onBorderWidthChanged()  { root.syncWindowCorners() }
     }
 
     // ── The shell's own layers are not the compositor's to animate ──────────
@@ -556,21 +629,16 @@ QtObject {
                 root._gapsCallback = null
                 if (!cb) return
 
-                // Two JSON objects back to back. `custom` is the "5 5 5 5" form
-                // Hyprland reports for a CSS-style gap, and `int` is the plain
-                // one; take the first number of whichever is present.
+                // Two JSON objects back to back. A CSS-style gap comes as
+                // "5 5 5 5" under `css` (0.56; `custom` before it), a plain one
+                // as `int`; take the first number of whichever is present.
+                // (Reading only `custom` and `int`, 0.56's gaps were unreadable.)
                 const nums = []
                 const parts = this.text.split("}")
                 for (let i = 0; i < parts.length; i++) {
                     const chunk = parts[i] + "}"
                     let v = NaN
-                    try {
-                        const d = JSON.parse(chunk.trim())
-                        if (d.custom !== undefined && d.custom !== "")
-                            v = parseInt(String(d.custom).trim().split(/\s+/)[0])
-                        else if (d.int !== undefined)
-                            v = parseInt(d.int)
-                    } catch (e) { v = NaN }
+                    try { v = root._optionNumber(JSON.parse(chunk.trim())) } catch (e) { v = NaN }
                     if (!isNaN(v)) nums.push(v)
                 }
 

@@ -330,6 +330,20 @@ function barHairline(g) {
     return { path: P.toString(), segs: P.segs, params: { rS: rS, start: Math.min(fi, lW - rbL), end: P.x } };
 }
 
+// ── Window corners, concentric with the frame ───────────────────────────────
+// The frame's inner fillet (windows/Border.qml: radius frameRadius, strip
+// `strip` wide) and a window's outer corner (Hyprland: rounding + its border,
+// gapsOut from the screen's edge) are concentric — the band between them the
+// same width round the corner as along the edges — exactly when their centres
+// coincide: strip + frameRadius = gapsOut + (rounding + border). So the
+// rounding a window needs (Andre, 2026-09-27: "make it exactly") is
+//     frameRadius − (gapsOut − strip) − border,
+// never below 0 (a band as wide as the fillet leaves a square window).
+function windowRounding(frameRadius, strip, gapsOut, border) {
+    var band = Math.max(0, gapsOut - strip);
+    return Math.max(0, Math.round(frameRadius - band - border));
+}
+
 // ── CENTER_BLOOM ────────────────────────────────────────────────────────────
 // The Dashboard: the centre notch BECOMES the surface. Drawn in the fullscreen
 // Dashboard window, from y = 0, over the bar's own notch — at p = 0 it is that
@@ -994,6 +1008,7 @@ if (typeof module !== "undefined" && module.exports)
         softCap: softCap, size: size, notchHole: notchHole,
         standardDecel: standardDecel, emphasizedDecel: emphasizedDecel,
         barNotch: barNotch, barSilhouette: barSilhouette, barHairline: barHairline,
+        windowRounding: windowRounding,
         centerBloom: centerBloom,
         rightPourWidth: rightPourWidth, rightPour: rightPour,
         leftSpill: leftSpill, edgeSpillRight: edgeSpillRight,

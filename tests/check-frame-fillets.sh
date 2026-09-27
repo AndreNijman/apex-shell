@@ -20,6 +20,10 @@
 #           rim on
 #   INPUT   the input region stays the strips' old footprint (a radius): the
 #           wider box is drawing only, over the edges of the windows beside it
+#   WINDOWS Hyprland's window rounding follows the frame (HyprlandBackend
+#           syncWindowCorners → Geo.windowRounding): at start, after a config
+#           reload, after a gaps write, and when the corner radius or strip
+#           width changes
 #
 #  Each rule is mutated on a copy to prove it can fail.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -64,6 +68,14 @@ body = ia.group(1) if ia else ""
 masked = re.search(r'mask\s*:\s*Region\s*\{\s*item\s*:\s*inputArea\s*\}', b) is not None
 footprint = "root.radius" in body and "thickness" not in body
 verdict("INPUT", masked and footprint, ("masked" if masked else "NO mask") + ("; a radius wide" if footprint else "; footprint wider than a radius"))
+h = code("src/services/compositor/HyprlandBackend.qml")
+reload = re.search(r'"configreloaded"\)\s*\{[^}]*syncWindowCorners\(\)', h, re.S) is not None
+start = re.search(r'Component\.onCompleted\s*:\s*\{[^}]*syncWindowCorners\(\)', h, re.S) is not None
+gaps = re.search(r'_gapsWriteProc\s*:\s*Process\s*\{[^}]*syncWindowCorners\(\)', h, re.S) is not None
+theme = "onCornerRadiusChanged() { root.syncWindowCorners() }" in h and "onBorderWidthChanged()  { root.syncWindowCorners() }" in h
+rule = "Geo.windowRounding(t.cornerRadius, t.borderWidth" in h and "decoration = { rounding = " in h and "ThemeSet { scale: Theme.factorForScreen(root._cornersScreen) }" in h
+miss = [n for n, ok in (("reload", reload), ("start", start), ("gaps", gaps), ("theme", theme), ("rule", rule)) if not ok]
+verdict("WINDOWS", not miss, "missing: " + ",".join(miss) if miss else "all five")
 PY
 }
 
@@ -75,6 +87,7 @@ label() {
         JOIN)   echo "a side strip starts one row inside the bar, its flare meeting the bar's edge" ;;
         RIM)    echo "the bar's hairline stops at the strips and the strips carry it on" ;;
         INPUT)  echo "the input region stays a radius wide: the wider box only draws" ;;
+        WINDOWS) echo "Hyprland's window rounding follows the frame, and is re-applied whenever it could drift" ;;
     esac
 }
 
@@ -84,7 +97,7 @@ while read -r rule verdict detail; do
     [ -n "$rule" ] || continue
     if [ "$verdict" = PASS ]; then ok "$(label "$rule")"; else bad "$(label "$rule") — $detail"; fi
 done <<<"$verdicts"
-[ "$(grep -c . <<<"$verdicts")" -eq 6 ] && ok "all six rules were evaluated" || bad "expected six verdicts, got: $verdicts"
+[ "$(grep -c . <<<"$verdicts")" -eq 7 ] && ok "all seven rules were evaluated" || bad "expected seven verdicts, got: $verdicts"
 
 echo "── self-test: can these checks fail? ──"
 MW="$(mktemp -d)"; trap 'rm -rf "$MW"' EXIT INT TERM
@@ -115,6 +128,8 @@ mutant "the bar's line drawn to the screen edge" src/shapes/SeamlessBarShape.qml
     'frameInset:    root.frameInset' 'frameInset:    0' RIM
 mutant "no input mask: the whole box takes clicks" src/windows/Border.qml \
     'mask: Region { item: inputArea }' '' INPUT
+mutant "a config reload leaves the windows' rounding to the config" src/services/compositor/HyprlandBackend.qml \
+    $'                root._pushLayerRules()\n                root.syncWindowCorners()' '                root._pushLayerRules()' WINDOWS
 
 echo
 echo "check-frame-fillets: passed=$pass failed=$fail"

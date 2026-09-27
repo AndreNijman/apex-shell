@@ -323,6 +323,25 @@ for (const scale of [0.85, 1.0, 1.5]) {
               Math.abs(free.params.start) < 1e-6 && Math.abs(free.params.end - bw) < 1e-6);
     }
 
+    // Window corners, concentric with the frame (Andre, 2026-09-27: "make it
+    // exactly"): the rounding a window needs puts its outer corner's centre
+    // (gapsOut + rounding + border in from each edge) on the fillet's (strip
+    // + radius in), so the band between them is as wide round the corner as
+    // along the edges.
+    {
+        const cases = [[17, 6, 10, 2], [17, 6, 16, 2], [24, 8, 12, 3], [12, 4, 6, 1]];
+        let off = [];
+        for (const [R, t, go, b] of cases) {
+            const r = G.windowRounding(R, t, go, b);
+            if (r > 0 && Math.abs((t + R) - (go + r + b)) > 0.5) off.push([R, t, go, b, r].join("/"));
+        }
+        check("window corners: concentric with the frame's fillet (centres coincide)", off.length === 0, off.join(" "));
+        check("window corners on the L16's frame (17 px fillet, 6 px strip, gaps 10, border 2): rounding 11",
+              G.windowRounding(17, 6, 10, 2) === 11, String(G.windowRounding(17, 6, 10, 2)));
+        check("window corners: a band as wide as the fillet leaves a square window, never a negative radius",
+              G.windowRounding(17, 6, 40, 2) === 0);
+    }
+
     // The pour over the bar's right notch. Window x → screen x is + (bw - winW).
     const off = bw - rg.winW, rS = bar.params.rS, rbN = bar.params.rbR;
     const pourPts = p => polyline(G.rightPour(p, rg).segs, 32);
