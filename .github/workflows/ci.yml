@@ -252,6 +252,15 @@ jobs:
           # a volume <-> brightness switch cuts rather than slides.
           ./tests/check-notch-osd.sh
 
+      - name: The frame's corners merge into its strips
+        run: |
+          # The frame's three strips are layer surfaces sized to the corner
+          # radius alone, so every fillet was cut short of its tangent and met
+          # the strip with a step, and the bar's hairline cut across the top
+          # ones (2026-09-27). Sized to thickness + radius, tiled, one row into
+          # the bar, the bar's line handed to the strips' rim.
+          ./tests/check-frame-fillets.sh
+
       - name: Firewall surface logic
         run: |
           # P1-044. Drives src/services/firewall.js — the file the shell loads

@@ -288,8 +288,16 @@ function barSilhouette(g) {
 // draws the notch's widened band and its side over the bar, but not the
 // notch's own bottom edge, which is the seam — a line there would sit between
 // the notch and the body hanging from it.
+//
+// And it stops where the frame's side strips attach (g.frameInset: the strip's
+// thickness + its flare's radius from each screen edge). Under the left and
+// right notches' outer ends the frame hangs on, and its strip carries this
+// same line on round its flare and down (windows/Border.qml); drawn to the
+// screen edge, the line cut straight across the flare instead (Andre,
+// 2026-09-27: "the corners fillets dont merge properly").
 function barHairline(g) {
     var w = g.w, b = g.strip, h = g.h, r = g.shoulder, i = 0.5;
+    var fi = Math.max(0, g.frameInset || 0);
     var side = Math.max(0, h - b - r);
     function rb(v, notchW) { return Math.max(i, Math.min(v, side, notchW / 2)); }
     var lW = Math.round(g.leftW), rW = Math.round(g.rightW);
@@ -299,7 +307,7 @@ function barHairline(g) {
     var rbL = rb(g.bottom, lW), rbC = rb(g.bottom, cE - cS), rbR = rb(g.rightBottomL, rW);
 
     var P = new Path();
-    P.move(0, h - i);
+    P.move(Math.min(fi, lW - rbL), h - i);
     P.line(lW - rbL, h - i);
     P.corner(lW - i, h - rbL, "h");
     P.line(lW - i, b + r);
@@ -317,9 +325,9 @@ function barHairline(g) {
         P.corner(rS + i, b + r, "h");
         P.line(rS + i, h - rbR);
         P.corner(rS + rbR, h - i, "v");
-        P.line(w, h - i);
+        P.line(Math.max(w - fi, rS + rbR), h - i);
     }
-    return { path: P.toString(), segs: P.segs, params: { rS: rS, end: P.x } };
+    return { path: P.toString(), segs: P.segs, params: { rS: rS, start: Math.min(fi, lW - rbL), end: P.x } };
 }
 
 // ── CENTER_BLOOM ────────────────────────────────────────────────────────────

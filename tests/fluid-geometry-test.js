@@ -298,6 +298,31 @@ for (const scale of [0.85, 1.0, 1.5]) {
               "ends at " + hl.params.end);
     }
 
+    // Where the frame hangs on (Andre, 2026-09-27: "the corners fillets dont
+    // merge properly"): the side strips attach under the left and right
+    // notches' outer ends and flare out along their bottoms (windows/Border.qml,
+    // radius r, strip t). The bar's line stops exactly where each flare's rim —
+    // the same hairline, round the fillet at r + ½ from its centre — begins:
+    // at (t + r, h − ½), the top of that circle, so the two lines meet end to
+    // end, the bar's running along the notch bottom and the flare's leaving it
+    // tangentially. Drawn to the screen edge it cut straight across the flare.
+    {
+        const t = px(6), r = px(17), fi = t + r;
+        const hl = G.barHairline(Object.assign({}, bg, { frameInset: fi }));
+        check("bar hairline with the frame: starts where the left strip's flare rim begins",
+              Math.abs(hl.params.start - fi) < 1e-6, "starts at " + hl.params.start + ", flare at " + fi);
+        check("bar hairline with the frame: ends where the right strip's flare rim begins",
+              Math.abs(hl.params.end - (bw - fi)) < 1e-6, "ends at " + hl.params.end + ", flare at " + (bw - fi));
+        // The rim's circle, centred (fi, h + r) with radius r + ½, passes
+        // through the line's end point with a horizontal tangent there.
+        const cx = fi, cy = bg.h + r, R = r + 0.5;
+        check("the flare's rim meets the bar's line tangentially, end to end",
+              Math.abs(Math.hypot(hl.params.start - cx, (bg.h - 0.5) - cy) - R) < 1e-6);
+        const free = G.barHairline(bg);
+        check("bar hairline without the frame still runs edge to edge",
+              Math.abs(free.params.start) < 1e-6 && Math.abs(free.params.end - bw) < 1e-6);
+    }
+
     // The pour over the bar's right notch. Window x → screen x is + (bw - winW).
     const off = bw - rg.winW, rS = bar.params.rS, rbN = bar.params.rbR;
     const pourPts = p => polyline(G.rightPour(p, rg).segs, 32);

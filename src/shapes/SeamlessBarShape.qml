@@ -44,6 +44,10 @@ Shape {
     // A pane hangs under the right notch (TopBar.rightLife): the hairline stops
     // short of that notch rather than running along the seam.
     property bool rightAttached: false
+    // Where the frame's side strips take the bar's edge over (their thickness +
+    // their flare's radius, windows/Border.qml): the hairline stops there and
+    // the strip's own carries it round the flare.
+    property int frameInset: theme.borderWidth + theme.cornerRadius
 
     readonly property var result: Geo.barSilhouette({
         w:            root.width,
@@ -80,7 +84,8 @@ Shape {
         centerW:       root.centerWidth,
         rightW:        root.rightWidth,
         rightBottomL:  root.rightBottomRadius,
-        rightAttached: root.rightAttached
+        rightAttached: root.rightAttached,
+        frameInset:    root.frameInset
     })
     ShapePath {
         fillColor:   "transparent"
