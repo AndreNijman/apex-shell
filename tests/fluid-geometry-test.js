@@ -567,11 +567,12 @@ function liquidSweep(name, fn, g, contact, caps) {
     const dg = { cx: 960, notchW: 300, notchH: 40, notchBottom: 14,
                  card: { x: 500, y: 230, w: 920, h: 620 }, r: 28 };
     const at = (w, d, n, g) => G.notchExtrudeField(0, Object.assign({}, g || dg, { ch: { w: w, d: d, n: n } }));
-    // As Nexus.qml wires its lifecycle: the hero open, the morphEnter close,
-    // the spread once the extrusion is at 0.3, the mass drawn up once the
-    // window is at 0.2, the neck trailing at 0.38.
+    // As Nexus.qml wires its lifecycle: the hero open (the body at 0.88 of
+    // it, damping 0.85), the morphEnter close, the spread once the extrusion
+    // is at 0.25, the mass drawn up once the window is at 0.2, the neck
+    // trailing at 0.38.
     const DP = Object.assign({}, LP, { enter: MJ.BASE.hero / 1000, exit: MJ.BASE.morphEnter / 1000,
-                                       trail: 0.38, openRel: 0.3, closeRel: 0.2 });
+                                       bodyIn: 0.88, bodyZ: 0.85, trail: 0.38, openRel: 0.25, closeRel: 0.2 });
     const RUNS = Object.assign({}, SCRIPTS, {
         "reversed at a quarter of the open":        [[0, true], [0.07, false], [1.2, null]],
         "reversed half-way through the open":       [[0, true], [0.16, false], [1.2, null]],
@@ -620,12 +621,12 @@ function liquidSweep(name, fn, g, contact, caps) {
         }
         // Attached: until the neck starts to draw back, nothing is cut off.
         if (f.params.form > 0.99 && f.params.ret === 0 && !whole(f, g)) bad.push("cut off from the notch");
-        // No blob: wider than the notch's footprint, clearly wider than tall;
-        // and once it is a sheet (wider than the notch), its corners are not
-        // those of a stadium. The bulb before that may be round: it is modest.
+        // No blob: once it is a sheet (wider than the notch), its corners are
+        // not those of a stadium, and nothing of it is wider than the window
+        // is. The bulb before that may be round: it is modest.
         const p = f.params;
-        if (p.hw > 100 && p.hw < 0.9 * cd.w / 2 && p.hw / p.hh < 1.3) bad.push("a round blob (" + p.hw.toFixed(0) + "×" + p.hh.toFixed(0) + ")");
         if (p.hw > 200 && p.r > 0.8 * Math.min(p.hw, p.hh)) bad.push("a stadium (r " + p.r.toFixed(0) + ")");
+        if (f.lower && f.lower.rb > p.hw + 0.5 && p.hw > 100) bad.push("the bell wider than the sheet");
         return bad.map(x => tag + ": " + x);
     }
     let bad = [];
@@ -673,6 +674,23 @@ function liquidSweep(name, fn, g, contact, caps) {
     });
     check("it is an extrusion: a sag, a bulb on a neck, the sheet spreading on it, the neck drawn back",
           phase === 4, order.join(" → "));
+    // Depth leads width, and the sheet is never the window at 60 % (Andre,
+    // 2026-09-27: "let depth lead width slightly; avoid the intermediate body
+    // looking like the final rectangle at 60% scale"): through the open, the
+    // sheet's height is at least as far along as its width, and while it is
+    // between a third and three quarters of the window's width it is clearly
+    // taller for its width than the window is.
+    const CW = dg.card.w / 2, CH = dg.card.h / 2, aspect = CW / CH;
+    let lag = [], scaled = [];
+    frames.forEach(fr => {
+        if (fr.t > 1.6) return;
+        const p = at(fr.lead, fr.body, fr.trail).params;
+        if (p.B <= 0.02 || p.B >= 0.98) return;
+        if (p.hh / CH + 0.005 < p.hw / CW) lag.push(fr.t.toFixed(3));
+        if (p.hw > CW / 3 && p.hw < 0.75 * CW && p.hw / p.hh > aspect / 1.15) scaled.push(fr.t.toFixed(3) + " (" + (p.hw / p.hh).toFixed(2) + ")");
+    });
+    check("depth leads width through the open", lag.length === 0, lag.slice(0, 4).join(", "));
+    check("the sheet is never the window scaled down", scaled.length === 0, scaled.slice(0, 4).join(", "));
     // Closing: the neck is whole before the mass is drawn up (the lead is
     // released at closeRelease) and stays whole until the mass is in the
     // notch; the window contracts toward its top.

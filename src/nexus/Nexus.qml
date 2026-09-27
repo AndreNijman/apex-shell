@@ -36,16 +36,16 @@ import "../shapes/fluid/geometry.js" as Geo
 // and read as "notch → teardrop → balloon → Nexus": a string holding a
 // balloon, a giant round blob, then a rectangle, and on the way out the
 // window shrank into a blob with its controls still readable. So it
-// EXTRUDES now: the notch's bottom sags on the first frame, a short thick
-// neck comes down with a modest bulb on it, the bulb spreads sideways while
-// it deepens — a sheet widening all the way down from the neck — and becomes
-// the window, and the neck thins and draws back into the notch. The content
-// arrives once the sheet is mostly formed, the navigation and title a beat
-// before the page. Closing is not that backwards: the content goes at once,
-// the window contracts toward its top, a rounded mass forms only once most
-// of it has gone, a short neck reaches down to it, and the mass is drawn up
-// into the notch. Three springs (SurfaceLifecycle, liquid), as every surface:
-// the extrusion leads, the spread follows it, the neck trails.
+// EXTRUDES now: the notch's bottom sags on the first frame, a broad neck
+// comes down with a bulb on it, the bulb deepens and then widens — a flask
+// flaring all the way down from the neck, never the window at 60 % — and
+// becomes the window, and the neck thins and draws back into the notch. The
+// content arrives once the silhouette is established, the navigation and
+// title a beat before the page. Closing is not that backwards: the content
+// goes at once, the window's top centre pinches up into a broad neck, and
+// the mass is drawn up it into the notch. Three springs (SurfaceLifecycle,
+// liquid), as every surface: the extrusion leads, the spread follows it, the
+// neck trails.
 //
 // It is drawn as a FIELD (shapes/fluid/FluidDrop, geometry.js
 // notchExtrudeField): round primitives smooth-unioned per pixel, so every
@@ -80,8 +80,11 @@ PanelWindow {
         name: "nexus"
         id: life
         open:          root.live
-        // The hero beat: the one signature transition. The sheet is mostly
-        // formed by ~300 ms and the neck gone by ~500.
+        // The hero beat: the one signature transition. Andre (2026-09-27):
+        // the first extrusion "flashed by" in ~250 ms; the notch still moves
+        // on the first frame and the gather is out by ~90 ms, but the body
+        // forms over ~70-330 ms, the width settles by ~430, and the neck
+        // draws back while the content arrives, settled by ~520.
         enterDuration: Motion.hero
         // Longer than a morph's exit, still shorter than the entrance: at
         // morphExit the sheet contracted from under its fading content (70 %
@@ -90,16 +93,20 @@ PanelWindow {
         exitDuration:  Motion.morphEnter
         liquid:        true
         surface:       body
-        // The spread starts once the neck is out with its bulb on it; on the
-        // way out the mass is drawn up once the window has contracted into it
-        // (the neck is whole by then: geometry.js notchExtrudeField).
-        openRelease:   0.3
+        // The spread starts as the neck comes out with its bulb; on the way
+        // out the mass is drawn up once the window has gone into it (the neck
+        // is whole long before: geometry.js notchExtrudeField).
+        openRelease:   0.25
         closeRelease:  0.2
+        // The body a little slower and calmer than a morph's (response 0.56 s,
+        // under the hero beat; a whisper of overshoot, capped at 3 px).
+        bodyIn:        0.88
+        bodyDamping:   0.85
         // The neck follows the spread closely: thinning as the window forms,
-        // gone by ~500 ms, not dangling the finished window for another 300.
+        // gone by ~520 ms, not dangling the finished window for longer.
         trailScale:    0.38
-        // Nothing to read until the silhouette is mostly formed.
-        contentAt:     0.65
+        // Nothing to read until the silhouette is established.
+        contentAt:     0.82
         // Content leaves ahead of its surface, at once. Under Reduce Motion
         // the alpha takes the same beat, so the short fade stays.
         contentOut:    Motion.fadeOut

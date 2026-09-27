@@ -750,14 +750,14 @@ function cornerRise(p, g) {
 // so it cannot bloom out of the notch and stay attached the way the Dashboard
 // does. It EXTRUDES (Andre, 2026-09-27, replacing the drip: "notch → viscous
 // extrusion → broadening sheet → Nexus, rather than notch → teardrop →
-// balloon → Nexus"): the notch's bottom sags; a short thick neck comes down
-// with a modest bulb on it; the bulb spreads sideways while it deepens, a
-// sheet widening all the way down from the neck, and becomes the window;
-// then the neck thins and draws back into the notch. Closing is not the open
-// backwards: the window contracts toward its top (the content gone first),
-// a rounded mass forms only once most of it has, a short neck reaches down
-// to it, and the mass is drawn up into the notch. Calmer than CENTER_BLOOM:
-// viscous, no wobble, no splash, and no giant round blob on the way.
+// balloon → Nexus"): the notch's bottom sags; a broad neck comes down with a
+// bulb on it; the bulb deepens and then widens, a flask flaring all the way
+// down from the neck, and becomes the window; then the neck thins and draws
+// back into the notch. Closing is not the open
+// backwards: the content goes first, the window's top centre pinches up
+// into a broad neck, and the mass is drawn up it into the notch rather than
+// shrinking in place. Calmer than CENTER_BLOOM: viscous, no wobble, no
+// splash, no giant round blob, and never the window at 60 % scale.
 //
 // It is a signed-distance FIELD, evaluated per pixel by FluidDrop.qml's
 // shader (fluiddrop.frag), because every part of it is round and every join
@@ -769,9 +769,10 @@ function cornerRise(p, g) {
 //   card    the sheet, then the window: a rounded box (cx, cy, hw, hh, r)
 //   upper   the neck: a ROUND CONE (two circles and their tangents) from
 //           inside the notch down to the waist
-//   lower   the bell: a round cone from the waist to a circle over the
-//           sheet — the bulb while it is one, then a dome as wide as the
-//           sheet's height allows, sinking into it as the window arrives
+//   lower   the bell: a round cone from the waist to a circle low in the
+//           sheet — the bulb while it is one, then as wide as the sheet
+//           allows, so the outline flares all the way down from the neck;
+//           it narrows to the neck as the neck thins
 //
 //   d = smin( smin(notch, upper, kN), smin(card, lower, kC), kW )
 //
@@ -786,11 +787,11 @@ function cornerRise(p, g) {
 //
 // Channels (SurfaceLifecycle, liquid): w = the EXTRUSION (lead: the sag, the
 // neck and the bulb, the descent), d = the SPREAD (body: bulb → sheet →
-// window), n = the NECK (trail: thick while the sheet spreads, thinning, then
-// drawn back into the notch from its lower end). Closing, the trail lags the
+// window), n = the NECK (trail: broad while the sheet spreads, thinning as it
+// draws back into the notch from its lower end). Closing, the trail lags the
 // body and would keep the neck drawn back until the body was gone, so the
-// neck also follows the body: it reaches down again once the body has
-// drained below half and is whole before the lead begins to leave (at the
+// neck also follows the body: it reaches down again as soon as the window
+// starts to go and is whole long before the lead begins to leave (at the
 // Nexus's closeRelease, 0.2). Without channels, derived from p.
 function notchExtrudeDerived(p) {
     return { w: span(p, 0.0, 0.55), d: smooth(span(p, 0.2, 0.9)), n: span(p, 0.3, 1.0) };
@@ -812,63 +813,71 @@ function notchExtrudeField(p, g) {
 
     // ── the extrusion (lead)
     // The gather is an EASE-OUT of the lead, so the notch moves on the first
-    // frame the spring does ("fast first, fluid second"); the bulb forms and
-    // the whole descends behind it.
+    // frame the spring does ("fast first, fluid second"); a broad neck and
+    // its bulb form and descend behind it.
     var form = 1 - Math.pow(1 - Math.min(1, L / 0.3), 2);
-    var grow = smooth(span(L, 0.08, 0.7));
+    var grow = smooth(span(L, 0.08, 0.8));
     var ext = smooth(span(L, 0.1, 1));
-    var rN0 = 0.13 * U;                                   // the neck, full
-    var bulbR = 0.21 * U;
+    var rN0 = 0.18 * U;                                   // the neck, full: broad
+    var bulbR = 0.26 * U;
     var Rb = lerp(rN0, bulbR, grow) * form;               // the bulb
     var sag = 0.06 * U;
-    var bulbBottom = y0 + sag * form + (0.42 * gap + 2 * bulbR - sag) * ext;
+    var bulbBottom = y0 + sag * form + (0.3 * gap + 2 * bulbR - sag) * ext;
     var cyB = bulbBottom - Rb;
 
-    // ── the spread (body): a sheet out of the bulb, sideways while deepening
-    // Width leads height; both ease out of the body channel. Written as the
-    // finished value less what is left, so at rest they ARE the window.
-    var gW = 1 - Math.pow(1 - Bc, 1.5), gH = 1 - Math.pow(1 - Bc, 1.2);
-    var b0h = 0.72 * Rb, b0w = 1.1 * Rb;                  // inside the bulb, a little wide
-    var hw = CHW - (CHW - b0w) * (1 - gW) + (B > 1 ? softCap((CHW - b0w) * (B - 1), 3) : 0);
-    var hh = CHH - (CHH - b0h) * (1 - gH) + (B > 1 ? softCap((CHH - b0h) * (B - 1), 3) : 0);
-    var top = g.card.y - (g.card.y - (cyB - b0h)) * (1 - Bc);
+    // ── the spread (body): out of the bulb, DEEPENING a little ahead of
+    // widening (Andre, 2026-09-27: "let depth lead width slightly"), and on
+    // the springs' own easing — a curve on top of a spring eases twice and
+    // crushed the whole change into ~200 ms. Written as the finished value
+    // less what is left, so at rest they ARE the window.
+    var gH = Math.pow(Bc, 0.7), gW = Math.pow(Bc, 1.3), gT = Math.pow(Bc, 1.3);
+    var b0 = 0.8 * Rb;                                    // the sheet, inside the bulb at first
+    var hw = CHW - (CHW - b0) * (1 - gW) + (B > 1 ? softCap((CHW - b0) * (B - 1), 3) : 0);
+    var hh = CHH - (CHH - b0) * (1 - gH) + (B > 1 ? softCap((CHH - b0) * (B - 1), 3) : 0);
+    var top = g.card.y - (g.card.y - (cyB - b0)) * (1 - gT);
     var cy = top + hh, cx = cardCX - (cardCX - g.cx) * (1 - Bc);
-    // Corners: round while it is small, never a pill wider than organic, the
-    // window's own as it arrives.
-    var rBig = Math.min(Math.min(hw, hh), 0.5 * hh + g.r);
-    var r = Math.max(0, Math.min(g.r - (g.r - rBig) * (1 - smooth(span(Bc, 0.35, 0.9))), hw, hh));
+    // Corners: big and soft while it forms, so it is never the window at
+    // 60 %; the window's own only as it arrives.
+    var rBig = Math.min(hw, hh, 0.6 * Math.min(hw, hh) + g.r);
+    var r = Math.max(0, Math.min(g.r - (g.r - rBig) * (1 - smooth(span(Bc, 0.55, 0.97))), hw, hh));
 
     // ── the neck (trail) and the bell
-    var Ne = Math.min(N, 0.3 + 0.7 * smooth(span(B, 0.12, 0.5)));
-    var thin = smooth(span(Ne, 0.15, 0.55));
-    var ret = smooth(span(Ne, 0.45, 0.9));                 // drawn back into the notch
-    var rN = rN0 * form * (1 - 0.75 * thin);
-    // The bell: the bulb's circle; over the spreading sheet a dome as wide as
-    // the sheet allows (its bottom never below the sheet's), so the outline
-    // widens all the way down; it sinks into the sheet and narrows to the
-    // neck as the window arrives.
-    var domeK = lerp(0.28, -1.05, Math.max(thin, smooth(span(Bc, 0.3, 0.95))));
-    var bellFit = (hh - 2) / Math.max(0.1, 1 - 0.5 * domeK);     // 2 R2 - dome <= 2 hh
-    var R2b = Math.max(Rb, Math.min(0.6 * hw, 0.6 * U * form, bellFit));
-    var R2 = Math.max(0, lerp(lerp(Rb, R2b, smooth(span(Bc, 0, 0.3))), 1.3 * rN, thin));
-    var c2y = top + R2 - domeK * R2;
-    // Drawn back from its lower end: the bell's circle rises into the notch
-    // while every radius and blend narrows to nothing, so the last of it is
-    // a thread's tip going up out of sight — never a bump left under the
-    // seam to vanish in one frame.
+    // Closing, the trail lags the body and would keep the neck drawn back
+    // until the body was gone; so the neck also follows the body: the top
+    // centre pinches up into it as soon as the window starts to go, and the
+    // mass is drawn up it rather than shrinking in place.
+    var Ne = Math.min(N, 0.25 + 0.75 * smooth(span(B, 0.5, 0.92)));
+    var thin = smooth(span(Ne, 0.5, 0.95));
+    var ret = smooth(span(Ne, 0.5, 0.95));                 // drawn back into the notch
     var keep = 1 - ret;
-    var kThin = lerp(1, 0.4, thin) * keep;
-    var kN = 0.16 * U * form * kThin;
-    var kC = Math.min(0.235 * U * kThin, 0.8 * Math.max(hw, 1)) * form;
+    var rN = rN0 * form * (1 - 0.6 * thin);
+    // Drawn back from its lower end, every radius and blend narrowing to
+    // nothing, so the last of it is a thread's tip going up out of sight —
+    // never a bump left under the seam to vanish in one frame.
+    var kThin = lerp(1, 0.8, thin) * keep;
+    var kN = 0.22 * U * form * kThin;
+    var kC = Math.min(0.3 * U * kThin, 0.8 * Math.max(hw, 1)) * form;
+    // The bell: a circle low in the sheet, as wide as the sheet allows,
+    // whose tangents from the waist are the flare — the outline widens all
+    // the way down from the neck instead of a neck standing on a slab (the
+    // deep U either side of it). It keeps a blend's width inside the
+    // sheet's sides and bottom (closer, the blend bulges past them), may
+    // reach above the sheet's top by 0.55 of its radius, and narrows to the
+    // neck as the neck thins.
+    var mB = kC + 2;
+    var fitH = Math.max(0, (2 * hh - mB) / 1.45);
+    var R2full = Math.max(Math.min(hw - 0.8 * kC, fitH, 1.3 * U * form), Math.min(Rb, fitH), 0);
+    var R2 = lerp(R2full, 2 * rN, thin);
+    var c2y = top + 2 * hh - mB - R2;
     var ay = y0 - kN - 3;                                 // inside the notch, past its meniscus
-    var c2yR = lerp(c2y, ay, ret), R2r = lerp(R2, 0.5 * rN, ret) * keep;
-    var yw = lerp(y0, c2yR - R2r, 0.4);
-    var rw = 0.8 * rN * keep;
-    var kW = Math.min(0.11 * U, 0.9 * rw) * form;
+    var c2yR = lerp(c2y, ay, ret), R2r = lerp(R2, 0.85 * rN, Math.min(1, 2 * ret)) * keep;
+    var yw = lerp(y0, c2yR - R2r, 0.3);
+    var rw = 0.85 * rN * keep;
+    var kW = Math.min(0.14 * U, 0.9 * rw) * form;
     var upper = null, lower = null;
     if (form > 0.001 && rN > 0.05 && ret < 1) {
         var wx = lerp(g.cx, cx, 0.3), wy = Math.max(yw, ay + 0.5);
-        upper = { ax: g.cx, ay: ay, ra: 1.4 * rN * keep, bx: wx, by: wy, rb: rw };
+        upper = { ax: g.cx, ay: ay, ra: 1.35 * rN * keep, bx: wx, by: wy, rb: rw };
         lower = { ax: wx, ay: wy, ra: rw, bx: cx, by: Math.max(c2yR, wy + 0.5), rb: R2r };
     }
     if (!(form > 0)) { hw = 0; hh = 0; kN = 0; kC = 0; kW = 0; }
@@ -887,9 +896,10 @@ function notchExtrudeField(p, g) {
     // Where the field can be inside: the seam down to the lowest part, across
     // the notch box, the sheet and the bell, with room for the meniscus and
     // the edge's antialiasing. What draws it (FluidDrop) covers only this.
-    var lowR = lower ? lower.rb : 0, pad = 4 + 0.25 * Math.max(kC, kW);
+    var lowR = lower ? lower.rb : 0, pad = 4 + 0.25 * Math.max(kN, kC, kW);
+    var upLow = upper ? Math.max(upper.ay + upper.ra, upper.by + upper.rb) : 0;
     var bx0 = Math.min(g.cx - nhw, cx - hw, cx - lowR) - pad, bx1 = Math.max(g.cx + nhw, cx + hw, cx + lowR) + pad;
-    var by1 = Math.max(y0 + 4, cy + hh + pad, lower ? lower.by + lowR + pad : 0);
+    var by1 = Math.max(y0 + 4, cy + hh + pad, lower ? lower.by + lowR + pad : 0, upLow + pad);
     return {
         notch: { x0: g.cx - nhw, x1: g.cx + nhw, y: y0, r: Math.min(10, nhw) },
         card: { cx: cx, cy: cy, hw: hw, hh: hh, r: r },
