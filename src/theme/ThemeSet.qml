@@ -131,7 +131,9 @@ QtObject {
 
     // -- Notch Width Constraints --
     // Each notch sizes itself to its content, clamped between min and max.
-    property int lNotchMinWidth: px(140)   // brief §D.2: the content is ~120 wide (was 180)
+    property int lNotchMinWidth: px(112)   // brief §D.2 (was 180, then 140). Below one dot's content (~124 with
+                                           // the notch padding) since the workspace dots went dynamic, so a
+                                           // lone dot is not centred in a wider notch and the ✦ never slides.
     property int lNotchMaxWidth: px(360)
 
     property int cNotchMinWidth: px(300)

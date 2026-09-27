@@ -20,6 +20,14 @@ Rectangle {
     // (Hyprland: 10, including empty ones you can still switch to) or creates
     // workspaces on demand (niri, labwc), and that is one integer.
     //
+    // The bar shows only what is there (Andre, 2026-09-27: "make this dynamic
+    // instead of constantly a bunch of dots"): a workspace with windows, the one
+    // you are on, an urgent one. On Hyprland the grid is still built slot by slot
+    // — its delegates must outlive a switch (see the Repeater) — and an empty
+    // slot collapses to nothing on a spring rather than being dropped from the
+    // model, so dots grow in and fold away instead of popping. A slot past the
+    // grid (a workspace 11 opened by a bind or a script) extends it.
+    //
     // `ref` is carried in each entry rather than reconstructed at the click,
     // because it is genuinely a different kind of value per compositor — an id,
     // a 1-based index, a list position — and the view has no business knowing
@@ -35,8 +43,11 @@ Rectangle {
         const byId = ({})
         for (let i = 0; i < live.length; i++) byId[live[i].id] = live[i]
 
+        let last = slots
+        for (let i = 0; i < live.length; i++)
+            if (live[i].id > last && live[i].id <= 99) last = live[i].id
         const out = []
-        for (let n = 1; n <= slots; n++) {
+        for (let n = 1; n <= last; n++) {
             const w = byId[n]
             out.push(w ? w : {
                 id: n, idx: n, ref: n, name: String(n), output: "",
@@ -55,8 +66,9 @@ Rectangle {
     color: Theme.wsBackground
     radius: theme.wsRadius
 
-    // Auto-size
-    width: workspaceRow.width + (theme.wsPadding * 2)
+    // Auto-size. Every slot carries half a gap on each side (so a collapsing
+    // one takes its gap with it), which puts half a gap inside each end too.
+    width: workspaceRow.width + (theme.wsPadding - theme.wsSpacing / 2) * 2
     height: theme.wsDotSize + (theme.wsPadding * 2)
 
     property bool scrollBusy: false
@@ -97,7 +109,7 @@ Rectangle {
     Row {
         id: workspaceRow
         anchors.centerIn: parent
-        spacing: theme.wsSpacing
+        spacing: 0
 
         // Logic: Fade out dots when Scratchpad is active
         opacity: root.isScratchpad ? 0 : 1
@@ -125,11 +137,11 @@ Rectangle {
         Repeater {
             model: root.workspaceModel.length
 
-            delegate: Rectangle {
-                id: dot
+            delegate: Item {
+                id: slot
 
                 required property int index
-                readonly property var modelData: root.workspaceModel[dot.index]
+                readonly property var modelData: root.workspaceModel[slot.index]
 
                 // Focused, not active. The three delegates disagreed about this
                 // and the unified one had to pick: Hyprland highlighted
@@ -143,57 +155,80 @@ Rectangle {
                 // favour of the bar meaning one thing everywhere. Flagged rather
                 // than buried: it is a real visual change on a configuration
                 // this checkout cannot test.
-                readonly property bool isFocused:  dot.modelData ? dot.modelData.isFocused : false
-                readonly property bool isUrgent:   dot.modelData ? dot.modelData.isUrgent : false
-                readonly property bool isOccupied: dot.modelData ? dot.modelData.occupied : false
+                readonly property bool isFocused:  slot.modelData ? slot.modelData.isFocused : false
+                readonly property bool isUrgent:   slot.modelData ? slot.modelData.isUrgent : false
+                readonly property bool isOccupied: slot.modelData ? slot.modelData.occupied : false
+                // What the bar shows: somewhere with windows, where you are, or
+                // somewhere asking for you. An empty slot folds away.
+                readonly property bool shown: slot.isFocused || slot.isOccupied || slot.isUrgent
+
+                // 0 folded away, 1 fully there; a whisper over on the way in.
+                readonly property real presence: Math.max(0, presenceF.value)
+                SpringFollower { id: presenceF; target: slot.shown ? 1 : 0; epsilon: 0.002 }
 
                 height: theme.wsDotSize
-                radius: height / 2
+                width:  slot.presence * (dotW.value + theme.wsSpacing)
+                visible: slot.presence > 0.001
                 // The focused dot's width on a spring that bends toward a second
                 // workspace change mid-travel (SpringFollower).
-                width:  dotW.value
-                SpringFollower { id: dotW; target: dot.isFocused ? theme.wsActiveWidth : theme.wsDotSize }
+                SpringFollower { id: dotW; target: slot.isFocused ? theme.wsActiveWidth : theme.wsDotSize }
 
-                color: {
-                    if (dot.isFocused)  return Theme.wsActive
-                    if (dot.isUrgent)   return Theme.wsUrgent
-                    if (dot.isOccupied) return Theme.wsOccupied
-                    return Theme.wsEmpty
-                }
-
-                Behavior on color { MotionColor { role: "state" } }
-
-                // --- Urgent pulse ---
-                SequentialAnimation {
-                    running: dot.isUrgent && !dot.isFocused && Motion.ambient
-                    // Finish the current beat when gated off, so it rests at its
-                    // end value instead of freezing mid-fade (Reduce Motion mid-pulse).
-                    alwaysRunToEnd: true
-                    loops:   Animation.Infinite
-
-                    NumberAnimation {
-                        target:   dot
-                        property: "scale"
-                        to:       1.35
-                        duration: Motion.pulseHalf
-                        easing.type: Easing.InOutSine
+                Rectangle {
+                    id: dot
+                    anchors.centerIn: parent
+                    height: theme.wsDotSize
+                    width:  dotW.value
+                    radius: height / 2
+                    // Grows out of its own centre while its slot opens; the
+                    // urgent pulse below owns `scale`, so presence is a transform.
+                    opacity: Math.min(1, slot.presence)
+                    transform: Scale {
+                        origin.x: dot.width / 2; origin.y: dot.height / 2
+                        xScale: Math.min(1, slot.presence); yScale: Math.min(1, slot.presence)
                     }
-                    NumberAnimation {
-                        target:   dot
-                        property: "scale"
-                        to:       1.0
-                        duration: Motion.pulseHalf
-                        easing.type: Easing.InOutSine
+
+                    color: {
+                        if (slot.isFocused)  return Theme.wsActive
+                        if (slot.isUrgent)   return Theme.wsUrgent
+                        if (slot.isOccupied) return Theme.wsOccupied
+                        return Theme.wsEmpty
+                    }
+
+                    Behavior on color { MotionColor { role: "state" } }
+
+                    // --- Urgent pulse ---
+                    SequentialAnimation {
+                        running: slot.isUrgent && !slot.isFocused && Motion.ambient
+                        // Finish the current beat when gated off, so it rests at its
+                        // end value instead of freezing mid-fade (Reduce Motion mid-pulse).
+                        alwaysRunToEnd: true
+                        loops:   Animation.Infinite
+
+                        NumberAnimation {
+                            target:   dot
+                            property: "scale"
+                            to:       1.35
+                            duration: Motion.pulseHalf
+                            easing.type: Easing.InOutSine
+                        }
+                        NumberAnimation {
+                            target:   dot
+                            property: "scale"
+                            to:       1.0
+                            duration: Motion.pulseHalf
+                            easing.type: Easing.InOutSine
+                        }
                     }
                 }
 
                 // Reset scale when no longer urgent
-                onIsUrgentChanged: if (!dot.isUrgent) dot.scale = 1.0
+                onIsUrgentChanged: if (!slot.isUrgent) dot.scale = 1.0
 
                 MouseArea {
                     anchors.fill: parent
+                    enabled: slot.shown
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: if (dot.modelData) CompositorService.focusWorkspace(dot.modelData.ref)
+                    onClicked: if (slot.modelData) CompositorService.focusWorkspace(slot.modelData.ref)
                 }
             }
         }

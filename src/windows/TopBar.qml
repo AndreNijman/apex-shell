@@ -248,10 +248,16 @@ PanelWindow {
             anchors.left: parent.left
             clip:         true
 
+            // Centred in the width the notch is heading for, not the width it
+            // has reached: the notch follows its content on its own spring, so
+            // centring in the live width slid the ✦ sideways by half the lag
+            // every time a workspace dot grew in or folded away. Unclamped this
+            // is the padding, pinned; only a clamped notch centres its content.
             LeftContent {
                 id: leftContent
                 screenName: root.screenName
-                anchors.centerIn: parent
+                anchors.verticalCenter: parent.verticalCenter
+                x: Math.round((root._lW.target - leftContent.width) / 2)
             }
         }
 
