@@ -769,7 +769,12 @@ StatCard {
                         Rectangle {
                             anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
                             width: bfillW.value
+                            // Follows only while the Dashboard is on screen: behind a
+                            // closed one the follower is not stepped and kept an old
+                            // level, then slid to the new one as it opened (the
+                            // "jitter"). Hidden, it snaps. (ChannelColumn, the same.)
                             SpringFollower { id: bfillW; role: "valueFollow"
+                                             live: btrack.Window.window ? btrack.Window.window.visible : false
                                              target: Math.max(btrack.radius * 2, btrack.width * root._brightVal) }
                             radius: parent.radius; color: Theme.active
                         }
@@ -794,6 +799,7 @@ StatCard {
                         color: Theme.fixedLight; anchors.verticalCenter: parent.verticalCenter
                         x: bthumbX.value
                         SpringFollower { id: bthumbX; role: "valueFollow"
+                                         live: btrack.Window.window ? btrack.Window.window.visible : false
                                          target: Math.max(0, Math.min(btw.width - btw.thumbD, root._brightVal * (btw.width - btw.thumbD))) }
                     }
                 }

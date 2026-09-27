@@ -96,9 +96,18 @@ Item {
                 // Fill bar
                 Rectangle {
                     id: fill
+                    objectName: "levelFill"
                     anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
                     height: fillH.value
+                    // Follows only while its window is on screen (Andre: "when i
+                    // open the brightness slider at first it like jitters a bit").
+                    // A follower is stepped by rendered frames, so one left
+                    // running behind a closed popup kept the level from before a
+                    // brightness or volume key, and at the next open slid across
+                    // to the new one while the thumb already stood there. Hidden,
+                    // it snaps; the first frame shown is the true level.
                     SpringFollower { id: fillH; role: "valueFollow"
+                                     live: fill.Window.window ? fill.Window.window.visible : false
                                      target: Math.max(fill.radius * 2, fill.parent.height * col.value) }
                     radius: parent.radius
                     color:  col.muted ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.15) : Theme.active

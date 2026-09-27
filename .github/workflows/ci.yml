@@ -1604,6 +1604,12 @@ jobs:
       - name: The tab lists answer the keyboard
         run: ./tests/run-keyboard-nav-test.sh
 
+      # A level slider opened after a key changed its value behind it shows the
+      # new level on its first frame (the fill's follower snaps while its
+      # window is hidden), and on screen still follows instead of cutting.
+      - name: A slider opens at its level
+        run: ./tests/run-slider-open-test.sh
+
       # An application's tray menu on the keyboard: the real TrayMenu on a
       # fake StatusNotifierItem + DBusMenu (on a private bus), stepped past its
       # separator and chosen from, with the application told the right row.
