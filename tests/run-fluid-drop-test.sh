@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  run-fluid-drop-test.sh — the Nexus drip's shader against its field.
+#  run-fluid-drop-test.sh — the Nexus extrusion's shader against its field.
 #
 #  Stages the REAL src/shapes/fluid (FluidDrop.qml, fluiddrop.frag.qsb,
 #  geometry.js, FluidShape.qml) and runs tests/fluid-drop-test.qml under
@@ -91,8 +91,10 @@ mutant "a meniscus twice the field's" "h * h * k * 0.25" "h * h * k * 0.5"
 # mutant removes both.
 mutant "no seam: the notch box drawn over the bar" "if (p.y < notchBox.z) {" "if (p.y < -100000.0) {" \
        "bounds: { x: bx0, y: y0, w: bx1 - bx0, h: by1 - y0 }," "bounds: { x: bx0, y: 0, w: bx1 - bx0, h: by1 },"
-mutant "the lower tail dropped" "float dl = lowerA.w > 0.5" "float dl = lowerA.w > 1.5"
+mutant "the bell dropped" "float dl = lowerA.w > 0.5" "float dl = lowerA.w > 1.5"
+mutant "the waist's blend ignored (a V where the neck meets the bell)" \
+       "smin(dc, dl, blends.z), blends.w);" "smin(dc, dl, blends.z), 0.0);"
 cp "$root/src/shapes/fluid/fluiddrop.frag.qsb" "$stage/shapes/fluid/fluiddrop.frag.qsb"
 [[ $selffail -eq 0 ]] || { echo "RESULT: the test cannot tell a drifted shader from the field"; exit 1; }
 
-echo "RESULT: the shader runs, draws the field it is held to at every stage of a drip, nothing above the seam and nothing when closed; three drifted shaders caught"
+echo "RESULT: the shader runs, draws the field it is held to at every stage of the extrusion, nothing above the seam and nothing when closed; four drifted shaders caught"

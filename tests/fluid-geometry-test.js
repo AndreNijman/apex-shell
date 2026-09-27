@@ -540,244 +540,235 @@ function liquidSweep(name, fn, g, contact, caps) {
           down.toFixed(1) + " / " + up.toFixed(1));
 }
 
-// ── NOTCH_DROP (Nexus): a drip, not a bloom ────────────────────────────────
-// Two sub-paths (the drop/card and the neck — or, once pinched, its two
-// halves), filled non-zero. Held to: nothing at rest on 0 (the notch is the
-// bar's own), exactly the card at rest on 1 (the neck gone), every point on the
-// screen, the neck's footprint on the notch's flat bottom, each sub-path free
-// of self-intersection, the content clip inside both the drop and the finished
-// window — along the derived progress and along replayed spring trajectories.
+// ── NOTCH_EXTRUDE (the Nexus): an extrusion, not a drip ─────────────────────
+// geometry.js notchExtrudeField, drawn per pixel by shapes/fluid/fluiddrop.frag
+// (tests/run-fluid-drop-test.sh holds the shader to this same field). The drip
+// it replaced (2026-09-27) read as "notch → teardrop → balloon → Nexus": a
+// drop let go of the notch, a thread held a giant round blob, and the close
+// shrank the window into a blob. So what is held here is the extrusion's
+// character, not only its bounds:
+//
+//   * the notch moves on the lifecycle's first frame ("fast first");
+//   * attached: until the neck starts to draw back, nothing below the seam is
+//     ever cut off from the notch — no detached drop, at any frame;
+//   * in order: a sag, a bulb on a neck, the sheet spreading on a whole neck,
+//     then the neck drawing back into the notch from its lower end;
+//   * no blob: once the sheet is wider than the notch's footprint it is
+//     clearly wider than tall, and its corners never make it a stadium;
+//   * closing: the neck is whole again before the mass is drawn up, and stays
+//     whole until the mass is in the notch; the window contracts toward its
+//     top rather than falling;
+//   * exact rest states, bounds that hold everything the shader draws, the
+//     content clip inside the window and the body, no parameter jumps, and NO
+//     POP in the neck through the open, the close and every reversal.
 {
-    section("NOTCH_DROP (Nexus)");
-    const W = 1920, H = 1080;
-    const dg = { cx: 960, notchW: 300, notchH: 40, notchBottom: 14,
-                 card: { x: 500, y: 230, w: 920, h: 620 }, r: 28 };
-    const flat = dg.notchW - 2 * dg.notchBottom;
-    function splitSegs(segs) {
-        const parts = [[]];
-        for (const sg of segs) { if (sg.brk && parts[parts.length - 1].length) parts.push([]); parts[parts.length - 1].push(sg); }
-        return parts.filter(p => p.length);
-    }
-    function dropChecks(tag, r) {
-        const bad = [];
-        if (/NaN|Infinity/.test(r.path)) bad.push("non-finite path");
-        const card = r.segs.length ? polyline(r.segs, 16) : [];
-        if (card.length && selfIntersects(card)) bad.push("card crosses itself");
-        for (const part of splitSegs(r.neckSegs || [])) {
-            const pts = polyline(part, 16);
-            if (pts.length > 3 && selfIntersects(pts)) bad.push("neck crosses itself");
-            if (pts.some(q => q[0] < -0.5 || q[0] > W + 0.5 || q[1] < -0.5 || q[1] > H + 0.5)) bad.push("neck off screen");
-        }
-        if (card.some(q => q[0] < -0.5 || q[0] > W + 0.5 || q[1] < -0.5 || q[1] > H + 0.5)) bad.push("card off screen");
-        const pr = r.params;
-        if (pr.nTop > flat + 1e-6) bad.push("footprint wider than the notch's flat bottom (" + pr.nTop.toFixed(1) + ")");
-        const c = r.clip;
-        if (c.w > 0 && c.h > 0) {
-            const cd = dg.card;
-            if (c.x < cd.x - 0.5 || c.y < cd.y - 0.5 || c.x + c.w > cd.x + cd.w + 0.5 || c.y + c.h > cd.y + cd.h + 0.5)
-                bad.push("clip outside the finished window");
-            if (card.length && (!inside(card, c.x + 2, c.y + 2) || !inside(card, c.x + c.w - 2, c.y + c.h - 2)))
-                bad.push("clip outside the drop");
-        }
-        return bad.map(b => tag + ": " + b);
-    }
-    let bad = [];
-    for (let i = 0; i <= 400; i++) bad = bad.concat(dropChecks("p=" + (i / 400).toFixed(4), G.notchDrop(i / 400, dg)));
-    check("drop along progress: finite, on screen, no crossings, footprint on the notch, clip inside",
-          bad.length === 0, bad.slice(0, 4).join("; "));
-    const r0 = G.notchDrop(0, dg), r1 = G.notchDrop(1, dg);
-    check("drop at rest on 0 draws nothing (the notch is the bar's own)", r0.path === "");
-    check("drop at rest on 1 is exactly the window, the neck gone",
-          r1.neckSegs.length === 0 && r1.params.wB === dg.card.w && r1.params.hB === dg.card.h
-          && r1.params.yb === dg.card.y && r1.params.X0 === dg.card.x);
-    let sawDrop = false, sawNeck = false, sawHalves = false, pinchAt = -1;
-    for (let i = 0; i <= 400; i++) {
-        const pr = G.notchDrop(i / 400, dg).params;
-        if (pr.wB > 0 && pr.B === 0) sawDrop = true;
-        if (pr.necked) sawNeck = true;
-        if (pr.halves) { sawHalves = true; if (pinchAt < 0) pinchAt = i / 400; }
-    }
-    check("it is a drip: a drop before the window, a neck, then two halves after the pinch",
-          sawDrop && sawNeck && sawHalves, [sawDrop, sawNeck, sawHalves].join(","));
-    // The spring trajectories: the drip leads, the inflation follows once the
-    // drop is 55 % down, the thread trails; closing, the card drains first and
-    // the drop rises once it is under 25 %.
-    const DP = Object.assign({}, LP, { openRel: 0.55, closeRel: 0.25 });
-    for (const sname of Object.keys(SCRIPTS)) {
-        let fb = [], halvesOnClose = false;
-        const frames = liquidRun(SCRIPTS[sname], DP);
-        frames.forEach(f => {
-            const r = G.notchDrop(0, Object.assign({}, dg, { ch: { w: f.lead, d: f.body, n: f.trail } }));
-            fb = fb.concat(dropChecks(sname + " t=" + f.t.toFixed(3), r));
-        });
-        check("drop (" + sname + "): every frame finite, on screen, uncrossed, clipped inside",
-              fb.length === 0, fb.slice(0, 3).join("; "));
-    }
-    // No pop when the neck lets go. Andre (2026-09-27): "after letting go the
-    // drops become big for some reason and then they do the correct transition
-    // getting smaller" — the halves were drawn as fatter drops from the first
-    // frame after the pinch: the neck's area jumped ~7400 px² there, at ANY
-    // sampling density. A continuous change shrinks about tenfold under 10x
-    // finer sampling; a jump does not (the parameter-audit signature above).
-    const neckArea = pp => splitSegs(G.notchDrop(pp, dg).neckSegs || [])
-        .reduce((a, part) => a + Math.abs(area(polyline(part, 24))), 0);
-    const worstStep = N => {
-        let w = 0;
-        for (let i = Math.round(0.6 * N); i < Math.round(0.99 * N); i++)
-            w = Math.max(w, Math.abs(neckArea((i + 1) / N) - neckArea(i / N)));
-        return w;
-    };
-    const s200 = worstStep(200), s2000 = worstStep(2000);
-    check("no pop at the pinch: the neck's area changes continuously through the snap",
-          s2000 < s200 / 4 && s2000 < 200, s200.toFixed(0) + " → " + s2000.toFixed(0) + " px² per step");
-    const back = G.notchDrop(0, Object.assign({}, dg, { ch: { w: 1, d: 1, n: 1 } }));
-    check("drop channels at rest on 1 draw the finished window exactly", back.path === r1.path);
-    check("drop channels at rest on 0 draw nothing",
-          G.notchDrop(0, Object.assign({}, dg, { ch: { w: 0, d: 0, n: 0 } })).path === "");
-}
-
-// ── NOTCH_DROP as a field: what the Nexus draws since 2026-09-27 ────────────
-// geometry.js notchDropField, drawn per pixel by shapes/fluid/fluiddrop.frag
-// (tests/run-fluid-drop-test.sh holds the shader to this same field). Held to:
-// nothing below the seam at rest on 0, exactly the window at rest on 1, nothing
-// outside the bounds the shader is sized to, a drip in order (a drop, a whole
-// thread, then two tails), a close that keeps its thread until the drop is back
-// in the notch, the content clip inside the window and the body, and NO POP —
-// the tails start from the thread they were.
-{
-    section("NOTCH_DROP field (Nexus)");
+    section("NOTCH_EXTRUDE field (Nexus)");
     const W = 1920;
     const dg = { cx: 960, notchW: 300, notchH: 40, notchBottom: 14,
                  card: { x: 500, y: 230, w: 920, h: 620 }, r: 28 };
-    const at = (w, d, n) => G.notchDropField(0, Object.assign({}, dg, { ch: { w: w, d: d, n: n } }));
-    const DP = Object.assign({}, LP, { enter: MJ.BASE.hero / 1000, openRel: 0.55, closeRel: 0.25 });
+    const at = (w, d, n, g) => G.notchExtrudeField(0, Object.assign({}, g || dg, { ch: { w: w, d: d, n: n } }));
+    // As Nexus.qml wires its lifecycle: the hero open, the morphEnter close,
+    // the spread once the extrusion is at 0.3, the mass drawn up once the
+    // window is at 0.2, the neck trailing at 0.38.
+    const DP = Object.assign({}, LP, { enter: MJ.BASE.hero / 1000, exit: MJ.BASE.morphEnter / 1000,
+                                       trail: 0.38, openRel: 0.3, closeRel: 0.2 });
+    const RUNS = Object.assign({}, SCRIPTS, {
+        "reversed at a quarter of the open":        [[0, true], [0.07, false], [1.2, null]],
+        "reversed half-way through the open":       [[0, true], [0.16, false], [1.2, null]],
+        "reversed at three quarters of the open":   [[0, true], [0.26, false], [1.2, null]],
+        "reversed a quarter into the close":        [[0, true], [1.6, false], [1.65, true], [3.2, null]],
+        "reversed three quarters into the close":   [[0, true], [1.6, false], [1.8, true], [3.2, null]]
+    });
     const finite = o => JSON.stringify(o, (k, v) => (typeof v === "number" && !isFinite(v)) ? "BAD" : v).indexOf("BAD") < 0;
-    // Along the axis, from just under the seam to just above the body: is the
-    // thread whole (every sample inside)?
-    const whole = f => {
-        const top = f.card.cy - f.card.hh;
-        if (top - dg.notchH < 3) return true;
-        for (let y = dg.notchH + 1; y < top - 1; y += 1) if (G.dropField(f, dg.cx, y) >= 0) return false;
+    // Along the axis, from just under the seam to just inside the sheet's
+    // top: is everything there joined (every sample inside)?
+    const whole = (f, g) => {
+        g = g || dg;
+        const top = f.card.hw > 0 ? f.card.cy - f.card.hh : g.notchH;
+        for (let y = g.notchH + 1; y < top + 2; y += 1) if (G.dropField(f, g.cx, y) >= 0) return false;
         return true;
     };
-    function fieldChecks(tag, f) {
+    // The lowest point on the axis that is inside, below the seam.
+    const reach = (f, g) => {
+        g = g || dg;
+        let low = g.notchH;
+        for (let y = g.notchH + 0.25; y < 1080; y += 0.25) if (G.dropField(f, g.cx, y) < 0) low = y;
+        return low - g.notchH;
+    };
+    function fieldChecks(tag, f, g) {
+        g = g || dg;
         const bad = [];
         if (!finite(f)) bad.push("non-finite");
         const b = f.bounds;
         // Nothing outside the bounds (a ring 1 px outside, below the seam).
-        for (let x = b.x - 1; x <= b.x + b.w + 1; x += 8) {
-            const yb = b.y + b.h + 1;
-            if (G.dropField(f, x, yb) < 0.5) { bad.push("inside below the bounds at x=" + x.toFixed(0)); break; }
+        for (let x = b.x - 1; x <= b.x + b.w + 1; x += 4) {
+            if (G.dropField(f, x, b.y + b.h + 1) < 0.5) { bad.push("inside below the bounds at x=" + x.toFixed(0)); break; }
         }
-        for (let y = dg.notchH + 0.5; y <= b.y + b.h + 1; y += 8) {
+        for (let y = g.notchH + 0.5; y <= b.y + b.h + 1; y += 4) {
             if (G.dropField(f, b.x - 1, y) < 0.5 || G.dropField(f, b.x + b.w + 1, y) < 0.5) { bad.push("inside beside the bounds at y=" + y.toFixed(0)); break; }
         }
-        const c = f.clip, cd = dg.card;
+        const c = f.clip, cd = g.card;
         if (c.w > 8 && c.h > 8) {
             if (c.x < cd.x - 0.5 || c.y < cd.y - 0.5 || c.x + c.w > cd.x + cd.w + 0.5 || c.y + c.h > cd.y + cd.h + 0.5)
                 bad.push("clip outside the finished window");
-            const mids = [[c.x + c.w / 2, c.y + 2], [c.x + c.w / 2, c.y + c.h - 2], [c.x + 2, c.y + c.h / 2], [c.x + c.w - 2, c.y + c.h / 2]];
-            if (mids.some(q => G.dropField(f, q[0], q[1]) >= 0)) bad.push("clip outside the body");
+            // The edges' middles, and the corners as far in as the finished
+            // window's own corner (the content keeps clear of that already).
+            const e = 0.3 * g.r + 1;
+            const probes = [[c.x + c.w / 2, c.y + 2], [c.x + c.w / 2, c.y + c.h - 2], [c.x + 2, c.y + c.h / 2], [c.x + c.w - 2, c.y + c.h / 2],
+                            [c.x + e, c.y + e], [c.x + c.w - e, c.y + e], [c.x + e, c.y + c.h - e], [c.x + c.w - e, c.y + c.h - e]];
+            if (probes.some(q => G.dropField(f, q[0], q[1]) >= 0)) bad.push("clip outside the body");
         }
-        if (!f.params.broken && f.params.form > 0.99 && !whole(f)) bad.push("the thread is broken before the pinch");
+        // Attached: until the neck starts to draw back, nothing is cut off.
+        if (f.params.form > 0.99 && f.params.ret === 0 && !whole(f, g)) bad.push("cut off from the notch");
+        // No blob: wider than the notch's footprint, clearly wider than tall;
+        // and once it is a sheet (wider than the notch), its corners are not
+        // those of a stadium. The bulb before that may be round: it is modest.
+        const p = f.params;
+        if (p.hw > 100 && p.hw < 0.9 * cd.w / 2 && p.hw / p.hh < 1.3) bad.push("a round blob (" + p.hw.toFixed(0) + "×" + p.hh.toFixed(0) + ")");
+        if (p.hw > 200 && p.r > 0.8 * Math.min(p.hw, p.hh)) bad.push("a stadium (r " + p.r.toFixed(0) + ")");
         return bad.map(x => tag + ": " + x);
     }
     let bad = [];
     for (let i = 0; i <= 400; i++) {
         const pp = i / 400;
-        bad = bad.concat(fieldChecks("p=" + pp.toFixed(4), G.notchDropField(pp, dg)));
+        bad = bad.concat(fieldChecks("p=" + pp.toFixed(4), G.notchExtrudeField(pp, dg)));
     }
-    check("field along progress: finite, inside its bounds, a whole thread until the pinch, clip inside",
+    check("field along progress: finite, inside its bounds, attached, no blob, clip inside",
           bad.length === 0, bad.slice(0, 4).join("; "));
     // At rest.
     const z = at(0, 0, 0);
     let under = true;
     for (let x = 0; x <= W; x += 4) for (let y = dg.notchH + 0.5; y < 1080; y += 8) if (G.dropField(z, x, y) < 0.5) under = false;
     check("field at rest on 0: nothing below the seam (the notch is the bar's own)", under);
+    check("field at rest on 0: no sheet, no neck, no blends",
+          z.card.hw === 0 && z.card.hh === 0 && z.upper === null && z.lower === null && z.kN === 0 && z.kC === 0 && z.kW === 0);
     const o = at(1, 1, 1);
-    let exact = o.upper === null && o.lower === null;
+    let exact = o.upper === null && o.lower === null && o.kW === 0;
     for (let x = 400; x <= 1520 && exact; x += 7) for (let y = 0; y < 1000; y += 7) {
         const n = o.notch, nhh = (n.y + 400) / 2;
         const want = Math.min(G.sdRoundBox(x, y, (n.x0 + n.x1) / 2, n.y - nhh, (n.x1 - n.x0) / 2, nhh, n.r),
                               G.sdRoundBox(x, y, 960, 540, 460, 310, 28));
         if (G.dropField(o, x, y) !== want) { exact = false; break; }
     }
-    check("field at rest on 1: exactly the window (and the notch box above the seam), no thread", exact);
+    check("field at rest on 1: exactly the window (and the notch box above the seam), no neck", exact);
     check("field at rest on 1: the content clip is exactly the window",
           o.clip.x === 500 && o.clip.y === 230 && o.clip.w === 920 && o.clip.h === 620, JSON.stringify(o.clip));
-    // A drip, in order: a drop falling on a whole thread, the window arriving
-    // on it, then two tails.
+    check("the field's notch box stays inside the notch's flat bottom",
+          o.notch.x1 - o.notch.x0 < dg.notchW - 2 * dg.notchBottom, (o.notch.x1 - o.notch.x0).toFixed(1));
+    // Fast first: one 60 Hz frame into the open, the notch has moved.
+    const f60 = liquidRun([[0, true], [1 / 60 + 1e-6, null]], DP, 60);
+    const first = f60[f60.length - 1];
+    const r1 = reach(at(first.lead, first.body, first.trail));
+    check("fast first: the notch sags on the lifecycle's first frame", r1 >= 1, r1.toFixed(2) + " px at lead " + first.lead.toFixed(3));
+    // In order, through a real open.
     const frames = liquidRun(SCRIPTS["open, then close"], DP);
     let phase = 0, order = [];
     frames.forEach(fr => {
-        const f = at(fr.lead, fr.body, fr.trail);
-        const top = f.card.cy - f.card.hh;
-        if (phase === 0 && f.params.B === 0 && top > dg.notchH + 30 && whole(f)) { phase = 1; order.push("drop"); }
-        if (phase === 1 && f.params.B > 0.5 && whole(f)) { phase = 2; order.push("window on a thread"); }
-        if (phase === 2 && f.params.broken && f.upper && f.lower && !whole(f)) { phase = 3; order.push("two tails"); }
+        if (fr.t > 1.6) return;
+        const f = at(fr.lead, fr.body, fr.trail), p = f.params;
+        if (phase === 0 && p.B === 0 && reach(f) > 2 && reach(f) < 40 && whole(f)) { phase = 1; order.push("a sag"); }
+        if (phase === 1 && p.hw > p.rN && p.hw < 120 && whole(f)) { phase = 2; order.push("a bulb on a neck"); }
+        if (phase === 2 && p.B > 0.5 && p.hw > 300 && whole(f)) { phase = 3; order.push("the sheet spreading on a whole neck"); }
+        if (phase === 3 && p.ret > 0.1 && p.ret < 0.9 && !whole(f) && G.dropField(f, dg.cx, dg.notchH + 2) < 0) { phase = 4; order.push("the neck drawing back into the notch"); }
     });
-    check("it is a drip: a drop on its thread, the window arriving on it, then two tails", phase === 3, order.join(" → "));
-    // Closing keeps its thread: the tails reach out again as the window drains
-    // and are whole once 60 % of it has; from there the drop is never drawn up
-    // into the notch without it.
-    let closing = false, lost = [];
+    check("it is an extrusion: a sag, a bulb on a neck, the sheet spreading on it, the neck drawn back",
+          phase === 4, order.join(" → "));
+    // Closing: the neck is whole before the mass is drawn up (the lead is
+    // released at closeRelease) and stays whole until the mass is in the
+    // notch; the window contracts toward its top.
+    let released = false, lost = [], reconnected = false, fell = [];
     frames.forEach(fr => {
-        if (fr.t > 1.6 && fr.body < 0.4) closing = true;
-        if (!closing || fr.t < 1.6) return;
-        const f = at(fr.lead, fr.body, fr.trail);
-        if (f.params.form > 0.99 && !whole(f)) lost.push(fr.t.toFixed(3));
+        if (fr.t <= 1.6) return;
+        const f = at(fr.lead, fr.body, fr.trail), p = f.params;
+        if (fr.body <= DP.closeRel) released = true;
+        if (p.hw > 0 && p.top > dg.card.y + 0.5 && fr.body > DP.closeRel) fell.push(fr.t.toFixed(3));
+        if (!released) { if (whole(f)) reconnected = true; return; }
+        if (p.form > 0.99 && p.top > dg.notchH + 3 && !whole(f)) lost.push(fr.t.toFixed(3));
     });
-    check("closing: the drop is drawn up on its thread, never cut loose", closing && lost.length === 0, lost.slice(0, 4).join(", "));
-    for (const sname of Object.keys(SCRIPTS)) {
-        let fb = [];
-        liquidRun(SCRIPTS[sname], DP).forEach(fr => { fb = fb.concat(fieldChecks(sname + " t=" + fr.t.toFixed(3), at(fr.lead, fr.body, fr.trail))); });
-        check("field (" + sname + "): every frame finite, inside its bounds, whole until the pinch, clipped inside",
-              fb.length === 0, fb.slice(0, 3).join("; "));
-    }
-    // NO POP. Along the thread's axis, between the seam and the body (clear
-    // of the body's own meniscus), the field's value is minus the thread's
-    // local radius: it measures the thread, and only the thread. Stepped at
-    // 120 Hz and at 1200 Hz through an open and a close, a continuous thread
-    // changes about tenfold less per step at the finer rate; a jump — two tails
-    // born fatter than the waist they came from, which is what Andre saw —
-    // does not shrink at all. 1 kHz and 10 kHz rather than 120 Hz: a tail
-    // reaching out at 2000 px/s moves further in a 120 Hz step than the
-    // clamped measure can register, and saturates it.
-    const worst = (fn, rate) => {
-        let w = 0, prev = null;
-        liquidRun(SCRIPTS["open, then close"], DP, rate).forEach(fr => {
-            if (fr.t < 0.25 || (fr.t > 1.35 && fr.t < 1.6) || fr.t > 2.4) { prev = null; return; }
-            const f = fn(Object.assign({}, dg, { ch: { w: fr.lead, d: fr.body, n: fr.trail } }));
-            const top = f.card.hw > 0 ? f.card.cy - f.card.hh : 1e9;
-            const cur = { top: top, d: [] };
-            // Clamped just outside the edge: what is far from the surface is
-            // not seen, and moves as fast as the drop does.
-            for (let y = dg.notchH + 1; y < 400; y += 0.5) cur.d.push(Math.min(2, G.dropField(f, dg.cx, y)));
-            if (prev) {
-                const lim = Math.min(top, prev.top) - f.kC - 4;
-                for (let i = 0; dg.notchH + 1 + i * 0.5 < lim && i < cur.d.length; i++)
-                    w = Math.max(w, Math.abs(cur.d[i] - prev.d[i]));
+    check("closing: the neck reaches the window before the mass is drawn up", reconnected);
+    check("closing: the mass is drawn up on its neck, never cut loose", released && lost.length === 0, lost.slice(0, 4).join(", "));
+    check("closing: the window contracts toward its top, never falls", fell.length === 0, fell.slice(0, 4).join(", "));
+    // A jump, as the parameter audit above defines one: fast is not the
+    // fault — the neck thins "rapidly" by design — a discontinuity is, and it
+    // has a signature speed does not: at 1200 Hz a continuous parameter's
+    // largest step is about a tenth of its largest at 120 Hz; a jump's is not.
+    const KEYS = ["hw", "hh", "top", "cx", "r", "rN", "R2"];
+    const steps = (script, rate) => {
+        const st = {}; let prev = null;
+        liquidRun(script, DP, rate).forEach(fr => {
+            const p = at(fr.lead, fr.body, fr.trail).params;
+            if (prev) for (const k of KEYS) {
+                const d = Math.abs(p[k] - prev[k]);
+                if (!st[k] || d > st[k].d) st[k] = { d: d, t: fr.t };
             }
-            prev = cur;
+            prev = p;
         });
+        return st;
+    };
+    for (const sname of Object.keys(RUNS)) {
+        let fb = [];
+        liquidRun(RUNS[sname], DP).forEach(fr => {
+            fb = fb.concat(fieldChecks(sname + " t=" + fr.t.toFixed(3), at(fr.lead, fr.body, fr.trail)));
+        });
+        check("field (" + sname + "): every frame finite, inside its bounds, attached, no blob, clipped inside",
+              fb.length === 0, fb.slice(0, 3).join("; "));
+        const coarse = steps(RUNS[sname], 120), fine = steps(RUNS[sname], 1200), jumps = [];
+        for (const k of KEYS)
+            if (fine[k].d > 3 && fine[k].d > coarse[k].d / 4)
+                jumps.push(k + "@" + fine[k].t.toFixed(4) + " (" + coarse[k].d.toFixed(2) + " → " + fine[k].d.toFixed(2) + " px)");
+        check("field (" + sname + "): no parameter jumps (continuous under 10x finer sampling)", jumps.length === 0, jumps.slice(0, 4).join("; "));
+    }
+    // A wider notch (a media title) does not fatten the neck, and a smaller
+    // screen (the card nearer the notch) keeps every rule.
+    const wide = Object.assign({}, dg, { notchW: 460 });
+    const wn = at(1, 0.2, 0.1, wide).params.rN, nn = at(1, 0.2, 0.1).params.rN;
+    check("a wider notch does not fatten the neck", Math.abs(wn - nn) < 0.5, nn.toFixed(1) + " / " + wn.toFixed(1));
+    const small = { cx: 683, notchW: 300, notchH: 40, notchBottom: 14, card: { x: 223, y: 104, w: 920, h: 560 }, r: 24 };
+    let sb = [];
+    for (const sname of ["open, then close", "reversed mid-open", "reversed mid-close"])
+        liquidRun(SCRIPTS[sname], DP).forEach(fr => { sb = sb.concat(fieldChecks("small " + sname + " t=" + fr.t.toFixed(3), at(fr.lead, fr.body, fr.trail, small), small)); });
+    check("a small screen (the window near the notch): every frame keeps every rule", sb.length === 0, sb.slice(0, 3).join("; "));
+    // NO POP. Along the axis, between the seam and the sheet (clear of the
+    // sheet's own meniscus), the field's value is minus the neck's local
+    // half-width: it measures the neck, and only the neck. Stepped at 1 kHz
+    // and at 10 kHz through an open, a close and a reversal each way, a
+    // continuous neck changes about tenfold less per step at the finer rate;
+    // a jump — a neck that vanishes, or is born thicker than it was — does
+    // not shrink at all.
+    const worst = (fn, rate) => {
+        let w = 0;
+        for (const sname of ["open, then close", "reversed mid-open", "reversed mid-close"]) {
+            let prev = null;
+            liquidRun(SCRIPTS[sname], DP, rate).forEach(fr => {
+                const f = fn(Object.assign({}, dg, { ch: { w: fr.lead, d: fr.body, n: fr.trail } }));
+                const top = f.card.hw > 0 ? f.card.cy - f.card.hh : 1e9;
+                const cur = { top: top, d: [] };
+                // Clamped just outside the edge: what is far from the surface
+                // is not seen, and moves as fast as the sheet does.
+                for (let y = dg.notchH + 1; y < 400; y += 0.5) cur.d.push(Math.min(2, G.dropField(f, dg.cx, y)));
+                if (prev) {
+                    const lim = Math.min(top, prev.top) - f.kC - 4;
+                    for (let i = 0; dg.notchH + 1 + i * 0.5 < lim && i < cur.d.length; i++)
+                        w = Math.max(w, Math.abs(cur.d[i] - prev.d[i]));
+                }
+                prev = cur;
+            });
+        }
         return w;
     };
-    const real = g => G.notchDropField(0, g);
+    const real = g => G.notchExtrudeField(0, g);
     const w1k = worst(real, 1000), w10k = worst(real, 10000);
-    check("no pop at the pinch: the thread changes continuously, opening and closing",
+    check("no pop: the neck changes continuously, opening, closing and reversing",
           w10k < w1k / 4, w1k.toFixed(2) + " → " + w10k.toFixed(2) + " px per step");
-    // Can it fail? The defect as first written: tails born at 0.6 of the
-    // root's radius where the waist was 0.4 px.
+    // Can it fail? A neck that is simply dropped a third of the way into
+    // drawing back, instead of drawn back.
     const popping = g => {
-        const f = G.notchDropField(0, g);
-        if (f.params.broken && f.params.retract < 0.3) {
-            if (f.upper) f.upper = Object.assign({}, f.upper, { rb: Math.max(f.upper.rb, 0.6 * f.upper.ra) });
-            if (f.lower) f.lower = Object.assign({}, f.lower, { ra: Math.max(f.lower.ra, 0.6 * f.lower.rb) });
-        }
+        const f = G.notchExtrudeField(0, g);
+        if (f.params.ret > 0.33) return Object.assign({}, f, { upper: null, lower: null, kW: 0 });
         return f;
     };
     const m1k = worst(popping, 1000), m10k = worst(popping, 10000);
-    check("self-test: tails born fatter than the waist are caught as a pop",
+    check("self-test: a neck that vanishes instead of drawing back is caught as a pop",
           !(m10k < m1k / 4), m1k.toFixed(2) + " → " + m10k.toFixed(2) + " px per step");
 }
 

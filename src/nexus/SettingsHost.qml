@@ -33,6 +33,15 @@ Item {
     // True while a person can see the pages: gates the refcounted telemetry
     // (a page's onScreen), so a poller started here stops when the window goes.
     property bool live: true
+    // 0..1, how far the host window has brought its content in (Nexus: the
+    // lifecycle's content fade). The navigation and the title arrive first,
+    // the page a beat after, so what arrives reads as an order rather than
+    // one flash; leaving, the page goes first. 1 when nothing drives it.
+    property real reveal: 1
+    function _part(a, b) {
+        const t = Math.max(0, Math.min(1, (host.reveal - a) / (b - a)))
+        return t * t * (3 - 2 * t)
+    }
 
     signal pageSelected(string id)
     signal closeRequested()
@@ -64,6 +73,7 @@ Item {
             bottom: parent.bottom
         }
         currentPage: host.page
+        opacity: host._part(0, 0.7)
         onPageSelected: function (id) { host.pageSelected(id) }
     }
 
@@ -101,6 +111,7 @@ Item {
                 top: parent.top
             }
             height: theme.px(58)
+            opacity: host._part(0, 0.7)
 
             Text {
                 id: title
@@ -148,34 +159,46 @@ Item {
 
         // One LazyPage per registered page: built on first visit, kept
         // afterwards so scroll position and sub-page state survive
-        // switching away and back.
-        Repeater {
-            model: PageRegistry.pages
+        // switching away and back. The stagger is on this wrapper: each
+        // LazyPage owns its own opacity for page switches.
+        Item {
+            anchors {
+                left: parent.left
+                right: parent.right
+                top: parent.top
+                bottom: parent.bottom
+            }
+            opacity: host._part(0.3, 1)
 
-            delegate: LazyPage {
-                required property var modelData
+            Repeater {
+                model: PageRegistry.pages
 
-                anchors {
-                    left: parent.left
-                    right: parent.right
-                    top: header.bottom
-                    bottom: parent.bottom
-                    leftMargin: theme.px(8)
-                    rightMargin: theme.px(8)
-                    bottomMargin: theme.px(8)
+                delegate: LazyPage {
+                    required property var modelData
+
+                    anchors {
+                        left: parent.left
+                        right: parent.right
+                        top: parent.top
+                        bottom: parent.bottom
+                        topMargin: header.height
+                        leftMargin: theme.px(8)
+                        rightMargin: theme.px(8)
+                        bottomMargin: theme.px(8)
+                    }
+
+                    shown: host.shownPage === modelData.id
+                    direction: host.pageDir
+                    sourceComponent: modelData.component
+
+                    // Pages that consume refcounted telemetry need to know
+                    // whether a user can actually see them; without this a
+                    // poller started here would run until logout.
+                    onLoaded: if (modelData.needsScreen && item)
+                        item.onScreen = Qt.binding(() => host.live
+                                                         && host.page === modelData.id
+                                                         && !LockState.locked)
                 }
-
-                shown: host.shownPage === modelData.id
-                direction: host.pageDir
-                sourceComponent: modelData.component
-
-                // Pages that consume refcounted telemetry need to know
-                // whether a user can actually see them; without this a
-                // poller started here would run until logout.
-                onLoaded: if (modelData.needsScreen && item)
-                    item.onScreen = Qt.binding(() => host.live
-                                                     && host.page === modelData.id
-                                                     && !LockState.locked)
             }
         }
     }

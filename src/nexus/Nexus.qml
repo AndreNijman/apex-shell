@@ -29,28 +29,31 @@ import "../shapes/fluid/geometry.js" as Geo
 // screenName decides which one is live, so the window opens on the output the
 // user is actually looking at instead of always the primary.
 //
-// ── NOTCH_DROP (2026-09-27, replacing QUIET_SHEET) ──────────────────────────
-// Andre: "make the nexus actually flow in / liquid in from the top notch,
-// becoming the window it is now, instead of just appearing." It floats in the
-// middle of the screen, not under the bar, so it cannot bloom out of the notch
-// and stay attached the way the Dashboard does. It DRIPS: a drop gathers at
-// the centre notch and hangs, lets go and falls on a thread, the window swells
-// out of it at its place, and the thread pinches — each tail drawing back into
-// its own side, the upper into the notch, the lower into the window. Closing
-// plays it backwards: the tails reach out and join, the window drains into a
-// drop, and the drop is drawn up into the notch. Three springs
-// (SurfaceLifecycle, liquid): the fall leads, the inflation follows it, the
-// thread trails.
+// ── NOTCH_EXTRUDE (2026-09-27, replacing the drip) ──────────────────────────
+// It comes out of the centre notch (Andre: "make the nexus actually flow in
+// / liquid in from the top notch, becoming the window it is now"). The first
+// version DRIPPED — a drop fell on a thread and inflated into the window —
+// and read as "notch → teardrop → balloon → Nexus": a string holding a
+// balloon, a giant round blob, then a rectangle, and on the way out the
+// window shrank into a blob with its controls still readable. So it
+// EXTRUDES now: the notch's bottom sags on the first frame, a short thick
+// neck comes down with a modest bulb on it, the bulb spreads sideways while
+// it deepens — a sheet widening all the way down from the neck — and becomes
+// the window, and the neck thins and draws back into the notch. The content
+// arrives once the sheet is mostly formed, the navigation and title a beat
+// before the page. Closing is not that backwards: the content goes at once,
+// the window contracts toward its top, a rounded mass forms only once most
+// of it has gone, a short neck reaches down to it, and the mass is drawn up
+// into the notch. Three springs (SurfaceLifecycle, liquid), as every surface:
+// the extrusion leads, the spread follows it, the neck trails.
 //
 // It is drawn as a FIELD (shapes/fluid/FluidDrop, geometry.js
-// notchDropField): round primitives smooth-unioned per pixel, so every join is
-// a meniscus and every tip is round. The first version joined curves by hand;
-// Andre found it ugly — a pipe with a lollipop, and tails that swelled after
-// the pinch. Its duration is the hero beat: a drip needs time to read as one.
-// The card's rim and its shadow arrive once the thread has let go — a shadow
-// under a shape that is still pouring would be the wrong shape. Under Reduce
-// Motion the card is simply there and fades, as before. Its window's lifetime
-// is the lifecycle's `mapped` — completion, not a timer.
+// notchExtrudeField): round primitives smooth-unioned per pixel, so every
+// join is a meniscus and every tip is round. The card's rim and its shadow
+// arrive once the neck has drawn back — a shadow under a shape that is still
+// pouring would be the wrong shape. Under Reduce Motion the card is simply
+// there and fades, as before. Its window's lifetime is the lifecycle's
+// `mapped` — completion, not a timer.
 // ─────────────────────────────────────────────────────────────────────────────
 
 PanelWindow {
@@ -77,21 +80,29 @@ PanelWindow {
         name: "nexus"
         id: life
         open:          root.live
-        // The hero beat: a drop has to gather, fall and swell, and at the
-        // morph beat the fall was over in 150 ms — too quick to read as one.
+        // The hero beat: the one signature transition. The sheet is mostly
+        // formed by ~300 ms and the neck gone by ~500.
         enterDuration: Motion.hero
-        exitDuration:  Motion.morphExit
+        // Longer than a morph's exit, still shorter than the entrance: at
+        // morphExit the sheet contracted from under its fading content (70 %
+        // wide with the content still at 38 %, simulated), which is the
+        // "window scaled down with its controls still readable" this replaced.
+        exitDuration:  Motion.morphEnter
         liquid:        true
         surface:       body
-        // The inflation starts as the drop nears the window's place; on the
-        // way out the drop is drawn back up once the card has drained into it.
-        openRelease:   0.55
-        closeRelease:  0.25
-        // The sheet leaves on the scrim's beat. On the content beat (70 ms) it
-        // was gone while the scrim still dimmed an empty desk for another
-        // 65 ms (design review 2). Under Reduce Motion that beat is 0 and the
-        // alpha takes it too, so the short fade stays.
-        contentOut:    Motion.reduced ? Motion.fadeOut : Motion.surfaceExitSmall
+        // The spread starts once the neck is out with its bulb on it; on the
+        // way out the mass is drawn up once the window has contracted into it
+        // (the neck is whole by then: geometry.js notchExtrudeField).
+        openRelease:   0.3
+        closeRelease:  0.2
+        // The neck follows the spread closely: thinning as the window forms,
+        // gone by ~500 ms, not dangling the finished window for another 300.
+        trailScale:    0.38
+        // Nothing to read until the silhouette is mostly formed.
+        contentAt:     0.65
+        // Content leaves ahead of its surface, at once. Under Reduce Motion
+        // the alpha takes the same beat, so the short fade stays.
+        contentOut:    Motion.fadeOut
     }
 
     // The window stays mapped for the duration of the close animation.
@@ -125,15 +136,15 @@ PanelWindow {
     Rectangle {
         anchors.fill: parent
         color: "black"
-        // With the progress (a fade of its own under Reduce Motion, when the
-        // progress jumps and alpha carries the change). Closing, with the
-        // sheet's own channel: on the progress (standardAccel, slow to start)
-        // the dim outlived the sheet — at 187 ms of a slowed close, 69 % of the
-        // scrim was left over 15 % of the sheet (design review 2, measured).
-        opacity: 0.35 * (life.closing ? life.content : life.progress) * life.alpha
+        // With the liquid, both ways: the desk dims as the window forms and
+        // undims as it is drawn back into the notch. On the content's beat it
+        // undimmed 140 ms into a close with the mass still being drawn up for
+        // another 300. Under Reduce Motion the progress jumps and alpha
+        // carries the change, so it is a fade of its own.
+        opacity: 0.35 * life.progress * life.alpha
     }
 
-    // ── The window's finished place, and what the drop connects to ──────────
+    // ── The window's finished place, and what the extrusion connects to ─────
     readonly property real cardW: Math.min(root.width - theme.px(80), theme.px(920))
     readonly property real cardH: Math.min(root.height - theme.px(80), theme.px(620))
     readonly property real cardX: Math.round((root.width - root.cardW) / 2)
@@ -146,8 +157,8 @@ PanelWindow {
         card:        { x: root.cardX, y: root.cardY, w: root.cardW, h: root.cardH },
         r:           theme.radiusXL
     })
-    // The rim and the shadow: in as the thread's tails finish drawing back
-    // (they are fully back at trail 0.9), out as the window begins to drain —
+    // The rim and the shadow: in as the neck finishes drawing back (it is
+    // fully back at trail 0.9), out as the window begins to contract —
     // both read off the springs, so the fade is continuous through a reversal
     // and never outlives the body it outlines.
     readonly property real _rim: life.alpha * Geo.smooth(Geo.span(life.trail, 0.9, 1))
@@ -166,7 +177,7 @@ PanelWindow {
         // 3.6:1 over the scrimmed desk with only its hairline for an edge.
         Elevation { target: card; level: "modal" }
 
-        // The drop, the thread and the card: one liquid body.
+        // The neck, the bell and the sheet: one liquid body.
         FluidDrop {
             id: body
             anchors.fill: parent
@@ -193,7 +204,7 @@ PanelWindow {
             opacity: root._rim
         }
 
-        // Content at its finished layout, revealed where the drop already
+        // Content at its finished layout, revealed where the sheet already
         // covers the finished window.
         Item {
             id: reveal
@@ -205,7 +216,7 @@ PanelWindow {
                 x: root.cardX - reveal.x
                 y: root.cardY - reveal.y
                 width: root.cardW; height: root.cardH
-                opacity: life.content * life.alpha
+                opacity: life.alpha
                 transform: Translate { y: (1 - life.content) * Motion.travel(theme.px(8)) }
 
                 // Swallow clicks so they do not reach the backdrop.
@@ -217,6 +228,8 @@ PanelWindow {
                     anchors.fill: parent
                     theme: root.theme
                     page: NexusState.page
+                    // Navigation and title first, the page a beat after.
+                    reveal: life.content
                     live: root.windowVisible && root.live
                     onPageSelected: function (id) { NexusState.page = id }
                     onCloseRequested: NexusState.close()

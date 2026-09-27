@@ -1,13 +1,14 @@
 #version 440
 // ─────────────────────────────────────────────────────────────────────────────
-// fluiddrop.frag — the Nexus drip, per pixel (FluidDrop.qml).
+// fluiddrop.frag — the Nexus's extrusion, per pixel (FluidDrop.qml).
 //
-// The signed-distance field of geometry.js notchDropField, evaluated exactly
-// as geometry.js dropField does: the notch box and the upper half of the
-// thread smooth-unioned (a meniscus under the notch), the body and the lower
-// half smooth-unioned (a meniscus on the window), the two joined by a plain
-// min at the pinch. tests/run-fluid-drop-test.sh renders this shader and holds
-// it to the JavaScript field.
+// The signed-distance field of geometry.js notchExtrudeField, evaluated
+// exactly as geometry.js dropField does: the notch box and the neck
+// smooth-unioned (the meniscus under the notch), the sheet and the bell
+// smooth-unioned (where the bell meets the sheet), and the two joined by a
+// third smooth union at the waist, so the neck flares into the bell instead
+// of meeting it in a V. tests/run-fluid-drop-test.sh renders this shader and
+// holds it to the JavaScript field.
 //
 // Nothing is drawn above the seam: that is the bar's notch, and the box above
 // it only shapes the meniscus below it. Coverage is the field in device
@@ -29,7 +30,7 @@ layout(std140, binding = 0) uniform buf {
     float pixelRatio;   // device pixels per field unit
     vec4 notchBox;      // x0, x1, seam y, corner radius
     vec4 bodyBox;       // centre x, centre y, half-width, half-height
-    vec4 blends;        // body corner radius, kN, kC, unused
+    vec4 blends;        // body corner radius, kN, kC, kW (the waist)
     vec4 upperA;        // ax, ay, ra, present (1) or not (0)
     vec4 upperB;        // bx, by, rb, unused
     vec4 lowerA;
@@ -90,7 +91,7 @@ void main()
                ? sdRoundBox(p, bodyBox.xy, bodyBox.zw, blends.x) : FAR;
     float du = upperA.w > 0.5 ? sdRoundCone(p, upperA.xy, upperB.xy, upperA.z, upperB.z) : FAR;
     float dl = lowerA.w > 0.5 ? sdRoundCone(p, lowerA.xy, lowerB.xy, lowerA.z, lowerB.z) : FAR;
-    float d = min(smin(dn, du, blends.y), smin(dc, dl, blends.z));
+    float d = smin(smin(dn, du, blends.y), smin(dc, dl, blends.z), blends.w);
     float a = clamp(0.5 - d * pixelRatio, 0.0, 1.0);
     fragColor = fillColor * (a * qt_Opacity);
 }

@@ -4,19 +4,20 @@ import "shapes/fluid"
 import "shapes/fluid/geometry.js" as Geo
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FluidDrop — the Nexus drip's shader, held to the field it claims to draw.
+// FluidDrop — the Nexus's extrusion shader, held to the field it claims to draw.
 //
-// The drip is computed twice: geometry.js notchDropField/dropField (what
+// The extrusion is computed twice: geometry.js notchExtrudeField/dropField (what
 // tests/fluid-geometry-test.js checks for continuity, bounds and rest states)
 // and shapes/fluid/fluiddrop.frag (what the screen shows). Nothing else ties
 // them together, so this renders the REAL shader, white on black, at the
-// states a drip passes through and compares every sampled pixel with the
+// states the extrusion passes through and compares every sampled pixel with the
 // coverage the JavaScript field predicts: clearly inside must be lit, clearly
 // outside must be dark, the edge within one pixel of antialiasing.
 //
 // It must run where shaders do: tests/run-fluid-drop-test.sh starts it on a
 // private headless compositor (the offscreen platform is the software scene
-// graph, where ShaderEffect draws nothing and FluidDrop falls back to curves).
+// graph, where ShaderEffect draws nothing and FluidDrop falls back to plain
+// rectangles).
 // A shader that did not load would draw nothing and the Nexus would open as a
 // scrim and floating text — so "it rendered" is asserted, not assumed.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,15 +53,17 @@ TestCase {
         }
     }
 
-    // The states a drip passes through (lead, body, trail).
+    // The states the extrusion passes through (lead, body, trail) — among
+    // them the bell over the spreading sheet, where all three blends (the
+    // notch's meniscus, the bell's, the waist's) are at work at once.
     readonly property var states: [
-        { name: "gathering at the notch",      ch: { w: 0.15, d: 0,    n: 0 } },
-        { name: "falling on its thread",       ch: { w: 0.6,  d: 0,    n: 0 } },
-        { name: "landed, about to swell",      ch: { w: 1,    d: 0.1,  n: 0 } },
-        { name: "the window on its thread",    ch: { w: 1,    d: 0.6,  n: 0.25 } },
-        { name: "thinning to the pinch",       ch: { w: 1,    d: 1,    n: 0.45 } },
-        { name: "the tails drawing back",      ch: { w: 1,    d: 1,    n: 0.62 } },
-        { name: "at rest, open",               ch: { w: 1,    d: 1,    n: 1 } }
+        { name: "the notch sagging",                  ch: { w: 0.1,  d: 0,    n: 0 } },
+        { name: "a bulb on its neck",                 ch: { w: 0.5,  d: 0,    n: 0 } },
+        { name: "the sheet spreading under the bell", ch: { w: 0.9,  d: 0.35, n: 0.1 } },
+        { name: "the window forming, neck thinning",  ch: { w: 1,    d: 0.7,  n: 0.35 } },
+        { name: "the neck drawing back",              ch: { w: 1,    d: 0.95, n: 0.7 } },
+        { name: "closing: the neck on the mass",      ch: { w: 1,    d: 0.2,  n: 0.45 } },
+        { name: "at rest, open",                      ch: { w: 1,    d: 1,    n: 1 } }
     ]
 
     function renderAt(ch) {
@@ -95,7 +98,7 @@ TestCase {
         for (let s = 0; s < tc.states.length; s++) {
             const st = tc.states[s]
             const img = renderAt(st.ch)
-            const f = Geo.notchDropField(0, Object.assign({}, tc.g, { ch: st.ch }))
+            const f = Geo.notchExtrudeField(0, Object.assign({}, tc.g, { ch: st.ch }))
             let inside = 0, outside = 0, wrongIn = [], wrongOut = [], wrongEdge = []
             for (let y = 1.5; y < tc.height; y += 3) {
                 for (let x = 1.5; x < tc.width; x += 3) {
@@ -124,7 +127,7 @@ TestCase {
     function test_2_nothing_above_the_seam() {
         // The notch box reaches far above the seam; above it is the bar's notch.
         const img = renderAt({ w: 0.6, d: 0, n: 0 })
-        const f = Geo.notchDropField(0, Object.assign({}, tc.g, { ch: { w: 0.6, d: 0, n: 0 } }))
+        const f = Geo.notchExtrudeField(0, Object.assign({}, tc.g, { ch: { w: 0.6, d: 0, n: 0 } }))
         verify(Geo.dropField(f, tc.g.cx, tc.g.notchH - 10) < -5, "the field IS inside above the seam (so this can fail)")
         let lit = 0
         for (let x = 300; x < 700; x += 2)
@@ -139,6 +142,6 @@ TestCase {
         for (let y = 0; y < tc.height; y += 4)
             for (let x = 0; x < tc.width; x += 4)
                 if (img.red(x, y) > 10) lit++
-        compare(lit, 0, "closed, the drip draws nothing at all")
+        compare(lit, 0, "closed, the extrusion draws nothing at all")
     }
 }
