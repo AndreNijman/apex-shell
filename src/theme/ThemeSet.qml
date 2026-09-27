@@ -160,10 +160,13 @@ QtObject {
     property int popupPadding:    px(16)
 
     // -- Workspace Dot Sizes --
-    property int wsDotSize:     px(10)
-    property int wsActiveWidth: px(24)
-    property int wsSpacing:     px(6)
-    property int wsPadding:     px(8)
+    // A dot carries its workspace's number (Andre, 2026-09-27), so it is 16
+    // rather than 10; the padding gave up the difference, keeping the capsule
+    // 26 tall.
+    property int wsDotSize:     px(16)
+    property int wsActiveWidth: px(28)
+    property int wsSpacing:     px(5)
+    property int wsPadding:     px(5)
     property int wsRadius:      px(16)
 
     // -- Animations -- (Config → Layout & Behavior; 0 when Reduce Motion is on)

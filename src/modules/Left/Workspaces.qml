@@ -196,6 +196,18 @@ Rectangle {
 
                     Behavior on color { MotionColor { role: "state" } }
 
+                    // Its number, in the capsule's own colour: dark on a light
+                    // dot in the dark theme, light on a dark one in the light.
+                    Text {
+                        anchors.centerIn: parent
+                        text: slot.modelData ? String(slot.modelData.idx !== undefined ? slot.modelData.idx : slot.modelData.name) : ""
+                        color: Theme.wsBackground
+                        font.family: Theme.fontUi
+                        font.pixelSize: theme.fs(10)
+                        font.weight: slot.isFocused ? Font.Bold : Font.DemiBold
+                        font.features: { "tnum": 1 }
+                    }
+
                     // --- Urgent pulse ---
                     SequentialAnimation {
                         running: slot.isUrgent && !slot.isFocused && Motion.ambient
