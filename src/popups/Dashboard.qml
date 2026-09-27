@@ -266,6 +266,17 @@ PanelWindow {
 
         Item {
             id: content
+            // Escape closes from here, the outermost item that holds focus,
+            // not from the page area inside it. A close resets focus to THIS
+            // item (onOpenChanged), so every open after the first began with
+            // focus here — above the page area — and a key goes to the focused
+            // item and then UP through its parents, never down: Escape reached
+            // nothing and the Dashboard would not close (Andre, 2026-09-27:
+            // "when i open the dashboard super+D i cant close it with esc").
+            // Here it catches Escape from itself and from anything inside it
+            // that lets the key through (the launcher's field clears first).
+            Keys.onEscapePressed: Popups.dashboardOpen = false
+            Keys.onPressed: function (event) { InputModality.key(event); event.accepted = false }
             // Placed in WINDOW coordinates, whatever the clip is doing.
             x: root.finalLeft + root.inset - reveal.x
             y: theme.borderWidth + root.inset - reveal.y
@@ -369,8 +380,6 @@ PanelWindow {
                         }
                     }
 
-                    Keys.onEscapePressed: Popups.dashboardOpen = false
-                    Keys.onPressed: function (event) { InputModality.key(event); event.accepted = false }
                 }
             }
         }

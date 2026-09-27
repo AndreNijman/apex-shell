@@ -21,6 +21,8 @@
 #           Tab to the Wi-Fi tile, Space       → radio wifi off
 #    Launcher opened after a close: "kqv", Return → Kqvkeytest runs (the
 #           first key lost would be "qv" → Qvkeytest)
+#    Escape reopened after a close (focus starts above the page area):
+#           Escape closes the Dashboard
 #    Clock  (reopened: every open starts at the tab bar) Right ×2 on the mode
 #           tabs to Alarm; Tab into the panel, +, Return; the HH:MM spin boxes
 #           Up; Set → a row in the list; Tab to its switch, Space → its time
@@ -105,7 +107,9 @@ done
 tasks="$ud/tasks.json"
 printf '%s' '{"tasks":[{"id":0,"title":"Card zero","column":0,"urgency":"","dueDate":""},{"id":1,"title":"Card one","column":0,"urgency":"","dueDate":""},{"id":2,"title":"Card two","column":1,"urgency":"low","dueDate":""}],"nextId":3}' > "$tasks"
 log="$HEADLESS_W/shell.log"
-quickshell -p "$root/shell.qml" > "$log" 2>&1 &
+# The pacing log (logging only) says when the Dashboard maps and unmaps, which
+# is how the Escape case below knows whether it closed.
+APEX_PACING_LOG=1 quickshell -p "$root/shell.qml" > "$log" 2>&1 &
 qs=$!
 for _ in $(seq 1 120); do grep -q "Configuration Loaded" "$log" && break; sleep 0.25; done
 grep -q "Configuration Loaded" "$log" || { echo "RESULT: the shell did not load"; tail -20 "$log"; exit 1; }
@@ -190,6 +194,23 @@ logged "$LAUNCH_LOG" "Kqvkeytest" 5 \
     && ok "opened after a close, the launcher's field has the keys: \"kqv\", Return launches Kqvkeytest" \
     || bad "the launcher after a close — launched: $(tr '\n' '|' < "$LAUNCH_LOG")"
 sleep 1
+
+# ── Escape after a reopen ────────────────────────────────────────────────────
+# A close resets the Dashboard's focus to its outermost item, so every open
+# after the first starts with focus ABOVE the page area; a key goes up from the
+# focused item, never down, and Escape handled only on the page area reached
+# nothing (Andre, 2026-09-27: "when i open the dashboard super+D i cant close it
+# with esc"). By now the Dashboard has been closed at least once.
+dash_open() { [ "$(grep -c 'pacing: dashboard mapped=true' "$log")" -gt "$(grep -c 'pacing: dashboard mapped=false' "$log")" ]; }
+dash_open && { ipc dashboard-home toggle; sleep 1.2; }
+ipc dashboard-home toggle; sleep 1.2
+if ! dash_open; then
+    bad "Escape after a reopen — the Dashboard did not open"
+else
+    keys Escape; sleep 1.2
+    dash_open && { bad "reopened after a close, Escape does not close the Dashboard"; ipc dashboard-home toggle; sleep 1.2; } \
+              || ok "reopened after a close, Escape closes the Dashboard (focus starts above the page area)"
+fi
 
 # ── The clock's alarms ───────────────────────────────────────────────────────
 # Kept in memory only (ClockState: no file, no IPC), so the observable is the
