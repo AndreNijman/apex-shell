@@ -856,39 +856,55 @@ function notchExtrudeField(p, g) {
     // centre pinches up into it as soon as the window starts to go, and the
     // mass is drawn up it rather than shrinking in place.
     var Ne = Math.min(N, 0.25 + 0.75 * smooth(span(B, 0.5, 0.92)));
-    var thin = smooth(span(Ne, 0.5, 0.95));
-    var ret = smooth(span(Ne, 0.5, 0.95));                 // drawn back into the notch
-    var keep = 1 - ret;
+    // The release (Andre, 2026-09-27: "material finished forming,
+    // connection releases — not a drop of goo snapping off"): the neck
+    // narrows continuously to a hairline, its flare with it; it pinches just
+    // under the notch, not half-way; the notch's tiny remainder is drawn up
+    // at once, and the rest, on the window's side, sinks into the window.
+    // No drop at either tip — each piece tapers to its end — and nothing left
+    // dangling from the notch. Closing runs it backwards: a hairline rises
+    // from the window to the notch and thickens.
+    var thin = smooth(span(Ne, 0.45, 0.72));
+    var ret = smooth(span(Ne, 0.55, 0.97));
     var rN0 = 0.2 * U;                                    // the neck, full: broad
-    var rN = rN0 * form * (1 - 0.6 * thin);
-    // Drawn back from its lower end, every radius and blend narrowing to
-    // nothing, so the last of it is a thread's tip going up out of sight —
-    // never a bump left under the seam to vanish in one frame.
-    var kThin = lerp(1, 0.8, thin) * keep;
-    var kN = 0.32 * U * form * kThin;
+    var rN = rN0 * form * (1 - 0.85 * thin);
+    var a1 = smooth(span(ret, 0, 0.25));                  // narrowing to the pinch, the waist rising to the notch
+    var a2 = smooth(span(ret, 0.25, 0.37));               // the notch's remainder drawn up
+    // (linear: `ret` is already eased, and a second ease on a 200 px travel
+    // made the hairline cross it in about a frame when a close re-forms it;
+    // done by 0.75 of the retraction, so it does not stand on the window —
+    // any sooner and a close's hairline crosses in a frame again)
+    var a3 = span(ret, 0.25, 0.75);                       // the window's side sinking into it
+    var kThin = lerp(1, 0.15, thin);
+    var kN = 0.32 * U * form * kThin * (1 - a2);
     // The flare is the blend where the neck meets the sheet: wide, so the
     // outline opens out in one CONCAVE sweep from the neck to the sheet's
     // corners — the same material stretching, not a neck joining two masses
     // (the convex shoulders of a bottle). Capped by the sheet's width: past
-    // it, the blend bulges the sheet's sides.
-    var kC = Math.min(1.1 * U * kThin, 0.6 * Math.max(hw, 1)) * form;
+    // it, the blend bulges the sheet's sides. It narrows with the neck.
+    var kC = Math.min(1.1 * U * kThin * (1 - a3), 0.6 * Math.max(hw, 1)) * form;
     // The bell: while it is a bulb, the bulb's own circle; as the sheet
     // spreads, only the neck's widening end, just inside the sheet's top and
     // never wider than the sheet.
     var fitH = Math.max(0, (2 * hh - 0.4 * kC - 2) / 2.2);
     var s0 = smooth(span(Bc, 0, 0.35));
-    var R2 = lerp(Math.min(Rb, fitH), Math.min(2.21 * rN * keep + 0.001, 0.9 * hw), s0);
+    var R2 = lerp(Math.min(Rb, fitH), Math.min(2.21 * rN + 0.001, 0.9 * hw), s0);
     var c2y = lerp(cyB, top + Math.min(hh, R2 + 0.15 * kC), s0);
     var ay = y0 - kN - 3;                                 // inside the notch, past its meniscus
-    var c2yR = lerp(c2y, ay, ret), R2r = lerp(R2, 0.85 * rN, Math.min(1, 2 * ret)) * keep;
-    var yw = lerp(y0, c2yR - R2r, 0.3);
-    var rw = 0.85 * rN * keep;
+    var R2r = lerp(R2, 0.85 * rN, Math.min(1, 2 * a1)) * (1 - a3);
+    var yw = lerp(lerp(y0, c2y - R2, 0.3), y0 + 0.03 * U, a1);
+    var rw = 0.85 * rN * (1 - a1);
     var kW = Math.min(0.2 * U, 0.9 * rw) * form;
     var upper = null, lower = null;
     if (form > 0.001 && rN > 0.05 && ret < 1) {
         var wx = lerp(g.cx, cx, 0.3), wy = Math.max(yw, ay + 0.5);
-        upper = { ax: g.cx, ay: ay, ra: 1.2 * rN * keep, bx: wx, by: wy, rb: rw };
-        lower = { ax: wx, ay: wy, ra: rw, bx: cx, by: Math.max(c2yR, wy + 0.5), rb: R2r };
+        if (a2 < 1)
+            upper = { ax: g.cx, ay: ay, ra: 1.2 * rN * (1 - a2), bx: wx, by: lerp(wy, ay + 0.5, a2),
+                      rb: Math.max(rw, 0.3 * (1 - a2)) };
+        if (a3 < 1) {
+            var yl = lerp(wy, c2y, a3);
+            lower = { ax: wx, ay: yl, ra: Math.max(rw, 0.3 * (1 - a3)), bx: cx, by: Math.max(c2y, yl + 0.5), rb: R2r };
+        }
     }
     if (!(form > 0)) { hw = 0; hh = 0; kN = 0; kC = 0; kW = 0; }
 

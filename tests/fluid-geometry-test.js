@@ -670,10 +670,32 @@ function liquidSweep(name, fn, g, contact, caps) {
         if (phase === 0 && p.B === 0 && reach(f) > 2 && reach(f) < 40 && whole(f)) { phase = 1; order.push("a sag"); }
         if (phase === 1 && p.hw > p.rN && p.hw < 120 && whole(f)) { phase = 2; order.push("a bulb on a neck"); }
         if (phase === 2 && p.B > 0.5 && p.hw > 300 && whole(f)) { phase = 3; order.push("the sheet spreading on a whole neck"); }
-        if (phase === 3 && p.ret > 0.1 && p.ret < 0.9 && !whole(f) && G.dropField(f, dg.cx, dg.notchH + 2) < 0) { phase = 4; order.push("the neck drawing back into the notch"); }
+        if (phase === 3 && p.ret > 0 && !whole(f) && f.lower && f.lower.ay > dg.notchH) { phase = 4; order.push("the connection released, the window's side drawn in"); }
     });
-    check("it is an extrusion: a sag, a bulb on a neck, the sheet spreading on it, the neck drawn back",
+    check("it is an extrusion: a sag, a bulb on a neck, the sheet spreading on it, the connection released",
           phase === 4, order.join(" → "));
+    // The release is understated (Andre, 2026-09-27: "material finished
+    // forming → connection releases, rather than: look, a drop of goo just
+    // snapped off"): it pinches close to the notch, not half-way; what is
+    // left hanging from the notch is never more than a sliver; and neither
+    // piece ends in a drop — each tapers to its tip.
+    const gapAt = f => { for (let y = dg.notchH + 1; y < f.card.cy - f.card.hh; y += 0.5) if (G.dropField(f, dg.cx, y) >= 0) return y; return null; };
+    const hanging = f => { let y = dg.notchH + 1; while (y < 1080 && G.dropField(f, dg.cx, y) < 0) y += 0.5; return y - dg.notchH; };
+    let pinch = null, dangles = [], drops = [];
+    frames.forEach(fr => {
+        if (fr.t > 1.6) return;
+        const f = at(fr.lead, fr.body, fr.trail), p = f.params;
+        if (!(p.ret > 0) || p.B < 0.5) return;
+        const top = p.top, span0 = top - dg.notchH;
+        if (pinch === null && !whole(f)) pinch = { y: gapAt(f), span: span0, t: fr.t };
+        if (pinch !== null && !whole(f) && hanging(f) > 0.08 * span0) dangles.push(fr.t.toFixed(3) + " (" + hanging(f).toFixed(0) + " px)");
+        if (pinch !== null && ((f.upper && f.upper.rb > f.upper.ra + 0.5) || (f.lower && f.lower.ra > f.lower.rb + 0.5))) drops.push(fr.t.toFixed(3));
+    });
+    check("the connection releases close to the notch, not half-way",
+          pinch !== null && pinch.y !== null && pinch.y - dg.notchH <= 0.15 * pinch.span,
+          pinch ? (pinch.y - dg.notchH).toFixed(0) + " px below the seam of " + pinch.span.toFixed(0) : "never released");
+    check("nothing is left dangling from the notch", dangles.length === 0, dangles.slice(0, 3).join(", "));
+    check("neither piece ends in a drop", drops.length === 0, drops.slice(0, 3).join(", "));
     // Depth leads width, and the sheet is never the window at 60 % (Andre,
     // 2026-09-27: "let depth lead width slightly; avoid the intermediate body
     // looking like the final rectangle at 60% scale"): through the open, the
