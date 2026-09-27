@@ -99,9 +99,14 @@ RowLayout {
         }
     }
 
+    // A real icon, not three bullet characters: those came from the TEXT part
+    // of the font and sat on its baseline rather than on the icons' centre
+    // line (Andre, 2026-09-27: "make it a real icon"). Material's circled
+    // ellipsis, outlined while the tray is folded away and filled while it is
+    // out — the pairing SF Symbols uses for the same control.
     IconBtn {
         Layout.alignment: Qt.AlignVCenter
-        text: trayRow.isOpen ? "󰅀" : "•••"
+        text: trayRow.isOpen ? "\u{f07c3}" : "\u{f0b8d}"
         label: trayRow.isOpen ? "Hide tray icons" : "Show tray icons"
         onClicked: trayRow.isOpen = !trayRow.isOpen
     }
