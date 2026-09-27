@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Services.SystemTray
 import "../../components"
+import "../../components/controls"
 import "../../"
 
 RowLayout {
@@ -11,6 +12,93 @@ RowLayout {
     readonly property bool hasItems: SystemTray.items.values.length > 0
     visible: hasItems
     spacing: 2
+
+    // The background apps toggle. A circled ellipsis said "more", not
+    // "background apps" (Andre, 2026-09-27: "i still dont think the
+    // background tasks icon shouts background tasks"), and no single glyph
+    // says it either, so the toggle says it twice: Material's dock-window (a
+    // window with another behind it) and, while the row is folded, HOW MANY
+    // apps are running back there — "N active apps" is how a phone says the
+    // same thing. Open is the bar's own open state (accent glyph on the
+    // OpenPill, as the notch's panes show it) instead of a filled twin, which
+    // the dock-window has none of. The count folds away while the icons are
+    // out: they are the count then.
+    //
+    // It comes FIRST and the icons unfold to its right. After it, they grew
+    // leftward and pushed it out from under the pointer, which then rested on
+    // the first app's icon: a second click meant to fold the row activated
+    // that app instead (measured in the nested harness).
+    ApexPressable {
+        id: toggle
+
+        readonly property int count: SystemTray.items.values.length
+        readonly property bool open: trayRow.isOpen
+
+        Layout.alignment: Qt.AlignVCenter
+        implicitWidth: toggleRow.implicitWidth
+        implicitHeight: theme.px(20)
+        radius: height / 2
+        pressedScale: 0.96
+        hitMargin: Math.max(0, (theme.hitBar - implicitHeight) / 2)
+        Accessible.name: toggle.open ? "Hide background apps"
+                       : "Background apps, " + toggle.count + " running"
+        onActivated: trayRow.isOpen = !trayRow.isOpen
+
+        readonly property color _ink: toggle.open || toggle.pressed ? Theme.accentText
+                                    : toggle.hovered ? Theme.textPrimary : Theme.iconDefault
+
+        Row {
+            id: toggleRow
+            anchors.verticalCenter: parent.verticalCenter
+
+            Item {
+                implicitWidth: toggle.implicitHeight
+                implicitHeight: toggle.implicitHeight
+
+                OpenPill { shown: toggle.open }
+                Text {
+                    anchors.centerIn: parent
+                    text: "\u{f10ac}"
+                    font.family: Theme.fontIcon
+                    font.pixelSize: toggle.theme.typeIcon
+                    color: toggle._ink
+                    Behavior on color { MotionColor { role: "hover" } }
+                }
+            }
+
+            // The gap is inside the fold, so it closes with the number.
+            Item {
+                id: countWrap
+                readonly property real gap: 3   // the volume and battery readouts' gap
+                anchors.verticalCenter: parent.verticalCenter
+                implicitWidth: countW.value
+                implicitHeight: countText.implicitHeight
+                clip: true
+                SpringFollower { id: countW; role: "page"; target: toggle.open ? 0 : countWrap.gap + countText.implicitWidth + 2 }
+
+                Text {
+                    id: countText
+                    x: countWrap.gap
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: String(toggle.count)
+                    color: toggle.hovered ? Theme.textPrimary : Theme.textSecondary
+                    font.pixelSize: toggle.theme.typeBodySmall
+                    font.features: { "tnum": 1 }
+                    Behavior on color { MotionColor {} }
+                }
+            }
+        }
+
+        ApexFocusRing { target: toggle }
+
+        BarTooltip {
+            target: toggle
+            text: toggle.open ? "Hide background apps"
+                : toggle.count === 1 ? "1 app running in the background"
+                : toggle.count + " apps running in the background"
+            shown: toggle.hovered && !toggle.pressed
+        }
+    }
 
     RowLayout {
         id: trayRow
@@ -97,17 +185,5 @@ RowLayout {
                 }
             }
         }
-    }
-
-    // A real icon, not three bullet characters: those came from the TEXT part
-    // of the font and sat on its baseline rather than on the icons' centre
-    // line (Andre, 2026-09-27: "make it a real icon"). Material's circled
-    // ellipsis, outlined while the tray is folded away and filled while it is
-    // out — the pairing SF Symbols uses for the same control.
-    IconBtn {
-        Layout.alignment: Qt.AlignVCenter
-        text: trayRow.isOpen ? "\u{f07c3}" : "\u{f0b8d}"
-        label: trayRow.isOpen ? "Hide tray icons" : "Show tray icons"
-        onClicked: trayRow.isOpen = !trayRow.isOpen
     }
 }
