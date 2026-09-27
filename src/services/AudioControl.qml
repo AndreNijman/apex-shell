@@ -179,10 +179,16 @@ Item {
             orientation: "vertical"
             height: (parent.height - 17)
             anchors.verticalCenter: parent.verticalCenter
+            // The third page is the device picker (which output, which
+            // input). Its glyph was Material's account-filter, a person with a
+            // funnel, which read as anything but audio (Andre, 2026-09-27: "a
+            // more obvious audio config button"); now tune-vertical, the
+            // mixer's sliders. `spoken` is what a screen reader says for
+            // these icon-only tabs (a `label` would be drawn in the column).
             model: [
-                { key: "output", icon: "󰕾" },
-                { key: "input",  icon: "󰍬" },
-                { key: "mixer",  icon: "󰾝" },
+                { key: "output", icon: "󰕾", spoken: "Output" },
+                { key: "input",  icon: "󰍬", spoken: "Input" },
+                { key: "mixer",  icon: "󰙪", spoken: "Audio devices" },
             ]
             currentPage: root.page
             onPageChanged: function(key) { Popups.audioPage = key }

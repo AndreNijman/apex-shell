@@ -11,8 +11,9 @@ import "controls"
 // Vertical:   icon-only solid pill. Used by ArchMenu, and icon + label by the
 //             Config tab.
 //
-// Model: [{ key: string, icon: string, label?: string }]
-// label is optional — only rendered in horizontal orientation.
+// Model: [{ key: string, icon: string, label?: string, spoken?: string }]
+// label is optional — drawn beside the icon when present. spoken is what a
+// screen reader says for an icon-only tab (a label would be drawn; this is not).
 //
 // Sizing contract:
 //   Horizontal — parent MUST set width.  implicitHeight is Theme.px(40).
@@ -275,7 +276,7 @@ Item {
 				id: hTab
 				readonly property bool isActive: root.currentPage === modelData.key
 				Accessible.role: Accessible.PageTab
-				Accessible.name: modelData.label || modelData.key
+				Accessible.name: modelData.spoken || modelData.label || modelData.key
 				Accessible.selectable: true
 				Accessible.selected: isActive
 
@@ -478,7 +479,7 @@ Item {
 					readonly property bool isActive: root.currentPage === modelData.key
 
 					Accessible.role: Accessible.PageTab
-					Accessible.name: modelData.label || modelData.key
+					Accessible.name: modelData.spoken || modelData.label || modelData.key
 					Accessible.selectable: true
 					Accessible.selected: isActive
 
