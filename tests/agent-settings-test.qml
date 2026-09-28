@@ -8,7 +8,7 @@ import "./src/services/agents"
 // The Always Unrestricted toggle, driven for real (P0-016, ROADMAP.md §42.1).
 //
 // Run through tests/run-agent-settings-test.sh, which stages this at the repo
-// root, puts a FAKE pkcheck and a FAKE apex first on PATH, points
+// root, puts a FAKE pkcheck and a FAKE rime first on PATH, points
 // XDG_CONFIG_HOME at a scratch directory holding a known agent.json, and hosts
 // it on a headless compositor in a private XDG_RUNTIME_DIR.
 //
@@ -108,7 +108,7 @@ ShellRoot {
             switch (rootScope.step) {
             case 0:
                 // The staged file says unrestricted. If this is wrong, either
-                // the path is not the one apex resolves or effectiveDefault is.
+                // the path is not the one rime resolves or effectiveDefault is.
                 rootScope.check("the staged unrestricted default is read back",
                                 AgentPolicyService.defaultSandbox === "unrestricted")
                 rootScope.check("the toggle reads as on",

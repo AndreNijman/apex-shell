@@ -12,7 +12,7 @@
 // fixture below is inline. There is nothing here that CAN skip: it either runs
 // and passes, or runs and fails.
 //
-// In particular this file never invokes `apex`. It could not, usefully: no
+// In particular this file never invokes `rime`. It could not, usefully: no
 // merged image carries the P1 verbs yet. Shelling out would have meant a suite
 // that skips on every runner, which is the outcome the instruction forbids.
 
@@ -32,10 +32,10 @@ function check(name, got, want) {
     }
 }
 
-// ── vocabularies mirror apexd-core ───────────────────────────────────────────
+// ── vocabularies mirror rimed-core ───────────────────────────────────────────
 // Asserted exactly, so an edit to the dropdown lists is loud instead of being a
 // page that silently offers a value the CLI will refuse. The Rust side is the
-// authority; check-blueprint-editor.sh compares the two when apex-os is
+// authority; check-blueprint-editor.sh compares the two when rime-os is
 // checked out beside the shell.
 check("compositors mirror COMPOSITORS", BP.COMPOSITORS,
       ["hyprland", "niri", "labwc"]);
@@ -51,14 +51,14 @@ check("languages mirror LANGUAGES", BP.LANGUAGES,
 // ── readShow() ───────────────────────────────────────────────────────────────
 const showJson = (over) => JSON.stringify(Object.assign({
     schema: 1,
-    source: "/home/u/.config/apex/blueprint.toml",
+    source: "/home/u/.config/rime/blueprint.toml",
     digest: "abc123",
     blueprint: { desktop: { compositor: "hyprland" } },
     applied: null,
     paths: {
-        user: "/home/u/.config/apex/blueprint.toml",
-        site: "/etc/apex/blueprint.toml",
-        applied_state: "/home/u/.local/state/apex/blueprint-state.toml"
+        user: "/home/u/.config/rime/blueprint.toml",
+        site: "/etc/rime/blueprint.toml",
+        applied_state: "/home/u/.local/state/rime/blueprint-state.toml"
     }
 }, over || {}));
 
@@ -91,17 +91,17 @@ check("editing your own file says so",
       /Editing your own blueprint/.test(BP.saveNotice(BP.readShow(showJson()))), true);
 check("nothing on disk says a save creates the file",
       /Saving creates/.test(BP.saveNotice(BP.readShow(showJson({ source: null })))), true);
-const siteShow = BP.readShow(showJson({ source: "/etc/apex/blueprint.toml" }));
+const siteShow = BP.readShow(showJson({ source: "/etc/rime/blueprint.toml" }));
 check("the site default warns about forking",
       /no longer reach you/.test(BP.saveNotice(siteShow)), true);
 check("the site default names the user's own path",
-      /\/home\/u\/\.config\/apex\/blueprint\.toml/.test(BP.saveNotice(siteShow)), true);
+      /\/home\/u\/\.config\/rime\/blueprint\.toml/.test(BP.saveNotice(siteShow)), true);
 check("a failed read has no save notice",
       BP.saveNotice(BP.readShow("")), "");
 
 // ── classify(): the three disjoint buckets ───────────────────────────────────
 const plan = (converged, changes) => JSON.stringify({
-    schema: 1, source: "/home/u/.config/apex/blueprint.toml",
+    schema: 1, source: "/home/u/.config/rime/blueprint.toml",
     digest: "abc123", converged: converged, changes: changes
 });
 
@@ -133,7 +133,7 @@ check("a blocked-only plan has no actionable changes",
       p.user.length + p.root.length, 0);
 check("a blocked-only summary says both things",
       BP.summary(p),
-      "This machine matches the blueprint. 1 thing APEX cannot converge.");
+      "This machine matches the blueprint. 1 thing Rime cannot converge.");
 
 p = BP.classify(plan(false, [rootChange]));
 check("a root-only plan is not converged", p.converged, false);
@@ -167,16 +167,16 @@ check("no root changes means no notice",
       BP.rootNotice(BP.classify(plan(false, [userChange]))), "");
 check("one root change is singular",
       BP.rootNotice(BP.classify(plan(false, [rootChange]))),
-      "1 change needs root — run `sudo apex apply`");
+      "1 change needs root — run `sudo rime apply`");
 check("two root changes are plural",
       BP.rootNotice(BP.classify(plan(false, [rootChange, {
           what: "[apps] install", current: "", desired: "firefox",
           step: "install packages: firefox", domain: "root", blocked: null }]))),
-      "2 changes need root — run `sudo apex apply`");
+      "2 changes need root — run `sudo rime apply`");
 // The notice tells the user to run sudo themselves. It must never read as
 // something the page is about to do for them.
 check("the notice names the command, not an action",
-      /run `sudo apex apply`/.test(
+      /run `sudo rime apply`/.test(
           BP.rootNotice(BP.classify(plan(false, [rootChange])))), true);
 
 // ── draftFrom(): the draft IS show's object, cloned ─────────────────────────

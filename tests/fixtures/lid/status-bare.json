@@ -31,7 +31,7 @@
     },
     "pin": "auto",
     "policy_error": null,
-    "policy_source": "/etc/apex/lid.toml",
+    "policy_source": "/etc/rime/lid.toml",
     "thermal_ceiling_c": 95.0,
     "thermal_headroom_c": 15.0,
     "thermal_headroom_now_c": null,

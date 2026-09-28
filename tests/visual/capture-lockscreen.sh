@@ -17,18 +17,18 @@ cleanup() { [ -n "$qs_pid" ] && kill "$qs_pid" 2>/dev/null; headless_cleanup; }
 trap cleanup EXIT INT TERM
 [ -e /dev/dri/renderD128 ] && export HEADLESS_WLR_RENDERER=gles2
 headless_start labwc 1920x1080 || exit 0
-mkdir -p "$HOME/.cache/apex-shell"
+mkdir -p "$HOME/.cache/rime-shell"
 if [ -n "${CAPTURE_PALETTE:-}" ] && [ -f "$CAPTURE_PALETTE" ]; then
-    cp "$CAPTURE_PALETTE" "$HOME/.cache/apex-shell/colors.json"
+    cp "$CAPTURE_PALETTE" "$HOME/.cache/rime-shell/colors.json"
 else
-    headless_apex_palette dark   # the APEX-OS default look (tests/lib/headless.sh)
+    headless_rime_palette dark   # the Rime OS default look (tests/lib/headless.sh)
 fi
 if [ -n "${CAPTURE_REDUCED:-}" ]; then
-    mkdir -p "$HOME/.config/apex-shell/src/user_data"
-    printf '%s' '{"reduceMotion":true}' > "$HOME/.config/apex-shell/src/user_data/settings.json"
-    # The APEX-OS default wallpaper is the current one, as the first run makes it,
-    # so the lock screen's blurred backdrop is APEX's, not upstream's.
-    printf '{"currentWall":"%s","wallpaperDir":"~/Pictures/Wallpapers","scheme":"content"}' "$HEADLESS_WALLPAPER" > "$HOME/.config/apex-shell/src/user_data/wallpaper.json"
+    mkdir -p "$HOME/.config/rime-shell/src/user_data"
+    printf '%s' '{"reduceMotion":true}' > "$HOME/.config/rime-shell/src/user_data/settings.json"
+    # The Rime OS default wallpaper is the current one, as the first run makes it,
+    # so the lock screen's blurred backdrop is Rime's, not upstream's.
+    printf '{"currentWall":"%s","wallpaperDir":"~/Pictures/Wallpapers","scheme":"content"}' "$HEADLESS_WALLPAPER" > "$HOME/.config/rime-shell/src/user_data/wallpaper.json"
 fi
 log="$HEADLESS_W/shell.log"
 quickshell -p "$root/shell.qml" > "$log" 2>&1 &

@@ -8,13 +8,13 @@ import "remoteagents.js" as Remote
 // What agents are running on the user's trusted remote devices (roadmap §20,
 // P2 phase 9.3).
 //
-// The OS side already exists. `apex host list --json` enumerates the registered
-// devices and their cached capability probe; `apex host run <name> -- <argv…>`
+// The OS side already exists. `rime host list --json` enumerates the registered
+// devices and their cached capability probe; `rime host run <name> -- <argv…>`
 // runs a command on one with its argument boundaries intact. So remote agent
 // status is: read the registry, and for each device a probe has actually shown
-// to have the agent runtime, run `apex agent list --all --json` over there.
+// to have the agent runtime, run `rime agent list --all --json` over there.
 //
-// Same rule as AgentService: everything goes through the `apex` CLI. It is the
+// Same rule as AgentService: everything goes through the `rime` CLI. It is the
 // stability surface that already handles an absent daemon and a version
 // mismatch, and it owns the ssh argv — including the `--` before the
 // destination and the per-argument quoting of the remote command, both of which
@@ -61,7 +61,7 @@ import "remoteagents.js" as Remote
 //
 // A laptop is off the LAN most of the time. So: no notification, no toast, no
 // console.warn per sweep, and one dead host never stops the others being shown.
-// `apex host` already passes BatchMode=yes and ConnectTimeout=8 so a dead host
+// `rime host` already passes BatchMode=yes and ConnectTimeout=8 so a dead host
 // fails instead of prompting — but that bounds only the CONNECT. A host that
 // completes TCP and then stalls (an auth stall, a wedged remote agentd socket)
 // has no timeout anywhere in the chain, which is what _watchdog is for.
@@ -73,7 +73,7 @@ import "remoteagents.js" as Remote
 // LOCAL daemon and stop an unrelated agent — see RemoteSessionRow.qml, which is
 // read-only for exactly that reason. Attaching means a terminal on the far side
 // of an ssh; §3 is explicit that this page is a supervisor and a navigator, so
-// the section prints the `apex host run -t …` line instead of growing a worse
+// the section prints the `rime host run -t …` line instead of growing a worse
 // terminal.
 //
 // It also raises no notifications. AgentService's exist so that "an agent
@@ -131,14 +131,14 @@ Singleton {
     // Normalised host records: { name, ssh, port, note, probed, caps, agentd }.
     // `caps` always has every key; see remoteagents.js.
     property var hosts: []
-    // True once `apex host list` has returned at least once, whatever it said.
+    // True once `rime host list` has returned at least once, whatever it said.
     property bool registryChecked: false
-    // True when that return was actually readable. A machine with no `apex` at
+    // True when that return was actually readable. A machine with no `rime` at
     // all lands here as false with an empty host list, which renders as nothing
     // — the Agent Center already tells the user the runtime is absent.
     //
-    // The same is true of a machine whose installed `apex` predates `apex host`:
-    // apex 0.1.0, which is what is on this developer's box today, answers
+    // The same is true of a machine whose installed `rime` predates `rime host`:
+    // rime 0.1.0, which is what is on this developer's box today, answers
     // `unrecognized subcommand 'host'` and exits non-zero. Verified. So on a
     // current install the remote section simply does not appear, which is the
     // correct behaviour and worth knowing before concluding it is broken.
@@ -264,14 +264,14 @@ Singleton {
 
     // ── 1. The registry. Local, cheap, no ssh. ────────────────────────────────
     // This runs first in every sweep, which also makes it the place a missing
-    // `apex` is detected. Quickshell reports a binary that cannot exec by
+    // `rime` is detected. Quickshell reports a binary that cannot exec by
     // dropping `running` back to false with no exit code and no stream — so the
     // per-host query below needs no such guard, because by the time it runs the
     // same binary has demonstrably started once.
     property string _listBuf: ""
 
     property Process _listProc: Process {
-        command: ["apex", "host", "list", "--json"]
+        command: ["rime", "host", "list", "--json"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: root._listBuf = this.text
@@ -340,11 +340,11 @@ Singleton {
         root._pending = name
         root._buf = ""
 
-        // The argv is built here and quoted by `apex host run`, which is the
+        // The argv is built here and quoted by `rime host run`, which is the
         // only reason a host name or a path with a space in it is safe. Nothing
         // in this file interpolates a model value into a shell string.
-        root._queryProc.command = ["apex", "host", "run", name,
-                                   "--", "apex", "agent", "list", "--all", "--json"]
+        root._queryProc.command = ["rime", "host", "run", name,
+                                   "--", "rime", "agent", "list", "--all", "--json"]
         root._queryProc.running = false
         root._queryProc.running = true
         root._watchdog.restart()
@@ -451,7 +451,7 @@ Singleton {
         querying:    "󰑖",
         ok:          "󰄬",
         unreachable: "󰅛",
-        no_apex:     "󰋗",
+        no_rime:     "󰋗",
         no_runtime:  "󰒲",
         unreadable:  "󰀪"
     })

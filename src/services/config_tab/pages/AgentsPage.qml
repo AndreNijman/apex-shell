@@ -32,7 +32,7 @@ import "../../agentstate.js" as AgentState
 //
 // ── WHAT THE COPY MAY CLAIM ─────────────────────────────────────────────────
 //
-// Only what apex-agent-core's tests actually assert.
+// Only what rime-agent-core's tests actually assert.
 // `unrestricted_user_does_not_imply_root` runs over every sandbox and every
 // native mode and asserts `system == None` and `no_new_privs()` for all of
 // them; `raw_secret_export_has_no_route_at_all_in_this_build` asserts
@@ -53,7 +53,7 @@ CfgScroll {
     lifecycle: "live"
 
     // Set by SettingsHost (Nexus). AgentService is refcounted and forks
-    // `apex agent list` on a timer, so the session section below has to be told
+    // `rime agent list` on a timer, so the session section below has to be told
     // whether anyone is looking.
     property bool onScreen: false
 
@@ -183,7 +183,7 @@ CfgScroll {
                 { t: "Root",
                   d: "A session keeps the kernel's no_new_privs flag whichever sandbox "
                    + "it has, so sudo and other setuid programs fail inside it. "
-                   + "System changes still go through apex request, which a person approves." },
+                   + "System changes still go through rime request, which a person approves." },
                 { t: "Secrets",
                   d: "The broker performs a granted operation and returns its result; "
                    + "the session does not receive the credential. This build has no route "
@@ -225,7 +225,7 @@ CfgScroll {
 
         // The residual, next to the switch that creates it. The guide used to
         // say a warm sudo timestamp was reachable from an unconfined agent;
-        // that was written before apexd/apex-agentd/src/pty.rs set
+        // that was written before rimed/rime-agentd/src/pty.rs set
         // PR_SET_NO_NEW_PRIVS on unconfined sessions too, and sudo now fails
         // inside one whatever the sandbox. What survives is the one thing the
         // flag cannot cover: a process the USER starts later does not inherit
@@ -260,7 +260,7 @@ CfgScroll {
             text: root._live.length === 0
                 ? (AgentService.daemonUp
                    ? "Nothing is running. The setting above applies to the next session you start."
-                   : "The agent runtime is not running. Start it with  apex agent enable")
+                   : "The agent runtime is not running. Start it with  rime agent enable")
                 : "Each session keeps the mode it started with. Changing the setting above "
                 + "does not move any of them."
             font.pixelSize: theme.typeCaption

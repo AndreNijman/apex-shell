@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  check-suites-run-in-ci.sh — apex-shell's half. A suite nobody runs is not a
+#  check-suites-run-in-ci.sh — rime-shell's half. A suite nobody runs is not a
 #  gate.
 #
-#  apex-os has had this since 2026-09-12, where it found 13 of 70 suites named
+#  rime-os has had this since 2026-09-12, where it found 13 of 70 suites named
 #  in no workflow — including 60 lid assertions for a feature the owner had
-#  asked for by name. But that gate globs `tests/test-*.sh` IN APEX-OS ONLY: it
+#  asked for by name. But that gate globs `tests/test-*.sh` IN Rime OS ONLY: it
 #  can neither see nor protect anything here, which p2-b pointed out while
 #  landing a suite it therefore had to wire by hand.
 #
-#  This one differs in a way that matters. apex-shell invokes suites through
+#  This one differs in a way that matters. rime-shell invokes suites through
 #  other suites — check-headless-runners.sh drives six, run-nexus-smoke.sh
 #  drives popup-smoke — so "named in a workflow" is the wrong question and
 #  would have condemned six innocent files. It asks REACHABILITY instead: a
@@ -18,7 +18,7 @@
 #  named directly, 61 reachable, exactly ONE orphan (run-nexus-smoke.sh).
 #
 #  Comment lines are stripped before matching, because prose naming a suite is
-#  not an invocation of it — the apex-os gate shipped that bug and reported a
+#  not an invocation of it — the rime-os gate shipped that bug and reported a
 #  suite as run on the strength of its own explanatory comment.
 #
 #  Both arms fail, and the second is the point:
@@ -72,7 +72,7 @@ for s in "${suites[@]}"; do
     else is_exempt "$s" || orphan+=("$s"); fi
 done
 
-printf '\nsuite coverage (apex-shell): %d suites, %d reachable from CI, %d exempt, %d unreachable and undeclared\n' \
+printf '\nsuite coverage (rime-shell): %d suites, %d reachable from CI, %d exempt, %d unreachable and undeclared\n' \
     "${#suites[@]}" "${#reach[@]}" "${#exempt[@]}" "${#orphan[@]}"
 rc=0
 if [ "${#orphan[@]}" -gt 0 ]; then

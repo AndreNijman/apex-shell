@@ -88,7 +88,7 @@ headless_start labwc 1920x1080 || exit 0
 python3 "$here/lib/fake-mpris.py" "$MPRIS_LOG" &
 player=$!
 
-ud="$HOME/.config/apex-shell/src/user_data"; mkdir -p "$ud" "$HOME/.cache/apex-shell"
+ud="$HOME/.config/rime-shell/src/user_data"; mkdir -p "$ud" "$HOME/.cache/rime-shell"
 # REDUCE_MOTION=true runs the same keys with Reduce Motion on: panels snap
 # shut, so a handler that reads its own focus after closing its panel is caught.
 printf '{"barEnabled":false,"animDuration":320,"motionScale":1,"reduceMotion":%s,"dashboardWidth":900,"dashboardHeight":520}' \
@@ -96,9 +96,9 @@ printf '{"barEnabled":false,"animDuration":320,"motionScale":1,"reduceMotion":%s
 # DASH_KEYS_COLORS=<file> runs on another palette (a light one, for the frames
 # SHOTS keeps); the keys and every assertion are the same either way.
 if [ -n "${DASH_KEYS_COLORS:-}" ]; then
-    cp "$DASH_KEYS_COLORS" "$HOME/.cache/apex-shell/colors.json"
+    cp "$DASH_KEYS_COLORS" "$HOME/.cache/rime-shell/colors.json"
 else
-    headless_apex_palette dark   # the APEX-OS default look (tests/lib/headless.sh)
+    headless_rime_palette dark   # the Rime OS default look (tests/lib/headless.sh)
 fi
 # Two applications for the launcher, told apart by the first key: "kqv" is
 # Kqvkeytest's; lose the k and "qv" is Qvkeytest's prefix.
@@ -112,7 +112,7 @@ printf '%s' '{"tasks":[{"id":0,"title":"Card zero","column":0,"urgency":"","dueD
 log="$HEADLESS_W/shell.log"
 # The pacing log (logging only) says when the Dashboard maps and unmaps, which
 # is how the Escape case below knows whether it closed.
-APEX_PACING_LOG=1 quickshell -p "$root/shell.qml" > "$log" 2>&1 &
+RIME_PACING_LOG=1 quickshell -p "$root/shell.qml" > "$log" 2>&1 &
 qs=$!
 for _ in $(seq 1 120); do grep -q "Configuration Loaded" "$log" && break; sleep 0.25; done
 grep -q "Configuration Loaded" "$log" || { echo "RESULT: the shell did not load"; tail -20 "$log"; exit 1; }
@@ -160,12 +160,12 @@ logged "$MPRIS_LOG" "Play" 5 \
     && ok "Tab ×7 reaches ⏯ in reading order (after the Settings door, ‹ › and the clock); Return plays" \
     || bad "Return on ⏯ — the player was asked: $(tr '\n' '|' < "$MPRIS_LOG")"
 keys Tab Tab Right
-logged "$MPRIS_LOG" "SetPosition /apex/track/1 65000000" 5 \
+logged "$MPRIS_LOG" "SetPosition /rime/track/1 65000000" 5 \
     && ok "Tab ×2 to the seek bar; Right seeks 5 s on" \
     || bad "Right on the seek bar — the player was asked: $(tr '\n' '|' < "$MPRIS_LOG")"
 sleep 0.4
 keys Home
-logged "$MPRIS_LOG" "SetPosition /apex/track/1 0" 5 && ok "Home seeks to the start" \
+logged "$MPRIS_LOG" "SetPosition /rime/track/1 0" 5 && ok "Home seeks to the start" \
     || bad "Home on the seek bar — the player was asked: $(tr '\n' '|' < "$MPRIS_LOG")"
 
 keys Tab Up
@@ -339,7 +339,7 @@ becomes 1 "0 high $prev-02" 5 \
     || bad "the date picker by keyboard — card 1 is: $(task 1)"
 
 [ "$(task 2)" = "1 low -" ] && ok "card 2 was not touched" || bad "card 2 changed: $(task 2)"
-extra_mp="$(grep -vxF -e 'Play' -e 'SetPosition /apex/track/1 65000000' -e 'SetPosition /apex/track/1 0' "$MPRIS_LOG")"
+extra_mp="$(grep -vxF -e 'Play' -e 'SetPosition /rime/track/1 65000000' -e 'SetPosition /rime/track/1 0' "$MPRIS_LOG")"
 extra_nm="$(grep -vxF 'radio wifi off' "$FAKE_NMCLI_LOG")"
 extra_bl="$(grep -vxF -e 'set 55' -e 'set 100' -e 'set 2' "$FAKE_BRIGHTNESSCTL_LOG")"
 [ -z "$extra_mp$extra_nm$extra_bl$(cat "$FAKE_BLUETOOTHCTL_LOG")" ] \

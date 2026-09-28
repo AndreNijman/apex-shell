@@ -6,14 +6,14 @@
 //
 // ── Where the fixtures come from ─────────────────────────────────────────────
 //
-// The `apex host list --json` shapes below are transcribed from the OS side's
-// own serialisation, not invented: apexd/apex/src/host.rs builds the object in
-// its `HostCmd::List { json: true }` arm, and apexd/apexd-core/src/host.rs
+// The `rime host list --json` shapes below are transcribed from the OS side's
+// own serialisation, not invented: rimed/rime/src/host.rs builds the object in
+// its `HostCmd::List { json: true }` arm, and rimed/rimed-core/src/host.rs
 // declares `HostCaps` with the `skip_serializing_if` attributes that decide
-// which keys are present. Read on the apex-os branch `p2/base` at 77cbf68.
+// which keys are present. Read on the rime-os branch `p2/base` at 77cbf68.
 //
 // That matters most for the omissions. A probed host does NOT print
-// `apex_version`, `variant`, `os`, `cpus`, `memory_mib`, `free_mib`, `gpus` or
+// `rime_version`, `variant`, `os`, `cpus`, `memory_mib`, `free_mib`, `gpus` or
 // `accel` when they are absent or empty, so the "sparse" fixtures below are the
 // normal case rather than a corner one — which is the whole reason
 // normalizeCaps exists.
@@ -36,7 +36,7 @@ function check(name, got, want) {
 
 // ── the registry: an OBJECT keyed by host name, never an array ───────────────
 // This is the trap. The house pattern next door is `if (Array.isArray(fresh))`
-// and `apex host list --json` does not print an array, so a reflex copy would
+// and `rime host list --json` does not print an array, so a reflex copy would
 // leave the section permanently empty with nothing logged.
 
 const REGISTRY = JSON.stringify({
@@ -46,7 +46,7 @@ const REGISTRY = JSON.stringify({
         note: "build box",
         caps: {
             probed_at: 1000000,
-            apex_version: "0.1.0",
+            rime_version: "0.1.0",
             variant: "daily",
             cpus: 20,
             memory_mib: 63488,
@@ -57,7 +57,7 @@ const REGISTRY = JSON.stringify({
             podman: true
         }
     },
-    // A plain Fedora box the shell probe reached: no apex, so no agent runtime.
+    // A plain Fedora box the shell probe reached: no rime, so no agent runtime.
     fileserver: {
         ssh: "andre@10.0.0.9",
         port: 2222,
@@ -151,23 +151,23 @@ check("caps as an array is not a record",
       R.normalizeCaps([]), null);
 check("a wrong-typed probed_at falls back to 0",
       R.normalizeCaps({ probed_at: "yesterday" }).probed_at, 0);
-check("an unknown key from a newer apex is dropped, not merged",
+check("an unknown key from a newer rime is dropped, not merged",
       R.normalizeCaps({ agentd: true, quantum: true }).quantum, undefined);
 
 // ── a real probe, off a real machine ────────────────────────────────────────
 // Everything above is transcribed from the serialiser. This one is the actual
-// `caps` object `apex host probe` wrote for the developer's katana, pasted
+// `caps` object `rime host probe` wrote for the developer's katana, pasted
 // verbatim — a hand-written fixture only proves the parser accepts what I
-// imagined the other end sends, which is the same argument apex-os's own
+// imagined the other end sends, which is the same argument rime-os's own
 // host.rs parser test makes about its fixture.
 //
 // It is also the case that would have been got wrong: `agentd` is FALSE on a
-// machine that is unmistakably an APEX box, because it records whether the
+// machine that is unmistakably a Rime box, because it records whether the
 // binary is installed and this one does not have it. A reading of `agentd` as
-// "is an APEX machine" or "has agents" would query it every sweep for nothing.
+// "is a Rime machine" or "has agents" would query it every sweep for nothing.
 const KATANA_REAL = {
-    probed_at: 1788439662, apex_version: "0.1.0", variant: "gaming",
-    os: "APEX-OS", cpus: 20, memory_mib: 63997,
+    probed_at: 1788439662, rime_version: "0.1.0", variant: "gaming",
+    os: "Rime OS", cpus: 20, memory_mib: 63997,
     gpus: ["i915", "nvidia"], accel: ["cuda", "vulkan"],
     agentd: false, ai: false, podman: true
 };
@@ -179,22 +179,22 @@ check("a real probe parses with every key present",
       Object.keys(real.caps).sort(), schemaKeys);
 check("a real probe keeps its own values",
       [real.caps.variant, real.caps.os, real.caps.cpus, real.caps.accel],
-      ["gaming", "APEX-OS", 20, ["cuda", "vulkan"]]);
-check("an APEX box without the agent binary is probed but not agentd",
+      ["gaming", "Rime OS", 20, ["cuda", "vulkan"]]);
+check("a Rime box without the agent binary is probed but not agentd",
       [real.probed, real.agentd], [true, false]);
-check("an APEX box without the agent binary is never queried",
+check("a Rime box without the agent binary is never queried",
       R.queryTargets([real]), []);
 check("a real probe's hardware reads back",
       R.describeHardware(real.caps), "20 cores  ·  62 GiB  ·  cuda+vulkan");
 
 // ── one query's exit status ─────────────────────────────────────────────────
-// `apex host run` execs ssh, so the exit code is either ssh's own 255 or the
+// `rime host run` execs ssh, so the exit code is either ssh's own 255 or the
 // remote command's.
 const SESSIONS = JSON.stringify([
     { id: 1, agent: "claude", state: "working",  started: 100, last_activity: 400,
-      exit_code: null, exit_signal: null, project_name: "apex-os" },
+      exit_code: null, exit_signal: null, project_name: "rime-os" },
     { id: 2, agent: "codex",  state: "complete", started: 50,  last_activity: 300,
-      exit_code: 0, exit_signal: null, project_name: "apex-shell" },
+      exit_code: 0, exit_signal: null, project_name: "rime-shell" },
     { id: 3, agent: "claude", state: "working",  started: 200, last_activity: 500,
       exit_code: null, exit_signal: null, project_name: "wavy" }
 ]);
@@ -203,8 +203,8 @@ check("exit 0 with a session array reads as ok",
       R.readSessions(0, SESSIONS).status, R.STATUS.OK);
 check("255 is unreachable, not an error",
       R.readSessions(255, "").status, R.STATUS.UNREACHABLE);
-check("127 says apex is not installed there",
-      R.readSessions(127, "").status, R.STATUS.NO_APEX);
+check("127 says rime is not installed there",
+      R.readSessions(127, "").status, R.STATUS.NO_RIME);
 check("any other non-zero is the runtime not running there",
       R.readSessions(1, "").status, R.STATUS.NO_RUNTIME);
 // The runtime is opt-in, so "installed and not running" is its NORMAL state.
@@ -259,7 +259,7 @@ check("no sessions is not an error",
       [R.visibleSessions([]).shown, R.visibleSessions([]).hidden], [[], 0]);
 
 // ── staleness: the OS side's own threshold ──────────────────────────────────
-check("the freshness window matches apex host's PROBE_FRESH_SECS",
+check("the freshness window matches rime host's PROBE_FRESH_SECS",
       R.PROBE_FRESH_SECS, 7 * 24 * 60 * 60);
 check("a fresh probe is not stale",
       R.probeIsStale({ probed_at: 1000 }, 1000 + 60), false);
@@ -289,7 +289,7 @@ check("an unreachable host says only that",
       R.hostSummary(katana, { status: R.STATUS.UNREACHABLE, sessions: [] }, nowSecs),
       "unreachable");
 check("an unprobed host names the command that fixes it",
-      R.hostSummary(laptop, null, nowSecs), "not probed  ·  apex host probe laptop");
+      R.hostSummary(laptop, null, nowSecs), "not probed  ·  rime host probe laptop");
 check("a probed host with no runtime says so and keeps its hardware",
       R.hostSummary(fileserver, null, nowSecs),
       "no agent runtime  ·  4 cores  ·  8 GiB");
@@ -311,7 +311,7 @@ check("an unknown status is surfaced verbatim rather than blanked",
 
 check("the attach command names the host and the remote id",
       R.attachCommand("katana", 7),
-      "apex host run -t katana -- apex agent attach 7");
+      "rime host run -t katana -- rime agent attach 7");
 
 // ── the whole picture ───────────────────────────────────────────────────────
 const results = {

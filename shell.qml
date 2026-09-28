@@ -11,7 +11,7 @@ ShellRoot {
 
     // ── Translations ─────────────────────────────────────────────────────
     // The QTranslator every qsTr() in this tree needs is installed by the
-    // Apex.I18n QML module, whose plugin runs C++ while the import is being
+    // Rime.I18n QML module, whose plugin runs C++ while the import is being
     // resolved. src/i18n/I18nBootstrap.qml is the only file that names it, and
     // it is loaded through createComponent rather than imported here because a
     // failed import at THIS level is a desktop with no user interface — see
@@ -22,7 +22,7 @@ ShellRoot {
     Component.onCompleted: {
         const c = Qt.createComponent("./src/i18n/I18nBootstrap.qml");
         if (c.status === Component.Error) {
-            console.warn("APEX i18n: the Apex.I18n module did not load, so the shell stays in English —",
+            console.warn("Rime i18n: the Rime.I18n module did not load, so the shell stays in English —",
                          c.errorString().trim());
         } else {
             _i18n = c.createObject(shellRoot);
@@ -48,7 +48,7 @@ ShellRoot {
     // Must exist at startup for the same kind of reason: a display transaction
     // the previous shell left open has to be settled whether or not anybody
     // opens the Display page. Enumeration stays on demand — this costs one
-    // `apex-display-guard.sh reconcile`, which exits immediately when there is
+    // `rime-display-guard.sh reconcile`, which exits immediately when there is
     // no transaction directory.
     property var _display: DisplayService
 

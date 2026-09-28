@@ -65,7 +65,7 @@ ShellRoot {
     // built separately below where its own mask is the subject.
     FloatingWindow {
         id: host
-        title:          "apex-labwc-matrix"
+        title:          "rime-labwc-matrix"
         visible:        true
         implicitWidth:  1280
         implicitHeight: 800

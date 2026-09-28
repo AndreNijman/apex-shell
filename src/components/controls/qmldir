@@ -1,4 +1,4 @@
-ApexPressable    ApexPressable.qml
-ApexIconButton   ApexIconButton.qml
-ApexFocusRing    ApexFocusRing.qml
+RimePressable    RimePressable.qml
+RimeIconButton   RimeIconButton.qml
+RimeFocusRing    RimeFocusRing.qml
 singleton InputModality InputModality.qml

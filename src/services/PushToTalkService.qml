@@ -40,7 +40,7 @@ import "../"
 // ── Speech-to-text is a hook, not an engine ──────────────────────────────────
 //
 // No roadmap item anywhere owns STT and §8.2 says "route", so this bundles
-// nothing. `~/.config/apex-shell/push-to-talk-stt` holds one line: a command
+// nothing. `~/.config/rime-shell/push-to-talk-stt` holds one line: a command
 // that reads audio on stdin and writes text on stdout. Unset is the normal
 // state on a fresh machine, and the reducer says so out loud rather than
 // opening a microphone that leads nowhere.
@@ -149,7 +149,7 @@ QtObject {
 
     // ── The STT hook ──────────────────────────────────────────────────────────
     readonly property string _sttPath:
-        Quickshell.env("HOME") + "/.config/apex-shell/push-to-talk-stt"
+        Quickshell.env("HOME") + "/.config/rime-shell/push-to-talk-stt"
     property string sttCommand: ""
     readonly property bool sttConfigured: root.sttCommand.trim() !== ""
 
@@ -175,7 +175,7 @@ QtObject {
     // asserted by tests/check-push-to-talk.sh against this block with the
     // comments stripped, because `running: true` here would be a permanently
     // hot microphone and nothing else in the tree would say so.
-    readonly property string _wavPath: "/tmp/apex-ptt-" + Quickshell.env("USER") + ".wav"
+    readonly property string _wavPath: "/tmp/rime-ptt-" + Quickshell.env("USER") + ".wav"
 
     property var _recorder: Process {
         command: ["parecord", "--file-format=wav", "--channels=1",
@@ -218,13 +218,13 @@ QtObject {
     // ── Delivery ──────────────────────────────────────────────────────────────
     // NOT BUILT YET, and said so rather than faked. There is no way to put text
     // into a session today: AgentService's whole action surface is
-    // pause/resume/kill/focus/review, and apex-agent-core's Request enum has no
+    // pause/resume/kill/focus/review, and rime-agent-core's Request enum has no
     // Input variant. `Attach` is already a bidirectional PTY byte stream, so the
     // write path exists and a `Request::Input { id, data }` reuses it — that is
-    // the apex-os half of P1-023 and it is tracked on
+    // the rime-os half of P1-023 and it is tracked on
     // task/p1-023-push-to-talk-daemon.
     //
-    // Piping into `apex agent attach` is NOT the shortcut it looks like: its
+    // Piping into `rime agent attach` is NOT the shortcut it looks like: its
     // reader loop keeps running after stdin EOF until the session itself
     // closes, and `replay` defaults non-zero, so it would hang and dump
     // scrollback into the transcript.
@@ -248,7 +248,7 @@ QtObject {
             root._dispatch({ type: "fail", error: "the target went away" })
             return
         }
-        root._delivery.command = ["apex", "agent", "input", String(t), root.state.text]
+        root._delivery.command = ["rime", "agent", "input", String(t), root.state.text]
         root._delivery.running = true
     }
 }

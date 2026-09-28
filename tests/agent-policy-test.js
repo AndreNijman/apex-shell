@@ -6,16 +6,16 @@
 //
 // ── Where the fixtures come from ─────────────────────────────────────────────
 //
-// Every configuration shape below is a file apex itself would write or accept,
-// transcribed from apex-os at 583698b (branch roadmap/v2.2, commit
+// Every configuration shape below is a file rime itself would write or accept,
+// transcribed from rime-os at 583698b (branch roadmap/v2.2, commit
 // "feat(agent): split the six permission dimensions"):
 //
-//   apexd/apex-agent-core/src/config.rs   the six sibling keys, `extra`, and
+//   rimed/rime-agent-core/src/config.rs   the six sibling keys, `extra`, and
 //                                         `normalise` resetting all six when
 //                                         `validate` fails
-//   apexd/apex-agent-core/src/policy.rs   `AgentPolicy::validate`'s four arms
+//   rimed/rime-agent-core/src/policy.rs   `AgentPolicy::validate`'s four arms
 //                                         and `effective_network`
-//   apexd/apex-agent-core/src/protocol.rs `SandboxPolicy` and the flattened
+//   rimed/rime-agent-core/src/protocol.rs `SandboxPolicy` and the flattened
 //                                         `SessionInfo` policy keys
 //
 // ── What this is really guarding ─────────────────────────────────────────────
@@ -25,7 +25,7 @@
 //   1. the toggle writes `sandbox` and something else moves with it. Criterion
 //      3 says the agent's own permission mode survives, and the only way to
 //      assert that is over a file that HAS one set.
-//   2. the toggle writes a default apex will throw away, because `normalise`
+//   2. the toggle writes a default rime will throw away, because `normalise`
 //      resets all six dimensions rather than the one it objected to. The page
 //      then shows unrestricted, the sandbox is still project, and `native:
 //      bypass` is gone. Two lies from one write.
@@ -109,9 +109,9 @@ check("effective_network: strict overrides the stored network key",
 check("effective_network: an unrestricted sandbox does not open the network",
       P.effectiveNetwork({ sandbox: "unrestricted", network: "offline" }), "offline");
 
-// A file apex would reset wholesale is reported at the value apex will use,
+// A file rime would reset wholesale is reported at the value rime will use,
 // not at the value it contains.
-check("a stored default apex would discard is reported as the default",
+check("a stored default rime would discard is reported as the default",
       P.effectiveDefault('{"sandbox":"unrestricted","network":"offline"}'), "project");
 
 // ─── criterion 4 and 5: when a password is required ──────────────────────────
@@ -176,7 +176,7 @@ const off = P.nextConfig(on.text, false);
 check("switching off succeeds", off.ok, true);
 check("switching off restores the project sandbox",
       JSON.parse(off.text).sandbox, "project");
-// Criterion 3 in one line: OFF restores the APEX default and dimension 1 is
+// Criterion 3 in one line: OFF restores the Rime default and dimension 1 is
 // still where the user left it.
 check("switching off leaves the agent's own permission mode alone",
       JSON.parse(off.text).native, "bypass");
@@ -195,10 +195,10 @@ check("a file with no sandbox key gains one and keeps the rest",
       JSON.parse(P.nextConfig('{"default_agent":"codex"}', true).text),
       { default_agent: "codex", sandbox: "unrestricted" });
 
-// ─── refusing rather than writing a default apex would discard ───────────────
+// ─── refusing rather than writing a default rime would discard ───────────────
 
 const OFFLINE = '{"native":"bypass","network":"offline"}';
-check("switching on is refused when apex would reset all six dimensions",
+check("switching on is refused when rime would reset all six dimensions",
       P.nextConfig(OFFLINE, true).ok, false);
 checkTrue("the refusal says the whole file would be discarded",
       /discard/.test(P.nextConfig(OFFLINE, true).reason));
@@ -232,7 +232,7 @@ check("exit 1 is refused", P.authOutcome(1, ""), P.AUTH_REFUSED);
 check("exit 2 is an authentication that did not complete",
       P.authOutcome(2, ""), P.AUTH_INCOMPLETE);
 check("an unregistered action is not reported as a refusal",
-      P.authOutcome(127, "GDBus.Error:...: Action org.apexos.shell.agent."
+      P.authOutcome(127, "GDBus.Error:...: Action org.rimeos.shell.agent."
                        + "set-always-unrestricted is not registered"),
       P.AUTH_UNREGISTERED);
 check("any other polkit error is an error", P.authOutcome(127, "boom"), P.AUTH_ERROR);
@@ -302,23 +302,23 @@ check("an unknown mode is drawn subdued rather than as a warning",
 
 // ─── dimension 1, as the agent reports it (P0-005 criterion 3) ──────────────
 //
-// The trap this is really guarding. `session.native` says what APEX DID, and
-// for the case that matters APEX did nothing: Andre runs Claude in
-// `bypassPermissions` as a profile default, §4.1 says APEX must not override
+// The trap this is really guarding. `session.native` says what Rime DID, and
+// for the case that matters Rime did nothing: Andre runs Claude in
+// `bypassPermissions` as a profile default, §4.1 says Rime must not override
 // it, so `native` is `inherit`. A chip showing "inherit" beside a session
 // running with confirmations off satisfies the criterion's words and answers
 // none of its question.
 //
-// `native_observed` is what apex-agentd records from Claude's own hook
-// payloads. Fixtures transcribed from apex-os `apexd/apex-agent-core/src/`
+// `native_observed` is what rime-agentd records from Claude's own hook
+// payloads. Fixtures transcribed from rime-os `rimed/rime-agent-core/src/`
 // `protocol.rs` (`SessionInfo.native_observed`) and `hook.rs` (`native_mode`).
 
 check("the agent's own report is what the chip shows",
       P.sessionNativeLabel({ native: "inherit", native_observed: "bypassPermissions" }),
       "bypassPermissions");
-check("and it beats APEX's own flag, because it is the current one",
+check("and it beats Rime's own flag, because it is the current one",
       P.sessionNativeLabel({ native: "bypass", native_observed: "plan" }), "plan");
-check("with nothing reported, a mode APEX selected is still worth saying",
+check("with nothing reported, a mode Rime selected is still worth saying",
       P.sessionNativeLabel({ native: "bypass" }), "bypass");
 check("but inherit with nothing reported says nothing at all",
       P.sessionNativeLabel({ native: "inherit" }), "");
@@ -330,9 +330,9 @@ check("a page can tell a report from a flag",
       [P.sessionNativeIsReported({ native: "bypass" }),
        P.sessionNativeIsReported({ native_observed: "acceptEdits" })],
       [false, true]);
-// Claude's four, passed through rather than mapped: three of them have no APEX
+// Claude's four, passed through rather than mapped: three of them have no Rime
 // vocabulary, and folding them into "not ask" would answer "what mode is this
-// agent in" with a summary of what APEX did about it.
+// agent in" with a summary of what Rime did about it.
 check("claude's own words survive unmapped",
       ["default", "acceptEdits", "plan", "bypassPermissions"]
           .map(m => P.sessionNativeLabel({ native: "inherit", native_observed: m })),
@@ -371,8 +371,8 @@ check("the revoke control knows which grant to end",
 check("and there is nothing to end when there is no grant",
       P.sessionGrant({ sandbox: "project" }), null);
 
-// The countdown. Mirrors `grant::format_ms` in apex-agent-core so the shell
-// and `apex agent grants` do not describe one window two ways.
+// The countdown. Mirrors `grant::format_ms` in rime-agent-core so the shell
+// and `rime agent grants` do not describe one window two ways.
 check("a window reads the way a person would say it",
       [900000, 5400000, 3600000, 90000, 45000].map(P.formatRemaining),
       ["15m", "1h 30m", "1h", "1m", "45s"]);
@@ -399,7 +399,7 @@ check("a session that is not break-glass gets no indicator",
 
 check("a stored elevation no longer blocks the toggle",
       P.refusalFor({ system: "unsafe", sandbox: "project" }), null);
-check("because apex corrects that one key rather than refusing the file",
+check("because rime corrects that one key rather than refusing the file",
       P.storedElevationNote({ system: "unsafe" }) !== null, true);
 check("and the note says how to ask for it properly",
       P.storedElevationNote({ system: "session" }).indexOf("--ttl") >= 0, true);

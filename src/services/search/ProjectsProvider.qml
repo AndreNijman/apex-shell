@@ -1,12 +1,12 @@
 import QtQuick
 import "../search.js" as Search
 
-// ProjectsProvider — "open project apex-os", from §15's example list.
+// ProjectsProvider — "open project rime-os", from §15's example list.
 //
 // ── This provider owns no Process ───────────────────────────────────────────
 // It declares nothing to run and cannot ask for anything to be run. The host
 // decides — Search.requestArgv("projects", …) returns
-// `apex project list --json` — runs it, and writes the output into `data`.
+// `rime project list --json` — runs it, and writes the output into `data`.
 // A static check asserts that no file in this directory so much as names
 // `Process`, `Quickshell.Io`, `FileView` or `Socket`, which is what makes
 // "providers do not spawn" structural rather than reviewed.
@@ -14,11 +14,11 @@ import "../search.js" as Search
 // ── One subprocess per launcher session, not per keystroke ──────────────────
 // The argv is the same for every query, and the scheduler's cache is keyed by
 // argv, so the first keystroke that reaches this provider pays for the listing
-// and every later one is a cache hit. Typing "apex-os" is one process, not
+// and every later one is a cache hit. Typing "rime-os" is one process, not
 // seven.
 //
 // ── A missing runtime is a normal state ─────────────────────────────────────
-// `apex project list` exits non-zero when the agent runtime is not installed,
+// `rime project list` exits non-zero when the agent runtime is not installed,
 // and the runtime is opt-in. `data` is then empty, this returns no rows, and
 // nothing is logged: a warning per launcher open about something working as
 // designed is how a log becomes unreadable.

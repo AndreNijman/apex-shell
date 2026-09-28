@@ -14,7 +14,7 @@ import "../../"
 //
 // §19 describes eight component rows, four actions, a route table and the
 // doctor's results. That is not a row on somebody else's page. It is also the
-// consumer `apex recover --help` already advertised — "safe for APEX Settings
+// consumer `rime recover --help` already advertised — "safe for Rime Settings
 // to poll" — and until this file existed that consumer was never written, so
 // recovery had no graphical surface anywhere in the shell.
 //
@@ -25,8 +25,8 @@ import "../../"
 //
 // ── What this page is allowed to do ──────────────────────────────────────────
 //
-// Read-only by default. The two polled verbs are `apex recover status --json`
-// and `apex doctor --json`; both are file reads on the OS side, neither can
+// Read-only by default. The two polled verbs are `rime recover status --json`
+// and `rime doctor --json`; both are file reads on the OS side, neither can
 // raise an authentication prompt, and nothing else is ever on a timer. Repair
 // and factory reset are user-initiated only. Rollback is SHOWN as a command
 // and never run, because running it means root and this shell raises no
@@ -156,7 +156,7 @@ CfgScroll {
                         text: RecoveryService.available
                             ? ("bootloader " + RecoveryService.status.bootloader
                                + "  ·  diagnostics: " + RecoveryService.doctorSummary)
-                            : "`apex recover` is not on this machine, or predates this shell. Nothing below could be read."
+                            : "`rime recover` is not on this machine, or predates this shell. Nothing below could be read."
                         width:          parent.width
                         // A sentence when nothing could be read; a status line otherwise.
                         wrapMode:       RecoveryService.available ? Text.NoWrap : Text.WordWrap
@@ -186,7 +186,7 @@ CfgScroll {
             width: parent.width
             text: "Everything on this page is read from the machine, not from a "
                 + "cache. Checking it changes nothing and needs no password: "
-                + "`apex recover status` and `apex doctor` read files. The two "
+                + "`rime recover status` and `rime doctor` read files. The two "
                 + "verbs that do change something — repair, and the factory "
                 + "reset — run only when you press them."
             font.pixelSize: theme.typeCaption
@@ -304,7 +304,7 @@ CfgScroll {
     }
 
     // ── Repair ────────────────────────────────────────────────────────────────
-    // §19's [Repair automatically]. Every step apexd will offer here is
+    // §19's [Repair automatically]. Every step rimed will offer here is
     // idempotent and removes no data — its own table test asserts that, and
     // that no step's argv contains `sudo`, `pkexec`, `su`, `run0` or
     // `systemd-run`. That is what makes one button defensible: pressing it
@@ -390,7 +390,7 @@ CfgScroll {
                         wrapMode:       Text.WordWrap
                     }
                     // A step in the other privilege domain is reported, never
-                    // run. `apex apply` behaves the same way, and running it
+                    // run. `rime apply` behaves the same way, and running it
                     // from here would mean an authentication prompt.
                     Text {
                         visible:        stepRow.step && !stepRow.step.runnableHere
@@ -408,9 +408,9 @@ CfgScroll {
 
     // ── Rollback ──────────────────────────────────────────────────────────────
     // §19's [Boot previous deployment], and the half of §25 that says rollback
-    // must not be CLI-only. There is no `apex recover previous` and there
+    // must not be CLI-only. There is no `rime recover previous` and there
     // should not be: docs/recovery.md is explicit that it would be a second
-    // name for `apex rollback`. So this section makes the operation visible —
+    // name for `rime rollback`. So this section makes the operation visible —
     // whether a target exists, what it costs, and the exact two commands —
     // rather than hiding root behind a button.
     CfgSection {
@@ -438,7 +438,7 @@ CfgScroll {
         // command appeared nowhere in the tree.
         CfgRow {
             label:       "Boot the previous deployment"
-            description: "Run this in a terminal. It needs root, so APEX Shell shows it instead of asking for a password."
+            description: "Run this in a terminal. It needs root, so Rime Shell shows it instead of asking for a password."
             a11yExtra:   "The command is: " + RecoveryService.rollbackCommand
             effect:      "reboot"
             Text {
@@ -538,11 +538,11 @@ CfgScroll {
     }
 
     // ── Hardware diagnostics ──────────────────────────────────────────────────
-    // §19's [Hardware diagnostics], and its "expose `apex doctor` results
-    // graphically". The same list the text form prints — apexd builds it once
+    // §19's [Hardware diagnostics], and its "expose `rime doctor` results
+    // graphically". The same list the text form prints — rimed builds it once
     // and renders it twice, so this and the terminal cannot disagree.
     //
-    // There is no severity here because the payload carries none: `apex
+    // There is no severity here because the payload carries none: `rime
     // doctor`'s own comment says a WARN is information rather than a fault, so
     // a laptop with no ACPI platform_profile is not broken. Painting an
     // invented judgement red is worse than showing two states.
@@ -630,9 +630,9 @@ CfgScroll {
     //   4. press the danger button, which only exists once the loss list is
     //      on screen and has acknowledged itself
     //
-    // Step 4 is not a timer and not a second click. `apex recover reset
+    // Step 4 is not a timer and not a second click. `rime recover reset
     // --commit` needs `--confirm <scope>:<count>:<hash>` computed over the
-    // exact paths the plan found — apexd built it that way specifically so a
+    // exact paths the plan found — rimed built it that way specifically so a
     // UI cannot commit without having rendered the loss list. The list below
     // acknowledges itself with the token and the number of rows it actually
     // instantiated, and RecoveryService refuses to build a commit unless that
@@ -681,7 +681,7 @@ CfgScroll {
                         }
                         Text {
                             id: resetHeading
-                            text:           "Reset this account's APEX state"
+                            text:           "Reset this account's Rime state"
                             font.pixelSize: theme.fs(12)
                             font.weight:    Font.Medium
                             color:          Theme.text
@@ -708,7 +708,7 @@ CfgScroll {
                 Text {
                     id: resetBlurb
                     width: parent.width
-                    text: "This removes APEX Shell's own settings for this account and, "
+                    text: "This removes Rime Shell's own settings for this account and, "
                         + "at the wider scope, your blueprint and per-game profiles. It "
                         + "does NOT touch your documents, your ssh or gnupg keys, your "
                         + "compositor configuration, your packages or your deployments. "
@@ -746,7 +746,7 @@ CfgScroll {
                         property string chosen: "desktop"
                         options: [
                             { value: "desktop", label: "Desktop settings" },
-                            { value: "user",    label: "Everything APEX owns for this account" }
+                            { value: "user",    label: "Everything Rime owns for this account" }
                         ]
                         value: scopeSeg.chosen
                         onSelected: function (v) {
@@ -788,7 +788,7 @@ CfgScroll {
 
                     // ── the loss list ────────────────────────────────────────
                     // The rows the plan says exist, which is exactly the set
-                    // apexd hashed into the confirm token. This container is
+                    // rimed hashed into the confirm token. This container is
                     // what acknowledges having rendered them.
                     Column {
                         id: lossList
@@ -839,7 +839,7 @@ CfgScroll {
                                 if (!p) return ""
                                 return p.losses.length === 0
                                     ? "Nothing to remove: none of the paths this scope covers exists on this machine."
-                                    : (p.losses.length + " item(s) will be changed. Everything except caches is copied to ~/apex-reset-backup-<timestamp> first.")
+                                    : (p.losses.length + " item(s) will be changed. Everything except caches is copied to ~/rime-reset-backup-<timestamp> first.")
                             }
                             font.pixelSize: theme.typeCaption
                             font.weight:    Font.Medium
@@ -997,7 +997,7 @@ CfgScroll {
                         // gets the same refusal a mouse would.
                         // tests/run-recovery-atspi-shim.sh presses it over the
                         // bus at exactly that moment and requires the stub
-                        // `apex` to have recorded no `--commit`.
+                        // `rime` to have recorded no `--commit`.
                         Rectangle {
                             id: commitBtn
                             width:  Math.min(parent.width, theme.px(260))
@@ -1099,7 +1099,7 @@ CfgScroll {
                     }
 
                     // ── outcome ──────────────────────────────────────────────
-                    // apexd's refusals name what did not match and what to do
+                    // rimed's refusals name what did not match and what to do
                     // about it, so the message is shown as it was written
                     // rather than replaced with "failed".
                     Text {
@@ -1114,7 +1114,7 @@ CfgScroll {
                         font.family:    Theme.fontMono
                         color: RecoveryService.resetPhase === "done" ? Theme.success : Theme.warning
                         wrapMode: Text.WordWrap
-                        // apexd's refusals name what did not match and what to
+                        // rimed's refusals name what did not match and what to
                         // do about it, and they are the only feedback this
                         // operation gives. A reader that presses the button and
                         // is told nothing cannot tell a refusal from a success.
@@ -1166,7 +1166,7 @@ CfgScroll {
     // Accessible.* in 892 lines and everything a reader got came from the
     // shared Cfg* controls it instantiates. Measured over real AT-SPI with the
     // shell on a nested headless labwc and Qt's factory restored by the
-    // round-30 shim, against an `apex` answering the captured fixtures: the
+    // round-30 shim, against an `rime` answering the captured fixtures: the
     // page published its buttons and NOT ONE of its 8 component rows, 6
     // recovery routes, 7 doctor checks, its status line, or its section
     // titles. Worse, pressing "Show what would be lost" over the bus ran the

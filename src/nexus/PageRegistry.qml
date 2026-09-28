@@ -80,7 +80,7 @@ QtObject {
             "title": "Privacy & Permissions",
             "subtitle": "Camera, microphone, capture, files, and who enforces each",
             "icon": "󰒃",
-            // PermissionsService runs one `apex permissions list --json` per
+            // PermissionsService runs one `rime permissions list --json` per
             // sweep, and that command runs a `flatpak info` per installed
             // application. Getting this wrong means a burst of Flatpak
             // processes every 30 seconds until logout.
@@ -104,7 +104,7 @@ QtObject {
             "title": "Agents",
             "subtitle": "The sandbox new agent sessions start in",
             "icon": "󰚩",
-            // AgentService forks `apex agent list` on a timer and is
+            // AgentService forks `rime agent list` on a timer and is
             // refcounted on it. The page lists what is running so it can show
             // each session's own mode, so it holds a ref and has to be told
             // whether anyone is looking.
@@ -115,9 +115,9 @@ QtObject {
             "id": "remote-pair",
             "group": "Devices",
             "title": "Pair a device",
-            "subtitle": "Show a code for APEX Remote on your phone to scan",
+            "subtitle": "Show a code for Rime Remote on your phone to scan",
             "icon": "",
-            // Stronger than elsewhere: `apex remote pair` MINTS a one-time
+            // Stronger than elsewhere: `rime remote pair` MINTS a one-time
             // token, so this page must not be built for somebody who never
             // opened it.
             "needsScreen": true,
@@ -147,10 +147,10 @@ QtObject {
             "title": "Closing the Lid",
             "subtitle": "What a shut lid does while work is running, and what it cost last time",
             "icon": "󰶐",
-            // LidService runs `apex lid status --json` and `apex lid report
+            // LidService runs `rime lid status --json` and `rime lid report
             // --json` one after the other on a sweep timer while this page is
             // looked at, and nothing at all when it is not. Getting this wrong
-            // means two `apex` processes every 15 seconds until logout.
+            // means two `rime` processes every 15 seconds until logout.
             "needsScreen": true,
             "component": lidComp
         },
@@ -160,9 +160,9 @@ QtObject {
             "title": "Gaming",
             "subtitle": "Gaming Mode, what it needs, and the performance policy",
             "icon": "󰊴",
-            // GamingService runs `apex gaming` and `apex mode status` when the
+            // GamingService runs `rime gaming` and `rime mode status` when the
             // page is opened and when the user presses Refresh, and nothing on
-            // a timer — `apex mode set --auto` is one-shot by design, so a
+            // a timer — `rime mode set --auto` is one-shot by design, so a
             // poller here would be the shell inventing a daemon the OS declined
             // to ship. Nothing to refcount, so nothing to tell about the screen.
             "needsScreen": false,
@@ -174,10 +174,10 @@ QtObject {
             "title": "Recovery",
             "subtitle": "Health, rollback, repair, ways back in",
             "icon": "󰑙",
-            // RecoveryService runs `apex recover status --json` and
-            // `apex doctor --json` on a sweep timer while this page is looked
+            // RecoveryService runs `rime recover status --json` and
+            // `rime doctor --json` on a sweep timer while this page is looked
             // at, and nothing at all when it is not. Getting this wrong means
-            // two `apex` processes every 20 seconds until logout.
+            // two `rime` processes every 20 seconds until logout.
             "needsScreen": true,
             "component": recoveryComp
         },

@@ -4,7 +4,7 @@ import "../controls"
 
 // Action button. variant: "default" | "accent" | "danger".
 //
-// Built on ApexPressable (UI/UX roadmap v3 Phase 3): it dips when pressed, by
+// Built on RimePressable (UI/UX roadmap v3 Phase 3): it dips when pressed, by
 // pointer or by Space/Return; its hover and press are a state layer over its
 // own surface; its focus ring shows only for keyboard focus. Its colours are
 // the palette's roles, not translucent whites, so it reads on either scheme.
@@ -16,7 +16,7 @@ import "../controls"
 // the outline) inside an outlineStrong border, 28 px. A border is kept for
 // the danger variant only: borders mean an input, the focus ring, or a
 // confirmation that destroys something.
-ApexPressable {
+RimePressable {
     id: root
 
     property string label:   ""
@@ -76,5 +76,5 @@ ApexPressable {
             color: root.variant === "default" ? Theme.textPrimary : root._accent
         }
     }
-    ApexFocusRing { target: root }
+    RimeFocusRing { target: root }
 }

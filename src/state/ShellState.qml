@@ -83,7 +83,7 @@ QtObject {
             "setpriv", "--pdeathsig", "TERM",
             "systemd-inhibit",
             "--what=idle",
-            "--who=APEX Shell",
+            "--who=Rime Shell",
             "--why=Caffeine is enabled",
             "--mode=block",
             // systemd-inhibit forks the payload. Give that process the same
@@ -225,7 +225,7 @@ QtObject {
     //
     // While the user is recording a new shortcut, every key has to reach the
     // shell rather than firing whatever it is currently bound to. On Hyprland
-    // that is a submap with no binds in it; nothing else APEX ships has an
+    // that is a submap with no binds in it; nothing else Rime ships has an
     // equivalent, so the adapter reports no capability and refuses — which is
     // what the `!Compositor.isHyprland` early return here did by hand, along
     // with the two-dialect hyprctl split that now lives in HyprlandBackend.
@@ -281,7 +281,7 @@ QtObject {
     // Watch the JSON file written by the installer
     property var _providerFile: FileView {
         id: providerFile
-        path: Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/config_Provider.json"
+        path: Quickshell.env("HOME") + "/.config/rime-shell/src/user_data/config_Provider.json"
         watchChanges: true
         
         onFileChanged: {
@@ -302,7 +302,7 @@ QtObject {
                 root._providerFromFile  = true
             }
         } catch (e) {
-            console.error("APEX Shell: Failed to parse config_Provider.json")
+            console.error("Rime Shell: Failed to parse config_Provider.json")
         }
     }
 }

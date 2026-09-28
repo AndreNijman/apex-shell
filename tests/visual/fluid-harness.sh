@@ -21,8 +21,8 @@ trap cleanup EXIT INT TERM
 [ -e /dev/dri/renderD128 ] && export HEADLESS_WLR_RENDERER=gles2
 headless_start labwc 1920x1080 || exit 0
 cp "$here/fluid-harness.qml" "$staged"
-mkdir -p "$HOME/.cache/apex-shell"
-headless_apex_palette dark   # the APEX-OS default look (tests/lib/headless.sh)
+mkdir -p "$HOME/.cache/rime-shell"
+headless_rime_palette dark   # the Rime OS default look (tests/lib/headless.sh)
 for fam in "$@"; do
     for sc in ${HARNESS_SCALES:-0.85 1.0 1.5}; do
         HARNESS_FAMILY="$fam" HARNESS_OUT="$out" HARNESS_SCALE="$sc" \

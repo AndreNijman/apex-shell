@@ -4,10 +4,10 @@
 #  end up inside a terminal when the shell launches it.
 #
 #  ── The defect this exists for ──────────────────────────────────────────────
-#  /usr/share/applications/nvim.desktop ships from the neovim rpm on every APEX
-#  image and declares `Terminal=true`. `apex install neovim` correctly refuses —
-#  apex-pkg skips a package whose exact NEVRA the image already provides — so
-#  the user is told the editor is "provided by APEX-OS", clicks it, and nothing
+#  /usr/share/applications/nvim.desktop ships from the neovim rpm on every Rime
+#  image and declares `Terminal=true`. `rime install neovim` correctly refuses —
+#  rime-pkg skips a package whose exact NEVRA the image already provides — so
+#  the user is told the editor is "provided by Rime OS", clicks it, and nothing
 #  happens. The binary was never broken. `nvim --version` exits 0 on every
 #  machine checked. What was broken is the launch: nvim was started with no
 #  terminal, wrote its UI to a pipe, and died.
@@ -20,7 +20,7 @@
 #  The shell's routing is only correct while Quickshell's own `execute()` does
 #  NOT acquire a terminal. If a future Quickshell starts honouring `Terminal=`,
 #  routing on top of it opens a terminal inside a terminal, and the symptom
-#  would be blamed on APEX. So the assumption the fix rests on is asserted
+#  would be blamed on Rime. So the assumption the fix rests on is asserted
 #  rather than assumed, and it fails loudly when upstream changes.
 #
 #  ── The terminal is a stub, and that is deliberate ──────────────────────────
@@ -28,8 +28,8 @@
 #  a real pty (python3's `pty.spawn`), so `[ -t 1 ]` inside the launched program
 #  is the graded signal — the same signal a real foot or alacritty would give it
 #  — and no window opens anywhere. Whether the shipped helper picks a sensible
-#  emulator is the apex-os half's question, asserted in its
-#  tests/test-apex-editors.sh; this half only asks whether the shell hands the
+#  emulator is the rime-os half's question, asserted in its
+#  tests/test-rime-editors.sh; this half only asks whether the shell hands the
 #  entry to it at all.
 #
 #  Skips cleanly (status 0) without quickshell, python3, or a compositor.
@@ -67,7 +67,7 @@ mkdir -p "$CWD"
 # it about its own file descriptors rather than about who its parent is.
 # Parentage is not usable — both paths detach, and a detached child is reparented
 # to init in both cases.
-cat > "$HEADLESS_W/bin/apex-probe-record" <<'REC'
+cat > "$HEADLESS_W/bin/rime-probe-record" <<'REC'
 #!/usr/bin/env bash
 tag="$1"; shift
 out="$SENTDIR/$tag"
@@ -96,7 +96,7 @@ fd1="$(readlink /proc/self/fd/9 2>/dev/null)"
     printf 'prime=%s\n' "${__NV_PRIME_RENDER_OFFLOAD:-}"
 } > "$out.tmp" && mv "$out.tmp" "$out"
 REC
-chmod +x "$HEADLESS_W/bin/apex-probe-record"
+chmod +x "$HEADLESS_W/bin/rime-probe-record"
 export SENTDIR="$SENT"
 
 # The terminal. Records that it was asked, then gives the command a pty.
@@ -129,39 +129,39 @@ mkdir -p "$apps"
 # sentinel. One fixture served both terminal arms in the first version, so the
 # routed launch overwrote the raw launch's sentinel and the suite reported that
 # the routed program had never started while its terminal stub plainly had.
-cat > "$apps/apex-probe-raw.desktop" <<FIXTURE
+cat > "$apps/rime-probe-raw.desktop" <<FIXTURE
 [Desktop Entry]
 Type=Application
-Name=APEX raw terminal probe
-Exec=apex-probe-record raw %F
+Name=Rime raw terminal probe
+Exec=rime-probe-record raw %F
 Path=$CWD
 Terminal=true
 NoDisplay=true
 FIXTURE
-cat > "$apps/apex-probe-term.desktop" <<FIXTURE
+cat > "$apps/rime-probe-term.desktop" <<FIXTURE
 [Desktop Entry]
 Type=Application
-Name=APEX terminal probe
-Exec=apex-probe-record termed %F
+Name=Rime terminal probe
+Exec=rime-probe-record termed %F
 Path=$CWD
 Terminal=true
 NoDisplay=true
 FIXTURE
-cat > "$apps/apex-probe-plain.desktop" <<FIXTURE
+cat > "$apps/rime-probe-plain.desktop" <<FIXTURE
 [Desktop Entry]
 Type=Application
-Name=APEX plain probe
-Exec=apex-probe-record plain
+Name=Rime plain probe
+Exec=rime-probe-record plain
 Terminal=false
 NoDisplay=true
 FIXTURE
 # Steam's entry declares this key. Path= is carried so the detour through
 # desktop-launch.sh is graded on keeping it, as the terminal detour is.
-cat > "$apps/apex-probe-dgpu.desktop" <<FIXTURE
+cat > "$apps/rime-probe-dgpu.desktop" <<FIXTURE
 [Desktop Entry]
 Type=Application
-Name=APEX discrete-GPU probe
-Exec=apex-probe-record dgpu %U
+Name=Rime discrete-GPU probe
+Exec=rime-probe-record dgpu %U
 Path=$CWD
 Terminal=false
 PrefersNonDefaultGPU=true
@@ -175,7 +175,7 @@ route="raw"
 if grep -q '^singleton DesktopExec' "$root/src/services/qmldir" 2>/dev/null; then
     route="shell"
 fi
-export APEX_PROBE_ROUTE="$route"
+export RIME_PROBE_ROUTE="$route"
 
 headless_start || exit 0
 
@@ -256,7 +256,7 @@ else
 
     if [ -s "$SENT/helper.argv" ]; then
         ok "it went through xdg-terminal-exec"
-        if grep -qx 'apex-probe-record' "$SENT/helper.argv"; then
+        if grep -qx 'rime-probe-record' "$SENT/helper.argv"; then
             ok "the helper was handed the program as argv, not a shell string"
         else
             bad "the helper was handed the program as argv, not a shell string"
@@ -312,7 +312,7 @@ else
         bad "an entry that does not ask for the discrete GPU does not get it"
     fi
     if [ "$(grep -c . "$SENT/switcheroo.argv" 2>/dev/null || echo 0)" = "1" ] \
-       && grep -qx 'launch apex-probe-record dgpu' "$SENT/switcheroo.argv"; then
+       && grep -qx 'launch rime-probe-record dgpu' "$SENT/switcheroo.argv"; then
         ok "switcherooctl was asked exactly once, by the entry that asked for it"
     else
         bad "switcherooctl was asked exactly once, by the entry that asked for it"

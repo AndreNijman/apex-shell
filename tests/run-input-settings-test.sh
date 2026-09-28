@@ -5,12 +5,12 @@
 #
 # ── What is real and what is not ─────────────────────────────────────────────
 #
-# Real: /usr/libexec/apex-input-apply, a model file in a sandbox HOME, the
+# Real: /usr/libexec/rime-input-apply, a model file in a sandbox HOME, the
 # shipped labwc rc.xml, and whatever the generator's capability table says about
 # each compositor. Those answers are the thing under test — a suite that stubbed
 # them would prove the page agrees with a stub.
 #
-# Fixtured: the device list, through APEX_INPUT_DEVICES. Asserting against
+# Fixtured: the device list, through RIME_INPUT_DEVICES. Asserting against
 # whatever is plugged into the machine running this is how a test comes to pass
 # on a laptop and fail on a build runner.
 #
@@ -22,7 +22,7 @@
 # the one that proves the refusals are not blanket. Neither run needs niri
 # installed: the generator detects the session from XDG_CURRENT_DESKTOP, and
 # what is being tested is the capability table, not niri itself. The generated
-# KDL is validated against real niri by apex-os's own suite.
+# KDL is validated against real niri by rime-os's own suite.
 #
 # ── Why this cannot touch the developer's session ────────────────────────────
 #
@@ -47,24 +47,24 @@ for tool in quickshell labwc python3; do
     command -v "$tool" >/dev/null 2>&1 || { echo "SKIP: $tool not installed"; exit 0; }
 done
 
-# A sibling apex-os CHECKOUT wins over the installed copy. This suite tests the
+# A sibling rime-os CHECKOUT wins over the installed copy. This suite tests the
 # pair — the page's questions and the generator's answers — so running it
 # against whatever /usr happens to hold would report a shell change as broken
 # whenever the machine's image is older than the branch, which is the normal
-# case while both halves are in flight. Set APEX_INPUT_GENERATOR_REAL to pin it.
-GEN="${APEX_INPUT_GENERATOR_REAL:-}"
+# case while both halves are in flight. Set RIME_INPUT_GENERATOR_REAL to pin it.
+GEN="${RIME_INPUT_GENERATOR_REAL:-}"
 if [ -z "$GEN" ]; then
     # A sibling checkout first, then a scratch worktree beside this one, then
     # the installed copy. Worktrees are how both halves of this task are
     # developed, and neither of the first two paths finds one.
-    for cand in "$root/../apex-os/files/system/libexec/apex-input-apply" \
-                "$root/../../apex-os/files/system/libexec/apex-input-apply" \
-                "$root"/../wt-*-os/files/system/libexec/apex-input-apply \
-                /usr/libexec/apex-input-apply; do
+    for cand in "$root/../rime-os/files/system/libexec/rime-input-apply" \
+                "$root/../../rime-os/files/system/libexec/rime-input-apply" \
+                "$root"/../wt-*-os/files/system/libexec/rime-input-apply \
+                /usr/libexec/rime-input-apply; do
         [ -f "$cand" ] && { GEN="$cand"; break; }
     done
 fi
-[ -f "$GEN" ] || { echo "SKIP: no input generator at $GEN (it ships with APEX-OS)"; exit 0; }
+[ -f "$GEN" ] || { echo "SKIP: no input generator at $GEN (it ships with Rime OS)"; exit 0; }
 
 # An INSTALLED generator older than this branch has none of the three questions
 # the page asks, and every assertion below would fail for that reason rather
@@ -72,14 +72,14 @@ fi
 # suite: the pair only works when both halves have landed.
 if ! python3 "$GEN" --capabilities >/dev/null 2>&1; then
     echo "SKIP: ${GEN} has no --capabilities; it predates P0-019."
-    echo "      Point APEX_INPUT_GENERATOR_REAL at an apex-os checkout that has it."
+    echo "      Point RIME_INPUT_GENERATOR_REAL at a rime-os checkout that has it."
     exit 0
 fi
 echo "generator: $GEN"
 
 sandbox="$(mktemp -d)"
 shim="$sandbox/shim"
-mkdir -p "$shim" "$sandbox/home/.config/labwc" "$sandbox/home/.config/apex-shell" \
+mkdir -p "$shim" "$sandbox/home/.config/labwc" "$sandbox/home/.config/rime-shell" \
          "$sandbox/cfg"
 
 # Nothing in here may reach a live compositor, and the two that could are the
@@ -99,10 +99,10 @@ for prog in hyprctl labwc; do
 done
 
 # The shipped rc.xml, so the labwc half writes into the file a user really has.
-if [ -f "$root/../apex-os/files/desktop/labwc/rc.xml" ]; then
-    cp "$root/../apex-os/files/desktop/labwc/rc.xml" "$sandbox/home/.config/labwc/rc.xml"
-elif [ -f /usr/share/apex/labwc/rc.xml ]; then
-    cp /usr/share/apex/labwc/rc.xml "$sandbox/home/.config/labwc/rc.xml"
+if [ -f "$root/../rime-os/files/desktop/labwc/rc.xml" ]; then
+    cp "$root/../rime-os/files/desktop/labwc/rc.xml" "$sandbox/home/.config/labwc/rc.xml"
+elif [ -f /usr/share/rime/labwc/rc.xml ]; then
+    cp /usr/share/rime/labwc/rc.xml "$sandbox/home/.config/labwc/rc.xml"
 else
     printf '<?xml version="1.0"?>\n<labwc_config>\n  <keyboard>\n  </keyboard>\n</labwc_config>\n' \
         > "$sandbox/home/.config/labwc/rc.xml"
@@ -167,8 +167,8 @@ cp "$here/input-settings-test.qml" "$root/.input-settings-test.qml"
 
 run_as() { # compositor
     local comp="$1" log="$sandbox/$1.log"
-    rm -f "$sandbox/home/.config/apex-shell/input.json" \
-          "$sandbox/home/.config/apex-shell/ApexShellInput.kdl"
+    rm -f "$sandbox/home/.config/rime-shell/input.json" \
+          "$sandbox/home/.config/rime-shell/RimeShellInput.kdl"
     echo
     echo "── as ${comp} ──"
     ( cd "$root" && env -u HYPRLAND_INSTANCE_SIGNATURE -u NIRI_SOCKET -u DISPLAY \
@@ -176,9 +176,9 @@ run_as() { # compositor
         XDG_CURRENT_DESKTOP="$comp" \
         HOME="$sandbox/home" \
         PATH="$shim:$PATH" \
-        APEX_INPUT_GENERATOR="$GEN" \
-        APEX_INPUT_DEVICES="$sandbox/devices.json" \
-        APEX_TEST_COMPOSITOR="$comp" \
+        RIME_INPUT_GENERATOR="$GEN" \
+        RIME_INPUT_DEVICES="$sandbox/devices.json" \
+        RIME_TEST_COMPOSITOR="$comp" \
         QT_LOGGING_RULES="qml=true" \
         timeout 240 quickshell -p "$root/.input-settings-test.qml" ) >"$log" 2>&1
     sed 's/\x1b\[[0-9;]*m//g' "$log" | grep -E "PASS|FAIL|passed=" | sed 's/^/  /' || true

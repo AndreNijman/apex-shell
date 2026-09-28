@@ -38,7 +38,7 @@ Window {
     visible: true
     width:  320
     height: 200
-    title:  "apex-atspi-control"
+    title:  "rime-atspi-control"
 
     Text {
         anchors.centerIn: parent
@@ -48,6 +48,6 @@ Window {
         // tests/mutate-lockscreen-atspi.sh, because a control nobody can break
         // is not a control.
         Accessible.role: Accessible.StaticText
-        Accessible.name: "apex-atspi-control-label"
+        Accessible.name: "rime-atspi-control-label"
     }
 }

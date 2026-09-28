@@ -35,7 +35,7 @@
 //  ── Why this file exists rather than a paragraph ────────────────────────────
 //
 //  Every link above is a claim about someone else's source. This runs it. Five
-//  modes, one process each, selected by APEX_REPRO_MODE:
+//  modes, one process each, selected by RIME_REPRO_MODE:
 //
 //    A  QCoreApplication -> delete -> QGuiApplication      what quickshell does
 //    B  QGuiApplication only                           what qml-qt6 does (the
@@ -74,56 +74,56 @@
 
 static const char *mode()
 {
-    const char *m = getenv("APEX_REPRO_MODE");
+    const char *m = getenv("RIME_REPRO_MODE");
     return m ? m : "A";
 }
 
 // Deliberately minimal, and deliberately named: the name is how the suite tells
 // OUR root from the one Qt's own QAccessibleQuickWindow would have produced.
-class ApexRoot : public QAccessibleObject
+class RimeRoot : public QAccessibleObject
 {
 public:
-    explicit ApexRoot(QObject *o) : QAccessibleObject(o) {}
+    explicit RimeRoot(QObject *o) : QAccessibleObject(o) {}
     QAccessibleInterface *parent() const override { return nullptr; }
     QAccessibleInterface *child(int) const override { return nullptr; }
     int childCount() const override { return 0; }
     int indexOfChild(const QAccessibleInterface *) const override { return -1; }
     QString text(QAccessible::Text t) const override
     {
-        return t == QAccessible::Name ? QStringLiteral("APEX-CUSTOM-ROOT") : QString();
+        return t == QAccessible::Name ? QStringLiteral("RIME-CUSTOM-ROOT") : QString();
     }
     QAccessible::Role role() const override { return QAccessible::Window; }
     QAccessible::State state() const override { return QAccessible::State(); }
 };
 
-static QAccessibleInterface *apexFactory(const QString &cn, QObject *o)
+static QAccessibleInterface *rimeFactory(const QString &cn, QObject *o)
 {
     if (cn == QLatin1String("QQuickWindow"))
-        return new ApexRoot(o);
+        return new RimeRoot(o);
     return nullptr;
 }
 
-static void installApexFactory(const char *who)
+static void installRimeFactory(const char *who)
 {
-    QAccessible::installFactory(&apexFactory);
-    printf("install: %s installed apexFactory\n", who);
+    QAccessible::installFactory(&rimeFactory);
+    printf("install: %s installed rimeFactory\n", who);
 }
 
 // The shape qtdeclarative uses today: once, at load, never again.
-static void apexCtor()
+static void rimeCtor()
 {
     if (strcmp(mode(), "C") == 0)
-        installApexFactory("Q_CONSTRUCTOR_FUNCTION");
+        installRimeFactory("Q_CONSTRUCTOR_FUNCTION");
 }
-Q_CONSTRUCTOR_FUNCTION(apexCtor)
+Q_CONSTRUCTOR_FUNCTION(rimeCtor)
 
 // The shape the fix uses: once per QCoreApplicationPrivate::init().
-static void apexStartup()
+static void rimeStartup()
 {
     if (strcmp(mode(), "D") == 0)
-        installApexFactory("Q_COREAPP_STARTUP_FUNCTION");
+        installRimeFactory("Q_COREAPP_STARTUP_FUNCTION");
 }
-Q_COREAPP_STARTUP_FUNCTION(apexStartup)
+Q_COREAPP_STARTUP_FUNCTION(rimeStartup)
 
 int main(int, char **argv)
 {
@@ -147,7 +147,7 @@ int main(int, char **argv)
     printf("guiapp: constructed\n");
 
     if (strcmp(m, "E") == 0)
-        installApexFactory("after-QGuiApplication");
+        installRimeFactory("after-QGuiApplication");
 
     auto *w = new QQuickWindow();
     w->setTitle(QStringLiteral("QTROOT"));

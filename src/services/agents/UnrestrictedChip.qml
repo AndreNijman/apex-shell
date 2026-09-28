@@ -15,11 +15,11 @@ import "../../components/controls"
 // accessible description, and a click (or Space) opens the Config page that
 // carries the toggle. The settings page itself keeps the full banner, beside
 // the switch it explains.
-ApexPressable {
+RimePressable {
     id: chip
 
     readonly property string _explain:
-        "Agents started from now on run with no APEX sandbox. They are still not "
+        "Agents started from now on run with no Rime sandbox. They are still not "
         + "root, and secrets stay behind the broker."
 
     height: theme.px(24)
@@ -61,5 +61,5 @@ ApexPressable {
             color: Theme.danger
         }
     }
-    ApexFocusRing { target: chip }
+    RimeFocusRing { target: chip }
 }

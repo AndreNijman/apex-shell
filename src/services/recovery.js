@@ -1,7 +1,7 @@
 // ─── recovery.js ─────────────────────────────────────────────────────────────
 // Pure logic behind RecoveryService (roadmap §19, and §25's "make recovery and
 // rollback part of normal UX, not expert documentation"): reading
-// `apex recover status --json`, `apex doctor --json` and the factory reset's
+// `rime recover status --json`, `rime doctor --json` and the factory reset's
 // dry-run plan, and turning each into something a settings page can render
 // without holding any of the reasoning itself.
 //
@@ -13,9 +13,9 @@
 //
 // ── EXIT CODE 1 IS A REPORT, NOT A FAILURE ──────────────────────────────────
 //
-// `apex recover status` returns 1 when any component needs attention:
+// `rime recover status` returns 1 when any component needs attention:
 //
-//     return if attention > 0 { 1 } else { 0 }        (apexd recover.rs)
+//     return if attention > 0 { 1 } else { 0 }        (rimed recover.rs)
 //
 // So the reflex `if (exitCode !== 0) return notAvailable` empties the panel on
 // exactly the machines it exists for — the ones with something wrong. The
@@ -23,7 +23,7 @@
 // on the TEXT and lets the exit code inform only the "we could not run it at
 // all" branch, where there is no text to decide on.
 //
-// `apex doctor` is the other way round: it always exits 0, even with warnings.
+// `rime doctor` is the other way round: it always exits 0, even with warnings.
 // Reading a doctor exit code as a health verdict would report every machine
 // healthy. The counts in the payload are the verdict.
 //
@@ -43,7 +43,7 @@
 //
 // ── THE CONFIRM TOKEN IS EVIDENCE, NOT A PARAMETER ──────────────────────────
 //
-// `apex recover reset --commit` needs `--confirm <scope>:<count>:<hash>`, and
+// `rime recover reset --commit` needs `--confirm <scope>:<count>:<hash>`, and
 // the hash is computed over the paths the plan actually found. The OS side
 // built it that way so a UI cannot commit a reset without having run the plan
 // — and running the plan is the step that produces the loss list. So this file
@@ -95,7 +95,7 @@ function stateTone(s) {
     return STATE_TONES[s] || "neutral";
 }
 
-// An unrecognised state is `unavailable`, never `verified`. A future apexd row
+// An unrecognised state is `unavailable`, never `verified`. A future rimed row
 // state this build has never heard of must not render as a tick.
 function normalizeState(s) {
     return STATE_LABELS[s] ? s : STATE.UNAVAILABLE;
@@ -125,19 +125,19 @@ function asString(v) {
     return typeof v === "string" ? v : "";
 }
 
-// ── apex recover status --json ──────────────────────────────────────────────
+// ── rime recover status --json ──────────────────────────────────────────────
 
 // The row ids docs/recovery.md declares a compatibility surface. Kept here so
 // a renamed id shows up as a missing row rather than as a silently shorter
 // list, and so the page can order rows the way §19 lists them regardless of
-// what order apexd emits.
+// what order rimed emits.
 var ROW_ORDER = [
     "current-deployment",
     "previous-deployment",
     "secure-boot",
     "filesystem",
     "gpu-driver",
-    "apex-shell",
+    "rime-shell",
     "network",
     "package-extensions"
 ];
@@ -173,7 +173,7 @@ function parseStatus(exitCode, text) {
         };
     }).filter(function (r) { return r.id !== ""; });
 
-    // §19's order, then anything apexd grew that this build does not know
+    // §19's order, then anything rimed grew that this build does not know
     // about — appended rather than dropped, because a row nobody rendered is
     // the failure mode this whole page exists to end.
     var known = [];
@@ -234,7 +234,7 @@ function routeMark(available) {
     return "unknown";
 }
 
-// ── apex doctor --json ──────────────────────────────────────────────────────
+// ── rime doctor --json ──────────────────────────────────────────────────────
 
 // The doctor prints continuation lines indented by two spaces — the touchpad
 // check has four of them under it. They are one check each as far as the JSON
@@ -286,12 +286,12 @@ function doctorSummary(d) {
     return d.passed + " of " + d.total + " pass, " + d.warned + " to read";
 }
 
-// ── apex recover repair --json ──────────────────────────────────────────────
+// ── rime recover repair --json ──────────────────────────────────────────────
 
 var EMPTY_REPAIR = { ok: false, domain: "", committed: false, steps: [] };
 
-// A step is offered only where apexd diagnosed it, and `runnableHere` is
-// apexd's own answer about the privilege domain — not something recomputed
+// A step is offered only where rimed diagnosed it, and `runnableHere` is
+// rimed's own answer about the privilege domain — not something recomputed
 // here. Repair converges the domain it is already in and reports the other,
 // so a step with `runnableHere: false` is a command to show, never a button.
 function parseRepair(exitCode, text) {
@@ -319,7 +319,7 @@ function parseRepair(exitCode, text) {
     };
 }
 
-// ── apex recover reset --json (the dry run) ─────────────────────────────────
+// ── rime recover reset --json (the dry run) ─────────────────────────────────
 
 // What the plan's disposition means where a person can read it. `truncate` is
 // NOT a deletion: nothing under ~/.config/hypr is ever deleted, so the
@@ -346,7 +346,7 @@ var EMPTY_PLAN = {
     provisioner: ""
 };
 
-// The confirm token's shape, as apexd builds it: `<scope>:<count>:<hash>`.
+// The confirm token's shape, as rimed builds it: `<scope>:<count>:<hash>`.
 // Validated rather than trusted so a truncated read or an error message on
 // stdout cannot be handed to `--commit` as if it were a token.
 var TOKEN_RE = /^[a-z]+:[0-9]+:[0-9a-f]+$/;
@@ -359,7 +359,7 @@ function looksLikeToken(t) {
 // because the table is static, and listing a path that is not there as a loss
 // is how a loss list stops being believed.
 //
-// This filter is deliberately the same one apexd's `token_paths()` applies
+// This filter is deliberately the same one rimed's `token_paths()` applies
 // when it derives the token, so the count in `<scope>:<count>:<hash>` equals
 // the number of rows rendered here. tests/recovery-test.js asserts that
 // equality against a real payload — it is what makes "the token cannot be had
@@ -439,7 +439,7 @@ function commitArgv(plan, renderedCount, token) {
     if (!plan || !plan.ok)                    return null;
     if (!looksLikeToken(token))               return null;
     // The token must be the one THIS plan printed. Not merely a well-formed
-    // one, and never one recomputed from the scope: apexd's whole design is
+    // one, and never one recomputed from the scope: rimed's whole design is
     // that the token cannot be constructed without running the plan.
     if (token !== plan.confirmToken)          return null;
     if (tokenScope(token) !== plan.scope)     return null;
@@ -449,7 +449,7 @@ function commitArgv(plan, renderedCount, token) {
     if (renderedCount !== plan.losses.length) return null;
     if (renderedCount !== tokenCount(token))  return null;
 
-    return ["apex", "recover", "reset",
+    return ["rime", "recover", "reset",
             "--scope", plan.scope,
             "--commit",
             "--confirm", token];
@@ -459,12 +459,12 @@ function commitArgv(plan, renderedCount, token) {
 function planArgv(scope) {
     if (scope !== "desktop" && scope !== "user")
         return null;
-    return ["apex", "recover", "reset", "--scope", scope, "--json"];
+    return ["rime", "recover", "reset", "--scope", scope, "--json"];
 }
 
 // ── reading a commit back ───────────────────────────────────────────────────
 
-// apexd refuses a stale token with a message naming both, and swallowing that
+// rimed refuses a stale token with a message naming both, and swallowing that
 // in favour of a generic "failed" throws away the only sentence that explains
 // what to do. So the message is carried through, and only the classification
 // is done here.
@@ -479,23 +479,23 @@ function readCommit(exitCode, stdoutText, stderrText) {
     var err = asString(stderrText);
     if (exitCode === 0)
         return { result: COMMIT.OK, message: asString(stdoutText).trim() };
-    // exitCode 2 is apexd's "the confirmation does not match this plan" and
+    // exitCode 2 is rimed's "the confirmation does not match this plan" and
     // "--commit needs --confirm". Both mean: re-plan, do not retry.
     if (exitCode === 2)
         return { result: COMMIT.STALE, message: err.trim() };
     if (exitCode === null || exitCode === undefined)
-        return { result: COMMIT.NOT_RUN, message: "`apex` did not run" };
+        return { result: COMMIT.NOT_RUN, message: "`rime` did not run" };
     return { result: COMMIT.REFUSED, message: err.trim() };
 }
 
 // ── rollback, which is the other half of §25 ────────────────────────────────
 //
-// There is no `apex recover previous`; docs/recovery.md is explicit that
-// adding one would be a second name for `apex rollback`. So the panel shows
+// There is no `rime recover previous`; docs/recovery.md is explicit that
+// adding one would be a second name for `rime rollback`. So the panel shows
 // the command rather than running it — the verb needs root, and this shell
 // raises no authentication prompt of its own. See RecoveryService's header.
-var ROLLBACK_COMMAND = "sudo apex rollback";
-var PIN_COMMAND      = "sudo apex pin";
+var ROLLBACK_COMMAND = "sudo rime rollback";
+var PIN_COMMAND      = "sudo rime pin";
 
 // The advice the previous-deployment row carries, split out so the page can
 // show it beside the rollback command instead of burying it in a detail

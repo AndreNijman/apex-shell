@@ -1,4 +1,4 @@
-apex-firewall: nft is not installed; no policy is being enforced
+rime-firewall: nft is not installed; no policy is being enforced
 
 always allowed, and not removable here:
   established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh

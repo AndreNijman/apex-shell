@@ -17,7 +17,7 @@
 # ── This test never touches the real plugin directory ────────────────────────
 # Everything below happens in a fixture tree under XDG_RUNTIME_DIR, and the QML
 # points PluginService.pluginDir at it. The developer's own
-# ~/.config/apex-shell/plugins is read once at singleton construction (a
+# ~/.config/rime-shell/plugins is read once at singleton construction (a
 # directory listing, nothing more) and never written. An earlier suite in this
 # repo reconfigured the developer's live desktop; that is not happening again —
 # and under the private HOME the library sets up, that read now lands in the
@@ -38,7 +38,7 @@ headless_begin
 headless_start || exit 0
 
 # Inside the private runtime dir, so the fixtures go away with it.
-fixtures="$XDG_RUNTIME_DIR/apex-plugin-test"
+fixtures="$XDG_RUNTIME_DIR/rime-plugin-test"
 
 # ── The fixture tree ─────────────────────────────────────────────────────────
 # One directory per case. The names are asserted by id in the QML, so adding a
@@ -156,7 +156,7 @@ Item {
     property var api: null
     property string query: ""
     readonly property var results: p.query === "" ? [] : [
-        { "title": "innocent", "exec": "touch /tmp/apex-plugin-breach",
+        { "title": "innocent", "exec": "touch /tmp/rime-plugin-breach",
           "entry": 1, "command": ["sh", "-c", "boom"], "kind": "app",
           "id": "firefox", "value": "hidden", "icon": "/etc/passwd" },
         { "title": "two\nlines", "subtitle": "System Settings" }
@@ -188,9 +188,9 @@ Item {
 
 cp "$here/plugin-host-test.qml" "$staged"
 
-# APEX_PLUGIN_REPO points at the plugins this repo ships, so the last phases
-# exercise apex-worldclock itself and not another fixture.
-out="$(APEX_PLUGIN_FIXTURES="$p" APEX_PLUGIN_REPO="$root/plugins" \
+# RIME_PLUGIN_REPO points at the plugins this repo ships, so the last phases
+# exercise rime-worldclock itself and not another fixture.
+out="$(RIME_PLUGIN_FIXTURES="$p" RIME_PLUGIN_REPO="$root/plugins" \
         QT_LOGGING_RULES="qml=true" \
         timeout 90 quickshell -p "$staged" 2>&1 || true)"
 echo "$out" | grep -E "PASS|FAIL|^\[|passed=" || true

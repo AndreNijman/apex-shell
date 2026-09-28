@@ -30,8 +30,8 @@
 # What that costs in coverage, stated: the shell code exercised is identical —
 # the same IpcHandler, the same commit(), the same activate-after-unmap order.
 # What is NOT exercised anywhere headless is a compositor firing a bind on a
-# real ALT release. That is asserted as a registered release bind by apex-os's
-# tests/test-apex-hypr-focus.sh and confirmed only by a person holding ALT.
+# real ALT release. That is asserted as a registered release bind by rime-os's
+# tests/test-rime-hypr-focus.sh and confirmed only by a person holding ALT.
 #
 # ── Why labwc and not Hyprland ───────────────────────────────────────────────
 #
@@ -47,7 +47,7 @@
 # service are one compositor-agnostic implementation over
 # wlr-foreign-toplevel-management, and labwc is one of the two sessions that
 # ships it. It IS a hole in the coverage of Hyprland's release binding, which is
-# asserted as a registered release bind by apex-os's tests/test-apex-hypr-focus.sh
+# asserted as a registered release bind by rime-os's tests/test-rime-hypr-focus.sh
 # and confirmed for real only by a person holding ALT.
 #
 # Skips with status 0 when labwc, quickshell or wtype is missing.
@@ -86,17 +86,17 @@ headless_begin
 
 # ── the compositor, with the bindings the image ships ────────────────────────
 #
-# Reproduced here rather than read from apex-os: that is a different repository
+# Reproduced here rather than read from rime-os: that is a different repository
 # and this suite must run without it. The four bindings are the contract, and
-# apex-os's own build asserts its rc.xml carries them — what is under test here
+# rime-os's own build asserts its rc.xml carries them — what is under test here
 # is what the shell does when they fire.
 #
-# The command is a stub apex-switcher, and it reproduces the shipped one's flag
+# The command is a stub rime-switcher, and it reproduces the shipped one's flag
 # file — including the part that matters most, which is that `next` writes the
 # flag BEFORE the IPC rather than leaving it to the shell. That ordering is the
 # whole of the single-tap race: a quick ALT+Tab releases ALT about 60ms after
 # Tab goes down, and the shell's own write is at the end of a
-# spawn -> apex -> qs ipc -> Process chain that takes longer than that. A stub
+# spawn -> rime -> qs ipc -> Process chain that takes longer than that. A stub
 # without it would pass this suite while the shipped path dropped every fast
 # commit.
 #
@@ -107,10 +107,10 @@ mkdir -p "$HEADLESS_W/cfg/labwc"
 #
 # The pid is read from a FILE rather than inherited from the environment. labwc
 # starts before the shell does, and a keybind's Execute runs with the
-# compositor's environment — so an exported APEX_TEST_SHELL_PID is simply not
+# compositor's environment — so an exported RIME_TEST_SHELL_PID is simply not
 # there, every ALT+Tab silently addresses pid "", and the suite reports that the
 # keys never reached the switcher. Which is true, and blames the wrong thing.
-cat > "$HEADLESS_W/bin/apex-switcher" <<STUB
+cat > "$HEADLESS_W/bin/rime-switcher" <<STUB
 #!/usr/bin/env bash
 flag="$HEADLESS_W/flag/switcher-open"
 case "\$1" in
@@ -124,7 +124,7 @@ echo "\$(date +%s.%N) \$1" >> "$HEADLESS_W/switcher-stub.log"
 quickshell ipc --pid "\$pid" call window-switcher "\$1" \
     >> "$HEADLESS_W/switcher-stub.log" 2>&1
 STUB
-chmod +x "$HEADLESS_W/bin/apex-switcher"
+chmod +x "$HEADLESS_W/bin/rime-switcher"
 
 cat > "$HEADLESS_W/cfg/labwc/rc.xml" <<XML
 <?xml version="1.0"?>
@@ -137,16 +137,16 @@ cat > "$HEADLESS_W/cfg/labwc/rc.xml" <<XML
   </focus>
   <keyboard>
     <keybind key="A-Tab">
-      <action name="Execute" command="$HEADLESS_W/bin/apex-switcher next"/>
+      <action name="Execute" command="$HEADLESS_W/bin/rime-switcher next"/>
     </keybind>
     <keybind key="A-S-Tab">
-      <action name="Execute" command="$HEADLESS_W/bin/apex-switcher prev"/>
+      <action name="Execute" command="$HEADLESS_W/bin/rime-switcher prev"/>
     </keybind>
     <keybind key="A-Escape">
-      <action name="Execute" command="$HEADLESS_W/bin/apex-switcher cancel"/>
+      <action name="Execute" command="$HEADLESS_W/bin/rime-switcher cancel"/>
     </keybind>
     <keybind key="A-Return">
-      <action name="Execute" command="$HEADLESS_W/bin/apex-switcher commit"/>
+      <action name="Execute" command="$HEADLESS_W/bin/rime-switcher commit"/>
     </keybind>
   </keyboard>
 </labwc_config>
@@ -331,7 +331,7 @@ fi
 # ── 6. a commit arriving with nothing open is harmless ──────────────────────
 #
 # The Hyprland binding fires on every ALT release the machine produces, and
-# /usr/libexec/apex-switcher filters most of those with a flag file — but a
+# /usr/libexec/rime-switcher filters most of those with a flag file — but a
 # stale flag, or a race, puts one through. It must do nothing: not activate a
 # window, not error, not leave the switcher half-open.
 before="$(active)"
@@ -349,7 +349,7 @@ fi
 #
 # The case the whole flag-file ordering exists for. A quick ALT+Tab releases ALT
 # roughly 60ms after Tab goes down, and the shell's own flag write is at the end
-# of a spawn -> apex -> qs ipc -> Process chain longer than that. If the flag is
+# of a spawn -> rime -> qs ipc -> Process chain longer than that. If the flag is
 # written by the SHELL rather than by the helper, the commit finds no flag,
 # exits silently, and the switcher is left open on entry 2 — so the next switch
 # commits the wrong window.

@@ -78,7 +78,7 @@ QtObject {
     // wallpaper; the Clock card's Timer and Alarm tabs were not.
     //
     // WallpaperService passes matugen `-m <mode>` and takes the mode from
-    // ~/.config/apex-shell/src/user_data/wallpaper.json (setMode()).
+    // ~/.config/rime-shell/src/user_data/wallpaper.json (setMode()).
     // tests/check-color-tokens.sh bans the translucent white from coming back.
     //
     // The dark values are byte-identical to the ones already dominant in the
@@ -155,7 +155,7 @@ QtObject {
                                                     active: root.active, text: root.text })
     function _c(o) { return Qt.rgba(o.r, o.g, o.b, 1) }
     on_RoleSetChanged: if (root._roleSet.fired.length > 0)
-        console.info("APEX colour roles: this palette needed a fallback — "
+        console.info("Rime colour roles: this palette needed a fallback — "
                      + root._roleSet.fired.join("; "))
 
     readonly property color surfaceBase:       _c(_roleSet.roles.surfaceBase)

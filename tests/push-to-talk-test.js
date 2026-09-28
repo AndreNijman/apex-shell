@@ -39,8 +39,8 @@ function battery(P) {
     }
 
     const SESSIONS = [
-        { id: 1, agent: "claude", project: "apex-shell", live: true },
-        { id: 2, agent: "codex", project: "apex-os", live: true },
+        { id: 1, agent: "claude", project: "rime-shell", live: true },
+        { id: 2, agent: "codex", project: "rime-os", live: true },
         { id: 3, agent: "claude", project: "old", live: false }
     ];
     const env = extra => Object.assign(
@@ -66,7 +66,7 @@ function battery(P) {
     check("an id that names no session at all is a refusal",
           P.resolveTarget(env({ pinned: 99 })).ok, false);
     check("a target carries a label a person can read",
-          P.resolveTarget(env({ pinned: 1 })).label, "claude · apex-shell");
+          P.resolveTarget(env({ pinned: 1 })).label, "claude · rime-shell");
     check("no sessions at all is a refusal and not a crash",
           P.resolveTarget({ sessions: [], pinned: null, focused: null }).ok, false);
     check("a null environment is a refusal and not a crash",
@@ -82,7 +82,7 @@ function battery(P) {
     check("the recording froze its target", rec.target.id, "1");
     check("the microphone is open exactly while recording", P.micOpen(rec), true);
     check("the indicator names where the words are going",
-          P.indicatorLabel(rec), "Listening → claude · apex-shell");
+          P.indicatorLabel(rec), "Listening → claude · rime-shell");
 
     // The invariant the file exists to hold.
     const refused = P.reduce(idle, { type: "toggle", now: 0 }, env({}));

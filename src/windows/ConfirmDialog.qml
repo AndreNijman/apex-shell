@@ -18,7 +18,7 @@ import "../components/controls"
 //   "lock"            → loginctl lock-session
 //   "suspend"         → systemctl suspend
 //   "gamingmode"      → PowerControl.sh gamingmode (record the greeter's next
-//                       session as apex-gaming, then end this session)
+//                       session as rime-gaming, then end this session)
 //   "windows"         → PowerControl.sh windows (verify Windows, arm EFI BootNext,
 //                       reboot). PowerMenu only offers this when its
 //                       "windows-check" probe found a bootable Windows.
@@ -179,7 +179,7 @@ PanelWindow {
     Rectangle {
         id: confirmCard
         // Named for the scaling suite; see the note on the DisplayConfirm card.
-        objectName: "apex-confirm-dialog-card"
+        objectName: "rime-confirm-dialog-card"
 
         anchors.centerIn: parent
         // These two are raw literals and were before this change. They are the
@@ -259,7 +259,7 @@ PanelWindow {
                 spacing: 10
                 Keys.onEscapePressed: root.cancel()
 
-                ApexPressable {
+                RimePressable {
                     id: cancelBtn
                     width:  130
                     height: 38
@@ -282,10 +282,10 @@ PanelWindow {
                         color:          Theme.textPrimary
                         font.pixelSize: theme.fs(13)
                     }
-                    ApexFocusRing { target: cancelBtn }
+                    RimeFocusRing { target: cancelBtn }
                 }
 
-                ApexPressable {
+                RimePressable {
                     id: confirmBtn
                     width:  130
                     height: 38
@@ -308,7 +308,7 @@ PanelWindow {
                         font.pixelSize: theme.fs(13)
                         font.bold:      true
                     }
-                    ApexFocusRing { target: confirmBtn }
+                    RimeFocusRing { target: confirmBtn }
                 }
             }
         }

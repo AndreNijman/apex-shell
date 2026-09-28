@@ -26,8 +26,8 @@
 #
 #  ── The machine it interrogates is a stub, and the stub RECORDS ─────────────
 #
-#  `apex recover status --json`, `apex doctor --json` and the reset dry run are
-#  answered from fixtures captured from a real `apex` (the same payloads
+#  `rime recover status --json`, `rime doctor --json` and the reset dry run are
+#  answered from fixtures captured from a real `rime` (the same payloads
 #  tests/recovery-test.js carries), so every string this suite asserts is one
 #  it chose rather than whatever this machine happens to be today. The stub
 #  also appends its argv to a log, and that log is what makes the destructive
@@ -85,7 +85,7 @@ done
 # disagreement rather than a silently weakened assertion.
 FX_TOKEN="desktop:4:5d7f91ba"
 FX_LOSSES=4
-FX_CACHE=".cache/apex-shell"
+FX_CACHE=".cache/rime-shell"
 FX_ATTENTION="Secure Boot"
 FX_ROUTE_UNKNOWN="installer-media"
 FX_DOCTOR_WARN="ACPI platform_profile present"
@@ -241,7 +241,7 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-section "§3 a private compositor, two private buses, and a RECORDING apex"
+section "§3 a private compositor, two private buses, and a RECORDING rime"
 # ─────────────────────────────────────────────────────────────────────────────
 
 app_pid=""
@@ -258,16 +258,16 @@ trap cleanup EXIT INT TERM
 
 headless_begin
 
-# rm -f FIRST. headless_begin makes bin/apex, bin/loginctl and bin/busctl
-# SYMLINKS to one shared stub, so `cat > …/apex` writes THROUGH the link and
-# turns every other stub into an apex. And busctl at all because headless_begin
+# rm -f FIRST. headless_begin makes bin/rime, bin/loginctl and bin/busctl
+# SYMLINKS to one shared stub, so `cat > …/rime` writes THROUGH the link and
+# turns every other stub into a rime. And busctl at all because headless_begin
 # does not stub it, so the shell's PowerProfileService would otherwise reach
 # the real system bus.
-rm -f "$HEADLESS_W/bin/apex" "$HEADLESS_W/bin/loginctl" "$HEADLESS_W/bin/busctl"
-APEX_ARGV="$HEADLESS_W/apex-argv.log"
-: > "$APEX_ARGV"
+rm -f "$HEADLESS_W/bin/rime" "$HEADLESS_W/bin/loginctl" "$HEADLESS_W/bin/busctl"
+RIME_ARGV="$HEADLESS_W/rime-argv.log"
+: > "$RIME_ARGV"
 
-# Captured payloads, not invented ones. These are the shapes apexd really
+# Captured payloads, not invented ones. These are the shapes rimed really
 # produces — `action` null on most rows, `available` null (not false) on
 # installer-media, the doctor's two-space continuation indent, and a plan that
 # lists targets which do NOT exist alongside ones that do — trimmed from the
@@ -281,18 +281,18 @@ w, token = sys.argv[1], sys.argv[2]
 H = "/var/home/andre"
 rows = [
     {"action": None, "id": "current-deployment", "label": "Current deployment",
-     "state": "verified", "detail": "ostree 96351335ae0b — APEX-OS 43 daily"},
-    {"action": "sudo apex rollback", "id": "previous-deployment",
+     "state": "verified", "detail": "ostree 96351335ae0b — Rime OS 43 daily"},
+    {"action": "sudo rime rollback", "id": "previous-deployment",
      "label": "Previous deployment", "state": "available",
      "detail": "2 deployments present, so there is one to go back to. Nothing has verified that it boots."},
-    {"action": "sudo apex update", "id": "secure-boot", "label": "Secure Boot",
+    {"action": "sudo rime update", "id": "secure-boot", "label": "Secure Boot",
      "state": "attention", "detail": "firmware reports Secure Boot enabled"},
     {"action": None, "id": "filesystem", "label": "Filesystem",
      "state": "verified", "detail": "/usr is read-only on a overlay root, ostree-booted"},
     {"action": None, "id": "gpu-driver", "label": "GPU driver",
      "state": "verified", "detail": "1 — AMD via amdgpu"},
-    {"action": None, "id": "apex-shell", "label": "APEX Shell",
-     "state": "verified", "detail": "vendored in the image at /usr/share/apex-shell"},
+    {"action": None, "id": "rime-shell", "label": "Rime Shell",
+     "state": "verified", "detail": "vendored in the image at /usr/share/rime-shell"},
     {"action": None, "id": "network", "label": "Network",
      "state": "available", "detail": "a default route exists. Nothing was contacted."},
     {"action": None, "id": "package-extensions", "label": "Package extensions",
@@ -302,21 +302,21 @@ status = {
     "bootloader": "grub", "needsAttention": 1, "rows": rows,
     "actions": [],
     "routes": [
-        {"id": "previous-deployment", "available": True, "how": "`sudo apex rollback` then reboot."},
+        {"id": "previous-deployment", "available": True, "how": "`sudo rime rollback` then reboot."},
         {"id": "rescue-target", "available": True, "how": "at the grub menu, edit the entry."},
         {"id": "boot-counting", "available": False, "how": "not in effect: this machine boots through GRUB."},
-        {"id": "disposable-environment", "available": False, "how": "`apex disposable run` gives you a throwaway userspace."},
-        {"id": "recovery-boot-entry", "available": False, "how": "APEX ships no recovery boot entry."},
+        {"id": "disposable-environment", "available": False, "how": "`rime disposable run` gives you a throwaway userspace."},
+        {"id": "recovery-boot-entry", "available": False, "how": "Rime ships no recovery boot entry."},
         {"id": "installer-media", "available": None, "how": "cannot be determined from a running system."},
     ],
     "resetScopes": [
-        {"id": "desktop", "summary": "APEX Shell's settings, keybinds and caches for this account"},
+        {"id": "desktop", "summary": "Rime Shell's settings, keybinds and caches for this account"},
         {"id": "user", "summary": "everything under `desktop`, PLUS your blueprint"},
     ],
 }
 doctor = {
     "checks": [
-        {"check": "apexd running (owns org.apexos.Apexd1)", "ok": True},
+        {"check": "rimed running (owns org.rimeos.Rimed1)", "ok": True},
         {"check": "cpufreq scaling driver present (amd-pstate-epp)", "ok": True},
         {"check": "touchpad: ELAN06DA:00 04F3:320B Touchpad", "ok": True},
         {"check": "  multitouch slots (ABS_MT_SLOT): present", "ok": True},
@@ -331,20 +331,20 @@ def t(rel, exists, backed, what, disp="delete", kind="file"):
             "kind": kind, "exists": exists, "backedUp": backed, "what": what}
 plan = {
     "committed": False, "confirmToken": token, "scope": "desktop",
-    "summary": "APEX Shell's settings, keybinds and caches for this account",
-    "provisioner": "/usr/libexec/apex-shell-firstrun", "reprovision": True,
+    "summary": "Rime Shell's settings, keybinds and caches for this account",
+    "provisioner": "/usr/libexec/rime-shell-firstrun", "reprovision": True,
     "preserved": [
         "every document, project, checkout and credential in your home directory",
         "~/.ssh, ~/.gnupg, ~/.aws and every browser profile",
     ],
     "preservedLandmarks": [".ssh", ".gnupg"],
     "targets": [
-        t(".config/apex-shell/display.json", False, True, "saved monitor layout, scale and refresh rate"),
-        t(".config/apex-shell/ApexShellKeybinds.conf", True, True, "the retired hyprlang keybind fragment"),
-        t(".config/apex-shell/ApexShellKeybinds.kdl", True, True, "the generated niri keybinds"),
-        t(".config/apex-shell/ApexShellKeybinds.lua", True, True, "the generated labwc keybinds"),
-        t(".cache/apex-shell", True, False, "the shell's cache: generated colour scheme, thumbnails", kind="dir"),
-        t(".config/hypr/apex/input.lua", False, True,
+        t(".config/rime-shell/display.json", False, True, "saved monitor layout, scale and refresh rate"),
+        t(".config/rime-shell/RimeShellKeybinds.conf", True, True, "the retired hyprlang keybind fragment"),
+        t(".config/rime-shell/RimeShellKeybinds.kdl", True, True, "the generated niri keybinds"),
+        t(".config/rime-shell/RimeShellKeybinds.lua", True, True, "the generated labwc keybinds"),
+        t(".cache/rime-shell", True, False, "the shell's cache: generated colour scheme, thumbnails", kind="dir"),
+        t(".config/hypr/rime/input.lua", False, True,
           "the generated Hyprland input overrides (emptied, not removed)", disp="truncate"),
     ],
 }
@@ -352,9 +352,9 @@ for name, obj in (("status", status), ("doctor", doctor), ("plan-desktop", plan)
     open("%s/%s.json" % (w, name), "w", encoding="utf-8").write(json.dumps(obj))
 PY
 
-cat > "$HEADLESS_W/bin/apex" <<FAKE
+cat > "$HEADLESS_W/bin/rime" <<FAKE
 #!/usr/bin/env bash
-printf 'apex %s\n' "\$*" >> "$APEX_ARGV"
+printf 'rime %s\n' "\$*" >> "$RIME_ARGV"
 case "\$*" in
     "recover status --json")             cat "$HEADLESS_W/status.json"; exit 0 ;;
     "doctor --json")                     cat "$HEADLESS_W/doctor.json"; exit 0 ;;
@@ -372,7 +372,7 @@ cat > "$HEADLESS_W/bin/busctl" <<'FAKE'
 #!/usr/bin/env bash
 exit 1
 FAKE
-chmod +x "$HEADLESS_W/bin/apex" "$HEADLESS_W/bin/loginctl" "$HEADLESS_W/bin/busctl"
+chmod +x "$HEADLESS_W/bin/rime" "$HEADLESS_W/bin/loginctl" "$HEADLESS_W/bin/busctl"
 
 if ! headless_start; then
     echo "SKIP: no compositor, so nothing here was measured."
@@ -418,7 +418,7 @@ section "§4 the shell, the page, and THE CONTROL — the defect, re-measured he
 
 shell_log="$W/shell.log"
 QT_LOGGING_RULES="qml=true" atspi_run_app env \
-    LD_PRELOAD="$SHIM" APEX_SHIM_TRIGGER="$TRIGGER" \
+    LD_PRELOAD="$SHIM" RIME_SHIM_TRIGGER="$TRIGGER" \
     quickshell -p "$root/shell.qml" >"$shell_log" 2>&1 &
 app_pid=$!
 
@@ -430,7 +430,7 @@ if ! grep -q "Configuration Loaded" "$shell_log"; then
 fi
 ok "the shipped shell loads on the private compositor, under the preload"
 
-if grep -q 'APEXSHIM: interposed QGuiApplication::exec()' "$shell_log"; then
+if grep -q 'RIMESHIM: interposed QGuiApplication::exec()' "$shell_log"; then
     ok "the preload really took QGuiApplication::exec() in THIS process"
 else
     bad "the preload really took QGuiApplication::exec() in THIS process" \
@@ -461,13 +461,13 @@ else
 fi
 
 # The stub really is the machine this page read. Without this the page could
-# have been answering from the real `apex` and every string below would be
+# have been answering from the real `rime` and every string below would be
 # about this laptop.
-if grep -q '^apex recover status --json$' "$APEX_ARGV" && grep -q '^apex doctor --json$' "$APEX_ARGV"; then
+if grep -q '^rime recover status --json$' "$RIME_ARGV" && grep -q '^rime doctor --json$' "$RIME_ARGV"; then
     ok "and it read the FIXTURE, not this machine — both polled verbs are in the argv log"
 else
     bad "and it read the FIXTURE, not this machine" \
-        "the stub recorded: $(tr '\n' ';' <"$APEX_ARGV")"
+        "the stub recorded: $(tr '\n' ';' <"$RIME_ARGV")"
 fi
 
 # ── the control ─────────────────────────────────────────────────────────────
@@ -492,10 +492,10 @@ section "§5 the factory goes back, and the page arrives"
 # ─────────────────────────────────────────────────────────────────────────────
 
 : > "$TRIGGER"
-for _ in $(seq 1 120); do grep -q 'APEXSHIM: DONE' "$shell_log" && break; sleep 0.25; done
-if ! grep -q 'APEXSHIM: DONE' "$shell_log"; then
+for _ in $(seq 1 120); do grep -q 'RIMESHIM: DONE' "$shell_log" && break; sleep 0.25; done
+if ! grep -q 'RIMESHIM: DONE' "$shell_log"; then
     bad "the shim installs the factory when asked" "it never finished; the trigger file was $TRIGGER"
-    grep '^APEXSHIM' "$shell_log" | sed 's/^/      /'
+    grep '^RIMESHIM' "$shell_log" | sed 's/^/      /'
     totals; exit 1
 fi
 ok "the shim installs the factory when asked"
@@ -569,7 +569,7 @@ want_row "list item" "warning — $FX_DOCTOR_WARN" \
 # row's title and appeared nowhere in the tree.
 rb="$(grep -F 'name=Boot the previous deployment' "$W/tree.txt" | head -1)"
 case "$rb" in
-    *"The command is: sudo apex rollback"*)
+    *"The command is: sudo rime rollback"*)
         ok "the rollback COMMAND reaches the bus — the one thing that row exists to hand over" ;;
     *)  bad "the rollback COMMAND reaches the bus" \
             "got: ${rb:-<no such node>}. Without a11yExtra the row is adopted and renamed to its own label, and the command is spoken nowhere." ;;
@@ -681,9 +681,9 @@ fi
 # The row that carries weight in both directions is ACT 4 below.
 press "Erase" >/dev/null 2>&1
 sleep 2
-if grep -q -- '--commit' "$APEX_ARGV"; then
+if grep -q -- '--commit' "$RIME_ARGV"; then
     bad "pressing Erase before the loss list exists commits NOTHING" \
-        "the argv log already contains: $(grep -- '--commit' "$APEX_ARGV" | head -1)"
+        "the argv log already contains: $(grep -- '--commit' "$RIME_ARGV" | head -1)"
 else
     ok "pressing Erase before the loss list exists commits NOTHING — the argv log has no --commit"
 fi
@@ -698,14 +698,14 @@ fi
 
 press "Show what would be lost" >/dev/null 2>&1
 for _ in $(seq 1 60); do
-    grep -q -- 'recover reset --scope desktop --json' "$APEX_ARGV" && break
+    grep -q -- 'recover reset --scope desktop --json' "$RIME_ARGV" && break
     sleep 0.25
 done
-if grep -q -- 'apex recover reset --scope desktop --json' "$APEX_ARGV"; then
+if grep -q -- 'rime recover reset --scope desktop --json' "$RIME_ARGV"; then
     ok "ACT 3: pressing 'Show what would be lost' over the bus really runs the dry run, and only the dry run"
 else
     bad "ACT 3: pressing 'Show what would be lost' over the bus really runs the dry run, and only the dry run" \
-        "the stub recorded: $(tr '\n' ';' <"$APEX_ARGV")"
+        "the stub recorded: $(tr '\n' ';' <"$RIME_ARGV")"
 fi
 
 sleep 3
@@ -758,14 +758,14 @@ fi
 
 press "Erase $FX_LOSSES item(s) now" >/dev/null 2>&1
 for _ in $(seq 1 60); do
-    grep -q -- '--commit' "$APEX_ARGV" && break
+    grep -q -- '--commit' "$RIME_ARGV" && break
     sleep 0.25
 done
-commit_line="$(grep -- '--commit' "$APEX_ARGV" | head -1)"
+commit_line="$(grep -- '--commit' "$RIME_ARGV" | head -1)"
 if [ -z "$commit_line" ]; then
     bad "ACT 4: a reader can COMPLETE the reset over the bus, with the exact token the plan printed" \
-        "nothing with --commit was recorded. This is the shape of the defect found on 2026-09-19: the loss list acknowledged itself one line before the phase allowed it, commitReady was false for ever, and the reset could not be completed by anybody. Recorded: $(tr '\n' ';' <"$APEX_ARGV")"
-elif [ "$commit_line" = "apex recover reset --scope desktop --commit --confirm $FX_TOKEN" ]; then
+        "nothing with --commit was recorded. This is the shape of the defect found on 2026-09-19: the loss list acknowledged itself one line before the phase allowed it, commitReady was false for ever, and the reset could not be completed by anybody. Recorded: $(tr '\n' ';' <"$RIME_ARGV")"
+elif [ "$commit_line" = "rime recover reset --scope desktop --commit --confirm $FX_TOKEN" ]; then
     ok "ACT 4: a reader can COMPLETE the reset over the bus, with the exact token the plan printed"
 else
     bad "ACT 4: a reader can COMPLETE the reset over the bus, with the exact token the plan printed" \
@@ -777,9 +777,9 @@ fi
 sleep 3
 python3 "$WALK" --dump >"$W/tree-done.txt" 2>/dev/null
 if grep -qF '| name=Reset complete. |' "$W/tree-done.txt"; then
-    ok "and the outcome apexd reported comes back on the bus, verbatim"
+    ok "and the outcome rimed reported comes back on the bus, verbatim"
 else
-    bad "and the outcome apexd reported comes back on the bus, verbatim" \
+    bad "and the outcome rimed reported comes back on the bus, verbatim" \
         "no node named 'Reset complete.'; the stub's stdout is what RecoveryService puts in resetMessage"
 fi
 

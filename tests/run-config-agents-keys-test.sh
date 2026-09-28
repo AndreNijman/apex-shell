@@ -50,9 +50,9 @@ trap cleanup EXIT INT TERM
 headless_start labwc 1920x1080 || exit 0
 ln -sf "$HEADLESS_W/bin/_stub" "$HEADLESS_W/bin/labwc"   # the apply pipeline's --reconfigure
 
-ud="$HOME/.config/apex-shell/src/user_data"; mkdir -p "$ud" "$HOME/.cache/apex-shell"
+ud="$HOME/.config/rime-shell/src/user_data"; mkdir -p "$ud" "$HOME/.cache/rime-shell"
 printf '{"barEnabled":false,"animDuration":320,"motionScale":1,"dashboardWidth":900,"dashboardHeight":520}' > "$ud/settings.json"
-headless_apex_palette dark   # the APEX-OS default look (tests/lib/headless.sh)
+headless_rime_palette dark   # the Rime OS default look (tests/lib/headless.sh)
 python3 - "$HOME/Pictures/Wallpapers" <<'PY'
 import sys
 from PIL import Image
@@ -136,7 +136,7 @@ grep -q 'img .*bbb-second.png' "$SETTER_LOG" \
     && ok "and ~/.curr_wall points at it" || bad "~/.curr_wall is $(readlink "$HOME/.curr_wall" 2>/dev/null || echo unset)"
 ipc nexus close; sleep 1
 
-# SUPER+C and apex-os's keybind helper still call `dashboard-config`; since
+# SUPER+C and rime-os's keybind helper still call `dashboard-config`; since
 # Phase 19 it is a compatibility name that opens Nexus, not a Dashboard tab.
 # Asked with `nexus toggle`, which says "nexus closed" only if the window WAS
 # open — `nexus open` would report open whatever the alias had done.

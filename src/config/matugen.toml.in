@@ -4,27 +4,27 @@
 # TEMPLATE — this file is NOT read by matugen directly. matugen does NOT expand
 # `~` or environment variables in template input_path/output_path, so every
 # path below must be ABSOLUTE. The two placeholders are substituted into a real
-# config at ~/.config/apex-shell/matugen.toml:
-#   @SRCDIR@ -> the APEX Shell source directory (e.g. ~/.local/src/apex-shell)
+# config at ~/.config/rime-shell/matugen.toml:
+#   @SRCDIR@ -> the Rime Shell source directory (e.g. ~/.local/src/rime-shell)
 #   @HOME@   -> your home directory
 # The substitution is done by install.sh at install time and by
 # WallpaperService.qml at runtime (both use the live $HOME / shell dir), which
 # is what keeps these paths portable across users and install locations.
 
-# -- APEX Shell QML colour contract -> ~/.cache/apex-shell/colors.json --------
+# -- Rime Shell QML colour contract -> ~/.cache/rime-shell/colors.json --------
 # ColorLoader.qml watches this file and reads:
 #   background, active, text, subtext, border, iconFont
-[templates.apex_shell]
-input_path = '@SRCDIR@/src/config/apex-shell-colors.json.example'
-output_path = '@HOME@/.cache/apex-shell/colors.json'
+[templates.rime_shell]
+input_path = '@SRCDIR@/src/config/rime-shell-colors.json.example'
+output_path = '@HOME@/.cache/rime-shell/colors.json'
 
-# -- Hyprland window-border colours -> ~/.config/hypr/apex-shell-colors.conf --
+# -- Hyprland window-border colours -> ~/.config/hypr/rime-shell-colors.conf --
 # Sourced by ~/.config/hypr/hyprland.conf for $primary/$surface/$surface_bright/etc.
 # (Was the RELATIVE 'colors.conf' -> written next to matugen's CWD; the real
 #  target never updated. THIS was the window-border-colour bug.)
 [templates.hyprland_colors]
 input_path = '@SRCDIR@/src/config/colors.conf.template'
-output_path = '@HOME@/.config/hypr/apex-shell-colors.conf'
+output_path = '@HOME@/.config/hypr/rime-shell-colors.conf'
 
 # -- hyprlock colours -> source-tree colors.conf ------------------------------
 # hyprlock.conf sources exactly <srcdir>/src/config/colors.conf,
@@ -33,32 +33,32 @@ output_path = '@HOME@/.config/hypr/apex-shell-colors.conf'
 input_path = '@SRCDIR@/src/config/colors.conf.template'
 output_path = '@SRCDIR@/src/config/colors.conf'
 
-# -- Optional terminal palette -> ~/.config/ghostty/apex-shell-colors ---------
+# -- Optional terminal palette -> ~/.config/ghostty/rime-shell-colors ---------
 [templates.ghostty]
 input_path = '@SRCDIR@/src/config/ghostty-colors.template'
-output_path = '@HOME@/.config/ghostty/apex-shell-colors'
+output_path = '@HOME@/.config/ghostty/rime-shell-colors'
 
-# -- Terminal greeting accent -> ~/.cache/apex-shell/accent-ansi --------------
-# The fastfetch greeting (/usr/share/apex/shell/greeting.sh) reads this file and
+# -- Terminal greeting accent -> ~/.cache/rime-shell/accent-ansi --------------
+# The fastfetch greeting (/usr/share/rime/shell/greeting.sh) reads this file and
 # passes it to `fastfetch --color`, so the keys, the title and the box rule all
 # follow the wallpaper instead of the static chartreuse brand colour. Rendered
 # as a complete SGR parameter string (38;2;R;G;B) rather than a hex value,
 # because the greeting is POSIX sh and must not do hex arithmetic to use it.
 [templates.shell_accent]
 input_path = '@SRCDIR@/src/config/shell-accent.template'
-output_path = '@HOME@/.cache/apex-shell/accent-ansi'
+output_path = '@HOME@/.cache/rime-shell/accent-ansi'
 
-# -- starship prompt -> ~/.cache/apex-shell/starship.toml ----------------------
+# -- starship prompt -> ~/.cache/rime-shell/starship.toml ----------------------
 # The prompt's accent follows the wallpaper instead of the static chartreuse the
 # per-edition seed used to bake in once. ~/.config/starship.toml is a symlink to
-# this output (apex-shell-firstrun), and starship re-reads its config for every
+# this output (rime-shell-firstrun), and starship re-reads its config for every
 # prompt, so an open terminal changes colour with the wallpaper.
 [templates.starship]
 input_path = '@SRCDIR@/src/config/starship.toml.template'
-output_path = '@HOME@/.cache/apex-shell/starship.toml'
+output_path = '@HOME@/.cache/rime-shell/starship.toml'
 
 # -- labwc window chrome -> ~/.config/labwc/themerc-override ------------------
-# APEX Floating (the labwc session) themed from the same Material You source as
+# Rime Floating (the labwc session) themed from the same Material You source as
 # the shell, so one wallpaper change moves the QML surfaces, the Hyprland
 # borders and the labwc titlebars together instead of leaving the floating
 # session on a palette from three wallpapers ago.

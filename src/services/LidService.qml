@@ -14,7 +14,7 @@ import "lid.js" as Lid
 //    school and codex is running (which needs vpn to work) it keeps working."
 //
 // Same rule as PermissionsService and RecoveryService: everything goes through
-// the `apex` CLI. `apex lid` already knows how to read the lid switch, the
+// the `rime` CLI. `rime lid` already knows how to read the lid switch, the
 // thermal zones, the battery, logind's Docked and BlockInhibited properties,
 // the DRM connectors, NetworkManager AND sing-box's tun device, and every
 // live agent session per logged-in user. Re-deriving any of that in QML would
@@ -27,17 +27,17 @@ import "lid.js" as Lid
 //
 // Polled, and the only things that ever may be:
 //
-//   apex lid status --json   reads /proc, /sys, two busctl properties and
+//   rime lid status --json   reads /proc, /sys, two busctl properties and
 //                            NetworkManager. Writes nothing, spawns no
 //                            privileged helper, and cannot raise a prompt.
-//   apex lid report --json   reads one JSON file under /var/lib/apex/lid.
+//   rime lid report --json   reads one JSON file under /var/lib/rime/lid.
 //
 // Both are read-only, and they run one after the other rather than at once, so
 // a sweep costs two short-lived processes and never more.
 //
 // User-initiated ONLY, once, on an explicit press:
 //
-//   apex lid pin auto|on|off writes the OWNER's ~/.config/apex/lid.toml.
+//   rime lid pin auto|on|off writes the OWNER's ~/.config/rime/lid.toml.
 //
 // ── AND `pin` NEEDS NO PRIVILEGE, BY DESIGN ─────────────────────────────────
 //
@@ -56,7 +56,7 @@ import "lid.js" as Lid
 // ── NOTHING HERE CLOSES A LID, AND NOTHING HERE SUSPENDS ────────────────────
 //
 // There is no verb on this service that changes the machine's power state. The
-// driver (`apex-lid.service`, running as root) is what holds the inhibitor,
+// driver (`rime-lid.service`, running as root) is what holds the inhibitor,
 // powers things down and calls `systemctl suspend` when a guard fires. This is
 // a window onto it.
 //
@@ -112,7 +112,7 @@ Singleton {
     readonly property var vpn:                root.status.vpn
     // A note, never a failure: on any machine where root holds a live
     // /run/user/0, an ordinary user's read ALWAYS carries
-    // "/root/.config/apex/lid.toml: Permission denied", because the OS side
+    // "/root/.config/rime/lid.toml: Permission denied", because the OS side
     // reports every policy candidate it could not read. Deliberate, correct,
     // and the normal state of a healthy machine — so it is separate from
     // `unavailableReason` and the page paints it in the note tone.
@@ -152,7 +152,7 @@ Singleton {
         root._pending = which
         root._buf = ""
         root._proc.running = false
-        root._proc.command = ["apex", "lid", which, "--json"]
+        root._proc.command = ["rime", "lid", which, "--json"]
         root._proc.running = true
         root._watchdog.interval = root.queryTimeout
         root._watchdog.restart()
@@ -166,7 +166,7 @@ Singleton {
         if (which === "status") {
             root.status = Lid.statusView(root._buf, code)
             // The report follows the status rather than running beside it: two
-            // `apex` processes at once for a surface nobody is urgently
+            // `rime` processes at once for a surface nobody is urgently
             // watching is a cost with no reader.
             root._run("report")
             return

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  How many processes APEX Search actually starts (roadmap §15).
+#  How many processes Rime Search actually starts (roadmap §15).
 #
 #  §15's hard constraint is that "a keystroke must not spawn a process per
 #  provider per keystroke", and that the idle state is genuinely zero work.
@@ -15,7 +15,7 @@
 #  argument instead of passed as its own, a command that resolves to something
 #  else on PATH — none of that is visible to a log the test wrote itself.
 #
-#  So this puts a shim `apex` and a shim `ls` FIRST on PATH, drives the same
+#  So this puts a shim `rime` and a shim `ls` FIRST on PATH, drives the same
 #  reducer, and actually executes every argv it is told to start. The shim
 #  records each invocation with one argument per tab. The numbers below are
 #  then counted from a file written by the kernel-executed program, not by the
@@ -65,11 +65,11 @@ mkdir -p "$BIN"
 # arrive as one field containing a space, and a name passed as its own argument
 # arrives as a field of its own. That distinction is the whole reason the
 # ACTIONS table returns an array.
-cat > "$BIN/apex" <<'SHIM'
+cat > "$BIN/rime" <<'SHIM'
 #!/bin/sh
-printf 'apex' >> "$APEX_SEARCH_SHIM_LOG"
-for a in "$@"; do printf '\t%s' "$a" >> "$APEX_SEARCH_SHIM_LOG"; done
-printf '\n' >> "$APEX_SEARCH_SHIM_LOG"
+printf 'rime' >> "$RIME_SEARCH_SHIM_LOG"
+for a in "$@"; do printf '\t%s' "$a" >> "$RIME_SEARCH_SHIM_LOG"; done
+printf '\n' >> "$RIME_SEARCH_SHIM_LOG"
 case "$1 $2" in
     "project list") echo '[]' ;;
     "host list")    echo '{}' ;;
@@ -83,19 +83,19 @@ SHIM
 
 cat > "$BIN/ls" <<'SHIM'
 #!/bin/sh
-printf 'ls' >> "$APEX_SEARCH_SHIM_LOG"
-for a in "$@"; do printf '\t%s' "$a" >> "$APEX_SEARCH_SHIM_LOG"; done
-printf '\n' >> "$APEX_SEARCH_SHIM_LOG"
+printf 'ls' >> "$RIME_SEARCH_SHIM_LOG"
+for a in "$@"; do printf '\t%s' "$a" >> "$RIME_SEARCH_SHIM_LOG"; done
+printf '\n' >> "$RIME_SEARCH_SHIM_LOG"
 echo 'Documents/'
 echo 'Downloads/'
 echo 'notes.txt'
 SHIM
 
-chmod +x "$BIN/apex" "$BIN/ls"
+chmod +x "$BIN/rime" "$BIN/ls"
 
-# The shim directory goes FIRST and the real PATH is kept: only `apex` and `ls`
+# The shim directory goes FIRST and the real PATH is kept: only `rime` and `ls`
 # are shadowed, so node and /bin/sh are still the real ones.
-export APEX_SEARCH_SHIM_LOG="$LOG"
+export RIME_SEARCH_SHIM_LOG="$LOG"
 export PATH="$BIN:$PATH"
 
 # ── The driver ───────────────────────────────────────────────────────────────
@@ -109,7 +109,7 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 const S = require(path.join(process.env.REPO, "src", "services", "search.js"));
 
-const CTX = { shellDir: "/opt/apex-shell", home: process.env.FAKE_HOME };
+const CTX = { shellDir: "/opt/rime-shell", home: process.env.FAKE_HOME };
 
 let state = S.initialState();
 let now = 0;
@@ -155,7 +155,7 @@ function phase(name) { console.log("phase " + name); }
 phase("idle");
 burst("install blender", 20);
 burst("~/Documents/report", 20);
-burst("apex-os", 20);
+burst("rime-os", 20);
 for (let i = 0; i < 40; i++) tick(500);
 
 // 2. The launcher opens and somebody types a package search.
@@ -176,12 +176,12 @@ type("install blender"); settle();
 // 5. A plain query, which reaches the two constant-argv providers.
 phase("plain-query");
 type(""); demand(false); demand(true);
-burst("apex-os", 20);
+burst("rime-os", 20);
 settle();
 
 // 6. Typing on, once those two have answered.
 phase("plain-query-more");
-burst("apex-os-shell", 20);
+burst("rime-os-shell", 20);
 settle();
 
 // 7. Walking a directory, then descending one level.
@@ -242,9 +242,9 @@ want "MEASURED: and a closed launcher never lists a directory it was shown" \
 # ── 2. A typing burst is one process, not fifteen ────────────────────────────
 # "install blender" is fifteen keystrokes. Ten of them produce a term of two
 # characters or more, which is the point at which the package provider would be
-# consulted — so an undebounced implementation lands ten `apex search` calls
+# consulted — so an undebounced implementation lands ten `rime search` calls
 # here, and a per-keystroke one lands ten more for every retype below.
-want "MEASURED: fifteen keystrokes of 'install blender' cost ONE apex search" \
+want "MEASURED: fifteen keystrokes of 'install blender' cost ONE rime search" \
     test "$(count 'search	blender')" -eq 1
 
 # ── 3. The argv boundary ─────────────────────────────────────────────────────
@@ -252,7 +252,7 @@ want "MEASURED: fifteen keystrokes of 'install blender' cost ONE apex search" \
 # command string would arrive as one field containing a space, which is the bug
 # this repo already has a CI invariant about for model data in `bash -c`.
 want "MEASURED: the search term is its own argument, not spliced into one" \
-    grep -q "^apex	search	blender$" "$LOG"
+    grep -q "^rime	search	blender$" "$LOG"
 
 # ── 4. Retyping and backspacing are cache hits ───────────────────────────────
 # Phase 4 retypes "install blender" twice and detours through "install blende".
@@ -263,7 +263,7 @@ want "MEASURED: the detour spawned exactly one search of its own" \
     test "$(count 'search	blende$')" -eq 1
 
 # ── 5. A plain query reads two things, once ──────────────────────────────────
-# "apex-os" is seven keystrokes and "apex-os-shell" is thirteen. Between them
+# "rime-os" is seven keystrokes and "rime-os-shell" is thirteen. Between them
 # that is twenty keystrokes across two providers: forty processes if a keystroke
 # spawned per provider, and two if the argv cache does its job.
 want "MEASURED: twenty keystrokes of a plain query cost ONE project list" \
@@ -282,10 +282,10 @@ want "MEASURED: no listing was ever taken of a partial file name" \
     test "$(count 'not$')" -eq 0
 
 # ── 7. Nothing reached the network path implicitly ───────────────────────────
-# `apex search` is the only invocation that can refresh repository metadata, and
+# `rime search` is the only invocation that can refresh repository metadata, and
 # the only terms it was ever given are the ones typed after a package verb.
-want "MEASURED: apex search ran only for terms typed after a package verb" \
-    test "$(grep -c '^apex	search' "$LOG")" -eq "$(count 'search	blende')"
+want "MEASURED: rime search ran only for terms typed after a package verb" \
+    test "$(grep -c '^rime	search' "$LOG")" -eq "$(count 'search	blende')"
 
 echo
 echo "passed=$pass failed=$fail"

@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
 #  gen-lid-fixtures.sh — regenerate tests/fixtures/lid/*.json from the REAL
-#  `apex lid` binary (roadmap P1-063).
+#  `rime lid` binary (roadmap P1-063).
 #
 #  Every fixture here is serde's own output, not JSON written from memory. That
-#  matters more than usual for this page: `apex lid status --json` is nine
+#  matters more than usual for this page: `rime lid status --json` is nine
 #  nested objects deep and six of them are internally-tagged enums, so a field
-#  renamed on the apex-os side would leave a hand-written fixture agreeing with
+#  renamed on the rime-os side would leave a hand-written fixture agreeing with
 #  a parser that no longer matches the machine — green suite, blank page.
 #
-#  Run it from an apex-os checkout, or point APEX_BIN at a built binary:
+#  Run it from a rime-os checkout, or point RIME_BIN at a built binary:
 #
-#      APEX_BIN=/path/to/apex-os/apexd/target/debug/apex \
+#      RIME_BIN=/path/to/rime-os/rimed/target/debug/rime \
 #          tests/fixtures/lid/gen-lid-fixtures.sh
 #
 #  ── Which fixtures are real, and which cannot be ────────────────────────────
 #
-#  `APEX_LID_ROOT` re-roots every path the driver reads and makes it LOG rather
+#  `RIME_LID_ROOT` re-roots every path the driver reads and makes it LOG rather
 #  than run every external program, so under it `busctl` never answers and
 #  `logind.docked` / `block_inhibited` come back null. That is exactly right
 #  for a containment fixture and it means the undocked-and-acting case cannot
@@ -33,14 +33,14 @@ set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-APEX="${APEX_BIN:-}"
-if [ -z "$APEX" ]; then
-    for c in apexd/target/debug/apex apexd/target/release/apex; do
-        [ -x "$c" ] && APEX="$(cd "$(dirname "$c")" && pwd)/$(basename "$c")" && break
+Rime="${RIME_BIN:-}"
+if [ -z "$Rime" ]; then
+    for c in rimed/target/debug/rime rimed/target/release/rime; do
+        [ -x "$c" ] && Rime="$(cd "$(dirname "$c")" && pwd)/$(basename "$c")" && break
     done
 fi
-[ -n "$APEX" ] && [ -x "$APEX" ] || {
-    echo "FATAL: no apex binary. Set APEX_BIN to one built from apex-os." >&2
+[ -n "$Rime" ] && [ -x "$Rime" ] || {
+    echo "FATAL: no rime binary. Set RIME_BIN to one built from rime-os." >&2
     exit 2
 }
 command -v python3 >/dev/null 2>&1 || { echo "FATAL: python3 is required" >&2; exit 2; }
@@ -51,8 +51,8 @@ trap 'rm -rf "$WORK"' EXIT
 pretty() { python3 -m json.tool --sort-keys; }
 
 # A fixture machine: a lid, a thermal zone with a declared critical trip, a
-# battery, a panel backlight, a keyboard backlight. Same shape as apex-os's
-# tests/test-apex-lid.sh, so the two suites describe one machine.
+# battery, a panel backlight, a keyboard backlight. Same shape as rime-os's
+# tests/test-rime-lid.sh, so the two suites describe one machine.
 fx() {
     local F="$WORK/$1"; shift
     rm -rf "$F"
@@ -61,7 +61,7 @@ fx() {
              "$F/sys/class/power_supply/BAT0" \
              "$F/sys/class/backlight/intel_backlight" \
              "$F/sys/class/leds/platform::kbd_backlight" \
-             "$F/etc/apex" "$F/var/lib/apex/lid" "$F/home/nobody"
+             "$F/etc/rime" "$F/var/lib/rime/lid" "$F/home/nobody"
     echo open          > "$F/proc/acpi/button/lid/LID/state"
     echo x86_pkg_temp  > "$F/sys/class/thermal/thermal_zone0/type"
     echo 55000         > "$F/sys/class/thermal/thermal_zone0/temp"
@@ -73,15 +73,15 @@ fx() {
     echo 700           > "$F/sys/class/backlight/intel_backlight/brightness"
     echo 0             > "$F/sys/class/backlight/intel_backlight/bl_power"
     echo 2             > "$F/sys/class/leds/platform::kbd_backlight/brightness"
-    printf '%s\n' "$@" > "$F/etc/apex/lid.toml"
+    printf '%s\n' "$@" > "$F/etc/rime/lid.toml"
     printf '%s' "$F"
 }
 
 # HOME is pushed inside the fixture so the invoking account's own
-# ~/.config/apex/lid.toml can never be read into a committed fixture.
+# ~/.config/rime/lid.toml can never be read into a committed fixture.
 drive() { local F="$1"; shift
-    APEX_LID_ROOT="$F" HOME="$F/home/nobody" \
-        XDG_CONFIG_HOME="$F/home/nobody/.config" "$APEX" lid "$@" 2>/dev/null; }
+    RIME_LID_ROOT="$F" HOME="$F/home/nobody" \
+        XDG_CONFIG_HOME="$F/home/nobody/.config" "$Rime" lid "$@" 2>/dev/null; }
 
 # ── 1. the real machine — CAPTURED ONLY ON REQUEST ──────────────────────────
 # `status-l16-docked.json` is a capture of one real developer machine on one
@@ -94,9 +94,9 @@ drive() { local F="$1"; shift
 # with an undocked one and delete the only committed example of the two
 # findings the page leads with. `--capture-real` overwrites it deliberately;
 # without the flag the current machine is captured to a temp file and DIFFED,
-# so a field renamed on the apex-os side is still reported here.
+# so a field renamed on the rime-os side is still reported here.
 REAL="$here/status-l16-docked.json"
-"$APEX" lid status --json | pretty > "$WORK/status-now.json"
+"$Rime" lid status --json | pretty > "$WORK/status-now.json"
 if [ "${1:-}" = "--capture-real" ]; then
     cp "$WORK/status-now.json" "$REAL"
     echo "captured $(basename "$REAL") from this machine"

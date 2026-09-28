@@ -18,7 +18,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 "use strict";
 const path = require("path");
-const SRC = process.env.APEX_SHELL_SRC || path.join(__dirname, "..", "src");
+const SRC = process.env.RIME_SHELL_SRC || path.join(__dirname, "..", "src");
 const G = require(path.join(SRC, "shapes", "fluid", "geometry.js"));
 
 let passed = 0, failed = 0;

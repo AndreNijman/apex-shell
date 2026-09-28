@@ -22,17 +22,17 @@ case "$1" in
     *) echo "usage: DpmsControl.sh {on|off}" >&2; exit 1 ;;
 esac
 
-if ! name="$(apex_compositor)"; then
+if ! name="$(rime_compositor)"; then
     echo "DpmsControl.sh: no known compositor (XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-unset})" >&2
     exit 1
 fi
 
-if ! apex_dpms_command "$name" "$1"; then
+if ! rime_dpms_command "$name" "$1"; then
     echo "DpmsControl.sh: no display-power command for $name" >&2
     exit 1
 fi
 
-# apex_run reports a missing program itself and returns 127 — labwc's answer is
+# rime_run reports a missing program itself and returns 127 — labwc's answer is
 # wlopm, which is a separate package rather than part of the compositor, so that
 # is a real outcome here and not a theoretical one.
-apex_run "${APEX_CMD[@]}"
+rime_run "${RIME_CMD[@]}"

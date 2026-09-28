@@ -10,7 +10,7 @@ import "../components/controls"
 // a fixed column so the labels line up — they used to be centred and padded
 // with trailing spaces to fake it — and the state layer on hover instead of
 // flooding the row with the accent. A destructive row tints toward danger. Each
-// row is an ApexPressable, so the menu is reachable with Tab and operable with
+// row is a RimePressable, so the menu is reachable with Tab and operable with
 // Space/Return; it was pointer-only.
 
 Column {
@@ -108,7 +108,7 @@ Column {
     // Gaming Mode is offered ONLY on an image that actually ships it.
     //
     // Same posture as the Windows row, and for the same reason: this shell also
-    // runs on the Daily edition and on non-APEX machines, where the gamescope
+    // runs on the Daily edition and on non-Rime machines, where the gamescope
     // session does not exist. Advertising a button that logs you out and then
     // cannot start anything would be worse than not showing it.
     //
@@ -148,16 +148,16 @@ Column {
     //
     // THE THIRD TEST IS THE ONE THAT WAS MISSING. This used to check the helper
     // and the session file only, never gamescope — but gamescope and Steam are
-    // on-demand packages, not image content, so apex-gaming.desktop ships on
+    // on-demand packages, not image content, so rime-gaming.desktop ships on
     // every machine while the binary it runs does not. The entry itself says so
     // and carries `TryExec=/usr/bin/gamescope` for exactly that reason, and
-    // apex-greet's enumeration honours it.
+    // rime-greet's enumeration honours it.
     //
     // So the menu and the greeter disagreed. The menu offered "Gaming Mode" on
-    // any APEX install; taking it logged the user out into a greeter that HID
+    // any Rime install; taking it logged the user out into a greeter that HID
     // the session, landing them back on the desktop with
-    // `last-session=apex-gaming` recorded — which then selected by sort order
-    // at the next login. The build gate in Containerfile.apex asserts the
+    // `last-session=rime-gaming` recorded — which then selected by sort order
+    // at the next login. The build gate in Containerfile.rime asserts the
     // greeter hides it; nothing asserted that this menu agrees.
     //
     // It reads TryExec out of the same file rather than naming gamescope here,
@@ -165,7 +165,7 @@ Column {
     // Failure closed — an unreadable file, a missing helper or a TryExec that
     // resolves to nothing all leave the row absent.
     //
-    // The paths come from APEX_SESSION_HELPER and APEX_SESSION_DIR when set,
+    // The paths come from RIME_SESSION_HELPER and RIME_SESSION_DIR when set,
     // which is the same pair PowerControl.sh already honours, so the gate can
     // be exercised against a fixture instead of against the machine running
     // the test.
@@ -173,10 +173,10 @@ Column {
         id: gamingProbe
         running: true
         command: ["sh", "-c",
-            "h=\"${APEX_SESSION_HELPER:-/usr/libexec/apex-session-select}\"; " +
-            "d=\"${APEX_SESSION_DIR:-/usr/share/wayland-sessions}\"; " +
+            "h=\"${RIME_SESSION_HELPER:-/usr/libexec/rime-session-select}\"; " +
+            "d=\"${RIME_SESSION_DIR:-/usr/share/wayland-sessions}\"; " +
             "test -x \"$h\" || exit 1; " +
-            "f=\"$d/apex-gaming.desktop\"; " +
+            "f=\"$d/rime-gaming.desktop\"; " +
             "test -f \"$f\" || exit 1; " +
             "t=$(sed -n 's/^TryExec=//p' \"$f\" | head -n1); " +
             "[ -z \"$t\" ] || command -v \"$t\" >/dev/null 2>&1"]
@@ -235,7 +235,7 @@ Column {
         id: rows
         model: root.visibleActions
 
-        delegate: ApexPressable {
+        delegate: RimePressable {
             id: row
             required property var modelData
             width:  root.width
@@ -278,7 +278,7 @@ Column {
                 color:          row._fg
                 Behavior on color { MotionColor {} }
             }
-            ApexFocusRing { target: row }
+            RimeFocusRing { target: row }
         }
     }
 }

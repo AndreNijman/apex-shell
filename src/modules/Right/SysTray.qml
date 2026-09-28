@@ -28,7 +28,7 @@ RowLayout {
     // leftward and pushed it out from under the pointer, which then rested on
     // the first app's icon: a second click meant to fold the row activated
     // that app instead (measured in the nested harness).
-    ApexPressable {
+    RimePressable {
         id: toggle
 
         readonly property int count: SystemTray.items.values.length
@@ -89,7 +89,7 @@ RowLayout {
             }
         }
 
-        ApexFocusRing { target: toggle }
+        RimeFocusRing { target: toggle }
 
         BarTooltip {
             target: toggle

@@ -1,6 +1,6 @@
 # shellcheck shell=bash
-# shellcheck disable=SC2034  # APEX_CMD is read by the scripts that source this.
-# compositor.sh — the compositor adapter for APEX Shell's helper SCRIPTS.
+# shellcheck disable=SC2034  # RIME_CMD is read by the scripts that source this.
+# compositor.sh — the compositor adapter for Rime Shell's helper SCRIPTS.
 #
 # SOURCED, never executed. There is no shebang and no top-level action here on
 # purpose: `bash compositor.sh` must do nothing.
@@ -27,24 +27,24 @@
 # anywhere else.
 #
 # ── The single exec point ────────────────────────────────────────────────────
-# Every compositor-dependent action in these scripts runs through apex_run().
+# Every compositor-dependent action in these scripts runs through rime_run().
 # That is what makes the coverage assertion in tests/check-compositor-backends.sh
 # possible AND safe: the check can drive the real entry points of the real
 # scripts for every compositor and see the command each one resolves, without
 # any of them being able to run. The check also asserts that no `exec` survives
-# outside apex_run, so "safe to dry-run" is enforced rather than promised.
+# outside rime_run, so "safe to dry-run" is enforced rather than promised.
 
-# apex_run <argv...> — run the resolved command, replacing this process.
+# rime_run <argv...> — run the resolved command, replacing this process.
 #
-# With APEX_COMPOSITOR_DRY_RUN set, print the argv and return instead. Nothing
+# With RIME_COMPOSITOR_DRY_RUN set, print the argv and return instead. Nothing
 # in a session sets that variable; tests/check-compositor-backends.sh does.
 #
 # A missing program is reported here rather than left to `exec`, because some of
 # these commands live in packages the compositor does not pull in (wlopm is the
 # one that matters) and "wlopm: not found" from a hypridle listener at 3am is a
 # message nobody will ever read as "your image is missing a package".
-apex_run() {
-    if [ -n "${APEX_COMPOSITOR_DRY_RUN:-}" ]; then
+rime_run() {
+    if [ -n "${RIME_COMPOSITOR_DRY_RUN:-}" ]; then
         printf '%s\n' "$*"
         return 0
     fi
@@ -55,7 +55,7 @@ apex_run() {
     exec "$@"
 }
 
-# apex_compositor — print hyprland | niri | labwc, or return 1 for anything else.
+# rime_compositor — print hyprland | niri | labwc, or return 1 for anything else.
 #
 # Same order and the same signals as src/state/Compositor.qml, deliberately:
 # two detectors that disagree are worse than one that is wrong. The instance
@@ -68,14 +68,14 @@ apex_run() {
 # refuses to answer, so a caller reports "no known compositor" instead of
 # spawning hyprctl into the void.
 #
-# APEX_COMPOSITOR overrides detection. It is what the check drives, and it is
+# RIME_COMPOSITOR overrides detection. It is what the check drives, and it is
 # also the escape hatch for a packager whose session sets neither signal. The
 # QML override (the "compositor" key in config_Provider.json) is NOT read here:
 # these scripts run before, after and independently of the shell process, and
 # parsing that file in three scripts would be the fourth answer this file exists
 # to delete.
-apex_compositor() {
-    local name="${APEX_COMPOSITOR:-}"
+rime_compositor() {
+    local name="${RIME_COMPOSITOR:-}"
     local desktop
 
     if [ -z "$name" ]; then
@@ -98,12 +98,12 @@ apex_compositor() {
 }
 
 # ── Resolved commands ────────────────────────────────────────────────────────
-# Each of these fills the array APEX_CMD and returns 0, or returns 1 without
+# Each of these fills the array RIME_CMD and returns 0, or returns 1 without
 # touching anything the caller can run. An array and not a string: `wlopm --off
 # '*'` has to reach execve with a literal asterisk, and a string command would
 # be glob-expanded against the working directory on the way there.
 
-# apex_logout_command <compositor> — end the graphical session, compositor-side.
+# rime_logout_command <compositor> — end the graphical session, compositor-side.
 #
 # This is the FALLBACK, not the first choice. PowerControl.sh prefers
 # `loginctl terminate-session`, which tears the session down through logind so
@@ -114,17 +114,17 @@ apex_compositor() {
 #
 # labwc: `labwc --exit` sends SIGTERM to $LABWC_PID (labwc(1), OPTIONS). labwc
 # ships no IPC socket, so this — not a hyprctl-shaped IPC call — is the exit verb.
-apex_logout_command() {
-    APEX_CMD=()
+rime_logout_command() {
+    RIME_CMD=()
     case "${1:-}" in
-        hyprland) APEX_CMD=(hyprctl dispatch exit) ;;
-        niri)     APEX_CMD=(niri msg action quit --skip-confirmation) ;;
-        labwc)    APEX_CMD=(labwc --exit) ;;
+        hyprland) RIME_CMD=(hyprctl dispatch exit) ;;
+        niri)     RIME_CMD=(niri msg action quit --skip-confirmation) ;;
+        labwc)    RIME_CMD=(labwc --exit) ;;
         *)        return 1 ;;
     esac
 }
 
-# apex_dpms_command <compositor> <on|off> — display power, for hypridle.
+# rime_dpms_command <compositor> <on|off> — display power, for hypridle.
 #
 # There is no compositor-neutral answer worth having here. The neutral-looking
 # candidate is `wlr-randr --output <name> --off`, which goes through
@@ -140,23 +140,23 @@ apex_logout_command() {
 # niri implements no such protocol (the same grep over /usr/bin/niri finds
 # nothing) and answers on its own IPC instead, which is why this is a per-
 # compositor table and not one clever command.
-apex_dpms_command() {
-    APEX_CMD=()
+rime_dpms_command() {
+    RIME_CMD=()
     case "${1:-}:${2:-}" in
-        hyprland:on|hyprland:off) APEX_CMD=(hyprctl dispatch dpms "$2") ;;
-        niri:on)                  APEX_CMD=(niri msg action power-on-monitors) ;;
-        niri:off)                 APEX_CMD=(niri msg action power-off-monitors) ;;
-        labwc:on)                 APEX_CMD=(wlopm --on '*') ;;
-        labwc:off)                APEX_CMD=(wlopm --off '*') ;;
+        hyprland:on|hyprland:off) RIME_CMD=(hyprctl dispatch dpms "$2") ;;
+        niri:on)                  RIME_CMD=(niri msg action power-on-monitors) ;;
+        niri:off)                 RIME_CMD=(niri msg action power-off-monitors) ;;
+        labwc:on)                 RIME_CMD=(wlopm --on '*') ;;
+        labwc:off)                RIME_CMD=(wlopm --off '*') ;;
         *)                        return 1 ;;
     esac
 }
 
-# apex_screenshot_layers_command <compositor> — stop the compositor animating
+# rime_screenshot_layers_command <compositor> — stop the compositor animating
 # screenshot.sh's two layer surfaces: the freeze (hyprpicker's still) and
 # slurp's selection. Run, not exec'd: the capture carries on after it.
 #
-# hyprland: APEX's appearance.lua fades layers in and out, and grimblast's own
+# hyprland: Rime's appearance.lua fades layers in and out, and grimblast's own
 # exemption, `keyword layerrule noanim,selection`, is refused by a Lua config
 # ("keyword can't work with non-legacy parsers. Use eval."). Measured in a
 # nested 0.56.2 with the live appearance.lua: the still took more than 120 ms
@@ -173,11 +173,11 @@ apex_dpms_command() {
 #
 # labwc animates no layer surface, so there is nothing to exempt. niri's layer
 # animations were not measured; it gets no rule rather than a guessed one.
-apex_screenshot_layers_command() {
-    APEX_CMD=()
+rime_screenshot_layers_command() {
+    RIME_CMD=()
     case "${1:-}" in
         hyprland)
-            APEX_CMD=(hyprctl eval 'if not APEX_SCREENSHOT_NO_ANIM then hl.layer_rule({ name = "apex-screenshot-freeze", match = { namespace = "^(hyprpicker|selection)$" }, no_anim = true }); APEX_SCREENSHOT_NO_ANIM = true end')
+            RIME_CMD=(hyprctl eval 'if not RIME_SCREENSHOT_NO_ANIM then hl.layer_rule({ name = "rime-screenshot-freeze", match = { namespace = "^(hyprpicker|selection)$" }, no_anim = true }); RIME_SCREENSHOT_NO_ANIM = true end')
             ;;
         *)  return 1 ;;
     esac
@@ -186,94 +186,94 @@ apex_screenshot_layers_command() {
 # ── Session ids ──────────────────────────────────────────────────────────────
 # Entering and leaving Gaming Mode is "tell the greeter which session to
 # preselect, then end this one". The session id is a filename in
-# /usr/share/wayland-sessions, and it is NOT the compositor's name: APEX ships
-# labwc as apex-labwc.desktop, because the stock labwc.desktop is deleted (it
-# launches labwc bare, with no APEX Shell and no config, and labwc is also the
+# /usr/share/wayland-sessions, and it is NOT the compositor's name: Rime ships
+# labwc as rime-labwc.desktop, because the stock labwc.desktop is deleted (it
+# launches labwc bare, with no Rime Shell and no config, and labwc is also the
 # greeter's own fallback host compositor).
 #
 # These two defaults are resolved AT SOURCE TIME, so an override has to be in
 # the environment before this file is sourced — setting them afterwards is
 # silently ignored.
-APEX_SESSION_DIR="${APEX_SESSION_DIR:-/usr/share/wayland-sessions}"
+RIME_SESSION_DIR="${RIME_SESSION_DIR:-/usr/share/wayland-sessions}"
 
 # Where "the desktop I left when I entered Gaming Mode" is remembered. The
-# greeter's own /var/lib/apex-greet/last-session cannot answer that question: it
+# greeter's own /var/lib/rime-greet/last-session cannot answer that question: it
 # is rewritten on every successful login, so by the time Gaming Mode is running
-# it says "apex-gaming". This is the user's own state, needs no privilege, and
+# it says "rime-gaming". This is the user's own state, needs no privilege, and
 # its absence is handled.
-APEX_DESKTOP_SESSION_STATE="${APEX_DESKTOP_SESSION_STATE:-${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/apex-shell/desktop-session}"
+RIME_DESKTOP_SESSION_STATE="${RIME_DESKTOP_SESSION_STATE:-${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/rime-shell/desktop-session}"
 
-apex_session_installed() {
-    [ -n "${1:-}" ] && [ -f "${APEX_SESSION_DIR}/$1.desktop" ]
+rime_session_installed() {
+    [ -n "${1:-}" ] && [ -f "${RIME_SESSION_DIR}/$1.desktop" ]
 }
 
-# apex_session_ids_for <compositor> — candidate session ids, best first.
-apex_session_ids_for() {
+# rime_session_ids_for <compositor> — candidate session ids, best first.
+rime_session_ids_for() {
     case "${1:-}" in
         hyprland) printf '%s\n' hyprland ;;
         niri)     printf '%s\n' niri ;;
-        labwc)    printf '%s\n' apex-labwc labwc ;;
+        labwc)    printf '%s\n' rime-labwc labwc ;;
         *)        return 1 ;;
     esac
 }
 
-# apex_desktop_session_id — which session "leave Gaming Mode" should return to.
+# rime_desktop_session_id — which session "leave Gaming Mode" should return to.
 #
 # 1. What was remembered on the way in. Exact, and the only source that can tell
 #    a labwc user apart from a Hyprland one once gamescope owns the display.
 # 2. The compositor running right now, if there is one. Covers calling this from
 #    a desktop session.
-# 3. The first desktop session actually installed, in APEX's own order of
+# 3. The first desktop session actually installed, in Rime's own order of
 #    preference. Hyprland is the primary desktop, so it leads — but an image
 #    that does not ship it lands on niri or labwc instead of on nothing, which
 #    is the whole difference from the hardcoded `hyprland` this replaces.
-apex_desktop_session_id() {
+rime_desktop_session_id() {
     local remembered="" id
 
     # `read` fills the variable even when the file has no trailing newline and
     # it therefore returns 1, so the failure is tolerated rather than used to
     # blank the answer.
-    if [ -r "$APEX_DESKTOP_SESSION_STATE" ]; then
-        IFS= read -r remembered < "$APEX_DESKTOP_SESSION_STATE" || :
+    if [ -r "$RIME_DESKTOP_SESSION_STATE" ]; then
+        IFS= read -r remembered < "$RIME_DESKTOP_SESSION_STATE" || :
     fi
-    if apex_session_installed "$remembered"; then
+    if rime_session_installed "$remembered"; then
         printf '%s\n' "$remembered"; return 0
     fi
 
-    if id="$(apex_session_for_current_compositor)"; then
+    if id="$(rime_session_for_current_compositor)"; then
         printf '%s\n' "$id"; return 0
     fi
 
-    for id in hyprland niri apex-labwc labwc; do
-        if apex_session_installed "$id"; then printf '%s\n' "$id"; return 0; fi
+    for id in hyprland niri rime-labwc labwc; do
+        if rime_session_installed "$id"; then printf '%s\n' "$id"; return 0; fi
     done
     return 1
 }
 
-# apex_session_for_current_compositor — the installed session id of whatever is
+# rime_session_for_current_compositor — the installed session id of whatever is
 # running right now, or 1 if that cannot be answered.
-apex_session_for_current_compositor() {
+rime_session_for_current_compositor() {
     local current id
-    current="$(apex_compositor)" || return 1
+    current="$(rime_compositor)" || return 1
     while IFS= read -r id; do
-        if apex_session_installed "$id"; then printf '%s\n' "$id"; return 0; fi
-    done < <(apex_session_ids_for "$current")
+        if rime_session_installed "$id"; then printf '%s\n' "$id"; return 0; fi
+    done < <(rime_session_ids_for "$current")
     return 1
 }
 
-# apex_remember_desktop_session — record the session we are leaving, so the trip
+# rime_remember_desktop_session — record the session we are leaving, so the trip
 # back out of Gaming Mode returns here and not to whatever is listed first.
 #
-# Resolved from the RUNNING compositor, not from apex_desktop_session_id: that
+# Resolved from the RUNNING compositor, not from rime_desktop_session_id: that
 # one prefers the remembered value, so a stale entry would keep rewriting itself
 # and a user who moved from Hyprland to labwc would still be sent back to
 # Hyprland forever.
 #
 # Best-effort. A machine that cannot write user state still gets Gaming Mode,
 # and still gets a desktop back through the fallbacks above.
-apex_remember_desktop_session() {
+rime_remember_desktop_session() {
     local id
-    id="$(apex_session_for_current_compositor)" || return 0
-    mkdir -p "$(dirname "$APEX_DESKTOP_SESSION_STATE")" 2>/dev/null || return 0
-    printf '%s\n' "$id" > "$APEX_DESKTOP_SESSION_STATE" 2>/dev/null || return 0
+    id="$(rime_session_for_current_compositor)" || return 0
+    mkdir -p "$(dirname "$RIME_DESKTOP_SESSION_STATE")" 2>/dev/null || return 0
+    printf '%s\n' "$id" > "$RIME_DESKTOP_SESSION_STATE" 2>/dev/null || return 0
 }

@@ -16,7 +16,7 @@
 # That is a coverage change and worth saying plainly: on a Hyprland desktop this
 # used to exercise the Hyprland adapter, and now it exercises the wlroots one.
 # Hyprland-specific facade coverage lives behind
-# APEX_TEST_ALLOW_NESTED_ON_DESK=1 in tests/run-hypr-configerrors-test.sh; there
+# RIME_TEST_ALLOW_NESTED_ON_DESK=1 in tests/run-hypr-configerrors-test.sh; there
 # is no way to get it without a Hyprland instance, and no way to get a Hyprland
 # instance without a session to nest in (0.56.2 will not start headless on a GPU
 # box with no DRM master — measured on katana, twice).
@@ -35,7 +35,7 @@ headless_require quickshell
 staged="$root/.compositor-facade-test.qml"
 cleanup() {
     rm -f "$staged"
-    rm -rf "${XDG_RUNTIME_DIR:-/tmp}/apex-compositor-test"
+    rm -rf "${XDG_RUNTIME_DIR:-/tmp}/rime-compositor-test"
     headless_cleanup
 }
 trap cleanup EXIT INT TERM

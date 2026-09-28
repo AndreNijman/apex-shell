@@ -17,13 +17,13 @@ import "../"
 QtObject {
     id: root
 
-    // ── Config path — ~/.config/apex-shell/src/user_data/wallpaper.json ─────────
-	readonly property string configPath: Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/wallpaper.json"
+    // ── Config path — ~/.config/rime-shell/src/user_data/wallpaper.json ─────────
+	readonly property string configPath: Quickshell.env("HOME") + "/.config/rime-shell/src/user_data/wallpaper.json"
 
     // ── Rendered matugen config — matugen can't expand ~/env in template paths,
     //    so the shipped src/config/matugen.toml.in is rendered (with the live
     //    $HOME + shell dir) into this real config that matugen actually reads. ──
-    readonly property string matugenConfig: Quickshell.env("HOME") + "/.config/apex-shell/matugen.toml"
+    readonly property string matugenConfig: Quickshell.env("HOME") + "/.config/rime-shell/matugen.toml"
 
     // ── State ─────────────────────────────────────────────────────────────────
     property var    wallpapers:   []
@@ -45,8 +45,8 @@ QtObject {
     // and the light half of every palette in the tree — including the light
     // status colours Theme.Colors selects on a light surface — was unreachable.
     //
-    // APEX-OS seeds `color-scheme='prefer-dark'` as a dconf DEFAULT rather than
-    // a lock (files/system/dconf/00-apex-dark), so the GTK apps beside the shell
+    // Rime OS seeds `color-scheme='prefer-dark'` as a dconf DEFAULT rather than
+    // a lock (files/system/dconf/00-rime-dark), so the GTK apps beside the shell
     // follow the same switch a user is free to throw. `dark` here matches that
     // default, so nothing moves on an existing install until it is changed.
     property string mode: "dark"
@@ -124,20 +124,20 @@ QtObject {
         }
     }
 
-    // The first wallpaper when nothing is configured: APEX-OS's own default
-    // (the image apex-shell-firstrun seeds and the greeter shows) when this is
-    // an APEX system, and the shell's bundled one only where it is not. The
+    // The first wallpaper when nothing is configured: Rime OS's own default
+    // (the image rime-shell-firstrun seeds and the greeter shows) when this is
+    // a Rime system, and the shell's bundled one only where it is not. The
     // bundled image is the upstream fork's "BRAIN SHELL" artwork; a config
-    // that went missing on APEX should come back as APEX, not as that.
-    readonly property string _apexDefault: "/usr/share/backgrounds/apex/default.jpg"
+    // that went missing on Rime should come back as Rime, not as that.
+    readonly property string _rimeDefault: "/usr/share/backgrounds/rime/default.jpg"
     function _applyDefault() {
         root._defaultProc.running = false
         root._defaultProc.running = true
     }
     property var _defaultProc: Process {
         command: ["bash", "-c", "[ -f \"$1\" ] && printf %s \"$1\" || printf %s \"$2\"", "--",
-                  root._apexDefault,
-                  Quickshell.shellDir + "/src/assets/wallpapers/apex-shell-default-0.png"]
+                  root._rimeDefault,
+                  Quickshell.shellDir + "/src/assets/wallpapers/rime-shell-default-0.png"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const path = String(this.text).trim()
@@ -190,7 +190,7 @@ QtObject {
         if (root.applying || root._rethemeProc.running) return
         root._rethemeProc.command = [
             "bash", "-c",
-            "CFG=\"$HOME/.config/apex-shell/matugen.toml\"; " +
+            "CFG=\"$HOME/.config/rime-shell/matugen.toml\"; " +
             "TMPL=\"$2/src/config/matugen.toml.in\"; " +
             "[ -f \"$TMPL\" ] && command -v matugen >/dev/null 2>&1 || exit 0; " +
             "mkdir -p \"$(dirname \"$CFG\")\" && " +
@@ -242,10 +242,10 @@ QtObject {
             // Render the portable matugen.toml.in template into the real config
             // matugen reads — substitute the live shell dir ($2) and $HOME. This
             // is idempotent and keeps the paths correct wherever the shell lives.
-            "CFG=\"$HOME/.config/apex-shell/matugen.toml\"; " +
+            "CFG=\"$HOME/.config/rime-shell/matugen.toml\"; " +
             "mkdir -p \"$(dirname \"$CFG\")\" || exit 1; " +
             "sed -e \"s|@SRCDIR@|$2|g\" -e \"s|@HOME@|$HOME|g\" \"$2/src/config/matugen.toml.in\" > \"$CFG\" || exit 1; " +
-            // Wallpaper daemon is discovered at runtime: awww (the APEX default,
+            // Wallpaper daemon is discovered at runtime: awww (the Rime default,
             // AUR-only) → swww (upstream). Having neither is no longer fatal:
             // previously the `&&` chain aborted yet the trailing `|| true` still
             // reported success, so the wallpaper AND the generated palette were
@@ -288,12 +288,12 @@ QtObject {
             // the `greetd` system user, outside any session, and cannot read a
             // mode-0700 home directory — so it needs a copy somewhere it may
             // read. The root helper does exactly that and nothing else; see
-            // /usr/libexec/apex-greet-wallpaper. `sudo -n` never prompts, and
+            // /usr/libexec/rime-greet-wallpaper. `sudo -n` never prompts, and
             // the whole thing is best-effort: on a machine without the helper
-            // (a non-APEX-OS host running this shell) the wallpaper still
+            // (a non-Rime OS host running this shell) the wallpaper still
             // applies exactly as before.
-            "if [ -x /usr/libexec/apex-greet-wallpaper ]; then " +
-            "sudo -n /usr/libexec/apex-greet-wallpaper >/dev/null 2>&1 || true; " +
+            "if [ -x /usr/libexec/rime-greet-wallpaper ]; then " +
+            "sudo -n /usr/libexec/rime-greet-wallpaper >/dev/null 2>&1 || true; " +
             "fi; exit 0",
             "--", path, Quickshell.shellDir, root.scheme, root.mode
         ]

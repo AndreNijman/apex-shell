@@ -13,13 +13,13 @@
 // `SharedBoxes {}` would fail with "is not a type". A relative .js import is
 // resolved against the importing file's own URL, so it works regardless.
 //
-// ── Why these use the compositor's own tools and not an APEX helper ──────────
-// The obvious refactor is to put all of this behind `apex-display-apply boxes`.
-// It is the wrong call *here*: apex-shell is a git checkout in $HOME that
+// ── Why these use the compositor's own tools and not a Rime helper ──────────
+// The obvious refactor is to put all of this behind `rime-display-apply boxes`.
+// It is the wrong call *here*: rime-shell is a git checkout in $HOME that
 // hot-reloads, and the OS image only updates when a new image is built. Pointing
 // these at a helper that ships later means screenshot picking silently breaks
 // for everyone who pulls the shell first. hyprctl and wlr-randr are already
-// installed on every APEX image that can run this shell.
+// installed on every Rime image that can run this shell.
 // ──────────────────────────────────────────────────────────────────────────────
 
 // Hyprland. Kept byte-for-byte as it shipped in ScreenRecService — this was a

@@ -276,7 +276,7 @@ Item {
 		// The one selected tint the shell uses (the nav and open pills').
 		color:  Theme.surfaceSelected
 		onCurChanged: if (cur && !root._pillPlaced) pillArm.restart()
-		ApexFocusRing { target: root; targetRadius: hSel.radius }
+		RimeFocusRing { target: root; targetRadius: hSel.radius }
 	}
 
 	Row {
@@ -378,7 +378,7 @@ Item {
 
 				// An action's keyboard ring, on its pill (the pill clips, so the
 				// ring sits beside it rather than in it).
-				Item { anchors.fill: hBg; ApexFocusRing { target: hTab } }
+				Item { anchors.fill: hBg; RimeFocusRing { target: hTab } }
 
 				HoverHandler { id: hHov; cursorShape: Qt.PointingHandCursor }
 				// Fills the SLOT, not the pill. A tab whose pill has shrunk to
@@ -486,7 +486,7 @@ Item {
 						vFlick.contentY = top + cur.height - vFlick.height
 				}
 			}
-			ApexFocusRing { target: root; targetRadius: vSel.radius }
+			RimeFocusRing { target: root; targetRadius: vSel.radius }
 		}
 
 		Column {

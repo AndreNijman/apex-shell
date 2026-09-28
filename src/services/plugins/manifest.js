@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// The APEX Shell plugin platform's decision logic (roadmap §16).
+// The Rime Shell plugin platform's decision logic (roadmap §16).
 //
 // Everything in this file answers one of five questions and nothing else:
 //
@@ -95,7 +95,7 @@
 //
 // 1.0 → 1.1 is this policy being used rather than described. Two extension
 // points were added and nothing was removed or renamed, which is the definition
-// of a minor bump: every apiVersion 1.0 plugin still loads (apex-worldclock
+// of a minor bump: every apiVersion 1.0 plugin still loads (rime-worldclock
 // still declares 1.0 and is still granted), and a plugin that needs one of the
 // new points declares 1.1 so a 1.0 host refuses it with
 // "api-version-unsupported" instead of "unknown-extension-point". The second
@@ -243,7 +243,7 @@ var FORBIDDEN_SOURCE = [
     { pattern: /\bparent\s*\.\s*parent\b/,  name: "parent.parent" }
 ];
 
-// A plugin id becomes a path segment under ~/.config/apex-shell/plugins/, so it
+// A plugin id becomes a path segment under ~/.config/rime-shell/plugins/, so it
 // is validated as a charset BEFORE it is used to build one. Checking the id
 // against its directory name is not enough on its own: the check would pass for
 // a directory literally named "..", and then every later path join is a

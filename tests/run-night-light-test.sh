@@ -108,7 +108,7 @@ real_home="$(getent passwd "$(id -u)" | cut -d: -f6)"
 
 export XDG_RUNTIME_DIR="$W/run"; mkdir -p "$XDG_RUNTIME_DIR"; chmod 0700 "$XDG_RUNTIME_DIR"
 export HOME="$W/home"
-mkdir -p "$HOME/.config/apex-shell/src/user_data" "$HOME/.local/share"
+mkdir -p "$HOME/.config/rime-shell/src/user_data" "$HOME/.local/share"
 export XDG_STATE_HOME="$W/state"; export XDG_CACHE_HOME="$W/cache"
 mkdir -p "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
 ln -sfn "$real_home/.local/share/fonts" "$HOME/.local/share/fonts" 2>/dev/null
@@ -134,7 +134,7 @@ esac
 exit 0
 FAKE
 chmod +x "$W/bin/_stub"
-for n in apex hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
+for n in rime hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
          brightnessctl pkcheck notify-send swww; do
     ln -sf "$W/bin/_stub" "$W/bin/$n"
 done
@@ -208,13 +208,13 @@ run_phase() {
         hyprland) desktop="Hyprland" ;;
     esac
     printf '{"compositor":"%s"}' "$comp" \
-        > "$HOME/.config/apex-shell/src/user_data/config_Provider.json"
-    rm -f "$HOME/.config/apex-shell/src/user_data/settings.json" "$W/argv.log"
+        > "$HOME/.config/rime-shell/src/user_data/config_Provider.json"
+    rm -f "$HOME/.config/rime-shell/src/user_data/settings.json" "$W/argv.log"
     OUT="$W/$name.out"
     ( export WAYLAND_DISPLAY="$sock"
       export XDG_CURRENT_DESKTOP="$desktop"
       export PATH="$phase_path"
-      export APEX_NL_ARGV="$W/argv.log"
+      export RIME_NL_ARGV="$W/argv.log"
       QT_LOGGING_RULES="qml=true" "$TIMEOUT_BIN" 60 "${NS[@]}" "$QS_BIN" -p "$staged" 2>&1 ) \
         | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/^[[:space:]]*DEBUG qml: //' > "$OUT"
 }
@@ -227,7 +227,7 @@ mkstub() {  # $1 tool name
 # Records what it was asked to do, then behaves the way the real tool does:
 # it stays up, because both mechanisms hold their adjustment only while their
 # process lives.
-printf '%s\n' "$0 $*" >> "${APEX_NL_ARGV:-/dev/null}"
+printf '%s\n' "$0 $*" >> "${RIME_NL_ARGV:-/dev/null}"
 sleep 300
 FAKE
     chmod +x "$W/bin/$1"

@@ -6,11 +6,11 @@
 #  The sizes are the design system's, not this file's: ThemeSet.hitMin (32 px,
 #  the smallest target outside the bar) and hitBar (24 px, inside it — the
 #  WCAG 2.2 AA minimum, and the floor everywhere). A control's visual size and
-#  its hit size are separate: ApexPressable's `hitMargin` grows the pointer
+#  its hit size are separate: RimePressable's `hitMargin` grows the pointer
 #  target past the drawn control on every side, so a 20 px glyph with
 #  hitMargin 6 is a 32 px target.
 #
-#  It reads every ApexPressable and ApexIconButton in src/ whose width, height
+#  It reads every RimePressable and RimeIconButton in src/ whose width, height
 #  and hitMargin are written as numbers (or theme.px(n), theme.hitMin,
 #  theme.hitBar), and computes  min(width, height) + 2 × hitMargin.
 #
@@ -28,11 +28,11 @@
 #  scanner strips comments and strings first, so a size named in prose cannot
 #  satisfy or trip it; the self-test at the bottom proves both directions.
 #
-#  Point it at another tree with APEX_HIT_SRC=/path/to/src.
+#  Point it at another tree with RIME_HIT_SRC=/path/to/src.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SRC="${APEX_HIT_SRC:-$here/../src}"
+SRC="${RIME_HIT_SRC:-$here/../src}"
 
 # Under hitMin outside the bar, each bounded by a neighbour's visual (a margin
 # may meet another margin or empty space, never another control's glyph):
@@ -79,7 +79,7 @@ def value(expr):
     if expr == "theme.hitBar": return HIT_BAR
     return None
 
-opener = re.compile(r"\b(ApexPressable|ApexIconButton)\s*\{")
+opener = re.compile(r"\b(RimePressable|RimeIconButton)\s*\{")
 unmeasured = 0
 for dp, _, fs in os.walk(root):
     for f in sorted(fs):
@@ -106,7 +106,7 @@ for dp, _, fs in os.walk(root):
                 if mm: props[mm.group(1)] = mm.group(2)
             line = src.count("\n", 0, m.start()) + 1
             kind = m.group(1)
-            if kind == "ApexIconButton":
+            if kind == "RimeIconButton":
                 if "width" not in props and "height" not in props and "size" not in props:
                     continue   # its own default: hitMin, or hitBar in the bar — measured in the primitive
                 if "size" in props and "width" not in props:
@@ -143,11 +143,11 @@ st="$(mktemp -d)"; trap 'rm -rf "$st"' EXIT
 mkdir -p "$st/services"
 cat > "$st/services/Small.qml" <<'QML'
 Item {
-    // ApexPressable { width: 4; height: 4 }  — prose, must not count
-    ApexPressable { width: 20; height: 20; hitMargin: 1 }
-    ApexPressable { width: 20; height: 20; hitMargin: 6 }
-    ApexPressable { width: parent.width; height: 28 }
-    ApexPressable { width: 22; height: 22; Text { width: 400; text: "hitMargin: 40" } }
+    // RimePressable { width: 4; height: 4 }  — prose, must not count
+    RimePressable { width: 20; height: 20; hitMargin: 1 }
+    RimePressable { width: 20; height: 20; hitMargin: 6 }
+    RimePressable { width: parent.width; height: 28 }
+    RimePressable { width: 22; height: 22; Text { width: 400; text: "hitMargin: 40" } }
 }
 QML
 got="$(scan "$st" | sort)"

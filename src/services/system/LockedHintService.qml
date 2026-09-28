@@ -6,16 +6,16 @@ import Quickshell.Io
 // ─────────────────────────────────────────────────────────────────────────────
 // LockedHintService — tells logind the session is locked.
 //
-// APEX Shell locks the session itself, with ext-session-lock (WlSessionLock in
+// Rime Shell locks the session itself, with ext-session-lock (WlSessionLock in
 // windows/Lockscreen.qml), and never told logind about it: SetLockedHint was
 // never called anywhere in the shell, so `loginctl show-session <id> -p
 // LockedHint` read "no" on a session that had been locked for an hour — the
 // same as one nobody had touched. Roadmap P0-015's lock-state policy for
-// autonomous sessions (apex-os: apexd/apex-agent-core/src/lock.rs) reads
+// autonomous sessions (rime-os: rimed/rime-agent-core/src/lock.rs) reads
 // exactly that property, and had nothing to read.
 //
-// This lives in the shell and not in apexd, on purpose: logind only accepts
-// SetLockedHint from the process that owns the session, and apex-agentd
+// This lives in the shell and not in rimed, on purpose: logind only accepts
+// SetLockedHint from the process that owns the session, and rime-agentd
 // cannot tell the shell apart from any other process running as the same
 // user — including a managed agent session reaching its own control socket.
 // Only the session owner can make this call and have it mean anything, so
@@ -109,7 +109,7 @@ Singleton {
         }
 
         // Hand the untried request on. Dropping it is not conservatism, it is
-        // a lock the user engaged never reaching logind: apex-agentd polls
+        // a lock the user engaged never reaching logind: rime-agentd polls
         // LockedHint to decide whether agents and Remote Control keep
         // running, and this service is its only writer.
         //

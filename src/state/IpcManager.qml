@@ -29,7 +29,7 @@ QtObject {
         const name = CompositorService.focusedOutput
         if (name !== "") return name
 
-        // Nothing focused, or a compositor APEX has no adapter for.
+        // Nothing focused, or a compositor Rime has no adapter for.
         return Quickshell.screens.length > 0 ? Quickshell.screens[0].name : ""
     }
 
@@ -79,8 +79,8 @@ QtObject {
 
     // A compatibility name, kept on purpose (UI/UX Phase 19). It opened the
     // Dashboard's Config tab, a second host of the whole settings app; that tab
-    // is gone and settings have one home. SUPER+C and apex-os's keybind helper
-    // (files/system/libexec/apex-labwc-keybinds maps this action to "settings")
+    // is gone and settings have one home. SUPER+C and rime-os's keybind helper
+    // (files/system/libexec/rime-labwc-keybinds maps this action to "settings")
     // still call this target, and user keybinds.json files name it, so it stays
     // and opens Nexus.
     property var dashboardConfig: IpcHandler {
@@ -120,7 +120,7 @@ QtObject {
             return NexusState.open ? "nexus open at " + NexusState.page : "nexus closed"
         }
 
-        // So `apex shell nexus --list` and tab-completion have a source of
+        // So `rime shell nexus --list` and tab-completion have a source of
         // truth that cannot drift from the registry.
         function pages(): string {
             return root.nexusPageIds()
@@ -141,8 +141,8 @@ QtObject {
     // has left — and if that set is empty or unreadable, the only remaining way
     // to answer is from a TTY:
     //
-    //     apex shell display status
-    //     apex shell display revert
+    //     rime shell display status
+    //     rime shell display revert
     //
     // Deliberately not a second implementation of the transaction: every verb
     // is the same call the dialog's buttons make.
@@ -475,12 +475,12 @@ QtObject {
     // `commit` and `cancel` arrive from a keybind on the ALT *release*, which
     // the compositor fires every time anybody lets go of ALT — see
     // WindowSwitcherService for why the release is a compositor binding and not
-    // a keyboard grab. /usr/libexec/apex-switcher filters the closed case out
+    // a keyboard grab. /usr/libexec/rime-switcher filters the closed case out
     // before this is reached, so a call getting here is nearly always real; the
     // service still returns quietly when nothing is open, because "nearly
     // always" is not "always" and a stale flag file must not produce an error.
     //
-    // Each returns a string so `apex shell switcher …` has something to print
+    // Each returns a string so `rime shell switcher …` has something to print
     // and, more usefully, so a test can drive the switcher over IPC and read
     // back what it did.
     property var windowSwitcher: IpcHandler {
@@ -563,7 +563,7 @@ QtObject {
     // ── Push-to-talk (roadmap P1-023, ROADMAP.md §8.2) ───────────────────────
     //
     // This handler IS the "compositor-neutral global route". The three
-    // compositors APEX ships have three different keybind formats and no
+    // compositors Rime ships have three different keybind formats and no
     // common input path — NiriBackend.qml:69 records that niri has no runtime
     // keybind capture at all, so a shell-side grab was never an option — but
     // all three can run a command, and every shell-side action already reaches
@@ -609,7 +609,7 @@ QtObject {
     // External entry point for the native lock screen (windows/Lockscreen.qml).
     // Invoked by scripts/PowerControl.sh, hypridle's lock_cmd, and
     // `loginctl lock-session` → all via:
-    //   qs ipc -c "$HOME/.local/src/apex-shell" call lockscreen lock
+    //   qs ipc -c "$HOME/.local/src/rime-shell" call lockscreen lock
     //
     // SECURITY: unlock() is intentionally a no-op. Unlocking over IPC would be
     // a trivial lock bypass — the ONLY path back to unlocked is a successful

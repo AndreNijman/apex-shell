@@ -58,7 +58,7 @@
 //
 // A confined session's pid is the `bwrap` wrapper, so the agent's own binary
 // is a CHILD in the process tree, and under it sit the MCP servers, the
-// language servers, and every `apex agent hook` the bridge has ever run. A
+// language servers, and every `rime agent hook` the bridge has ever run. A
 // literal list would open with a row called "claude" underneath a row called
 // "Claude", which reads as a bug.
 //
@@ -143,8 +143,8 @@ function processes(session) {
 
 // ── Accounting (P1-020 criterion 2) ─────────────────────────────────────────
 //
-// Mirrors apex-agent-core's `graph::account` deliberately, including the two
-// awkward parts, because the shell and `apex agent list` disagreeing about how
+// Mirrors rime-agent-core's `graph::account` deliberately, including the two
+// awkward parts, because the shell and `rime agent list` disagreeing about how
 // much work a session delegated would be worse than either number alone.
 //
 //   * wall time is SUMMED across children that overlap, so the total can

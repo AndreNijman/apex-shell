@@ -32,7 +32,7 @@
 #  the message says to fix the expectation, not the code.
 #
 #  GREEN (`hold`): G1 appends a comment to the .cpp quoting the exact strings
-#  the suite asserts — "accessibleRoot: NULL", "rootName: APEX-CUSTOM-ROOT",
+#  the suite asserts — "accessibleRoot: NULL", "rootName: RIME-CUSTOM-ROOT",
 #  "appChildCount: 1" — and the suite must stay green. That is the proof that
 #  every assertion reads the PROGRAM'S OUTPUT and not the program's source,
 #  which is the difference between this and a grep.
@@ -47,7 +47,7 @@
 #  ── How the file gets put back ─────────────────────────────────────────────
 #
 #  A pristine copy into a per-run mktemp directory, restored with plain `cp`,
-#  and every restore VERIFIES sha256. Not `git checkout --`: apex-shell's
+#  and every restore VERIFIES sha256. Not `git checkout --`: rime-shell's
 #  arch-validate job installs git AFTER actions/checkout, so the workspace has
 #  no .git at all. Not a shared scratch path either.
 #
@@ -335,40 +335,40 @@ mutate M3 'w->setTitle(QStringLiteral("QTROOT"));' \
           'reading the window title through QAccessibleQuickWindow'
 
 mutate M4 '    if (strcmp(mode(), "D") == 0)
-        installApexFactory("Q_COREAPP_STARTUP_FUNCTION");' \
+        installRimeFactory("Q_COREAPP_STARTUP_FUNCTION");' \
           '    if (false && strcmp(mode(), "D") == 0)
-        installApexFactory("Q_COREAPP_STARTUP_FUNCTION");' \
+        installRimeFactory("Q_COREAPP_STARTUP_FUNCTION");' \
           'runs once per APPLICATION OBJECT'
 
 mutate M5 '    if (strcmp(mode(), "D") == 0)
-        installApexFactory("Q_COREAPP_STARTUP_FUNCTION");' \
+        installRimeFactory("Q_COREAPP_STARTUP_FUNCTION");' \
           '    static bool once = false;
     if (strcmp(mode(), "D") == 0 && !once) {
         once = true;
-        installApexFactory("Q_COREAPP_STARTUP_FUNCTION");
+        installRimeFactory("Q_COREAPP_STARTUP_FUNCTION");
     }' \
           'so the factory is back after the destruction and the root is non-null again'
 
-mutate M6 'QStringLiteral("APEX-CUSTOM-ROOT")' \
-          'QStringLiteral("APEX-OTHER-ROOT")' \
+mutate M6 'QStringLiteral("RIME-CUSTOM-ROOT")' \
+          'QStringLiteral("RIME-OTHER-ROOT")' \
           'the root really is the one the startup routine installed, not a leftover'
 
 mutate M7 '    if (strcmp(mode(), "C") == 0)
-        installApexFactory("Q_CONSTRUCTOR_FUNCTION");' \
+        installRimeFactory("Q_CONSTRUCTOR_FUNCTION");' \
           '    if (false && strcmp(mode(), "C") == 0)
-        installApexFactory("Q_CONSTRUCTOR_FUNCTION");' \
+        installRimeFactory("Q_CONSTRUCTOR_FUNCTION");' \
           'mode C really did install a factory before the application existed'
 
 mutate M8 '    if (strcmp(mode(), "D") == 0)
-        installApexFactory("Q_COREAPP_STARTUP_FUNCTION");' \
+        installRimeFactory("Q_COREAPP_STARTUP_FUNCTION");' \
           '    if (strcmp(mode(), "D") == 0 || strcmp(mode(), "C") == 0)
-        installApexFactory("Q_COREAPP_STARTUP_FUNCTION");' \
+        installRimeFactory("Q_COREAPP_STARTUP_FUNCTION");' \
           'is GONE after the destruction'
 
 mutate M9 '    if (strcmp(m, "E") == 0)
-        installApexFactory("after-QGuiApplication");' \
+        installRimeFactory("after-QGuiApplication");' \
           '    if (false && strcmp(m, "E") == 0)
-        installApexFactory("after-QGuiApplication");' \
+        installRimeFactory("after-QGuiApplication");' \
           'installing a factory AFTER the QGuiApplication exists also restores the tree'
 
 mutate M10 'int main(int, char **argv)' \
@@ -389,11 +389,11 @@ hold G1 'static const char *mode()' \
 //   accessibleRoot: NULL
 //   accessibleRoot: NON-NULL
 //   rootName: QTROOT
-//   rootName: APEX-CUSTOM-ROOT
+//   rootName: RIME-CUSTOM-ROOT
 //   appChildCount: 0
 //   appChildCount: 1
-//   install: Q_CONSTRUCTOR_FUNCTION installed apexFactory
-//   install: Q_COREAPP_STARTUP_FUNCTION installed apexFactory
+//   install: Q_CONSTRUCTOR_FUNCTION installed rimeFactory
+//   install: Q_COREAPP_STARTUP_FUNCTION installed rimeFactory
 static const char *mode()' \
         'the suite reads the program OUTPUT, not the program source'
 

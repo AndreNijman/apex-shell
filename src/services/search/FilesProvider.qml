@@ -9,7 +9,7 @@ import "../search.js" as Search
 // a file hands it to the desktop's default handler.
 //
 // It is NOT a fuzzy index of everything under $HOME. That needs an index —
-// plocate's database, or a persistent walk — and APEX ships neither. The
+// plocate's database, or a persistent walk — and Rime ships neither. The
 // alternatives are worse than the gap: walking $HOME on a keystroke is exactly
 // the "process per provider per keystroke" this design exists to prevent, and a
 // launcher that silently built an index of a user's home directory is a

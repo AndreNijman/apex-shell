@@ -94,8 +94,8 @@ ShellRoot {
     // capability schema above: a test that read them out of
     // Compositor.presentedName() would agree with any answer that function
     // gave, including a wrong one. These are the words the login session
-    // picker uses for the same three desktops (apex-os ships them as "APEX
-    // Floating", "APEX Scrolling" and "APEX Tiling"), so changing one here is
+    // picker uses for the same three desktops (rime-os ships them as "Rime
+    // Floating", "Rime Scrolling" and "Rime Tiling"), so changing one here is
     // a deliberate cross-repo edit.
     readonly property var expectedModeNames: ({
         "hyprland": "Tiling",
@@ -111,7 +111,7 @@ ShellRoot {
     ServiceRef { service: CompositorService.titleRef;   active: root.wantTitle }
 
     // ── Stubs for the outputState()/inputState() contract ────────────────────
-    readonly property string stubDir: Quickshell.env("XDG_RUNTIME_DIR") + "/apex-compositor-test"
+    readonly property string stubDir: Quickshell.env("XDG_RUNTIME_DIR") + "/rime-compositor-test"
     property bool stubsReady: false
 
     property Process _mkStubs: Process {
@@ -525,7 +525,7 @@ ShellRoot {
             // Not the same path as "exited non-zero": a missing binary never
             // starts, so there is no exit code and nothing collects stdout. The
             // callback has to be settled anyway or the caller waits forever —
-            // and this is the realistic case, because apex-shell updates from
+            // and this is the realistic case, because rime-shell updates from
             // git while the helpers ship in the OS image.
             CompositorService.displayEngine = root.stubDir + "/does-not-exist"
             CompositorService.outputState(function (ok, data) { root.missingResult = [ok, data] })

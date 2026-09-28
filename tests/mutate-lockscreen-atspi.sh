@@ -165,7 +165,7 @@ classify() {
 # ── self-test: the scoring above, in all four states ─────────────────────────
 selftest() {
     local red green crash fails=0
-    red="  FAIL an Accessible.name written in QML arrives on the bus verbatim  — no node named apex-atspi-control-label
+    red="  FAIL an Accessible.name written in QML arrives on the bus verbatim  — no node named rime-atspi-control-label
 lockscreen-atspi: passed=15 failed=1 skipped=6"
     green="lockscreen-atspi: passed=16 failed=0 skipped=6"
     crash="FATAL: this tree has no tests/atspi-walk.py"
@@ -393,7 +393,7 @@ echo "── red: break the CONTROL, and the suite must notice ──"
 #      named node from an unnamed one, its "the shell published nothing" is an
 #      opinion.
 mutate R1 "$CONTROL" \
-    '        Accessible.name: "apex-atspi-control-label"' \
+    '        Accessible.name: "rime-atspi-control-label"' \
     '        // Accessible.name removed by mutant R1' \
     "an Accessible.name written in QML arrives on the bus verbatim"
 
@@ -425,8 +425,8 @@ mutate R2 "$CONTROL" \
 #       deliberately in a program that is known-good, so the suite has to be
 #       able to see it.
 mutate R2b "$CONTROL" \
-    '    title:  "apex-atspi-control"' \
-    '    title:  "apex-atspi-control"
+    '    title:  "rime-atspi-control"' \
+    '    title:  "rime-atspi-control"
     flags:  Qt.Popup' \
     "the control's WINDOW reaches the bus as a frame"
 

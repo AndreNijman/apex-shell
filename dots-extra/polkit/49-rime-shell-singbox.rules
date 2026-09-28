@@ -1,4 +1,4 @@
-// APEX Shell — passwordless sing-box.service control
+// Rime Shell — passwordless sing-box.service control
 // ─────────────────────────────────────────────────────────────────────────────
 // The VPN tab (src/popups/VPNTab.qml) toggles the sing-box VLESS/Reality tunnel
 // with `systemctl start|stop sing-box.service`. This polkit rule lets an active
@@ -15,12 +15,12 @@
 // so it is a much smaller surface than a blanket `sudo systemctl` NOPASSWD entry.
 //
 // Install (regular systemd host):
-//   sudo install -Dm644 dots-extra/polkit/49-apex-shell-singbox.rules \
-//        /etc/polkit-1/rules.d/49-apex-shell-singbox.rules
+//   sudo install -Dm644 dots-extra/polkit/49-rime-shell-singbox.rules \
+//        /etc/polkit-1/rules.d/49-rime-shell-singbox.rules
 // polkitd hot-reloads rules.d on change — no daemon restart required.
 //
-// Image builds (e.g. APEX-OS): ship it read-only under
-//   /usr/share/polkit-1/rules.d/49-apex-shell-singbox.rules
+// Image builds (e.g. Rime OS): ship it read-only under
+//   /usr/share/polkit-1/rules.d/49-rime-shell-singbox.rules
 //
 // The `49-` prefix orders this before the distro default (usually 50-*.rules),
 // so the explicit YES is reached before any fallback.

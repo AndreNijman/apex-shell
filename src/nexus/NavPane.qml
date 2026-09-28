@@ -149,7 +149,7 @@ Item {
         color: Theme.surfaceSelected
         onTargetChanged: if (sel.target && !sel._placed) armTimer.restart()
         Timer { id: armTimer; interval: 0; onTriggered: sel._placed = true }
-        ApexFocusRing { target: root; targetRadius: sel.radius }
+        RimeFocusRing { target: root; targetRadius: sel.radius }
 
         // Active marker: a bar rather than only a tint, so the selected page
         // is still obvious at low contrast or with a pale accent.

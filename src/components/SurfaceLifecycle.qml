@@ -214,14 +214,14 @@ QtObject {
         if (!life.mapped) life._presented = false
         // For tests/visual/stress-matrix.sh: every map and unmap, by name.
         if (Motion.pacingLog)
-            console.info("APEX pacing: " + (life.name || "surface") + " mapped=" + life.mapped)
+            console.info("Rime pacing: " + (life.name || "surface") + " mapped=" + life.mapped)
     }
     property Connections _firstFrame: Connections {
         target: (life.surface && !life._presented) ? life._win : null
         ignoreUnknownSignals: true
         function onFrameSwapped() {
             if (Motion.pacingLog && life.open)
-                console.info("APEX pacing: " + (life.name || "surface") + " first-frame ms="
+                console.info("Rime pacing: " + (life.name || "surface") + " first-frame ms="
                              + (Date.now() - life._openedAt))
             life._presented = true
         }
@@ -274,7 +274,7 @@ QtObject {
     // a FrameAnimation ticks once per frame the animation driver advances, so
     // its count against the wall-clock duration is the miss count, and the
     // longest gap between ticks is the worst hitch. Logged when the phase ends:
-    //     APEX pacing: <name> <Opening|Closing> ms=<n> frames=<n> worst=<ms>
+    //     Rime pacing: <name> <Opening|Closing> ms=<n> frames=<n> worst=<ms>
     //                  at=<where the worst gap ended, 0..1 of the phase> first=<ms>
     // `first` is the wait for the first frame after the phase began: a surface
     // that builds its content or starts a process as it opens pays it there.
@@ -293,7 +293,7 @@ QtObject {
                 t0 = Date.now(); last = t0; n = 0; worst = 0; worstT = t0; first = -1; ph = life.phase
             } else if (n > 0) {
                 const span = Math.max(1, last - t0)
-                console.info("APEX pacing: " + (life.name || "surface") + " " + ph
+                console.info("Rime pacing: " + (life.name || "surface") + " " + ph
                              + " ms=" + Math.round(last - t0) + " frames=" + n
                              + " worst=" + Math.round(worst)
                              + " at=" + ((worstT - t0) / span).toFixed(2)

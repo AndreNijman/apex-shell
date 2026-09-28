@@ -2,7 +2,7 @@ import QtQuick
 import Quickshell.Io
 
 // ============================================================
-// ColorsLoader — watches ~/.cache/apex-shell/colors.json
+// ColorsLoader — watches ~/.cache/rime-shell/colors.json
 // and exposes parsed color properties.
 //
 // Not a singleton. Instantiated as a property inside Theme.qml.
@@ -36,7 +36,7 @@ QtObject {
             onRead: function(line) {
                 var h = line.trim()
                 if (h !== "")
-                    colorsFile.path = h + "/.cache/apex-shell/colors.json"
+                    colorsFile.path = h + "/.cache/rime-shell/colors.json"
             }
         }
     }

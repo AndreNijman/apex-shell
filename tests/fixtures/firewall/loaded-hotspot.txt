@@ -1,9 +1,9 @@
-apex-firewall: policy: incoming dropped by default, outgoing allowed
+rime-firewall: policy: incoming dropped by default, outgoing allowed
 
 always allowed, and not removable here:
   established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh
 
-  sharing this machine's connection on: apexhost, wlan0
+  sharing this machine's connection on: rimehost, wlan0
     DHCP and DNS are open on those links only
 
 exceptions you have added:

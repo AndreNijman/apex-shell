@@ -12,7 +12,7 @@
 #
 #  So this reads the words:
 #
-#    1. every `apex …` command in the guide names a verb the CLI has;
+#    1. every `rime …` command in the guide names a verb the CLI has;
 #    2. the flags the roadmap only PLANS are marked as absent, not documented
 #       as usable;
 #    3. the six permission layers and the three invariants are all present;
@@ -20,10 +20,10 @@
 #       every exemption.
 #
 #  ── Where the truth comes from ──────────────────────────────────────────────
-#  The verb lists are read out of apex-os when a checkout is available
-#  (APEX_OS_ROOT, or ../apex-os), so this cannot drift from the CLI it
+#  The verb lists are read out of rime-os when a checkout is available
+#  (RIME_OS_ROOT, or ../rime-os), so this cannot drift from the CLI it
 #  describes. Without one, the check falls back to a vocabulary transcribed
-#  from apexd/apex/src/agent.rs and says so, because a soft skip on the machine
+#  from rimed/rime/src/agent.rs and says so, because a soft skip on the machine
 #  where most people run tests would leave the check doing nothing.
 #
 #  PASS = the guide names no command the CLI lacks, marks every unbuilt feature
@@ -87,9 +87,9 @@ else
     bad "the qsTr() normaliser did not work: $n_wrapped wrapped going in, $n_left still wrapped coming out"
 fi
 
-# ── 1. Every apex verb the guide names is a verb the CLI has ────────────────
-osroot="${APEX_OS_ROOT:-$(cd ../apex-os 2>/dev/null && pwd)}"
-src="$osroot/apexd/apex/src"
+# ── 1. Every rime verb the guide names is a verb the CLI has ────────────────
+osroot="${RIME_OS_ROOT:-$(cd ../rime-os 2>/dev/null && pwd)}"
+src="$osroot/rimed/rime/src"
 
 # Transcribed from agent.rs:26-134, project 227-309, request.rs:39, secret.rs.
 # Used only when no checkout is around; the checkout wins whenever it exists.
@@ -130,7 +130,7 @@ print(" ".join(sorted({snake(n) for n in names})))
 PY
 }
 
-source_note="transcribed vocabulary (no apex-os checkout found)"
+source_note="transcribed vocabulary (no rime-os checkout found)"
 if [ -n "$osroot" ] && [ -f "$src/agent.rs" ]; then
     a="$(read_verbs "$src/agent.rs" AgentCmd)"
     p="$(read_verbs "$src/agent.rs" ProjectCmd)"
@@ -147,15 +147,15 @@ if [ -n "$osroot" ] && [ -f "$src/agent.rs" ]; then
 fi
 echo "  verb source: $source_note"
 
-# Pull `apex <group> <verb>` out of the guide's strings. The `\n` separators in
+# Pull `rime <group> <verb>` out of the guide's strings. The `\n` separators in
 # a command block are literal two-character sequences in the QML source, so they
-# are turned back into newlines first; without that, `apex agent pause 4\napex`
+# are turned back into newlines first; without that, `rime agent pause 4\nrime`
 # hides the second command.
 used="$(python3 - "$NORM" <<'PY'
 import re, pathlib, sys
 text = pathlib.Path(sys.argv[1]).read_text(errors="replace").replace("\\n", "\n")
 for group in ("agent", "project", "request", "secret", "host"):
-    for m in re.finditer(r"\bapex %s ([a-z][a-z-]*)" % group, text):
+    for m in re.finditer(r"\brime %s ([a-z][a-z-]*)" % group, text):
         print(group, m.group(1))
 PY
 )"
@@ -171,9 +171,9 @@ check_group() {
         esac
     done
     if [ -z "$missing" ]; then
-        ok "every \`apex $group\` verb the guide names exists ($(printf '%s' "$verbs" | tr '\n' ' '))"
+        ok "every \`rime $group\` verb the guide names exists ($(printf '%s' "$verbs" | tr '\n' ' '))"
     else
-        bad "the guide names \`apex $group\` verbs the CLI does not have:$missing"
+        bad "the guide names \`rime $group\` verbs the CLI does not have:$missing"
     fi
 }
 check_group agent   "$AGENT_VERBS"
@@ -226,7 +226,7 @@ fi
 # ── 2c. Push-to-talk stops at the transcript, and the guide says so ──────────
 # P1-023 routes speech to the focused session and transcribes it. The last step,
 # writing that text into the session's terminal, needs a request the runtime
-# does not have: apex-agent-core's Request enum has Attach, Resize, Signal and
+# does not have: rime-agent-core's Request enum has Attach, Resize, Signal and
 # Event and nothing that carries text, so the shell's delivery step fails by
 # design rather than silently dropping the words.
 #
@@ -242,7 +242,7 @@ fi
 # place instead of a stale sentence nobody notices.
 #
 # NOTE: the guide must not name the verb as a command anywhere, todo blocks
-# included. check_group scrapes `apex agent <verb>` out of the WHOLE file and
+# included. check_group scrapes `rime agent <verb>` out of the WHOLE file and
 # tests it against the CLI, so writing the command down before it exists turns
 # section 1 red. The marker below is prose for that reason.
 if grep -q "Speak to it" "$NORM"; then
@@ -260,10 +260,10 @@ fi
 # guide exists to prevent, so all six must be named.
 layers=0
 for n in "1. The agent's own permission mode" \
-         "2. The APEX filesystem and process sandbox" \
-         "3. The APEX system and root capability layer" \
-         "4. The APEX secret and cloud capability layer" \
-         "5. The APEX network policy" \
+         "2. The Rime filesystem and process sandbox" \
+         "3. The Rime system and root capability layer" \
+         "4. The Rime secret and cloud capability layer" \
+         "5. The Rime network policy" \
          "6. The remote-origin policy"; do
     grep -qF "$n" "$NORM" && layers=$((layers + 1))
 done
@@ -275,7 +275,7 @@ fi
 
 # The three invariants, in the words that make them checkable rather than vague.
 inv=0
-grep -q "leaves the APEX sandbox switched on"          "$NORM" && inv=$((inv + 1))
+grep -q "leaves the Rime sandbox switched on"          "$NORM" && inv=$((inv + 1))
 grep -q "full user access does not give it root"       "$NORM" && inv=$((inv + 1))
 grep -q "root does not hand over your stored tokens"   "$NORM" && inv=$((inv + 1))
 if [ "$inv" -eq 3 ]; then
@@ -353,7 +353,7 @@ recheck_verb() {
     u="$(python3 - "$TMP/content.qml" <<'PY'
 import re, pathlib, sys
 text = pathlib.Path(sys.argv[1]).read_text(errors="replace").replace("\\n", "\n")
-print("\n".join(sorted({m.group(1) for m in re.finditer(r"\bapex agent ([a-z][a-z-]*)", text)})))
+print("\n".join(sorted({m.group(1) for m in re.finditer(r"\brime agent ([a-z][a-z-]*)", text)})))
 PY
 )"
     for v in $u; do
@@ -362,7 +362,7 @@ PY
     return 1
 }
 mutate "a verb the CLI does not have" \
-    "apex agent adapters" "apex agent profiles" recheck_verb
+    "rime agent adapters" "rime agent profiles" recheck_verb
 
 # (b) an unbuilt flag documented as if it worked
 recheck_todo() {
@@ -406,14 +406,14 @@ mutate "push-to-talk losing the block that says the transcript is not delivered"
 # (c) two permission layers collapsed into one
 recheck_layers() {
     local n=0
-    for x in "2. The APEX filesystem and process sandbox" \
-             "3. The APEX system and root capability layer"; do
+    for x in "2. The Rime filesystem and process sandbox" \
+             "3. The Rime system and root capability layer"; do
         grep -qF "$x" "$TMP/content.qml" && n=$((n + 1))
     done
     [ "$n" -lt 2 ]
 }
 mutate "two permission layers collapsed together" \
-    '{ k: "kv", t: "3. The APEX system and root capability layer"' \
+    '{ k: "kv", t: "3. The Rime system and root capability layer"' \
     '{ k: "kv", t: "3. Part of the sandbox above"' recheck_layers
 
 # (d) an invariant softened into a vague reassurance, which §43 forbids by name

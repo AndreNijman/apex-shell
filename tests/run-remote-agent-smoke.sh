@@ -18,9 +18,9 @@
 #
 #  ── How the remote side is faked, and what is real ──────────────────────────
 #
-#  `apex host` does not exist in every apex-os checkout (it lands on the P2
-#  branch), and `apex host run` execs real ssh to a real machine, which a test
-#  cannot have. So a shim `apex` goes first on PATH. It implements exactly two
+#  `rime host` does not exist in every rime-os checkout (it lands on the P2
+#  branch), and `rime host run` execs real ssh to a real machine, which a test
+#  cannot have. So a shim `rime` goes first on PATH. It implements exactly two
 #  things and delegates everything else to the real binary by absolute path:
 #
 #      host list --json   prints the fixture registry
@@ -29,18 +29,18 @@
 #                                  cannot get there
 #
 #  Everything the shell then parses as "the desktop's sessions" is genuine
-#  SessionInfo JSON produced by a real apex-agentd from real sessions — not a
+#  SessionInfo JSON produced by a real rime-agentd from real sessions — not a
 #  hand-written fixture of what a session might look like. The registry JSON is
 #  the one hand-written part, and its shape is transcribed from the OS side's
-#  own serialiser rather than imagined: apexd/apex/src/host.rs builds that
-#  object in its `HostCmd::List { json: true }` arm and apexd-core/src/host.rs
-#  declares which HostCaps keys are omitted when absent. Read on the apex-os
+#  own serialiser rather than imagined: rimed/rime/src/host.rs builds that
+#  object in its `HostCmd::List { json: true }` arm and rimed-core/src/host.rs
+#  declares which HostCaps keys are omitted when absent. Read on the rime-os
 #  branch `p2/base` at commit 77cbf68.
 #
 #  The shim records every invocation with one argument per tab, which is also
-#  how the argv-boundary assertion is made: `apex host run` must receive the
+#  how the argv-boundary assertion is made: `rime host run` must receive the
 #  remote command as separate arguments, because that is the whole reason the
-#  shell calls `apex host run` instead of building an ssh line itself.
+#  shell calls `rime host run` instead of building an ssh line itself.
 #
 #  ── What this does NOT verify ───────────────────────────────────────────────
 #
@@ -50,12 +50,12 @@
 #
 #  ISOLATION. The daemon runs with its own XDG_RUNTIME_DIR, XDG_STATE_HOME,
 #  XDG_CONFIG_HOME and HOME, so the developer's own sessions and their real
-#  ~/.config/apex/hosts.toml are never read or written.
+#  ~/.config/rime/hosts.toml are never read or written.
 #
 #  The runtime dir used to be the session's own, mirrored in with symlinks so
 #  the shell could reach the compositor socket — which meant the shell under
 #  test drew on the developer's desktop, and a bug in the exclusion list would
-#  have pointed it at the live apex-agentd and the sessions somebody had open.
+#  have pointed it at the live rime-agentd and the sessions somebody had open.
 #  It now takes a headless labwc from tests/lib/headless.sh instead, and nothing
 #  is mirrored in at all.
 #
@@ -65,7 +65,7 @@ set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/.." && pwd)"
-osroot="${APEX_OS_ROOT:-$(cd "$root/../apex-os" 2>/dev/null && pwd)}"
+osroot="${RIME_OS_ROOT:-$(cd "$root/../rime-os" 2>/dev/null && pwd)}"
 
 pass=0
 fail=0
@@ -79,16 +79,16 @@ want() { local desc="$1"; shift; if "$@"; then ok "$desc"; else bad "$desc"; fi;
 . "$here/lib/headless.sh"
 
 headless_require quickshell
-[[ -n "$osroot" && -d "$osroot/apexd" ]] || { echo "SKIP: apex-os checkout not found (set APEX_OS_ROOT)"; exit 0; }
+[[ -n "$osroot" && -d "$osroot/rimed" ]] || { echo "SKIP: rime-os checkout not found (set RIME_OS_ROOT)"; exit 0; }
 
-BIN="$osroot/apexd/target/debug"
-if [[ ! -x "$BIN/apex-agentd" || ! -x "$BIN/apex" ]]; then
+BIN="$osroot/rimed/target/debug"
+if [[ ! -x "$BIN/rime-agentd" || ! -x "$BIN/rime" ]]; then
     echo "building the runtime..."
-    cargo build --manifest-path "$osroot/apexd/Cargo.toml" \
-        --bin apex-agentd --bin apex >/dev/null 2>&1 \
+    cargo build --manifest-path "$osroot/rimed/Cargo.toml" \
+        --bin rime-agentd --bin rime >/dev/null 2>&1 \
         || { echo "SKIP: cannot build the agent runtime"; exit 0; }
 fi
-REAL_APEX="$BIN/apex"
+REAL_RIME="$BIN/rime"
 
 W="$(mktemp -d)"
 log="$W/shell.log"
@@ -114,13 +114,13 @@ headless_begin
 headless_unstub git
 headless_start || exit 0
 
-"$BIN/apex-agentd" > "$W/agentd.log" 2>&1 &
+"$BIN/rime-agentd" > "$W/agentd.log" 2>&1 &
 daemon_pid=$!
 for _ in $(seq 1 50); do
-    [[ -S "$XDG_RUNTIME_DIR/apex-agentd/control.sock" ]] && break
+    [[ -S "$XDG_RUNTIME_DIR/rime-agentd/control.sock" ]] && break
     sleep 0.1
 done
-[[ -S "$XDG_RUNTIME_DIR/apex-agentd/control.sock" ]] || {
+[[ -S "$XDG_RUNTIME_DIR/rime-agentd/control.sock" ]] || {
     echo "FAIL: the agent runtime never came up"; tail -10 "$W/agentd.log"; exit 1; }
 
 # ── real sessions, so the "remote" device answers with real records ──────────
@@ -128,19 +128,19 @@ mkdir -p "$W/proj"
 git -C "$W/proj" init -q 2>/dev/null
 git -C "$W/proj" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init 2>/dev/null
 
-"$REAL_APEX" agent run --agent generic --sandbox unrestricted --cwd "$W/proj" -d \
+"$REAL_RIME" agent run --agent generic --sandbox unrestricted --cwd "$W/proj" -d \
     -- /bin/sh -c 'sleep 600' >/dev/null 2>&1
-"$REAL_APEX" agent run --agent generic --sandbox unrestricted --cwd "$W/proj" -d \
+"$REAL_RIME" agent run --agent generic --sandbox unrestricted --cwd "$W/proj" -d \
     -- /bin/sh -c 'exit 3' >/dev/null 2>&1
 sleep 1
-sessions="$("$REAL_APEX" agent list --all --json 2>/dev/null | grep -c '"id"')"
+sessions="$("$REAL_RIME" agent list --all --json 2>/dev/null | grep -c '"id"')"
 echo "fixture: ${sessions} real session(s) behind the fake remote"
 [[ "$sessions" -ge 2 ]] || { echo "FAIL: the fixture sessions were not created"; exit 1; }
 
 # ── the fixture registry ─────────────────────────────────────────────────────
 # Four devices, one per disposition the design distinguishes.
-export APEX_SMOKE_FIXTURE="$W/hosts.json"
-cat > "$APEX_SMOKE_FIXTURE" <<'JSON'
+export RIME_SMOKE_FIXTURE="$W/hosts.json"
+cat > "$RIME_SMOKE_FIXTURE" <<'JSON'
 {
   "katana": {
     "ssh": "katana",
@@ -148,7 +148,7 @@ cat > "$APEX_SMOKE_FIXTURE" <<'JSON'
     "note": "build box",
     "caps": {
       "probed_at": 4000000000,
-      "apex_version": "0.1.0",
+      "rime_version": "0.1.0",
       "variant": "daily",
       "cpus": 20,
       "memory_mib": 63488,
@@ -165,7 +165,7 @@ cat > "$APEX_SMOKE_FIXTURE" <<'JSON'
     "note": null,
     "caps": {
       "probed_at": 4000000000,
-      "apex_version": "0.1.0",
+      "rime_version": "0.1.0",
       "variant": "daily",
       "cpus": 8,
       "memory_mib": 16384,
@@ -177,7 +177,7 @@ cat > "$APEX_SMOKE_FIXTURE" <<'JSON'
   "fileserver": {
     "ssh": "fileserver",
     "port": null,
-    "note": "no apex on it",
+    "note": "no rime on it",
     "caps": {
       "probed_at": 4000000000,
       "os": "Fedora Linux 43",
@@ -193,21 +193,21 @@ cat > "$APEX_SMOKE_FIXTURE" <<'JSON'
 JSON
 
 # ── the shim ─────────────────────────────────────────────────────────────────
-export APEX_SMOKE_CALLS="$W/calls.log"
-export APEX_SMOKE_REAL="$REAL_APEX"
-: > "$APEX_SMOKE_CALLS"
+export RIME_SMOKE_CALLS="$W/calls.log"
+export RIME_SMOKE_REAL="$REAL_RIME"
+: > "$RIME_SMOKE_CALLS"
 
 mkdir -p "$W/bin"
-cat > "$W/bin/apex" <<'SHIM'
+cat > "$W/bin/rime" <<'SHIM'
 #!/usr/bin/env bash
 # One line per invocation, one argument per tab. The tabs are what lets the
 # argv-boundary assertion be made at all: `ssh host a b c` joins its remote
-# arguments with spaces, which is the bug `apex host run` exists to avoid, so a
+# arguments with spaces, which is the bug `rime host run` exists to avoid, so a
 # log that also joined them could not tell the two apart.
-{ printf '%s\t' "$@"; printf '\n'; } >> "$APEX_SMOKE_CALLS"
+{ printf '%s\t' "$@"; printf '\n'; } >> "$RIME_SMOKE_CALLS"
 
 if [[ "${1:-}" == "host" && "${2:-}" == "list" ]]; then
-    cat "$APEX_SMOKE_FIXTURE"
+    cat "$RIME_SMOKE_FIXTURE"
     exit 0
 fi
 
@@ -220,15 +220,15 @@ if [[ "${1:-}" == "host" && "${2:-}" == "run" ]]; then
             # Reachable: run the argv against the real local runtime, so what
             # comes back is genuine SessionInfo JSON.
             #
-            # argv[0] is `apex` — the name the command has on the FAR side —
+            # argv[0] is `rime` — the name the command has on the FAR side —
             # and it is rewritten to the real binary's absolute path rather
             # than exec'd as-is. `exec "$@"` would find this shim again on
             # PATH and recurse; `exec "$REAL" "$@"` would run
-            # `apex apex agent list`. The rewrite keeps every later argument
+            # `rime rime agent list`. The rewrite keeps every later argument
             # exactly where it was, which is what the boundary assertion below
             # is checking.
             cmd=("$@")
-            [[ "${cmd[0]:-}" == "apex" ]] && cmd[0]="$APEX_SMOKE_REAL"
+            [[ "${cmd[0]:-}" == "rime" ]] && cmd[0]="$RIME_SMOKE_REAL"
             exec "${cmd[@]}" ;;
         laptop)
             # ssh's own exit code for "could not get there". A laptop off the
@@ -239,9 +239,9 @@ if [[ "${1:-}" == "host" && "${2:-}" == "run" ]]; then
     esac
 fi
 
-exec "$APEX_SMOKE_REAL" "$@"
+exec "$RIME_SMOKE_REAL" "$@"
 SHIM
-chmod +x "$W/bin/apex"
+chmod +x "$W/bin/rime"
 export PATH="$W/bin:$BIN:$PATH"
 
 # ── the shell ────────────────────────────────────────────────────────────────
@@ -255,9 +255,9 @@ grep -q "Configuration Loaded" "$log" || {
     echo "FAIL: the shell never loaded"; tail -20 "$log"; exit 1; }
 
 toggle() { quickshell -p "$root/shell.qml" ipc call dashboard-agents toggle >/dev/null 2>&1; }
-runs()   { grep -c $'^host\trun\t' "$APEX_SMOKE_CALLS"; }
-lists()  { grep -c $'^host\tlist\t' "$APEX_SMOKE_CALLS"; }
-runs_to() { grep -c "^host"$'\t'"run"$'\t'"$1"$'\t' "$APEX_SMOKE_CALLS"; }
+runs()   { grep -c $'^host\trun\t' "$RIME_SMOKE_CALLS"; }
+lists()  { grep -c $'^host\tlist\t' "$RIME_SMOKE_CALLS"; }
+runs_to() { grep -c "^host"$'\t'"run"$'\t'"$1"$'\t' "$RIME_SMOKE_CALLS"; }
 
 # Nothing may have been queried before the page was ever opened. The service is
 # a lazily constructed singleton, so this also asserts that merely loading the
@@ -285,7 +285,7 @@ want "a second device with a proven runtime is too"   test "$(runs_to laptop)" -
 #
 # fileserver was probed and reported agentd=false: known, so it is not asked.
 # newbox has caps=null: nothing is known about it, and guessing would cost an
-# 8-second ssh timeout per sweep to discover something `apex host probe`
+# 8-second ssh timeout per sweep to discover something `rime host probe`
 # answers properly and once. Neither may be queried.
 want "a device known NOT to have the runtime is never queried" \
     test "$(runs_to fileserver)" -eq 0
@@ -293,13 +293,13 @@ want "a device that has NEVER been probed is never queried" \
     test "$(runs_to newbox)" -eq 0
 
 # The argv boundaries survive. This is the reason the shell calls
-# `apex host run <name> -- <argv…>` rather than assembling an ssh command line.
+# `rime host run <name> -- <argv…>` rather than assembling an ssh command line.
 # Built with $'\t' rather than typed as literal tabs: a literal tab in a
 # source file is one editor away from becoming spaces, and this assertion
 # is entirely about the difference between a tab and a space.
-expected_argv="host"$'\t'"run"$'\t'"katana"$'\t'"--"$'\t'"apex"$'\t'"agent"$'\t'"list"$'\t'"--all"$'\t'"--json"$'\t'
+expected_argv="host"$'\t'"run"$'\t'"katana"$'\t'"--"$'\t'"rime"$'\t'"agent"$'\t'"list"$'\t'"--all"$'\t'"--json"$'\t'
 want "the remote argv arrives as separate arguments" \
-    grep -qF "$expected_argv" "$APEX_SMOKE_CALLS"
+    grep -qF "$expected_argv" "$RIME_SMOKE_CALLS"
 
 # The page must have actually READ the remote, not merely rendered without
 # complaint. A section that never queried anything produces no errors at all

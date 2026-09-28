@@ -5,7 +5,7 @@
 #
 #  src/components/auth/PasswordShapes.qml draws one geometric shape per
 #  character in place of bullet dots, on the lock screen here and on the login
-#  screen (apex-greet loads this same file from /usr/share/apex-shell). A
+#  screen (rime-greet loads this same file from /usr/share/rime-shell). A
 #  decoration next to a password field is the easiest place to leak one, so
 #  the properties that make it safe are asserted rather than trusted:
 #

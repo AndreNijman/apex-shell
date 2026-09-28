@@ -72,9 +72,9 @@ Rectangle {
                 visible: !banner.compact
                 // What it did and what it did not do, one line each. The second
                 // half is the part that has to survive editing: the sandbox is
-                // gone and nothing else moved, which is what apex-agent-core's
+                // gone and nothing else moved, which is what rime-agent-core's
                 // invariants assert and the most this may claim.
-                text: "Agents started from now on run with no APEX sandbox. They are "
+                text: "Agents started from now on run with no Rime sandbox. They are "
                     + "still not root, and secrets stay behind the broker."
                 font.pixelSize: theme.fs(10)
                 color:          Theme.subtext

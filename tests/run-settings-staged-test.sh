@@ -80,7 +80,7 @@ cat > "$W/bin/hyprctl" <<'FAKE'
 # A session with no Hyprland: no binds to report, nothing to reload.
 exit 0
 FAKE
-cat > "$W/bin/apex" <<'FAKE'
+cat > "$W/bin/rime" <<'FAKE'
 #!/usr/bin/env bash
 case "$*" in
     *json*) echo "{}" ;;
@@ -88,7 +88,7 @@ case "$*" in
 esac
 exit 0
 FAKE
-chmod +x "$W/bin/hyprctl" "$W/bin/apex"
+chmod +x "$W/bin/hyprctl" "$W/bin/rime"
 export PATH="$W/bin:$PATH"
 
 # ── the home under test ──────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ export XDG_CACHE_HOME="$W/cache"
 # write is a refused REDIRECT into an existing unwritable directory, which is
 # what a read-only home or a bad umask actually produces. If mkdir had to create
 # it the failure would be a different one.
-mkdir -p "$HOME/.config/apex-shell/src/user_data" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
+mkdir -p "$HOME/.config/rime-shell/src/user_data" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
 ln -sfn "$real_home/.local/share/fonts" "$HOME/.local/share/fonts" 2>/dev/null
 
 # ── the compositor ───────────────────────────────────────────────────────────

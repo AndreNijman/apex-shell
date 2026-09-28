@@ -82,7 +82,7 @@
 #
 #  ── So what does this suite assert? ─────────────────────────────────────────
 #
-#  It PINS the measurement, the way tests/test-apex-greet-atspi.sh in apex-os
+#  It PINS the measurement, the way tests/test-rime-greet-atspi.sh in rime-os
 #  pins Qt's refusal to publish the AT-SPI password role: as an equality, so
 #  that the day the tree stops being empty this suite goes red and says so,
 #  instead of staying quietly green through the fix.
@@ -107,7 +107,7 @@
 #
 #  src/services/system/LockedHintService.qml reaches for `loginctl show-user`
 #  and then `busctl --system … SetLockedHint`. On a developer's machine the
-#  system bus is the real one, and apex-agentd polls LockedHint to decide
+#  system bus is the real one, and rime-agentd polls LockedHint to decide
 #  whether Remote Control keeps running and whether a root grant survives — so a
 #  test that locked first and checked afterwards would be betting the machine on
 #  a private XDG_RUNTIME_DIR being enough. §2 installs recording stubs for both
@@ -190,7 +190,7 @@ headless_begin
 #
 # rm -f FIRST, and it is load-bearing: headless_begin makes $HEADLESS_W/bin/
 # loginctl a SYMLINK to the shared `_stub` script, so `cat > …/loginctl` writes
-# THROUGH the link and turns every other stub in the sandbox — apex, hyprctl,
+# THROUGH the link and turns every other stub in the sandbox — rime, hyprctl,
 # wlr-randr, systemctl — into a loginctl recorder.
 #
 # busctl is added rather than replaced: headless_begin does not stub it at all,
@@ -198,19 +198,19 @@ headless_begin
 # bus, and a LockedHintService that got past step 1 would call SetLockedHint on
 # the live session. The stub exits 1, so it can never fall through to the real
 # tool, and the run can say afterwards exactly what was asked of it.
-export APEX_LOCKHINT_CALLS="$HEADLESS_W/logind-calls.log"
-: > "$APEX_LOCKHINT_CALLS"
+export RIME_LOCKHINT_CALLS="$HEADLESS_W/logind-calls.log"
+: > "$RIME_LOCKHINT_CALLS"
 rm -f "$HEADLESS_W/bin/loginctl" "$HEADLESS_W/bin/busctl"
 cat > "$HEADLESS_W/bin/loginctl" <<'FAKE'
 #!/usr/bin/env bash
-printf 'loginctl %s\n' "$*" >> "$APEX_LOCKHINT_CALLS"
+printf 'loginctl %s\n' "$*" >> "$RIME_LOCKHINT_CALLS"
 # Exit 0 with nothing on stdout: what a user with no graphical session looks
 # like. LockedHintService must read that as "no session", not as a session id.
 exit 0
 FAKE
 cat > "$HEADLESS_W/bin/busctl" <<'FAKE'
 #!/usr/bin/env bash
-printf 'busctl %s\n' "$*" >> "$APEX_LOCKHINT_CALLS"
+printf 'busctl %s\n' "$*" >> "$RIME_LOCKHINT_CALLS"
 # Never succeeds and never reaches the real busctl. If this line is ever
 # exercised with SetLockedHint the suite fails on the recording, not on the
 # effect — by which point there would not have been one.
@@ -334,11 +334,11 @@ else
             "the frame lacks the showing/visible states: ${frame_line:-<no frame>}"
     fi
 
-    if grep -qF '| name=apex-atspi-control-label |' "$HEADLESS_W/control-tree.txt"; then
+    if grep -qF '| name=rime-atspi-control-label |' "$HEADLESS_W/control-tree.txt"; then
         ok "an Accessible.name written in QML arrives on the bus verbatim"
     else
         bad "an Accessible.name written in QML arrives on the bus verbatim" \
-            "no node named apex-atspi-control-label"
+            "no node named rime-atspi-control-label"
         sed 's/^/      /' "$HEADLESS_W/control-tree.txt" | head -10
     fi
 
@@ -388,16 +388,16 @@ ok "the shipped shell loads on the private compositor"
 # reports itself loaded. Give the process substitution a bounded moment anyway:
 # it is three chained QProcesses.
 for _ in $(seq 1 40); do
-    grep -q 'loginctl show-user' "$APEX_LOCKHINT_CALLS" && break
+    grep -q 'loginctl show-user' "$RIME_LOCKHINT_CALLS" && break
     sleep 0.25
 done
 
-if grep -q 'loginctl show-user .* -p Display --value' "$APEX_LOCKHINT_CALLS"; then
+if grep -q 'loginctl show-user .* -p Display --value' "$RIME_LOCKHINT_CALLS"; then
     ok "LockedHintService really does reach for loginctl at startup"
 else
     bad "LockedHintService really does reach for loginctl at startup" \
         "nothing in the call log; the guard below would be vacuous"
-    sed 's/^/      /' "$APEX_LOCKHINT_CALLS"
+    sed 's/^/      /' "$RIME_LOCKHINT_CALLS"
 fi
 
 # The refusal itself. Named rather than inferred: the service logs exactly this
@@ -421,10 +421,10 @@ else
 fi
 
 # The one that would matter most if it were false.
-if grep -q 'SetLockedHint' "$APEX_LOCKHINT_CALLS"; then
+if grep -q 'SetLockedHint' "$RIME_LOCKHINT_CALLS"; then
     bad "nothing ever asks logind to set a locked hint" \
         "SetLockedHint was invoked — on a real machine that reaches the live session"
-    grep 'SetLockedHint' "$APEX_LOCKHINT_CALLS" | sed 's/^/      /'
+    grep 'SetLockedHint' "$RIME_LOCKHINT_CALLS" | sed 's/^/      /'
 else
     ok "nothing ever asks logind to set a locked hint"
 fi
@@ -433,7 +433,7 @@ fi
 section "§3 the lock engages for real, on this run's own compositor"
 # ─────────────────────────────────────────────────────────────────────────────
 
-hint_calls_before="$(grep -c 'loginctl show-user' "$APEX_LOCKHINT_CALLS" 2>/dev/null || echo 0)"
+hint_calls_before="$(grep -c 'loginctl show-user' "$RIME_LOCKHINT_CALLS" 2>/dev/null || echo 0)"
 
 # The shipped IPC entry point (src/state/IpcManager.qml), which is what
 # PowerControl.sh, hypridle's lock_cmd and `loginctl lock-session` all use.
@@ -454,7 +454,7 @@ fi
 # would be reading an unlocked shell.
 lock_engaged=0
 for _ in $(seq 1 60); do
-    now="$(grep -c 'loginctl show-user' "$APEX_LOCKHINT_CALLS" 2>/dev/null || echo 0)"
+    now="$(grep -c 'loginctl show-user' "$RIME_LOCKHINT_CALLS" 2>/dev/null || echo 0)"
     [ "$now" -gt "$hint_calls_before" ] && { lock_engaged=1; break; }
     sleep 0.25
 done
@@ -467,7 +467,7 @@ fi
 
 # And the guard again, now that a lock really did engage. Step 1 failing before
 # the lock does not prove it fails after one.
-if grep -q 'SetLockedHint' "$APEX_LOCKHINT_CALLS"; then
+if grep -q 'SetLockedHint' "$RIME_LOCKHINT_CALLS"; then
     bad "an ENGAGED lock still asks logind for nothing" \
         "SetLockedHint was invoked after the lock engaged"
 else
@@ -503,8 +503,8 @@ sed 's/^/        /' "$HEADLESS_W/locked-tree.txt"
 # publishes exactly one node — the application — and nothing beneath it. That is
 # a defect, and it is pinned here so the day it is fixed this suite goes RED and
 # says what to do, instead of staying green through the fix and leaving the
-# read-back assertions below permanently skipped. tests/test-apex-greet-atspi.sh
-# in apex-os pins Qt's missing AT-SPI password role the same way and for the
+# read-back assertions below permanently skipped. tests/test-rime-greet-atspi.sh
+# in rime-os pins Qt's missing AT-SPI password role the same way and for the
 # same reason.
 if [ "$nodes" = "1" ]; then
     ok "PINNED: the shell publishes ONE node, itself — no window ever reaches the tree"
@@ -561,9 +561,9 @@ fi
 #  * It does not claim the markup in Lockscreen.qml is wrong. It is right, and
 #    tests/check-lockscreen-a11y.sh proves it against the source. It claims the
 #    markup has nowhere to go.
-#  * It does not claim a screen reader gets NOTHING from APEX. The greeter is a
-#    separate process running the stock qml runtime, and apex-os's
-#    tests/test-apex-greet-atspi.sh reads its tree back successfully. The login
+#  * It does not claim a screen reader gets NOTHING from Rime. The greeter is a
+#    separate process running the stock qml runtime, and rime-os's
+#    tests/test-rime-greet-atspi.sh reads its tree back successfully. The login
 #    screen is accessible; the desktop and the lock screen are not.
 
 totals

@@ -4,12 +4,12 @@
 #  the Dashboard's player card (UI/UX roadmap v3 Phase 21). The companion of
 #  fake-nmcli.
 #
-#  Owns org.mpris.MediaPlayer2.apexkeytest on the session bus it is started
+#  Owns org.mpris.MediaPlayer2.rimekeytest on the session bus it is started
 #  on — a runner's PRIVATE bus (tests/lib/headless.sh), never the desktop's,
 #  where the card would otherwise find the user's own player and a key would
 #  pause their music. One paused track, 3:00 long, at 1:00; it can do
 #  everything. Every call is appended to the log (argv[1]) as one line —
-#  `Play`, `SetPosition /apex/track/1 65000000`, `Seek 5000000` — and changes
+#  `Play`, `SetPosition /rime/track/1 65000000`, `Seek 5000000` — and changes
 #  nothing, so the card's reading of the player stays fixed between keys.
 # ─────────────────────────────────────────────────────────────────────────────
 import sys
@@ -17,7 +17,7 @@ import sys
 from gi.repository import Gio, GLib
 
 LOG = sys.argv[1] if len(sys.argv) > 1 else "/dev/null"
-TRACK = "/apex/track/1"
+TRACK = "/rime/track/1"
 
 XML = """
 <node>
@@ -121,6 +121,6 @@ def on_lost(_conn, _name):
     sys.exit(1)
 
 
-Gio.bus_own_name(Gio.BusType.SESSION, "org.mpris.MediaPlayer2.apexkeytest",
+Gio.bus_own_name(Gio.BusType.SESSION, "org.mpris.MediaPlayer2.rimekeytest",
                  Gio.BusNameOwnerFlags.NONE, on_bus, None, on_lost)
 GLib.MainLoop().run()

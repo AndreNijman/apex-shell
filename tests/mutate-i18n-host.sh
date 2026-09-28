@@ -3,7 +3,7 @@
 #  mutate-i18n-host.sh — can tests/run-i18n-host-test.sh go RED?
 #
 #  A suite that has never failed is a suite nobody has shown to be a
-#  measurement. This one breaks the three files that carry the Apex.I18n route
+#  measurement. This one breaks the three files that carry the Rime.I18n route
 #  — the plugin, the qmldir, and the bare-engine host — one edit at a time, and
 #  requires the suite to fail on the assertion the edit was aimed at. Then it
 #  makes two edits that must NOT move a verdict, because a suite that goes red
@@ -15,7 +15,7 @@
 #  exact trap this route cost an afternoon to: with a QQmlEngineExtensionPlugin
 #  the .so is still found, still dlopen()ed — proved with a library constructor
 #  that printed — and the qmldir is still read, and the import STILL fails with
-#  "module Apex.I18n is not installed" because nothing registered the module.
+#  "module Rime.I18n is not installed" because nothing registered the module.
 #  Every symptom says the plugin is fine. If the suite could not see that, it
 #  would certify a route that does not exist.
 #
@@ -40,7 +40,7 @@
 #  too thin to be a baseline, and exits 0 saying so.
 #
 #  Restores come from a pristine copy in a per-run mktemp -d and every restore
-#  VERIFIES sha256. Not `git checkout --`: apex-shell's arch-validate job
+#  VERIFIES sha256. Not `git checkout --`: rime-shell's arch-validate job
 #  installs git AFTER actions/checkout, so the workspace has no .git at all.
 #
 #  Run from anywhere: ./tests/mutate-i18n-host.sh
@@ -48,9 +48,9 @@
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
 
-PLUGIN="tests/apex-i18n-plugin.cpp"
-HOST="tests/apex-i18n-host.cpp"
-QMLDIR="tests/apex-i18n-qmldir"
+PLUGIN="tests/rime-i18n-plugin.cpp"
+HOST="tests/rime-i18n-host.cpp"
+QMLDIR="tests/rime-i18n-qmldir"
 FILES="$PLUGIN $HOST $QMLDIR"
 SUITE="./tests/run-i18n-host-test.sh"
 TOTALS_PREFIX="i18n-host: passed="
@@ -151,10 +151,10 @@ classify() {
 # ── self-test: the scoring above, in all four states ────────────────────────
 selftest() {
     local red green crash fails=0
-    red="  FAIL with the module imported, the SHIPPED singleton's entryLabel reads the German from translations/apex-shell_de.ts  — got [How Agents & Workspaces work]
+    red="  FAIL with the module imported, the SHIPPED singleton's entryLabel reads the German from translations/rime-shell_de.ts  — got [How Agents & Workspaces work]
 i18n-host: passed=23 failed=1 skipped=0"
     green="i18n-host: passed=24 failed=0 skipped=0"
-    crash="FATAL: this tree has no tests/apex-i18n-plugin.cpp"
+    crash="FATAL: this tree has no tests/rime-i18n-plugin.cpp"
 
     chk() {
         if [ "$2" = "$3" ]; then printf '  ok   %s\n' "$1"
@@ -328,20 +328,20 @@ mutate M2 "$PLUGIN" '            QCoreApplication::installTranslator(tr);' \
           '            (void) tr;' \
           'reads the German from'
 
-mutate M3 "$PLUGIN" '            qInfo("APEXI18N: no catalogue for %s in %s",' \
-          '            if (false) qInfo("APEXI18N: no catalogue for %s in %s",' \
+mutate M3 "$PLUGIN" '            qInfo("RIMEI18N: no catalogue for %s in %s",' \
+          '            if (false) qInfo("RIMEI18N: no catalogue for %s in %s",' \
           'REPORTS the absence rather than going quiet'
 
-mutate M4 "$QMLDIR" 'plugin apexi18n' \
-          '# plugin apexi18n' \
+mutate M4 "$QMLDIR" 'plugin rimei18n' \
+          '# plugin rimei18n' \
           "the plugin's registerTypes runs"
 
-mutate M5 "$QMLDIR" 'module Apex.I18n' \
-          'module Apex.I18nElsewhere' \
+mutate M5 "$QMLDIR" 'module Rime.I18n' \
+          'module Rime.I18nElsewhere' \
           'every host mode reaches its last line'
 
-mutate M6 "$PLUGIN" '        if (tr->load(QLocale(), QStringLiteral("apex-shell"),' \
-          '        if (tr->load(QLocale(), QStringLiteral("apex-shell-not-this-one"),' \
+mutate M6 "$PLUGIN" '        if (tr->load(QLocale(), QStringLiteral("rime-shell"),' \
+          '        if (tr->load(QLocale(), QStringLiteral("rime-shell-not-this-one"),' \
           'the plugin installs a QTranslator from inside'
 
 mutate M7 "$HOST" '    const bool wantsPlugin = (mode == QLatin1String("plugin")
@@ -355,14 +355,14 @@ mutate M8 "$HOST" '        if (mode == QLatin1String("late-retranslate")) {' \
           '        if (mode == QLatin1String("late") || mode == QLatin1String("late-retranslate")) {' \
           'changes nothing already evaluated'
 
-mutate M9 "$HOST" '        if (tr->load(QLocale(), QStringLiteral("apex-shell"), QStringLiteral("_"), trdir)) {' \
-          '        if (false && tr->load(QLocale(), QStringLiteral("apex-shell"), QStringLiteral("_"), trdir)) {' \
+mutate M9 "$HOST" '        if (tr->load(QLocale(), QStringLiteral("rime-shell"), QStringLiteral("_"), trdir)) {' \
+          '        if (false && tr->load(QLocale(), QStringLiteral("rime-shell"), QStringLiteral("_"), trdir)) {' \
           'so its English is not a failed load'
 
 # A build that does not build is a FAILURE. A suite that reported it as a skip
 # would turn every measurement in it into a silent absence.
-mutate M10 "$PLUGIN" 'class ApexI18nPlugin : public QQmlExtensionPlugin' \
-           'class ApexI18nPlugin : public QQmlExtensionPlugin THIS IS NOT C++' \
+mutate M10 "$PLUGIN" 'class RimeI18nPlugin : public QQmlExtensionPlugin' \
+           'class RimeI18nPlugin : public QQmlExtensionPlugin THIS IS NOT C++' \
            'builds into a QML plugin against'
 
 mutate M11 "$HOST" 'int main(int argc, char **argv)' \
@@ -375,18 +375,18 @@ echo "── GREEN: prose and unasserted output must not move a single verdict �
 hold G1 "$PLUGIN" '#include <QCoreApplication>' \
         '// Prose that quotes every string the suite asserts, so that a suite
 // grepping this file instead of running it would go green on nonsense:
-//   APEXI18N: registerTypes uri=Apex.I18n
-//   APEXI18N: installed
-//   APEXI18N: no catalogue for
-//   APEXHOST first entryLabel=Wie Agenten und Arbeitsbereiche funktionieren
-//   APEXHOST second entryLabel=Wie Agenten und Arbeitsbereiche funktionieren
-//   APEXPROBE entryLabel=Wie Agenten und Arbeitsbereiche funktionieren
+//   RIMEI18N: registerTypes uri=Rime.I18n
+//   RIMEI18N: installed
+//   RIMEI18N: no catalogue for
+//   RIMEHOST first entryLabel=Wie Agenten und Arbeitsbereiche funktionieren
+//   RIMEHOST second entryLabel=Wie Agenten und Arbeitsbereiche funktionieren
+//   RIMEPROBE entryLabel=Wie Agenten und Arbeitsbereiche funktionieren
 #include <QCoreApplication>' \
         'the suite reads the program OUTPUT, not the program source'
 
-hold G2 "$HOST" '    printf("APEXHOST create=ok\n");' \
-        '    printf("APEXHOST create=ok\n");
-    printf("APEXHOST note=a line no assertion in the suite mentions\n");' \
+hold G2 "$HOST" '    printf("RIMEHOST create=ok\n");' \
+        '    printf("RIMEHOST create=ok\n");
+    printf("RIMEHOST note=a line no assertion in the suite mentions\n");' \
         'output nothing asserts is not a failure'
 
 restore

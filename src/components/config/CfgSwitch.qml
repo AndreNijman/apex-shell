@@ -4,12 +4,12 @@ import "../controls"
 
 // A toggle. Bind `checked`; handle `toggled(value)` to persist.
 //
-// Built on ApexPressable (UI/UX roadmap v3 Phase 16; brief §E "Toggle"):
+// Built on RimePressable (UI/UX roadmap v3 Phase 16; brief §E "Toggle"):
 // the track is the palette's high surface off and the accent on; the thumb
 // travels on the selection beat (emphasizedDecel) and squeezes to .94 while
 // pressed, instead of the whole switch dipping; the ring is for keyboard focus
 // only.
-ApexPressable {
+RimePressable {
     id: root
     property bool checked: false
     signal toggled(bool value)
@@ -56,5 +56,5 @@ ApexPressable {
         Behavior on scale { MotionMove { role: "pressIn" } }
         Behavior on color { MotionColor { role: "state" } }
     }
-    ApexFocusRing { target: root }
+    RimeFocusRing { target: root }
 }

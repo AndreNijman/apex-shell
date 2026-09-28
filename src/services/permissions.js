@@ -1,6 +1,6 @@
 // ─── permissions.js ──────────────────────────────────────────────────────────
 // Pure logic behind PermissionsService and Config → Privacy & Permissions
-// (roadmap P1-061): reading `apex permissions list --json` and turning it into
+// (roadmap P1-061): reading `rime permissions list --json` and turning it into
 // something the page can render without holding any of the reasoning itself.
 //
 // Kept out of the QML for the reason recovery.js is: this is the part with the
@@ -83,7 +83,7 @@ function stateTone(state) {
         : "dim";
 }
 
-// Read `apex permissions list --json`.
+// Read `rime permissions list --json`.
 //
 // The exit code informs only the "could not run it at all" branch. The
 // decision is made on the text, so a future non-zero exit that still printed a
@@ -119,19 +119,19 @@ function parseList(text, exitCode) {
     };
     if (typeof text !== "string" || text.trim() === "") {
         empty.reason = exitCode === 127
-            ? "apex is not on PATH, so nothing could be checked"
-            : "apex permissions produced no output, so nothing could be checked";
+            ? "rime is not on PATH, so nothing could be checked"
+            : "rime permissions produced no output, so nothing could be checked";
         return empty;
     }
     var doc;
     try {
         doc = JSON.parse(text);
     } catch (e) {
-        empty.reason = "apex permissions produced output this could not read";
+        empty.reason = "rime permissions produced output this could not read";
         return empty;
     }
     if (!doc || !Array.isArray(doc.grants)) {
-        empty.reason = "apex permissions produced no grants field";
+        empty.reason = "rime permissions produced no grants field";
         return empty;
     }
 
@@ -163,7 +163,7 @@ function parseList(text, exitCode) {
 }
 
 // What the header says about this login. Which portals exist is a property of
-// the SESSION, not of the machine: APEX's Hyprland session resolves
+// the SESSION, not of the machine: Rime's Hyprland session resolves
 // `default=hyprland;gtk` and reaches neither Usb nor Secret, where its niri
 // session reaches gnome.portal and gets both. An owner comparing two logins
 // deserves to be told that is why.
@@ -211,7 +211,7 @@ function rowView(g) {
         offersControl: g.offers_control === true,
         effective: g.effective === true,
         caveat: typeof g.caveat === "string" ? g.caveat : "",
-        // The token `apex permissions revoke` takes for this subject. Carried
+        // The token `rime permissions revoke` takes for this subject. Carried
         // from the OS side rather than rebuilt here: a native id is prefixed
         // and a Flatpak id is not, and reconstructing that rule in two places
         // is how they come to disagree.
@@ -253,7 +253,7 @@ function revokeArgv(row, verb) {
     if (!row || !row.offersControl || !row.revokeId) {
         return null;
     }
-    var argv = ["apex", "permissions", "revoke", row.revokeId, row.capability];
+    var argv = ["rime", "permissions", "revoke", row.revokeId, row.capability];
     if (verb === "forget") {
         argv.push("--forget");
     }

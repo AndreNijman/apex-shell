@@ -23,11 +23,11 @@ trap cleanup EXIT INT TERM
 [ -e /dev/dri/renderD128 ] && export HEADLESS_WLR_RENDERER=gles2
 headless_start labwc 1920x1080 || exit 0
 cp "$here/osd-harness.qml" "$staged"
-mkdir -p "$HOME/.cache/apex-shell"
+mkdir -p "$HOME/.cache/rime-shell"
 if [ -n "${CAPTURE_PALETTE:-}" ] && [ -f "$CAPTURE_PALETTE" ]; then
-    cp "$CAPTURE_PALETTE" "$HOME/.cache/apex-shell/colors.json"
+    cp "$CAPTURE_PALETTE" "$HOME/.cache/rime-shell/colors.json"
 else
-    headless_apex_palette dark   # the APEX-OS default look (tests/lib/headless.sh)
+    headless_rime_palette dark   # the Rime OS default look (tests/lib/headless.sh)
 fi
 command -v swaybg >/dev/null && swaybg -m fill -i "$HEADLESS_WALLPAPER" >/dev/null 2>&1 &
 

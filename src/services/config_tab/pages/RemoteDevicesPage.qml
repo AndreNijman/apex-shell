@@ -6,7 +6,7 @@ import "../../../components/config"
 
 // Config → Paired devices  (roadmap P1-051, criteria 3 and 5)
 //
-//   3. "Lost devices can be revoked from APEX Settings."
+//   3. "Lost devices can be revoked from Rime Settings."
 //   5. "Paired-device list shows name, last seen, permissions, and revocation
 //       state."
 //
@@ -23,11 +23,11 @@ import "../../../components/config"
 // Criterion 5 says "permissions", and the field behind it is
 // `requires_user_verification`. It records that the DEVICE said its key is
 // held behind a biometric or device lock. This desktop cannot see a
-// fingerprint and cannot check it, which apex-remote-core says at length:
+// fingerprint and cannot check it, which rime-remote-core says at length:
 // "recorded as a requirement the owner set and not as a fact about the
 // device".
 //
-// So it is one sentence under the list, exactly as `apex remote devices`
+// So it is one sentence under the list, exactly as `rime remote devices`
 // prints it, and deliberately NOT a tick in each row — "a tick in a table
 // would read as a fact this machine had verified". remotepairing.js exposes it
 // only as that sentence, and tests/remote-pairing-test.js asserts the absence
@@ -36,7 +36,7 @@ import "../../../components/config"
 // ── State colours are not decided here ──────────────────────────────────────
 //
 // The token and the weight come from remotepairing.js, looked up on Theme by
-// name. That is the rule tests/check-color-tokens.sh states after "APEX agents
+// name. That is the rule tests/check-color-tokens.sh states after "Rime agents
 // display only in white": a row does not decide what a state looks like, and a
 // three-branch ternary made of theme tokens is still the bug.
 CfgScroll {
@@ -60,7 +60,7 @@ CfgScroll {
 
         CfgRow {
             label: "Nothing paired yet"
-            description: "Open 'Pair a device' and scan the code with APEX Remote."
+            description: "Open 'Pair a device' and scan the code with Rime Remote."
             // Only once a read has actually come back. "No devices" and "not
             // asked yet" look identical and mean opposite things.
             visible: RemotePairingService.devicesChecked

@@ -84,7 +84,7 @@ QtObject {
         if (x && x.length > 0) return x
         return Quickshell.env("HOME") + "/.local/state"
     }
-    readonly property string statePath: _stateHome + "/apex-shell/agent-help.json"
+    readonly property string statePath: _stateHome + "/rime-shell/agent-help.json"
 
     // Single-quote a value for `bash -c`. `$XDG_STATE_HOME` is whatever the
     // session exported, so a path with a space, a dollar or a quote in it must

@@ -1,4 +1,4 @@
-name: APEX Shell CI
+name: Rime Shell CI
 
 on:
   push:
@@ -14,7 +14,7 @@ on:
   #
   # workflow_dispatch lets a task branch be checked BEFORE it lands rather than
   # after: `gh workflow run ci.yml --ref <branch>`. It changes nothing about
-  # what a push or a pull request does. (apex-os made the same change to
+  # what a push or a pull request does. (rime-os made the same change to
   # pr-validation.yml for the same reason.)
   #
   # Note for whoever needs it next: GitHub only offers the dispatch once this
@@ -143,7 +143,7 @@ jobs:
         run: |
           node tests/answer-test.js
 
-      - name: APEX Search decision logic
+      - name: Rime Search decision logic
         run: |
           # §15 turned the launcher into a command surface with system reach,
           # reached by fuzzy match while typing. Every rule about what that may
@@ -174,16 +174,16 @@ jobs:
           # §10's editor keeps every decision it makes in a plain module —
           # plan classification, the omit-not-null rule for cleared fields, the
           # stale-write and erase guards — precisely so it can be proved on a
-          # runner with no compositor and no `apex`. It spawns no process and
+          # runner with no compositor and no `rime`. It spawns no process and
           # reads no file, so there is nothing here that can skip.
           node tests/blueprint-editor-test.js
 
       - name: Test Gaming settings logic
         run: |
           # P1-049's page has to be good at ONE state above all: not installed.
-          # Steam, gamescope and the overlay are on-demand `apex install`
+          # Steam, gamescope and the overlay are on-demand `rime install`
           # packages and a fresh image carries none of them, so the fixture here
-          # is the real `apex gaming --json` from a machine with all three
+          # is the real `rime gaming --json` from a machine with all three
           # missing. Two refusals are asserted: a check the report does not
           # carry must not read as passing (a renamed probe would otherwise
           # report a machine ready on a build that had stopped looking), and a
@@ -193,7 +193,7 @@ jobs:
 
       - name: Lint test harness scripts
         run: |
-          # -S warning matches the threshold apex-os uses: style/info findings in
+          # -S warning matches the threshold rime-os uses: style/info findings in
           # a test harness are not worth failing a build over.
           #
           # -x is not decoration. Without it shellcheck cannot follow
@@ -265,17 +265,17 @@ jobs:
         run: |
           # P1-044. Drives src/services/firewall.js — the file the shell loads
           # — over payloads in tests/fixtures/firewall/, every one of them
-          # captured from the shipped files/system/libexec/apex-firewall under
+          # captured from the shipped files/system/libexec/rime-firewall under
           # an nft shim by tests/fixtures/firewall/gen-firewall-fixtures.sh.
           #
           # This suite existed and ran NOWHERE, which is how its fixtures were
-          # able to drift away from the tool while staying green: apex-os
+          # able to drift away from the tool while staying green: rime-os
           # c7a28f2c added a paragraph to the status screen, the parser read it
           # as the list of traffic the firewall never drops, and the page told
           # root sessions that what their firewall always allows is "DHCP and
           # DNS are open on those links only".
           #
-          # The load-bearing half is the shape checking on `apex firewall
+          # The load-bearing half is the shape checking on `rime firewall
           # status --json`: a renamed key must be a failed read, not an empty
           # string, because an empty string renders as nothing and nothing is
           # silent. Fourteen of the checks are documents that are NOT the
@@ -293,7 +293,7 @@ jobs:
           # Static half, and the part node cannot see: that the sweep asks for
           # `--json` rather than prose, that a document failing validation
           # still gets an answer through the prose fallback, that nothing on a
-          # timer can reach `apex firewall allow`, and that the argv table's
+          # timer can reach `rime firewall allow`, and that the argv table's
           # entry count is asserted against the names it actually lists.
           #
           # Self-tests with twenty mutants that must each go red, a hard
@@ -328,7 +328,7 @@ jobs:
           # nvim ships in every image with Terminal=true, and DesktopEntry
           # .execute() does not honour that field — it starts the program on
           # pipes, so clicking Neovim did nothing and the user was told the
-          # editor was "provided by APEX-OS". This suite measures that upstream
+          # editor was "provided by Rime OS". This suite measures that upstream
           # behaviour (the routing depends on it staying true), then measures
           # that the shell's own path hands such an entry to xdg-terminal-exec
           # and leaves Terminal=false entries alone. Needs a compositor and
@@ -588,40 +588,40 @@ jobs:
           # runner has a compositor.
           #
           # It also asserts that no suite under tests/ can reach a non-dry-run
-          # `apex apply` or a `blueprint set`. That is not hypothetical: a test
+          # `rime apply` or a `blueprint set`. That is not hypothetical: a test
           # in this repo once reconfigured the developer's live display.
           ./tests/check-blueprint-editor.sh
 
       - name: Gaming settings discipline (no invented daemon, no escalation)
         run: |
           # P1-049 asks for a master "optimise games automatically" control, and
-          # `apex mode set --auto` is documented one-shot: "APEX ships nothing
+          # `rime mode set --auto` is documented one-shot: "Rime ships nothing
           # that re-evaluates this on a timer." A poller in the shell would be
           # this page inventing the daemon the OS declined to ship, and it would
           # do it invisibly — the page would appear to work while overriding a
           # mode the user had set by hand. So: no Timer in either file, exactly
           # one command that can change anything, reachable from one function,
-          # and a re-read of `apex mode status` after every switch rather than
+          # and a re-read of `rime mode status` after every switch rather than
           # trust in an exit code.
           #
           # Installing the missing packages needs root; the command is shown as
           # text with no button beside it, the same rule the Blueprint page
-          # follows for `sudo apex apply`.
+          # follows for `sudo rime apply`.
           ./tests/check-gaming-settings.sh
 
       - name: Whether the power menu may offer Gaming Mode
         run: |
-          # BASE-009. gamescope and Steam are ON-DEMAND packages in APEX, so
-          # apex-gaming.desktop ships on every machine while /usr/bin/gamescope
+          # BASE-009. gamescope and Steam are ON-DEMAND packages in Rime, so
+          # rime-gaming.desktop ships on every machine while /usr/bin/gamescope
           # does not — which is why the entry carries TryExec and why
-          # apex-greet's enumeration honours it.
+          # rime-greet's enumeration honours it.
           #
           # PowerMenu.qml's probe tested the session helper and the session FILE
           # and nothing else, so the menu and the greeter disagreed: the menu
-          # offered "Gaming Mode" on any APEX install, taking it logged the user
+          # offered "Gaming Mode" on any Rime install, taking it logged the user
           # out, and the greeter then HID the session they had just chosen —
-          # leaving them back on the desktop with last-session=apex-gaming
-          # written. Containerfile.apex has a build gate asserting the greeter's
+          # leaving them back on the desktop with last-session=rime-gaming
+          # written. Containerfile.rime has a build gate asserting the greeter's
           # half; nothing asserted that this menu agreed.
           #
           # The probe's own `sh -c` script is lifted out of the QML and RUN
@@ -659,10 +659,10 @@ jobs:
         run: |
           # Two things, both about a suite nobody runs.
           #
-          # apex-os has had a suite-coverage gate since 2026-09-12 — it found 13
+          # rime-os has had a suite-coverage gate since 2026-09-12 — it found 13
           # of 70 suites named in no workflow — but it globs `tests/test-*.sh`
-          # IN APEX-OS ONLY and can neither see nor protect anything here. This
-          # is apex-shell's half, and it asks REACHABILITY rather than "named in
+          # IN Rime OS ONLY and can neither see nor protect anything here. This
+          # is rime-shell's half, and it asks REACHABILITY rather than "named in
           # a workflow", because this repo invokes suites through other suites:
           # check-headless-runners.sh drives six, and asking the narrower
           # question would condemn six innocent files.
@@ -831,11 +831,11 @@ jobs:
           # property written by the host, and a real array read back out.
           #
           # It builds its fixtures under XDG_RUNTIME_DIR and never reads or
-          # writes the real ~/.config/apex-shell/plugins, and it makes no
+          # writes the real ~/.config/rime-shell/plugins, and it makes no
           # network call: the granted path is checked by shape, never fetched.
           ./tests/run-plugin-host-test.sh
 
-      - name: APEX Search invariants
+      - name: Rime Search invariants
         run: |
           # The node suite proves what search.js DECIDES. This proves the QML
           # cannot go around it: exactly one function starts a provider
@@ -855,9 +855,9 @@ jobs:
           # bugs verbatim that must stay green.
           ./tests/check-unified-search.sh
 
-      - name: APEX Search spawns one process, not one per keystroke
+      - name: Rime Search spawns one process, not one per keystroke
         run: |
-          # §15's hard constraint, measured with REAL processes: a shim `apex`
+          # §15's hard constraint, measured with REAL processes: a shim `rime`
           # and a shim `ls` go first on PATH, the same reducer the shell drives
           # is driven, and every argv it asks for is actually executed. The
           # counts come out of a log the shim wrote, not one the test wrote.
@@ -873,7 +873,7 @@ jobs:
           ./tests/measure-search-spawns.sh
       - name: Caffeine idle-inhibit invariants
         run: |
-          # Caffeine must keep working on every compositor APEX ships. Whether
+          # Caffeine must keep working on every compositor Rime ships. Whether
           # it ACTUALLY suppresses idle needs a live compositor and a live idle
           # daemon, which no runner has — tests/measure-idle-inhibit.sh does
           # that manually and records its numbers. What runs here is the
@@ -983,13 +983,13 @@ jobs:
 
           # The path is assembled from _hyprDir + the leaf, so match the leaf and
           # the directory separately rather than a string that is never literal.
-          grep -q '/apex/shell-keybinds.lua' <<<"$code" \
-            || { echo "✗ the Hyprland artifact is not apex/shell-keybinds.lua"; fail=1; }
+          grep -q '/rime/shell-keybinds.lua' <<<"$code" \
+            || { echo "✗ the Hyprland artifact is not rime/shell-keybinds.lua"; fail=1; }
           grep -q '.config/hypr' <<<"$code" \
             || { echo "✗ the Hyprland artifact is not under ~/.config/hypr"; fail=1; }
           grep -q '_genConf' <<<"$code" \
             && { echo "✗ the hyprlang generator is back"; fail=1; }
-          grep -q 'ApexShellKeybinds.conf' <<<"$code" \
+          grep -q 'RimeShellKeybinds.conf' <<<"$code" \
             && { echo "✗ the shell still writes a hyprlang keybind fragment"; fail=1; }
 
           # The dispatchers must be real Lua calls. They used to be emitted as
@@ -1004,8 +1004,8 @@ jobs:
           # SUPER+W must open the DEFAULT browser. The Lua path substituted
           # `firefox` while the niri and conf paths used the helper, so a
           # Hyprland user's SUPER+W ignored their own default browser.
-          grep -q 'apex-open-browser' <<<"$code" \
-            || { echo "✗ the browser bind does not use apex-open-browser"; fail=1; }
+          grep -q 'rime-open-browser' <<<"$code" \
+            || { echo "✗ the browser bind does not use rime-open-browser"; fail=1; }
           grep -qE '"\$browser",\s*"(firefox|zen)"' <<<"$code" \
             && { echo "✗ the browser bind names a browser"; fail=1; }
 
@@ -1026,9 +1026,9 @@ jobs:
 
       - name: The generator does not eat a keybind it did not write
         run: |
-          # apex/shell-keybinds.lua has two writers: this generator, which
-          # rewrites it whole on every shell start, and apex-hypr-migrate, which
-          # converts the user's old ApexShellKeybinds.conf INTO it because that
+          # rime/shell-keybinds.lua has two writers: this generator, which
+          # rewrites it whole on every shell start, and rime-hypr-migrate, which
+          # converts the user's old RimeShellKeybinds.conf INTO it because that
           # is the only name `require` can reach the module by. So the migration
           # carried a hand-edited bind across and the next login deleted it.
           #
@@ -1180,7 +1180,7 @@ jobs:
             || { echo "✗ there is no confirmation window; the page cannot be the only one asked"; fail=1; }
           grep -qE "DisplayConfirm \{ *screen: modelData" shell.qml \
             || { echo "✗ the confirmation is not built per output; an apply can destroy the only copy"; fail=1; }
-          test -x src/scripts/apex-display-guard.sh \
+          test -x src/scripts/rime-display-guard.sh \
             || { echo "✗ no display guard; a shell that dies during the countdown never reverts"; fail=1; }
           # save() must stay distinct from apply(): it is the action that writes
           # persistence WITHOUT touching hardware.
@@ -1208,7 +1208,7 @@ jobs:
             echo "✗ BlueprintService saves from a timer; set is a full-file replace"
             fail=1
           fi
-          # apply never escalates: `apex apply` converges the domain it is
+          # apply never escalates: `rime apply` converges the domain it is
           # already in and reports the other, which is why it cannot raise an
           # authentication prompt at all.
           if grep -nE '"sudo"|pkexec|polkit' src/services/config_tab/BlueprintService.qml \
@@ -1238,8 +1238,8 @@ jobs:
       #
       # Two of them were a bare grep for a word, which was sound until §43 gave
       # the tab a help document. AgentHelpContent.qml explains the privilege
-      # model, so it prints `sudo apex request approve` and names
-      # $XDG_RUNTIME_DIR/apex-agentd/control.sock — and this step went red for
+      # model, so it prints `sudo rime request approve` and names
+      # $XDG_RUNTIME_DIR/rime-agentd/control.sock — and this step went red for
       # seven mentions, none of them a call site. The check now separates
       # naming a command from being able to run one, and it lives in a script
       # so its own ability to fail can be proved.
@@ -1251,11 +1251,11 @@ jobs:
           # P1-029 / ROADMAP.md §19. Which KIND of agent a row is, as opposed
           # to what state it is in, against the file the shell loads.
           #
-          # The classifier reads apex-agentd's own `request_origin`, so
+          # The classifier reads rime-agentd's own `request_origin`, so
           # section 1 of the suite reads the real `RequestOrigin::as_str` arms
-          # out of an apex-os checkout when one is present and falls back to a
+          # out of a rime-os checkout when one is present and falls back to a
           # transcribed vocabulary when it is not, saying which it used. CI has
-          # no apex-os checkout, so it runs on the transcription — which is why
+          # no rime-os checkout, so it runs on the transcription — which is why
           # the fallback list is asserted against the daemon on a developer
           # machine rather than trusted here.
           node tests/agent-lifecycle-test.js
@@ -1265,13 +1265,13 @@ jobs:
           # §20's parsing and status decisions, against the file the shell
           # loads. Runs headless and needs nothing installed, which is the
           # point: the behavioural test below needs a compositor AND an
-          # apex-os checkout, so without this the whole feature would have no
+          # rime-os checkout, so without this the whole feature would have no
           # CI coverage at all.
           node tests/remote-agents-test.js
 
       - name: The QR encoder, against an independent implementation
         run: |
-          # P1-051's pairing code. `apex remote pair` refuses to draw a QR in
+          # P1-051's pairing code. `rime remote pair` refuses to draw a QR in
           # the terminal and says why in its own source: "a wrong QR is worse
           # than none — a phone scans it, fails, and the person concludes
           # their camera is broken." So "it renders" is not a test here, and
@@ -1287,7 +1287,7 @@ jobs:
           # reproduce segno's own deviation from ISO/IEC 18004 §7.4.10.
           node tests/qr-test.js
 
-      - name: APEX Remote pairing logic
+      - name: Rime Remote pairing logic
         run: |
           # P1-051's parsing and presentation decisions, against the file the
           # shell loads. Runs headless and needs nothing installed, which is
@@ -1343,7 +1343,7 @@ jobs:
           # The link that pays for this step is the shape of the keybind. An
           # entry in KeybindService `_defaults` with NO `type` field becomes
           # `qs ipc call voice-ptt toggle` in the Hyprland and niri generators
-          # automatically, and apex-os's apex-labwc-keybinds translates the
+          # automatically, and rime-os's rime-labwc-keybinds translates the
           # ACTION ID through its VERBS allowlist. Written the obvious way
           # instead — type: "exec", command: "$qsIpc voice-ptt toggle" — it
           # reaches Hyprland and niri and is silently DROPPED on labwc, because
@@ -1618,7 +1618,7 @@ jobs:
       - name: The Nexus drip's shader against its field
         run: ./tests/run-fluid-drop-test.sh
 
-      # ApexPressable & co. (UI/UX roadmap Phase 3): the press dip and its
+      # RimePressable & co. (UI/UX roadmap Phase 3): the press dip and its
       # return, keyboard activation that replays it, a ring for keyboard focus
       # and none for a pointer's, a disabled control that does nothing, and a
       # hit target larger than the glyph.
@@ -1759,7 +1759,7 @@ jobs:
 
       # The LOCK screen, for a user who cannot see it (P2-003).
       #
-      # The LOGIN screen is covered three ways in apex-os. The lock screen — the
+      # The LOGIN screen is covered three ways in rime-os. The lock screen — the
       # same act by a user already logged in, and the surface somebody meets
       # when they cannot get into their own machine — had nothing, and
       # src/windows/Lockscreen.qml carried zero `Accessible.` anything across
@@ -1980,7 +1980,7 @@ jobs:
         # red on tests/test-headless-lib.sh, and took this suite with it. NOT
         # continue-on-error — a failure here still fails the job; this only
         # stops somebody else's red step from hiding it. Same clause round 19
-        # put on four accessibility steps in apex-os for the same reason.
+        # put on four accessibility steps in rime-os for the same reason.
         if: ${{ !cancelled() }}
         run: |
           # pacman, not apt-get: this job runs in an archlinux:latest
@@ -2008,7 +2008,7 @@ jobs:
       # its import path, and a QML module may carry a compiled plugin that runs
       # C++ inside the shell's process before a binding is evaluated.
       #
-      # tests/apex-i18n-plugin.cpp is that module. This step builds it and
+      # tests/rime-i18n-plugin.cpp is that module. This step builds it and
       # measures it in a bare QQmlEngine assembled out of quickshell's own two
       # lines -- which is the half that RUNS here, because the runner has no
       # quickshell. Section 4 of the suite is the in-situ half and refuses BY
@@ -2063,8 +2063,8 @@ jobs:
           # Arch ships UPSTREAM qt6ct 0.11-8, which links no libKF6I18n, and
           # libKF6I18n is what loads the Qt catalogue that flips the layout
           # direction (p2-b FOUND 26). Fedora ships a post-release git snapshot
-          # built with the KDE integration, so APEX inherits right-to-left from
-          # a packaging choice and from nothing APEX declares. Both candidates
+          # built with the KDE integration, so Rime inherits right-to-left from
+          # a packaging choice and from nothing Rime declares. Both candidates
           # that used to be listed here — Qt 6.11.2 vs 6.10.3, and the absent
           # /etc/xdg/qt6ct/qt6ct.conf — were ELIMINATED BY MEASUREMENT in round
           # 31 and the old text claiming they were open has been removed.
@@ -2078,7 +2078,7 @@ jobs:
           #     inferred from a distribution name — and reports the three
           #     direction rows as NAMED COULD-NOT-RUNs carrying that reason
           #     when it measurably does not. That gate is switched off entirely
-          #     on a booted APEX host and cannot engage on a machine where the
+          #     on a booted Rime host and cannot engage on a machine where the
           #     direction flipped anyway, so it goes red rather than quiet the
           #     moment its own reason stops being true. That half is about THE
           #     RUNNER.
@@ -2088,7 +2088,7 @@ jobs:
           #     and section 2 runs its whole right-to-left fixture pass on this
           #     machine for the first time — nine assertions about the SHIPPED
           #     CfgRow and CfgScroll, under a real right-to-left application
-          #     direction, on Arch and Qt 6.11.2. That half is about APEX, and
+          #     direction, on Arch and Qt 6.11.2. That half is about Rime, and
           #     it is the half worth having. Measured before landing in an
           #     archlinux:latest container that reproduces this job's totals
           #     exactly: 19/3/3 unchanged, 30 passed / 0 failed / 1 skipped /
@@ -2133,13 +2133,13 @@ jobs:
           # §19's recovery panel, and §25's "recovery and rollback are normal
           # UX, not expert documentation". Drives src/services/recovery.js —
           # the file the shell loads — against payloads CAPTURED from a real
-          # `apex recover status --json`, `apex doctor --json` and a factory
+          # `rime recover status --json`, `rime doctor --json` and a factory
           # reset DRY RUN, not invented ones.
           #
           # Two of these assertions exist because the obvious code is wrong:
-          # `apex recover status` exits 1 when a component needs attention, so
+          # `rime recover status` exits 1 when a component needs attention, so
           # treating non-zero as failure blanks the panel on exactly the
-          # machines it is for; and `apex doctor` always exits 0 even with
+          # machines it is for; and `rime doctor` always exits 0 even with
           # warnings, so reading ITS exit code as health reports every machine
           # healthy.
           node tests/recovery-test.js
@@ -2216,7 +2216,7 @@ jobs:
       # real AT-SPI bus instead of out of the source, and then DRIVEN over it.
       #
       # It walks the whole destructive flow with nothing but DoAction —
-      # disclosure, scope, dry run, commit — against an `apex` stub that
+      # disclosure, scope, dry run, commit — against an `rime` stub that
       # RECORDS its argv, so "a reader can finish this" and "a reader cannot
       # finish it early" are both checkable facts rather than readings of the
       # markup. Pressing the commit button over the bus BEFORE the loss list
@@ -2268,7 +2268,7 @@ jobs:
       - name: Privacy & Permissions logic
         run: |
           # P1-061. Drives src/services/permissions.js — the file the shell
-          # loads — against a payload CAPTURED from `apex permissions show
+          # loads — against a payload CAPTURED from `rime permissions show
           # … --json` on a real machine: a Flatpak that goes through the
           # portal, a Flatpak whose manifest carries `devices=all`, and a
           # native program.
@@ -2283,7 +2283,7 @@ jobs:
       - name: Privacy & Permissions surface invariants
         run: |
           # Static half, and the part node cannot see: that nothing on a timer
-          # can reach `apex permissions revoke`, that no row renders an answer
+          # can reach `rime permissions revoke`, that no row renders an answer
           # without the enforcer beside it, that a control exists only where
           # controlsFor produced one, and that the poller is gated on the page
           # being looked at.
@@ -2306,10 +2306,10 @@ jobs:
           # that section is invisible.
           #
           # So this builds the page through PageRegistry inside a FloatingWindow
-          # on its own headless labwc, with a stub `apex` answering from
-          # tests/fixtures/permissions-list.json — the real `apex permissions
+          # on its own headless labwc, with a stub `rime` answering from
+          # tests/fixtures/permissions-list.json — the real `rime permissions
           # revoke` WRITES, and a page test is not worth taking somebody's
-          # camera grant away. Three phases: the captured report, an `apex`
+          # camera grant away. Three phases: the captured report, an `rime`
           # that fails, and a rasterise-and-inspect. A TypeError in any phase
           # log is a hard failure.
           #
@@ -2326,8 +2326,8 @@ jobs:
           # using/doing can stay running, also staying with the vpn".
           #
           # Drives src/services/lid.js — the file the shell loads — over
-          # fixtures that are serde's OWN output from a real `apex lid` binary
-          # (tests/fixtures/lid/gen-lid-fixtures.sh regenerates them). `apex lid
+          # fixtures that are serde's OWN output from a real `rime lid` binary
+          # (tests/fixtures/lid/gen-lid-fixtures.sh regenerates them). `rime lid
           # status --json` is nine nested objects deep and six of them are
           # internally tagged enums, so a fixture written from memory would go
           # on agreeing with a parser that no longer matched the machine.
@@ -2342,8 +2342,8 @@ jobs:
         run: |
           # The same argument as the privacy page above, one page later. Five
           # phases through PageRegistry inside a FloatingWindow on its own
-          # headless labwc, with a stub `apex`: the real `apex lid pin` rewrites
-          # ~/.config/apex/lid.toml and the ROOT driver obeys that file, so a
+          # headless labwc, with a stub `rime`: the real `rime lid pin` rewrites
+          # ~/.config/rime/lid.toml and the ROOT driver obeys that file, so a
           # suite running it would repin the machine it is testing on.
           #
           #   docked      the real L16 capture — an external display, so logind
@@ -2353,7 +2353,7 @@ jobs:
           #   guard       a thermal guard on a docked machine, which must
           #               outrank the docked frame because a guard suspend is
           #               the driver calling `systemctl suspend` itself
-          #   unreadable  `apex` fails. The page must say so and must not throw
+          #   unreadable  `rime` fails. The page must say so and must not throw
           #   pixels      rasterise and inspect
           #
           # A TypeError in any phase log is a hard failure. Skips cleanly
@@ -2369,8 +2369,8 @@ jobs:
           # invented gets an error and no way to tell whether the page or the
           # CLI is wrong.
           #
-          # So this reads every `apex …` command out of the guide's strings and
-          # checks each verb against the clap enums in apex-os when a checkout
+          # So this reads every `rime …` command out of the guide's strings and
+          # checks each verb against the clap enums in rime-os when a checkout
           # is present, asserts that every permission mode the roadmap only
           # PLANS carries a NOT-IN-THIS-BUILD block, asserts all six permission
           # layers and all three invariants of §3.1 are stated, and runs the
@@ -2386,10 +2386,10 @@ jobs:
         run: |
           # §42.1's Always Unrestricted toggle, at the layer where its edge
           # cases are. Drives src/services/agentpolicy.js — the file the shell
-          # loads — over configuration shapes transcribed from apex-agent-core
+          # loads — over configuration shapes transcribed from rime-agent-core
           # rather than invented.
           #
-          # Two assertions exist because the obvious code is wrong. apex's
+          # Two assertions exist because the obvious code is wrong. rime's
           # `Config::normalise` resets ALL SIX permission dimensions when a
           # stored default fails `validate`, so writing `sandbox: unrestricted`
           # into a file that also says `network: offline` silently discards the
@@ -2405,7 +2405,7 @@ jobs:
           # password is asked for on the way IN and never on the way out, at a
           # polkit action that authenticates the user rather than an
           # administrator and caches nothing, through no root helper at all,
-          # writing one key of a path resolved the way apex-agent-core's
+          # writing one key of a path resolved the way rime-agent-core's
           # paths.rs resolves it.
           #
           # Self-tested the way check-remote-agents.sh is: twelve mutants that
@@ -2428,7 +2428,7 @@ jobs:
           # two transitions.
           #
           # It brings its own headless compositor in a private
-          # XDG_RUNTIME_DIR, its own XDG_CONFIG_HOME, a fake `apex` so the
+          # XDG_RUNTIME_DIR, its own XDG_CONFIG_HOME, a fake `rime` so the
           # result does not depend on what happens to be running, and a FAKE
           # pkcheck that records its argv and refuses. No polkit dialog is
           # ever raised: there is nobody on a runner to answer one, and an
@@ -2440,11 +2440,11 @@ jobs:
 
       - name: The lock screen tells logind, driven for real
         run: |
-          # P0-015 (ROADMAP.md §7). APEX Shell locks the session with
+          # P0-015 (ROADMAP.md §7). Rime Shell locks the session with
           # ext-session-lock and told logind nothing about it, so
           # `loginctl show-session -p LockedHint` answered "no" on a session
           # that had been locked for an hour — the same thing it answers on
-          # one nobody has touched. apex-agentd polls that property to decide
+          # one nobody has touched. rime-agentd polls that property to decide
           # whether Remote Control keeps running and whether a short-lived
           # root grant survives, so a stale value holds sessions and revokes
           # grants while the owner is sitting in front of the machine.
@@ -2498,28 +2498,28 @@ jobs:
           #
           # Brings its own headless compositor in a private XDG_RUNTIME_DIR,
           # its own home, and stubs for everything a page shells out to:
-          # building ten real pages otherwise means `apex recover status`,
+          # building ten real pages otherwise means `rime recover status`,
           # `hyprctl`, `df` and a wallpaper scan against the runner.
           #
           # Skips cleanly without quickshell or a compositor.
           ./tests/run-settings-pages-test.sh
 
-      - name: The two APEX Remote pages, built and driven
+      - name: The two Rime Remote pages, built and driven
         run: |
           # P1-051's criteria 1, 3 and 5, at the only layer that can answer
           # them: the pages built by the real engine out of PageRegistry.
           #
-          # The `apex` on PATH is a stub, and that is not tidiness. `apex
+          # The `rime` on PATH is a stub, and that is not tidiness. `rime
           # remote pair` MINTS A ONE-TIME PAIRING TOKEN and arms the daemon
-          # for the next device presenting it; `apex remote revoke` takes a
+          # for the next device presenting it; `rime remote revoke` takes a
           # real device's access away. A suite running the real commands would
           # do both to whoever ran it. That is also why the service goes
-          # through the CLI rather than apex-remoted's control socket — a
+          # through the CLI rather than rime-remoted's control socket — a
           # socket client would walk past the stub, and no PATH or HOME
           # isolates a unix socket.
           #
           # The assertion that pays for this step is a NEGATIVE one, in the
-          # pair-fail phase. `apex remote pair` refuses to draw a QR in a
+          # pair-fail phase. `rime remote pair` refuses to draw a QR in a
           # terminal and says why: "a wrong QR is worse than none — a phone
           # scans it, fails, and the person concludes their camera is broken."
           # A page that drew a placeholder, a greyed square or a stale code
@@ -2556,7 +2556,7 @@ jobs:
 
       - name: Remote agent status smoke test
         run: |
-          # Needs a compositor AND the apex-os runtime built; the harness skips
+          # Needs a compositor AND the rime-os runtime built; the harness skips
           # cleanly without either, so this documents the entry point rather
           # than silently not existing. Run it in a Wayland session to
           # exercise the 18 assertions, which include the two that cannot be
@@ -2567,7 +2567,7 @@ jobs:
 
       - name: Agent Center smoke test
         run: |
-          # Needs a compositor AND the apex-os runtime built; the harness skips
+          # Needs a compositor AND the rime-os runtime built; the harness skips
           # cleanly without either, so this documents the entry point rather
           # than silently not existing. Run it in a Wayland session to actually
           # exercise the page against a live runtime.
@@ -2589,7 +2589,7 @@ jobs:
 
       - name: The agent/subagent graph
         run: |
-          # P1-020. Replays the records apex agent list --json emits through
+          # P1-020. Replays the records rime agent list --json emits through
           # src/services/agentgraph.js — the file the shell loads — and checks
           # the two things the program itself got wrong: that liveness is
           # derived from evidence rather than read out of a status field, and
@@ -2717,7 +2717,7 @@ jobs:
             'devShells':    'devShells' in content,
             'nixosModules': 'nixosModules' in content,
             'description':  'description' in content,
-            'apex-shell':  'apex-shell' in content,
+            'rime-shell':  'rime-shell' in content,
           }
           failed = []
           for key, ok in checks.items():
@@ -2750,7 +2750,7 @@ jobs:
             "install.sh"
             "dots-extra/install-arch.sh"
             "dots-extra/validate-install.sh"
-            "src/config/apex-shell-colors.json.example"
+            "src/config/rime-shell-colors.json.example"
             "src/theme/Theme.qml"
             "src/theme/ColorLoader.qml"
             "src/state/ShellState.qml"
@@ -2822,12 +2822,12 @@ jobs:
             "tests/run-i18n-host-test.sh"
             "tests/mutate-i18n-host.sh"
             "src/i18n/I18nBootstrap.qml"
-            "tests/apex-i18n-plugin.cpp"
-            "tests/apex-i18n-host.cpp"
-            "tests/apex-i18n-qmldir"
+            "tests/rime-i18n-plugin.cpp"
+            "tests/rime-i18n-host.cpp"
+            "tests/rime-i18n-qmldir"
             "tests/run-rtl-test.sh"
             "tests/rtl-test.qml"
-            "translations/apex-shell_de.ts"
+            "translations/rime-shell_de.ts"
             "tests/settings-pages-test.qml"
             "tests/run-settings-pages-test.sh"
             "tests/settings-staged-test.qml"

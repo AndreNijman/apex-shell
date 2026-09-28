@@ -40,7 +40,7 @@ import "../../"
 //
 // ── What this page is allowed to do ──────────────────────────────────────────
 //
-// Read-only by default. `apex permissions list --json` writes nothing and
+// Read-only by default. `rime permissions list --json` writes nothing and
 // raises no authentication prompt. A revocation runs only on an explicit
 // press, writes to the user's own permission store or override file, and needs
 // no root — so this page raises no polkit prompt either. See
@@ -129,7 +129,7 @@ CfgScroll {
 
     // ── What this session brokers at all ─────────────────────────────────────
     // Which portal interfaces exist is a property of the LOGIN, not of the
-    // machine: APEX's Hyprland session resolves `default=hyprland;gtk` and
+    // machine: Rime's Hyprland session resolves `default=hyprland;gtk` and
     // reaches neither Usb nor Secret, where its niri session reaches
     // gnome.portal and gets both. An owner who sees a capability go missing
     // between two logins is owed the reason.

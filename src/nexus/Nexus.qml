@@ -19,7 +19,7 @@ import "../shapes/fluid/geometry.js" as Geo
 // So this is a real window. It has keyboard focus, it survives clicks elsewhere,
 // it closes on Escape or its own close button, and it is opened over IPC:
 //
-//     apex shell nexus            (or: nexus <page>)
+//     rime shell nexus            (or: nexus <page>)
 //
 // Its body — navigation, header and page stack — is SettingsHost, the one host
 // of the PageRegistry pages since UI/UX Phase 19 removed the dashboard's Config

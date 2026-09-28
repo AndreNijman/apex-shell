@@ -6,7 +6,7 @@ import "../../"
 import "boxes.js" as Boxes
 
 // ─── LabwcBackend ─────────────────────────────────────────────────────────────
-// CompositorService's labwc adapter — APEX Floating.
+// CompositorService's labwc adapter — Rime Floating.
 //
 // labwc has no IPC socket and never will: that is a design decision upstream,
 // not a gap. It is controllable only through Wayland protocols, so this backend
@@ -81,7 +81,7 @@ QtObject {
         // hook for a post-processing pass.
         screenShader:         false,
         // wlsunset would work here through wlr-gamma-control, which labwc does
-        // implement, but APEX does not ship it. See NiriBackend for the same
+        // implement, but Rime does not ship it. See NiriBackend for the same
         // note — one `true` when it does.
         nightLight:           true,
         motion:               false

@@ -53,7 +53,7 @@ trap cleanup EXIT INT TERM
 cp -r "$root/src/components/config" "$stage/components-config-tmp"
 mkdir -p "$stage/components"
 mv "$stage/components-config-tmp" "$stage/components/config"
-# The controls the config components are built on (ApexPressable & co.,
+# The controls the config components are built on (RimePressable & co.,
 # UI/UX roadmap Phase 3), at the same relative path.
 cp -r "$root/src/components/controls" "$stage/components/controls"
 cp "$root/src/components/SectionLabel.qml" "$stage/components/SectionLabel.qml"   # CfgSection's heading (UI/UX Phase 17)

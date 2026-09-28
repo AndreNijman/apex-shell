@@ -6,7 +6,7 @@ import "../theme/motion.js" as MotionTable
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SettingsService — single source of truth for user-tunable shell metrics &
-// behavior. Persisted to  ~/.config/apex-shell/src/user_data/settings.json.
+// behavior. Persisted to  ~/.config/rime-shell/src/user_data/settings.json.
 //
 // Metrics.qml binds its configurable properties to these, so any change here
 // reflows the live shell (border radius, notch size, animation speed, …) and
@@ -174,7 +174,7 @@ QtObject {
     // ── State ─────────────────────────────────────────────────────────────────
     property bool _loaded: false
     readonly property string _cfgPath:
-        Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/settings.json"
+        Quickshell.env("HOME") + "/.config/rime-shell/src/user_data/settings.json"
 
     // ── Setters (clamp + persist) ─────────────────────────────────────────────
     // The UI calls set(key, value); bindings update live, then a debounced write.
@@ -223,8 +223,8 @@ QtObject {
     // ── The login screen follows the motion settings ─────────────────────────
     // The greeter runs before any session and cannot read this file, so the
     // same root helper that publishes the wallpaper and accent for it
-    // (/usr/libexec/apex-greet-wallpaper, called by WallpaperService) also
-    // publishes these three, validated, to /var/lib/apex-greet/motion/<user>.
+    // (/usr/libexec/rime-greet-wallpaper, called by WallpaperService) also
+    // publishes these three, validated, to /var/lib/rime-greet/motion/<user>.
     // Waited out well past the 350 ms save debounce, because the helper reads
     // the file on disk. Best-effort and silent: `sudo -n` never prompts, and
     // on a host without the helper nothing happens at all.
@@ -235,8 +235,8 @@ QtObject {
     }
     property var _greetPublish: Process {
         command: ["sh", "-c",
-            "if [ -x /usr/libexec/apex-greet-wallpaper ]; then " +
-            "sudo -n /usr/libexec/apex-greet-wallpaper >/dev/null 2>&1 || true; " +
+            "if [ -x /usr/libexec/rime-greet-wallpaper ]; then " +
+            "sudo -n /usr/libexec/rime-greet-wallpaper >/dev/null 2>&1 || true; " +
             "fi; exit 0"]
         running: false
     }

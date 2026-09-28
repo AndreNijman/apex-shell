@@ -6,11 +6,11 @@ import "../../../components/config"
 
 // Config → Pair a device  (roadmap P1-051, criterion 1)
 //
-// "Desktop can display a QR code / short pairing flow from APEX Shell."
+// "Desktop can display a QR code / short pairing flow from Rime Shell."
 //
 // ── Why this page is where the QR lives ─────────────────────────────────────
 //
-// `apex remote pair` deliberately refuses to draw one in a terminal, and says
+// `rime remote pair` deliberately refuses to draw one in a terminal, and says
 // why in its own source: "no encoder is vendored, and a wrong QR is worse than
 // none — a phone scans it, fails, and the person concludes their camera is
 // broken." It prints the payload and points here. This is the here.
@@ -18,7 +18,7 @@ import "../../../components/config"
 // ── A code is minted, not read ──────────────────────────────────────────────
 //
 // Every other settings page of this shape asks questions on a timer. This one
-// cannot: `apex remote pair` mints a ONE-TIME token and arms the daemon for
+// cannot: `rime remote pair` mints a ONE-TIME token and arms the daemon for
 // the next device presenting it. Minting on a sweep would burn a token every
 // interval, and each new one invalidates the code the person is at that moment
 // holding their phone up to.
@@ -83,7 +83,7 @@ CfgScroll {
 
     // ── The code ─────────────────────────────────────────────────────────────
     CfgSection {
-        title: "Scan this with APEX Remote"
+        title: "Scan this with Rime Remote"
         first: true
 
         // The symbol itself, on its own fixed-contrast ground. The quiet zone
@@ -126,7 +126,7 @@ CfgScroll {
         CfgRow {
             id: noCode
             label: "No pairing code"
-            // The command's own words rather than a paraphrase. "apex remote
+            // The command's own words rather than a paraphrase. "rime remote
             // pair exited 1" is something a person can search for and a
             // developer can act on; "Something went wrong" is neither.
             description: RemotePairingService.pairError !== ""

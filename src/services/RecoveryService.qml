@@ -9,42 +9,42 @@ import "recovery.js" as Rec
 // rollback part of normal UX, not expert documentation").
 //
 // The OS side already exists and is deliberately shaped for this consumer.
-// `apex recover status --json` reports the eight components §19 names, the
-// four action buttons, the recovery routes and the reset scopes; `apex doctor
-// --json` is §19's "expose `apex doctor` results graphically" from the other
-// end. `apex recover --help` said the status was "safe for APEX Settings to
+// `rime recover status --json` reports the eight components §19 names, the
+// four action buttons, the recovery routes and the reset scopes; `rime doctor
+// --json` is §19's "expose `rime doctor` results graphically" from the other
+// end. `rime recover --help` said the status was "safe for Rime Settings to
 // poll" and this is the poller it meant — until now that consumer did not
 // exist, and recovery had no graphical surface on any branch of this shell.
 //
 // Same rule as AgentService and RemoteAgentService: everything goes through
-// the `apex` CLI. It is the stability surface that already handles an absent
+// the `rime` CLI. It is the stability surface that already handles an absent
 // daemon and a version mismatch, and it owns the argv.
 //
 // ── WHAT THIS IS ALLOWED TO RUN, AND WHAT IT IS NOT ─────────────────────────
 //
 // Two verbs are polled and they are the only two that may ever be:
 //
-//   apex recover status --json     every fact is a file read — /proc/cmdline,
+//   rime recover status --json     every fact is a file read — /proc/cmdline,
 //                                  /proc/mounts, the efivars, the
 //                                  /ostree/deploy listing. It spawns no
 //                                  subprocess and contacts nothing, so it
 //                                  cannot raise an authentication prompt and
 //                                  cannot hang. docs/recovery.md asserts all
 //                                  three on the OS side.
-//   apex doctor --json             the same checks the text form prints, built
+//   rime doctor --json             the same checks the text form prints, built
 //                                  once and rendered twice. One D-Bus
 //                                  connection and one 200 ms TCP connect to
 //                                  127.0.0.1:9723; no subprocess.
 //
-// Everything else in `apex recover` — repair, reset — changes the machine and
+// Everything else in `rime recover` — repair, reset — changes the machine and
 // is therefore user-initiated ONLY, once, on an explicit press. There is no
-// timer anywhere in this file that can reach them. `apex rollback` and
-// `apex pin` need root and this shell raises no authentication prompt of its
+// timer anywhere in this file that can reach them. `rime rollback` and
+// `rime pin` need root and this shell raises no authentication prompt of its
 // own, so they are SHOWN as commands and never executed: see below.
 //
 // ── EXIT 1 FROM `status` IS THE REPORT, NOT A FAILURE ───────────────────────
 //
-// `apex recover status` returns 1 when any component needs attention. A
+// `rime recover status` returns 1 when any component needs attention. A
 // service that treated non-zero as failure would blank the panel on precisely
 // the machines it is for. The decision is made on the parsed stdout;
 // recovery.js's `parseStatus` is written around that and the node suite
@@ -53,18 +53,18 @@ import "recovery.js" as Rec
 // ── ROLLBACK IS SHOWN, NOT RUN ──────────────────────────────────────────────
 //
 // §19 asks for a `[Boot previous deployment]` button and docs/recovery.md is
-// explicit that the button's verb is `sudo apex rollback` — there is no second
+// explicit that the button's verb is `sudo rime rollback` — there is no second
 // name for it. Running it from here would mean `pkexec` or a polkit agent, and
 // the whole point of the status surface is that nothing it does needs
 // authorising. So the panel makes rollback VISIBLE — whether a target exists,
-// what it costs, the exact command, and the `sudo apex pin` advice that stops
+// what it costs, the exact command, and the `sudo rime pin` advice that stops
 // two bad updates evicting the last good image — which is what §25 asks for.
 // Half of §25 is rollback not being expert documentation; a command a user can
 // see, understand and copy from Settings is that, and a hidden pkexec is not.
 //
 // ── THE FACTORY RESET, AND WHY THE TOKEN IS THE WHOLE DESIGN ────────────────
 //
-// `apex recover reset --commit` requires `--confirm <scope>:<count>:<hash>`,
+// `rime recover reset --commit` requires `--confirm <scope>:<count>:<hash>`,
 // where the hash covers the exact set of paths the plan found. The OS side
 // built it that way SPECIFICALLY so a UI cannot commit a reset without having
 // run the plan — and running the plan is the step that produces the loss list.
@@ -86,7 +86,7 @@ import "recovery.js" as Rec
 // screen". The token is never constructed, never derived from the scope, and
 // never carried across a close — `_standDown` drops the plan, so reopening the
 // page re-plans from scratch and a machine that changed in between produces a
-// different token, which is exactly the refusal apexd designed.
+// different token, which is exactly the refusal rimed designed.
 //
 // ── PROCESS LIFETIME ────────────────────────────────────────────────────────
 //
@@ -95,7 +95,7 @@ import "recovery.js" as Rec
 // and demand dropping to zero kills the poll in flight rather than letting it
 // finish. The one exception is a reset COMMIT, which is not a poll: it is a
 // one-shot the user explicitly asked for, and killing it half-way would leave
-// the state nobody planned that apexd's all-or-nothing safety pass exists to
+// the state nobody planned that rimed's all-or-nothing safety pass exists to
 // prevent. It is allowed to finish and reports when it does.
 //
 // The measured Quickshell 0.3.0 Process facts this file depends on are the
@@ -139,8 +139,8 @@ Singleton {
     // page distinguish "nothing to show" from "not asked yet", which look
     // identical and mean opposite things.
     property bool checked: false
-    // True when `apex recover status` was actually readable. False on a
-    // machine with no `apex`, or one whose `apex` predates `recover` — apex
+    // True when `rime recover status` was actually readable. False on a
+    // machine with no `rime`, or one whose `rime` predates `recover` — rime
     // 0.1.0 answers `unrecognized subcommand` and exits non-zero with nothing
     // on stdout, so the panel says the runtime is absent rather than drawing
     // eight empty rows.
@@ -208,11 +208,11 @@ Singleton {
         root._next()
     }
 
-    // The two polled verbs, in order, through ONE process — never two `apex`
+    // The two polled verbs, in order, through ONE process — never two `rime`
     // invocations at once.
     readonly property var _stepArgv: ({
-        status: ["apex", "recover", "status", "--json"],
-        doctor: ["apex", "doctor", "--json"]
+        status: ["rime", "recover", "status", "--json"],
+        doctor: ["rime", "doctor", "--json"]
     })
 
     function _next() {
@@ -237,7 +237,7 @@ Singleton {
     // handed back. The plan is dropped with it: a confirm token must never
     // survive the panel being closed, because the machine can change while
     // nobody is looking and a token that outlived its plan is the one thing
-    // apexd's design is built to refuse.
+    // rimed's design is built to refuse.
     function _standDown() {
         root._cooldown.stop()
         root._advance.stop()
@@ -289,7 +289,7 @@ Singleton {
     //          diagnostics section disappears, and the real doctor exit that
     //          arrives afterwards finds the slot already consumed.
     //
-    // Which gives `apex doctor --json` about 90 ms to answer or its result is
+    // Which gives `rime doctor --json` about 90 ms to answer or its result is
     // thrown away — passing on an idle machine and failing under load, the
     // worst shape a bug can have.
     //
@@ -319,7 +319,7 @@ Singleton {
 
         if (step === "status") {
             root.status = Rec.parseStatus(exitCode, text)
-            // No `apex recover` on this machine means no `apex doctor --json`
+            // No `rime recover` on this machine means no `rime doctor --json`
             // either — both landed in the same release. Asking anyway would
             // cost a second failed exec per sweep to learn what the first one
             // already said.
@@ -363,7 +363,7 @@ Singleton {
             root._announced = true
             console.info("RecoveryService:",
                          root.status.ok ? root.status.rows.length + " component row(s)"
-                                        : "apex recover status unavailable",
+                                        : "rime recover status unavailable",
                          "-", root.needsAttention, "needing attention;",
                          "doctor:", root.doctorSummary)
         }
@@ -376,7 +376,7 @@ Singleton {
     }
 
     // ── Automatic repair ─────────────────────────────────────────────────────
-    // §19's [Repair automatically]. Dry run first, always — apexd's own table
+    // §19's [Repair automatically]. Dry run first, always — rimed's own table
     // test asserts that no repair step's argv contains a destructive argument
     // or any of `sudo`, `pkexec`, `su`, `run0`, `systemd-run`, and that every
     // step is idempotent and removes no data. That invariant is what makes a
@@ -384,7 +384,7 @@ Singleton {
     // an authentication prompt.
     //
     // Repair converges only the privilege domain it is already running in and
-    // REPORTS the other, exactly as `apex apply` does. The system-domain half
+    // REPORTS the other, exactly as `rime apply` does. The system-domain half
     // is shown as a command to run rather than executed, for the same reason
     // rollback is.
     //
@@ -398,7 +398,7 @@ Singleton {
     readonly property var repairElsewhere:
         root.repairSteps.filter(function (s) { return s.runnableHere !== true })
 
-    readonly property string repairSystemCommand: "sudo apex recover repair --commit"
+    readonly property string repairSystemCommand: "sudo rime recover repair --commit"
 
     function checkRepairs() {
         if (root.repairPhase === "repairing") return
@@ -409,7 +409,7 @@ Singleton {
         // Same window as `_settle`: a settle armed by the previous invocation
         // would otherwise fire into this one's phase 150 ms from now.
         root._repairSettle.stop()
-        root._repairProc.command = ["apex", "recover", "repair", "--json"]
+        root._repairProc.command = ["rime", "recover", "repair", "--json"]
         root._repairProc.running = false
         root._repairProc.running = true
         root._repairWatchdog.restart()
@@ -418,7 +418,7 @@ Singleton {
     // The commit. Reachable only from a press, never from a timer, and only
     // after a dry run found something for THIS domain to do — a button that
     // proposes work on every healthy machine is one people learn to ignore,
-    // which is the reasoning apexd's `applicable_repairs` filter already
+    // which is the reasoning rimed's `applicable_repairs` filter already
     // encodes.
     function runRepairs() {
         if (root.repairPhase !== "checked") return
@@ -427,7 +427,7 @@ Singleton {
         root.repairMessage = ""
         root._repairBuf = ""
         root._repairSettle.stop()
-        root._repairProc.command = ["apex", "recover", "repair", "--commit", "--json"]
+        root._repairProc.command = ["rime", "recover", "repair", "--commit", "--json"]
         root._repairProc.running = false
         root._repairProc.running = true
         root._repairWatchdog.restart()
@@ -457,7 +457,7 @@ Singleton {
             if (root.repairPhase !== "checking" && root.repairPhase !== "repairing") return
             root.repairPhase = "failed"
             root._repairProc.running = false
-            root.repairMessage = "`apex recover repair` did not answer in time."
+            root.repairMessage = "`rime recover repair` did not answer in time."
         }
     }
 
@@ -470,7 +470,7 @@ Singleton {
         if (!doc.ok) {
             root.repairPhase = "failed"
             root.repairSteps = []
-            root.repairMessage = "Could not read a repair plan from `apex`."
+            root.repairMessage = "Could not read a repair plan from `rime`."
             return
         }
         if (wasCommit) {
@@ -483,7 +483,7 @@ Singleton {
             root.repairPhase = "idle"
             root.repairMessage = (exitCode === 0)
                 ? "Repair finished. Re-checking the components."
-                : "Repair reported a problem — see `apex recover repair --commit` in a terminal for the detail."
+                : "Repair reported a problem — see `rime recover repair --commit` in a terminal for the detail."
             root.refresh()
             return
         }
@@ -528,7 +528,7 @@ Singleton {
 
     function cancelReset() { root._dropPlan() }
 
-    // The dry run. `planArgv` refuses any scope that is not one apexd has, and
+    // The dry run. `planArgv` refuses any scope that is not one rimed has, and
     // there is no branch here that can append `--commit`.
     function planReset(scope) {
         if (root.resetPhase === "committing") return
@@ -571,7 +571,7 @@ Singleton {
             if (root.resetPhase !== "planning") return
             root.resetPhase = "failed"
             root._planProc.running = false
-            root.resetMessage = "`apex recover reset` did not answer in time. Nothing has been changed."
+            root.resetMessage = "`rime recover reset` did not answer in time. Nothing has been changed."
         }
     }
 
@@ -583,7 +583,7 @@ Singleton {
         if (!p.ok) {
             root.resetPhase = "failed"
             root.plan = null
-            root.resetMessage = "Could not read a reset plan from `apex`. "
+            root.resetMessage = "Could not read a reset plan from `rime`. "
                 + "Nothing has been changed, and nothing will be without one."
             return
         }
@@ -673,14 +673,14 @@ Singleton {
     }
 
     // Long, and it does NOT kill the process. A reset that was interrupted
-    // half-way is the state apexd's all-or-nothing safety pass exists to
+    // half-way is the state rimed's all-or-nothing safety pass exists to
     // prevent, so the timeout reports rather than intervenes.
     property Timer _commitWatchdog: Timer {
         interval: root.commitTimeout
         repeat: false
         onTriggered: {
             if (root.resetPhase !== "committing") return
-            root.resetMessage = "Still running. `apex recover reset` backs up before it "
+            root.resetMessage = "Still running. `rime recover reset` backs up before it "
                 + "removes anything; leave it alone until it finishes."
         }
     }
@@ -690,7 +690,7 @@ Singleton {
         root._commitWatchdog.stop()
 
         const r = Rec.readCommit(exitCode, root._commitOut, root._commitErr)
-        // apexd's refusal names both tokens and says what to do. Carried
+        // rimed's refusal names both tokens and says what to do. Carried
         // through verbatim: a generic "failed" throws away the only sentence
         // that explains it.
         root.resetMessage = r.message

@@ -98,13 +98,13 @@ CfgScroll {
                     spacing: 2
 
                     Text {
-                        text:        "APEX Shell"
+                        text:        "Rime Shell"
                         font.pixelSize: theme.fs(16)
                         font.weight: Font.Medium
                         color:       Theme.text
                     }
                     Text {
-                        text:        root.version + "  ·  APEX-OS"
+                        text:        root.version + "  ·  Rime OS"
                         font.pixelSize: theme.typeCaption
                         color:       Theme.textSecondary
                         font.family: Theme.fontMono
@@ -115,11 +115,11 @@ CfgScroll {
 
         CfgRow {
             label:       "Repository"
-            description: "github.com/AndreNijman/apex-shell"
+            description: "github.com/AndreNijman/rime-shell"
             CfgButton {
                 label: "Open"
                 icon:  "󰈺"
-                onClicked: root.openPath("https://github.com/AndreNijman/apex-shell")
+                onClicked: root.openPath("https://github.com/AndreNijman/rime-shell")
             }
         }
 
@@ -202,7 +202,7 @@ CfgScroll {
                 // rather than printing an empty label — `modeName` is "" there
                 // by design.
                 text:        (Compositor.modeName !== "" ? Compositor.modeName
-                                                         : "Not a compositor APEX supports")
+                                                         : "Not a compositor Rime supports")
                              + (Compositor.overrideName === "" ? "  ·  auto" : "  ·  override")
                 font.family: Theme.fontMono
                 font.pixelSize: theme.fs(11)
@@ -224,7 +224,7 @@ CfgScroll {
             // screenShader and specialWorkspace are Hyprland's alone; overview
             // is niri's alone; windowMove is false on labwc only; nightLight is
             // true on all three, so it is deliberately NOT listed as degrading.
-            text:     "Auto follows what APEX detects at login; pick one to pin it instead. Tiling is the only one the shell can give window gaps, an accent border, a layout indicator, a shader filter and a special workspace. Scrolling has an overview the other two do not. On Floating the shell cannot move a window to another workspace."
+            text:     "Auto follows what Rime detects at login; pick one to pin it instead. Tiling is the only one the shell can give window gaps, an accent border, a layout indicator, a shader filter and a special workspace. Scrolling has an overview the other two do not. On Floating the shell cannot move a window to another workspace."
             font.pixelSize: theme.typeCaption
             color:    Theme.textSecondary
             wrapMode: Text.WordWrap

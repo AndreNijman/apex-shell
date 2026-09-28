@@ -39,7 +39,7 @@
 #  should be a decision rather than a surprise.
 #
 #  MARKED IS NOT TRANSLATED, and this suite is careful not to let the bigger
-#  number read as progress it is not. translations/apex-shell_de.ts carries
+#  number read as progress it is not. translations/rime-shell_de.ts carries
 #  German for five of the 186. The other 181 extract, compile and load, and come
 #  back in English because nobody has written them.
 #
@@ -58,7 +58,7 @@ root="$(cd "$here/.." && pwd)"
 cd "$root" || exit 2
 
 CONTENT="src/services/agents/AgentHelpContent.qml"
-TS="translations/apex-shell_de.ts"
+TS="translations/rime-shell_de.ts"
 
 pass=0; fail=0; skip=0
 ok()  { printf '  ok   %s\n' "$1"; pass=$((pass + 1)); }
@@ -304,7 +304,7 @@ section "4. can a translated string reach the host the SHELL runs in?"
 # evaluated. tests/run-i18n-host-test.sh builds exactly that and reads the
 # SHIPPED AgentHelpContent singleton back in German inside the real
 # /usr/bin/quickshell. So these rows are the STATEMENT OF THE PROBLEM and
-# tests/apex-i18n-plugin.cpp is the answer to it; if quickshell itself ever
+# tests/rime-i18n-plugin.cpp is the answer to it; if quickshell itself ever
 # gains the call, these rows go red and say so, which is what they are for.
 #
 # Nothing here is trusted on an absence alone. Each claim has its positive
@@ -530,7 +530,7 @@ else
                 fc-list -q ":family=$SHELL_FAM:charset=$cp" 2>/dev/null && self=1
                 if [ "$nf" -lt 1 ]; then
                     # Which answer this is depends on WHOSE font set is being
-                    # measured. On an APEX deployment /usr IS the image, so a
+                    # measured. On a Rime deployment /usr IS the image, so a
                     # script nothing covers is a product defect. On a bare CI
                     # container it is a fact about the container, and failing
                     # there would be the round-19 mistake of asserting about
@@ -540,7 +540,7 @@ else
                             "fontconfig reports no installed family covering U+$cp — on this deployment that text WOULD tofu"
                     else
                         skp "$label can be rendered at all" \
-                            "no family here covers U+$cp, and this machine is not an APEX deployment — that is the container's font set, not the image's"
+                            "no family here covers U+$cp, and this machine is not a Rime deployment — that is the container's font set, not the image's"
                     fi
                 elif [ "$self" = 1 ]; then
                     # Still measured. Without this the arm passes on fontconfig's
@@ -595,8 +595,8 @@ section "6. what this still does NOT prove"
 # installs a translator. Each is a live read of a real file.
 ENTRY="shell.qml"
 BOOT="src/i18n/I18nBootstrap.qml"
-PLUGIN="tests/apex-i18n-plugin.cpp"
-MODULE="Apex.I18n"
+PLUGIN="tests/rime-i18n-plugin.cpp"
+MODULE="Rime.I18n"
 
 reaches=0
 # The entry point must load the bootstrap file, and the bootstrap file must
@@ -624,16 +624,16 @@ fi
 # gap now is the SOURCE side, one .ts file per language written by a person.
 # Note where the plugin says all this at run time — through qInfo(), which on
 # Fedora goes to the JOURNAL and not to stderr unless QT_FORCE_STDERR_LOGGING=1
-# is set, so the place to look is `journalctl --user -b | grep APEXI18N`.
-n_ts="$(find translations -maxdepth 1 -name 'apex-shell_*.ts' 2>/dev/null | wc -l | tr -d ' ')"
-n_de="$(grep -c '<translation>' translations/apex-shell_de.ts 2>/dev/null || echo 0)"
-printf '  note %s\n' "MARKED IS NOT TRANSLATED. $n_ts language file(s) exist and apex-shell_de.ts"
+# is set, so the place to look is `journalctl --user -b | grep RIMEI18N`.
+n_ts="$(find translations -maxdepth 1 -name 'rime-shell_*.ts' 2>/dev/null | wc -l | tr -d ' ')"
+n_de="$(grep -c '<translation>' translations/rime-shell_de.ts 2>/dev/null || echo 0)"
+printf '  note %s\n' "MARKED IS NOT TRANSLATED. $n_ts language file(s) exist and rime-shell_de.ts"
 printf '       %s\n' "carries German for $n_de of the $EXPECT_TR marked strings; the other strings"
 printf '       %s\n' "extract, compile and load and come back in English because nobody has"
 printf '       %s\n' "written them. That is a translator's job and this line is the gap, not"
-printf '       %s\n' "a failure. The image side is done: apex-os Containerfile.base compiles"
+printf '       %s\n' "a failure. The image side is done: rime-os Containerfile.base compiles"
 printf '       %s\n' "every translations/*.ts in a DISCARDED stage and proves each .qm loads,"
-printf '       %s\n' "so a new language is one file here and no apex-os change at all."
+printf '       %s\n' "so a new language is one file here and no rime-os change at all."
 
 printf '\nrun-i18n-test: passed=%d failed=%d skipped=%d\n' "$pass" "$fail" "$skip"
 [ "$fail" -eq 0 ]

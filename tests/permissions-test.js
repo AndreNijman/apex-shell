@@ -1,8 +1,8 @@
 "use strict";
 // ─── permissions-test.js ─────────────────────────────────────────────────────
 // The honesty rules of Config → Privacy & Permissions (roadmap P1-061), held
-// against a fixture captured from `apex permissions show … --json` on a real
-// APEX machine: a Flatpak that goes through the portal, a Flatpak whose
+// against a fixture captured from `rime permissions show … --json` on a real
+// Rime machine: a Flatpak that goes through the portal, a Flatpak whose
 // manifest carries `devices=all`, and a native program.
 //
 // It exercises src/services/permissions.js — the file the shell actually
@@ -146,12 +146,12 @@ check(
 check(
     "revokeArgv names a native subject with its prefix when it ever could",
     Perm.revokeArgv(row(SPOTIFY, "camera"), "deny"),
-    ["apex", "permissions", "revoke", "com.spotify.Client", "camera"]
+    ["rime", "permissions", "revoke", "com.spotify.Client", "camera"]
 );
 check(
     "…and --forget is the other verb, not another command",
     Perm.revokeArgv(row(SPOTIFY, "camera"), "forget"),
-    ["apex", "permissions", "revoke", "com.spotify.Client", "camera", "--forget"]
+    ["rime", "permissions", "revoke", "com.spotify.Client", "camera", "--forget"]
 );
 check(
     "the native subject carries the prefix the CLI expects",
@@ -192,7 +192,7 @@ check("a native subject is flagged from the payload, not from its name",
 // ── 5. a failed read is not an empty machine ────────────────────────────────
 [
     ["no output at all", Perm.parseList("", 1)],
-    ["apex not on PATH", Perm.parseList("", 127)],
+    ["rime not on PATH", Perm.parseList("", 127)],
     ["output that is not JSON", Perm.parseList("Permission denied\n", 1)],
     ["JSON with no grants", Perm.parseList('{"session":{}}', 0)]
 ].forEach(function (pair) {
@@ -217,7 +217,7 @@ check("a native subject is flagged from the payload, not from its name",
         got.session !== null && Array.isArray(got.session.brokered)
         && got.session.summary !== "");
 });
-check("…and 127 says specifically that apex is missing",
+check("…and 127 says specifically that rime is missing",
     Perm.parseList("", 127).reason.indexOf("PATH") >= 0,
     true);
 

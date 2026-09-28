@@ -35,24 +35,24 @@
 #  XDG_RUNTIME_DIR, and the library aborts the run if the socket it ends up
 #  talking to is not inside that directory. Nothing lands on anybody's desk.
 #
-#  ── The `apex` here is a STUB, and it has to be ─────────────────────────────
+#  ── The `rime` here is a STUB, and it has to be ─────────────────────────────
 #
-#  `apex permissions revoke` WRITES: `no` into the portal permission store, or
+#  `rime permissions revoke` WRITES: `no` into the portal permission store, or
 #  a `flatpak override`. A suite that ran the real command would take a camera
 #  or microphone grant away from whoever is logged in, several times per run.
-#  tests/lib/headless.sh already puts a stub `apex` on PATH for this class of
+#  tests/lib/headless.sh already puts a stub `rime` on PATH for this class of
 #  problem; this file replaces it with one that answers `permissions list
 #  --json` from tests/fixtures/permissions-list.json and records every argv.
 #
 #  That is also why the service goes through the CLI rather than reading the
 #  permission store itself: a stub on PATH is the isolation, and a client that
 #  opened the D-Bus name directly would walk straight past it. Never
-#  `headless_unstub apex` here — that hands the page the real binary.
+#  `headless_unstub rime` here — that hands the page the real binary.
 #
 #  ── Three phases ────────────────────────────────────────────────────────────
 #
 #    fixture      the captured report: 3 applications, 30 rows, 15 controls
-#    unreadable   `apex` fails. The page must say so and must not throw
+#    unreadable   `rime` fails. The page must say so and must not throw
 #    pixels       the built page is rasterised and the PNG inspected
 #
 #  `pixels` is the only one that proves the scene graph ran. Everything else
@@ -77,16 +77,16 @@ trap cleanup EXIT INT TERM
 headless_begin
 
 W="$HEADLESS_W"
-CALLS="$W/apex-calls.log"
+CALLS="$W/rime-calls.log"
 : > "$CALLS"
 
 # ── the stub ────────────────────────────────────────────────────────────────
 # Overwrites the one headless_begin installed. Every invocation is recorded
 # before anything else happens, so an assertion about what the page ASKED FOR
 # holds even when the answer is a failure.
-cat > "$W/bin/apex" <<'STUB'
+cat > "$W/bin/rime" <<'STUB'
 #!/usr/bin/env bash
-printf '%s\n' "$*" >> "$APEX_PP_CALLS"
+printf '%s\n' "$*" >> "$RIME_PP_CALLS"
 
 if [[ "${1:-}" != "permissions" ]]; then
     exit 0
@@ -94,13 +94,13 @@ fi
 
 case "${2:-}" in
 list)
-    if [[ "${APEX_PP_FAIL:-0}" == "1" ]]; then
+    if [[ "${RIME_PP_FAIL:-0}" == "1" ]]; then
         # What a real refusal looks like: a sentence on stderr and nothing at
         # all on stdout. The page must not read that as an empty machine.
-        echo "apex: the permission store could not be read" >&2
+        echo "rime: the permission store could not be read" >&2
         exit 1
     fi
-    cat "$APEX_PP_FIXTURE"
+    cat "$RIME_PP_FIXTURE"
     exit 0
     ;;
 revoke)
@@ -111,7 +111,7 @@ revoke)
 esac
 exit 0
 STUB
-chmod +x "$W/bin/apex"
+chmod +x "$W/bin/rime"
 
 # Quickshell refuses to import QML modules from outside the directory holding
 # the entry point, so the suite is staged into the repository root.
@@ -133,11 +133,11 @@ phase() {
     echo "── $name ────────────────────────────────────────────────"
 
     ( cd "$root" && env \
-        APEX_PP_PHASE="$name" \
-        APEX_PP_CALLS="$CALLS" \
-        APEX_PP_FIXTURE="$here/fixtures/permissions-list.json" \
-        APEX_PP_FAIL="$failread" \
-        APEX_PP_GRAB="$W/privacy-page.png" \
+        RIME_PP_PHASE="$name" \
+        RIME_PP_CALLS="$CALLS" \
+        RIME_PP_FIXTURE="$here/fixtures/permissions-list.json" \
+        RIME_PP_FAIL="$failread" \
+        RIME_PP_GRAB="$W/privacy-page.png" \
         QT_LOGGING_RULES="qml=true" \
         timeout 180 quickshell -p "$staged" ) > "$log" 2>&1
 

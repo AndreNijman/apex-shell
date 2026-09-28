@@ -1,6 +1,6 @@
 // ─── agentpolicy.js ──────────────────────────────────────────────────────────
 // Pure logic behind the Agent Settings page (P0-016, ROADMAP.md §42.1): what
-// the APEX sandbox default currently is, what a change to it would do, and
+// the Rime sandbox default currently is, what a change to it would do, and
 // whether that change has to be authenticated first.
 //
 // Kept out of the QML for the same reason remoteagents.js is: this is the part
@@ -13,9 +13,9 @@
 //
 // ── The file this reads and writes ──────────────────────────────────────────
 //
-// `$XDG_CONFIG_HOME/apex/agent.json`, the agent runtime's own configuration —
-// apexd/apex-agent-core/src/paths.rs `config_file()`, parsed by that crate's
-// config.rs into six sibling permission keys. It is the only file `apex agent
+// `$XDG_CONFIG_HOME/rime/agent.json`, the agent runtime's own configuration —
+// rimed/rime-agent-core/src/paths.rs `config_file()`, parsed by that crate's
+// config.rs into six sibling permission keys. It is the only file `rime agent
 // run` consults for a default, so it is the only place a setting in the shell
 // can change what a new session gets. A mirror in the shell's own settings
 // would be read by nothing: `a` launches from a terminal that never asks the
@@ -24,12 +24,12 @@
 // Writing somebody else's configuration file means two obligations.
 //
 // FIRST, KEEP WHAT WE DO NOT UNDERSTAND. config.rs flattens unrecognised keys
-// into `extra` and writes them back, so a round trip through apex is lossless.
+// into `extra` and writes them back, so a round trip through rime is lossless.
 // This does the same by editing the parsed object and reserialising it: one
 // key changes and every other key, known or not, survives byte for byte in
 // value and in order.
 //
-// SECOND, NEVER WRITE OVER SOMETHING WE COULD NOT PARSE. apex treats a corrupt
+// SECOND, NEVER WRITE OVER SOMETHING WE COULD NOT PARSE. rime treats a corrupt
 // file as the defaults, but it LEAVES THE FILE ALONE, so the user can still fix
 // their stray comma. A settings page that silently replaced it with two keys
 // would destroy hand-written configuration to fix its own display. `nextConfig`
@@ -43,17 +43,17 @@
 //
 // That turns one plausible file into two lies at once. A user with
 // `{"native":"bypass","network":"offline"}` who switches this toggle on gets a
-// stored `sandbox: unrestricted` that apex refuses (offline needs a namespace
-// and an unconfined session has none), so the next `apex agent run` is
+// stored `sandbox: unrestricted` that rime refuses (offline needs a namespace
+// and an unconfined session has none), so the next `rime agent run` is
 // project-sandboxed AND back to `native: inherit` — the sandbox did not change
 // and the agent's own permission mode was thrown away, which is exactly what
 // criterion 3 exists to prevent.
 //
 // So `refusalFor` is validate()'s four arms, `nextConfig` runs it on the
-// PROPOSED object and refuses rather than write a default apex will discard,
+// PROPOSED object and refuses rather than write a default rime will discard,
 // and `effectiveDefault` runs it on the stored one so the page reports the
 // sandbox sessions will actually get. Transcribed from
-// apexd/apex-agent-core/src/policy.rs at 583698b; the reference is in the test.
+// rimed/rime-agent-core/src/policy.rs at 583698b; the reference is in the test.
 // ─────────────────────────────────────────────────────────────────────────────
 
 "use strict";
@@ -126,15 +126,15 @@ function effectiveNetwork(config) {
 
 /// `Config::normalise` then `AgentPolicy::validate`, as a reason or null.
 ///
-/// In that order, because that is the order apex applies them and the first
-/// changes what the second sees. Each message says what apex would do with the
+/// In that order, because that is the order rime applies them and the first
+/// changes what the second sees. Each message says what rime would do with the
 /// file rather than naming the Rust variant, because the reader is looking at a
 /// toggle and not at a stack trace.
 ///
 /// ── why there is no longer a system-access arm ──────────────────────────────
 ///
 /// There used to be one: dimension 3 had no grant machinery and `validate`
-/// refused both of its elevated values, so a file naming one made apex reset
+/// refused both of its elevated values, so a file naming one made rime reset
 /// all six dimensions and this had to warn about it. P0-006 and P0-007 built
 /// the machinery, and `validate` now accepts both — but `Config::normalise`
 /// gained a rule that matters more here: §3.4 allows no remembered elevation,
@@ -150,7 +150,7 @@ function refusalFor(config) {
     for (var k in config)
         if (Object.prototype.hasOwnProperty.call(config, k))
             normalised[k] = config[k];
-    // §3.4: no remembered elevation. One key, silently, exactly as apex does.
+    // §3.4: no remembered elevation. One key, silently, exactly as rime does.
     normalised.system = "none";
 
     var network = effectiveNetwork(normalised);
@@ -175,7 +175,7 @@ function refusalFor(config) {
     return null;
 }
 
-/// Whether apex will reset a stored dimension-3 default when it loads this
+/// Whether rime will reset a stored dimension-3 default when it loads this
 /// file, and why.
 ///
 /// Separate from [`refusalFor`] because it is not a refusal: the write goes
@@ -186,8 +186,8 @@ function storedElevationNote(config) {
     var system = config && config.system ? config.system : "none";
     if (system === "none")
         return null;
-    return "apex will reset system-access to none: §3.4 allows no remembered "
-         + "elevation, so ask for it per session with `apex agent run "
+    return "rime will reset system-access to none: §3.4 allows no remembered "
+         + "elevation, so ask for it per session with `rime agent run "
          + "--system-access session` or `--unsafe-everything --ttl 15m`";
 }
 
@@ -255,7 +255,7 @@ function nextConfig(text, on) {
     if (refusal !== null)
         return {
             ok: false,
-            reason: "apex would discard every permission setting in the file, because "
+            reason: "rime would discard every permission setting in the file, because "
                   + refusal
         };
 
@@ -316,7 +316,7 @@ var AUTH_MESSAGES = {
     incomplete: "Authentication was not completed, so nothing changed.",
     unregistered: "This machine has no polkit action for the setting, so it "
                 + "cannot be authenticated. Install "
-                + "dots-extra/polkit/org.apexos.shell.agent.policy.",
+                + "dots-extra/polkit/org.rimeos.shell.agent.policy.",
     error: "The authentication check failed, so nothing changed."
 };
 
@@ -343,7 +343,7 @@ function sessionSandbox(session) {
 
 /// The session's own permission mode (dimension 1), or "inherit".
 ///
-/// What APEX *did*: `bypass` and `ask` mean it passed a flag, and `inherit`
+/// What Rime *did*: `bypass` and `ask` mean it passed a flag, and `inherit`
 /// means it passed nothing and the agent's own profile decided.
 function sessionNative(session) {
     var v = session ? session.native : null;
@@ -356,22 +356,22 @@ function sessionNative(session) {
 /// This is the field that makes criterion 3 mean something, and the reason it
 /// exists is a trap in the obvious reading. `sessionNative` returns `inherit`
 /// for the normal case — Andre runs `bypassPermissions` as his Claude default
-/// and `roadmap.yaml` records it — and `inherit` describes what APEX did, not
+/// and `roadmap.yaml` records it — and `inherit` describes what Rime did, not
 /// what the agent is doing. A chip showing "inherit" beside a session running
 /// with confirmations off would satisfy the words of the criterion and answer
 /// nothing.
 ///
 /// So the agent's own report wins. Claude puts `permission_mode` on every hook
-/// payload; `apex-agentd` records it as `native_observed`, unmapped, so the
+/// payload; `rime-agentd` records it as `native_observed`, unmapped, so the
 /// value here is the one Claude itself uses: `bypassPermissions`,
 /// `acceptEdits`, `plan`, `default`.
 ///
 /// Three answers and each says something different:
 ///
 ///   * a reported mode          — the agent said this, and it is current;
-///   * an APEX-selected mode    — nothing reported yet, but APEX passed a flag
+///   * a Rime-selected mode    — nothing reported yet, but Rime passed a flag
 ///                                so the mode is known from the launch;
-///   * "" — nothing to say. Only when APEX passed no flag AND the agent has
+///   * "" — nothing to say. Only when Rime passed no flag AND the agent has
 ///     not reported: naming a mode there would claim knowledge of a settings
 ///     file the runtime never read.
 function sessionNativeLabel(session) {
@@ -382,11 +382,11 @@ function sessionNativeLabel(session) {
     return selected === "inherit" ? "" : selected;
 }
 
-/// Whether that label is the agent's own report rather than APEX's flag.
+/// Whether that label is the agent's own report rather than Rime's flag.
 ///
 /// The page draws the two the same, and this is here so a tooltip can be
 /// honest about which it is looking at: "claude reports bypassPermissions" and
-/// "apex started it with --permission-mode bypassPermissions" are different
+/// "rime started it with --permission-mode bypassPermissions" are different
 /// facts, and only the first is current if the mode changed mid-session.
 function sessionNativeIsReported(session) {
     var observed = session ? session.native_observed : null;
@@ -435,8 +435,8 @@ function grantRemainingMs(session, nowMs) {
 
 /// A countdown, in the shortest form that is not ambiguous.
 ///
-/// Mirrors `grant::format_ms` in apex-agent-core so the shell and
-/// `apex agent grants` do not describe the same window two ways. Seconds are
+/// Mirrors `grant::format_ms` in rime-agent-core so the shell and
+/// `rime agent grants` do not describe the same window two ways. Seconds are
 /// dropped above a minute: a break-glass indicator that ticks every second is
 /// one people cover up.
 function formatRemaining(ms) {
@@ -487,7 +487,7 @@ function sessionsOnOtherModes(sessions, currentDefault) {
     return out;
 }
 
-/// Live sessions running with no APEX sandbox, whenever they started.
+/// Live sessions running with no Rime sandbox, whenever they started.
 function unrestrictedSessions(sessions) {
     var list = Array.isArray(sessions) ? sessions : [];
     var out = [];

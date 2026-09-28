@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# P0-025: the Lua this shell generates has to load in the Hyprland APEX ships.
+# P0-025: the Lua this shell generates has to load in the Hyprland Rime ships.
 #
 #     ./tests/run-hypr-configerrors-test.sh
 #
@@ -34,9 +34,9 @@
 # XDG_RUNTIME_DIR and its own HOME — and asks that instance, by signature, never
 # the ambient one.
 #
-# It covers the module this repository generates, apex/shell-keybinds.lua,
+# It covers the module this repository generates, rime/shell-keybinds.lua,
 # loaded through the same absent-tolerant loader the seeded hyprland.lua uses.
-# It does not cover the apex-os modules beside it; those ship from another
+# It does not cover the rime-os modules beside it; those ship from another
 # repository and are verified there.
 #
 # ── Never the developer's session ────────────────────────────────────────────
@@ -111,38 +111,38 @@ echo "host: headless labwc on $WAYLAND_DISPLAY ($(Hyprland --version 2>&1 | head
 
 home="$HOME"
 rt="$XDG_RUNTIME_DIR"
-mkdir -p "$home/.config/hypr/apex"
+mkdir -p "$home/.config/hypr/rime"
 
 # ── the config ───────────────────────────────────────────────────────────────
-# The same shape apex-os seeds: a loader that skips a generated module that has
+# The same shape rime-os seeds: a loader that skips a generated module that has
 # not been written yet, records one that fails, and re-raises at the end so
 # configerrors still reports it. Reproduced here rather than copied from the
 # other repository, because this test has to run without it.
 cat > "$home/.config/hypr/hyprland.lua" <<'LUA'
 local failures = {}
 for name in pairs(package.loaded) do
-    if name:sub(1, 5) == "apex." then package.loaded[name] = nil end
+    if name:sub(1, 5) == "rime." then package.loaded[name] = nil end
 end
-local function apex(name)
-    local module = "apex." .. name
+local function rime(name)
+    local module = "rime." .. name
     if not package.searchpath(module, package.path) then return nil end
     local ok, result = pcall(require, module)
     if ok then return result end
-    failures[#failures + 1] = ("apex/%s.lua: %s"):format(name, tostring(result))
+    failures[#failures + 1] = ("rime/%s.lua: %s"):format(name, tostring(result))
     return nil
 end
 hl.config({ general = { gaps_in = 5, border_size = 2 } })
-apex("keybindings")
-apex("shell-keybinds")
+rime("keybindings")
+rime("shell-keybinds")
 if #failures > 0 then
-    error("APEX config modules failed to load:\n  " .. table.concat(failures, "\n  "), 0)
+    error("Rime config modules failed to load:\n  " .. table.concat(failures, "\n  "), 0)
 end
 LUA
 
-# The handle table the generated module disables APEX defaults through. Same
-# contract as apex-os's apex/keybindings.lua: a `disable(mods, key)` and one
+# The handle table the generated module disables Rime defaults through. Same
+# contract as rime-os's rime/keybindings.lua: a `disable(mods, key)` and one
 # bind to disable, so `claim()` in the generated file has something real to do.
-cat > "$home/.config/hypr/apex/keybindings.lua" <<'LUA'
+cat > "$home/.config/hypr/rime/keybindings.lua" <<'LUA'
 local M = { binds = {} }
 local function key(mods, k)
     local parts = {}
@@ -238,9 +238,9 @@ gen_log="$HEADLESS_W/gen.log"
     QT_LOGGING_RULES="qml=true" \
     timeout 180 quickshell -p "$root/.keybind-lua-gen.qml" ) >"$gen_log" 2>&1
 
-lua="$home/.config/hypr/apex/shell-keybinds.lua"
+lua="$home/.config/hypr/rime/shell-keybinds.lua"
 if grep -q "GEN1-READY" "$gen_log" && [ -s "$lua" ]; then
-    ok "the shipped generator wrote apex/shell-keybinds.lua"
+    ok "the shipped generator wrote rime/shell-keybinds.lua"
 else
     bad "the generator produced no Lua module"
     tail -20 "$gen_log" | sed 's/^/        /'
@@ -249,12 +249,12 @@ else
     exit 1
 fi
 
-grep -q "APEX-SHELL-GENERATED" "$lua" \
+grep -q "RIME-SHELL-GENERATED" "$lua" \
     && ok "the generated module carries its marker" \
     || bad "the generated module has no marker, so the rescue cannot recognise it"
-grep -q 'pcall(require, "apex.shell-keybinds-user")' "$lua" \
+grep -q 'pcall(require, "rime.shell-keybinds-user")' "$lua" \
     && ok "the generated module requires the user's own binds" \
-    || bad "the generated module does not load apex/shell-keybinds-user.lua"
+    || bad "the generated module does not load rime/shell-keybinds-user.lua"
 grep -q "hyprctl dispatch" "$lua" \
     && bad "the generator is still shelling out to hyprctl dispatch" \
     || ok "no bind spawns hyprctl to talk to the compositor it is running in"
@@ -264,7 +264,7 @@ grep -q "hyprctl dispatch" "$lua" \
 # the SHIPPED generator wrote, on the same run whose output then goes through
 # `hyprctl configerrors` — so it is proved both to be emitted and to be a line
 # Hyprland accepts, which a grep over KeybindService.qml cannot say.
-grep -q 'apex-screen-reader' "$lua" \
+grep -q 'rime-screen-reader' "$lua" \
     && ok "the screen-reader bind reaches the Hyprland module" \
     || bad "the screen-reader bind is missing from the generated Lua"
 grep -q 'hl.bind("SUPER + ALT + S"' "$lua" \
@@ -285,7 +285,7 @@ grep -q 'hl.bind("SUPER + SHIFT + T"' "$lua" \
     && ok "the rebound combo is in the module" \
     || bad "the rebind did not reach the generated file"
 grep -q 'claim("SUPER", "T")' "$lua" \
-    && ok "the APEX default on the vacated combo is claimed, not left double-bound" \
+    && ok "the Rime default on the vacated combo is claimed, not left double-bound" \
     || bad "nothing disables the default the rebind replaced"
 
 hc reload >/dev/null
@@ -295,13 +295,13 @@ clean "after a generated change"
 # ── the rescue does not break the config ─────────────────────────────────────
 # The module the rescue creates is required by the generated one, so a rescue
 # that produced something Hyprland cannot load would take the keybinds down.
-# Exactly the state apex-hypr-migrate leaves behind: the user's converted binds
+# Exactly the state rime-hypr-migrate leaves behind: the user's converted binds
 # at the generated module's path, with no marker. Then a shell start over it.
 cat > "$lua" <<'LUA'
--- Migrated from the hyprlang ApexShellKeybinds fragment by apex-hypr-migrate
+-- Migrated from the hyprlang RimeShellKeybinds fragment by rime-hypr-migrate
 hl.bind("SUPER + G", hl.dsp.exec_cmd("true"))
 LUA
-user="$home/.config/hypr/apex/shell-keybinds-user.lua"
+user="$home/.config/hypr/rime/shell-keybinds-user.lua"
 rm -f "$user"
 # The generator runs on the HOST labwc, which has an output; the nested
 # Hyprland is only ever the target of its `hyprctl reload`, which is why the
@@ -316,7 +316,7 @@ rm -f "$user"
 grep -q 'SUPER + G' "$user" 2>/dev/null \
     && ok "a migrated bind at the generated path survives the next shell start" \
     || bad "the shell overwrote a keybind the migration carried across"
-grep -q "APEX-SHELL-GENERATED" "$lua" \
+grep -q "RIME-SHELL-GENERATED" "$lua" \
     && ok "and the generated module was still written" \
     || bad "the rescue stopped the generator from writing"
 

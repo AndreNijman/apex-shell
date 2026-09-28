@@ -62,10 +62,10 @@ for tool in quickshell sway swaymsg wlr-randr python3; do
     command -v "$tool" >/dev/null 2>&1 || { echo "SKIP: $tool not installed"; exit 0; }
 done
 
-engine="${APEX_DISPLAY_ENGINE_REAL:-/usr/libexec/apex-display-apply}"
-[ -x "$engine" ] || { echo "SKIP: no display engine at $engine (it ships with APEX-OS)"; exit 0; }
+engine="${RIME_DISPLAY_ENGINE_REAL:-/usr/libexec/rime-display-apply}"
+[ -x "$engine" ] || { echo "SKIP: no display engine at $engine (it ships with Rime OS)"; exit 0; }
 
-timeout_s="${APEX_TEST_CONFIRM_SECONDS:-5}"
+timeout_s="${RIME_TEST_CONFIRM_SECONDS:-5}"
 
 sandbox="$(mktemp -d)"
 shim="$sandbox/shim"
@@ -77,17 +77,17 @@ chmod 0700 "$sandbox/run"
 # program. That is the "the compositor adapter failed during the countdown"
 # arm — a broken engine, not a rejected layout, which the labwc suite already
 # covers through a mode the output does not have.
-cat > "$shim/apex-display-apply" <<WRAP
+cat > "$shim/rime-display-apply" <<WRAP
 #!/usr/bin/env bash
 for a in "\$@"; do
     if [ "\$a" = "apply" ] && [ -e "$sandbox/engine-fails" ]; then
-        echo "apex-display-apply: injected failure" >&2
+        echo "rime-display-apply: injected failure" >&2
         exit 9
     fi
 done
 exec "$engine" "\$@"
 WRAP
-chmod +x "$shim/apex-display-apply"
+chmod +x "$shim/rime-display-apply"
 
 printf '#!/bin/sh\necho "hyprctl is not available in the display unplug test" >&2\nexit 127\n' \
     > "$shim/hyprctl"
@@ -152,10 +152,10 @@ ENVV=(env -u HYPRLAND_INSTANCE_SIGNATURE -u NIRI_SOCKET -u DISPLAY
       XDG_CURRENT_DESKTOP=sway:wlroots
       HOME="$sandbox/home"
       PATH="$shim:$PATH"
-      APEX_DISPLAY_ENGINE="$shim/apex-display-apply"
-      APEX_DISPLAY_TXN_DIR="$sandbox/txn"
-      APEX_DISPLAY_CONFIRM_SECONDS="$timeout_s"
-      APEX_DISPLAY_GUARD_POLL=0.1)
+      RIME_DISPLAY_ENGINE="$shim/rime-display-apply"
+      RIME_DISPLAY_TXN_DIR="$sandbox/txn"
+      RIME_DISPLAY_CONFIRM_SECONDS="$timeout_s"
+      RIME_DISPLAY_GUARD_POLL=0.1)
 run() { "${ENVV[@]}" "$@"; }
 
 # A real second output. This is the whole reason the file exists.
@@ -470,7 +470,7 @@ else
     # And the repair path: with the engine working again, the settlement a new
     # shell runs at startup has to finish the job.
     rm -f "$sandbox/engine-fails"
-    out="$(run bash "$root/src/scripts/apex-display-guard.sh" reconcile "$sandbox/txn")"
+    out="$(run bash "$root/src/scripts/rime-display-guard.sh" reconcile "$sandbox/txn")"
     echo "  reconcile  -> $out"
     sleep 2
     scale="$(run wlr-randr --json | python3 -c 'import json,sys; print([o["scale"] for o in json.load(sys.stdin) if o["name"]=="HEADLESS-1"][0])')"

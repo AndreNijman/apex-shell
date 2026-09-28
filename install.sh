@@ -1,7 +1,7 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  APEX Shell — Main Installer
-#  github.com/AndreNijman/apex-shell  v0.1.0
+#  Rime Shell — Main Installer
+#  github.com/AndreNijman/rime-shell  v0.1.0
 # ─────────────────────────────────────────────────────────────────────────────
 # Hesitation is Defeat — Isshin Ashina
 set -eo pipefail
@@ -39,7 +39,7 @@ echo " ▒███▒▒▒▒▒███ ▒███▒▒▒▒▒███
 echo " ▒███    ▒███ ▒███    ▒███  ▒███    ▒███  ▒███  ▒███  ▒▒█████     ███    ▒███ ▒███    ▒███  ▒███ ▒   █ ▒███      █ ▒███      █"
 echo " ███████████  █████   █████ █████   █████ █████ █████  ▒▒█████   ▒▒█████████  █████   █████ ██████████ ███████████ ███████████"
 echo -e "${NC}"
-echo -e "  ${DIM}v0.1.0  ·  github.com/AndreNijman/apex-shell${NC}"
+echo -e "  ${DIM}v0.1.0  ·  github.com/AndreNijman/rime-shell${NC}"
 echo ""
 
 
@@ -117,7 +117,7 @@ fi
 step 2 "Backup"
 
 BACKUP_TS=$(date +%Y%m%d_%H%M%S)
-BACKUP_DIR="$HOME/.config.backup-${BACKUP_TS}-apex-shell"
+BACKUP_DIR="$HOME/.config.backup-${BACKUP_TS}-rime-shell"
 mkdir -p "$BACKUP_DIR"
 
 if [[ -d "$HYPR_DIR" ]]; then
@@ -134,7 +134,7 @@ fi
 step 3 "Repository"
 
 REPO_PARENT="$HOME/.local/src"
-REPO_DIR="$REPO_PARENT/apex-shell"
+REPO_DIR="$REPO_PARENT/rime-shell"
 mkdir -p "$REPO_PARENT"
 
 if [[ -d "$REPO_DIR/.git" ]]; then
@@ -145,7 +145,7 @@ if [[ -d "$REPO_DIR/.git" ]]; then
     log_ok "Repository updated: $REPO_DIR"
 else
     log_info "Cloning from GitHub..."
-    git clone -b main https://github.com/AndreNijman/apex-shell.git "$REPO_DIR"
+    git clone -b main https://github.com/AndreNijman/rime-shell.git "$REPO_DIR"
     log_ok "Repository cloned: $REPO_DIR"
 fi
 
@@ -173,7 +173,7 @@ bash "$DISTRO_INSTALLER" "$HYPRLAND_CONF" "$BACKUP_DIR" "$CONFIG_TYPE"
 step 5 "Theming Config"
 
 MATUGEN_TEMPLATE="$REPO_DIR/src/config/matugen.toml.in"
-MATUGEN_CONFIG="$HOME/.config/apex-shell/matugen.toml"
+MATUGEN_CONFIG="$HOME/.config/rime-shell/matugen.toml"
 
 if [[ -f "$MATUGEN_TEMPLATE" ]]; then
     mkdir -p "$(dirname "$MATUGEN_CONFIG")"
@@ -191,15 +191,15 @@ fi
 step 6 "Done"
 
 echo ""
-log_ok "APEX Shell is installed."
+log_ok "Rime Shell is installed."
 echo ""
-echo -e "  ${BOLD}Restart Hyprland to activate APEX Shell:${NC}"
+echo -e "  ${BOLD}Restart Hyprland to activate Rime Shell:${NC}"
 log_info "Log out and log back in  ${DIM}(recommended)${NC}"
 log_info "hyprctl dispatch exit"
 log_info "Ctrl+Alt+Q               ${DIM}(if configured)${NC}"
 echo ""
 echo -e "  ${BOLD}Paths:${NC}"
-log_info "Config:  ~/.config/apex-shell"
+log_info "Config:  ~/.config/rime-shell"
 log_info "Source:  $REPO_DIR"
 echo ""
 

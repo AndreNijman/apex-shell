@@ -26,9 +26,9 @@
 #  Skips (status 0) without quickshell, labwc or python3-gobject.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
-if [ "${APEX_CAPTURE_BUS:-}" != private ]; then
+if [ "${RIME_CAPTURE_BUS:-}" != private ]; then
     command -v dbus-run-session >/dev/null 2>&1 || { echo "SKIP: dbus-run-session is not installed"; exit 0; }
-    exec env -u WAYLAND_DISPLAY -u DISPLAY dbus-run-session -- env APEX_CAPTURE_BUS=private "$0" "$@"
+    exec env -u WAYLAND_DISPLAY -u DISPLAY dbus-run-session -- env RIME_CAPTURE_BUS=private "$0" "$@"
 fi
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

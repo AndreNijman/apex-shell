@@ -108,7 +108,7 @@ echo "  note: Qt $QTVER, compiler $CXX"
 # set deliberately is the platform, so no window can ever appear on a desktop.
 run_mode() {
     env -i PATH="$PATH" HOME="${HOME:-/tmp}" TMPDIR="${TMPDIR:-/tmp}" \
-        QT_QPA_PLATFORM=offscreen APEX_REPRO_MODE="$1" "$W/repro" 2>&1
+        QT_QPA_PLATFORM=offscreen RIME_REPRO_MODE="$1" "$W/repro" 2>&1
 }
 
 for m in A B C D E; do
@@ -197,18 +197,18 @@ section "§3 mode C — the factory list really is CLEARED, read directly"
 # factory was never installed"; this installs OUR OWN factory the same way
 # qtdeclarative installs its one, and watches it vanish.
 
-if says "$C" "install: Q_CONSTRUCTOR_FUNCTION installed apexFactory"; then
+if says "$C" "install: Q_CONSTRUCTOR_FUNCTION installed rimeFactory"; then
     ok "mode C really did install a factory before the application existed"
 else
     bad "mode C really did install a factory before the application existed" \
         "no install line, so the mutant below would be proving nothing"
 fi
 
-if [ "$(count_lines "$C" "install: Q_CONSTRUCTOR_FUNCTION installed apexFactory")" = "1" ]; then
+if [ "$(count_lines "$C" "install: Q_CONSTRUCTOR_FUNCTION installed rimeFactory")" = "1" ]; then
     ok "a Q_CONSTRUCTOR_FUNCTION install runs exactly ONCE — per library load, not per application"
 else
     bad "a Q_CONSTRUCTOR_FUNCTION install runs exactly ONCE — per library load, not per application" \
-        "it ran $(count_lines "$C" "install: Q_CONSTRUCTOR_FUNCTION installed apexFactory") time(s)"
+        "it ran $(count_lines "$C" "install: Q_CONSTRUCTOR_FUNCTION installed rimeFactory") time(s)"
 fi
 
 if says "$C" "accessibleRoot: NULL"; then
@@ -222,11 +222,11 @@ fi
 section "§4 mode D — the one-line upstream fix, measured working"
 # ─────────────────────────────────────────────────────────────────────────────
 
-if [ "$(count_lines "$D" "install: Q_COREAPP_STARTUP_FUNCTION installed apexFactory")" = "2" ]; then
+if [ "$(count_lines "$D" "install: Q_COREAPP_STARTUP_FUNCTION installed rimeFactory")" = "2" ]; then
     ok "a Q_COREAPP_STARTUP_FUNCTION install runs once per APPLICATION OBJECT — here, twice"
 else
     bad "a Q_COREAPP_STARTUP_FUNCTION install runs once per APPLICATION OBJECT — here, twice" \
-        "it ran $(count_lines "$D" "install: Q_COREAPP_STARTUP_FUNCTION installed apexFactory") time(s); if it is not re-running, it is not the fix"
+        "it ran $(count_lines "$D" "install: Q_COREAPP_STARTUP_FUNCTION installed rimeFactory") time(s); if it is not re-running, it is not the fix"
 fi
 
 if says "$D" "accessibleRoot: NON-NULL"; then
@@ -236,7 +236,7 @@ else
         "the proposed upstream fix does not work on this Qt; do not report it as the fix"
 fi
 
-if says "$D" "rootName: APEX-CUSTOM-ROOT"; then
+if says "$D" "rootName: RIME-CUSTOM-ROOT"; then
     ok "and the root really is the one the startup routine installed, not a leftover"
 else
     bad "and the root really is the one the startup routine installed, not a leftover" \
@@ -247,7 +247,7 @@ fi
 section "§5 mode E — the shape of the LD_PRELOAD instrument"
 # ─────────────────────────────────────────────────────────────────────────────
 
-if says "$E" "rootName: APEX-CUSTOM-ROOT" && says "$E" "appChildCount: 1"; then
+if says "$E" "rootName: RIME-CUSTOM-ROOT" && says "$E" "appChildCount: 1"; then
     ok "installing a factory AFTER the QGuiApplication exists also restores the tree"
 else
     bad "installing a factory AFTER the QGuiApplication exists also restores the tree" \

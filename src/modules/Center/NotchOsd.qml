@@ -7,8 +7,8 @@ import "../../components"
 //
 // Andre, 2026-09-27: the OSD was a separate capsule floating below the notch;
 // "make it actually part of the top notch, like clean and part of the top
-// notch, following the proper design of apex, and the proper animations from
-// apex". TopBar places this in the centre notch and moves it the way the
+// notch, following the proper design of rime, and the proper animations from
+// rime". TopBar places this in the centre notch and moves it the way the
 // island moves anything: the notch widens on its page spring, the island's
 // current item scrolls up out of it and this scrolls in from below (the
 // island carousel's own direction and spring), and back when it hides. What

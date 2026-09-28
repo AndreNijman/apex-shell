@@ -33,7 +33,7 @@
         "external_displays": 1
     },
     "pin": "auto",
-    "policy_error": "/root/.config/apex/lid.toml: Permission denied (os error 13)",
+    "policy_error": "/root/.config/rime/lid.toml: Permission denied (os error 13)",
     "policy_source": "built-in defaults",
     "thermal_ceiling_c": 95.0,
     "thermal_headroom_c": 15.0,

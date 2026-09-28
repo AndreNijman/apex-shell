@@ -189,9 +189,9 @@ want "the profile control is given a width to wrap against" \
 # so no HOME and no PATH isolates it: a suite that ran the real verb would
 # quietly accumulate assignments in the developer's own colour database.
 want "the suite's engine is a fake under its own scratch directory" \
-    grep -qE 'APEX_DISPLAY_ENGINE="\$W/engine/\$name"' "$runner"
+    grep -qE 'RIME_DISPLAY_ENGINE="\$W/engine/\$name"' "$runner"
 want "the suite never names the installed engine" \
-    bash -c '! grep -q "/usr/libexec/apex-display-apply" "$1"' _ "$runner"
+    bash -c '! grep -q "/usr/libexec/rime-display-apply" "$1"' _ "$runner"
 want "the suite stubs colormgr so no path can reach the real daemon" \
     bash -c 'grep -qE "^for n in colormgr" "$1"' _ "$runner"
 want "the suite asserts afterwards that colormgr was never reached" \

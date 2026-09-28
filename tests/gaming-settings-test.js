@@ -10,9 +10,9 @@
 // module with no process spawning and no filesystem access, and every fixture
 // below is inline. It either runs and passes, or runs and fails.
 //
-// The gaming fixture is the real output of `apex gaming --json` on a machine
+// The gaming fixture is the real output of `rime gaming --json` on a machine
 // with an RTX 3070 and none of the three packages installed — the state a fresh
-// APEX image is actually in, and the one the page has to be good at.
+// Rime image is actually in, and the one the page has to be good at.
 
 "use strict";
 
@@ -44,11 +44,11 @@ const FRESH = JSON.stringify({
     ready: false, probes_programs: true, boots_to_game: false,
     preselected_session: "hyprland",
     checks: {
-        session_desktop:  { value: true,  source: "/usr/share/wayland-sessions/apex-gaming.desktop" },
-        session_launcher: { value: true,  source: "/usr/libexec/apex-gaming-session" },
-        switch_helper:    { value: true,  source: "/usr/libexec/apex-session-select" },
-        switch_sudoers:   { value: false, source: "/etc/sudoers.d/040-apex-session-select" },
-        rtprio_limits:    { value: true,  source: "/etc/security/limits.d/30-apex-gaming-rtprio.conf" },
+        session_desktop:  { value: true,  source: "/usr/share/wayland-sessions/rime-gaming.desktop" },
+        session_launcher: { value: true,  source: "/usr/libexec/rime-gaming-session" },
+        switch_helper:    { value: true,  source: "/usr/libexec/rime-session-select" },
+        switch_sudoers:   { value: false, source: "/etc/sudoers.d/040-rime-session-select" },
+        rtprio_limits:    { value: true,  source: "/etc/security/limits.d/30-rime-gaming-rtprio.conf" },
         gamescope:        { value: false, source: "PATH:gamescope" },
         steam:            { value: false, source: "PATH:steam" },
         mangoapp:         { value: false, source: "PATH:mangoapp" }
@@ -57,7 +57,7 @@ const FRESH = JSON.stringify({
     blockers: ["gamescope is not installed; the session exits FATAL without it",
                "steam is not installed; the session exits FATAL without it"],
     warnings: ["mangoapp is not installed, so the in-game overlay is unavailable"],
-    install_hint: "sudo apex install gamescope steam"
+    install_hint: "sudo rime install gamescope steam"
 });
 
 let g = G.readGaming(FRESH);
@@ -68,7 +68,7 @@ check("the preselected session is read", g.preselected, "hyprland");
 check("both blockers survive",           g.blockers.length, 2);
 check("blockers are the CLI's own sentences",
       /exits FATAL/.test(g.blockers[0]), true);
-check("the install hint is the CLI's",   g.installHint, "sudo apex install gamescope steam");
+check("the install hint is the CLI's",   g.installHint, "sudo rime install gamescope steam");
 
 check("steam is missing",     G.checkPassed(g, "steam"), false);
 check("the launcher is there", G.checkPassed(g, "session_launcher"), true);
@@ -82,7 +82,7 @@ check("a check carries where it looked",
 check("all three packages are missing on a fresh image",
       G.missingTools(g).map(t => t.key), ["steam", "gamescope", "mangoapp"]);
 check("the install line is the CLI's hint, not a guess",
-      G.installLine(g), "sudo apex install gamescope steam");
+      G.installLine(g), "sudo rime install gamescope steam");
 
 // ── the setup checks: what the image ships, not what you install ─────────────
 check("every setup check is reported, in order",
@@ -95,7 +95,7 @@ check("the absent sudoers rule is reported absent",
       G.setupChecks(g).filter(c => !c.passed).map(c => c.key), ["switch_sudoers"]);
 check("and says where the CLI looked",
       G.setupChecks(g).filter(c => c.key === "switch_sudoers").map(c => c.source),
-      ["/etc/sudoers.d/040-apex-session-select"]);
+      ["/etc/sudoers.d/040-rime-session-select"]);
 check("a failed read has no setup checks", G.setupChecks(G.readGaming("")), []);
 
 // ── nothing the CLI reports may vanish ───────────────────────────────────────
@@ -142,11 +142,11 @@ check("three missing packages read as three",
 
 // ── readGaming(): the failure modes ──────────────────────────────────────────
 check("nothing printed is an error",
-      G.readGaming("").error, "apex gaming printed nothing");
+      G.readGaming("").error, "rime gaming printed nothing");
 check("a failed read is not ready",   G.readGaming("").ready, false);
 check("garbage is an error",          /Could not read/.test(G.readGaming("{oops").error), true);
 check("a JSON array is not a report",
-      G.readGaming("[1,2]").error, "apex gaming did not return a report");
+      G.readGaming("[1,2]").error, "rime gaming did not return a report");
 // A failed read must not offer an install line: there is nothing to install
 // because nothing was read.
 check("a failed read offers no install line", G.installLine(G.readGaming("")), "");
@@ -182,12 +182,12 @@ check("no mode line is a failed read",
       G.readModeStatus("tier          : performance").ok, false);
 check("and says why",
       G.readModeStatus("tier          : performance").error,
-      "apex mode status did not report a mode");
+      "rime mode status did not report a mode");
 check("nothing printed is a failed read", G.readModeStatus("").ok, false);
 check("a failed mode read is not gaming mode",
       G.inGamingMode(G.readModeStatus("")), false);
 check("the policy line of a failed read is the reason",
-      G.policyLine(G.readModeStatus("")), "apex mode status printed nothing");
+      G.policyLine(G.readModeStatus("")), "rime mode status printed nothing");
 
 // Whitespace drift in the report must not lose a field: the columns are
 // cosmetic and this parser must not depend on them.

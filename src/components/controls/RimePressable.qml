@@ -2,7 +2,7 @@ import QtQuick
 import "../../"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ApexPressable — the one press, hover and focus language every control shares
+// RimePressable — the one press, hover and focus language every control shares
 // (UI/UX roadmap v3 Phase 3).
 //
 //   * Press: the control dips to Motion.pressScale (0.975) on pressIn and comes
@@ -23,11 +23,11 @@ import "../../"
 //
 // Use it as a control's root, so the dip carries the whole control:
 //
-//     ApexPressable {
+//     RimePressable {
 //         id: btn
 //         onActivated: …
 //         Rectangle { anchors.fill: parent; radius: btn.radius; color: btn.tint(Theme.surfaceRaised) }
-//         ApexFocusRing { target: btn }
+//         RimeFocusRing { target: btn }
 //     }
 // ─────────────────────────────────────────────────────────────────────────────
 Item {

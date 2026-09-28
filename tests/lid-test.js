@@ -8,16 +8,16 @@
 //
 //  ── Where the fixtures come from ────────────────────────────────────────────
 //
-//  tests/fixtures/lid/*.json is serde's own output from a real `apex lid`
+//  tests/fixtures/lid/*.json is serde's own output from a real `rime lid`
 //  binary, produced by tests/fixtures/lid/gen-lid-fixtures.sh. None of it was
-//  written from memory, and that matters more here than usual: `apex lid
+//  written from memory, and that matters more here than usual: `rime lid
 //  status --json` is nine nested objects deep and six of them are internally
 //  tagged enums (`{"thermal":"celsius","c":…}`, `{"decision":"guard-suspend",
 //  "guard":…}`). A hand-authored fixture would keep agreeing with a parser that
 //  no longer matches the machine — a green suite over a blank page.
 //
 //  Two of the seven cases cannot be produced by the binary: under
-//  `APEX_LID_ROOT` the driver logs rather than runs every external program, so
+//  `RIME_LID_ROOT` the driver logs rather than runs every external program, so
 //  `busctl` never answers and `logind.docked` comes back null. The
 //  undocked-and-acting cases are therefore DERIVED — `withLogind()` edits
 //  `logind` on a real document and leaves every other field alone — rather than
@@ -135,7 +135,7 @@ check("nothing is blocking handle-lid-switch here", s16.logind.lidBlocked, false
 
 // Three answers, never two.
 check("the one-line answer refuses to claim credit",
-      L.headline(s16), "This machine already ignores the lid, and APEX is not why");
+      L.headline(s16), "This machine already ignores the lid, and Rime is not why");
 check("and the tile says the same thing in four words",
       L.tileView(s16).sublabel, "docked — logind ignores the lid");
 
@@ -152,7 +152,7 @@ const ACTING = { docked: false, external_displays: 0, acts_on_lid: true,
 
 const keep = doc("status-keep-working.json");
 const sk = S(keep);
-// The same document on a machine logind WOULD act on. Under `APEX_LID_ROOT`
+// The same document on a machine logind WOULD act on. Under `RIME_LID_ROOT`
 // busctl is never run, so the fixture's own logind is all-null — which is the
 // honest answer for a fixture and the wrong frame for asserting a decision.
 const skActing = S(withLogind(keep, ACTING));
@@ -184,7 +184,7 @@ section("the guards, each naming itself");
 // machine whose lid handling could not be established, exactly as it fires on
 // an undocked one. This suite found that `tileView` and `headline` had the
 // docked frame in FRONT of the guard, which would have told an owner "docked —
-// logind ignores the lid" while APEX was about to suspend their laptop.
+// logind ignores the lid" while Rime was about to suspend their laptop.
 const gt = S(doc("status-guard-thermal.json"));
 noNullsAnywhere("thermal guard", gt);
 check("a thermal guard is guard-suspend", gt.decision.id, "guard-suspend");
@@ -195,7 +195,7 @@ check("the tile shows which guard, not that one fired",
       L.tileView(gt).sublabel, "too hot");
 checkHas("the headline names it too", L.headline(gt), "too hot");
 // The assertion the reordering exists for, stated over the DOCKED capture:
-// this is the machine where the lid does nothing, and APEX suspends it anyway.
+// this is the machine where the lid does nothing, and Rime suspends it anyway.
 const dockedGuard = (() => {
     const d = JSON.parse(JSON.stringify(l16));
     d.decision = { decision: "guard-suspend", guard: "battery", why: "9% on battery" };
@@ -404,9 +404,9 @@ for (const f of ["status-l16-docked.json", "status-keep-working.json",
 section("a failed read is not a calm machine");
 // ═════════════════════════════════════════════════════════════════════════════
 const gone = L.statusView("", 127);
-noNullsAnywhere("apex not on PATH", gone);
+noNullsAnywhere("rime not on PATH", gone);
 check("a missing binary is not ok", gone.ok, false);
-checkHas("and it says which binary", gone.reason, "apex is not on PATH");
+checkHas("and it says which binary", gone.reason, "rime is not on PATH");
 check("it is never rendered as 'suspends normally'",
       L.headline(gone), "The lid policy could not be read");
 check("the tile says unreadable rather than going dark quietly",
@@ -488,7 +488,7 @@ check("a VPN that dropped is shouted", mkReport({ vpn_held: false }).vpnText,
       "The VPN DROPPED during the period");
 
 // A record that EXISTS and could not be read is not a machine that never slept.
-const refused = L.reportView('{"period":null,"error":"/var/lib/apex/lid/last.json: Permission denied"}', 0);
+const refused = L.reportView('{"period":null,"error":"/var/lib/rime/lid/last.json: Permission denied"}', 0);
 noNullsAnywhere("a refused record", refused);
 check("an explicit refusal is not ok", refused.ok, false);
 checkHas("and carries the refusal verbatim", refused.reason, "Permission denied");
@@ -526,17 +526,17 @@ check("a still-closed period measures to the last poll", rp.period.durationSecs,
 // ═════════════════════════════════════════════════════════════════════════════
 section("the pin, which is the only thing this surface writes");
 // ═════════════════════════════════════════════════════════════════════════════
-check("auto is a pin", L.pinArgv("auto"), ["apex", "lid", "pin", "auto"]);
-check("on is a pin", L.pinArgv("on"), ["apex", "lid", "pin", "on"]);
-check("off is a pin", L.pinArgv("off"), ["apex", "lid", "pin", "off"]);
+check("auto is a pin", L.pinArgv("auto"), ["rime", "lid", "pin", "auto"]);
+check("on is a pin", L.pinArgv("on"), ["rime", "lid", "pin", "on"]);
+check("off is a pin", L.pinArgv("off"), ["rime", "lid", "pin", "off"]);
 // A page that assembled an argv from a value it had not checked is how a
 // control comes to run something nobody wrote down.
 check("anything else is not a pin, and is refused rather than escaped",
       L.pinArgv("on; rm -rf ~"), null);
 check("an empty pin is refused", L.pinArgv(""), null);
 check("a missing pin is refused", L.pinArgv(undefined), null);
-// No `sudo`, no `pkexec`, ever: `apex lid pin` writes the owner's own
-// ~/.config/apex/lid.toml, and the inhibitor is allow_active=yes for an
+// No `sudo`, no `pkexec`, ever: `rime lid pin` writes the owner's own
+// ~/.config/rime/lid.toml, and the inhibitor is allow_active=yes for an
 // ordinary session. A prompt on this surface would be a defect, not a nuisance.
 check("a pin is never elevated",
       ["auto", "on", "off"].every((p) => L.pinArgv(p).indexOf("sudo") < 0

@@ -22,10 +22,10 @@
 #  prompt on the screen. The daemon is started without the display variables;
 #  the runner gets them back, unchanged, so its own skip logic is unaffected.
 # ─────────────────────────────────────────────────────────────────────────────
-if [ "${APEX_TEST_BUS:-}" != private ]; then
+if [ "${RIME_TEST_BUS:-}" != private ]; then
     if command -v dbus-run-session >/dev/null 2>&1; then
-        _apex_bus_conf="$(mktemp "${TMPDIR:-/tmp}/apex-test-bus.XXXXXX.conf")"
-        cat > "$_apex_bus_conf" <<'CONF'
+        _rime_bus_conf="$(mktemp "${TMPDIR:-/tmp}/rime-test-bus.XXXXXX.conf")"
+        cat > "$_rime_bus_conf" <<'CONF'
 <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
@@ -39,14 +39,14 @@ if [ "${APEX_TEST_BUS:-}" != private ]; then
   </policy>
 </busconfig>
 CONF
-        export APEX_TEST_BUS=private APEX_TEST_BUS_CONF="$_apex_bus_conf"
+        export RIME_TEST_BUS=private RIME_TEST_BUS_CONF="$_rime_bus_conf"
         exec env -u WAYLAND_DISPLAY -u DISPLAY \
-            dbus-run-session --config-file="$_apex_bus_conf" -- \
+            dbus-run-session --config-file="$_rime_bus_conf" -- \
             env ${WAYLAND_DISPLAY+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} ${DISPLAY+DISPLAY="$DISPLAY"} \
             bash "$0" "$@"
     fi
     # No dbus-run-session: an address nothing listens on, never the desktop's.
-    export APEX_TEST_BUS=private DBUS_SESSION_BUS_ADDRESS="unix:path=/nonexistent/apex-test-bus"
+    export RIME_TEST_BUS=private DBUS_SESSION_BUS_ADDRESS="unix:path=/nonexistent/rime-test-bus"
 fi
 # The daemon has read its config by now.
-[ -n "${APEX_TEST_BUS_CONF:-}" ] && rm -f "$APEX_TEST_BUS_CONF" && unset APEX_TEST_BUS_CONF
+[ -n "${RIME_TEST_BUS_CONF:-}" ] && rm -f "$RIME_TEST_BUS_CONF" && unset RIME_TEST_BUS_CONF

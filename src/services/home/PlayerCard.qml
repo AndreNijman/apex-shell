@@ -292,7 +292,7 @@ Item {
             spacing: 28
             Repeater {
                 model: [ { key: "prev" }, { key: "play" }, { key: "next" } ]
-                delegate: ApexPressable {
+                delegate: RimePressable {
                     id: ctrlBtn
                     required property var  modelData
                     required property int  index
@@ -345,7 +345,7 @@ Item {
                         font.pixelSize: ctrlBtn.isPlay ? 18 : 14
                         color: ctrlBtn.isPlay ? (root.onArt ? Theme.fixedLight : Theme.accentText) : root.inkA(0.7)
                     }
-                    ApexFocusRing { target: ctrlBtn }
+                    RimeFocusRing { target: ctrlBtn }
                 }
             }
         }
@@ -478,7 +478,7 @@ Item {
                 spacing: 0
 
                 // ── Active player row (Always at the top) ─────────────
-                ApexPressable {
+                RimePressable {
                     id: activeRowBtn
                     height: pill._rowH
                     width:  parent.width
@@ -511,13 +511,13 @@ Item {
                         }
                     }
 
-                    ApexFocusRing { target: activeRowBtn }
+                    RimeFocusRing { target: activeRowBtn }
                 }
 
                 // ── Other player rows (Drop down below active) ─────────
                 Repeater {
                     model: root.filteredPlayers
-                    delegate: ApexPressable {
+                    delegate: RimePressable {
                         id: dropBtn
                         required property var modelData
                         required property int index
@@ -562,7 +562,7 @@ Item {
                             }
                         }
 
-                        ApexFocusRing { target: dropBtn }
+                        RimeFocusRing { target: dropBtn }
                     }
                 }
             }

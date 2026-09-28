@@ -15,7 +15,7 @@ import Quickshell.Io
 //   none of the above               → ""  (unknown; compositor-specific paths off)
 //
 // Manual override: the optional "compositor" key in
-//   ~/.config/apex-shell/src/user_data/config_Provider.json
+//   ~/.config/rime-shell/src/user_data/config_Provider.json
 // wins over detection. Values: "hyprland" | "niri" | "labwc" | "auto"/""
 // (= use detection).
 // Written by the Config → Misc page through setOverride(); the sibling
@@ -90,10 +90,10 @@ QtObject {
     // which is a list of upstream project names in lower case.
     //
     // These words match what the login session picker calls the same three
-    // desktops. apex-os ships them as `APEX Floating`, `APEX Scrolling` and
-    // `APEX Tiling` in /usr/share/wayland-sessions; the prefix is carried there
+    // desktops. rime-os ships them as `Rime Floating`, `Rime Scrolling` and
+    // `Rime Tiling` in /usr/share/wayland-sessions; the prefix is carried there
     // and not here because a session picker lists third-party entries beside
-    // APEX's own, and inside APEX's own Settings "APEX" on every option is
+    // Rime's own, and inside Rime's own Settings "Rime" on every option is
     // noise. Keep the second word identical across the two repos.
     //
     // An unknown id returns "" rather than a guess. The caller decides what to
@@ -119,7 +119,7 @@ QtObject {
 
     // ── config_Provider.json (override persistence) ───────────────────────────
     readonly property string _cfgPath:
-        Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/config_Provider.json"
+        Quickshell.env("HOME") + "/.config/rime-shell/src/user_data/config_Provider.json"
 
     // Last parsed file contents — cloned on write so sibling keys never drop.
     property var _cfgData: ({})
@@ -139,7 +139,7 @@ QtObject {
             root._cfgData = data
             root.overrideName = root.isValidName(data.compositor) ? data.compositor : ""
         } catch (e) {
-            console.error("APEX Shell: Compositor failed to parse config_Provider.json")
+            console.error("Rime Shell: Compositor failed to parse config_Provider.json")
         }
     }
 

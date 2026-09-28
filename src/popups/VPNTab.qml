@@ -22,7 +22,7 @@ import "../components"
 //  • system service sing-box.service — shipped disabled so it never autostarts;
 //    toggled on demand via `systemctl start|stop sing-box.service`.
 //  • Passwordless without sudo: a polkit rule (dots-extra/polkit/
-//    49-apex-shell-singbox.rules) lets an active local session start/stop ONLY
+//    49-rime-shell-singbox.rules) lets an active local session start/stop ONLY
 //    this unit (org.freedesktop.systemd1.manage-units scoped to
 //    sing-box.service). Status is read with `systemctl is-active` (no auth).
 //  • /etc/sing-box/config.json — VLESS/Reality tun (sb-tun, auto/strict route).
@@ -381,7 +381,7 @@ Item {
         // urgency: "low" | "normal" | "critical"
         notifyProc.command = [
             "notify-send",
-            "--app-name=APEX Shell",
+            "--app-name=Rime Shell",
             "--urgency=" + urgency,
             "--icon=network-vpn",
             title,
@@ -542,7 +542,7 @@ Item {
                 // Kill switch — a real toggle (UI/UX Phase 17): ON is
                 // surfaceSelected + accentText, same as a selected row; OFF is
                 // the one action-button style everything else in this pane uses.
-                ApexPressable {
+                RimePressable {
                     id: ksBtn
                     height: theme.controlStandard; radius: theme.radiusS
                     width: ksRow.implicitWidth + 18
@@ -573,11 +573,11 @@ Item {
                             Behavior on color { MotionColor { role: "state" } }
                         }
                     }
-                    ApexFocusRing { target: ksBtn }
+                    RimeFocusRing { target: ksBtn }
                 }
 
                 // Refresh — borderless, state layer only (UI/UX Phase 17)
-                ApexPressable {
+                RimePressable {
                     id: rfBtn
                     width: 32; height: 32; radius: 8
                     Accessible.name: "Refresh VPN connections"
@@ -594,7 +594,7 @@ Item {
                             easing.type: Easing.Linear
                         }
                     }
-                    ApexFocusRing { target: rfBtn }
+                    RimeFocusRing { target: rfBtn }
                 }
             }
         }
@@ -964,7 +964,7 @@ Item {
     // gone, nothing on an idle row did. The busy spinner takes its place while
     // the tunnel moves. On the connected (selected) row its fill is
     // Theme.surfaceOnSelected (roles.js says why).
-    component RowAction: ApexPressable {
+    component RowAction: RimePressable {
         id: act
         property bool   connected: false
         property string target:    ""
@@ -978,6 +978,6 @@ Item {
         onActivated: { act.go(); flick.forceActiveFocus() }
         Rectangle { anchors.fill: parent; radius: parent.radius; color: act.tint(act.connected ? Theme.surfaceOnSelected : Theme.surfaceHigh); Behavior on color { MotionColor {} } }
         Text { id: actLbl; anchors.centerIn: parent; text: act.connected ? "Disconnect" : "Connect"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
-        ApexFocusRing { target: act }
+        RimeFocusRing { target: act }
     }
 }

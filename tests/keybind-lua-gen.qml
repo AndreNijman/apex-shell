@@ -25,7 +25,7 @@ ShellRoot {
     id: root
 
     readonly property string luaPath:
-        Quickshell.env("HOME") + "/.config/hypr/apex/shell-keybinds.lua"
+        Quickshell.env("HOME") + "/.config/hypr/rime/shell-keybinds.lua"
 
     // Waits for the generator's own Process to have flushed, rather than
     // guessing at a delay: the write is a detached bash, so "the function
@@ -55,7 +55,7 @@ ShellRoot {
     property int _phase: 1
 
     // A real rebind through the public path the Keybinds page uses: SUPER+T is
-    // an APEX default, so moving it makes the generator emit a claim() for the
+    // a Rime default, so moving it makes the generator emit a claim() for the
     // old combo and a bind for the new one.
     property var _rebind: Timer {
         interval: 500

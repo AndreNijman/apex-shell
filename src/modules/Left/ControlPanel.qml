@@ -28,25 +28,25 @@ IconBtn {
         "alpine":      ""
     })
 
-    // ── APEX logo ─────────────────────────────────────
-    // APEX-OS override (apex-logs 15-apex-logo.md): upstream renders the
-    // per-distro nerd-font glyph from the map above. On APEX-OS the brand is
-    // APEX regardless of the Fedora base, so show the APEX "spark"
-    // (src/assets/apex-logo.png). The glyph map stays as the fallback for
-    // non-APEX hosts and when the asset is missing.
-    readonly property string apexLogo: Quickshell.shellDir + "/src/assets/apex-logo.png"
+    // ── Rime logo ─────────────────────────────────────
+    // Rime OS override (rime-logs 15-rime-logo.md): upstream renders the
+    // per-distro nerd-font glyph from the map above. On Rime OS the brand is
+    // Rime regardless of the Fedora base, so show the Rime "spark"
+    // (src/assets/rime-logo.png). The glyph map stays as the fallback for
+    // non-Rime hosts and when the asset is missing.
+    readonly property string rimeLogo: Quickshell.shellDir + "/src/assets/rime-logo.png"
 
-    // Glyph fallback is used only when the APEX logo image is not available.
+    // Glyph fallback is used only when the Rime logo image is not available.
     text: logo.status === Image.Ready
               ? ""
               : (distroGlyphs[distroId] !== undefined ? distroGlyphs[distroId] : "")
-    label: "APEX menu"
-    // The APEX mark is accent-coloured by design (brief §D.3's one exception).
+    label: "Rime menu"
+    // The Rime mark is accent-coloured by design (brief §D.3's one exception).
     textColor: Theme.accentText
 
     // Hover and press. The other bar icons answer by lighting their glyph; this
     // one is an image drawn in the accent, so it had no answer at all (Andre,
-    // 2026-09-27: "the apex button … when you hover should show its
+    // 2026-09-27: "the rime button … when you hover should show its
     // interactable"). A soft state layer behind the mark — the controls' own
     // 6 % / 10 % — and the spark itself lifts a little.
     Rectangle {
@@ -65,7 +65,7 @@ IconBtn {
     Image {
         id: logo
         anchors.centerIn: parent
-        source: root.apexLogo
+        source: root.rimeLogo
         // Keep the spark comfortably inside the IconBtn.
         width: 18
         height: 18

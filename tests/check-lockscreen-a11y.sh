@@ -5,9 +5,9 @@
 #
 #  ── Why this exists ─────────────────────────────────────────────────────────
 #
-#  The LOGIN screen is done three ways: tests/test-apex-greet-atspi.sh reads the
-#  greeter back over real AT-SPI, test-apex-greet-session-bus.sh proves there is
-#  a bus for it to publish on, and test-apex-greet-a11y.sh covers the config.
+#  The LOGIN screen is done three ways: tests/test-rime-greet-atspi.sh reads the
+#  greeter back over real AT-SPI, test-rime-greet-session-bus.sh proves there is
+#  a bus for it to publish on, and test-rime-greet-a11y.sh covers the config.
 #  The LOCK screen — the same act, by a user who is already logged in — had
 #  nothing. src/windows/Lockscreen.qml was 440 lines with zero `Accessible.`
 #  anything in it, and the whole file is the one surface between a user and
@@ -53,12 +53,12 @@
 #  That runtime half is real work and it is named rather than faked: the surface
 #  is a `WlSessionLock`, so it needs a compositor implementing ext-session-lock,
 #  a private session bus with at-spi-bus-launcher exec'd into it (D-Bus
-#  activation of org.a11y.Registry is refused by SELinux on APEX — see
-#  tests/lib/atspi.sh in apex-os), and `LockState.locked` flipped against THAT
+#  activation of org.a11y.Registry is refused by SELinux on Rime — see
+#  tests/lib/atspi.sh in rime-os), and `LockState.locked` flipped against THAT
 #  instance and never the developer's. Locking the screen of the machine running
 #  the suite is not an acceptable test.
 #
-#  What IS established, measured on a booted APEX desktop rather than assumed,
+#  What IS established, measured on a booted Rime desktop rather than assumed,
 #  is that the markup has somewhere to go: org.a11y.Status IsEnabled and
 #  ScreenReaderEnabled are both true in a stock session, and `quickshell` is one
 #  of the five applications on the a11y bus. The shell already publishes a tree.
@@ -317,7 +317,7 @@ for token, key in (('hasError', 'PW_DESC_HAS_ERROR'),
     emit(key, 1 if token in resolved else 0)
 
 # ── the password must never cross the bus ────────────────────────────────────
-# test-apex-greet-atspi.sh asserts exactly this about the greeter. The same
+# test-rime-greet-atspi.sh asserts exactly this about the greeter. The same
 # property has to hold here, and it is easier to break here: `Accessible.name:
 # text` inside a TextInput is a one-word mistake.
 leaks = 0

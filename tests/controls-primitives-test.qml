@@ -3,7 +3,7 @@ import QtTest
 import "components/controls"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ApexPressable & co. — the press, hover and focus language every control
+// RimePressable & co. — the press, hover and focus language every control
 // shares (UI/UX roadmap v3 Phase 3). Run by tests/run-controls-primitives-test.sh
 // under qmltestrunner on the offscreen platform, against the REAL primitives
 // and the real motion system (shipped defaults: Balanced, 1x).
@@ -16,25 +16,25 @@ Item {
     property int offClicks: 0
     property int iconClicks: 0
 
-    ApexPressable {
+    RimePressable {
         id: btn
         objectName: "btn"
         x: 20; y: 20; width: 100; height: 32
         onActivated: fixture.clicks++
         Rectangle { anchors.fill: parent; color: btn.tint(Theme.surfaceRaised) }
-        ApexFocusRing { id: ring; target: btn }
+        RimeFocusRing { id: ring; target: btn }
     }
-    ApexPressable {
+    RimePressable {
         id: other
         x: 20; y: 80; width: 100; height: 32
     }
-    ApexPressable {
+    RimePressable {
         id: off
         x: 20; y: 140; width: 100; height: 32
         interactive: false
         onActivated: fixture.offClicks++
     }
-    ApexIconButton {
+    RimeIconButton {
         id: icon
         x: 200; y: 20
         bar: true

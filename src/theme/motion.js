@@ -137,7 +137,7 @@ var PAGE_TRAVEL = 12;
 // so no curve overshoots — tests/motion-test.js asserts that for all of them.
 //
 // Retuned with the durations (2026-09-26). The old spatial curves were
-// Material 3's and APEX's "leave at full speed" family — (0, 0, 0.2, 1) and
+// Material 3's and Rime's "leave at full speed" family — (0, 0, 0.2, 1) and
 // (0.05, 0.7, 0.1, 1) have a near-vertical first frame, which is exactly the
 // snap Andre called robotic. Nothing physical starts at full speed. The new
 // family eases out of rest over the first frames and lands on a long tail:

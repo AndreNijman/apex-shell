@@ -74,7 +74,7 @@ suite_failures() {
 # would be worse. It is neither: it is a verdict this harness may not give, and
 # it fails the run.
 #
-# The gate cannot engage on a booted APEX host, which is where this harness is
+# The gate cannot engage on a booted Rime host, which is where this harness is
 # run, so in practice this arm should never fire. "Should never fire" is
 # exactly the kind of claim this tree has been wrong about before, so it is
 # detected rather than assumed.

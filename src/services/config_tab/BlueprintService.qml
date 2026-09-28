@@ -9,15 +9,15 @@ import "blueprint.js" as BP
 // lives in blueprint.js, which Node can exercise headlessly; this file only
 // spawns the CLI and moves strings.
 //
-//   apex blueprint show --json        ──►  the file, as JSON        (read)
-//   apex blueprint diff --json        ──►  a plan                  (compare)
-//   apex apply --dry-run --json       ──►  the same plan            (preview)
-//   apex blueprint set --json -       ◄──  the file, as JSON        (write)
+//   rime blueprint show --json        ──►  the file, as JSON        (read)
+//   rime blueprint diff --json        ──►  a plan                  (compare)
+//   rime apply --dry-run --json       ──►  the same plan            (preview)
+//   rime blueprint set --json -       ◄──  the file, as JSON        (write)
 //
 // ── THE EDITOR NEVER AUTHORS TOML ────────────────────────────────────────────
 //
 // Not once, nowhere in this file. It reads a blueprint as JSON and writes the
-// same shape back on stdin, and `apex blueprint set` puts it through the same
+// same shape back on stdin, and `rime blueprint set` puts it through the same
 // normalise() + validate() + to_toml() + atomic write a hand-edited file goes
 // through. So what this page writes is byte-identical to what a person types,
 // and an invalid one is refused with the same message. Rendering TOML here
@@ -62,16 +62,16 @@ import "blueprint.js" as BP
 //
 // ── APPLY NEVER ESCALATES ────────────────────────────────────────────────────
 //
-// `apex apply` converges the privilege domain it is already running in and
+// `rime apply` converges the privilege domain it is already running in and
 // merely reports the other. It never runs sudo, which is the reason it cannot
 // raise an authentication prompt at all. So the root-domain changes are shown
-// as information naming `sudo apex apply`, and there is deliberately no button
+// as information naming `sudo rime apply`, and there is deliberately no button
 // behind that line. Adding one would undo the property.
 //
-// ── WHEN apex IS NOT ON THIS IMAGE ───────────────────────────────────────────
+// ── WHEN rime IS NOT ON THIS IMAGE ───────────────────────────────────────────
 //
 // No P1 verb has been merged and no image has been built, so the installed
-// /usr/bin/apex has none of this. A process that never starts emits neither
+// /usr/bin/rime has none of this. A process that never starts emits neither
 // stdout nor stderr, so `onExited` is what sets `loaded` and a reason —
 // DisplayService's pattern, for the same cause: without it the page renders
 // completely blank, with no error and nothing to explain it.
@@ -82,10 +82,10 @@ QtObject {
 
     // Overridable so a locally built binary can be exercised without installing
     // into /usr. The default is the installed path, so a normal session needs no
-    // environment at all. Mirrors DisplayService's APEX_DISPLAY_ENGINE.
+    // environment at all. Mirrors DisplayService's RIME_DISPLAY_ENGINE.
     readonly property string cli: {
-        const override = Quickshell.env("APEX_BLUEPRINT_CLI") || ""
-        return override !== "" ? override : "apex"
+        const override = Quickshell.env("RIME_BLUEPRINT_CLI") || ""
+        return override !== "" ? override : "rime"
     }
 
     // ── What the file says ────────────────────────────────────────────────────
@@ -218,7 +218,7 @@ QtObject {
                 root.available = false
                 root.unavailableReason =
                     "Could not run `" + root.cli + " blueprint show` (exit " + code + "). " +
-                    "The blueprint verbs ship with APEX-OS; on an image or a " +
+                    "The blueprint verbs ship with Rime OS; on an image or a " +
                     "checkout that predates them this page has nothing to talk to."
                 if (root.lastError !== "")
                     root.unavailableReason += "\n\n" + root.lastError
@@ -384,7 +384,7 @@ QtObject {
 
     function _write() {
         // The JSON is a bash ARGUMENT, never interpolated into the script.
-        // Package names come off disk and out of `apex sync import` bundles, so
+        // Package names come off disk and out of `rime sync import` bundles, so
         // splicing them into a command line is an injection — the same reason
         // DisplayService passes its model as an argv element.
         root._setProc.command = ["bash", "-c",
@@ -417,7 +417,7 @@ QtObject {
             root._eraseConfirmed = false
             if (code !== 0) {
                 if (root.saveError === "")
-                    root.saveError = "apex blueprint set exited " + code +
+                    root.saveError = "rime blueprint set exited " + code +
                                      "; the previous blueprint is unchanged."
                 return
             }
@@ -443,7 +443,7 @@ QtObject {
 
     property var _applyProc: Process {
         // No --dry-run: this is the live one, and it is reachable only from the
-        // Apply button. Never sudo — `apex apply` converges the domain it is
+        // Apply button. Never sudo — `rime apply` converges the domain it is
         // already in and reports the other, and that is what makes it unable to
         // raise an auth prompt.
         command: [root.cli, "apply"]
@@ -462,7 +462,7 @@ QtObject {
             // 1 is residual drift, which apply reports after re-measuring
             // rather than assuming its own success. Not an error.
             if (code > 1 && root.applyError === "")
-                root.applyError = "apex apply exited " + code
+                root.applyError = "rime apply exited " + code
             root.compare()
         }
     }

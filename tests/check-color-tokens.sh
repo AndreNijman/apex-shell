@@ -65,7 +65,7 @@
 #  PASS = the set of colour literals in code equals the allowlist, exactly.
 #
 #  Run from anywhere: ./tests/check-color-tokens.sh
-#  Point it at another tree with APEX_COLOR_SRC=/path/to/src (used to prove it
+#  Point it at another tree with RIME_COLOR_SRC=/path/to/src (used to prove it
 #  fails on the code as it was before the tokens existed).
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
@@ -76,7 +76,7 @@ pass=0; fail=0
 ok()  { printf '  ok   %s\n' "$1"; pass=$((pass+1)); }
 bad() { printf '  FAIL %s\n' "$1"; fail=$((fail+1)); }
 
-SRC="${APEX_COLOR_SRC:-src}"
+SRC="${RIME_COLOR_SRC:-src}"
 [ -d "$SRC" ] || { echo "FATAL: no $SRC directory" >&2; exit 2; }
 
 # ── The allowlist ───────────────────────────────────────────────────────────
@@ -122,7 +122,7 @@ EXPECT_FRAC=0   # 2 → 0: TimeInput's digits are the palette's text (UI/UX Phas
 # over. Seven runtime states collapse onto three values, two of which are the
 # palette's FOREGROUND — on a matugen dark scheme `text` is #e3e2e5 — so
 # starting, working, complete and exited all render near-white, which is
-# precisely the bug a user reported as "APEX agents display only in white".
+# precisely the bug a user reported as "Rime agents display only in white".
 # And `wsUrgent` is a Workspace Visuals token: a fixed pink borrowed from the
 # workspace strip, so the agent list's red moved whenever the workspace strip's
 # did, for no reason either file stated.
@@ -212,7 +212,7 @@ for p in sorted(root.rglob("*.qml")):
 
     if mode in ("states", "ws"):
         # Agent rows only. Matched on the directory names rather than on a
-        # string prefix, so pointing APEX_COLOR_SRC at another tree still works.
+        # string prefix, so pointing RIME_COLOR_SRC at another tree still works.
         if not (p.parent.name == "agents" and p.parent.parent.name == "services"):
             continue
         code = strip_comments(p.read_text(errors="replace"))

@@ -15,7 +15,7 @@
 #
 #  The home directory is private too, and that is not tidiness. The test drives
 #  Theme.scale through SettingsService, SettingsService persists to
-#  $HOME/.config/apex-shell/src/user_data/settings.json, and a crash midway
+#  $HOME/.config/rime-shell/src/user_data/settings.json, and a crash midway
 #  through would otherwise leave the developer's live shell at 200%.
 #
 #  Fonts are the one thing the private home borrows back. fontconfig finds user
@@ -29,7 +29,7 @@
 #  ── AND FAKES FOR EVERYTHING A PAGE SHELLS OUT TO ───────────────────────────
 #
 #  The page block builds real settings pages, and a real settings page asks the
-#  real machine: `apex recover status`, `hyprctl`, `wlr-randr`, `git describe`,
+#  real machine: `rime recover status`, `hyprctl`, `wlr-randr`, `git describe`,
 #  a wallpaper scan. Left alone this suite would interrogate — and the
 #  Appearance page could apply from — the developer's own desktop while
 #  measuring rectangles. So stubs go first on PATH. The pages under test are the
@@ -127,12 +127,12 @@ chmod +x "$W/bin/git"
 # A page whose rows are ALL behind a backend condition lays out no rows on the
 # empty machine every other stub here describes, and this suite measured that as
 # sixteen failures for months: the Firewall page draws one row per exception and
-# one per openable service, and `apex firewall` saying nothing means there are
+# one per openable service, and `rime firewall` saying nothing means there are
 # none of either. It is not a scale defect — it failed identically at 0.85,
 # 1.00, 1.50 and 2.00, in both pane widths, because a row that does not exist is
 # the same size everywhere.
 #
-# So `apex firewall` answers. The two payloads are the ones tests/firewall-test.js
+# So `rime firewall` answers. The two payloads are the ones tests/firewall-test.js
 # records as captured from the real helper, quoted rather than re-invented, so
 # the page is parsed by its own shipped parser out of text the helper really
 # prints. STATUS_MIXED is the one used deliberately: it carries the rejected
@@ -141,7 +141,7 @@ chmod +x "$W/bin/git"
 # of one.
 #
 # ONE, not none, and the difference was measured rather than assumed. Silence
-# `apex firewall` again and the suite still passes 4366/0: what recovers the
+# `rime firewall` again and the suite still passes 4366/0: what recovers the
 # sixteen is the Loader setting `onScreen` plus the systemctl stub below, which
 # puts the unit at `inactive` and so shows the "Turn it on" row — one row, which
 # is all "at least one row" asks for. The payload does not change how many
@@ -149,13 +149,13 @@ chmod +x "$W/bin/git"
 # something real was measured too: pin the exception delegate's height to 44 and
 # five named `page …x firewall pane=…: no text is drawn outside its row`
 # assertions go red, naming the rows this payload put there.
-cat > "$W/bin/apex" <<'FAKE'
+cat > "$W/bin/rime" <<'FAKE'
 #!/usr/bin/env bash
 case "$1 ${2:-}" in
 "firewall status")
 cat <<'OUT'
-apex-firewall: policy: cannot read the ruleset; reading it needs root
-apex-firewall:   try: sudo apex firewall status
+rime-firewall: policy: cannot read the ruleset; reading it needs root
+rime-firewall:   try: sudo rime firewall status
 
 always allowed, and not removable here:
   established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh
@@ -169,10 +169,10 @@ exit 0 ;;
 "firewall list")
 cat <<'OUT'
 NAME          PROTO PORT   DESCRIPTION
-ssh           tcp   22     Remote shell, and how APEX remote agents and `apex host run` reach this machine
+ssh           tcp   22     Remote shell, and how Rime remote agents and `rime host run` reach this machine
 http          tcp   80     A web server you are running
 https         tcp   443    A web server you are running, over TLS
-mdns          udp   5353   Local name discovery, for printers and `apex host`
+mdns          udp   5353   Local name discovery, for printers and `rime host`
 samba         tcp   445    Windows file sharing
 nfs           tcp   2049   NFS file sharing
 ipp           tcp   631    Sharing a printer attached to this machine
@@ -189,7 +189,7 @@ case "$*" in
 esac
 exit 0
 FAKE
-chmod +x "$W/bin/apex"
+chmod +x "$W/bin/rime"
 
 # systemctl was NOT stubbed here, and the Firewall page asks it for the unit
 # state. Left alone, the moment this suite starts the service it would query the
@@ -199,7 +199,7 @@ chmod +x "$W/bin/apex"
 cat > "$W/bin/systemctl" <<'FAKE'
 #!/usr/bin/env bash
 case "$*" in
-    *apex-firewall*) printf 'LoadState=loaded\nActiveState=inactive\n' ;;
+    *rime-firewall*) printf 'LoadState=loaded\nActiveState=inactive\n' ;;
     *)               : ;;
 esac
 exit 0
@@ -222,7 +222,7 @@ export XDG_RUNTIME_DIR="$W/run"
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 0700 "$XDG_RUNTIME_DIR"
 export HOME="$W/home"
-mkdir -p "$HOME/.config/apex-shell/src/user_data" "$HOME/.local/share" "$HOME/Pictures/Wallpapers"
+mkdir -p "$HOME/.config/rime-shell/src/user_data" "$HOME/.local/share" "$HOME/Pictures/Wallpapers"
 export XDG_STATE_HOME="$W/state"
 export XDG_CACHE_HOME="$W/cache"
 mkdir -p "$XDG_STATE_HOME" "$XDG_CACHE_HOME"

@@ -64,7 +64,7 @@ FirewallPage ./config_tab/pages/FirewallPage.qml
 # to start.
 singleton LidService 1.0 LidService.qml
 LidPage ./config_tab/pages/LidPage.qml
-# P1-051's two APEX Remote pages and the service behind them. Registered here
+# P1-051's two Rime Remote pages and the service behind them. Registered here
 # for the reason the whole file exists: a missing line is not a broken page,
 # it is "RemotePairPage is not a type" and the entire shell fails to start.
 singleton RemotePairingService 1.0 RemotePairingService.qml

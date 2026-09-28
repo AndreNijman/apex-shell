@@ -164,7 +164,7 @@ PanelWindow {
                         : UpdateService.hasConflict   ? "Conflict Detected"
                         : UpdateService.lastError !== "" && !UpdateService.updating
                                                       ? "Update Failed"
-                        : "APEX Shell Update Available"
+                        : "Rime Shell Update Available"
                 }
             }
 

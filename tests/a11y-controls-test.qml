@@ -71,7 +71,7 @@ Item {
             // lines. The case it was added for: a row whose CONTENT is a
             // command to copy, where adoption renames the content Text to the
             // row's own label and what it says is lost.
-            a11yExtra:   "The command is: apex shell reduce-motion on"
+            a11yExtra:   "The command is: rime shell reduce-motion on"
             status:      "on"
             CfgSwitch {
                 id: theSwitch
@@ -120,7 +120,7 @@ Item {
             CfgTextField {
                 id: theField
                 objectName: "theField"
-                placeholder: "apex-laptop"
+                placeholder: "rime-laptop"
             }
         }
 
@@ -312,13 +312,13 @@ Item {
         // another. Both halves are required, and so is their order.
         function test_015_a11y_extra_is_appended_not_substituted() {
             var d = theSwitch.Accessible.description
-            verify(d.indexOf("apex shell reduce-motion on") >= 0,
+            verify(d.indexOf("rime shell reduce-motion on") >= 0,
                    "a11yExtra did not reach the control; got '" + d + "'")
             verify(d.indexOf("Turn off animations") >= 0,
                    "a11yExtra replaced the row's description; got '" + d + "'")
             verify(d.indexOf("Currently on") >= 0,
                    "a11yExtra replaced the read-back; got '" + d + "'")
-            verify(d.indexOf("Turn off animations") < d.indexOf("apex shell reduce-motion on"),
+            verify(d.indexOf("Turn off animations") < d.indexOf("rime shell reduce-motion on"),
                    "the extra is announced before the description it adds to; got '" + d + "'")
         }
 
@@ -332,11 +332,11 @@ Item {
             var withExtra = theSwitch.Accessible.description
             switchRow.a11yExtra = ""
             var without = theSwitch.Accessible.description
-            verify(without.indexOf("apex shell reduce-motion on") < 0,
+            verify(without.indexOf("rime shell reduce-motion on") < 0,
                    "clearing a11yExtra left it in the description; got '" + without + "'")
             compare(without, "Turn off animations across the shell. Currently on",
                     "an empty a11yExtra left a clause or a separator behind")
-            switchRow.a11yExtra = "The command is: apex shell reduce-motion on"
+            switchRow.a11yExtra = "The command is: rime shell reduce-motion on"
             compare(theSwitch.Accessible.description, withExtra,
                     "the description did not come back when a11yExtra was set again")
         }

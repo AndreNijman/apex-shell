@@ -7,11 +7,11 @@ import Quickshell
 //
 // ── The defect this exists for ──────────────────────────────────────────────
 //
-// /usr/share/applications/nvim.desktop ships from the neovim rpm on every APEX
-// image and declares `Terminal=true`. `apex install neovim` refuses it — and is
-// right to: files/system/libexec/apex-pkg skips a package whose exact NEVRA the
+// /usr/share/applications/nvim.desktop ships from the neovim rpm on every Rime
+// image and declares `Terminal=true`. `rime install neovim` refuses it — and is
+// right to: files/system/libexec/rime-pkg skips a package whose exact NEVRA the
 // image already provides, so an overlay can never shadow the image's copy. The
-// user is told the editor is "provided by APEX-OS", clicks it, and nothing
+// user is told the editor is "provided by Rime OS", clicks it, and nothing
 // happens.
 //
 // The binary was never the problem. `nvim --version` exits 0 on every machine
@@ -25,14 +25,14 @@ import Quickshell
 // quickshell-0.3.1 under a headless compositor:
 //
 //     term.runInTerminal = 1        Terminal=true IS parsed
-//     term.command       = ["apex-probe-record"]          %F IS stripped
+//     term.command       = ["rime-probe-record"]          %F IS stripped
 //     raw    → ran=1  stdout_tty=0  fd1=/dev/null   pwd=<Path=>
 //     termed → ran=1  stdout_tty=1  fd1=/dev/pts/1  pwd=<Path=>
 //
 // So two of the three were true — the field codes are stripped and Path= is
 // honoured, both measured, not taken from the comment — and the one that
 // mattered was not: the program's stdio went to /dev/null. An entry
-// that needs a terminal gets none, and every terminal application APEX ships —
+// that needs a terminal gets none, and every terminal application Rime ships —
 // nvim, and anything else a package drops in with Terminal=true — is
 // unclickable.
 //
@@ -49,7 +49,7 @@ import Quickshell
 // `xdg-terminal-exec` is the freedesktop helper a `Terminal=true` entry is
 // supposed to be launched through: it is the one indirection that lets a user
 // choose their terminal once, for the whole desktop, instead of every launcher
-// hard-coding a list. APEX ships an implementation of it in apex-os
+// hard-coding a list. Rime ships an implementation of it in rime-os
 // (files/system/bin/xdg-terminal-exec, asserted present at build time in
 // Containerfile.core), which resolves $TERMINAL and then the emulators the
 // image actually carries.

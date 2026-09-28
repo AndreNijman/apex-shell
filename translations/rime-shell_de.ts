@@ -12,8 +12,8 @@
         <translation>Neu bei Agenten?</translation>
     </message>
     <message>
-        <source>APEX runs Claude, OpenCode, Codex or Gemini in a terminal it owns, so closing the window leaves the agent working. The guide starts from zero and covers starting an agent, picking which one runs, attaching and detaching, worktrees, diffs, checkpoints and the three sandbox modes.</source>
-        <translation>APEX führt Claude, OpenCode, Codex oder Gemini in einem eigenen Terminal aus. Wenn Sie das Fenster schließen, arbeitet der Agent weiter. Die Anleitung beginnt bei null und behandelt das Starten eines Agenten, die Auswahl des Agenten, das Anhängen und Abtrennen, Arbeitsbäume, Diffs, Prüfpunkte und die drei Sandbox-Modi.</translation>
+        <source>Rime runs Claude, OpenCode, Codex or Gemini in a terminal it owns, so closing the window leaves the agent working. The guide starts from zero and covers starting an agent, picking which one runs, attaching and detaching, worktrees, diffs, checkpoints and the three sandbox modes.</source>
+        <translation>Rime führt Claude, OpenCode, Codex oder Gemini in einem eigenen Terminal aus. Wenn Sie das Fenster schließen, arbeitet der Agent weiter. Die Anleitung beginnt bei null und behandelt das Starten eines Agenten, die Auswahl des Agenten, das Anhängen und Abtrennen, Arbeitsbäume, Diffs, Prüfpunkte und die drei Sandbox-Modi.</translation>
     </message>
     <message>
         <source>Read the guide</source>

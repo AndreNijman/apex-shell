@@ -23,7 +23,7 @@
 "use strict";
 
 const path = require("path");
-const SRC = process.env.APEX_SHELL_SRC
+const SRC = process.env.RIME_SHELL_SRC
     || path.join(__dirname, "..", "src");
 const S = require(path.join(SRC, "theme", "scaling.js"));
 

@@ -1,11 +1,11 @@
 import QtQuick
 import "../../"
 
-// ApexFocusRing — the keyboard-focus mark (UI/UX roadmap v3 Phase 3, brief §E).
+// RimeFocusRing — the keyboard-focus mark (UI/UX roadmap v3 Phase 3, brief §E).
 //
 // A 2 px accent stroke drawn 2 px outside the control, at the control's radius
 // + 2 so it follows its shape. Shown only while the target's focus came from
-// the keyboard (ApexPressable.focusVisible): a pointer never leaves one behind.
+// the keyboard (RimePressable.focusVisible): a pointer never leaves one behind.
 // Place it inside the control it marks.
 Rectangle {
     id: ring

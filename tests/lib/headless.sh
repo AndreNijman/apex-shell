@@ -21,9 +21,9 @@
 #  ── The private HOME is not tidiness ────────────────────────────────────────
 #
 #  A suite that drives SettingsService writes
-#  $HOME/.config/apex-shell/src/user_data/settings.json, and a crash midway
+#  $HOME/.config/rime-shell/src/user_data/settings.json, and a crash midway
 #  leaves the developer's live shell at 200% scale. A suite that starts the whole
-#  shell also finds $XDG_RUNTIME_DIR/apex-agentd/control.sock and starts talking
+#  shell also finds $XDG_RUNTIME_DIR/rime-agentd/control.sock and starts talking
 #  to the sessions a person has open. Both are prevented by the same private
 #  directory rather than by remembering not to.
 #
@@ -97,7 +97,7 @@ headless_begin() {
     HEADLESS_W="$(mktemp -d)"
 
     # Stubs first on PATH. A real settings page asks the real machine —
-    # `apex recover status`, hyprctl, wlr-randr, a wallpaper scan — and a suite
+    # `rime recover status`, hyprctl, wlr-randr, a wallpaper scan — and a suite
     # measuring rectangles has no business interrogating, or applying to, the
     # desktop somebody is using. The pages under test are the shipped files;
     # only the machine they interrogate is a stub. ddcutil too: with no
@@ -113,7 +113,7 @@ exit 0
 FAKE
     chmod +x "$HEADLESS_W/bin/_stub"
     local n
-    for n in apex hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
+    for n in rime hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
              brightnessctl ddcutil pkcheck notify-send swww systemctl loginctl; do
         ln -sf "$HEADLESS_W/bin/_stub" "$HEADLESS_W/bin/$n"
     done
@@ -134,7 +134,7 @@ FAKE
     chmod 0700 "$XDG_RUNTIME_DIR"
 
     export HOME="$HEADLESS_W/home"
-    mkdir -p "$HOME/.config/apex-shell/src/user_data" \
+    mkdir -p "$HOME/.config/rime-shell/src/user_data" \
              "$HOME/.local/share" "$HOME/Pictures/Wallpapers"
     export XDG_CONFIG_HOME="$HOME/.config"
     export XDG_STATE_HOME="$HEADLESS_W/state"
@@ -170,10 +170,10 @@ FAKE
     # a Tab count on the Dashboard changed with whether music was open, and a
     # Space on the player's button would have paused it. Started after the
     # display variables are gone, so nothing it activates can find a display.
-    # A runner already on one (APEX_CAPTURE_BUS=private, via dbus-run-session)
+    # A runner already on one (RIME_CAPTURE_BUS=private, via dbus-run-session)
     # keeps it; atspi.sh replaces this one with its own in atspi_start.
     HEADLESS_BUS_PID=""
-    if [ "${APEX_CAPTURE_BUS:-}" != private ]; then
+    if [ "${RIME_CAPTURE_BUS:-}" != private ]; then
         local bus
         bus="$(dbus-daemon --session --address="unix:path=$HEADLESS_RUNTIME/bus" \
                    --fork --nopidfile --print-address=1 --print-pid=1 2>/dev/null)"
@@ -187,25 +187,25 @@ FAKE
     fi
 }
 
-# ── The APEX-OS default look, for every test and capture ─────────────────────
-# Andre, 2026-09-26: "use the apex default wallpaper in all tests from now on,
-# not the old brain shell wallpaper." The APEX default is apex-os
-# files/branding/wallpapers/apex-wallpaper-default.jpg (the image the first run
+# ── The Rime OS default look, for every test and capture ─────────────────────
+# Andre, 2026-09-26: "use the rime default wallpaper in all tests from now on,
+# not the old brain shell wallpaper." The Rime default is rime-os
+# files/branding/wallpapers/rime-wallpaper-default.jpg (the image the first run
 # selects and the greeter shows), carried here as a fixture so CI has it; its
 # palettes are in tests/fixtures/palettes-matugen-4.2.0.json under the same
-# name. src/assets/wallpapers/apex-shell-default-0.png is upstream's "BRAIN
+# name. src/assets/wallpapers/rime-shell-default-0.png is upstream's "BRAIN
 # SHELL" image — not a backdrop or palette for any test.
-HEADLESS_WALLPAPER="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/fixtures/wallpapers/apex-wallpaper-default.jpg"
+HEADLESS_WALLPAPER="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/fixtures/wallpapers/rime-wallpaper-default.jpg"
 
-# headless_apex_palette [dark|light] [file] — seed that palette as the shell's
-# colors.json (default: dark, $HOME/.cache/apex-shell/colors.json).
-headless_apex_palette() {
-    local mode="${1:-dark}" dest="${2:-$HOME/.cache/apex-shell/colors.json}"
+# headless_rime_palette [dark|light] [file] — seed that palette as the shell's
+# colors.json (default: dark, $HOME/.cache/rime-shell/colors.json).
+headless_rime_palette() {
+    local mode="${1:-dark}" dest="${2:-$HOME/.cache/rime-shell/colors.json}"
     mkdir -p "$(dirname "$dest")"
     python3 - "$(dirname "$HEADLESS_WALLPAPER")/../palettes-matugen-4.2.0.json" "$mode" "$dest" <<'PY'
 import json, sys
 p = next(x for x in json.load(open(sys.argv[1]))["palettes"]
-         if x["wall"] == "apex-wallpaper-default.jpg" and x["mode"] == sys.argv[2])
+         if x["wall"] == "rime-wallpaper-default.jpg" and x["mode"] == sys.argv[2])
 json.dump({k: p[k] for k in ("background", "active", "text", "subtext", "border", "iconFont")},
           open(sys.argv[3], "w"))
 PY
@@ -440,7 +440,7 @@ import QtQuick
 
 ShellRoot {
     FloatingWindow {
-        title:          "apex-headless-filler"
+        title:          "rime-headless-filler"
         visible:        true
         implicitWidth:  360
         implicitHeight: 240
@@ -530,13 +530,13 @@ headless_assert_not_ambient_signature() {
 # This refuses by default instead. Call it before anything touches the display.
 headless_require_nested_optin() {
     local what="${1:-this suite}"
-    if [ "${APEX_TEST_ALLOW_NESTED_ON_DESK:-0}" != "1" ]; then
+    if [ "${RIME_TEST_ALLOW_NESTED_ON_DESK:-0}" != "1" ]; then
         echo "SKIP: $what nests a compositor inside the session named by"
         echo "      WAYLAND_DISPLAY, which puts a window on that desktop for as"
         echo "      long as it runs. It refuses to do that to whoever is sitting"
         echo "      there. Re-run it on a machine you are not using with:"
         echo
-        echo "          APEX_TEST_ALLOW_NESTED_ON_DESK=1 $0"
+        echo "          RIME_TEST_ALLOW_NESTED_ON_DESK=1 $0"
         exit 0
     fi
 }

@@ -4,17 +4,17 @@ import Quickshell
 import Quickshell.Io
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PowerProfileService — APEX Shell front-end for apexd, the APEX-OS power daemon
-// (D-Bus org.apexos.Apexd1.Power). Set goes through the `apex` CLI, which calls
-// SetTier over D-Bus; apexd applies the governor/EPP/platform_profile for the
+// PowerProfileService — Rime Shell front-end for rimed, the Rime OS power daemon
+// (D-Bus org.rimeos.Rimed1.Power). Set goes through the `rime` CLI, which calls
+// SetTier over D-Bus; rimed applies the governor/EPP/platform_profile for the
 // tier and authorizes the call via polkit — passwordless for the active local
 // user. The RyzenAdj reapply loop this comment used to mention went with the
 // tiers that drove it.
 //
-// The three tier IDs are exactly apexd's (performance … power-saver). The current
-// tier is read from the D-Bus `Tier` property via busctl, so apexd's AC↔battery
+// The three tier IDs are exactly rimed's (performance … power-saver). The current
+// tier is read from the D-Bus `Tier` property via busctl, so rimed's AC↔battery
 // auto-switching (it changes tier on plug/unplug) is reflected in the UI
-// regardless of which surface set it. If apexd is not running, reads fail
+// regardless of which surface set it. If rimed is not running, reads fail
 // silently and the last/optimistic value stands.
 //
 // Singleton + refcounted. The read used to poll every 4s for the entire session
@@ -31,17 +31,17 @@ Singleton {
 
     property int interval: 4000
 
-    // High→low, matching apexd's tier ladder and the historical picker order.
+    // High→low, matching rimed's tier ladder and the historical picker order.
     //
-    // `ultra-max` and `ultra` are NOT here and must not come back. apexd removed
-    // both in the universal-hardware pass — `apexd-core/src/tier.rs` says so, and
-    // `apexd-core/tests/tier_plan.rs` asserts that neither string parses into a
+    // `ultra-max` and `ultra` are NOT here and must not come back. rimed removed
+    // both in the universal-hardware pass — `rimed-core/src/tier.rs` says so, and
+    // `rimed-core/tests/tier_plan.rs` asserts that neither string parses into a
     // Tier. This list went on offering them anyway, so two buttons sat on the
-    // System page that could only ever fail: `apex tier ultra` exits non-zero and
+    // System page that could only ever fail: `rime tier ultra` exits non-zero and
     // the optimistic label snapped back on the next poll. Nobody noticed for a
     // release; Andre found them by looking at the page.
     //
-    // `check-tier-parity` in apex-os now fails CI if this list and apexd's
+    // `check-tier-parity` in rime-os now fails CI if this list and rimed's
     // `Tier` disagree, in either direction.
     readonly property var profiles: [
         {
@@ -60,7 +60,7 @@ Singleton {
 
     property string current: "balanced"
 
-    // set: `apex tier <id>` → apexd SetTier (D-Bus, polkit-authorized). Refresh
+    // set: `rime tier <id>` → rimed SetTier (D-Bus, polkit-authorized). Refresh
     // from the daemon once the call returns so the UI settles on the real value.
     readonly property Process setProc: Process {
         command: []
@@ -70,14 +70,14 @@ Singleton {
 
     function setProfile(id) {
         root.current = id                       // optimistic; the daemon confirms
-        root.setProc.command = ["apex", "tier", id]
+        root.setProc.command = ["rime", "tier", id]
         root.setProc.running = false
         root.setProc.running = true
     }
 
     // read: busctl get-property prints `s "balanced"`; pull the quoted value.
     readonly property Process getProc: Process {
-        command: ["busctl", "--system", "get-property", "org.apexos.Apexd1", "/org/apexos/Apexd1", "org.apexos.Apexd1.Power", "Tier"]
+        command: ["busctl", "--system", "get-property", "org.rimeos.Rimed1", "/org/rimeos/Rimed1", "org.rimeos.Rimed1.Power", "Tier"]
         running: false
         stdout: SplitParser {
             onRead: function (line) {

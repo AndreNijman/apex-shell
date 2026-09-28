@@ -30,7 +30,7 @@ import "../../"
 // So the honest description of this point is not "plugins can add quick
 // settings", it is "plugins can add a tile": a tile surfaces information the
 // plugin has, and taking action on a click means acting inside whatever the
-// plugin was granted. plugins/apex-pomodoro is the example, and it holds no
+// plugin was granted. plugins/rime-pomodoro is the example, and it holds no
 // permissions at all — the round trip it proves is host → toggle() → the
 // plugin's own state → back out through the sanitiser to the tile, which is the
 // whole of the contract and needs nothing privileged to demonstrate.

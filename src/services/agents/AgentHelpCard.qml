@@ -73,9 +73,9 @@ Rectangle {
         Row {
             spacing: theme.px(8)
 
-            // ApexPressable (UI/UX roadmap v3 Phase 21): was a bare
+            // RimePressable (UI/UX roadmap v3 Phase 21): was a bare
             // Rectangle/HoverHandler/TapHandler pair with no keyboard path.
-            ApexPressable {
+            RimePressable {
                 id: readBtn
                 // The one action style (UI/UX Phase 17), on the card's raised
                 // surface one step up.
@@ -100,13 +100,13 @@ Rectangle {
                     font.weight: Font.Medium
                 }
 
-                ApexFocusRing { target: readBtn }
+                RimeFocusRing { target: readBtn }
             }
 
             // Dismissal is permanent and takes no confirmation. Getting the
             // card back is one IPC call, documented in the guide's own
             // "Keys and commands" section, so the worst case is recoverable.
-            ApexPressable {
+            RimePressable {
                 id: gotItBtn
                 // The quieter of the two: a text button, the state layer only.
                 width: gotItLabel.implicitWidth + theme.px(24)
@@ -137,7 +137,7 @@ Rectangle {
                     font.weight: Font.Medium
                 }
 
-                ApexFocusRing { target: gotItBtn }
+                RimeFocusRing { target: gotItBtn }
             }
         }
     }

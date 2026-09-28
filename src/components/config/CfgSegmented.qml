@@ -8,7 +8,7 @@ import "../controls"
 // but stays selectable — for a choice that works but is not a good fit, where
 // the caller explains why once it is picked.
 //
-// Each pill is an ApexPressable (UI/UX roadmap v3 Phase 16): it dips when
+// Each pill is a RimePressable (UI/UX roadmap v3 Phase 16): it dips when
 // pressed, hovers as a state layer, rings only for keyboard focus, and draws
 // with the palette's roles. The chosen one is surfaceSelected with its label
 // in the accent at once. Unlike the tabs, the selection does not travel
@@ -54,7 +54,7 @@ Flow {
     Repeater {
         id: pills
         model: root.options
-        delegate: ApexPressable {
+        delegate: RimePressable {
             id: pill
             required property var modelData
             required property int index
@@ -121,7 +121,7 @@ Flow {
                 color:          pill.active ? Theme.accentText : Theme.textSecondary
                 opacity:        pill.dimmed ? (pill.active ? 0.7 : 0.55) : 1.0
             }
-            ApexFocusRing { target: pill }
+            RimeFocusRing { target: pill }
         }
     }
 }

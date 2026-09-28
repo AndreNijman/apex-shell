@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  run-controls-primitives-test.sh — ApexPressable, ApexFocusRing and
-#  ApexIconButton (UI/UX roadmap v3 Phase 3) under qmltestrunner on the
+#  run-controls-primitives-test.sh — RimePressable, RimeFocusRing and
+#  RimeIconButton (UI/UX roadmap v3 Phase 3) under qmltestrunner on the
 #  offscreen platform: the press dip and its return, keyboard activation that
 #  replays it, a ring for keyboard focus and none for a pointer's, a disabled
 #  control that does nothing, the state layer at rest, and a hit target larger
@@ -32,7 +32,7 @@ cleanup() { rm -rf "$stage"; }
 trap cleanup EXIT INT TERM
 
 mkdir -p "$stage/components"
-# The controls the config components are built on (ApexPressable & co.,
+# The controls the config components are built on (RimePressable & co.,
 # UI/UX roadmap Phase 3), at the same relative path.
 cp -r "$root/src/components/controls" "$stage/components/controls"
 cp "$here/controls-primitives-test.qml" "$stage/controls-primitives-test.qml"

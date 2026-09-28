@@ -6,9 +6,9 @@ import "../../"
 
 // ─── CompositorService ────────────────────────────────────────────────────────
 // The one surface the rest of the shell talks to about windows, workspaces and
-// compositor state. Roadmap §17: "APEX Shell should be a real desktop shell with
+// compositor state. Roadmap §17: "Rime Shell should be a real desktop shell with
 // compositor adapters. Hyprland, niri and labwc should be implementations
-// underneath one APEX UX."
+// underneath one Rime UX."
 //
 // ── What this replaces ───────────────────────────────────────────────────────
 // Before this, 33 files branched on Compositor.isHyprland / .isNiri / .isLabwc
@@ -45,8 +45,8 @@ import "../../"
 //   overview()     → toggleOverview
 //   screenshot()   → windowBoxCommand / outputBoxCommand (the picker is what
 //                    varies; grim itself is compositor-neutral wlroots)
-//   outputState()  → below; already compositor-neutral via apex-display-apply
-//   inputState()   → below; already compositor-neutral via apex-input-apply
+//   outputState()  → below; already compositor-neutral via rime-display-apply
+//   inputState()   → below; already compositor-neutral via rime-input-apply
 //
 // Plus what this shell genuinely needs on top: special workspaces, accent
 // borders, gaps, keyboard interception (Hyprland submaps), the fullscreen
@@ -565,7 +565,7 @@ QtObject {
             root.nightLightActive = false
             const said = root._nightLightStderr
             // 127 is the shell's "no such command", and it is the one failure
-            // worth translating: the tool ships with APEX-OS, so on another
+            // worth translating: the tool ships with Rime OS, so on another
             // distribution this is the whole story and bash's own wording
             // ("line 1: exec: gammastep: not found") is not.
             root.nightLightError =
@@ -660,8 +660,8 @@ QtObject {
     // other way to prove the (false, null) failure contract: on a developer box
     // the real helpers may be absent, which makes "the callback never fired"
     // and "the callback reported failure" look identical.
-    property string displayEngine: "/usr/libexec/apex-display-apply"
-    property string inputEngine:   "/usr/libexec/apex-input-apply"
+    property string displayEngine: "/usr/libexec/rime-display-apply"
+    property string inputEngine:   "/usr/libexec/rime-input-apply"
 
     property var _stateCallbacks: ({})
 

@@ -1,5 +1,5 @@
 // ─── roles.js ────────────────────────────────────────────────────────────────
-// APEX Shell's surface and text roles (UI/UX roadmap v3 Phase 2; design brief
+// Rime Shell's surface and text roles (UI/UX roadmap v3 Phase 2; design brief
 // §C.5), as pure functions of the palette: background B, accent A, text T.
 //
 // The shell has drawn with the palette's three raw colours and a scatter of
@@ -65,7 +65,7 @@ function resolve(p) {
         textPrimary:     T,
         // .28, not the brief's .35: at .35 the fallback fired on the shipped
         // default palette itself (design review 2) — a fallback that fires on
-        // the default is the formula. It was .30 until the APEX-OS default
+        // the default is the formula. It was .30 until the Rime OS default
         // wallpaper became the default look (2026-09-26): its light palette's
         // near-black accent darkens surfaceSelected, and .30 read 4.28:1 there;
         // .28 reads 4.58 with no fallback, and only strengthens every other one.

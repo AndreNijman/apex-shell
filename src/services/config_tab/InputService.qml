@@ -6,10 +6,10 @@ import Quickshell.Io
 // ─── InputService ─────────────────────────────────────────────────────────────
 // The graphical half of §18's input settings parity.
 //
-// There is exactly ONE model — ~/.config/apex-shell/input.json — and one
+// There is exactly ONE model — ~/.config/rime-shell/input.json — and one
 // generator that turns it into whatever each compositor understands:
 //
-//     input.json  ──►  /usr/libexec/apex-input-apply  ──►  Hyprland apex/input.lua
+//     input.json  ──►  /usr/libexec/rime-input-apply  ──►  Hyprland rime/input.lua
 //                                                     ├─►  niri KDL
 //                                                     └─►  labwc <libinput>
 //
@@ -21,8 +21,8 @@ import Quickshell.Io
 //
 // EVERY KEY HERE EXISTS IN THE GENERATOR
 //
-// The key names and default values below mirror apex-input-apply's own
-// DEFAULTS exactly, and apex-os's CI asserts that they still do. The first
+// The key names and default values below mirror rime-input-apply's own
+// DEFAULTS exactly, and rime-os's CI asserts that they still do. The first
 // draft of this file invented `numlock_on_boot`, which the generator does not
 // read — a switch that writes the model, runs the generator, reports success
 // and changes nothing. A control that silently does nothing is the worst
@@ -31,7 +31,7 @@ import Quickshell.Io
 // The DEFAULTS also matter in their own right: they reproduce exactly what the
 // shipped compositor configs already set, so opening this page for the first
 // time and touching one control does not quietly change four other things.
-// tests/test-apex-input.sh in apex-os asserts that ("default reproduces
+// tests/test-rime-input.sh in rime-os asserts that ("default reproduces
 // <tap>yes</tap>" and three more).
 //
 // ── UI-003: a key existing is not the same as a control working ──────────────
@@ -66,11 +66,11 @@ QtObject {
     id: root
 
     readonly property string modelPath:
-        Quickshell.env("HOME") + "/.config/apex-shell/input.json"
+        Quickshell.env("HOME") + "/.config/rime-shell/input.json"
     // Overridable for development, same reasoning as DisplayService's engine.
     readonly property string generator: {
-        const override = Quickshell.env("APEX_INPUT_GENERATOR") || ""
-        return override !== "" ? override : "/usr/libexec/apex-input-apply"
+        const override = Quickshell.env("RIME_INPUT_GENERATOR") || ""
+        return override !== "" ? override : "/usr/libexec/rime-input-apply"
     }
 
     // ── Touchpad ──────────────────────────────────────────────────────────────
@@ -233,7 +233,7 @@ QtObject {
         root.devices.filter(d => ["touchpad", "trackpoint", "mouse", "tablet",
                                   "touchscreen"].indexOf(d.type) >= 0)
     // Per-device overrides, `{ "<kernel name>": { type, key: value } }`. NOT in
-    // the schema table: that table is the flat section/key contract apex-os's
+    // the schema table: that table is the flat section/key contract rime-os's
     // check-input-parity reads, and a device map has no place in it.
     property var deviceOverrides: ({})
     // Which keys each kind of device accepts, from the generator, so the page
@@ -398,7 +398,7 @@ QtObject {
         onExited: function(code) {
             root.applying = false
             if (code !== 0 && root.lastNotes === "")
-                root.lastNotes = "apex-input-apply exited " + code
+                root.lastNotes = "rime-input-apply exited " + code
             // Read back AFTER every apply, because the point of reading back is
             // to find out whether the apply took. A page that refreshes its
             // effective state only on open would show the last successful write

@@ -22,7 +22,7 @@ Item {
         { key: "c", label: "Charlie", icon: "" }, { key: "d", label: "Delta", icon: "" }
     ]
 
-    ApexPressable { id: before; x: 10; y: 10; width: 60; height: 32 }
+    RimePressable { id: before; x: 10; y: 10; width: 60; height: 32 }
 
     TabSwitcher {
         id: h

@@ -412,7 +412,7 @@ Item {
             visible: br.isCapturing
 
             // Set on a real key press seen HERE, cleared once consumed. Guards
-            // against the Return/Space that OPENED capture: ApexPressable (the
+            // against the Return/Space that OPENED capture: RimePressable (the
             // pill) and the list's own Keys.onPressed fire on PRESS, and
             // forceActiveFocus() lands on this Item (via Qt.callLater) before
             // that same key comes back up — so its RELEASE arrives here with
@@ -501,7 +501,7 @@ Item {
 
 				// Clear bind. activeFocusOnTab only while this row is
                 // highlighted (root._curAction) — see root's Keyboard comment.
-                ApexPressable {
+                RimePressable {
                     id: _clrBtn
                     visible: br._pillText !== "Unbound"
                     width: 22; height: 22; radius: 6
@@ -521,11 +521,11 @@ Item {
                     }
                     Text { anchors.centerIn: parent; text: "󰩺"; font.pixelSize: theme.fs(11)
                         color: _clrBtn.hovered ? Theme.danger : Theme.textTertiary }
-                    ApexFocusRing { target: _clrBtn }
+                    RimeFocusRing { target: _clrBtn }
                 }
 
                 // Reset to default
-                ApexPressable {
+                RimePressable {
                     id: _rstBtn
                     visible: !br._isDefault
                     width: 22; height: 22; radius: 6
@@ -555,13 +555,13 @@ Item {
                     }
                     Text { anchors.centerIn: parent; text: "↺"; font.pixelSize: theme.fs(11)
                         color: _rstBtn.hovered ? Theme.active : Theme.textTertiary }
-                    ApexFocusRing { target: _rstBtn }
+                    RimeFocusRing { target: _rstBtn }
                 }
 
                 // Binding pill — amber tint when a pending change is staged.
                 // This row's primary action: the list's Return/Space calls
                 // br.primary(), which does the same thing as activating this.
-                ApexPressable {
+                RimePressable {
                     id: _pillBtn
                     height: 24; radius: 6
                     width:  _pillT.implicitWidth + 18
@@ -578,7 +578,7 @@ Item {
                     // adapter refused it, and the keys were captured by the
                     // shell AND still fired labwc's own bindings.
                     //
-                    // apex-os #25 made that worse, because labwc's bindings are
+                    // rime-os #25 made that worse, because labwc's bindings are
                     // now really generated and really fire.
                     readonly property bool _canCapture:
                         CompositorService.can.keyboardInterception
@@ -590,7 +590,7 @@ Item {
                     // _canCapture, so the control still looks and hovers the
                     // same as before on a compositor that can't intercept —
                     // only the click/activate is the no-op it always was.
-                    // (One deliberate miss: ApexPressable's hover cursor is
+                    // (One deliberate miss: RimePressable's hover cursor is
                     // always the pointing hand; the old code showed an arrow
                     // when !_canCapture. Everywhere else this control speaks
                     // for itself; here that's the one pointer-only nuance a
@@ -642,9 +642,9 @@ Item {
                     }
 
                     ToolTip.visible: !_pillBtn._canCapture && _pillBtn.hovered
-                    ToolTip.text:    "Live capture needs a compositor that can route every key to the shell.\nEdit keybinds.json, ApexShellKeybinds.kdl or rc.xml by hand here."
+                    ToolTip.text:    "Live capture needs a compositor that can route every key to the shell.\nEdit keybinds.json, RimeShellKeybinds.kdl or rc.xml by hand here."
 
-                    ApexFocusRing { target: _pillBtn }
+                    RimeFocusRing { target: _pillBtn }
                 }
             }
         }

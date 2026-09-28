@@ -96,7 +96,7 @@ Item {
             }
 
             // Clear unpinned history button
-            ApexPressable {
+            RimePressable {
                 id: clearBtn
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 4 }
                 width:  clearRow.implicitWidth + 14
@@ -129,7 +129,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                     }
                 }
-                ApexFocusRing { target: clearBtn }
+                RimeFocusRing { target: clearBtn }
             }
         }
 
@@ -563,7 +563,7 @@ component ClipRow: Item {
 
 
 // ── ActionBtn ──────────────────────────────────────────────────────────────────
-component ActionBtn: ApexPressable {
+component ActionBtn: RimePressable {
     id: ab
     property string icon:   ""
     property bool   active: false
@@ -582,7 +582,7 @@ component ActionBtn: ApexPressable {
         Behavior on color { MotionColor { role: "state" } }
     }
 
-    // Subtle scale-up on hover — on top of ApexPressable's own press dip
+    // Subtle scale-up on hover — on top of RimePressable's own press dip
     // (Item.scale vs the transform list; the two compose without conflict).
     transform: Scale {
         origin.x: 13; origin.y: 13
@@ -604,6 +604,6 @@ component ActionBtn: ApexPressable {
         Behavior on color { MotionColor { role: "state" } }
     }
 
-    ApexFocusRing { target: ab }
+    RimeFocusRing { target: ab }
 }
 }

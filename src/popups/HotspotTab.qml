@@ -22,13 +22,13 @@ Item {
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
-    property string _ssid:      "ApexShell"
+    property string _ssid:      "RimeShell"
     property string _password:  "changeme1"
     property bool   _showPass:  false
     property bool   _dirty:     false   // unsaved changes
 
     readonly property string _cfgPath:
-        Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/hotspot.json"
+        Quickshell.env("HOME") + "/.config/rime-shell/src/user_data/hotspot.json"
 
     // ── Load ──────────────────────────────────────────────────────────────────
     Process {
@@ -36,7 +36,7 @@ Item {
         command: ["bash", "-c",
             "[ -f '" + root._cfgPath + "' ] || " +
             "(mkdir -p \"$(dirname '" + root._cfgPath + "')\" && " +
-            "printf '%s' '{\"ssid\":\"ApexShell\",\"password\":\"changeme1\"}' " +
+            "printf '%s' '{\"ssid\":\"RimeShell\",\"password\":\"changeme1\"}' " +
             "> '" + root._cfgPath + "'); " +
             "cat '" + root._cfgPath + "'"]
         running: false
@@ -176,7 +176,7 @@ Item {
                         }
                     }
                     // Real buttons (UI/UX roadmap v3 Phase 21): they were pointer-only.
-                    ApexPressable {
+                    RimePressable {
                         id: eyeBtn; anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                         width: theme.controlStandard; height: theme.controlStandard; radius: theme.radiusS; hitMargin: 2
                         focusOnPress: false
@@ -184,7 +184,7 @@ Item {
                         onActivated: root._showPass = !root._showPass
                         Rectangle { anchors.fill: parent; radius: parent.radius; color: eyeBtn.stateLayer() }
                         Text { anchors.centerIn: parent; text: root._showPass ? "" : ""; font.pixelSize: theme.fs(13); color: root._showPass ? Theme.accentText : Theme.iconDefault }
-                        ApexFocusRing { target: eyeBtn }
+                        RimeFocusRing { target: eyeBtn }
                     }
                 }
 
@@ -192,7 +192,7 @@ Item {
                 // trailing edge, under the fields it saves.
                 Item {
                     width: parent.width; height: saveBtn.visible ? theme.controlStandard : 0
-                    ApexPressable {
+                    RimePressable {
                         id: saveBtn
                         visible: root._dirty
                         anchors.right: parent.right
@@ -202,7 +202,7 @@ Item {
                         onActivated: { root._save(); ssidInput.forceActiveFocus() }
                         Rectangle { anchors.fill: parent; radius: parent.radius; color: saveBtn.tint(Theme.surfaceHigh); Behavior on color { MotionColor {} } }
                         Text { id: saveLbl; anchors.centerIn: parent; text: "Save"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
-                        ApexFocusRing { target: saveBtn }
+                        RimeFocusRing { target: saveBtn }
                     }
                 }
 

@@ -110,7 +110,7 @@ PanelWindow {
         // used — a test that recomputes its subject asserts nothing. The suite
         // also asserts that exactly one card is found per output, so removing
         // this name fails the run instead of quietly emptying it.
-        objectName: "apex-display-confirm-card"
+        objectName: "rime-display-confirm-card"
 
         anchors.centerIn: parent
         width:  theme.px(400)
@@ -199,7 +199,7 @@ PanelWindow {
                 // Real buttons (UI/UX roadmap v3 Phase 21): Tab reaches them and
                 // Return presses the one with focus. With neither focused,
                 // Return still keeps and Escape still puts back (below).
-                ApexPressable {
+                RimePressable {
                     id: revertBtn
                     width:  theme.px(160)
                     height: theme.px(38)
@@ -218,10 +218,10 @@ PanelWindow {
                         color: Theme.fixedLight
                         font.pixelSize: theme.fs(13)
                     }
-                    ApexFocusRing { target: revertBtn }
+                    RimeFocusRing { target: revertBtn }
                 }
 
-                ApexPressable {
+                RimePressable {
                     id: keepBtn
                     width:  theme.px(160)
                     height: theme.px(38)
@@ -241,7 +241,7 @@ PanelWindow {
                         font.pixelSize: theme.fs(13)
                         font.bold: true
                     }
-                    ApexFocusRing { target: keepBtn }
+                    RimeFocusRing { target: keepBtn }
                 }
             }
 
@@ -269,7 +269,7 @@ PanelWindow {
     // question actually reached. There is no other way to see that from
     // outside the shell, and "the countdown is running" is not the same claim
     // as "the user can answer it".
-    onVisibleChanged: console.log("apex-display-confirm: "
+    onVisibleChanged: console.log("rime-display-confirm: "
                                   + (root.visible ? "shown on " : "hidden on ")
                                   + root.screenName)
 }

@@ -13,7 +13,7 @@ import "../../components/controls"
 // guide's keyboard close hands the keys back here) and gives up the row: a
 // glyph with the full sentence as its tooltip and its accessible name. The
 // first-run card below it is still what introduces the guide to a newcomer.
-ApexIconButton {
+RimeIconButton {
     id: entry
 
     glyph: "󰋗"

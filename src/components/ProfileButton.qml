@@ -2,7 +2,7 @@ import QtQuick
 import "../"
 import "controls"
 
-// A power-profile choice. Built on ApexPressable (UI/UX roadmap v3 Phase 3): it
+// A power-profile choice. Built on RimePressable (UI/UX roadmap v3 Phase 3): it
 // dips when pressed, by pointer or keyboard, and its hover is a state layer.
 //
 // One of three choices shown side by side, so "chosen" has to read against the
@@ -12,7 +12,7 @@ import "controls"
 // alone (roles.js, surfaceOnSelected) and on the light palette the chosen one
 // read paler than the others — like a disabled button. It was a pill in an
 // outlineStrong border, flooded with the accent when chosen.
-ApexPressable {
+RimePressable {
     id: root
 
     property string label:   ""
@@ -61,5 +61,5 @@ ApexPressable {
             Behavior on color { MotionColor { role: "state" } }
         }
     }
-    ApexFocusRing { target: root }
+    RimeFocusRing { target: root }
 }

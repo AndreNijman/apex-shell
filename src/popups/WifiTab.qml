@@ -192,7 +192,7 @@ Item {
             "    *)                 exec \"$t\" -e nmtui ;; " +
             "  esac; " +
             "done; " +
-            "notify-send -a 'APEX Shell' 'No terminal found' " +
+            "notify-send -a 'Rime Shell' 'No terminal found' " +
             "'Install a terminal emulator or set $TERMINAL to use the advanced Wi-Fi editor.' " +
             "2>/dev/null; exit 127"]
         running: false
@@ -496,7 +496,7 @@ Item {
                     }
                 }
                 // Disconnect — same action style as Connect/Forget (UI/UX Phase 17)
-                ApexPressable {
+                RimePressable {
                     id: disBtn
                     visible: netRow.isCurrent
                     anchors.verticalCenter: parent.verticalCenter
@@ -509,11 +509,11 @@ Item {
                     // On the selected row: Theme.surfaceOnSelected (roles.js says why).
                     Rectangle { anchors.fill: parent; radius: parent.radius; color: disBtn.tint(Theme.surfaceOnSelected); Behavior on color { MotionColor {} } }
                     Text { id: disLbl; anchors.centerIn: parent; text: "Disconnect"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
-                    ApexFocusRing { target: disBtn }
+                    RimeFocusRing { target: disBtn }
                 }
                 // Forget — opens the confirmation below; the destructive action
                 // lives on that confirmation's own Forget button, not here.
-                ApexPressable {
+                RimePressable {
                     id: forBtn
                     visible: netRow.isCurrent
                     anchors.verticalCenter: parent.verticalCenter
@@ -524,10 +524,10 @@ Item {
                     onActivated: root._forgetSsid = netRow.isForgetPending ? "" : netRow.net.ssid
                     Rectangle { anchors.fill: parent; radius: parent.radius; color: forBtn.tint(Theme.surfaceOnSelected); Behavior on color { MotionColor { role: "state" } } }
                     Text { id: forLbl; anchors.centerIn: parent; text: "Forget"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
-                    ApexFocusRing { target: forBtn }
+                    RimeFocusRing { target: forBtn }
                 }
                 // Connect
-                ApexPressable {
+                RimePressable {
                     id: conBtn
                     visible: !netRow.isCurrent && !netRow.isConnecting
                     anchors.verticalCenter: parent.verticalCenter
@@ -540,7 +540,7 @@ Item {
                     onActivated: { netRow.primary(); flick.forceActiveFocus() }
                     Rectangle { anchors.fill: parent; radius: parent.radius; color: conBtn.tint(Theme.surfaceHigh); Behavior on color { MotionColor {} } }
                     Text { id: connectLbl; anchors.centerIn: parent; text: netRow.isExpanded ? "Retry" : "Connect"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
-                    ApexFocusRing { target: conBtn }
+                    RimeFocusRing { target: conBtn }
                 }
             }
         }
@@ -566,18 +566,18 @@ Item {
                     Row {
                         anchors.centerIn: parent; spacing: 12
                         Text { anchors.verticalCenter: parent.verticalCenter; text: "Forget this network?"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
-                        ApexPressable {
+                        RimePressable {
                             id: cfBtn
                             width: cfLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS; hitMargin: 2
                             Accessible.name: "Keep " + netRow.net.ssid
                             onActivated: { root._forgetSsid = ""; forBtn.forceActiveFocus() }
                             Rectangle { anchors.fill: parent; radius: parent.radius; color: cfBtn.tint(Theme.surfaceHigh); Behavior on color { MotionColor {} } }
                             Text { id: cfLbl; anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
-                            ApexFocusRing { target: cfBtn }
+                            RimeFocusRing { target: cfBtn }
                         }
                         // The one destructive action in this pane — Theme.dangerFill,
                         // matching every other confirm-to-delete button in the shell.
-                        ApexPressable {
+                        RimePressable {
                             id: ffBtn
                             width: ffLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS; hitMargin: 2
                             Accessible.name: "Forget " + netRow.net.ssid
@@ -589,7 +589,7 @@ Item {
                                 Behavior on opacity { MotionFade {} }
                             }
                             Text { id: ffLbl; anchors.centerIn: parent; text: "Forget"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.fixedLight }
-                            ApexFocusRing { target: ffBtn }
+                            RimeFocusRing { target: ffBtn }
                         }
                     }
                 }
@@ -653,7 +653,7 @@ Item {
                         }
 
                         // Added Show Password Button
-                        ApexPressable {
+                        RimePressable {
                             id: eyeBtn
                             anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                             width: 28; height: 28; radius: 6; hitMargin: 2
@@ -667,7 +667,7 @@ Item {
                                 font.pixelSize: theme.fs(13)
                                 color: netRow._showPass ? Theme.active : Theme.textTertiary 
                             }
-                            ApexFocusRing { target: eyeBtn }
+                            RimeFocusRing { target: eyeBtn }
                         }
                     }
                 }
@@ -697,7 +697,7 @@ Item {
                 spacing: 8
 
                 // Header icon trio — borderless, state layer only (UI/UX Phase 17)
-                ApexPressable {
+                RimePressable {
                     id: pwrBtn
                     width: 32; height: 32; radius: 8
                     Accessible.name: root._wifiEnabled ? "Turn Wi-Fi off" : "Turn Wi-Fi on"
@@ -710,20 +710,20 @@ Item {
                         color: !root._wifiEnabled ? Theme.active : pwrBtn.hovered ? Theme.danger : Theme.iconDefault
                         Behavior on color { MotionColor { role: "state" } }
                     }
-                    ApexFocusRing { target: pwrBtn }
+                    RimeFocusRing { target: pwrBtn }
                 }
 
-                ApexPressable {
+                RimePressable {
                     id: setBtn
                     width: 32; height: 32; radius: 8
                     Accessible.name: "Network settings in a terminal"
                     onActivated: { nmtuiProc.running = false; nmtuiProc.running = true }
                     Rectangle { anchors.fill: parent; radius: parent.radius; color: setBtn.stateLayer() }
                     Text { anchors.centerIn: parent; text: "󰒓"; font.pixelSize: theme.fs(14); color: setBtn.hovered ? Theme.textPrimary : Theme.iconDefault; Behavior on color { MotionColor {} } }
-                    ApexFocusRing { target: setBtn }
+                    RimeFocusRing { target: setBtn }
                 }
 
-                ApexPressable {
+                RimePressable {
                     id: rfBtn
                     width: 32; height: 32; radius: 8
                     interactive: root._wifiEnabled
@@ -737,7 +737,7 @@ Item {
                         Behavior on color { MotionColor { role: "state" } }
                         RotationAnimator { target: rfIcon; from: 0; to: 360; duration: Motion.spinPeriod; loops: Animation.Infinite; running: root._scanning && Motion.loops; easing.type: Easing.Linear }
                     }
-                    ApexFocusRing { target: rfBtn }
+                    RimeFocusRing { target: rfBtn }
                 }
             }
         }
@@ -830,7 +830,7 @@ Item {
             anchors.centerIn: parent; spacing: 16
             Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰤭"; font.pixelSize: theme.fs(42); color: Theme.outlineStrong }
             Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Wi-Fi is off"; font.pixelSize: theme.fs(14); font.weight: Font.Medium; color: Theme.textTertiary }
-            ApexPressable {
+            RimePressable {
                 id: onBtn
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: wfEnRow.implicitWidth + 24; height: 34; radius: 17
@@ -846,7 +846,7 @@ Item {
                     Text { anchors.verticalCenter: parent.verticalCenter; text: "󰤨"; font.pixelSize: theme.fs(14); color: Theme.active }
                     Text { anchors.verticalCenter: parent.verticalCenter; text: "Turn On"; font.pixelSize: theme.fs(12); font.weight: Font.Medium; color: Theme.active }
                 }
-                ApexFocusRing { target: onBtn }
+                RimeFocusRing { target: onBtn }
             }
         }
     }

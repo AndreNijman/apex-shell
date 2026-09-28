@@ -199,17 +199,17 @@ headless_begin
 # shared stub and writing through it turns every other stub into a loginctl
 # recorder, and busctl at all because headless_begin does not stub it, so the
 # shell's PowerProfileService would otherwise reach the real system bus.
-export APEX_LOCKHINT_CALLS="$HEADLESS_W/logind-calls.log"
-: > "$APEX_LOCKHINT_CALLS"
+export RIME_LOCKHINT_CALLS="$HEADLESS_W/logind-calls.log"
+: > "$RIME_LOCKHINT_CALLS"
 rm -f "$HEADLESS_W/bin/loginctl" "$HEADLESS_W/bin/busctl"
 cat > "$HEADLESS_W/bin/loginctl" <<'FAKE'
 #!/usr/bin/env bash
-printf 'loginctl %s\n' "$*" >> "$APEX_LOCKHINT_CALLS"
+printf 'loginctl %s\n' "$*" >> "$RIME_LOCKHINT_CALLS"
 exit 0
 FAKE
 cat > "$HEADLESS_W/bin/busctl" <<'FAKE'
 #!/usr/bin/env bash
-printf 'busctl %s\n' "$*" >> "$APEX_LOCKHINT_CALLS"
+printf 'busctl %s\n' "$*" >> "$RIME_LOCKHINT_CALLS"
 exit 1
 FAKE
 chmod +x "$HEADLESS_W/bin/loginctl" "$HEADLESS_W/bin/busctl"
@@ -250,7 +250,7 @@ section "§4 the shell, the lock, and THE CONTROL — the defect, re-measured he
 
 shell_log="$W/shell.log"
 QT_LOGGING_RULES="qml=true" atspi_run_app env \
-    LD_PRELOAD="$SHIM" APEX_SHIM_TRIGGER="$TRIGGER" \
+    LD_PRELOAD="$SHIM" RIME_SHIM_TRIGGER="$TRIGGER" \
     quickshell -p "$root/shell.qml" >"$shell_log" 2>&1 &
 app_pid=$!
 
@@ -262,7 +262,7 @@ if ! grep -q "Configuration Loaded" "$shell_log"; then
 fi
 ok "the shipped shell loads on the private compositor, under the preload"
 
-if grep -q 'APEXSHIM: interposed QGuiApplication::exec()' "$shell_log"; then
+if grep -q 'RIMESHIM: interposed QGuiApplication::exec()' "$shell_log"; then
     ok "the preload really took QGuiApplication::exec() in THIS process"
 else
     bad "the preload really took QGuiApplication::exec() in THIS process" \
@@ -285,7 +285,7 @@ fi
 # see it because its §2 waits for that warning as an assertion of its own, and
 # so closes the race by accident. This closed it on purpose.
 #
-# THAT DROP IS FIXED — apex-shell f6928d9, P0-015 round 31. `_failed()` now
+# THAT DROP IS FIXED — rime-shell f6928d9, P0-015 round 31. `_failed()` now
 # re-pumps when `_desired !== _target`, i.e. when the request that arrived
 # mid-chain is a NEWER one that has never been tried rather than the step that
 # just failed, which is still deliberately not retried. This run lives entirely
@@ -307,7 +307,7 @@ else
         "no refusal logged in 20s; the lock assertion below may be racing an in-flight chain"
 fi
 
-hint_before="$(grep -c 'loginctl show-user' "$APEX_LOCKHINT_CALLS" 2>/dev/null || echo 0)"
+hint_before="$(grep -c 'loginctl show-user' "$RIME_LOCKHINT_CALLS" 2>/dev/null || echo 0)"
 if quickshell -p "$root/shell.qml" ipc call lockscreen lock >/dev/null 2>&1; then
     ok "the shipped 'lockscreen lock' IPC handler accepts the call"
 else
@@ -323,7 +323,7 @@ fi
 # flaky assertion is worse than no assertion: it teaches everyone to re-run.
 lock_engaged=0
 for _ in $(seq 1 160); do
-    now="$(grep -c 'loginctl show-user' "$APEX_LOCKHINT_CALLS" 2>/dev/null || echo 0)"
+    now="$(grep -c 'loginctl show-user' "$RIME_LOCKHINT_CALLS" 2>/dev/null || echo 0)"
     [ "$now" -gt "$hint_before" ] && { lock_engaged=1; break; }
     sleep 0.25
 done
@@ -351,18 +351,18 @@ section "§5 the factory goes back, and the roots change in-process"
 # ─────────────────────────────────────────────────────────────────────────────
 
 : > "$TRIGGER"
-for _ in $(seq 1 120); do grep -q 'APEXSHIM: DONE' "$shell_log" && break; sleep 0.25; done
-if ! grep -q 'APEXSHIM: DONE' "$shell_log"; then
+for _ in $(seq 1 120); do grep -q 'RIMESHIM: DONE' "$shell_log" && break; sleep 0.25; done
+if ! grep -q 'RIMESHIM: DONE' "$shell_log"; then
     bad "the shim installs the factory when asked" "it never finished; the trigger file was $TRIGGER"
-    grep '^APEXSHIM' "$shell_log" | sed 's/^/      /'
+    grep '^RIMESHIM' "$shell_log" | sed 's/^/      /'
     totals; exit 1
 fi
 ok "the shim installs the factory when asked"
 
-shim_before_null="$(grep -c '^APEXSHIM before: window.*root=NULL' "$shell_log" || true)"
-shim_before_nonnull="$(grep -c '^APEXSHIM before: window.*root=NON-NULL' "$shell_log" || true)"
-shim_after_null="$(grep -c '^APEXSHIM after: window.*root=NULL' "$shell_log" || true)"
-shim_after_nonnull="$(grep -c '^APEXSHIM after: window.*root=NON-NULL' "$shell_log" || true)"
+shim_before_null="$(grep -c '^RIMESHIM before: window.*root=NULL' "$shell_log" || true)"
+shim_before_nonnull="$(grep -c '^RIMESHIM before: window.*root=NON-NULL' "$shell_log" || true)"
+shim_after_null="$(grep -c '^RIMESHIM after: window.*root=NULL' "$shell_log" || true)"
+shim_after_nonnull="$(grep -c '^RIMESHIM after: window.*root=NON-NULL' "$shell_log" || true)"
 
 if [ "$shim_before_null" -gt 0 ] && [ "$shim_before_nonnull" -eq 0 ]; then
     ok "IN-PROCESS: before the install, accessibleRoot() is null for ALL $shim_before_null top-level windows"
@@ -378,11 +378,11 @@ else
         "$shim_after_nonnull non-null and $shim_after_null still null"
 fi
 
-if grep -q '^APEXSHIM before: appChildCount=0' "$shell_log"; then
+if grep -q '^RIMESHIM before: appChildCount=0' "$shell_log"; then
     ok "IN-PROCESS: and QAccessibleApplication::childCount() was 0 before — the bus symptom, from inside"
 else
     bad "IN-PROCESS: and QAccessibleApplication::childCount() was 0 before — the bus symptom, from inside" \
-        "got $(grep -m1 '^APEXSHIM before: appChildCount=' "$shell_log" || echo '<nothing>')"
+        "got $(grep -m1 '^RIMESHIM before: appChildCount=' "$shell_log" || echo '<nothing>')"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────

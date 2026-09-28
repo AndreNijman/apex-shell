@@ -8,7 +8,7 @@ import "gaming.js" as GM
 //
 // ── WHAT IT READS, AND WHY THOSE THREE ───────────────────────────────────────
 //
-//   apex gaming --json   whether this machine can boot straight into Gaming
+//   rime gaming --json   whether this machine can boot straight into Gaming
 //                        Mode, which of the on-demand packages are installed,
 //                        and the CLI's own sentences about what is stopping it.
 //                        Read-only, and it EXITS NON-ZERO when Gaming Mode
@@ -17,36 +17,36 @@ import "gaming.js" as GM
 //                        page tells a user with a working desktop that its
 //                        probe broke.
 //
-//   apex mode status     the policy the machine is in now: mode, power tier,
+//   rime mode status     the policy the machine is in now: mode, power tier,
 //                        game mode. Criterion 6. Text, because there is no
 //                        --json on that subcommand yet.
 //
-//   apex mode set <m>    the one thing here that changes anything, behind a
+//   rime mode set <m>    the one thing here that changes anything, behind a
 //                        button, and followed by re-reading `mode status`
 //                        rather than assuming it worked. Criterion 7.
 //
 // ── NO TIMER ─────────────────────────────────────────────────────────────────
 //
-// Nothing polls. `apex mode set --auto` is documented one-shot — "APEX ships
+// Nothing polls. `rime mode set --auto` is documented one-shot — "Rime ships
 // nothing that re-evaluates this on a timer" — and a settings page that ran a
 // probe every few seconds would be the shell inventing the daemon the OS
 // declined to ship. The page reads when it is opened and when the user asks.
 //
 // ── NO ESCALATION ────────────────────────────────────────────────────────────
 //
-// `apex mode set` needs no root: the active mode is derived from what apexd
+// `rime mode set` needs no root: the active mode is derived from what rimed
 // reports rather than stored. Installing the missing packages DOES need root,
 // and this service will not do it — the install line is shown as text for the
-// user to run, the same way BlueprintService shows `sudo apex apply`. A button
+// user to run, the same way BlueprintService shows `sudo rime apply`. A button
 // here that ran sudo would raise an authentication prompt from a settings page.
 QtObject {
     id: root
 
     // Overridable so a locally built binary can be exercised without installing
-    // into /usr. Mirrors BlueprintService's APEX_BLUEPRINT_CLI.
+    // into /usr. Mirrors BlueprintService's RIME_BLUEPRINT_CLI.
     readonly property string cli: {
-        const override = Quickshell.env("APEX_GAMING_CLI") || ""
-        return override !== "" ? override : "apex"
+        const override = Quickshell.env("RIME_GAMING_CLI") || ""
+        return override !== "" ? override : "rime"
     }
 
     // ── readiness ─────────────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ QtObject {
 
     // The named modes this page offers. `daily` and `gaming` only: those are the
     // two this page is about, and a settings page for gaming has no business
-    // being the place somebody discovers `creator`. `apex mode list` has the
+    // being the place somebody discovers `creator`. `rime mode list` has the
     // rest.
     readonly property var offered: [
         { value: "gaming", label: "Gaming",
@@ -112,7 +112,7 @@ QtObject {
 
     property var _setCommand: []
 
-    // ── apex gaming --json ────────────────────────────────────────────────────
+    // ── rime gaming --json ────────────────────────────────────────────────────
     property var _gamingProc: Process {
         command: [root.cli, "gaming", "--json"]
         running: true
@@ -146,13 +146,13 @@ QtObject {
             if (root.report === null && root.lastError === "") {
                 root.available = false
                 root.unavailableReason =
-                    "`apex gaming` did not run on this image, so nothing here " +
+                    "`rime gaming` did not run on this image, so nothing here " +
                     "could be checked."
             }
         }
     }
 
-    // ── apex mode status ──────────────────────────────────────────────────────
+    // ── rime mode status ──────────────────────────────────────────────────────
     property var _statusProc: Process {
         command: [root.cli, "mode", "status"]
         running: true
@@ -163,7 +163,7 @@ QtObject {
         }
     }
 
-    // ── apex mode set ─────────────────────────────────────────────────────────
+    // ── rime mode set ─────────────────────────────────────────────────────────
     // The only command here that changes anything. Entered from setMode() and
     // from nothing else: no binding, no timer, no onCompleted.
     property var _setProc: Process {
@@ -178,7 +178,7 @@ QtObject {
         onExited: function(code, status) {
             root.switching = false
             if (code !== 0 && root.switchError === "")
-                root.switchError = "apex mode set exited " + code
+                root.switchError = "rime mode set exited " + code
             // Re-read either way. A refused switch still has to leave the
             // readout showing what the machine is actually in, and a switch
             // that reported success and did not take is exactly what criterion

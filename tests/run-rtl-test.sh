@@ -44,15 +44,15 @@
 #  PASS / FAIL / SKIP / CANTRUN. The last one is new and it is the reason this
 #  suite stopped being permanently red on the Arch CI runner without anything
 #  being swept under a skip. SKIP means the machine is simply not the thing
-#  (not a booted APEX host, so a documented default is probed instead).
+#  (not a booted Rime host, so a documented default is probed instead).
 #  CANTRUN means a NAMED, MEASURED precondition came back false and the reason
 #  is printed on the line. Section 1's three direction rows are the only ones
-#  gated that way, the gate is switched off entirely on a booted APEX host, and
+#  gated that way, the gate is switched off entirely on a booted Rime host, and
 #  it cannot engage on a machine where the direction flipped anyway — so an
 #  excuse whose own reason has stopped being true goes red instead of quiet.
 #
 #  Section 2's right-to-left pass names the ROUTE that supplied its direction
-#  in every line it prints: "theme" (what APEX ships) or "preload" (a machine
+#  in every line it prints: "theme" (what Rime ships) or "preload" (a machine
 #  that had to be handed libKF6I18n, which the CI runner does). They are
 #  different claims and the suite must never print the same green for both.
 #
@@ -74,9 +74,9 @@ skp() { printf 'SKIP  %s%s\n' "$1" "${2:+  — $2}"; skip=$((skip + 1)); }
 # A FOURTH outcome, and it is not decoration. This program's rule is that
 # refusal, absence and could-not-run are three different answers and a gate
 # that collapses them is the dominant defect family here — and until round 32
-# this suite collapsed two of them into `skp`: "this is not a booted APEX host"
+# this suite collapsed two of them into `skp`: "this is not a booted Rime host"
 # (absence: the machine simply is not the thing, and the run continues against
-# a documented default) read exactly like "the probe printed no APEXDIR line"
+# a documented default) read exactly like "the probe printed no RIMEDIR line"
 # (could-not-run: the measurement was attempted and produced nothing).
 #
 # `cant` is the second of those. It means: the measurement WAS attempted, a
@@ -116,9 +116,9 @@ import QtTest
 TestCase {
     name: "dir"
     function test_000_report() {
-        console.log("APEXDIR=" + Qt.application.layoutDirection
-                    + " APEXTEXTDIR=" + Qt.locale().textDirection
-                    + " APEXLOCALE=" + Qt.locale().name)
+        console.log("RIMEDIR=" + Qt.application.layoutDirection
+                    + " RIMETEXTDIR=" + Qt.locale().textDirection
+                    + " RIMELOCALE=" + Qt.locale().name)
         verify(true)
     }
 }
@@ -139,16 +139,16 @@ probe_raw() {   # probe_raw <locale or empty> <platform theme or empty>
         ${l:+LANG="$l"} ${l:+LC_ALL="$l"} ${t:+QT_QPA_PLATFORMTHEME="$t"} \
         QT_LOGGING_RULES='*.debug=true;qt.*=false' QT_QPA_PLATFORM=offscreen \
         timeout 60 "$runner" -platform offscreen -input "$probe/tst_dir.qml" 2>&1 \
-        | sed -n 's/.*APEXDIR=\([0-9]*\) APEXTEXTDIR=\([0-9]*\) .*/\1 \2/p' | head -1
+        | sed -n 's/.*RIMEDIR=\([0-9]*\) RIMETEXTDIR=\([0-9]*\) .*/\1 \2/p' | head -1
 }
 app_dir()  { probe_raw "$1" "$2" | cut -d' ' -f1; }   # Qt.application.layoutDirection
 text_dir() { probe_raw "$1" "$2" | cut -d' ' -f2; }   # QLocale's own opinion
 
-# Which platform theme to ask about. On a booted APEX this is read out of the
+# Which platform theme to ask about. On a booted Rime this is read out of the
 # image's own /etc/environment, so the row below is about what this system
 # actually ships rather than about a name typed into a test; anywhere else it is
 # the documented default and the suite says which it used.
-THEME="qt6ct"; theme_src="the documented APEX default (this is not a booted APEX host)"
+THEME="qt6ct"; theme_src="the documented Rime default (this is not a booted Rime host)"
 if [ -e /run/ostree-booted ] && [ -r /etc/environment ]; then
     from_env="$(sed -n 's/^QT_QPA_PLATFORMTHEME=//p' /etc/environment | tail -1)"
     if [ -n "$from_env" ]; then
@@ -160,7 +160,7 @@ if [ -e /run/ostree-booted ] && [ -r /etc/environment ]; then
     fi
 else
     skp "the image sets QT_QPA_PLATFORMTHEME" \
-        "not a booted APEX host — probing with $THEME, $theme_src"
+        "not a booted Rime host — probing with $THEME, $theme_src"
 fi
 
 L_RTL="ar_EG.UTF-8"; L_RTL2="he_IL.UTF-8"; L_NOCAT="ur_PK.UTF-8"
@@ -171,7 +171,7 @@ L_RTL="ar_EG.UTF-8"; L_RTL2="he_IL.UTF-8"; L_NOCAT="ur_PK.UTF-8"
 td_rtl="$(text_dir "$L_RTL" "$THEME")"
 if [ -z "$td_rtl" ]; then
     cant "Qt can be asked for a layout direction at all" \
-         "the probe printed no APEXDIR line — nothing below was evaluated"
+         "the probe printed no RIMEDIR line — nothing below was evaluated"
     cant "the application direction follows the locale when a catalogue exists" "same"
     cant "with no platform theme nothing flips" "same"
     cant "an RTL language Qt has no catalogue for does not flip" "same"
@@ -195,8 +195,8 @@ else
     # This block sits ABOVE the three rows it gates, and that is the whole
     # point of round 32. Those three rows require a right-to-left APPLICATION
     # direction, and whether a machine can produce one at all is a property of
-    # its qt6ct build, not of APEX. Measuring that first is the difference
-    # between "APEX's right-to-left layout is broken" and "this machine has no
+    # its qt6ct build, not of Rime. Measuring that first is the difference
+    # between "Rime's right-to-left layout is broken" and "this machine has no
     # process that loads the Qt catalogue" — two claims the suite used to print
     # with the same three red lines.
     #
@@ -230,7 +230,7 @@ else
     # could-not-runs on a machine whose theme measurably carries no loader —
     # that is about the RUNNER. And ci.yml now installs `ki18n` there, which
     # lets the suite take the "preload" route in section 2 — that is about
-    # APEX, and it is the half worth having: the shipped row is now measured
+    # Rime, and it is the half worth having: the shipped row is now measured
     # under a real right-to-left direction on Arch and Qt 6.11.2 as well as on
     # Fedora and Qt 6.10.3. Do not let the two collapse into one sentence.
     #
@@ -302,7 +302,7 @@ else
         elif [ "$with_theme_rtl" = "1" ] && [ "$i18n_linked" = "1" ]; then
             ok "the direction flips if and only if the theme's plugin drags in a Qt translation loader — it flipped, and $plugin links libKF6I18n"
         elif [ "$with_theme_rtl" = "0" ] && [ "$i18n_linked" = "0" ]; then
-            ok "the direction flips if and only if the theme's plugin drags in a Qt translation loader — it did NOT flip, and $plugin links no libKF6I18n, so this machine's red above is that build of $THEME and not APEX"
+            ok "the direction flips if and only if the theme's plugin drags in a Qt translation loader — it did NOT flip, and $plugin links no libKF6I18n, so this machine's red above is that build of $THEME and not Rime"
         elif [ "$with_theme_rtl" = "1" ]; then
             bad "the direction flips if and only if the theme's plugin drags in a Qt translation loader" \
                 "it flipped while $plugin links no libKF6I18n — something ELSE in this process loads qt_*.qm and round 31's mechanism is incomplete"
@@ -351,15 +351,15 @@ else
     # The three rows below all require a right-to-left APPLICATION direction.
     # Whether a machine can produce one is the precondition just measured, so
     # when it measurably cannot, those rows report a NAMED could-not-run that
-    # carries the reason instead of three red lines that read like an APEX
+    # carries the reason instead of three red lines that read like a Rime
     # defect. That is the round-32 decision, and it comes with two hard limits.
     #
-    # ONE: it can never engage on a booted APEX host. On the machine this
+    # ONE: it can never engage on a booted Rime host. On the machine this
     # product actually ships to, a theme that cannot supply the direction IS
     # the defect, and there is nothing to excuse. So `/run/ostree-booted`
     # switches the gate off entirely — which is also why every mutant in
     # tests/mutate-rtl.sh that breaks one of these rows still goes red here:
-    # the development machine is a booted APEX host and never reaches the gate.
+    # the development machine is a booted Rime host and never reaches the gate.
     #
     # TWO: it can never engage when the direction DID flip. If a machine whose
     # $THEME carries no translation loader produces a right-to-left direction
@@ -373,7 +373,7 @@ else
     GATE_REASON=""
     if [ ! -e /run/ostree-booted ] && [ "$with_theme_rtl" != "1" ]; then
         case "$THEME_I18N" in
-            0)    GATE_REASON="MEASURED: $plugin links no libKF6I18n, which is the library that loads the Qt catalogue and flips the direction (FOUND 26). This machine's $THEME build carries no route to one, so it cannot produce a right-to-left application direction at all — nothing here is a statement about APEX" ;;
+            0)    GATE_REASON="MEASURED: $plugin links no libKF6I18n, which is the library that loads the Qt catalogue and flips the direction (FOUND 26). This machine's $THEME build carries no route to one, so it cannot produce a right-to-left application direction at all — nothing here is a statement about Rime" ;;
             none) GATE_REASON="MEASURED: there is no $THEME plugin on this machine at all (looked under ${themedir:-<no plugin dir>}), so no platform theme can supply a Qt catalogue here" ;;
         esac
     fi
@@ -404,7 +404,7 @@ else
         # application direction by translating the string QT_LAYOUT_DIRECTION and
         # comparing the answer to "RTL" -- so it needs a LOADED CATALOGUE, and
         # quickshell installs no QTranslator of its own. What supplies one on a
-        # shipped APEX desktop is the qt6ct platform theme, which is configured for
+        # shipped Rime desktop is the qt6ct platform theme, which is configured for
         # a dark palette (files/system/qt6ct/qt6ct.conf) and has no idea it is
         # holding up right-to-left layout. Drop it and every mirrored surface
         # silently stops mirroring with nothing red anywhere.
@@ -447,7 +447,7 @@ else
     # The mechanism, pinned directly rather than through its carrier: no
     # platform theme at all, one extra library in the process, and the
     # direction flips. The day KF6I18n stops installing the Qt catalogue on
-    # startup this goes RED and says that the thing APEX's mirroring actually
+    # startup this goes RED and says that the thing Rime's mirroring actually
     # rests on has moved.
     kf6lib=""
     for l in $(ldconfig -p 2>/dev/null | awk '/libKF6I18n\.so/ {print $NF}'); do
@@ -459,7 +459,7 @@ else
             ${1:+LANG="$1"} ${1:+LC_ALL="$1"} LD_PRELOAD="$kf6lib" \
             QT_LOGGING_RULES='*.debug=true;qt.*=false' QT_QPA_PLATFORM=offscreen \
             timeout 60 "$runner" -platform offscreen -input "$probe/tst_dir.qml" 2>&1 \
-            | sed -n 's/.*APEXDIR=\([0-9]*\) .*/\1/p' | head -1
+            | sed -n 's/.*RIMEDIR=\([0-9]*\) .*/\1/p' | head -1
     }
     if [ -z "$kf6lib" ]; then
         cant "a Qt translation loader ALONE flips the direction, with no platform theme" \
@@ -472,10 +472,10 @@ else
             ok "a Qt translation loader ALONE flips the direction, with no platform theme — $kf6lib preloaded gives RightToLeft where the same run without it gives LeftToRight"
         elif [ -z "$preload_rtl" ]; then
             cant "a Qt translation loader ALONE flips the direction, with no platform theme" \
-                 "the preloaded probe printed no APEXDIR line — not a pass"
+                 "the preloaded probe printed no RIMEDIR line — not a pass"
         else
             bad "a Qt translation loader ALONE flips the direction, with no platform theme" \
-                "preloaded=$preload_rtl, plain=$no_theme_rtl — if both are 1 the theme was never needed; if the preloaded run is 0 then KF6I18n no longer installs the Qt catalogue and APEX's mirroring rests on something else again"
+                "preloaded=$preload_rtl, plain=$no_theme_rtl — if both are 1 the theme was never needed; if the preloaded run is 0 then KF6I18n no longer installs the Qt catalogue and Rime's mirroring rests on something else again"
         fi
 
         # THE CONTROL THAT MAKES THE ROUTE USABLE, and section 2 is why it
@@ -487,7 +487,7 @@ else
         # The library must move the direction ONLY through the locale.
         if [ -z "$preload_ltr" ]; then
             cant "…and the supplied loader does not flip the direction BY ITSELF" \
-                 "the scrubbed preloaded probe printed no APEXDIR line"
+                 "the scrubbed preloaded probe printed no RIMEDIR line"
         elif [ "$preload_ltr" = "0" ]; then
             ok "…and the supplied loader does not flip the direction BY ITSELF — scrubbed, with $kf6lib preloaded, it is still LeftToRight, so what moves it is the locale and not the library"
         else
@@ -502,18 +502,18 @@ fi
 # answer is carried forward rather than assumed a second time.
 #
 # TWO routes, and the suite says WHICH one it used in every line it prints —
-# because "APEX's shipped row mirrors" and "the row mirrors once somebody hands
+# because "Rime's shipped row mirrors" and "the row mirrors once somebody hands
 # this machine a library it does not ship" are different claims, and a suite
 # that produced the same green for both would be worth nothing.
 #
-#   theme    the platform theme APEX ships carries the translation loader
-#            itself. This is what a booted APEX host uses, and it is the only
+#   theme    the platform theme Rime ships carries the translation loader
+#            itself. This is what a booted Rime host uses, and it is the only
 #            route that is a statement about the product.
 #   preload  the platform theme on THIS machine carries none, but the machine
 #            has libKF6I18n and the two rows above measured that supplying it
 #            (a) flips the direction under an RTL locale and (b) does NOT flip
 #            it on its own. Used by the Arch CI runner, whose upstream
-#            qt6ct 0.11-8 links no KF6 at all. It exercises APEX's mirroring on
+#            qt6ct 0.11-8 links no KF6 at all. It exercises Rime's mirroring on
 #            a second distribution and a second Qt minor; it does not say
 #            anything about how that machine would behave unaided.
 RTL_AVAILABLE=0; RTL_ROUTE=""; RTL_PRELOAD=""
@@ -532,7 +532,7 @@ trap 'rm -rf "$probe" "$stage"' EXIT INT TERM
 cp -r "$root/src/components/config" "$stage/components-config-tmp"
 mkdir -p "$stage/components"
 mv "$stage/components-config-tmp" "$stage/components/config"
-# The controls the config components are built on (ApexPressable & co.,
+# The controls the config components are built on (RimePressable & co.,
 # UI/UX roadmap Phase 3), at the same relative path.
 cp -r "$root/src/components/controls" "$stage/components/controls"
 cp "$root/src/components/SectionLabel.qml" "$stage/components/SectionLabel.qml"   # CfgSection's heading (UI/UX Phase 17)
@@ -747,10 +747,10 @@ TestCase {
     Component { id: asWindow; Window { LayoutMirroring.enabled: true } }
     function test_000_report() {
         var a = nonItem.createObject(null)
-        console.log("APEXATTACH nonitem=" + (a ? "created" : "null")
+        console.log("RIMEATTACH nonitem=" + (a ? "created" : "null")
                     + " err=[" + nonItem.errorString().trim() + "]")
         var w = asWindow.createObject(null)
-        console.log("APEXATTACH window=" + (w ? "created" : "null")
+        console.log("RIMEATTACH window=" + (w ? "created" : "null")
                     + " mirrored=" + (w ? w.LayoutMirroring.enabled : "n/a"))
         verify(true)
     }
@@ -760,12 +760,12 @@ attach_out="$(env -u WAYLAND_DISPLAY -u DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
     -u LANG -u LC_ALL -u LANGUAGE -u QT_QPA_PLATFORMTHEME \
     QT_LOGGING_RULES='*.debug=true;qt.*=false' QT_QPA_PLATFORM=offscreen \
     timeout 60 "$runner" -platform offscreen -input "$probe/tst_mirror_attach.qml" 2>&1)"
-attach_nonitem="$(printf '%s\n' "$attach_out" | sed -n 's/.*APEXATTACH nonitem=\([a-z]*\) err=\[\(.*\)\]$/\1|\2/p' | head -1)"
-attach_window="$(printf '%s\n' "$attach_out"  | sed -n 's/.*APEXATTACH window=\([a-z]*\) mirrored=\([a-z/]*\).*/\1|\2/p' | head -1)"
+attach_nonitem="$(printf '%s\n' "$attach_out" | sed -n 's/.*RIMEATTACH nonitem=\([a-z]*\) err=\[\(.*\)\]$/\1|\2/p' | head -1)"
+attach_window="$(printf '%s\n' "$attach_out"  | sed -n 's/.*RIMEATTACH window=\([a-z]*\) mirrored=\([a-z/]*\).*/\1|\2/p' | head -1)"
 
 if [ -z "$attach_nonitem" ] || [ -z "$attach_window" ]; then
     cant "attaching LayoutMirroring to a non-Item is a SILENT no-op, and to a Window it works" \
-         "the attach probe printed no APEXATTACH line — not a pass"
+         "the attach probe printed no RIMEATTACH line — not a pass"
 elif [ "$attach_nonitem" = "created|" ] && [ "$attach_window" = "created|true" ]; then
     ok "attaching LayoutMirroring to a non-Item is a SILENT no-op — the object is still created and errorString() is EMPTY — while the same declaration on a Window reads back enabled"
 elif [ "$attach_window" != "created|true" ]; then

@@ -60,13 +60,13 @@ for tool in quickshell labwc wlr-randr md5sum; do
     command -v "$tool" >/dev/null 2>&1 || { echo "SKIP: $tool not installed"; exit 0; }
 done
 
-engine="${APEX_DISPLAY_ENGINE_REAL:-/usr/libexec/apex-display-apply}"
-[ -x "$engine" ] || { echo "SKIP: no display engine at $engine (it ships with APEX-OS)"; exit 0; }
+engine="${RIME_DISPLAY_ENGINE_REAL:-/usr/libexec/rime-display-apply}"
+[ -x "$engine" ] || { echo "SKIP: no display engine at $engine (it ships with Rime OS)"; exit 0; }
 
 # Short, because three scenarios sit through a whole one. The default of 15 is
 # asserted statically by tests/check-display-transaction.sh, which can read the
 # constant without waiting for it.
-timeout_s="${APEX_TEST_CONFIRM_SECONDS:-5}"
+timeout_s="${RIME_TEST_CONFIRM_SECONDS:-5}"
 
 sandbox="$(mktemp -d)"
 cfg="$sandbox/labwc"
@@ -79,7 +79,7 @@ cp "$here/labwc-test-rc.xml" "$cfg/rc.xml"
 # $sandbox/hide-headless-2 exists, `list` drops that output — the unplug a
 # headless backend cannot perform. Every other verb, including every apply, is
 # the real program with the real arguments.
-cat > "$shim/apex-display-apply" <<WRAP
+cat > "$shim/rime-display-apply" <<WRAP
 #!/usr/bin/env bash
 if [ "\${1:-}" = "list" ] && [ -e "$sandbox/hide-headless-2" ]; then
     "$engine" list | python3 -c 'import json,sys; print(json.dumps([o for o in json.load(sys.stdin) if o["name"] != "HEADLESS-2"]))'
@@ -87,7 +87,7 @@ if [ "\${1:-}" = "list" ] && [ -e "$sandbox/hide-headless-2" ]; then
 fi
 exec "$engine" "\$@"
 WRAP
-chmod +x "$shim/apex-display-apply"
+chmod +x "$shim/rime-display-apply"
 
 # Nothing may reach a real Hyprland from here. See 3 above.
 printf '#!/bin/sh\necho "hyprctl is not available in the display transaction test" >&2\nexit 127\n' \
@@ -148,11 +148,11 @@ ENVV=(env -u HYPRLAND_INSTANCE_SIGNATURE -u NIRI_SOCKET -u DISPLAY
       XDG_CURRENT_DESKTOP=labwc:wlroots
       HOME="$sandbox/home"
       PATH="$shim:$PATH"
-      APEX_DISPLAY_ENGINE="$shim/apex-display-apply"
-      APEX_DISPLAY_TXN_DIR="$sandbox/txn"
-      APEX_DISPLAY_CONFIRM_SECONDS="$timeout_s"
-      APEX_DISPLAY_GUARD_POLL=0.1
-      APEX_TEST_SANDBOX="$sandbox")
+      RIME_DISPLAY_ENGINE="$shim/rime-display-apply"
+      RIME_DISPLAY_TXN_DIR="$sandbox/txn"
+      RIME_DISPLAY_CONFIRM_SECONDS="$timeout_s"
+      RIME_DISPLAY_GUARD_POLL=0.1
+      RIME_TEST_SANDBOX="$sandbox")
 
 # run <args...> — anything that has to speak to the nested session.
 run() { "${ENVV[@]}" "$@"; }
@@ -240,7 +240,7 @@ else
     ok "the shell is gone (SIGKILL) with the countdown still running"
 
     # The deadline, plus room for the engine's own run — and never less than the
-    # shipped 15 seconds. A tree that ignores APEX_DISPLAY_CONFIRM_SECONDS still
+    # shipped 15 seconds. A tree that ignores RIME_DISPLAY_CONFIRM_SECONDS still
     # gets its full countdown here, so "the layout did not come back" is a
     # verdict about the layout and not about how long this waited.
     sleep "$(( (timeout_s > 15 ? timeout_s : 15) + 6 ))"
@@ -298,13 +298,13 @@ else
 
     shown=0
     for _ in $(seq 1 80); do
-        grep -q "apex-display-confirm: shown on" "$shell_log" && { shown=1; break; }
+        grep -q "rime-display-confirm: shown on" "$shell_log" && { shown=1; break; }
         sleep 0.25
     done
 
     if [ "$shown" -ne 1 ]; then
         bad "no confirmation was ever mapped after the apply"
-        grep -E "apex-display|ERROR" "$shell_log" | tail -15 | sed 's/^/        /'
+        grep -E "rime-display|ERROR" "$shell_log" | tail -15 | sed 's/^/        /'
     else
         ok "a confirmation was mapped after the apply"
     fi
@@ -318,11 +318,11 @@ else
         *)          bad "HEADLESS-2 is still on; the scenario did not happen (on: $screens)" ;;
     esac
 
-    if grep -q "apex-display-confirm: shown on HEADLESS-1" "$shell_log"; then
+    if grep -q "rime-display-confirm: shown on HEADLESS-1" "$shell_log"; then
         ok "the confirmation is on HEADLESS-1, which the apply left on"
     else
         bad "the confirmation never reached an output that stayed on"
-        grep "apex-display-confirm" "$shell_log" | sed 's/^/        /'
+        grep "rime-display-confirm" "$shell_log" | sed 's/^/        /'
     fi
 
     status="$(ipc status)"
@@ -345,10 +345,10 @@ else
     # first) and Return presses it — and the output comes back, as it did for
     # the IPC revert above. Skipped where wtype is not installed.
     if command -v wtype >/dev/null 2>&1; then
-        before="$(grep -c "apex-display-confirm: shown on" "$shell_log")"
+        before="$(grep -c "rime-display-confirm: shown on" "$shell_log")"
         ipc set HEADLESS-2 enabled false >/dev/null; ipc apply >/dev/null
         for _ in $(seq 1 80); do
-            [ "$(grep -c "apex-display-confirm: shown on" "$shell_log")" -gt "$before" ] && break
+            [ "$(grep -c "rime-display-confirm: shown on" "$shell_log")" -gt "$before" ] && break
             sleep 0.25
         done
         sleep 0.8

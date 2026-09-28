@@ -2,7 +2,7 @@ import QtQuick
 import "../search.js" as Search
 import "../../nexus"
 
-// SettingsProvider — "APEX setting: 144 Hz", which is §15's example and is a
+// SettingsProvider — "Rime setting: 144 Hz", which is §15's example and is a
 // search for a VALUE rather than for a page title.
 //
 // Nothing in PageRegistry contains the string "144 Hz"; the page is called

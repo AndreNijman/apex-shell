@@ -17,11 +17,11 @@
 #  modules off its import path; a QML module may carry a compiled plugin; and a
 #  compiled plugin runs C++ inside the shell's own process while the import is
 #  being resolved, which is before a single binding has been evaluated. So the
-#  host change is a module APEX ships and shell.qml imports.
+#  host change is a module Rime ships and shell.qml imports.
 #
-#  tests/apex-i18n-plugin.cpp is that module. This suite builds it and measures
+#  tests/rime-i18n-plugin.cpp is that module. This suite builds it and measures
 #  it in two hosts: a bare QQmlEngine assembled out of quickshell's own two
-#  lines (tests/apex-i18n-host.cpp), and, where one exists, the REAL
+#  lines (tests/rime-i18n-host.cpp), and, where one exists, the REAL
 #  /usr/bin/quickshell running the SHIPPED AgentHelpContent singleton.
 #
 #  ── Why a second host at all ────────────────────────────────────────────────
@@ -78,11 +78,11 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/.." && pwd)"
 cd "$root" || exit 2
 
-PLUGIN_SRC="$here/apex-i18n-plugin.cpp"
-HOST_SRC="$here/apex-i18n-host.cpp"
-QMLDIR_SRC="$here/apex-i18n-qmldir"
+PLUGIN_SRC="$here/rime-i18n-plugin.cpp"
+HOST_SRC="$here/rime-i18n-host.cpp"
+QMLDIR_SRC="$here/rime-i18n-qmldir"
 CONTENT="src/services/agents/AgentHelpContent.qml"
-TS="translations/apex-shell_de.ts"
+TS="translations/rime-shell_de.ts"
 
 # The German the checked-in .ts supplies. Asserted, never merely "different":
 # a run that returned any other string would still differ from English.
@@ -171,7 +171,7 @@ if [ -z "$LRELEASE" ]; then
     totals; exit 0
 fi
 
-W="$(mktemp -d "${TMPDIR:-/tmp}/apex-i18n-host.XXXXXX")" || exit 2
+W="$(mktemp -d "${TMPDIR:-/tmp}/rime-i18n-host.XXXXXX")" || exit 2
 cleanup() { rm -rf "$W"; }
 trap cleanup EXIT INT TERM
 
@@ -185,43 +185,43 @@ section "1. the artefact builds"
 # compile" as a could-not-run would turn every measurement below into a silent
 # absence, which is the defect this repository keeps meeting from new angles.
 
-mkdir -p "$W/imports/Apex/I18n" "$W/stage" "$W/tr" "$W/empty"
+mkdir -p "$W/imports/Rime/I18n" "$W/stage" "$W/tr" "$W/empty"
 
 # shellcheck disable=SC2046,SC2086  # pkg-config output is a deliberate word list
 if ! "$MOC" $(pkg-config --cflags-only-I Qt6Qml Qt6Core) "$PLUGIN_SRC" \
-        -o "$W/apex-i18n-plugin.moc" >"$W/moc.log" 2>&1; then
-    chk "moc processes tests/apex-i18n-plugin.cpp" 1 "see the output below"
+        -o "$W/rime-i18n-plugin.moc" >"$W/moc.log" 2>&1; then
+    chk "moc processes tests/rime-i18n-plugin.cpp" 1 "see the output below"
     sed 's/^/      /' "$W/moc.log" | head -15
     totals; exit 1
 fi
-chk "moc processes tests/apex-i18n-plugin.cpp" 0
+chk "moc processes tests/rime-i18n-plugin.cpp" 0
 
 # shellcheck disable=SC2046,SC2086
-if ! $CXX -std=c++17 -fPIC -shared -o "$W/imports/Apex/I18n/libapexi18n.so" "$PLUGIN_SRC" \
+if ! $CXX -std=c++17 -fPIC -shared -o "$W/imports/Rime/I18n/librimei18n.so" "$PLUGIN_SRC" \
         -I"$W" $(pkg-config --cflags Qt6Qml Qt6Core) \
         $(pkg-config --libs Qt6Qml Qt6Core) >"$W/build-plugin.log" 2>&1; then
-    chk "tests/apex-i18n-plugin.cpp builds into a QML plugin against this machine's Qt 6" 1 \
+    chk "tests/rime-i18n-plugin.cpp builds into a QML plugin against this machine's Qt 6" 1 \
         "see the compiler output below"
     sed 's/^/      /' "$W/build-plugin.log" | head -25
     totals; exit 1
 fi
-chk "tests/apex-i18n-plugin.cpp builds into a QML plugin against this machine's Qt 6" 0
+chk "tests/rime-i18n-plugin.cpp builds into a QML plugin against this machine's Qt 6" 0
 
-cp "$QMLDIR_SRC" "$W/imports/Apex/I18n/qmldir"
+cp "$QMLDIR_SRC" "$W/imports/Rime/I18n/qmldir"
 
 # shellcheck disable=SC2046,SC2086
 if ! $CXX -std=c++17 -fPIC -o "$W/host" "$HOST_SRC" \
         $(pkg-config --cflags Qt6Qml Qt6Gui Qt6Core) \
         $(pkg-config --libs Qt6Qml Qt6Gui Qt6Core) >"$W/build-host.log" 2>&1; then
-    chk "tests/apex-i18n-host.cpp builds into a bare-QQmlEngine host" 1 \
+    chk "tests/rime-i18n-host.cpp builds into a bare-QQmlEngine host" 1 \
         "see the compiler output below"
     sed 's/^/      /' "$W/build-host.log" | head -25
     totals; exit 1
 fi
-chk "tests/apex-i18n-host.cpp builds into a bare-QQmlEngine host" 0
+chk "tests/rime-i18n-host.cpp builds into a bare-QQmlEngine host" 0
 
-if "$LRELEASE" -silent "$TS" -qm "$W/tr/apex-shell_de.qm" >"$W/lrelease.log" 2>&1 \
-   && [ -s "$W/tr/apex-shell_de.qm" ]; then
+if "$LRELEASE" -silent "$TS" -qm "$W/tr/rime-shell_de.qm" >"$W/lrelease.log" 2>&1 \
+   && [ -s "$W/tr/rime-shell_de.qm" ]; then
     chk "lrelease compiles $TS into the catalogue the plugin will look for" 0
 else
     chk "lrelease compiles $TS into the catalogue the plugin will look for" 1 \
@@ -250,8 +250,8 @@ QtObject {
     readonly property string entryLabel: AgentHelpContent.entryLabel
     readonly property string cardRead: AgentHelpContent.cardRead
     Component.onCompleted: {
-        console.log("APEXPROBE entryLabel=" + entryLabel)
-        console.log("APEXPROBE cardRead=" + cardRead)
+        console.log("RIMEPROBE entryLabel=" + entryLabel)
+        console.log("RIMEPROBE cardRead=" + cardRead)
     }
 }
 PROBE
@@ -259,14 +259,14 @@ PROBE
 # Built from the first by INSERTING the import, so the two cannot drift apart
 # by hand. sed on a fixed anchor, and the assertion below is what proves the
 # insertion happened where it was meant to.
-sed '/^import QtQuick$/a import Apex.I18n' "$W/stage/probe.qml" > "$W/stage/probe-import.qml"
+sed '/^import QtQuick$/a import Rime.I18n' "$W/stage/probe.qml" > "$W/stage/probe-import.qml"
 
 diffout="$(diff "$W/stage/probe.qml" "$W/stage/probe-import.qml")"
 if [ "$(grep -c '^>' <<<"$diffout")" = 1 ] && [ "$(grep -c '^<' <<<"$diffout")" = 0 ] \
-   && says "$diffout" "> import Apex.I18n"; then
-    chk "the two probe fixtures differ by exactly one line, and it is the Apex.I18n import" 0
+   && says "$diffout" "> import Rime.I18n"; then
+    chk "the two probe fixtures differ by exactly one line, and it is the Rime.I18n import" 0
 else
-    chk "the two probe fixtures differ by exactly one line, and it is the Apex.I18n import" 1 \
+    chk "the two probe fixtures differ by exactly one line, and it is the Rime.I18n import" 1 \
         "$(tr '\n' ' ' <<<"$diffout")"
 fi
 
@@ -298,15 +298,15 @@ run_host() {   # run_host <mode> <catalogue dir>
         PATH="$PATH" HOME="${HOME:-/tmp}" TMPDIR="${TMPDIR:-/tmp}" \
         QT_QPA_PLATFORM=offscreen QT_FORCE_STDERR_LOGGING=1 \
         LANG=de_DE.UTF-8 LC_ALL=de_DE.UTF-8 \
-        APEX_I18N_MODE="$1" \
-        APEX_I18N_STAGE="$W/stage" \
-        APEX_I18N_IMPORTS="$W/imports" \
-        APEX_SHELL_TRANSLATIONS="$2" \
+        RIME_I18N_MODE="$1" \
+        RIME_I18N_STAGE="$W/stage" \
+        RIME_I18N_IMPORTS="$W/imports" \
+        RIME_SHELL_TRANSLATIONS="$2" \
         timeout 120 "$W/host" 2>&1
 }
 
 hostfield() {   # hostfield <output> <tag> <name>
-    sed -n "s/^APEXHOST $2 $3=\\(.*\\)$/\\1/p" <<<"$1" | head -1
+    sed -n "s/^RIMEHOST $2 $3=\\(.*\\)$/\\1/p" <<<"$1" | head -1
 }
 
 for m in plain plugin nocat late late-retranslate; do
@@ -325,7 +325,7 @@ LATER="$(cat "$W/mode-late-retranslate.txt")"
 
 reached=0
 for m in plain plugin nocat late late-retranslate; do
-    says "$(cat "$W/mode-$m.txt")" "APEXHOST done=$m" || {
+    says "$(cat "$W/mode-$m.txt")" "RIMEHOST done=$m" || {
         reached=1
         echo "      mode $m did not reach its last line:"
         sed 's/^/        /' "$W/mode-$m.txt" | tail -8
@@ -335,15 +335,15 @@ chk "every host mode reaches its last line" "$reached" "a truncated run reads as
 
 # The locale really is right-to-… no: really is German. If it were not, every
 # English answer below would be correct for the wrong reason.
-says "$PLUGIN" "APEXHOST locale=de_DE" \
+says "$PLUGIN" "RIMEHOST locale=de_DE" \
     && chk "the runs really are under a German locale" 0 \
     || chk "the runs really are under a German locale" 1 \
            "got: $(hostfield "$PLUGIN" "" locale)"
 
 # ── plain: no plugin, and provably no plugin ────────────────────────────────
-says "$PLAIN" "APEXI18N" \
+says "$PLAIN" "RIMEI18N" \
     && chk "with no import path the plugin does not run at all — no plugin line in the output" 1 \
-           "an APEXI18N line appeared in the plain run" \
+           "a RIMEI18N line appeared in the plain run" \
     || chk "with no import path the plugin does not run at all — no plugin line in the output" 0
 
 [ "$(hostfield "$PLAIN" first entryLabel)" = "$EN_ENTRY" ] \
@@ -352,12 +352,12 @@ says "$PLAIN" "APEXI18N" \
            "got [$(hostfield "$PLAIN" first entryLabel)]"
 
 # ── plugin: the route ───────────────────────────────────────────────────────
-says "$PLUGIN" "APEXI18N: registerTypes uri=Apex.I18n" \
+says "$PLUGIN" "RIMEI18N: registerTypes uri=Rime.I18n" \
     && chk "the plugin's registerTypes runs, which is what makes the module exist to the engine" 0 \
     || chk "the plugin's registerTypes runs, which is what makes the module exist to the engine" 1 \
            "no registerTypes line; $(tail -2 "$W/mode-plugin.txt" | tr '\n' ' ')"
 
-says "$PLUGIN" "APEXI18N: installed " \
+says "$PLUGIN" "RIMEI18N: installed " \
     && chk "the plugin installs a QTranslator from inside the engine's own process" 0 \
     || chk "the plugin installs a QTranslator from inside the engine's own process" 1 \
            "no install line; $(tail -2 "$W/mode-plugin.txt" | tr '\n' ' ')"
@@ -381,7 +381,7 @@ says "$PLUGIN" "APEXI18N: installed " \
            "both runs said [$(hostfield "$PLAIN" first entryLabel)]"
 
 # ── nocat: the German came from a catalogue, not from a plugin being there ──
-says "$NOCAT" "APEXI18N: no catalogue for" \
+says "$NOCAT" "RIMEI18N: no catalogue for" \
     && chk "pointed at an empty directory the plugin REPORTS the absence rather than going quiet" 0 \
     || chk "pointed at an empty directory the plugin REPORTS the absence rather than going quiet" 1 \
            "no such line; $(tail -2 "$W/mode-nocat.txt" | tr '\n' ' ')"
@@ -392,7 +392,7 @@ says "$NOCAT" "APEXI18N: no catalogue for" \
            "got [$(hostfield "$NOCAT" first entryLabel)]"
 
 # ── late: why the hook is initializeEngine ──────────────────────────────────
-says "$LATE" "APEXHOST late-install=FAILED" \
+says "$LATE" "RIMEHOST late-install=FAILED" \
     && chk "the late run really loaded a catalogue, so its English is not a failed load" 1 \
            "the late install failed, so this pair measured nothing" \
     || chk "the late run really loaded a catalogue, so its English is not a failed load" 0
@@ -447,14 +447,14 @@ run_qs() {   # run_qs <probe file> <import path or empty> <catalogue dir> <out f
         LANG=de_DE.UTF-8 LC_ALL=de_DE.UTF-8 \
         QT_LOGGING_RULES="qml.debug=true;js.debug=true" \
         ${imports:+QML_IMPORT_PATH="$imports"} \
-        APEX_SHELL_TRANSLATIONS="$cat" \
+        RIME_SHELL_TRANSLATIONS="$cat" \
         quickshell -p "$probe" >"$out" 2>&1 &
     local pid=$!
     # Poll rather than wait out a timeout: quickshell loads in well under a
     # second and there are two runs. Thirty seconds is the ceiling, not the
     # cost.
     for ((i = 0; i < 150; i++)); do
-        grep -q 'APEXPROBE entryLabel=' "$out" 2>/dev/null && break
+        grep -q 'RIMEPROBE entryLabel=' "$out" 2>/dev/null && break
         kill -0 "$pid" 2>/dev/null || break
         sleep 0.2
     done
@@ -469,9 +469,9 @@ run_qs "$W/stage/probe.qml"        ""           "$W/tr"    "$W/qs-plain.txt"
 QSP="$(cat "$W/qs-plugin.txt")"
 QSN="$(cat "$W/qs-plain.txt")"
 
-qsfield() { sed -n "s/.*APEXPROBE $2=\\(.*\\)$/\\1/p" <<<"$1" | head -1 | sed 's/[[:space:]]*$//'; }
+qsfield() { sed -n "s/.*RIMEPROBE $2=\\(.*\\)$/\\1/p" <<<"$1" | head -1 | sed 's/[[:space:]]*$//'; }
 
-if says "$QSP" "APEXI18N: installed " && says "$QSP" "APEXPROBE entryLabel="; then
+if says "$QSP" "RIMEI18N: installed " && says "$QSP" "RIMEPROBE entryLabel="; then
     chk "the real host, /usr/bin/quickshell, takes the module too" 0
 else
     chk "the real host, /usr/bin/quickshell, takes the module too" 1 \
@@ -483,11 +483,11 @@ fi
     || chk "inside the real quickshell the shipped singleton reads its German" 1 \
            "got [$(qsfield "$QSP" entryLabel)]"
 
-if [ "$(qsfield "$QSN" entryLabel)" = "$EN_ENTRY" ] && ! says "$QSN" "APEXI18N"; then
+if [ "$(qsfield "$QSN" entryLabel)" = "$EN_ENTRY" ] && ! says "$QSN" "RIMEI18N"; then
     chk "inside the real quickshell, with no import path, the same fixture stays English" 0
 else
     chk "inside the real quickshell, with no import path, the same fixture stays English" 1 \
-        "got [$(qsfield "$QSN" entryLabel)]$(says "$QSN" APEXI18N && echo ' and the plugin ran anyway')"
+        "got [$(qsfield "$QSN" entryLabel)]$(says "$QSN" RIMEI18N && echo ' and the plugin ran anyway')"
 fi
 
 totals

@@ -1,7 +1,7 @@
 import QtQuick
 
 // ─── NullBackend ──────────────────────────────────────────────────────────────
-// The backend for "running under something APEX has no adapter for" — sway,
+// The backend for "running under something Rime has no adapter for" — sway,
 // river, KDE Wayland, GNOME, a nested session, anything.
 //
 // It is also the schema. Every other backend in this directory answers exactly

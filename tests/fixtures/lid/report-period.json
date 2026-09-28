@@ -23,7 +23,7 @@
                 "why": "systemctl could not be asked whether it is active"
             },
             {
-                "what": "apex-storage-notice.timer",
+                "what": "rime-storage-notice.timer",
                 "why": "systemctl could not be asked whether it is active"
             },
             {

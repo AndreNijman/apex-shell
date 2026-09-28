@@ -217,7 +217,7 @@
       "offers_control": false,
       "effective": true,
       "headline": "not available on this session",
-      "caveat": "No Secret portal in this session. APEX pins gnome-keyring for it on labwc and niri and not on Hyprland \u2014 see docs/app-permissions.md \u00a77."
+      "caveat": "No Secret portal in this session. Rime pins gnome-keyring for it on labwc and niri and not on Hyprland \u2014 see docs/app-permissions.md \u00a77."
     },
     {
       "app": "io.github.cosmic_utils.camera",
@@ -400,7 +400,7 @@
       "offers_control": false,
       "effective": true,
       "headline": "not available on this session",
-      "caveat": "No Secret portal in this session. APEX pins gnome-keyring for it on labwc and niri and not on Hyprland \u2014 see docs/app-permissions.md \u00a77."
+      "caveat": "No Secret portal in this session. Rime pins gnome-keyring for it on labwc and niri and not on Hyprland \u2014 see docs/app-permissions.md \u00a77."
     },
     {
       "app": "zed",
@@ -589,7 +589,7 @@
       "offers_control": false,
       "effective": true,
       "headline": "allowed, and cannot be withdrawn",
-      "caveat": "The keyring authorises by what the caller is, and apex-secretd brokers agent sessions \u2014 neither answers for an ordinary desktop program."
+      "caveat": "The keyring authorises by what the caller is, and rime-secretd brokers agent sessions \u2014 neither answers for an ordinary desktop program."
     }
   ]
 }

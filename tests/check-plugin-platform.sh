@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Static invariants for the APEX Shell plugin platform (roadmap §16).
+# Static invariants for the Rime Shell plugin platform (roadmap §16).
 #
 # ── Why this exists next to the other two ────────────────────────────────────
 # §16's coverage is in three parts, and this is the part that holds the wiring:
@@ -510,8 +510,8 @@ else
 fi
 
 # ── The plugin directory is a documented location, not a guess ───────────────
-want "PluginService looks under ~/.config/apex-shell/plugins" \
-    grep -q '/.config/apex-shell/plugins' "$dir/PluginService.qml"
+want "PluginService looks under ~/.config/rime-shell/plugins" \
+    grep -q '/.config/rime-shell/plugins' "$dir/PluginService.qml"
 want "the plugin directory is overridable so tests need not use the real one" \
     grep -q "property string pluginDir" "$dir/PluginService.qml"
 

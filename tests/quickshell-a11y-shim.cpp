@@ -35,11 +35,11 @@
 //  and not from a helper thread. quickshell has not created its windows when
 //  exec() is entered, and QAccessible::installFactory is not thread-safe.
 //
-//  The timer waits for a FILE, named by APEX_SHIM_TRIGGER, rather than a fixed
+//  The timer waits for a FILE, named by RIME_SHIM_TRIGGER, rather than a fixed
 //  delay. The suite drives the lock first, reads the tree back to confirm the
 //  defect in that same run, and only then touches the file. A fixed delay would
 //  make the order of those two a race, and a suite whose control and whose
-//  measurement can swap places measures nothing. APEX_SHIM_DELAY_MS remains as
+//  measurement can swap places measures nothing. RIME_SHIM_DELAY_MS remains as
 //  a fallback for manual use when no trigger is set.
 //
 //  ── What it installs ────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-static QAccessibleInterface *apexQuickFactory(const QString &classname, QObject *object)
+static QAccessibleInterface *rimeQuickFactory(const QString &classname, QObject *object)
 {
     if (classname == QLatin1String("QQuickWindow"))
         return new QAccessibleQuickWindow(qobject_cast<QQuickWindow *>(object));
@@ -94,16 +94,16 @@ static QAccessibleInterface *apexQuickFactory(const QString &classname, QObject 
 static void report(const char *when)
 {
     const auto windows = QGuiApplication::topLevelWindows();
-    fprintf(stderr, "APEXSHIM %s: topLevelWindows=%lld\n", when, (long long)windows.size());
+    fprintf(stderr, "RIMESHIM %s: topLevelWindows=%lld\n", when, (long long)windows.size());
     for (int i = 0; i < windows.size(); ++i) {
         QWindow *w = windows.at(i);
         QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(w);
-        fprintf(stderr, "APEXSHIM %s: window[%d] type=%d class=%s root=%s\n",
+        fprintf(stderr, "RIMESHIM %s: window[%d] type=%d class=%s root=%s\n",
                 when, i, int(w->type()), w->metaObject()->className(),
                 iface ? "NON-NULL" : "NULL");
     }
     QAccessibleInterface *appIface = QAccessible::queryAccessibleInterface(qApp);
-    fprintf(stderr, "APEXSHIM %s: appChildCount=%d\n", when,
+    fprintf(stderr, "RIMESHIM %s: appChildCount=%d\n", when,
             appIface ? appIface->childCount() : -1);
     fflush(stderr);
 }
@@ -111,23 +111,23 @@ static void report(const char *when)
 static void doInstall()
 {
     report("before");
-    QAccessible::installFactory(&apexQuickFactory);
-    fprintf(stderr, "APEXSHIM: installFactory(apexQuickFactory) called\n");
+    QAccessible::installFactory(&rimeQuickFactory);
+    fprintf(stderr, "RIMESHIM: installFactory(rimeQuickFactory) called\n");
     fflush(stderr);
     report("after");
-    fprintf(stderr, "APEXSHIM: DONE\n");
+    fprintf(stderr, "RIMESHIM: DONE\n");
     fflush(stderr);
 }
 
-extern "C" int apex_gui_exec() __asm__("_ZN15QGuiApplication4execEv");
+extern "C" int rime_gui_exec() __asm__("_ZN15QGuiApplication4execEv");
 
-extern "C" int apex_gui_exec()
+extern "C" int rime_gui_exec()
 {
-    const char *trigger = getenv("APEX_SHIM_TRIGGER");
-    const char *d = getenv("APEX_SHIM_DELAY_MS");
+    const char *trigger = getenv("RIME_SHIM_TRIGGER");
+    const char *d = getenv("RIME_SHIM_DELAY_MS");
     const int delay = d ? atoi(d) : 5000;
 
-    fprintf(stderr, "APEXSHIM: interposed QGuiApplication::exec(), trigger=%s delay=%dms\n",
+    fprintf(stderr, "RIMESHIM: interposed QGuiApplication::exec(), trigger=%s delay=%dms\n",
             trigger ? trigger : "<none>", delay);
     fflush(stderr);
 
@@ -149,7 +149,7 @@ extern "C" int apex_gui_exec()
     using Fn = int (*)();
     Fn real = (Fn)dlsym(RTLD_NEXT, "_ZN15QGuiApplication4execEv");
     if (!real) {
-        fprintf(stderr, "APEXSHIM: FATAL dlsym(RTLD_NEXT, exec) failed: %s\n", dlerror());
+        fprintf(stderr, "RIMESHIM: FATAL dlsym(RTLD_NEXT, exec) failed: %s\n", dlerror());
         fflush(stderr);
         return 1;
     }

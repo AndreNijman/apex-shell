@@ -6,8 +6,8 @@
 #
 #      tests/visual/stress-matrix.sh OUTDIR
 #
-#  With APEX_PACING_LOG=1 every SurfaceLifecycle logs each map and unmap
-#  ("APEX pacing: <name> mapped=true|false") and the lock logs its engagement
+#  With RIME_PACING_LOG=1 every SurfaceLifecycle logs each map and unmap
+#  ("Rime pacing: <name> mapped=true|false") and the lock logs its engagement
 #  ("lock secure=true"). A surface that ends a scenario still mapped — a window
 #  that would eat clicks, or keep a pour on screen — is the failure this looks
 #  for, together with any QML error in the log.
@@ -49,27 +49,27 @@ python3 "$root/tests/lib/fake-mpris.py" /dev/null & player=$!
 qs=""
 trap 'kill $player $qs 2>/dev/null; headless_cleanup' EXIT
 
-ud="$HOME/.config/apex-shell/src/user_data"; mkdir -p "$ud"
+ud="$HOME/.config/rime-shell/src/user_data"; mkdir -p "$ud"
 printf '%s' '{"barEnabled":true,"motionScale":1,"dashboardWidth":900,"dashboardHeight":520}' > "$ud/settings.json"
 printf '{"currentWall":"%s","mode":"dark"}' "$HEADLESS_WALLPAPER" > "$ud/wallpaper.json"
-headless_apex_palette dark
+headless_rime_palette dark
 
 log="$out/shell.log"
-env APEX_PACING_LOG=1 quickshell -p "$root/shell.qml" > "$log" 2>&1 & qs=$!
+env RIME_PACING_LOG=1 quickshell -p "$root/shell.qml" > "$log" 2>&1 & qs=$!
 for _ in $(seq 1 120); do grep -q "Configuration Loaded" "$log" && break; sleep 0.25; done
 grep -q "Configuration Loaded" "$log" || { echo "FAIL: the shell did not load"; tail -20 "$log"; exit 1; }
 sleep 3
 
 ipc() { quickshell -p "$root/shell.qml" ipc call "$@" >/dev/null 2>&1; }
 rnd() { python3 -c "import random; print(random.randint(0, $1) / 1000)"; }
-mark() { echo "APEX stress: $1" >> "$log"; }
+mark() { echo "Rime stress: $1" >> "$log"; }
 # Every surface that is mapped right now, from the log (name → last state).
 still_mapped() {
     python3 - "$log" <<'PY'
 import re, sys
 state = {}
 for line in open(sys.argv[1], errors="replace"):
-    m = re.search(r"APEX pacing: (\S+) mapped=(true|false)", line)
+    m = re.search(r"Rime pacing: (\S+) mapped=(true|false)", line)
     if m: state[m.group(1)] = m.group(2) == "true"
 print(" ".join(sorted(k for k, v in state.items() if v)))
 PY
@@ -137,9 +137,9 @@ settle_and_check "notify: 12 in a burst, then closed"
 mark "lock"
 ipc dashboard-home toggle; sleep 0.25
 ipc lockscreen lock
-for _ in $(seq 1 40); do grep -q "APEX pacing: lock secure=true" "$log" && break; sleep 0.1; done
+for _ in $(seq 1 40); do grep -q "Rime pacing: lock secure=true" "$log" && break; sleep 0.1; done
 verdict "lock: the lock engages with the Dashboard open" \
-        "$(grep -q 'APEX pacing: lock secure=true' "$log" && echo 1 || echo 0)" "no 'lock secure=true' in the log"
+        "$(grep -q 'Rime pacing: lock secure=true' "$log" && echo 1 || echo 0)" "no 'lock secure=true' in the log"
 
 # ── errors ───────────────────────────────────────────────────────────────────
 errs="$(grep -aE 'TypeError|ReferenceError|is not a type|Cannot assign|binding loop|non-existent property' "$log" | head -5)"

@@ -33,7 +33,7 @@ Singleton {
 
     property bool _loaded: false
 
-    readonly property string _path: Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/launcher.json"
+    readonly property string _path: Quickshell.env("HOME") + "/.config/rime-shell/src/user_data/launcher.json"
 
     // Half-life for a launch's contribution, in days. Two weeks means a daily
     // driver stays ranked while last month's one-off does not.

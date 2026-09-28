@@ -25,16 +25,16 @@
 #  after switching off and then on. Zero means the gate is not wired; two means
 #  disabling asks for one.
 #
-#  A fake `apex` goes first on PATH too. AgentService polls `apex agent list`
-#  and `apex request pending` from the moment it is instantiated, and a test
+#  A fake `rime` goes first on PATH too. AgentService polls `rime agent list`
+#  and `rime request pending` from the moment it is instantiated, and a test
 #  that reads the developer's live sessions is a test whose result depends on
 #  what he happens to be running.
 #
 #  ── AND ITS OWN CONFIG ROOT ─────────────────────────────────────────────────
 #
 #  XDG_CONFIG_HOME points at a scratch directory, so the file this writes is
-#  never the developer's ~/.config/apex/agent.json. That the service honours
-#  XDG_CONFIG_HOME at all is one of the things being tested: apex-agent-core's
+#  never the developer's ~/.config/rime/agent.json. That the service honours
+#  XDG_CONFIG_HOME at all is one of the things being tested: rime-agent-core's
 #  paths.rs resolves it the same way, and a shell that hardcoded ~/.config
 #  would edit a file no session reads.
 #
@@ -92,7 +92,7 @@ cat > "$W/bin/pkcheck" <<'FAKE'
 printf '%s\n' "$*" >> "$PKCHECK_LOG"
 exit 1
 FAKE
-cat > "$W/bin/apex" <<'FAKE'
+cat > "$W/bin/rime" <<'FAKE'
 #!/usr/bin/env bash
 # AgentService polls this from the moment it exists. An empty list keeps the
 # test independent of whatever the developer happens to be running.
@@ -102,7 +102,7 @@ case "$*" in
 esac
 exit 0
 FAKE
-chmod +x "$W/bin/pkcheck" "$W/bin/apex"
+chmod +x "$W/bin/pkcheck" "$W/bin/rime"
 export PKCHECK_LOG="$W/pkcheck.log"
 : > "$PKCHECK_LOG"
 export PATH="$W/bin:$PATH"
@@ -110,11 +110,11 @@ export PATH="$W/bin:$PATH"
 # ── the file under test ──────────────────────────────────────────────────────
 # Five keys, four of which must survive untouched. `native: bypass` is
 # criterion 3 in one line, and `shell_layout` is the `extra` catch-all that
-# apex-agent-core's config.rs preserves on its own writes.
+# rime-agent-core's config.rs preserves on its own writes.
 export XDG_CONFIG_HOME="$W/config"
 export XDG_STATE_HOME="$W/state"
-mkdir -p "$XDG_CONFIG_HOME/apex" "$XDG_STATE_HOME"
-cat > "$XDG_CONFIG_HOME/apex/agent.json" <<'JSON'
+mkdir -p "$XDG_CONFIG_HOME/rime" "$XDG_STATE_HOME"
+cat > "$XDG_CONFIG_HOME/rime/agent.json" <<'JSON'
 {
   "default_agent": "claude",
   "native": "bypass",
@@ -163,7 +163,7 @@ done
     echo "SKIP: $comp did not come up headless"; tail -5 "$W/comp.log"; exit 0; }
 export WAYLAND_DISPLAY="$sock"
 echo "host: $comp on $WAYLAND_DISPLAY (headless, private XDG_RUNTIME_DIR)"
-echo "config: $XDG_CONFIG_HOME/apex/agent.json"
+echo "config: $XDG_CONFIG_HOME/rime/agent.json"
 
 out="$(QT_LOGGING_RULES="qml=true" timeout 90 quickshell -p "$staged" 2>&1 \
        | sed 's/\x1b\[[0-9;]*m//g')"
@@ -191,7 +191,7 @@ fi
 echo
 echo "── after the run ──"
 
-final="$XDG_CONFIG_HOME/apex/agent.json"
+final="$XDG_CONFIG_HOME/rime/agent.json"
 
 # No eval anywhere here. A verdict assembled by expanding a string is one
 # quoting mistake away from being about a different file, and the assertions
@@ -227,7 +227,7 @@ else
 fi
 logged() { grep -q -- "$1" "$PKCHECK_LOG"; }
 say "the call named the action the policy file declares" \
-    logged org.apexos.shell.agent.set-always-unrestricted
+    logged org.rimeos.shell.agent.set-always-unrestricted
 say "the call was allowed to raise a prompt" logged --allow-user-interaction
 say "the call named a subject rather than guessing one" logged --process
 

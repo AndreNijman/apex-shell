@@ -15,7 +15,7 @@ import QtQuick
 //
 //   raw    — DesktopEntry.execute() on a Terminal=true entry, called exactly the
 //            way src/services/AppLauncher.qml used to call it. This measures
-//            Quickshell, not APEX, and it is the reason the rest exists.
+//            Quickshell, not Rime, and it is the reason the rest exists.
 //   termed — the same entry through the shell's own launch path.
 //   plain  — a Terminal=false entry through the shell's own launch path, which
 //            must NOT acquire a terminal. A "fix" that wrapped everything would
@@ -33,7 +33,7 @@ ShellRoot {
     id: root
 
     property int phase: 0
-    property string routeVia: Quickshell.env("APEX_PROBE_ROUTE") || "raw"
+    property string routeVia: Quickshell.env("RIME_PROBE_ROUTE") || "raw"
 
     function report(k, v) {
         console.log("PROBE " + k + "=" + v)
@@ -61,7 +61,7 @@ ShellRoot {
     // rather than assume a fixed number of ticks is enough.
     Component.onCompleted: {
         root.report("route", root.routeVia)
-        DesktopEntries.byId("apex-probe-raw")
+        DesktopEntries.byId("rime-probe-raw")
         root.report("primed.count", DesktopEntries.applications.values.length)
         step.start()
     }
@@ -76,10 +76,10 @@ ShellRoot {
         repeat: true
         running: false
         onTriggered: {
-            const r = DesktopEntries.byId("apex-probe-raw")
-            const t = DesktopEntries.byId("apex-probe-term")
-            const p = DesktopEntries.byId("apex-probe-plain")
-            const d = DesktopEntries.byId("apex-probe-dgpu")
+            const r = DesktopEntries.byId("rime-probe-raw")
+            const t = DesktopEntries.byId("rime-probe-term")
+            const p = DesktopEntries.byId("rime-probe-plain")
+            const d = DesktopEntries.byId("rime-probe-dgpu")
 
             if (root.phase === 0) {
                 if (!r || !t || !p || !d) {

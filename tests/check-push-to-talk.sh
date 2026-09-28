@@ -17,8 +17,8 @@
 #  1. The keybind. P1-023's acceptance is "works in Hyprland, niri and
 #     Floating", and the three artefacts are generated three different ways:
 #     `_genLua()` writes Hyprland Lua, `_genKdl()` writes niri KDL, and
-#     `_applyLabwc()` hands the model to apex-os's
-#     /usr/libexec/apex-labwc-keybinds. The first two emit
+#     `_applyLabwc()` hands the model to rime-os's
+#     /usr/libexec/rime-labwc-keybinds. The first two emit
 #     `qs -p <shell> ipc call <action-id> toggle` for any entry with NO `type`
 #     field. The labwc generator is an ALLOWLIST: an action id absent from its
 #     VERBS dict and carrying no `type` is skipped, and its `exec` arm
@@ -209,8 +209,8 @@ want "_genKdl's untyped arm still spawns qs" \
 want "_genKdl's untyped arm still spawns ipc call <action> toggle" \
     grep -qF "$kdl_key" < <(keybind_code)
 
-want "_applyLabwc still hands the model to apex-labwc-keybinds" \
-    grep -qF 'apex-labwc-keybinds' < <(keybind_code)
+want "_applyLabwc still hands the model to rime-labwc-keybinds" \
+    grep -qF 'rime-labwc-keybinds' < <(keybind_code)
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  3. The IPC handler

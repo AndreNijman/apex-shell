@@ -12,7 +12,7 @@ import "search"
 import "../"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SearchService — the host of APEX Search (roadmap §15).
+// SearchService — the host of Rime Search (roadmap §15).
 //
 // This file is an ADAPTER and almost nothing else. Every decision it appears to
 // make is made in src/services/search.js:
@@ -303,8 +303,8 @@ QtObject {
         pr.slot = -1
         if (seq < 0)
             return
-        // A non-zero exit is silent, on purpose. `apex host list` does not
-        // exist on the apex this machine has installed today — the subcommand
+        // A non-zero exit is silent, on purpose. `rime host list` does not
+        // exist on the rime this machine has installed today — the subcommand
         // lands with §20 — so a device query failing is a NORMAL state, not a
         // fault, and a warning per launcher open would fill the log with a
         // message about something working as designed. The first SUCCESSFUL
@@ -404,7 +404,7 @@ QtObject {
     }
 
     // ── The package preview ───────────────────────────────────────────────────
-    // `apex resolve <name>` prints every candidate source, which APEX would
+    // `rime resolve <name>` prints every candidate source, which Rime would
     // pick and why, and the exact command for each alternative. Its own help
     // says why it is the right thing to put in a preview: "Read-only, so it
     // needs no root — 'what would this do' should never cost a password."

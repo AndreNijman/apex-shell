@@ -26,7 +26,7 @@ import "./src/services/config_tab"
 //
 // Nothing is mocked but the DEVICE LIST, which is a fixture so the assertions
 // do not depend on what is plugged into the machine running them. The
-// generator is the real /usr/libexec/apex-input-apply, the model is a real
+// generator is the real /usr/libexec/rime-input-apply, the model is a real
 // file in a sandbox HOME, and the compositor answers are the real ones for
 // whichever XDG_CURRENT_DESKTOP the harness sets — it runs this file twice,
 // once as labwc and once as niri, because the interesting refusals are niri's.
@@ -48,7 +48,7 @@ ShellRoot {
         console.log("  FAIL  " + name + (detail ? " — " + detail : ""))
     }
 
-    readonly property string want: Quickshell.env("APEX_TEST_COMPOSITOR") || ""
+    readonly property string want: Quickshell.env("RIME_TEST_COMPOSITOR") || ""
 
     property string _shOut: ""
     property var _shCb: null
@@ -338,7 +338,7 @@ ShellRoot {
                 // read-back that still agrees with the model is reading the
                 // model.
                 const target = root.want === "niri"
-                    ? Quickshell.env("HOME") + "/.config/apex-shell/ApexShellInput.kdl"
+                    ? Quickshell.env("HOME") + "/.config/rime-shell/RimeShellInput.kdl"
                     : Quickshell.env("HOME") + "/.config/labwc/rc.xml"
                 const edit = root.want === "niri"
                     ? "sed -i 's/^        drag true$/        drag false/' '" + target + "'"

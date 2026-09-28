@@ -1,5 +1,5 @@
-// Pure logic behind P1-049's Gaming settings page: reading `apex gaming --json`,
-// reading `apex mode status`, and deciding what the page is allowed to claim.
+// Pure logic behind P1-049's Gaming settings page: reading `rime gaming --json`,
+// reading `rime mode status`, and deciding what the page is allowed to claim.
 //
 // Kept out of the QML so tests/gaming-settings-test.js can exercise it under
 // Node — the same file the shell loads, not a copy of it. Nothing here spawns a
@@ -9,9 +9,9 @@
 //
 // ── THE ONE THING THIS PAGE MUST NOT DO ──────────────────────────────────────
 //
-// Promise automation the OS refuses to perform. `apex mode set --auto` is
-// documented one-shot — "APEX ships nothing that re-evaluates this on a timer",
-// and `apex workload` repeats it — so a switch labelled "optimise games
+// Promise automation the OS refuses to perform. `rime mode set --auto` is
+// documented one-shot — "Rime ships nothing that re-evaluates this on a timer",
+// and `rime workload` repeats it — so a switch labelled "optimise games
 // automatically" would describe a daemon that deliberately does not exist. The
 // honest shape is an ACTION the user presses and a readout of the mode they are
 // actually in, which is why this module exposes no "auto" boolean at all.
@@ -19,8 +19,8 @@
 // ── AND THE ONE IT MUST NOT ASSUME ───────────────────────────────────────────
 //
 // That the tools are installed. Steam, gamescope and mangoapp are on-demand
-// `apex install` packages and are absent from a fresh image; on the machine this
-// was written against, all three were missing. `apex gaming --json` already
+// `rime install` packages and are absent from a fresh image; on the machine this
+// was written against, all three were missing. `rime gaming --json` already
 // reports each one with the reason it is looking, so the page reads that rather
 // than probing PATH itself: a second opinion about what is installed is how a
 // page starts disagreeing with the session launcher that actually fails.
@@ -47,7 +47,7 @@ var TOOLS = [
     { key: "gamescope", label: "gamescope",
       why: "the small compositor the games run inside, so nothing else draws over them" },
     { key: "mangoapp",  label: "The in-game overlay",
-      why: "frames per second while you play, and the only place `apex perf` gets frame times" }
+      why: "frames per second while you play, and the only place `rime perf` gets frame times" }
 ]
 
 // The checks that are about the machine being set up rather than about a
@@ -61,7 +61,7 @@ var SETUP = [
     { key: "rtprio_limits",    label: "Permission for games to ask for priority" }
 ]
 
-// ── reading `apex gaming --json` ────────────────────────────────────────────
+// ── reading `rime gaming --json` ────────────────────────────────────────────
 //
 // Read-only on the OS side and it exits non-zero when Gaming Mode would not
 // start, so a non-zero exit is data and not a failure. The caller must not treat
@@ -75,7 +75,7 @@ function readGaming(raw) {
         installHint: "", error: ""
     }
     if (text === "") {
-        empty.error = "apex gaming printed nothing"
+        empty.error = "rime gaming printed nothing"
         return empty
     }
     var obj
@@ -86,7 +86,7 @@ function readGaming(raw) {
         return empty
     }
     if (!_isObject(obj)) {
-        empty.error = "apex gaming did not return a report"
+        empty.error = "rime gaming did not return a report"
         return empty
     }
     return {
@@ -171,7 +171,7 @@ function installLine(g) {
     if (missing.length === 0) return ""
     var names = []
     for (var i = 0; i < missing.length; i++) names.push(missing[i].key)
-    return "sudo apex install " + names.join(" ")
+    return "sudo rime install " + names.join(" ")
 }
 
 // One sentence for the top of the page. Deliberately not "ready/not ready": a
@@ -190,9 +190,9 @@ function readiness(g) {
     return "Gaming Mode is not ready yet."
 }
 
-// ── reading `apex mode status` ──────────────────────────────────────────────
+// ── reading `rime mode status` ──────────────────────────────────────────────
 //
-// Text, not JSON: `apex mode status --json` is not a thing yet, and the four
+// Text, not JSON: `rime mode status --json` is not a thing yet, and the four
 // facts it prints are the ones criterion 6 asks to be visible. So this parses a
 // report, which is the weakest link on the page and is written to fail loudly
 // rather than confidently — an unparsed field comes back "" and the page says it
@@ -203,7 +203,7 @@ function readModeStatus(raw) {
     var text = _str(raw)
     var out = { ok: false, tier: "", autoSwitch: "", gameMode: "", mode: "", error: "" }
     if (text.trim() === "") {
-        out.error = "apex mode status printed nothing"
+        out.error = "rime mode status printed nothing"
         return out
     }
     var lines = text.split("\n")
@@ -222,7 +222,7 @@ function readModeStatus(raw) {
     // "what policy am I in". Without it this is a failed read, however many of
     // the others parsed.
     if (out.mode === "") {
-        out.error = "apex mode status did not report a mode"
+        out.error = "rime mode status did not report a mode"
         return out
     }
     out.ok = true

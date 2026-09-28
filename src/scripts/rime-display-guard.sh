@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# ─── apex-display-guard ───────────────────────────────────────────────────────
-# The half of a display transaction that has to outlive APEX Shell.
+# ─── rime-display-guard ───────────────────────────────────────────────────────
+# The half of a display transaction that has to outlive Rime Shell.
 #
 # A temporary display apply is only safe because something puts the old layout
 # back when nobody confirms the new one. If that something is a QML Timer inside
@@ -41,10 +41,10 @@
 # itself dies, the guard goes with it and cannot reach a compositor to revert
 # through anyway. What survives that is the persisted layout on disk, and the
 # engine persists on every apply — measured, not assumed: one apply with no Keep
-# writes ~/.config/kanshi/config and ~/.config/hypr/apex-display.conf with the
+# writes ~/.config/kanshi/config and ~/.config/hypr/rime-display.conf with the
 # layout nobody confirmed, and kanshi reapplies its profile at the next login.
 #
-# That is now closed by one flag in apex-display-apply, which lives in apex-os:
+# That is now closed by one flag in rime-display-apply, which lives in rime-os:
 # `apply --no-persist`, so a TEMPORARY apply touches only the running compositor
 # and Keep's existing `save` is the only thing that writes. DisplayService probes
 # the installed engine for the flag before passing it, because this shell also
@@ -58,20 +58,20 @@
 # left in — P0-018 item 4.
 #
 # usage:
-#   apex-display-guard.sh spawn     <dir>            detach a guard for <dir>
-#   apex-display-guard.sh run       <dir>            the countdown itself
-#   apex-display-guard.sh verdict   <dir> <verdict>  keep | revert | cancel
-#   apex-display-guard.sh status    <dir>            "<state> <seconds-left>"
-#   apex-display-guard.sh reconcile <dir>            settle an abandoned txn
+#   rime-display-guard.sh spawn     <dir>            detach a guard for <dir>
+#   rime-display-guard.sh run       <dir>            the countdown itself
+#   rime-display-guard.sh verdict   <dir> <verdict>  keep | revert | cancel
+#   rime-display-guard.sh status    <dir>            "<state> <seconds-left>"
+#   rime-display-guard.sh reconcile <dir>            settle an abandoned txn
 # ──────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
-engine="${APEX_DISPLAY_ENGINE:-/usr/libexec/apex-display-apply}"
+engine="${RIME_DISPLAY_ENGINE:-/usr/libexec/rime-display-apply}"
 
 # Polling rather than a fifo or a signal: the shell may be gone when the verdict
 # is written (the recovery path writes it too), and a reader that has to be
 # alive to be told is the thing being replaced here.
-poll="${APEX_DISPLAY_GUARD_POLL:-0.2}"
+poll="${RIME_DISPLAY_GUARD_POLL:-0.2}"
 
 now() { printf '%s\n' "$(date +%s)"; }
 
@@ -172,9 +172,9 @@ PY
         if "$engine" apply --model "$dir/$variant" >>"$dir/guard.log" 2>&1; then
             case "$variant" in
                 rollback-present*)
-                    echo "apex-display-guard: an output in the previous layout is no longer connected; restoring the rest" >&2 ;;
+                    echo "rime-display-guard: an output in the previous layout is no longer connected; restoring the rest" >&2 ;;
                 *)
-                    echo "apex-display-guard: the recorded modes are no longer offered; restoring the layout without them" >&2 ;;
+                    echo "rime-display-guard: the recorded modes are no longer offered; restoring the layout without them" >&2 ;;
             esac
             return 0
         fi
@@ -196,7 +196,7 @@ PY
 # record saying it was put back. So a failed restore is recorded as
 # `revert-failed`, which reconcile treats as work still to do.
 settle_revert() {
-    local dir="$1" tries="${APEX_DISPLAY_GUARD_RESTORE_TRIES:-5}" n=0
+    local dir="$1" tries="${RIME_DISPLAY_GUARD_RESTORE_TRIES:-5}" n=0
     while :; do
         if restore "$dir"; then
             put "$dir" state reverted
@@ -206,7 +206,7 @@ settle_revert() {
         [ "$n" -ge "$tries" ] && break
         sleep "$poll"
     done
-    echo "apex-display-guard: could not restore the previous layout after $tries attempts" >&2
+    echo "rime-display-guard: could not restore the previous layout after $tries attempts" >&2
     put "$dir" state revert-failed
     return 1
 }
@@ -253,7 +253,7 @@ cmd_run() {
 
 cmd_spawn() {
     local dir="$1"
-    [ -d "$dir" ] || { echo "apex-display-guard: no such transaction: $dir" >&2; return 1; }
+    [ -d "$dir" ] || { echo "rime-display-guard: no such transaction: $dir" >&2; return 1; }
     # setsid, so the guard is not in the shell's process group and does not die
     # with it. `-f` also forks, so this returns immediately and the shell is not
     # holding a child for fifteen seconds.
@@ -262,7 +262,7 @@ cmd_spawn() {
     # session environment to reach a compositor at all, and a user unit starts
     # from the user manager's environment rather than this one.
     #
-    # `bash "$0"`, not `"$0"`: this file is shipped inside /usr/share/apex-shell
+    # `bash "$0"`, not `"$0"`: this file is shipped inside /usr/share/rime-shell
     # and nothing in the build asserts its mode bit. `setsid -f` returns 0
     # whether or not the child managed to exec, so a lost +x would produce no
     # guard, silently, with every test still green — and the failure would only
@@ -274,7 +274,7 @@ cmd_verdict() {
     local dir="$1" v="$2"
     case "$v" in
         keep|revert|cancel) ;;
-        *) echo "apex-display-guard: unknown verdict $v" >&2; return 2 ;;
+        *) echo "rime-display-guard: unknown verdict $v" >&2; return 2 ;;
     esac
     [ -d "$dir" ] || return 0
     put "$dir" verdict "$v"

@@ -47,7 +47,7 @@ Item {
     // switched off and the reason is shown in place of the description — the
     // honest alternative to a switch that moves and changes nothing, which is
     // what UI-003 was reported about. The reason is a sentence for a user, not
-    // an option name: see apex-input-apply's CAPABILITIES table, which is where
+    // an option name: see rime-input-apply's CAPABILITIES table, which is where
     // these strings come from rather than being written here.
     property string disabledReason: ""
     readonly property bool unavailable: disabledReason !== ""
@@ -100,7 +100,7 @@ Item {
     // has no name of its own, so it is adopted and given the ROW's label, and
     // what it actually says is replaced rather than added to. Measured on the
     // recovery page, where a reader was told "Boot the previous deployment.
-    // Run this in a terminal" and never heard `sudo apex rollback`, which is
+    // Run this in a terminal" and never heard `sudo rime rollback`, which is
     // the entire point of that row.
     //
     // Appended to the description rather than overwriting anything, and it

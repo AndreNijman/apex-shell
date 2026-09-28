@@ -43,13 +43,13 @@ path="${directory}/Screenshot_${timestamp}.png"
 
 notify() {
     command -v notify-send >/dev/null 2>&1 || return 0
-    notify-send -a "APEX Shell" -i "${2:-camera-photo}" "$1" "${3:-}" || true
+    notify-send -a "Rime Shell" -i "${2:-camera-photo}" "$1" "${3:-}" || true
 }
 
 # ── Hyprland: grimblast, frozen ──────────────────────────────────────────────
 if [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] && command -v grimblast >/dev/null 2>&1; then
     # The still and slurp's selection are layer surfaces, and Hyprland would
-    # fade both (apex_screenshot_layers_command says why, and what it costs).
+    # fade both (rime_screenshot_layers_command says why, and what it costs).
     # Sourced here rather than at the top so a copy of this script that has no
     # adapter beside it still captures, frozen, on every compositor; it loses
     # only the exemption, which is cosmetic. SC1091 is off because CI lints
@@ -57,8 +57,8 @@ if [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] && command -v grimblast >/dev/nul
     # shellcheck source=src/scripts/compositor.sh disable=SC1091
     if [[ "${target}" == area ]] \
         && . "$(dirname -- "${BASH_SOURCE[0]}")/compositor.sh" 2>/dev/null \
-        && apex_screenshot_layers_command hyprland; then
-        "${APEX_CMD[@]}" >/dev/null 2>&1 || true
+        && rime_screenshot_layers_command hyprland; then
+        "${RIME_CMD[@]}" >/dev/null 2>&1 || true
     fi
     # Keep the clipboard behavior while making the on-disk capture authoritative.
     # --freeze applies to `area` only; grimblast ignores it for the targets that

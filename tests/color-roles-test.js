@@ -30,7 +30,7 @@ const near = (c, h) => { const d = hex(h); return Math.abs(c.r - d.r) * 255 <= 1
     const table = { surfaceRaised: "#221c1a", surfaceOverlay: "#282220", surfaceHigh: "#312b28",
                     surfaceSelected: "#3b2d26", accentContainer: "#523d33", outlineStrong: "#4a4341",
                     // textSecondary .28 and textTertiary .50 (roles.js); the brief's
-                    // table has .35 → #a19895 and .55 → #776f6c. .28 since the APEX-OS
+                    // table has .35 → #a19895 and .55 → #776f6c. .28 since the Rime OS
                     // default wallpaper became the default look (roles.js says why);
                     // it was .30 → #aca29f.
                     hairline: "#2c2724", textSecondary: "#b0a6a3", textTertiary: "#827976" };
@@ -65,7 +65,7 @@ for (const p of FIX.palettes) {
     track("iconDefault", R.contrast(r.iconDefault, r.surfaceHigh), tag + " on high");
     track("onAccentContainer", R.contrast(r.onAccentContainer, r.accentContainer), tag);
     track("containerStep", R.contrast(r.accentContainer, r.surfaceBase), tag);
-    // The keyboard focus ring (ApexFocusRing, and every hand-drawn ring since
+    // The keyboard focus ring (RimeFocusRing, and every hand-drawn ring since
     // Phase 21) is accentText at 2 px, on whatever surface the control sits:
     // a focus indicator is non-text, 3:1 (WCAG 1.4.11) — measured 4.21 worst.
     for (const [s, c] of Object.entries({ base: r.surfaceBase, raised: r.surfaceRaised, overlay: r.surfaceOverlay,
@@ -95,18 +95,18 @@ for (const [k, min] of Object.entries(req)) {
     const w = worst[k];
     check(`${k}: ≥ ${min} on all ${FIX.palettes.length} palettes (worst ${w.v.toFixed(2)}, ${w.where})`, w.v >= min);
 }
-// Fourteen: the APEX-OS default wallpaper's two (the look every harness uses)
-// and the six shipped apex-shell-default-* wallpapers' twelve.
-check("fourteen palettes were checked, the APEX default's among them",
-      FIX.palettes.length === 14 && FIX.palettes.some(p => p.wall === "apex-wallpaper-default.jpg"),
+// Fourteen: the Rime OS default wallpaper's two (the look every harness uses)
+// and the six shipped rime-shell-default-* wallpapers' twelve.
+check("fourteen palettes were checked, the Rime default's among them",
+      FIX.palettes.length === 14 && FIX.palettes.some(p => p.wall === "rime-wallpaper-default.jpg"),
       String(FIX.palettes.length));
 console.log("\n  fallbacks fired: " + (fallbacks.length ? "\n    " + fallbacks.join("\n    ") : "none"));
 // The fallbacks are the rule working, not a failure: what matters is that
 // every palette meets every target AFTER them (above), and that which ones
 // fired is known. Pinned, so a palette or formula change that moves them is
 // looked at rather than absorbed.
-// 0 on the shipped palettes (the APEX default's included) since the text mixes
-// moved to .28 / .50 (.30 fired once, on the APEX light palette; it was
+// 0 on the shipped palettes (the Rime default's included) since the text mixes
+// moved to .28 / .50 (.30 fired once, on the Rime light palette; it was
 // 13 at the brief's .35 / .55, including the default dark palette itself).
 const EXPECT_FALLBACKS = 0;
 check(`the fallbacks that fire are the known ${EXPECT_FALLBACKS}`, fallbacks.reduce((n, f) => n + f.split(";").length, 0) === EXPECT_FALLBACKS,

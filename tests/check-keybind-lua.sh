@@ -5,10 +5,10 @@
 #
 # ── The bug this exists for ──────────────────────────────────────────────────
 #
-# ~/.config/hypr/apex/shell-keybinds.lua has two writers. KeybindService
-# regenerates it, whole, on every shell start. apex-hypr-migrate — the
-# hyprlang-to-Lua migration in apex-os — converts the user's old
-# ~/.config/apex-shell/ApexShellKeybinds.conf and writes the result to that same
+# ~/.config/hypr/rime/shell-keybinds.lua has two writers. KeybindService
+# regenerates it, whole, on every shell start. rime-hypr-migrate — the
+# hyprlang-to-Lua migration in rime-os — converts the user's old
+# ~/.config/rime-shell/RimeShellKeybinds.conf and writes the result to that same
 # path, because it is the only name `require` can reach the module by.
 #
 # So the migration carried a hand-edited keybind across, and the next shell
@@ -24,7 +24,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/.." && pwd)"
 
 svc="$root/src/services/config_tab/KeybindService.qml"
-rescue="$root/src/scripts/apex-keybinds-rescue.sh"
+rescue="$root/src/scripts/rime-keybinds-rescue.sh"
 
 pass=0
 fail=0
@@ -33,17 +33,17 @@ bad() { echo "  FAIL  $1"; fail=$((fail + 1)); }
 want() { if "${@:2}" >/dev/null 2>&1; then ok "$1"; else bad "$1"; fi; }
 
 [ -f "$svc" ]    || { echo "FAIL: no KeybindService.qml"; exit 1; }
-[ -f "$rescue" ] || { echo "FAIL: no apex-keybinds-rescue.sh"; exit 1; }
+[ -f "$rescue" ] || { echo "FAIL: no rime-keybinds-rescue.sh"; exit 1; }
 
 echo "── the artifact is Lua, under the only directory require can name ──"
 
-want "the Hyprland artifact is apex/shell-keybinds.lua" \
-    grep -q '/apex/shell-keybinds.lua' "$svc"
+want "the Hyprland artifact is rime/shell-keybinds.lua" \
+    grep -q '/rime/shell-keybinds.lua' "$svc"
 # In code, not in the comments explaining why it is gone.
 want "the hyprlang generator is not back" \
-    bash -c 'grep -q "ApexShellKeybinds.conf" < <(sed "s|//.*||" "$1") && exit 1; exit 0' _ "$svc"
+    bash -c 'grep -q "RimeShellKeybinds.conf" < <(sed "s|//.*||" "$1") && exit 1; exit 0' _ "$svc"
 want "the generated module carries a marker the shell can recognise" \
-    grep -q '_luaMarker: *"APEX-SHELL-GENERATED"' "$svc"
+    grep -q '_luaMarker: *"RIME-SHELL-GENERATED"' "$svc"
 want "the generated module requires the user's own binds" \
     grep -q 'pcall(require, " *+ *root._luaStr(root._userModule)' "$svc"
 # Order, not presence. A rescue that runs after the write has already lost the
@@ -57,7 +57,7 @@ else
     bad "the rescue does not run first (rescue=${wf_rescue:-none} write=${wf_write:-none})"
 fi
 
-# apex/keybindings.lua binds SUPER+T, SUPER+Q, SUPER+W, SUPER+E, SUPER+L and
+# rime/keybindings.lua binds SUPER+T, SUPER+Q, SUPER+W, SUPER+E, SUPER+L and
 # both Print keys — the same actions this generator owns. Rebinding one and
 # claiming only the NEW combo leaves the old key firing the OS default, which is
 # a rebind that did not rebind. The hyprlang generator got this right by
@@ -70,10 +70,10 @@ echo "── the rescue, run for real ──"
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT INT TERM
-apex="$work/hypr/apex"
-mkdir -p "$apex"
-target="$apex/shell-keybinds.lua"
-user="$apex/shell-keybinds-user.lua"
+rime="$work/hypr/rime"
+mkdir -p "$rime"
+target="$rime/shell-keybinds.lua"
+user="$rime/shell-keybinds-user.lua"
 
 # 1  nothing there
 rm -f "$target" "$user"
@@ -84,7 +84,7 @@ bash "$rescue" "$target" >/dev/null 2>&1
 
 # 2  a file this shell did not write — the migration's output
 cat > "$target" <<'EOF'
--- Migrated from ApexShellKeybinds.conf by apex-hypr-migrate
+-- Migrated from RimeShellKeybinds.conf by rime-hypr-migrate
 hl.bind("SUPER + G", hl.dsp.exec_cmd("gimp"))
 hl.bind("SUPER + SHIFT + M", hl.dsp.exec_cmd("my-own-script --flag"))
 EOF
@@ -107,9 +107,9 @@ grep -qi 'never regenerated\|Nothing regenerates it' "$user" 2>/dev/null \
 # 3  idempotent: the generated file, marked, is left alone
 before="$(md5sum < "$user")"
 cat > "$target" <<'EOF'
--- APEX-SHELL-GENERATED — rewritten in full every time the shell starts.
+-- RIME-SHELL-GENERATED — rewritten in full every time the shell starts.
 hl.bind("SUPER + Q", hl.dsp.window.close())
-pcall(require, "apex.shell-keybinds-user")
+pcall(require, "rime.shell-keybinds-user")
 EOF
 bash "$rescue" "$target" >/dev/null 2>&1
 after="$(md5sum < "$user")"
@@ -145,14 +145,14 @@ else
 fi
 
 # 6  never block a save
-chmod 0500 "$apex" 2>/dev/null
+chmod 0500 "$rime" 2>/dev/null
 cat > "$work/ro-target.lua" <<'EOF'
 hl.bind("SUPER + Y", hl.dsp.exec_cmd("true"))
 EOF
 mkdir -p "$work/ro"; cp "$work/ro-target.lua" "$work/ro/shell-keybinds.lua"; chmod 0500 "$work/ro"
 bash "$rescue" "$work/ro/shell-keybinds.lua" >/dev/null 2>&1
 code=$?
-chmod 0700 "$apex" "$work/ro" 2>/dev/null
+chmod 0700 "$rime" "$work/ro" 2>/dev/null
 [ "$code" -eq 0 ] \
     && ok "a rescue that cannot write still exits 0, so the save is not blocked" \
     || bad "a failed rescue blocks every keybind save (exit $code)"

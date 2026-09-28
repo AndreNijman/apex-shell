@@ -76,9 +76,9 @@ QtObject {
 
     // ── Paths ──────────────────────────────────────────────────────────────
     // The live checkout is wherever shell.qml was loaded from — never assume
-    // ~/.local/src/apex-shell, which is only the default install location.
+    // ~/.local/src/rime-shell, which is only the default install location.
     readonly property string _dir:        Quickshell.shellDir
-    readonly property string _cfgPath:    Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/update_prefs.json"
+    readonly property string _cfgPath:    Quickshell.env("HOME") + "/.config/rime-shell/src/user_data/update_prefs.json"
 
     // ── Startup: 30s delay ─────────────────────────────────────────────────
     property var _startTimer: Timer {
@@ -222,7 +222,7 @@ QtObject {
         command: ["bash", "-c",
             "D='" + root._dir + "'; STASHED=0; " +
             // Only mark STASHED when git actually created a stash entry.
-            "git -C \"$D\" stash push -m 'apex-shell-pre-update' 2>/dev/null | grep -q 'Saved working directory' && STASHED=1; " +
+            "git -C \"$D\" stash push -m 'rime-shell-pre-update' 2>/dev/null | grep -q 'Saved working directory' && STASHED=1; " +
             "if git -C \"$D\" pull origin main 2>&1; then " +
             "  if [ \"$STASHED\" = 1 ]; then " +
             "    if git -C \"$D\" stash apply 2>/dev/null; then " +
@@ -230,7 +230,7 @@ QtObject {
             "    else " +
             // Conflicting apply — discard the half-applied tree, keep the stash.
             "      git -C \"$D\" reset --hard 2>/dev/null; " +
-            "      notify-send --app-name='APEX Shell' --urgency=critical --icon=dialog-warning 'APEX Shell Updated' 'Your local changes conflicted with the update and were kept in git stash. Run: git stash pop to recover them.'; " +
+            "      notify-send --app-name='Rime Shell' --urgency=critical --icon=dialog-warning 'Rime Shell Updated' 'Your local changes conflicted with the update and were kept in git stash. Run: git stash pop to recover them.'; " +
             "      exit 10; " +
             "    fi; " +
             "  fi; " +

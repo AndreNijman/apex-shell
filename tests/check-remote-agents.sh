@@ -2,7 +2,7 @@
 # Static invariants for §20's remote agent status (P2 phase 9.3).
 #
 # ── Why this exists next to the smoke test ───────────────────────────────────
-# run-remote-agent-smoke.sh needs a Wayland session and an apex-os checkout and
+# run-remote-agent-smoke.sh needs a Wayland session and a rime-os checkout and
 # skips without either, so on a CI runner it proves nothing. Everything here is
 # grep-able and runs headless, which matters: these invariants are each one
 # careless edit away from regressing with no visible symptom. An ungated sweep
@@ -218,7 +218,7 @@ check_tree() {
                  | grep -nE 'root\._queryProc\.running = false' | cut -d: -f1 | head -1)"
     # Measured, not assumed: a binary that cannot exec emits neither exited nor
     # streamFinished, only runningChanged. Without this the first sweep would
-    # hang forever on a machine with no `apex`.
+    # hang forever on a machine with no `rime`.
     want "a binary that never starts is caught by a settle timer" \
         in_fn "$svc" 'property Timer _listSettle:' \
               'if \(root\._listPending\) root\._onRegistry\(false, ""\)'
@@ -227,14 +227,14 @@ check_tree() {
               'onRunningChanged: if \(!running\) root\._listSettle\.restart\(\)'
 
     # ── the CLI owns the ssh argv ────────────────────────────────────────────
-    # `apex host run <name> -- <argv…>` passes the remote arguments with their
+    # `rime host run <name> -- <argv…>` passes the remote arguments with their
     # boundaries intact, which plain `ssh host cmd a b` does not: ssh joins them
     # with spaces and hands the string to the remote shell. Assembling that
     # here is also where an injection would land.
-    want "the query goes through apex host run" \
-        in_fn "$svc" 'function _next\(\)' '"apex", "host", "run", name,'
+    want "the query goes through rime host run" \
+        in_fn "$svc" 'function _next\(\)' '"rime", "host", "run", name,'
     want "the remote argv is separated by --" \
-        in_fn "$svc" 'function _next\(\)' '"--", "apex", "agent", "list", "--all", "--json"'
+        in_fn "$svc" 'function _next\(\)' '"--", "rime", "agent", "list", "--all", "--json"'
     want "the service never builds a shell command line" \
         lacks "$svc" '"(ba)?sh", *"-c"'
     # The host name is passed as its own argv element and never concatenated
@@ -274,9 +274,9 @@ check_tree() {
     fi
 
     capkeys="$(obj_keys "$js" 'var CAPS_SCHEMA = {')"
-    want "the caps schema declares every HostCaps field apex host list prints" \
+    want "the caps schema declares every HostCaps field rime host list prints" \
         test "$(echo "$capkeys" | tr '\n' ' ')" = \
-             "accel agentd ai apex_version cpus free_mib gpus memory_mib os podman probed_at variant "
+             "accel agentd ai rime_version cpus free_mib gpus memory_mib os podman probed_at variant "
 
     # ── A REMOTE ROW MUST NOT ACT ────────────────────────────────────────────
     # The concrete defect this design avoids, so it gets a check and not just a
@@ -535,7 +535,7 @@ fresh_copy "$MUT/c1"
     echo '// The first draft had `running: true` on the sweep timer, and'
     echo '//     root._cooldown.restart()'
     echo '// with no refCount guard, so it polled forever. It also did'
-    echo '//     command: ["sh", "-c", "ssh " + name + " apex agent list"]'
+    echo '//     command: ["sh", "-c", "ssh " + name + " rime agent list"]'
     echo '// splicing a host name into a shell line, and read caps with'
     echo '//     out[k] = !!v'
     echo '// so a missing key came back truthy. It killed the query AFTER'

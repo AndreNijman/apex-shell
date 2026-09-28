@@ -13,8 +13,8 @@
 #
 #  ── The four things it holds ────────────────────────────────────────────────
 #
-#  1. NOTHING ON A TIMER CAN REVOKE ANYTHING. `apex permissions list --json`
-#     writes nothing. `apex permissions revoke` writes to the permission store
+#  1. NOTHING ON A TIMER CAN REVOKE ANYTHING. `rime permissions list --json`
+#     writes nothing. `rime permissions revoke` writes to the permission store
 #     or to an override file. A timer that reached the second would be a shell
 #     that silently changed a machine's permissions while nobody was looking,
 #     which is a worse defect than the one this page exists to fix.
@@ -28,7 +28,7 @@
 #     cannot be revoked. `controlsFor` returns an empty list for such a row and
 #     `revokeArgv` returns null even when called directly.
 #
-#  4. THE POLLER STOPS. PermissionsService costs one `apex permissions list`
+#  4. THE POLLER STOPS. PermissionsService costs one `rime permissions list`
 #     per sweep, and that costs a `flatpak info` per installed application. The
 #     page declares `onScreen`, PageRegistry marks it `needsScreen: true`, and
 #     the timer runs on `refCount > 0`.
@@ -105,7 +105,7 @@ check_tree() {
 
     # ── 1. nothing on a timer can revoke ─────────────────────────────────────
     want "the polled command is the read-only one" \
-        has "$svc" 'command = \["apex", "permissions", "list", "--json"\]'
+        has "$svc" 'command = \["rime", "permissions", "list", "--json"\]'
     want "_beginSweep exists" fn_exists "$svc" 'function _beginSweep'
     want "the sweep cannot reach revoke" \
         not_in_fn "$svc" 'function _beginSweep' 'revoke'
@@ -178,7 +178,7 @@ real_pass=$pass
 real_fail=$fail
 
 # ── self-test ────────────────────────────────────────────────────────────────
-MUT=$(mktemp -d /tmp/apex-privacy-mut.XXXXXX) || exit 2
+MUT=$(mktemp -d /tmp/rime-privacy-mut.XXXXXX) || exit 2
 trap 'rm -rf "$MUT"' EXIT
 
 selfpass=0
@@ -270,7 +270,7 @@ copy c1
     echo '// An earlier draft ran the revoke from the sweep timer:'
     echo '//     onTriggered: root.revoke(row, "deny")'
     echo '// and polled it through pkexec:'
-    echo '//     command = ["pkexec", "apex", "permissions", "revoke", app, cap]'
+    echo '//     command = ["pkexec", "rime", "permissions", "revoke", app, cap]'
     echo '// and left running: true on the tick. None of that is here now.'
 } >> "$MUT/c1/src/services/PermissionsService.qml"
 {

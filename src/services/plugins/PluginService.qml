@@ -6,7 +6,7 @@ import "manifest.js" as Manifest
 import "../../"
 
 // ─── PluginService ────────────────────────────────────────────────────────────
-// The APEX Shell plugin platform. Roadmap §16: "Stable extension APIs …
+// The Rime Shell plugin platform. Roadmap §16: "Stable extension APIs …
 // Plugin permissions for filesystem, network, location, system controls and
 // secrets. Crash isolation where practical. Versioned API and compatibility
 // policy."
@@ -52,8 +52,8 @@ import "../../"
 // whole value of this file is that a reader can tell what it does not do.
 //
 // ── Layout on disk ───────────────────────────────────────────────────────────
-//   ~/.config/apex-shell/plugins/<id>/plugin.json
-//   ~/.config/apex-shell/plugins/<id>/<Entry>.qml
+//   ~/.config/rime-shell/plugins/<id>/plugin.json
+//   ~/.config/rime-shell/plugins/<id>/<Entry>.qml
 //
 // One .qml per plugin, and the directory name must equal the manifest id. Both
 // are enforced, and the second is why the enumeration below checks the id
@@ -80,7 +80,7 @@ Singleton {
     // reason: a suite that runs against the live session is a suite that can
     // damage the live session, and this repo has already done that once.
     property string pluginDir:
-        Quickshell.env("HOME") + "/.config/apex-shell/plugins"
+        Quickshell.env("HOME") + "/.config/rime-shell/plugins"
 
     // ── Discovery ─────────────────────────────────────────────────────────────
     // [{ id, qmlCount, symlinks, qmlName }] straight off the filesystem, before

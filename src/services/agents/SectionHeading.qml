@@ -43,12 +43,12 @@ Item {
         color: heading.accent ? heading.tone : Theme.textSecondary
     }
 
-    // ApexPressable (UI/UX roadmap v3 Phase 21): was a Text with a
+    // RimePressable (UI/UX roadmap v3 Phase 21): was a Text with a
     // HoverHandler/TapHandler pair and no keyboard path. Only a Tab stop when
     // there is an action at all — every heading with no `actionText` is
     // unchanged. No background of its own, so the row still reads as a plain
     // underlined label at rest and on hover; the ring is the only new mark.
-    ApexPressable {
+    RimePressable {
         id: actionBtn
         visible: heading.actionText !== ""
         anchors.right: parent.right
@@ -70,6 +70,6 @@ Item {
             font.underline: actionBtn.hovered
         }
 
-        ApexFocusRing { target: actionBtn }
+        RimeFocusRing { target: actionBtn }
     }
 }

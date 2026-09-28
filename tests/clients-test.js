@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The window list behind APEX Search's window rows, tested against the file the
+// The window list behind Rime Search's window rows, tested against the file the
 // shell actually loads (src/services/compositor/clients.js), not a copy of it.
 //
 //   node tests/clients-test.js
@@ -65,7 +65,7 @@ is("a non-JSON error line is not an answer", C.readClients("Couldn't connect"), 
 
 // 4. Shapes that parse but are not a client list. `hyprctl activewindow -j`
 //    answers with an OBJECT and `clients` with an ARRAY; reading one off the
-//    other is the shape trap HostsProvider records for `apex host list --json`.
+//    other is the shape trap HostsProvider records for `rime host list --json`.
 is("a JSON object is not a client list",     C.readClients("{}"),                     null);
 is("JSON null is not a client list",         C.readClients("null"),                   null);
 is("a bare number is not a client list",     C.readClients("3"),                      null);

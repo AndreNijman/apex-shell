@@ -7,8 +7,8 @@
 //    stay running, also staying with the vpn — like if i close my laptop at
 //    school and codex is running (which needs vpn to work) it keeps working."
 //
-// Everything here is data → data. It reads `apex lid status --json` and
-// `apex lid report --json` and turns them into something a page can render
+// Everything here is data → data. It reads `rime lid status --json` and
+// `rime lid report --json` and turns them into something a page can render
 // without holding any of the reasoning itself, so tests/lid-test.js can drive
 // THIS file — the one the shell loads — under node.
 //
@@ -47,9 +47,9 @@
 //
 // ── THE THIRD: `policy_error` IS A NOTE, NOT A FAILURE ──────────────────────
 //
-// `apex lid status --json` run by an ordinary user on a machine where root has
+// `rime lid status --json` run by an ordinary user on a machine where root has
 // a live `/run/user/0` ALWAYS carries
-// `policy_error: "/root/.config/apex/lid.toml: Permission denied"`. The OS
+// `policy_error: "/root/.config/rime/lid.toml: Permission denied"`. The OS
 // side reports every candidate policy file it could not read, deliberately and
 // correctly — "permission denied is not absence", and a silently skipped pin
 // is a machine doing the opposite of what its owner asked.
@@ -104,7 +104,7 @@ function emptyLogind() {
     return {
         // `null` is a THIRD answer here and is not `false`. logind consults
         // HandleLidSwitchDocked (default `ignore`) BEFORE any inhibitor, so on
-        // a docked machine the lid does nothing with or without APEX — and
+        // a docked machine the lid does nothing with or without Rime — and
         // "could not be established" is not "it will act".
         actsOnLid: null,
         actsKnown: false,
@@ -211,22 +211,22 @@ function readJson(text, exitCode, what) {
         return {
             doc: null,
             reason: exitCode === 127
-                ? "apex is not on PATH, so the lid policy could not be read"
-                : "`apex lid " + what + "` produced no output, so nothing could be read"
+                ? "rime is not on PATH, so the lid policy could not be read"
+                : "`rime lid " + what + "` produced no output, so nothing could be read"
         };
     }
     var doc;
     try {
         doc = JSON.parse(text);
     } catch (e) {
-        return { doc: null, reason: "`apex lid " + what + "` produced output this could not read" };
+        return { doc: null, reason: "`rime lid " + what + "` produced output this could not read" };
     }
     // `Array.isArray` as well as `typeof`, because a JSON array IS `typeof
     // "object"` and would otherwise be accepted as a status document: every
     // field would read as missing, every default would apply, and the page
     // would render a calm, fully-populated machine out of `[1,2,3]`.
     if (!doc || typeof doc !== "object" || Array.isArray(doc)) {
-        return { doc: null, reason: "`apex lid " + what + "` produced no object" };
+        return { doc: null, reason: "`rime lid " + what + "` produced no object" };
     }
     return { doc: doc, reason: "" };
 }
@@ -395,7 +395,7 @@ function decisionView(raw) {
 /// **the L16 is docked**, `Docked=true` with `card1-DP-1 connected`, and logind
 /// consults `HandleLidSwitchDocked` — default `ignore` — BEFORE it consults any
 /// inhibitor. So on this machine the lid already does nothing, with or without
-/// APEX holding the lock, and a page that said "keeps working" without saying
+/// Rime holding the lock, and a page that said "keeps working" without saying
 /// that would be claiming credit for somebody else's behaviour.
 function logindView(raw) {
     var out = emptyLogind();
@@ -426,13 +426,13 @@ function logindView(raw) {
           + " external display" + (out.externalDisplays === 1 ? "" : "s") + " connected"
         : "logind will not act on the lid — it reports this machine as docked";
     out.detail = "HandleLidSwitchDocked (default `ignore`) is consulted before any "
-        + "inhibitor, so this machine already stays awake with the lid shut and APEX "
-        + "is not what is doing it. Unplug the display and this becomes APEX's job again."
+        + "inhibitor, so this machine already stays awake with the lid shut and Rime "
+        + "is not what is doing it. Unplug the display and this becomes Rime's job again."
         + (out.lidBlocked ? " The lid inhibitor is held as well." : "");
     return out;
 }
 
-// ── `apex lid status --json` ────────────────────────────────────────────────
+// ── `rime lid status --json` ────────────────────────────────────────────────
 
 function statusView(text, exitCode) {
     var out = emptyStatus();
@@ -465,7 +465,7 @@ function statusView(text, exitCode) {
     return out;
 }
 
-// ── `apex lid report --json` ────────────────────────────────────────────────
+// ── `rime lid report --json` ────────────────────────────────────────────────
 //
 // Andre's sixth sentence: "after reopening, the machine says what happened —
 // how long it stayed up, what ran, whether the VPN held, what the battery cost
@@ -575,14 +575,14 @@ var PINS = ["auto", "on", "off"];
 
 /// The argv for a pin change, or null for anything that is not one of the three.
 ///
-/// `apex lid pin` writes `~/.config/apex/lid.toml` and needs no privilege by
+/// `rime lid pin` writes `~/.config/rime/lid.toml` and needs no privilege by
 /// design — the inhibitor itself is `allow_active=yes` for an ordinary session,
 /// so the only thing a root-owned pin would buy is a password prompt every time
 /// this tile is tapped. A polkit prompt appearing anywhere on this surface is a
 /// defect, not an inconvenience.
 function pinArgv(state) {
     if (PINS.indexOf(state) < 0) return null;
-    return ["apex", "lid", "pin", state];
+    return ["rime", "lid", "pin", state];
 }
 
 /// What a TAP on the Quick Settings tile means.
@@ -620,10 +620,10 @@ function tileView(status) {
     //
     // `guard-suspend` is not a lid decision that logind mediates: the driver
     // releases the inhibitor and calls `systemctl suspend` ITSELF
-    // (apexd/apex/src/lid.rs, the guard arm of the watch loop). So it fires on
+    // (rimed/rime/src/lid.rs, the guard arm of the watch loop). So it fires on
     // a docked machine exactly as it fires on an undocked one, and on a
     // machine whose lid handling could not be established at all. Saying
-    // "docked — logind ignores the lid" to an owner whose laptop APEX is about
+    // "docked — logind ignores the lid" to an owner whose laptop Rime is about
     // to suspend would be true about logind and a lie about the machine.
     if (s.decision.id === "guard-suspend") {
         out.sublabel = s.decision.guardLabel || "a guard is suspending";
@@ -658,13 +658,13 @@ function tileView(status) {
 /// The one-line answer to "will my laptop keep working if I shut it now?"
 ///
 /// Three answers, never two. "Could not be established" is not "yes", and the
-/// docked case is neither — the machine stays awake and APEX is not the reason.
+/// docked case is neither — the machine stays awake and Rime is not the reason.
 function headline(status) {
     var s = status && typeof status === "object" ? status : emptyStatus();
     if (!s.ok) return "The lid policy could not be read";
     if (!s.enabled) return "Lid handling is switched off in the policy file";
     // Same order, and for the same reason, as `tileView`: a guard suspend is
-    // APEX calling `systemctl suspend` on its own, not logind acting on a lid,
+    // Rime calling `systemctl suspend` on its own, not logind acting on a lid,
     // so neither the docked frame nor the could-not-be-established frame may
     // stand in front of it.
     if (s.decision.id === "guard-suspend") {
@@ -672,7 +672,7 @@ function headline(status) {
             + (s.decision.guardLabel ? " — " + s.decision.guardLabel : "");
     }
     if (s.logind.actsKnown && !s.logind.actsOnLid) {
-        return "This machine already ignores the lid, and APEX is not why";
+        return "This machine already ignores the lid, and Rime is not why";
     }
     if (!s.logind.actsKnown) return "Whether this machine acts on the lid could not be established";
     if (s.decision.id === "keep-working") return "Shutting the lid now keeps the work running";

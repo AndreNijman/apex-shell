@@ -53,20 +53,20 @@ import "../components"
 //  has no release binding at all, and 26.04 ships its own recent-windows
 //  switcher. Both sessions therefore keep the switcher they already have, which
 //  in both cases is a real hold-and-release one. See docs/window-switcher.md in
-//  apex-os. This service stays compositor-agnostic regardless — it reads a
+//  rime-os. This service stays compositor-agnostic regardless — it reads a
 //  protocol every wlroots-family compositor implements — so binding it in a
 //  second session is a config change and nothing more.
 //
 //  ── The flag file, and the single tap ───────────────────────────────────────
 //
 //  The release keybind fires on EVERY ALT release, all day. So the keybinds do
-//  not call the shell; they call /usr/libexec/apex-switcher, which tests for a
+//  not call the shell; they call /usr/libexec/rime-switcher, which tests for a
 //  flag file first and exits without contacting anything when the switcher is
 //  closed. That is what keeps a global key release cheap.
 //
 //  The HELPER writes that flag on `next`, not this service. A quick ALT+Tab
 //  lets go of ALT about 60ms after Tab goes down, and a write at the end of
-//  spawn -> apex -> qs ipc -> Process takes longer than that: the release would
+//  spawn -> rime -> qs ipc -> Process takes longer than that: the release would
 //  find no flag, exit, and drop the commit, leaving the switcher open on entry
 //  two so the NEXT switch committed the wrong window. This service still
 //  writes the flag — on open, and removes it on close — because the helper's
@@ -347,8 +347,8 @@ Singleton {
     // ── A commit that arrived before the open it belongs to ──────────────────
     //
     // ALT+Tab and the ALT release are two INDEPENDENT short-lived processes —
-    // the compositor spawns /usr/libexec/apex-switcher for each — and each one
-    // is a spawn, an `apex`, and a `qs ipc call`. On a fast tap they are maybe
+    // the compositor spawns /usr/libexec/rime-switcher for each — and each one
+    // is a spawn, an `rime`, and a `qs ipc call`. On a fast tap they are maybe
     // 60ms apart at the keyboard and 50-100ms long, so the commit can reach
     // this service before the `next` it belongs to. The switcher then opens
     // AFTER its own commit and sits there, and the user's next switch commits
@@ -359,7 +359,7 @@ Singleton {
     // opens within the window below commits immediately — a fast tap behaves
     // like a fast tap.
     //
-    // This cannot be armed by a stray ALT release. /usr/libexec/apex-switcher
+    // This cannot be armed by a stray ALT release. /usr/libexec/rime-switcher
     // only forwards a commit when the flag file exists, and only `next` and
     // `prev` create it — so a commit reaching this function at all means a step
     // really did happen.
@@ -389,13 +389,13 @@ Singleton {
         root._writeFlag(false)
     }
 
-    // ── The flag /usr/libexec/apex-switcher tests ────────────────────────────
+    // ── The flag /usr/libexec/rime-switcher tests ────────────────────────────
 
     readonly property string flagDir: {
-        const override = Quickshell.env("APEX_SWITCHER_RUNTIME_DIR") || ""
+        const override = Quickshell.env("RIME_SWITCHER_RUNTIME_DIR") || ""
         if (override !== "") return override
         const rt = Quickshell.env("XDG_RUNTIME_DIR") || "/tmp"
-        return rt + "/apex-shell"
+        return rt + "/rime-shell"
     }
     readonly property string flagPath: root.flagDir + "/switcher-open"
 

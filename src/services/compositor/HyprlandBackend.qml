@@ -86,7 +86,7 @@ QtObject {
         windowMove:           true,
         windowClose:          true,
         // Hyprland has no built-in overview dispatch — hyprexpo is a plugin and
-        // APEX does not ship it. Declared false rather than dispatching into a
+        // Rime does not ship it. Declared false rather than dispatching into a
         // plugin that is probably not loaded.
         overview:             false,
         accentBorder:         true,
@@ -131,7 +131,7 @@ QtObject {
     //
     // The one that makes this severe rather than untidy is the submap. If a
     // concurrent border retint or layout change kills `hyprctl dispatch submap
-    // reset`, Hyprland stays in ApexShell_clean and EVERY KEY falls through to
+    // reset`, Hyprland stays in RimeShell_clean and EVERY KEY falls through to
     // the shell until Hyprland is restarted. A wallpaper apply landing while
     // focus mode is mid-write is the mundane version: gaps half-applied.
     property Process _keywordProc: Process { command: []; running: false }
@@ -349,7 +349,7 @@ QtObject {
     // ── Motion (UI/UX roadmap v3 Phase 21) ────────────────────────────────────
     // The shell's speed and Reduce Motion, applied to Hyprland's animations. The
     // numbers are Hyprland's own (hyprMotion.js reads them back and scales
-    // them), so apex-os appearance.lua stays the one place they are written.
+    // them), so rime-os appearance.lua stays the one place they are written.
     //
     // A shell restart finds its own previous push in Hyprland and must not
     // scale it again: what was pushed, and from what base, is kept per Hyprland
@@ -383,7 +383,7 @@ QtObject {
     // with the frame's inner fillet across the band between them (Andre,
     // 2026-09-27: "is the hyprland window corner radii consistent with the
     // actual corner frame fillets … make it exactly"): Geo.windowRounding.
-    // apex-os appearance.lua's rounding was a free number (10), so a window's
+    // rime-os appearance.lua's rounding was a free number (10), so a window's
     // corner ran a pixel inside the fillet's curve, and changing the shell's
     // corner radius moved the frame and not the windows. Read gaps_out and
     // border_size live (either can change under it), then write the rounding
@@ -415,8 +415,8 @@ QtObject {
         if (nums.length < 2) return            // unreadable: leave Hyprland's own
         const t = root._cornersTheme
         const r = Geo.windowRounding(t.cornerRadius, t.borderWidth, nums[0], nums[1])
-        if (Quickshell.env("APEX_PACING_LOG") === "1")
-            console.info("APEX window corners: gaps_out=" + nums[0] + " border=" + nums[1] + " -> rounding " + r)
+        if (Quickshell.env("RIME_PACING_LOG") === "1")
+            console.info("Rime window corners: gaps_out=" + nums[0] + " border=" + nums[1] + " -> rounding " + r)
         root._start(root._cornersWriteProc, root._lua
             ? ["hyprctl", "eval", "hl.config({ decoration = { rounding = " + r + " } })"]
             : ["hyprctl", "keyword", "decoration:rounding", String(r)])
@@ -454,7 +454,7 @@ QtObject {
     // keeps fading after it has stopped. On Andre's L16 today the tree is stock
     // (`hyprctl -j animations`: fade 4 ds `ease`), so every open looked like it.
     //
-    // apex-os carries the same rule in appearance.lua (feat/hypr-motion) for
+    // rime-os carries the same rule in appearance.lua (feat/hypr-motion) for
     // the next image; the shell declares it too, at start and after every
     // config reload (which drops runtime rules), so it holds on any Hyprland
     // the shell runs under, whatever that config is. Named, so a user can find
@@ -462,20 +462,20 @@ QtObject {
     // name and no_anim = false turns it off). Lua configs only: a hyprlang
     // `keyword layerrule` is the pre-0.55 path this shell no longer ships.
     readonly property string _layerRulesLua:
-        'hl.layer_rule({ name = "apex-shell-self-animated", match = { namespace = "^quickshell$" }, no_anim = true })'
+        'hl.layer_rule({ name = "rime-shell-self-animated", match = { namespace = "^quickshell$" }, no_anim = true })'
     function _pushLayerRules() {
-        if (Quickshell.env("APEX_PACING_LOG") === "1") console.info("APEX layer rules: push, lua=" + root._lua)
+        if (Quickshell.env("RIME_PACING_LOG") === "1") console.info("Rime layer rules: push, lua=" + root._lua)
         if (root._lua) root._start(root._layerRulesProc, ["hyprctl", "eval", root._layerRulesLua])
     }
     property Process _layerRulesProc: Process {
-        stdout: StdioCollector { onStreamFinished: if (Quickshell.env("APEX_PACING_LOG") === "1") console.info("APEX layer rules: " + String(this.text).trim()) }
-        stderr: StdioCollector { onStreamFinished: if (String(this.text).trim() !== "") console.warn("APEX layer rules: " + String(this.text).trim()) }
+        stdout: StdioCollector { onStreamFinished: if (Quickshell.env("RIME_PACING_LOG") === "1") console.info("Rime layer rules: " + String(this.text).trim()) }
+        stderr: StdioCollector { onStreamFinished: if (String(this.text).trim() !== "") console.warn("Rime layer rules: " + String(this.text).trim()) }
     }
 
     function _motionReread() {
         root._mBase = null
         if (root._mWanted && root._lua) root._start(root._motionReadProc, ["bash", "-c",
-            'hyprctl -j animations; printf "\\n\\x1e\\n"; cat "${XDG_RUNTIME_DIR:-/tmp}/apex-shell/hypr-motion.json" 2>/dev/null'])
+            'hyprctl -j animations; printf "\\n\\x1e\\n"; cat "${XDG_RUNTIME_DIR:-/tmp}/rime-shell/hypr-motion.json" 2>/dev/null'])
     }
 
     function _motionRead(text) {
@@ -496,7 +496,7 @@ QtObject {
         // The eval and the record in one shell, argv-positional like every other
         // write in the shell: the Lua and the JSON are data, never script.
         root._start(root._motionPushProc, ["bash", "-c",
-            'hyprctl eval "$1" >/dev/null && d="${XDG_RUNTIME_DIR:-/tmp}/apex-shell" && mkdir -p "$d" && printf "%s" "$2" > "$d/hypr-motion.json"',
+            'hyprctl eval "$1" >/dev/null && d="${XDG_RUNTIME_DIR:-/tmp}/rime-shell" && mkdir -p "$d" && printf "%s" "$2" > "$d/hypr-motion.json"',
             "--", lua, state])
     }
 
@@ -678,7 +678,7 @@ QtObject {
     // ── Screen shader ─────────────────────────────────────────────────────────
     // `decoration:screen_shader` is a fullscreen fragment shader Hyprland runs
     // over the composited output — the Filter tile's night-vision, protanopia
-    // and so on. Nothing else APEX ships has an equivalent: niri and labwc have
+    // and so on. Nothing else Rime ships has an equivalent: niri and labwc have
     // no shader hook at all, which is why this is a capability rather than
     // something every backend pretends to.
     //
@@ -784,7 +784,7 @@ QtObject {
     // through to the focused surface. That surface is the shell while it is
     // capturing a keybind.
     function setKeyboardInterception(on) {
-        const target = on ? "ApexShell_clean" : "reset"
+        const target = on ? "RimeShell_clean" : "reset"
         root._start(root._submapProc, root._lua
             ? ["hyprctl", "dispatch", `hl.dsp.submap('${target}')`]
             : ["hyprctl", "dispatch", "submap", target])

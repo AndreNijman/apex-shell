@@ -51,7 +51,7 @@
 // and only an unparseable read is refused. The shapes differ because the two
 // hyprctl subcommands answer with different shapes, and reading one off the
 // other is how a reflex `Array.isArray` check lands in the wrong place — see
-// HostsProvider's own "shape trap" note about `apex host list --json`.
+// HostsProvider's own "shape trap" note about `rime host list --json`.
 
 // readClients(text) → an array of adapter window records, or null for "no
 // answer". Never throws: this runs on a render path and the failure mode has to

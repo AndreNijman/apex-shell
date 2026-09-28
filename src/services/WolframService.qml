@@ -20,7 +20,7 @@ QtObject {
     id: root
 
     readonly property string _cfgPath:
-        Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/wolfram.json"
+        Quickshell.env("HOME") + "/.config/rime-shell/src/user_data/wolfram.json"
 
     // ── Credentials ───────────────────────────────────────────────────────────
     property string appId: ""

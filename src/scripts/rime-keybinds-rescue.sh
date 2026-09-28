@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# ─── apex-keybinds-rescue ─────────────────────────────────────────────────────
+# ─── rime-keybinds-rescue ─────────────────────────────────────────────────────
 # Get out of the way of a keybind file this shell did not write.
 #
 # ── The collision ────────────────────────────────────────────────────────────
 #
-# KeybindService generates ~/.config/hypr/apex/shell-keybinds.lua and rewrites
+# KeybindService generates ~/.config/hypr/rime/shell-keybinds.lua and rewrites
 # it, whole, every time the shell starts. That is fine for a file only the
 # generator ever writes.
 #
-# It is not the only writer. apex-hypr-migrate — the hyprlang-to-Lua migration
-# in apex-os — converts the user's old ~/.config/apex-shell/ApexShellKeybinds.conf
+# It is not the only writer. rime-hypr-migrate — the hyprlang-to-Lua migration
+# in rime-os — converts the user's old ~/.config/rime-shell/RimeShellKeybinds.conf
 # and writes the result to that exact path, because that is where the Lua module
 # of the same name has to live. The migration goes to real trouble to carry a
 # hand-edited keybind across; the next shell start then overwrote the lot,
@@ -18,8 +18,8 @@
 #
 # ── What this does about it ──────────────────────────────────────────────────
 #
-# Before the generator writes, anything at that path with no APEX-SHELL-GENERATED
-# marker in it is moved to apex/shell-keybinds-user.lua — a file the generator
+# Before the generator writes, anything at that path with no RIME-SHELL-GENERATED
+# marker in it is moved to rime/shell-keybinds-user.lua — a file the generator
 # never touches — and the generated module requires that at the end. So the
 # binds keep working, in a file that is now the user's, and the console says
 # where they went. Running twice changes nothing: the second run finds the
@@ -29,11 +29,11 @@
 # than one that applies with an untidy backup beside it, so every failure here
 # is reported and exits 0.
 #
-# usage: apex-keybinds-rescue.sh <generated-lua-path> [marker]
+# usage: rime-keybinds-rescue.sh <generated-lua-path> [marker]
 set -uo pipefail
 
 target="${1:-}"
-marker="${2:-APEX-SHELL-GENERATED}"
+marker="${2:-RIME-SHELL-GENERATED}"
 
 [ -n "$target" ] || { echo "usage: $0 <generated-lua-path> [marker]" >&2; exit 0; }
 [ -e "$target" ] || exit 0
@@ -53,31 +53,31 @@ if [ -e "$user" ]; then
     {
         printf '\n-- ── carried over %s ─────────────────────────────────────\n' "$when"
         cat "$target"
-    } >> "$user" || { echo "apex-keybinds-rescue: could not append to $user" >&2; exit 0; }
+    } >> "$user" || { echo "rime-keybinds-rescue: could not append to $user" >&2; exit 0; }
 else
     {
         cat <<'HEAD'
 -- ==============================================================================
 -- Your own Hyprland keybinds
 -- ==============================================================================
--- APEX Shell found keybinds at apex/shell-keybinds.lua that it had not written
--- — hand-edited, or carried across by apex-hypr-migrate from the hyprlang
--- ApexShellKeybinds.conf — and moved them here before regenerating that file.
+-- Rime Shell found keybinds at rime/shell-keybinds.lua that it had not written
+-- — hand-edited, or carried across by rime-hypr-migrate from the hyprlang
+-- RimeShellKeybinds.conf — and moved them here before regenerating that file.
 --
--- This file is YOURS. Nothing regenerates it. apex/shell-keybinds.lua requires
+-- This file is YOURS. Nothing regenerates it. rime/shell-keybinds.lua requires
 -- it last, so a combo bound in both places runs this one too.
 --
 -- Hyprland fires BOTH actions for a combo that is bound twice. If a key here
--- also has an APEX default, switch the default off first:
+-- also has a Rime default, switch the default off first:
 --
---     local defaults = require("apex.keybindings")
+--     local defaults = require("rime.keybindings")
 --     defaults.disable("SUPER", "Q")
 -- ==============================================================================
 
 HEAD
         cat "$target"
-    } > "$user" || { echo "apex-keybinds-rescue: could not write $user" >&2; exit 0; }
+    } > "$user" || { echo "rime-keybinds-rescue: could not write $user" >&2; exit 0; }
 fi
 
-echo "apex-keybinds-rescue: $target was not written by this shell; your keybinds are now in $user and are still loaded" >&2
+echo "rime-keybinds-rescue: $target was not written by this shell; your keybinds are now in $user and are still loaded" >&2
 exit 0

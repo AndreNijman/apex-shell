@@ -880,7 +880,7 @@ Item {
 						// "Microphone indicator visible" and "target session explicit" are two of
 						// P1-023's three acceptance criteria, and they are one widget: the text is
 						// PushToTalkService.indicatorLabel, which the reducer builds as
-						// "Listening → claude · apex-shell". The destination is named in the same
+						// "Listening → claude · rime-shell". The destination is named in the same
 						// breath as the fact that the microphone is open, because an indicator that
 						// says "recording" without saying where is the half that matters least.
 						//

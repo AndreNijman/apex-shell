@@ -1,5 +1,5 @@
 // ─── geometry.js ─────────────────────────────────────────────────────────────
-// APEX's fluid surface geometry, as pure functions of named parameters.
+// Rime's fluid surface geometry, as pure functions of named parameters.
 //
 // A surface's silhouette is never tweened as a path. Each family below takes a
 // progress value (0 = the bar's own notch, 1 = the finished surface) and the
