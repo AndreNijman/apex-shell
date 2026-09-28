@@ -276,7 +276,7 @@ check_tree() {
     capkeys="$(obj_keys "$js" 'var CAPS_SCHEMA = {')"
     want "the caps schema declares every HostCaps field rime host list prints" \
         test "$(echo "$capkeys" | tr '\n' ' ')" = \
-             "accel agentd ai rime_version cpus free_mib gpus memory_mib os podman probed_at variant "
+             "accel agentd ai cpus free_mib gpus memory_mib os podman probed_at rime_version variant "
 
     # ── A REMOTE ROW MUST NOT ACT ────────────────────────────────────────────
     # The concrete defect this design avoids, so it gets a check and not just a
