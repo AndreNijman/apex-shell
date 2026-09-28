@@ -53,7 +53,9 @@ QtObject {
     // environment makes every SurfaceLifecycle log the frames it delivered while
     // opening and closing. Read once; off, it costs nothing — no FrameAnimation
     // runs. tests/visual/frame-pacing.sh reads the lines.
-    readonly property bool pacingLog: Quickshell.env("RIME_PACING_LOG") === "1"
+    // APEX_PACING_LOG is the name it had before the rename, and the one a
+    // developer's own launcher unit may still set.
+    readonly property bool pacingLog: (Quickshell.env("RIME_PACING_LOG") || Quickshell.env("APEX_PACING_LOG")) === "1"  // rime-rename: keep (the variable's pre-rename name)
 
     /// The combined speed multiplier every token is scaled by.
     readonly property real scale: M.speedScale(SettingsService.motionSpeed,

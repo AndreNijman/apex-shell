@@ -33,6 +33,10 @@ import "../../shapes/fluid/geometry.js" as Geo
 QtObject {
     id: root
 
+    // Frame-pacing logs, as theme/Motion.qml reads them; APEX_PACING_LOG is the
+    // variable's name before the rename, which a developer's own unit may set.
+    readonly property bool _pacingLog: (Quickshell.env("RIME_PACING_LOG") || Quickshell.env("APEX_PACING_LOG")) === "1"  // rime-rename: keep (the variable's pre-rename name)
+
     readonly property bool ready: true
 
     readonly property string displayName: "Hyprland"
@@ -415,7 +419,7 @@ QtObject {
         if (nums.length < 2) return            // unreadable: leave Hyprland's own
         const t = root._cornersTheme
         const r = Geo.windowRounding(t.cornerRadius, t.borderWidth, nums[0], nums[1])
-        if (Quickshell.env("RIME_PACING_LOG") === "1")
+        if (root._pacingLog)
             console.info("Rime window corners: gaps_out=" + nums[0] + " border=" + nums[1] + " -> rounding " + r)
         root._start(root._cornersWriteProc, root._lua
             ? ["hyprctl", "eval", "hl.config({ decoration = { rounding = " + r + " } })"]
@@ -464,11 +468,11 @@ QtObject {
     readonly property string _layerRulesLua:
         'hl.layer_rule({ name = "rime-shell-self-animated", match = { namespace = "^quickshell$" }, no_anim = true })'
     function _pushLayerRules() {
-        if (Quickshell.env("RIME_PACING_LOG") === "1") console.info("Rime layer rules: push, lua=" + root._lua)
+        if (root._pacingLog) console.info("Rime layer rules: push, lua=" + root._lua)
         if (root._lua) root._start(root._layerRulesProc, ["hyprctl", "eval", root._layerRulesLua])
     }
     property Process _layerRulesProc: Process {
-        stdout: StdioCollector { onStreamFinished: if (Quickshell.env("RIME_PACING_LOG") === "1") console.info("Rime layer rules: " + String(this.text).trim()) }
+        stdout: StdioCollector { onStreamFinished: if (root._pacingLog) console.info("Rime layer rules: " + String(this.text).trim()) }
         stderr: StdioCollector { onStreamFinished: if (String(this.text).trim() !== "") console.warn("Rime layer rules: " + String(this.text).trim()) }
     }
 

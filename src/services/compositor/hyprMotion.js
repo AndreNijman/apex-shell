@@ -50,7 +50,11 @@ var NAME_RE  = /^[A-Za-z][A-Za-z0-9_]*$/;
 var STYLE_RE = /^[a-z]+( [a-z]+| -?[0-9.]+%?)*$/;
 
 var SPRING_PREFIX = "spring:";
-var SCALED_RE     = /__rimes[0-9]+$/;
+// A scaled copy made by this shell is <name>__rimes<pct>. Copies outlive a
+// `hyprctl reload`, so a session the shell was restarted into can still hold
+// the ones the shell made before the rename, __apexs<pct>; either suffix is a
+// copy, never a base of its own.
+var SCALED_RE     = /__(rime|apex)s[0-9]+$/;  // rime-rename: keep (the suffix the APEX shell gave its copies)
 
 /// The name of `spring` at `scale`: itself at 100 %, else its scaled copy.
 function scaledSpring(spring, scale) {
@@ -122,7 +126,9 @@ function _springLine(w, scale) {
     var head = 'hl.animation({ leaf = "' + w.name + '", enabled = true, speed = ' + w.speed + ", spring = ";
     if (w.scaled === w.bezier) return head + '"' + w.bezier + '"' + tail;
     var f = Math.round(scale * 100) / 100;
-    return "do local s = RIME_SPRINGS and RIME_SPRINGS[\"" + w.bezier + "\"]; "
+    // RIME_SPRINGS is the table rime-os appearance.lua keeps; an appearance.lua
+    // written before the rename kept the same table as APEX_SPRINGS.
+    return "do local S = RIME_SPRINGS or APEX_SPRINGS; local s = S and S[\"" + w.bezier + "\"]; "  // rime-rename: keep (the table an APEX appearance.lua declares)
         + 'local ok = type(s) == "table" and type(s.stiffness) == "number" and type(s.dampening) == "number"; '
         + 'if ok then hl.curve("' + w.scaled + '", { type = "spring", mass = type(s.mass) == "number" and s.mass or 1, '
         + "stiffness = s.stiffness / " + Math.round(f * f * 1e6) / 1e6 + ", dampening = s.dampening / " + f + " }) end; "

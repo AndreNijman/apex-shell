@@ -120,6 +120,8 @@ check("…and a spring that is not a name never reaches the eval",
       !sb("zoomFactor") && !JSON.stringify(sbase).includes("os.execute"));
 check("a scaled copy read back is taken for its base, never a base of its own",
       HM.baseFrom(JSON.stringify([[leaf("windowsMove", { speed: 10, bezier: "spring:rimeGlide__rimes250" })]]))[0].bezier === "rimeGlide");
+check("…and so is a copy the shell made before the rename",
+      HM.baseFrom(JSON.stringify([[leaf("windowsMove", { speed: 10, bezier: "spring:apexGlide__apexs250" })]]))[0].bezier === "apexGlide");  // rime-rename: keep
 
 const s1 = HM.plan(sbase, 1, false);
 check("at the default speed a spring leaf is re-declared on its own spring, nothing derived",
@@ -127,7 +129,7 @@ check("at the default speed a spring leaf is re-declared on its own spring, noth
       && !s1.includes("RIME_SPRINGS"), s1);
 const s25 = HM.plan(sbase, 2.5, false);
 check("at another speed the push derives a scaled copy from RIME_SPRINGS",
-      s25.includes('RIME_SPRINGS["rimeArrive"]') && s25.includes('hl.curve("rimeArrive__rimes250"')
+      s25.includes('local S = RIME_SPRINGS or APEX_SPRINGS; local s = S and S["rimeArrive"]') && s25.includes('hl.curve("rimeArrive__rimes250"')  // rime-rename: keep
       && s25.includes("stiffness = s.stiffness / 6.25") && s25.includes("dampening = s.dampening / 2.5")
       && s25.includes('speed = 12, spring = ok and "rimeArrive__rimes250" or "rimeArrive", style = "popin 80%"'), s25);
 
@@ -184,6 +186,16 @@ if (!lua) {
     check("run: with no RIME_SPRINGS at all every spring leaf falls back to its own spring, and nothing errors",
           noT.includes("leaf windowsIn rimeArrive 12") && noT.includes("leaf windowsMove rimeGlide 10")
           && !noT.includes("curve ") && !/error|attempt to/.test(noT), noT);
+    // An appearance.lua from before the rename keeps the same table under its
+    // old name, and a session restarted onto the new shell may still have it.
+    const oldT = run('APEX_SPRINGS = { rimeArrive = { mass = 1, stiffness = 171.3, dampening = 20.94 } }');  // rime-rename: keep
+    check("run: the table under its pre-rename name, APEX_SPRINGS, scales the same way",
+          oldT.includes("curve rimeArrive__rimes250 spring 1.0000 27.4080 8.3760")
+          && oldT.includes("leaf windowsIn rimeArrive__rimes250 12"), oldT);
+    const both = run('RIME_SPRINGS = { rimeArrive = { mass = 1, stiffness = 171.3, dampening = 20.94 } } '
+                     + 'APEX_SPRINGS = { rimeArrive = { mass = 1, stiffness = 1, dampening = 1 } }');  // rime-rename: keep
+    check("run: with both, RIME_SPRINGS is the one read",
+          both.includes("curve rimeArrive__rimes250 spring 1.0000 27.4080 8.3760"), both);
     const partial = run("RIME_SPRINGS = { rimeArrive = { stiffness = 'stiff' } }");
     check("run: an entry that is not numbers is not guessed at", partial.includes("leaf windowsIn rimeArrive 12")
           && !/error|attempt to/.test(partial), partial);

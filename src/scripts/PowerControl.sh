@@ -13,7 +13,9 @@
 # repo root) rather than assuming ~/.local/src/rime-shell, which is only the
 # default install path. Keeps `lock` working for system-wide and relocated
 # installs.
-SHELL_DIR="${RIME_SHELL_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)}"
+# APEX_SHELL_DIR is the override's name from before the rename; a launcher a
+# developer wrote for a checkout of their own may still set it.
+SHELL_DIR="${RIME_SHELL_DIR:-${APEX_SHELL_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)}}"  # rime-rename: keep (the override's pre-rename name)
 
 HYPRLOCK_CONF="${HYPRLOCK_CONF:-$SHELL_DIR/src/config/hyprlock.conf}"
 
