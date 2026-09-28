@@ -28,6 +28,19 @@ ShellRoot {
         } else {
             _i18n = c.createObject(shellRoot);
         }
+
+        // The gate (below). Opened here, from completion, rather than by an
+        // initial `_ready: true`: a LazyLoader that is active while its parent
+        // is still being constructed builds the shell differently enough that
+        // keyboard handling in the Dashboard broke (run-dashboard-keys-test,
+        // 6 of 22 steps, every run), while one activated from here builds it
+        // exactly as the direct children it used to be.
+        if (migratedMarker.text() !== "") {
+            _ready = true;
+        } else {
+            migrateProc.running = true;
+            migrateTimeout.running = true;
+        }
     }
 
     // ── Moving the user's data to its Rime names, before anything reads it ───
@@ -48,32 +61,33 @@ ShellRoot {
     // starts anyway and says so.
     //
     // Once the script has found nothing left under the old names it leaves
-    // ~/.config/rime-shell/.rime-shell-migrated, read here synchronously: with
-    // it the gate is open from the first frame and the script does not run,
-    // so every start after the one that migrated builds exactly as it did
-    // before the rename, finished by the time quickshell says the
-    // configuration loaded.
+    // ~/.config/rime-shell/.rime-shell-migrated, read synchronously at
+    // completion: with it the gate opens there and then and the script does
+    // not run, so every start after the one that migrated builds before
+    // quickshell says the configuration loaded, as it did before the rename.
     FileView {
         id: migratedMarker
         path: Quickshell.env("HOME") + "/.config/rime-shell/.rime-shell-migrated"
         blockLoading: true
         printErrors: false
     }
-    property bool _ready: migratedMarker.text() !== ""
+    property bool _ready: false
 
     Process {
         id: migrateProc
-        running: !shellRoot._ready
+        running: false
         command: ["bash", Quickshell.shellDir + "/src/scripts/rime-shell-migrate.sh"]
         stdout: SplitParser { onRead: data => console.info(data) }
         stderr: SplitParser { onRead: data => console.warn(data) }
-        onExited: shellRoot._ready = true
+        onExited: { migrateTimeout.running = false; shellRoot._ready = true; }
     }
 
     Timer {
+        id: migrateTimeout
         interval: 2000
-        running: !shellRoot._ready
+        running: false
         onTriggered: {
+            if (shellRoot._ready) return;
             console.warn("rime-shell-migrate: still running after 2 s; starting the shell without waiting for it");
             shellRoot._ready = true;
         }

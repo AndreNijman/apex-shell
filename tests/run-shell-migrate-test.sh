@@ -157,8 +157,8 @@ echo "mutant: the gate open at once, the migration three seconds late"
 tree="$HEADLESS_W/tree"
 mkdir -p "$tree"
 cp -a "$root/shell.qml" "$root/src" "$tree/"
-perl -0pi -e 's/property bool _ready: migratedMarker\.text\(\) !== ""/property bool _ready: true/;
-              s/running: !shellRoot\._ready/running: true/;
+perl -0pi -e 's/property bool _ready: false/property bool _ready: true/;
+              s/(id: migrateProc\n\s*)running: false/$1running: true/;
               s/command: \["bash", Quickshell\.shellDir \+ "\/src\/scripts\/rime-shell-migrate\.sh"\]/command: ["bash", "-c", "sleep 3; exec bash \\"\$0\\"", Quickshell.shellDir + "\/src\/scripts\/rime-shell-migrate.sh"]/' \
     "$tree/shell.qml"
 if cmp -s "$root/shell.qml" "$tree/shell.qml" || ! grep -q '_ready: true' "$tree/shell.qml" \
