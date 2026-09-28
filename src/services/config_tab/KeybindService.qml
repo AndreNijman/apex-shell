@@ -31,6 +31,7 @@ QtObject {
     // required by (see _genLua), so it works from ~/.config/hypr/rime and from
     // an ~/.config/hypr/apex the OS has not moved yet.
     readonly property string _luaMarker: "RIME-SHELL-GENERATED"
+    readonly property string _legacyLuaMarker: "APEX-SHELL-GENERATED"   // rime-rename: keep (read by the APEX shell's rescue, see _genLua)
     readonly property string _userModule: "shell-keybinds-user"
     readonly property string _rescue: _shellDir + "/src/scripts/rime-keybinds-rescue.sh"
 
@@ -737,6 +738,12 @@ QtObject {
             "-- ==============================================================================",
             "-- Rime Shell Keybinds",
             "-- " + root._luaMarker + " — rewritten in full every time the shell starts.",
+            // The APEX shell's marker too. After a rollback to APEX, its
+            // apex-keybinds-rescue.sh takes any shell-keybinds.lua without that
+            // string for the user's and moves it into shell-keybinds-user.lua,
+            // where this module then required itself (C stack overflow, every
+            // bind registered dozens of times; measured in the VM rollback).
+            "-- " + root._legacyLuaMarker + " as well, so an APEX shell after a rollback regenerates this file too.",  // rime-rename: keep (the marker the APEX shell's rescue looks for)
             "-- Edit the Keybinds page in Rime Settings, or put your own binds in",
             "-- shell-keybinds-user.lua beside it, which is required at the bottom of this file",
             "-- and is never regenerated.",
@@ -754,6 +761,15 @@ QtObject {
             "-- package.loaded instead of being run a second time under the other name,",
             "-- which would register every default bind twice.",
             "local modname = ...",
+            "",
+            "-- Loaded under any other name, this is a stale copy that a shell which did not",
+            "-- recognise it carried into shell-keybinds-user.lua. It does nothing: run, it",
+            "-- would register every bind a second time and require that module from inside",
+            "-- itself.",
+            "if type(modname) == \"string\" and modname ~= \"shell-keybinds\"",
+            "        and not modname:match(\"%.shell%-keybinds$\") then",
+            "    return",
+            "end",
             "local prefix = type(modname) == \"string\" and modname:match(\"^(.*)%.shell%-keybinds$\") or \"rime\"",
             "",
             "-- ==============================================================================",
