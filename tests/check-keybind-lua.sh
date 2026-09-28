@@ -44,6 +44,14 @@ want "the hyprlang generator is not back" \
     bash -c 'grep -q "RimeShellKeybinds.conf" < <(sed "s|//.*||" "$1") && exit 1; exit 0' _ "$svc"
 want "the generated module carries a marker the shell can recognise" \
     grep -q '_luaMarker: *"RIME-SHELL-GENERATED"' "$svc"
+# A rollback runs the APEX shell over this file, and its rescue moves anything
+# without its own marker into shell-keybinds-user.lua. run-hypr-configerrors-test
+# replays that with the APEX script itself; these two only stop the generator
+# from drifting away from it.
+want "the generated module also carries the APEX shell's marker, for a rollback" \
+    grep -q '_legacyLuaMarker: *"APEX-SHELL-GENERATED"' "$svc"   # rime-rename: keep
+want "  and a copy loaded under another name returns before it binds anything" \
+    grep -qF 'and not modname:match(\"%.shell%-keybinds$\") then' "$svc"
 want "the generated module requires the user's own binds" \
     grep -qF 'pcall(require, prefix .. " + root._luaStr("." + root._userModule)' "$svc"
 # Before the rename hyprland.lua required this module as apex.shell-keybinds

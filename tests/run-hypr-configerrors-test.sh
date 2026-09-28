@@ -383,6 +383,72 @@ else
         || bad "the double load did not show on the mutant ($n F12 binds), so the count proves nothing"
 fi
 cp "$HEADLESS_W/generated.lua" "$lua"
+
+# ── a rollback to the APEX shell ─────────────────────────────────────────────
+# A rollback boots the APEX image against this same home, and its shell runs its
+# own rescue (tests/fixtures/apex-keybinds-rescue.sh: verbatim from the APEX
+# shell every machine ran before the rename, apex-shell main 8d8118d1) on the
+# file THIS shell generated. It takes any file without "APEX-SHELL-GENERATED"
+# for the user's and moves it into shell-keybinds-user.lua, which the generated
+# module then required from inside itself: a C stack overflow, and every bind
+# registered dozens of times (measured in the Release B VM rollback: 63, then
+# 125 after a second round trip). The hyprland.lua above is the APEX-era loader,
+# with hypr/apex a link to hypr/rime, which is exactly that state.
+apex_rescue="$here/fixtures/apex-keybinds-rescue.sh"   # rime-rename: keep (the APEX shell's own script)
+# SUPER+ALT+S, the screen-reader bind, is one only this module makes. Counted by
+# key and modifier mask (SUPER 64 + ALT 8): a Lua exec_cmd bind carries no
+# command in `arg`.
+reader_binds() {
+    hc binds -j | python3 -c 'import json,sys; print(sum(1 for b in json.load(sys.stdin) if str(b.get("key","")).upper()=="S" and b.get("modmask")==72))' 2>/dev/null
+}
+rm -f "$user"
+bash "$apex_rescue" "$home/.config/hypr/apex/shell-keybinds.lua" >/dev/null 2>&1   # rime-rename: keep
+if [ ! -e "$user" ] && cmp -s "$lua" "$HEADLESS_W/generated.lua"; then
+    ok "the APEX shell's rescue takes this module for generated and moves nothing"
+else
+    bad "the APEX shell's rescue moved this shell's module into shell-keybinds-user.lua"
+fi
+# The same module without the APEX marker line: the rescue has to move it, or
+# the line above measures nothing.
+grep -v 'APEX-SHELL-GENERATED' "$HEADLESS_W/generated.lua" > "$lua"   # rime-rename: keep
+bash "$apex_rescue" "$home/.config/hypr/apex/shell-keybinds.lua" >/dev/null 2>&1   # rime-rename: keep
+[ -e "$user" ] \
+    && ok "and without that marker line the same rescue does move it (the check bites)" \
+    || bad "the unmarked mutant was not moved either, so the marker check proves nothing"
+
+# A stale generated copy that does reach the user module (an older build, or a
+# shell that does not know the marker) must do nothing when loaded as that
+# module: the user module now holds exactly what that rescue wrote above.
+cp "$HEADLESS_W/generated.lua" "$lua"
+hc reload >/dev/null
+sleep 1
+clean "with a stale generated copy inside shell-keybinds-user.lua"
+n="$(reader_binds)"
+[ "$n" = 1 ] \
+    && ok "each generated bind is registered once, with the stale copy loaded as the user module" \
+    || bad "the screen-reader bind is registered $n times with the stale copy loaded"
+# The copy without its guard: the count has to move.
+python3 - "$user" <<'PY'
+import re, sys
+p = sys.argv[1]
+s = open(p).read()
+t = re.sub(r'if type\(modname\) == "string" and modname ~= "shell-keybinds"\n\s+and not modname:match\("%\.shell%-keybinds\$"\) then\n\s+return\nend\n', '', s)
+if t == s:
+    sys.exit(1)
+open(p, "w").write(t)
+PY
+if [ $? -ne 0 ]; then
+    bad "the unguarded mutant did not apply (the guard changed shape?)"
+else
+    hc reload >/dev/null
+    sleep 1
+    n="$(reader_binds)"
+    [ "${n:-0}" -ge 2 ] \
+        && ok "and without the guard the stale copy is caught registering binds again ($n)" \
+        || bad "the unguarded copy still registered one bind, so the count proves nothing"
+fi
+rm -f "$user"
+hc reload >/dev/null
 rm -f "$home/.config/hypr/apex"
 
 hc dispatch exit >/dev/null 2>&1
