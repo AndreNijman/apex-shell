@@ -1,9 +1,9 @@
-# Phase 0 baseline — APEX Shell before the UI/UX redesign
+# Phase 0 baseline: APEX Shell before the UI/UX redesign
 
 Measured 2026-09-25 against `origin/main` @ `17eec38` (tray-menu style merge),
 before any redesign change. Everything here is a measurement or a reading of the
-tree at that commit; where a number came from a tool, the tool is named so it can
-be re-run after a change and compared.
+tree at that commit. Each number that came from a tool names that tool, so you can
+re-run it after a change and compare.
 
 ## 1. How to reproduce
 
@@ -29,17 +29,17 @@ The sheets from this run are in `sheets/`.
 | Files containing motion code | 77 of 224 |
 | `Behavior on …` blocks | 397 |
 | `duration:` sites | 453 |
-| — literal numbers (unreachable by Reduce Motion) | **403** (89 %) |
-| — `Theme.animDuration` family (the only thing Reduce Motion zeroes) | 43 (9.5 %) |
-| — `SettingsService.reduceMotion`-aware private literals (`Osd.qml`) | 3 |
-| — other expressions (stagger `index*650`, countdowns, marquee length) | 4 |
+| of which, literal numbers (unreachable by Reduce Motion) | **403** (89 %) |
+| of which, the `Theme.animDuration` family (the only thing Reduce Motion zeroes) | 43 (9.5 %) |
+| of which, `SettingsService.reduceMotion`-aware private literals (`Osd.qml`) | 3 |
+| of which, other expressions (stagger `index*650`, countdowns, marquee length) | 4 |
 | Animations with no `easing.type` (Qt default: **Linear**) | 346 (76 %) |
 | `loops: Animation.Infinite` | 25 |
 | `SpringAnimation` | 3 (all Kanban drag, with visible overshoot) |
 | Overshooting curves in use | `OutBack` ×5, `OutElastic` ×1 |
-| Press (pointer-down) feedback anywhere | **0** — every interactive animation is hover- or selection-driven |
+| Press (pointer-down) feedback anywhere | **0**: every interactive animation is hover- or selection-driven |
 | Timers whose interval is an animation duration | 16 |
-| Distinct literal duration values | 31 — 120 ms ×83, 100 ms ×83, 80 ×36, 150 ×36, 200 ×34, 130 ×23, … |
+| Distinct literal duration values | 31: 120 ms ×83, 100 ms ×83, 80 ×36, 150 ×36, 200 ×34, 130 ×23, … |
 
 `tests/check-reduce-motion.sh` pins this state as a ratchet: honour 41, literal
 402, unresolved 9 (its own classification, which counts `Osd`'s ternaries as
@@ -53,7 +53,7 @@ OutQuad 2 · OutExpo 1 · OutElastic 1 · InQuad 1 · InCubic 1.
 Every large connected surface (Dashboard, Network, Notifications, Toast, Clipboard,
 Wallpaper, ArchMenu, Audio, QuickControl, the bar's `cWidth`/`rWidth`/
 `rightBottomRadius`/`implicitHeight`) uses **`InOutCubic` at the one global
-320 ms** — the slow first third is what reads as input latency (§4).
+320 ms**, and its slow first third reads as input latency (§4).
 
 ### Lifecycle timers coupled to a guessed animation length
 
@@ -78,26 +78,26 @@ unmap depends on the timer outliving the slowest animation it guards.
 
 ### Width/height animated over live child layouts
 
-Dashboard sizer (`width`/`height`, content anchored `fill` inside — relayout every
-frame), Network sizer, Notifications sizer (height follows `notifList.height`),
+Dashboard sizer (`width`/`height`, with content anchored `fill` inside: a relayout
+every frame), Network sizer, Notifications sizer (height follows `notifList.height`),
 Toast card, ArchMenu sizer, Audio sizer, Clipboard, Wallpaper, TopBar `cWidth`,
 SysTray `Layout.preferredWidth`, several in-row reveals (Wi-Fi/Bluetooth forget and
 password rows, Kanban draft, PlayerCard list).
 
 ### Loops that outlive their surface
 
-The Wi-Fi/Bluetooth scan rings and VPN/Wi-Fi spinners are gated on a business
-flag cleared only when the scan process exits, and the PlayerCard title marquee is
-gated on `isPlaying` inside a latched `LazyPage` — all keep ticking in an unmapped
-window. `CenterContent.qml:812` still has the 50 ms `Behavior on height` on the
+A business flag that clears only when the scan process exits gates the
+Wi-Fi/Bluetooth scan rings and the VPN/Wi-Fi spinners, and `isPlaying` inside a
+latched `LazyPage` gates the PlayerCard title marquee. All of them keep ticking in
+an unmapped window. `CenterContent.qml:812` still has the 50 ms `Behavior on height` on the
 recorder level bars that the comment beside the Cava bars says was removed as an
 anti-pattern.
 
 ### Other defects found while inventorying
 
 - `WindowSwitcher.qml` fades out via `opacity: root.visible ? 1 : 0` where `visible`
-  IS the mapped state — the surface unmaps the frame the fade would start. The
-  exit fade has never rendered.
+  IS the mapped state, so the surface unmaps on the frame the fade would start.
+  The exit fade has never rendered.
 - `TopBar.qml` animates `cWidth` and `rWidth` but not `lWidth`; the left notch snaps.
 - `NotificationList` has no `add`/`remove`/`displaced` transitions: rows teleport.
   The only list-displacement transition in the tree is the clipboard history's.
@@ -105,7 +105,7 @@ anti-pattern.
 
 ## 3. Renderer cost (measured)
 
-`tests/visual/bench-renderer.sh` — one animated ~900x600 connected shape, 600
+`tests/visual/bench-renderer.sh`: one animated ~900x600 connected shape, 600
 frames at 60 Hz in a 1280x720 window, CPU of the whole quickshell process tree
 sampled from `/proc` outside the process (Radeon 780M, gles2, Qt 6.10.3,
 Quickshell 0.3.1). A 2 ms busy-loop mutant reads +1.7 ms, so the tool measures what
@@ -117,33 +117,33 @@ it claims.
 | `Shape` + GeometryRenderer + 4x MSAA layer | +0.24 ms |
 | `Canvas` + 8x MSAA layer (today's `PopupShape` / `SeamlessBarShape` / `Border`) | **+1.45 ms** |
 
-GPU-side cost was not measured. Canvas also re-uploads its whole raster as a
+This run did not measure GPU-side cost. Canvas also re-uploads its whole raster as a
 texture on every repaint, so its cost grows with the surface's pixel area; the Shape
 path does not.
 
 ## 4. Visual baseline (sheets/)
 
-Read at 3.75x slow motion; times below are converted back to the default speed.
+The sheets play at 3.75x slow motion; the times below are at the default speed.
 
-- **Dashboard, cold** (`dashboard-cold.png`) — the first open after login does not
+- **Dashboard, cold** (`dashboard-cold.png`). The first open after login does not
   animate its height: the body is full height within one frame while the width is
   still the notch's, and the page content is laid out inside that ~300 px column
-  (visibly squeezed and overlapping) until the width catches up at ~350 ms. The
+  (squeezed and overlapping in the capture) until the width catches up at ~350 ms. The
   roadmap's CENTER_BLOOM asks for the opposite order (width first).
-- **Dashboard, warm** (`dashboard-warm.png`) — nothing visible for the first
+- **Dashboard, warm** (`dashboard-warm.png`): nothing visible for the first
   ~60 ms (InOutCubic), then a rounded rectangle grows diagonally; content lays out
   at every intermediate width. Close: content fades by ~70 ms, then the empty body
-  shrinks for another ~200 ms — the user watches an empty box leave.
-- **Network** (`network-warm.png`) — same InOutCubic dead start; the right notch's
+  shrinks for another ~200 ms, so the user watches an empty box leave.
+- **Network** (`network-warm.png`): the same InOutCubic dead start; the right notch's
   status icons disappear while any right-side popup is open (`RightContent` fades
-  itself out), so the bar loses its battery/clock/network readout exactly when the
+  itself out), so the bar loses its battery/clock/network readout for as long as the
   network panel is up. Pill and card join as one straight-edged rectangle.
-- **Power** (`power-warm.png`) — slides in horizontally from off-screen with the
+- **Power** (`power-warm.png`): it slides in horizontally from off-screen with the
   concave melt into the left strip; the join is clean, the motion is a translation
   rather than an emergence.
-- **Nexus** (`nexus-warm.png`) — 0.97 → 1 scale + fade at the same 320 ms as every
+- **Nexus** (`nexus-warm.png`): 0.97 → 1 scale + fade at the same 320 ms as every
   popup; no difference in character from the connected surfaces.
-- **Context menu** — scale 0.96 from the top-left corner at 160 ms both ways.
+- **Context menu**: scale 0.96 from the top-left corner at 160 ms both ways.
 
 Not captured here (need hardware or a notification source): OSD repeat behaviour,
 notification arrival/removal, the toast, lock/unlock, mixed refresh rates.
