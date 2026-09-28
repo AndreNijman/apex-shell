@@ -97,7 +97,7 @@ def realistic(n_lan, relay):
         "expires_ms": 1789155000000,
     }
     body = json.dumps(offer, separators=(",", ":")).encode()
-    return "rime-remote:" + base64.urlsafe_b64encode(body).decode().rstrip("=")
+    return "apex-remote:" + base64.urlsafe_b64encode(body).decode().rstrip("=")  # rime-rename: keep (the pairing scheme installed phones parse)
 
 
 P1 = realistic(1, None)

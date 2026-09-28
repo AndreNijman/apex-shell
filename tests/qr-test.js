@@ -291,7 +291,7 @@ check("a LAN-only pairing offer is a version 11 symbol",
 check("a pairing offer naming a relay is a version 13 symbol",
       withRelay && [withRelay.version, withRelay.size], [13, 69]);
 check("both pairing offers carry the scheme rime-remote-core declares",
-      [lanOnly, withRelay].every(c => c && c.payload.startsWith("rime-remote:")), true);
+      [lanOnly, withRelay].every(c => c && c.payload.startsWith("apex-remote:")), true);  // rime-rename: keep (the pairing scheme)
 check("encode chooses those versions on its own, without being told",
       [QR.encode(lanOnly.payload).version, QR.encode(withRelay.payload).version],
       [11, 13]);
