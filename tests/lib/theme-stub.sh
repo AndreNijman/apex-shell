@@ -136,8 +136,9 @@ def sub(m):
 out = re.sub(r'\bSettingsService\.(\w+)', sub, motion)
 out = re.sub(r'^import "\.\./services"\n', '', out, flags=re.M)
 # The frame-pacing flag reads the shell's environment through Quickshell, which
-# qmltestrunner does not have: staged, pacing is off, as it is by default.
-out = re.sub(r'Quickshell\.env\("RIME_PACING_LOG"\) === "1"', 'false', out)
+# qmltestrunner does not have: staged, pacing is off, as it is by default. The
+# whole right-hand side goes, since it reads the variable under both its names.
+out = re.sub(r'(readonly property bool pacingLog:)[^\n]*', r'\1 false', out)
 out = re.sub(r'^import Quickshell\n', '', out, flags=re.M)
 if "Quickshell" in re.sub(r'//[^\n]*', '', out):
     sys.stderr.write("stage_motion: Motion.qml reads Quickshell in a way the stage cannot neutralise\n")
