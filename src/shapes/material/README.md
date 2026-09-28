@@ -8,7 +8,7 @@ library (`RoundedPolygon`, `CornerRounding`, `Morph`).
   at commit `e31ec4cb4ebf6a46b267f5c42eabf6874916fa16` (2026-02-15),
   itself a port of https://github.com/Knugel/rounded-polygon-ts, a port of
   AndroidX `androidx.graphics.shapes`.
-- Licence: **Apache License 2.0** — `LICENSE` in this directory. The rest of
+- Licence: **Apache License 2.0** (`LICENSE` in this directory). The rest of
   APEX Shell is MIT; this directory keeps its own licence.
 - Vendored unmodified: `material-shapes.js`, `shapes/`, `geometry/`,
   `graphics/`. Not taken: the upstream `ShapeCanvas.qml` and examples.

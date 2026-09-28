@@ -8,9 +8,10 @@
 
 ## Testing Checklist
 
-- [ ] I have tested these changes locally and on a fresh VM install.
+- [ ] I have tested these changes on my own machine and on a fresh VM install.
+- [ ] I have run every `tests/check-*.sh` and `shellcheck -S warning -x tests/*.sh` (the CI lint step).
 - [ ] I have tested the QML UI on my primary resolution.
 - [ ] (If applicable) I have tested UI changes on secondary monitors or different resolutions.
-- [ ] (If applicable) I have verified my bash scripts run cleanly without syntax errors.
+- [ ] (If applicable) My bash scripts run without syntax errors.
 
 ## Related Issues
