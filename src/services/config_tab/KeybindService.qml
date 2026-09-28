@@ -23,9 +23,15 @@ QtObject {
 
     // How the generator recognises its own output, and the module the user's
     // own binds are moved to when it does not. Both are read by
-    // src/scripts/rime-keybinds-rescue.sh, which runs before every write.
+    // src/scripts/rime-keybinds-rescue.sh, which runs before every write (and
+    // also accepts the marker the shell wrote before the rename).
+    //
+    // The user module is named by its last part only: the generated file
+    // requires it, and the Rime defaults, under the prefix it was itself
+    // required by (see _genLua), so it works from ~/.config/hypr/rime and from
+    // an ~/.config/hypr/apex the OS has not moved yet.
     readonly property string _luaMarker: "RIME-SHELL-GENERATED"
-    readonly property string _userModule: "rime.shell-keybinds-user"
+    readonly property string _userModule: "shell-keybinds-user"
     readonly property string _rescue: _shellDir + "/src/scripts/rime-keybinds-rescue.sh"
 
     // ── Capture gate ──────────────────────────────────────────────────────────
@@ -599,10 +605,20 @@ QtObject {
         // anyway, without a word — P0-025's "no user custom keybind is
         // silently discarded", broken by the shell rather than by the
         // migration. See src/scripts/rime-keybinds-rescue.sh.
+        //
+        // ~/.config/hypr/rime is where it goes. The one exception is a machine
+        // the rename has not finished with: while ~/.config/hypr/rime does not
+        // exist and ~/.config/hypr/apex is still a real directory, the OS has
+        // not moved Hyprland's modules yet, the user's hyprland.lua still
+        // requires them from there, and a mkdir of hypr/rime here would make
+        // that move refuse to run. So the module is written beside the others
+        // in hypr/apex, and moves with them.
         _writeProc.command = ["bash", "-c",
-            'mkdir -p "$(dirname "$3")" "$(dirname "$4")"\n'
-            + 'bash "$5" "$3" ' + root._luaMarker + ' || true\n'
-            + 'printf %s "$1" > "$3"\n'
+            'lua="$3"; new="$(dirname "$3")"; old="$(dirname "$new")/apex"\n'  // rime-rename: keep (Hyprland's module directory before the rename)
+            + '[ ! -e "$new" ] && [ -d "$old" ] && [ ! -L "$old" ] && lua="$old/$(basename "$3")"\n'
+            + 'mkdir -p "$(dirname "$lua")" "$(dirname "$4")"\n'
+            + 'bash "$5" "$lua" ' + root._luaMarker + ' || true\n'
+            + 'printf %s "$1" > "$lua"\n'
             + 'printf %s "$2" > "$4"\n',
             "--", lua, kdl, root._luaPath, root._kdlPath, root._rescue]
 
@@ -722,7 +738,7 @@ QtObject {
             "-- Rime Shell Keybinds",
             "-- " + root._luaMarker + " — rewritten in full every time the shell starts.",
             "-- Edit the Keybinds page in Rime Settings, or put your own binds in",
-            "-- rime/shell-keybinds-user.lua, which is required at the bottom of this file",
+            "-- shell-keybinds-user.lua beside it, which is required at the bottom of this file",
             "-- and is never regenerated.",
             "--",
             "-- Required by ~/.config/hypr/hyprland.lua as `rime.shell-keybinds`, and loaded",
@@ -730,6 +746,15 @@ QtObject {
             "-- ==============================================================================",
             "",
             "local shell = " + root._luaStr(root._shellDir),
+            "",
+            "-- The prefix this module was required under: `rime.shell-keybinds` from",
+            "-- ~/.config/hypr/rime, or `apex.shell-keybinds` from a hyprland.lua written",  // rime-rename: keep (the module name an APEX hyprland.lua requires)
+            "-- before the rename. The Rime defaults and your own module are required",
+            "-- under the SAME prefix, so a module hyprland.lua already loaded is found in",
+            "-- package.loaded instead of being run a second time under the other name,",
+            "-- which would register every default bind twice.",
+            "local modname = ...",
+            "local prefix = type(modname) == \"string\" and modname:match(\"^(.*)%.shell%-keybinds$\") or \"rime\"",
             "",
             "-- ==============================================================================",
             "-- RimeShell Capture Submap (Disables all normal binds during recording)",
@@ -759,7 +784,7 @@ QtObject {
             "-- pcall because a hand-written hyprland.lua need not load the Rime modules at",
             "-- all; without the Rime defaults there is nothing to disable and these binds",
             "-- stand alone.",
-            "local ok, defaults = pcall(require, \"rime.keybindings\")",
+            "local ok, defaults = pcall(require, prefix .. \".keybindings\")",
             "local function claim(mods, key)",
             "    if ok and defaults and defaults.disable then defaults.disable(mods, key) end",
             "end",
@@ -847,9 +872,9 @@ QtObject {
         lines.push("-- Your own binds")
         lines.push("-- ==============================================================================")
         lines.push("-- Anything you wrote yourself, or that rime-hypr-migrate carried over from")
-        lines.push("-- the hyprlang RimeShellKeybinds fragment, was moved to " + root._userModule)
+        lines.push("-- the hyprlang RimeShellKeybinds fragment, was moved to " + root._userModule + ".lua")
         lines.push("-- so this file could be regenerated without discarding it. Loaded last.")
-        lines.push("pcall(require, " + root._luaStr(root._userModule) + ")")
+        lines.push("pcall(require, prefix .. " + root._luaStr("." + root._userModule) + ")")
         lines.push("")
         return lines.join("\n")
     }
@@ -1098,8 +1123,11 @@ QtObject {
         _includeProc.command = ["bash", "-c", [
             "LUA=\"$HOME/.config/hypr/hyprland.lua\"",
             "[ -f \"$LUA\" ] || exit 0",
-            "grep -q 'rime\\.shell-keybinds' \"$LUA\" && exit 0",
-            "grep -q 'rime(\"shell-keybinds\")' \"$LUA\" && exit 0",
+            // A hyprland.lua from before the rename requires the same module as
+            // apex.shell-keybinds; appending the rime name to it would load the
+            // generated binds twice.
+            "grep -qE '(rime|apex)\\.shell-keybinds' \"$LUA\" && exit 0",  // rime-rename: keep (the name an APEX hyprland.lua uses)
+            "grep -qE '(rime|apex)\\(\"shell-keybinds\"\\)' \"$LUA\" && exit 0",  // rime-rename: keep (the name an APEX hyprland.lua uses)
             "printf '\\n-- Rime Shell keybinds\\nrequire(\"rime.shell-keybinds\")\\n' >> \"$LUA\"",
         ].join("\n")]
 

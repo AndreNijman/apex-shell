@@ -19,7 +19,8 @@
 # ── What this does about it ──────────────────────────────────────────────────
 #
 # Before the generator writes, anything at that path with no RIME-SHELL-GENERATED
-# marker in it is moved to rime/shell-keybinds-user.lua — a file the generator
+# marker in it (nor the one the shell wrote before the rename) is moved to
+# shell-keybinds-user.lua beside it — a file the generator
 # never touches — and the generated module requires that at the end. So the
 # binds keep working, in a file that is now the user's, and the console says
 # where they went. Running twice changes nothing: the second run finds the
@@ -34,10 +35,15 @@ set -uo pipefail
 
 target="${1:-}"
 marker="${2:-RIME-SHELL-GENERATED}"
+# The marker this shell wrote before the rename. A file that carries it is the
+# shell's own output too, just older: taking it for the user's would move every
+# generated bind into shell-keybinds-user.lua, which the regenerated file then
+# requires — so every bind would be registered twice.
+legacy_marker="APEX-SHELL-GENERATED"   # rime-rename: keep (the marker in files the APEX shell wrote)
 
 [ -n "$target" ] || { echo "usage: $0 <generated-lua-path> [marker]" >&2; exit 0; }
 [ -e "$target" ] || exit 0
-grep -q "$marker" "$target" 2>/dev/null && exit 0
+grep -q -e "$marker" -e "$legacy_marker" "$target" 2>/dev/null && exit 0
 
 dir="$(dirname "$target")"
 user="$dir/shell-keybinds-user.lua"

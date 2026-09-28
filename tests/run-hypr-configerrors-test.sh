@@ -252,9 +252,9 @@ fi
 grep -q "RIME-SHELL-GENERATED" "$lua" \
     && ok "the generated module carries its marker" \
     || bad "the generated module has no marker, so the rescue cannot recognise it"
-grep -q 'pcall(require, "rime.shell-keybinds-user")' "$lua" \
+grep -q 'pcall(require, prefix .. ".shell-keybinds-user")' "$lua" \
     && ok "the generated module requires the user's own binds" \
-    || bad "the generated module does not load rime/shell-keybinds-user.lua"
+    || bad "the generated module does not load shell-keybinds-user.lua beside it"
 grep -q "hyprctl dispatch" "$lua" \
     && bad "the generator is still shelling out to hyprctl dispatch" \
     || ok "no bind spawns hyprctl to talk to the compositor it is running in"
@@ -323,6 +323,67 @@ grep -q "RIME-SHELL-GENERATED" "$lua" \
 hc reload >/dev/null
 sleep 1
 clean "with a rescued user module loaded"
+
+# ── a hyprland.lua from before the rename ────────────────────────────────────
+# Until the OS moves ~/.config/hypr/apex to hypr/rime and rewrites the loader,
+# a machine's own hyprland.lua requires every module as apex.<name>. The worst
+# half-way state is both names resolving to the same files (hypr/apex a link to
+# hypr/rime): a generated module that required "rime.keybindings" by name would
+# then run the defaults a SECOND time, next to the apex.keybindings hyprland.lua
+# already loaded, and every default bind would be registered twice. It requires
+# them under its own prefix instead. Counted on a bind only the defaults make.
+cp "$lua" "$HEADLESS_W/generated.lua"
+sed -i 's|^return M$|bind("SUPER", "F12", hl.dsp.exec_cmd("true"))\nreturn M|' "$home/.config/hypr/rime/keybindings.lua"
+rm -f "$user"
+ln -sfn rime "$home/.config/hypr/apex"   # rime-rename: keep (the directory an APEX hyprland.lua loads from)
+cat > "$home/.config/hypr/hyprland.lua" <<'LUA'
+local failures = {}
+for name in pairs(package.loaded) do
+    if name:sub(1, 5) == "apex." or name:sub(1, 5) == "rime." then package.loaded[name] = nil end
+end
+local function apex(name)
+    local module = "apex." .. name
+    if not package.searchpath(module, package.path) then return nil end
+    local ok, result = pcall(require, module)
+    if ok then return result end
+    failures[#failures + 1] = ("apex/%s.lua: %s"):format(name, tostring(result))
+    return nil
+end
+hl.config({ general = { gaps_in = 5, border_size = 2 } })
+apex("keybindings")
+apex("shell-keybinds")
+if #failures > 0 then
+    error("config modules failed to load:\n  " .. table.concat(failures, "\n  "), 0)
+end
+LUA
+f12_binds() {
+    hc binds -j | python3 -c 'import json,sys; print(sum(1 for b in json.load(sys.stdin) if str(b.get("key","")).upper()=="F12"))' 2>/dev/null
+}
+hc reload >/dev/null
+sleep 1
+clean "with an APEX-era hyprland.lua requiring apex.shell-keybinds"
+n="$(f12_binds)"
+[ "$n" = 1 ] \
+    && ok "the defaults load once when the generated module is required as apex.shell-keybinds" \
+    || bad "the defaults were loaded $n times (a fixed require of rime.keybindings loads them again)"
+
+# The same state with the generated module requiring the defaults by the fixed
+# name, as it did before: the count has to move, or the line above measures
+# nothing.
+sed 's|pcall(require, prefix .. ".keybindings")|pcall(require, "rime.keybindings")|' \
+    "$HEADLESS_W/generated.lua" > "$lua"
+if cmp -s "$HEADLESS_W/generated.lua" "$lua"; then
+    bad "the fixed-name mutant did not apply (the generated module changed shape?)"
+else
+    hc reload >/dev/null
+    sleep 1
+    n="$(f12_binds)"
+    [ "$n" = 2 ] \
+        && ok "and a module that requires rime.keybindings by name is caught loading them twice" \
+        || bad "the double load did not show on the mutant ($n F12 binds), so the count proves nothing"
+fi
+cp "$HEADLESS_W/generated.lua" "$lua"
+rm -f "$home/.config/hypr/apex"
 
 hc dispatch exit >/dev/null 2>&1
 sleep 1

@@ -45,7 +45,22 @@ want "the hyprlang generator is not back" \
 want "the generated module carries a marker the shell can recognise" \
     grep -q '_luaMarker: *"RIME-SHELL-GENERATED"' "$svc"
 want "the generated module requires the user's own binds" \
-    grep -q 'pcall(require, " *+ *root._luaStr(root._userModule)' "$svc"
+    grep -qF 'pcall(require, prefix .. " + root._luaStr("." + root._userModule)' "$svc"
+# Before the rename hyprland.lua required this module as apex.shell-keybinds
+# from ~/.config/hypr/apex. A fixed require("rime.keybindings") inside it would
+# load a SECOND copy of the defaults beside the apex.keybindings hyprland.lua
+# already loaded, and every default bind would fire twice. The defaults and the
+# user module are required under the prefix the file itself was loaded by.
+want "the generated module takes its prefix from the name it was required by" \
+    grep -qF 'modname:match(\"^(.*)%.shell%-keybinds$\") or \"rime\"' "$svc"
+want "  and requires the Rime defaults under that prefix" \
+    grep -qF 'pcall(require, prefix .. \".keybindings\")' "$svc"
+want "  and never by the fixed rime.keybindings name" \
+    bash -c '! grep -qF "pcall(require, \\\"rime.keybindings\\\")" "$1"' _ "$svc"
+# An APEX hyprland.lua already requires the module under its old name; the
+# probe that appends a require must see that, or the binds load twice.
+want "the hyprland.lua probe counts apex.shell-keybinds as already wired" \
+    grep -qF "grep -qE '(rime|apex)\\\\.shell-keybinds'" "$svc"
 # Order, not presence. A rescue that runs after the write has already lost the
 # file it was meant to save.
 wf_body="$(sed -n '/function _writeFiles/,/^    }/p' "$svc")"
@@ -119,6 +134,21 @@ after="$(md5sum < "$user")"
 grep -q 'SUPER + Q' "$user" 2>/dev/null \
     && bad "the generated binds leaked into the user module" \
     || ok "the generated binds stayed out of the user module"
+
+# 3b the same file as the shell wrote it before the rename
+before="$(md5sum < "$user")"
+cat > "$target" <<'EOF'
+-- APEX-SHELL-GENERATED — rewritten in full every time the shell starts.
+hl.bind("SUPER + Q", hl.dsp.window.close())
+pcall(require, "apex.shell-keybinds-user")
+EOF
+bash "$rescue" "$target" >/dev/null 2>&1
+after="$(md5sum < "$user")"
+if [ "$before" = "$after" ] && ! grep -q 'SUPER + Q' "$user"; then
+    ok "a file the APEX shell generated is the shell's own too, and is left alone"
+else
+    bad "the rescue took the APEX shell's generated file for the user's (every bind would load twice)"
+fi
 
 # 4  a second unmarked file, with a user module already there
 cat > "$target" <<'EOF'
