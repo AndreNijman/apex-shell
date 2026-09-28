@@ -71,18 +71,20 @@ done
 
 W="$(mktemp -d)"
 staged="$root/.agent-settings-test.qml"
+staged_legacy="$root/.agent-settings-legacy-test.qml"
 comp_pid=""
 cleanup() {
     [[ -n "$comp_pid" ]] && kill "$comp_pid" 2>/dev/null
     sleep 0.2
     [[ -n "$comp_pid" ]] && kill -9 "$comp_pid" 2>/dev/null
-    rm -f "$staged"
+    rm -f "$staged" "$staged_legacy"
     rm -rf "$W"
     return 0
 }
 trap cleanup EXIT INT TERM
 
 cp "$here/agent-settings-test.qml" "$staged"
+cp "$here/agent-settings-legacy-test.qml" "$staged_legacy"
 
 # ── the fakes ────────────────────────────────────────────────────────────────
 mkdir -p "$W/bin"
@@ -230,6 +232,27 @@ say "the call named the action the policy file declares" \
     logged org.rimeos.shell.agent.set-always-unrestricted
 say "the call was allowed to raise a prompt" logged --allow-user-interaction
 say "the call named a subject rather than guessing one" logged --process
+
+# ── the settings under their pre-rename path ────────────────────────────────
+# A machine the OS has not finished moving has ~/.config/apex/agent.json and no
+# ~/.config/rime. The service must read the old file, and write a change back
+# there rather than create ~/.config/rime (which would make the OS's move of
+# the old directory refuse, stranding everything else in it).
+echo
+echo "── the pre-rename path ──"
+legacy_cfg="$W/config-legacy"
+legacy="$legacy_cfg/apex/agent.json"   # rime-rename: keep (the runtime's config path before the rename)
+mkdir -p "$(dirname "$legacy")"
+printf '{\n  "sandbox": "unrestricted",\n  "detach_key": "ctrl-]"\n}\n' > "$legacy"
+lout="$(XDG_CONFIG_HOME="$legacy_cfg" QT_LOGGING_RULES="qml=true" timeout 60 \
+        quickshell -p "$staged_legacy" 2>&1 | sed 's/\x1b\[[0-9;]*m//g')"
+grep -E "LEGACY-" <<<"$lout" | sed 's/^.*\(LEGACY-\)/  \1/'
+final="$legacy"
+say "the pre-rename file is the one read (it said unrestricted)" \
+    grep -q "LEGACY-READ sandbox=unrestricted path=$legacy" <<<"$lout"
+say "a change is written back to it" keyis sandbox project
+say "  keeping its other keys" keyis detach_key "ctrl-]"
+say "  and ~/.config/rime is not created ahead of the OS's move" test ! -e "$legacy_cfg/rime"
 
 echo
 [ "$rc" -eq 0 ] \

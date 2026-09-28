@@ -201,7 +201,12 @@ check_tree() {
     want "the switch is bound to the service's effective default" \
         has "$page" 'AgentPolicyService\.alwaysUnrestricted'
     want "the service writes the agent runtime's own configuration file" \
-        has "$svc" 'configPath: root\.configHome \+ "/rime/agent\.json"'
+        has "$svc" '^ +: root\.configHome \+ "/rime/agent\.json"$'
+    # Until the OS has moved ~/.config/apex at login, the settings are still
+    # there; reading them, and writing them there rather than creating
+    # ~/.config/rime ahead of that move, is what keeps them.
+    want "  and reads the pre-rename file only while the new one cannot be read" \
+        has "$svc" 'legacyConfigPath: root\.configHome \+ "/apex/agent\.json"'
     # rimed/rime-agent-core/src/paths.rs: config_home() is $XDG_CONFIG_HOME
     # when set and non-empty, else $HOME/.config. A shell that hardcoded
     # ~/.config would edit a file no session reads.

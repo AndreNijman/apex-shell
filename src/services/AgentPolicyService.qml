@@ -72,7 +72,20 @@ QtObject {
         const x = Quickshell.env("XDG_CONFIG_HOME")
         return (x && x !== "") ? x : (Quickshell.env("HOME") + "/.config")
     }
-    readonly property string configPath: root.configHome + "/rime/agent.json"
+    readonly property string configPath: root._legacy ? root.legacyConfigPath
+                                                      : root.configHome + "/rime/agent.json"
+
+    // Where the same file was before the rename. The OS moves ~/.config/apex to
+    // ~/.config/rime at login, before this shell starts; until it has (a boot
+    // where that did not run), the user's settings are still here. So when the
+    // new file cannot be read, this one is tried, and if it is there it is the
+    // file read and written: a write under ~/.config/rime would create that
+    // directory, and a new directory existing is what makes the OS's move of
+    // the old one refuse. Never the other way round: once the new file exists,
+    // the old one is not looked at.
+    readonly property string legacyConfigPath: root.configHome + "/apex/agent.json"  // rime-rename: keep (the runtime's config path before the rename)
+    property bool _legacy: false
+    property bool _triedLegacy: false
 
     // The polkit action id, matching dots-extra/polkit/org.rimeos.shell.agent.policy.
     readonly property string actionId: "org.rimeos.shell.agent.set-always-unrestricted"
@@ -114,6 +127,17 @@ QtObject {
             root.loaded = true
         }
         onLoadFailed: {
+            if (!root._triedLegacy) {
+                root._triedLegacy = true
+                // Later, not here: a path changed from inside FileView's own
+                // loadFailed is dropped with the operation that failed
+                // ("got operation finished from dropped operation"), and the
+                // old file would never be read.
+                Qt.callLater(function () { root._legacy = true })
+                return
+            }
+            // Neither exists: a write goes to the new name.
+            if (root._legacy) Qt.callLater(function () { root._legacy = false })
             root._text = ""
             root.loaded = true
         }
