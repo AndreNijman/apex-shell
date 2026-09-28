@@ -8,10 +8,10 @@
 //
 // tests/fixtures/firewall/*.txt and *.json, and NOTHING here is written by
 // hand. Every one of them is the output of the shipped
-// files/system/libexec/apex-firewall, run under an nft shim against a
+// files/system/libexec/rime-firewall, run under an nft shim against a
 // redirected exception directory by
 //
-//     tests/fixtures/firewall/gen-firewall-fixtures.sh [apex-os-dir]
+//     tests/fixtures/firewall/gen-firewall-fixtures.sh [rime-os-dir]
 //
 // which also has a `--check` mode that re-captures into a temporary directory
 // and diffs. Read that script's header before touching anything here: it says
@@ -25,7 +25,7 @@
 // settings page told users the wrong thing about their firewall.
 //
 // The shapes are therefore the helper's, including the parts a hand-written
-// fixture would have got wrong: the two `apex-firewall:` prefixed lines come
+// fixture would have got wrong: the two `rime-firewall:` prefixed lines come
 // BEFORE the first heading, the shared-links block is set off by blank lines
 // on both sides, the exception list is sorted by filename rather than by the
 // order they were added, the rejected row uses an em dash, and the catalogue's
@@ -34,9 +34,9 @@
 // ── The one that matters most ───────────────────────────────────────────────
 //
 // `systemctl is-active` was the first version of the unit read. On katana,
-// whose image has no apex-firewall unit at all, it answers `inactive` — the
+// whose image has no rime-firewall unit at all, it answers `inactive` — the
 // same word it gives for a unit that exists and is stopped. The page would
-// have told that user to run `systemctl enable --now apex-firewall`, which
+// have told that user to run `systemctl enable --now rime-firewall`, which
 // cannot work. The `absent` case below is that bug, kept as a test.
 
 "use strict";
@@ -55,7 +55,7 @@ function fixture(name) {
     try { text = fs.readFileSync(p, "utf8"); }
     catch (e) {
         console.error(`FATAL: ${p} is missing. Regenerate with\n` +
-                      `  tests/fixtures/firewall/gen-firewall-fixtures.sh <apex-os-dir>`);
+                      `  tests/fixtures/firewall/gen-firewall-fixtures.sh <rime-os-dir>`);
         process.exit(2);
     }
     if (text.trim() === "") {
@@ -141,12 +141,12 @@ check("and the always-allowed sentence is still the traffic the policy never dro
       jloaded.alwaysAllowed, ALWAYS);
 
 const jhot = F.parseStatusJson(0, J_HOTSPOT);
-check("two shared links come through as two names", jhot.hotspotLinks, ["apexhost", "wlan0"]);
+check("two shared links come through as two names", jhot.hotspotLinks, ["rimehost", "wlan0"]);
 check("the shared-links block does not become the always-allowed sentence",
       jhot.alwaysAllowed, ALWAYS);
 check("and the page has a sentence for it",
       F.hotspotLine(jhot),
-      "Sharing this machine's connection on apexhost, wlan0. DHCP and DNS are open on those links only.");
+      "Sharing this machine's connection on rimehost, wlan0. DHCP and DNS are open on those links only.");
 check("sharing nothing is not a sentence at all", F.hotspotLine(jloaded), "");
 check("and neither is a read that could not look", F.hotspotLine(jnone), "");
 
@@ -194,7 +194,7 @@ check("policy missing altogether is refused",
 check("exceptions missing altogether is refused",
       F.parseStatusJson(0, mutated(d => { delete d.exceptions; })).ok, false);
 check("hotspot_links as a string is refused",
-      F.parseStatusJson(0, mutated(d => { d.hotspot_links = "apexhost"; })).ok, false);
+      F.parseStatusJson(0, mutated(d => { d.hotspot_links = "rimehost"; })).ok, false);
 // "missing" and "null" are identical in JavaScript and opposite here: one is a
 // key that got renamed, the other is the helper saying nobody could look. A
 // reader that defaults a missing key to null reports "not sharing" forever and
@@ -212,7 +212,7 @@ check("rejected as the string \"false\" is not a boolean and is refused",
 // the page on every machine that has not updated in lockstep.
 check("a field this reader does not know about is ignored, not fatal",
       F.parseStatusJson(0, mutated(d => { d.zones = ["home"]; })).ok, true);
-// Defence in depth: the port belongs to apex-os's contract, but "that port is
+// Defence in depth: the port belongs to rime-os's contract, but "that port is
 // open" about a port the reload refused is the one answer this page must never
 // give, so it is dropped here too.
 check("a rejected row arriving WITH a port does not get to show one",
@@ -220,7 +220,7 @@ check("a rejected row arriving WITH a port does not get to show one",
       { name: "broken", proto: "", port: "", rejected: true, detail: "tcp notaport" });
 
 // ── The exception list, from the prose fallback ─────────────────────────────
-// Still reachable: an `apex` that predates `--json`. Everything here used to be
+// Still reachable: an `rime` that predates `--json`. Everything here used to be
 // the only path.
 console.log("\n-- the exceptions, from the prose fallback --");
 const none = F.parseStatus(0, STATUS_NONE);
@@ -234,7 +234,7 @@ check("empty output is not a machine with nothing open, it is a read that failed
 
 // ── The regression this whole change exists for ─────────────────────────────
 //
-// apex-os c7a28f2c added a shared-links block to the status screen, set off by
+// rime-os c7a28f2c added a shared-links block to the status screen, set off by
 // blank lines, between the always-allowed heading and the exceptions heading.
 // The parser treated a blank line as nothing at all, so those lines were still
 // "under" the always-allowed heading and the last one won. On a root session
@@ -286,7 +286,7 @@ check("the same policy word, in all four states",
 
 // ── The catalogue ───────────────────────────────────────────────────────────
 // Counted from the fixture rather than written down: the old inline copy said
-// eleven, and the shipped catalogue had grown to twelve with `apex-remote`
+// eleven, and the shipped catalogue had grown to twelve with `rime-remote`
 // months before anyone noticed the suite was describing an older image.
 console.log("\n-- the catalogue --");
 const cat = F.parseCatalogue(0, LIST);
@@ -294,9 +294,9 @@ const listRows = LIST.trim().split("\n").length - 1;   // every line but the hea
 check("every service is read and the header is not one of them", cat.length, listRows);
 check("a service keeps its description, spaces and backticks and all",
       cat[0], { name: "ssh", proto: "tcp", port: "22",
-                description: "Remote shell, and how APEX remote agents and `apex host run` reach this machine" });
-check("apex-remote is in the shipped catalogue, hyphen and all",
-      cat.filter(r => r.name === "apex-remote").map(r => r.port), ["7717"]);
+                description: "Remote shell, and how Rime remote agents and `rime host run` reach this machine" });
+check("rime-remote is in the shipped catalogue, hyphen and all",
+      cat.filter(r => r.name === "rime-remote").map(r => r.port), ["7717"]);
 check("what is already open is not offered again",
       F.unopened(cat, mixed.exceptions).map(r => r.name).indexOf("mdns"), -1);
 check("and what is not open still is",
@@ -305,9 +305,9 @@ check("with nothing open, everything is offered", F.unopened(cat, []).length, ca
 
 // ── The commands ────────────────────────────────────────────────────────────
 console.log("\n-- the commands the page shows --");
-check("allow", F.allowCommand("mdns"), "sudo apex firewall allow mdns");
-check("deny",  F.denyCommand("mdns"),  "sudo apex firewall deny mdns");
-check("the read command is the one that needs root", F.READ_COMMAND, "sudo apex firewall status");
+check("allow", F.allowCommand("mdns"), "sudo rime firewall allow mdns");
+check("deny",  F.denyCommand("mdns"),  "sudo rime firewall deny mdns");
+check("the read command is the one that needs root", F.READ_COMMAND, "sudo rime firewall status");
 
 // ── "nothing is open" is three different facts ──────────────────────────────
 // An empty exception list comes back from a machine with nothing open, from a
@@ -315,7 +315,7 @@ check("the read command is the one that needs root", F.READ_COMMAND, "sudo apex 
 // running. The reassuring sentence belongs to one of them.
 console.log("\n-- an empty exception list --");
 const READ_OK = { ok: true, exceptions: [], alwaysAllowed: "", policy: "loaded", hotspotLinks: [] };
-// This laptop today: `apex` has no `firewall` subcommand at all, so clap writes
+// This laptop today: `rime` has no `firewall` subcommand at all, so clap writes
 // its usage to stderr, leaves stdout empty and exits 2. Measured 2026-09-14.
 const READ_NO = F.parseStatusJson(2, "");
 check("before the first sweep the page says nothing at all",
@@ -329,7 +329,7 @@ check("with no unit running, an empty list does not read as protection",
 check("the reassuring sentence needs the unit running AND the read answering",
       F.emptyLine(true, "active", READ_OK),
       "Nothing. Every port a program on this machine has open is reachable only from this machine itself.");
-check("an apex with no firewall verb parses as a read that did not answer",
+check("a rime with no firewall verb parses as a read that did not answer",
       READ_NO.ok, false);
 
 console.log(failed === 0 ? "\nfirewall: all checks passed" : `\nfirewall: ${failed} FAILED`);

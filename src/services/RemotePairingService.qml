@@ -6,21 +6,21 @@ import Quickshell.Io
 import "remotepairing.js" as RP
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  APEX Remote pairing and paired devices, for the two settings pages
+//  Rime Remote pairing and paired devices, for the two settings pages
 //  (roadmap P1-051, criteria 1, 3 and 5).
 //
-//  ── Everything through the apex CLI ─────────────────────────────────────────
+//  ── Everything through the rime CLI ─────────────────────────────────────────
 //
-//  Same rule as RemoteAgentService and AgentService: the `apex` CLI is the
+//  Same rule as RemoteAgentService and AgentService: the `rime` CLI is the
 //  stability surface. It already handles an absent daemon and a version
 //  mismatch, and it owns the control-socket path and its framing.
 //
 //  There is a second reason here that does not apply to the others, and it is
-//  the load-bearing one. `apex remote pair` MINTS A ONE-TIME TOKEN and arms
+//  the load-bearing one. `rime remote pair` MINTS A ONE-TIME TOKEN and arms
 //  the daemon to accept the next device that presents it. Under test, the
-//  `apex` on PATH is the stub tests/lib/headless.sh installs, so a suite can
+//  `rime` on PATH is the stub tests/lib/headless.sh installs, so a suite can
 //  drive this page without arming anything. A service that opened
-//  apex-remoted/control.sock directly would walk straight past that stub and
+//  rime-remoted/control.sock directly would walk straight past that stub and
 //  mint a real pairing token on whoever's machine the suite ran on.
 //
 //  ── Pairing is not a read, so it is not on the sweep ────────────────────────
@@ -54,7 +54,7 @@ import "remotepairing.js" as RP
 //  The Quickshell 0.3.0 facts this depends on are the ones RecoveryService.qml
 //  documents: `streamFinished` precedes `exited`, and a binary that cannot
 //  exec emits NEITHER and only drops `running` to false. The last is not
-//  hypothetical — an image whose `apex` predates `remote` reaches these pages
+//  hypothetical — an image whose `rime` predates `remote` reaches these pages
 //  through exactly that path, which is why every command has an
 //  `onRunningChanged` fallback and the pages can tell "asked and got nothing"
 //  from "not asked yet".
@@ -85,7 +85,7 @@ Singleton {
 
     // ── The pairing offer ────────────────────────────────────────────────────
 
-    // The `apex-remote:` payload currently on screen, or "".
+    // The `apex-remote:` payload currently on screen, or "".  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
     property string payload: ""
     property real payloadExpiresMs: 0
     // Why there is no code, in the words the command used. Shown instead of a
@@ -142,14 +142,14 @@ Singleton {
                 root.devices = RP.parseDevices(root._devicesBuf)
                 root.devicesError = ""
             } else {
-                root.devicesError = "apex remote devices exited " + code
+                root.devicesError = "rime remote devices exited " + code
             }
         }
         // The binary is not there at all. Neither `exited` nor
         // `streamFinished` fires; only this.
         onRunningChanged: if (!running && !root.devicesChecked) {
             root.devicesChecked = true
-            root.devicesError = "apex remote is not available on this image"
+            root.devicesError = "rime remote is not available on this image"
         }
     }
 
@@ -194,8 +194,8 @@ Singleton {
             if (code !== 0) {
                 root.payload = ""
                 root.payloadExpiresMs = 0
-                root.pairError = "apex remote pair exited " + code +
-                    ". APEX Remote may not be enabled: `apex remote enable`."
+                root.pairError = "rime remote pair exited " + code +
+                    ". Rime Remote may not be enabled: `rime remote enable`."
                 return
             }
             var text = RP.payloadOf(root._pairBuf)
@@ -206,7 +206,7 @@ Singleton {
             if (!text || !offer) {
                 root.payload = ""
                 root.payloadExpiresMs = 0
-                root.pairError = "apex remote pair did not return a pairing code."
+                root.pairError = "rime remote pair did not return a pairing code."
                 return
             }
             root.payload = text
@@ -216,7 +216,7 @@ Singleton {
         }
         onRunningChanged: if (!running && root.pairing) {
             root.pairing = false
-            root.pairError = "apex remote is not available on this image"
+            root.pairError = "rime remote is not available on this image"
         }
     }
 
@@ -243,7 +243,7 @@ Singleton {
         running: false
         stdout: StdioCollector {}
         onExited: function (code) {
-            if (code !== 0) root.revokeError = "apex remote revoke exited " + code
+            if (code !== 0) root.revokeError = "rime remote revoke exited " + code
             root.revoking = ""
             // Re-read rather than edit the row in place: the daemon decides
             // what revoked means, and a list that agreed with itself instead
@@ -252,7 +252,7 @@ Singleton {
             root.refresh()
         }
         onRunningChanged: if (!running && root.revoking !== "") {
-            root.revokeError = "apex remote is not available on this image"
+            root.revokeError = "rime remote is not available on this image"
             root.revoking = ""
         }
     }

@@ -7,22 +7,22 @@ import "../../../components/config"
 //
 // ── THE STATE THIS PAGE IS DESIGNED FOR ──────────────────────────────────────
 //
-// Not installed. Steam, gamescope and the overlay are on-demand `apex install`
-// packages; a fresh APEX image has none of them, and the machine this page was
+// Not installed. Steam, gamescope and the overlay are on-demand `rime install`
+// packages; a fresh Rime image has none of them, and the machine this page was
 // written against had none of them. A Gaming page whose first screen is a row
 // of switches would be offering to configure software that is not there, so the
 // first thing here is what is missing and the one command that fixes it.
 //
 // The command is TEXT. Installing needs root, and this page raises no
 // authentication prompt — the same rule BlueprintService follows for
-// `sudo apex apply`, for the same reason: `apex` can report across a privilege
+// `sudo rime apply`, for the same reason: `rime` can report across a privilege
 // boundary it cannot cross, and a button here that ran sudo would throw that
 // away.
 //
 // ── WHY THERE IS NO "OPTIMISE AUTOMATICALLY" SWITCH ──────────────────────────
 //
-// P1-049 asks for one. `apex mode set --auto` is documented one-shot — "APEX
-// ships nothing that re-evaluates this on a timer", and `apex workload` says it
+// P1-049 asks for one. `rime mode set --auto` is documented one-shot — "Rime
+// ships nothing that re-evaluates this on a timer", and `rime workload` says it
 // again — so a switch with that label would promise a daemon that deliberately
 // does not exist, and would keep promising it every time the user looked at the
 // page. What is offered instead is the choice itself, with the mode the machine
@@ -32,7 +32,7 @@ import "../../../components/config"
 // ── WHAT IS NOT HERE YET, AND WHY ────────────────────────────────────────────
 //
 // Criterion 2 also names VRR, background-update suppression and per-game
-// profiles. `apex game profile` exists and the other two have no verb at all.
+// profiles. `rime game profile` exists and the other two have no verb at all.
 // None of the three is stubbed with a control that does nothing: a switch whose
 // backend is missing reads exactly like one whose backend is broken, and this
 // page would rather be short than pretend.
@@ -62,7 +62,7 @@ CfgScroll {
         }
         CfgRow {
             label: "Try again"
-            description: "Re-runs `apex gaming`"
+            description: "Re-runs `rime gaming`"
             CfgButton {
                 label: "Retry"
                 onClicked: GamingService.refresh()
@@ -199,7 +199,7 @@ CfgScroll {
 
         CfgRow {
             label: "It stays where you put it"
-            description: "APEX does not switch modes for you while you work, " +
+            description: "Rime does not switch modes for you while you work, " +
                          "and nothing on this page runs on a timer. Set it back " +
                          "to Everyday when you have finished playing."
             hoverable: false
@@ -251,7 +251,7 @@ CfgScroll {
             delegate: CfgRow {
                 required property var modelData
                 label: modelData.key
-                description: "This version of APEX Shell has no description " +
+                description: "This version of Rime Shell has no description " +
                              "for this check.  " + modelData.source
                 status: modelData.passed ? "present" : "absent"
                 statusWarns: !modelData.passed
@@ -261,7 +261,7 @@ CfgScroll {
 
         CfgRow {
             label: "Check again"
-            description: "Re-runs `apex gaming` and `apex mode status`"
+            description: "Re-runs `rime gaming` and `rime mode status`"
             CfgButton {
                 label: "Refresh"
                 onClicked: GamingService.refresh()

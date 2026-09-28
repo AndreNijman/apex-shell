@@ -104,15 +104,15 @@ echo "── section 6: the route from the shell to a translator ──"
 
 # I1 — the entry-point half is pointed at a file shell.qml does not load. The
 #      row must go red: it reads shell.qml's CONTENT, not a name it remembers.
-mutate I1 "shell.qml reaches the Apex.I18n module" \
+mutate I1 "shell.qml reaches the Rime.I18n module" \
   's|^BOOT="src/i18n/I18nBootstrap.qml"$|BOOT="src/services/Time.qml"|'
 
 # I2 — the module half is pointed at a source file that installs no translator.
 #      The qmldir is the module's other half and installs nothing, so the row is
 #      red for the OTHER reason, with the other message — which is why the two
 #      halves are separate arms rather than one `&&`.
-mutate I2 "shell.qml reaches the Apex.I18n module" \
-  's|^PLUGIN="tests/apex-i18n-plugin.cpp"$|PLUGIN="tests/apex-i18n-qmldir"|'
+mutate I2 "shell.qml reaches the Rime.I18n module" \
+  's|^PLUGIN="tests/rime-i18n-plugin.cpp"$|PLUGIN="tests/rime-i18n-qmldir"|'
 
 # I3 — the import line's anchor is spelled so that it can never match, leaving
 #      the filename test standing alone. This is the read the other two cannot
@@ -124,7 +124,7 @@ mutate I2 "shell.qml reaches the Apex.I18n module" \
 #      a sentence the suite no longer prints, and a correctly detected defect
 #      would be reported as a broken expectation — FOUND 29, met once already
 #      in this repository and not worth meeting twice.
-mutate I3 "shell.qml reaches the Apex.I18n module" \
+mutate I3 "shell.qml reaches the Rime.I18n module" \
   's|"\^import +|"^importt +|'
 
 echo

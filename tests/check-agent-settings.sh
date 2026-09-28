@@ -16,7 +16,7 @@
 #      question, or to auth_self_keep, which caches the answer;
 #    * a session row reading the DEFAULT instead of its own recorded mode,
 #      which relabels running agents the moment somebody moves the toggle;
-#    * the config path drifting from the one apex-agent-core resolves, so the
+#    * the config path drifting from the one rime-agent-core resolves, so the
 #      page reports a setting no session will ever read.
 #
 #  Every one of those ships green. None of them is visible until it matters.
@@ -38,7 +38,7 @@
 #  PASS = the toggle asks for a password on the way in and not on the way out,
 #         at an action that authenticates the user rather than an admin, never
 #         through a root helper, writing one key of a file resolved the way
-#         apex resolves it, while every row reports its own session's mode.
+#         rime resolves it, while every row reports its own session's mode.
 #
 #  Run from anywhere: ./tests/check-agent-settings.sh
 # ─────────────────────────────────────────────────────────────────────────────
@@ -165,7 +165,7 @@ check_tree() {
     local centre="$r/src/services/agents/AgentCenter.qml"
     local qmldir="$r/src/services/qmldir"
     local registry="$r/src/nexus/PageRegistry.qml"
-    local policy="$r/dots-extra/polkit/org.apexos.shell.agent.policy"
+    local policy="$r/dots-extra/polkit/org.rimeos.shell.agent.policy"
     local installer="$r/dots-extra/install-arch.sh"
 
     # ── the parts exist ──────────────────────────────────────────────────────
@@ -201,8 +201,13 @@ check_tree() {
     want "the switch is bound to the service's effective default" \
         has "$page" 'AgentPolicyService\.alwaysUnrestricted'
     want "the service writes the agent runtime's own configuration file" \
-        has "$svc" 'configPath: root\.configHome \+ "/apex/agent\.json"'
-    # apexd/apex-agent-core/src/paths.rs: config_home() is $XDG_CONFIG_HOME
+        has "$svc" '^ +: root\.configHome \+ "/rime/agent\.json"$'
+    # Until the OS has moved ~/.config/apex at login, the settings are still
+    # there; reading them, and writing them there rather than creating
+    # ~/.config/rime ahead of that move, is what keeps them.
+    want "  and reads the pre-rename file only while the new one cannot be read" \
+        has "$svc" 'legacyConfigPath: root\.configHome \+ "/apex/agent\.json"'
+    # rimed/rime-agent-core/src/paths.rs: config_home() is $XDG_CONFIG_HOME
     # when set and non-empty, else $HOME/.config. A shell that hardcoded
     # ~/.config would edit a file no session reads.
     want "the config path honours XDG_CONFIG_HOME the way paths.rs does" \
@@ -223,9 +228,9 @@ check_tree() {
 
     # ── criterion 4: the password, and where it is not ───────────────────────
     want "the service asks polkit for the action the policy file declares" \
-        has "$svc" 'actionId: "org\.apexos\.shell\.agent\.set-always-unrestricted"'
+        has "$svc" 'actionId: "org\.rimeos\.shell\.agent\.set-always-unrestricted"'
     want "the polkit action file declares that same id" \
-        xml_has "$policy" '<action id="org\.apexos\.shell\.agent\.set-always-unrestricted">'
+        xml_has "$policy" '<action id="org\.rimeos\.shell\.agent\.set-always-unrestricted">'
     # A malformed action file has exactly one symptom, forever: polkitd does not
     # register the action and pkcheck exits 127. Nothing else complains. This
     # one was malformed on its first draft, because an XML comment may not
@@ -253,7 +258,7 @@ check_tree() {
     want "a session with nobody present cannot authenticate it" \
         xml_has "$policy" '<allow_any>no</allow_any>'
     want "the installer registers the action" \
-        grep -qE '/usr/share/polkit-1/actions/org\.apexos\.shell\.agent\.policy' "$installer"
+        grep -qE '/usr/share/polkit-1/actions/org\.rimeos\.shell\.agent\.policy' "$installer"
     # Criterion 7 at the process level. A root helper anywhere in this path
     # would make the setting a root grant whatever the copy says.
     want "nothing in the service runs as root" \
@@ -292,7 +297,7 @@ check_tree() {
         in_fn "$svc" 'function _write' 'umask 077'
     # The JSON goes in as a positional argument. Concatenated into the command
     # string it would be shell syntax, and its contents are a file the user and
-    # apex both write.
+    # rime both write.
     want "the JSON is passed as an argument, never spliced into the script" \
         in_fn "$svc" 'function _write' '"--", root\.configPath, text\]'
     want "the script body reads the JSON positionally" \
@@ -314,9 +319,9 @@ check_tree() {
 
     # ── P0-005 criterion 3: the agent's OWN permission mode is visible ───────
     #
-    # The trap: `session.native` says what APEX did, and for the case that
-    # matters APEX did nothing. Claude's profile default is bypassPermissions,
-    # §4.1 says APEX must not override it, so `native` reads `inherit` — and a
+    # The trap: `session.native` says what Rime did, and for the case that
+    # matters Rime did nothing. Claude's profile default is bypassPermissions,
+    # §4.1 says Rime must not override it, so `native` reads `inherit` — and a
     # chip showing "inherit" beside a session running with confirmations off
     # answers none of the criterion's question. `native_observed` is the
     # agent's own report, and it has to WIN.
@@ -324,7 +329,7 @@ check_tree() {
         has "$srow" 'Policy\.sessionNativeLabel\(session\)'
     want "the row no longer reads the raw native field, which would show inherit" \
         lacks "$srow" 'Policy\.sessionNative\(row\.session\)'
-    want "the label prefers the agent's own report over APEX's flag" \
+    want "the label prefers the agent's own report over Rime's flag" \
         in_fn "$js" '^function sessionNativeLabel\(session\) \{' \
             'session\.native_observed'
     want "and says nothing rather than naming a mode nobody reported" \
@@ -383,14 +388,14 @@ check_tree() {
     local copy
     copy="$(extract_copy "$page" "$banner")"
     want "the copy says the sandbox is what goes away" \
-        grep -qE 'no APEX sandbox|read and write every file' <<<"$copy"
+        grep -qE 'no Rime sandbox|read and write every file' <<<"$copy"
     want "the copy says root is not granted" \
         grep -qE 'no_new_privs|not root' <<<"$copy"
     want "the copy says secrets stay brokered" \
         grep -qiE 'broker' <<<"$copy"
     want "the copy says the agent's own permission mode is untouched" \
         grep -qE 'bypassPermissions' <<<"$copy"
-    # apex-agent-core asserts no root and no raw secret export. It asserts
+    # rime-agent-core asserts no root and no raw secret export. It asserts
     # nothing about the session being safe, and an unrestricted session reaches
     # every file the user can.
     want "the copy does not call the mode safe or secure" \
@@ -460,7 +465,7 @@ FILES=(
     src/services/agents/AgentCenter.qml
     src/services/qmldir
     src/nexus/PageRegistry.qml
-    dots-extra/polkit/org.apexos.shell.agent.policy
+    dots-extra/polkit/org.rimeos.shell.agent.policy
     dots-extra/install-arch.sh
 )
 
@@ -568,8 +573,8 @@ assert_changed "$MUT/m3" src/services/AgentPolicyService.qml \
 # The action asking the wrong question.
 fresh_copy "$MUT/m4"
 sed -i 's|<allow_active>auth_self</allow_active>|<allow_active>auth_admin_keep</allow_active>|' \
-    "$MUT/m4/dots-extra/polkit/org.apexos.shell.agent.policy"
-assert_changed "$MUT/m4" dots-extra/polkit/org.apexos.shell.agent.policy \
+    "$MUT/m4/dots-extra/polkit/org.rimeos.shell.agent.policy"
+assert_changed "$MUT/m4" dots-extra/polkit/org.rimeos.shell.agent.policy \
     && expect "an admin-authenticated, cached action is caught" "$MUT/m4" red
 
 # Criterion 8's failure, and the one that looks harmless in review: the row
@@ -611,9 +616,9 @@ assert_changed "$MUT/m7" src/services/AgentPolicyService.qml \
 # The action file that will never register. Its only symptom in the wild is
 # pkcheck exiting 127 forever, which reads as "not installed".
 fresh_copy "$MUT/m12"
-sed -i 's|<vendor>APEX Shell</vendor>|<vendor>APEX Shell</vendor|' \
-    "$MUT/m12/dots-extra/polkit/org.apexos.shell.agent.policy"
-assert_changed "$MUT/m12" dots-extra/polkit/org.apexos.shell.agent.policy \
+sed -i 's|<vendor>Rime Shell</vendor>|<vendor>Rime Shell</vendor|' \
+    "$MUT/m12/dots-extra/polkit/org.rimeos.shell.agent.policy"
+assert_changed "$MUT/m12" dots-extra/polkit/org.rimeos.shell.agent.policy \
     && expect "a polkit action file that will not parse is caught" "$MUT/m12" red
 
 # The banner that stops reporting anything.
@@ -645,16 +650,16 @@ sed -i 's|    next.sandbox = on ? UNRESTRICTED : DEFAULT_SANDBOX;|    next.sandb
 assert_changed "$MUT/m11" src/services/agentpolicy.js \
     && expect "a write that also moves dimension 1 is caught" "$MUT/m11" red
 
-# The chip that reports what APEX did instead of what the agent is doing. This
+# The chip that reports what Rime did instead of what the agent is doing. This
 # is P0-005 criterion 3's near miss and the reason `sessionNativeLabel` exists:
 # the row still shows a permission mode, so it passes review, and the mode it
-# shows for the case that matters is "inherit" — which is APEX having passed no
+# shows for the case that matters is "inherit" — which is Rime having passed no
 # flag, not Claude running with confirmations off.
 fresh_copy "$MUT/m13"
 sed -i 's|readonly property string nativeLabel: Policy.sessionNativeLabel(session)|readonly property string nativeLabel: Policy.sessionNative(session)|' \
     "$MUT/m13/src/services/agents/SessionRow.qml"
 assert_changed "$MUT/m13" src/services/agents/SessionRow.qml \
-    && expect "a chip showing APEX's flag instead of the agent's mode is caught" \
+    && expect "a chip showing Rime's flag instead of the agent's mode is caught" \
         "$MUT/m13" red
 
 # The red indicator spreading to §4.4's session grant. That mode keeps every
@@ -670,7 +675,7 @@ assert_changed "$MUT/m14" src/services/agentpolicy.js \
 # and a control that costs a password is one people leave alone — which is the
 # same outcome as not having it.
 fresh_copy "$MUT/m15"
-sed -i 's|        _act(\["apex", "agent", "revoke-grant", String(id)\])|        _act(["pkcheck", "--action-id", "org.apexos.shell.agent.set-always-unrestricted"])|' \
+sed -i 's|        _act(\["rime", "agent", "revoke-grant", String(id)\])|        _act(["pkcheck", "--action-id", "org.rimeos.shell.agent.set-always-unrestricted"])|' \
     "$MUT/m15/src/services/AgentService.qml"
 assert_changed "$MUT/m15" src/services/AgentService.qml \
     && expect "revocation behind an authentication is caught" "$MUT/m15" red

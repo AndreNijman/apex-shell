@@ -6,8 +6,8 @@ import "../search.js" as Search
 // ── THE ONLY PROVIDER THAT CAN REACH THE NETWORK, AND THE ONLY ONE BEHIND ───
 // ── A VERB THE USER TYPED ON PURPOSE ────────────────────────────────────────
 //
-// `apex search` runs `dnf5 search` and `flatpak search`. Flatpak's is a local
-// AppStream cache and costs nothing offline — apex-pkg says so in its own
+// `rime search` runs `dnf5 search` and `flatpak search`. Flatpak's is a local
+// AppStream cache and costs nothing offline — rime-pkg says so in its own
 // comment — but dnf5 may refresh repository metadata, which is a network
 // request. §15's constraint is that no provider may reach the network
 // implicitly, so this one is unreachable from a plain query: it answers only
@@ -21,7 +21,7 @@ import "../search.js" as Search
 // ── The rows are offers, not transactions ───────────────────────────────────
 // Installing needs root and removing is irreversible, so both rows carry a
 // non-safe class and Enter will not run either. The preview a commit gesture is
-// asked for is not prose this shell wrote: it is `apex resolve <name>`, which
+// asked for is not prose this shell wrote: it is `rime resolve <name>`, which
 // exists for exactly this and says so — "Read-only, so it needs no root: 'what
 // would this do' should never cost a password."
 

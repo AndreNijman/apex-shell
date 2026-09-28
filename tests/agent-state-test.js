@@ -3,7 +3,7 @@
 //  What an agent state looks like, measured rather than asserted (P0-021).
 //
 //      node tests/agent-state-test.js
-//      APEX_SHELL_SRC=/path/to/other/src node tests/agent-state-test.js
+//      RIME_SHELL_SRC=/path/to/other/src node tests/agent-state-test.js
 //
 //  ── Why this file does arithmetic ───────────────────────────────────────────
 //
@@ -15,7 +15,7 @@
 //
 //  It reads src/services/agentstate.js (the file the shell loads) and the hex
 //  values out of src/theme/Colors.qml, so the numbers describe the tree rather
-//  than a copy of it. Point APEX_SHELL_SRC at another checkout to measure that
+//  than a copy of it. Point RIME_SHELL_SRC at another checkout to measure that
 //  one instead — which is how the pre-fix tree was shown to fail.
 //
 //  ── Where the palettes come from ────────────────────────────────────────────
@@ -27,8 +27,8 @@
 //      matugen image src/assets/wallpapers/<file> \
 //          -c <cfg> --source-color-index 0 --type scheme-content -m <mode>
 //
-//  with src/config/apex-shell-colors.json.example as the template — the same
-//  file ~/.cache/apex-shell/colors.json is generated from. Six wallpapers, both
+//  with src/config/rime-shell-colors.json.example as the template — the same
+//  file ~/.cache/rime-shell/colors.json is generated from. Six wallpapers, both
 //  modes, twelve palettes.
 //
 //  Both modes, because P0-021 asks for light as well as dark and the shell had
@@ -59,7 +59,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const SRC = process.env.APEX_SHELL_SRC
+const SRC = process.env.RIME_SHELL_SRC
     || path.join(__dirname, "..", "src");
 
 let failed = 0;
@@ -170,22 +170,22 @@ const THEME_QML = fs.readFileSync(path.join(SRC, "theme", "Theme.qml"), "utf8");
 // ── the palettes, from matugen 4.2.0 ────────────────────────────────────────
 // wallpaper, mode, and the two fields a status colour is drawn against.
 const PALETTES = [
-    // The APEX-OS default wallpaper (tests/fixtures/wallpapers/), the look every
-    // harness uses; then the six shipped apex-shell-default-* wallpapers.
-    ["apex-wallpaper-default.jpg", "dark",  "#121315", "#e3e2e5", "#c4c6ce"],
-    ["apex-wallpaper-default.jpg", "light", "#faf9fb", "#1b1c1e", "#44474d"],
-    ["apex-shell-default-0.png", "dark",  "#141311", "#e6e2dd", "#ccc6b9"],
-    ["apex-shell-default-0.png", "light", "#fdf9f3", "#1d1b19", "#4a473c"],
-    ["apex-shell-default-1.png", "dark",  "#121316", "#e2e2e5", "#c2c7cf"],
-    ["apex-shell-default-1.png", "light", "#f9f9fc", "#1a1c1e", "#42474e"],
-    ["apex-shell-default-2.jpg", "dark",  "#111410", "#e2e3dc", "#c2c9bc"],
-    ["apex-shell-default-2.jpg", "light", "#f9faf3", "#1a1c18", "#42493f"],
-    ["apex-shell-default-3.jpg", "dark",  "#111319", "#e1e2ea", "#c2c6d4"],
-    ["apex-shell-default-3.jpg", "light", "#f9f9ff", "#191c21", "#424752"],
-    ["apex-shell-default-4.jpg", "dark",  "#121414", "#e2e2e2", "#c0c8c9"],
-    ["apex-shell-default-4.jpg", "light", "#f9f9f9", "#1a1c1c", "#414849"],
-    ["apex-shell-default-5.jpg", "dark",  "#121318", "#e3e1e9", "#c5c5d3"],
-    ["apex-shell-default-5.jpg", "light", "#fbf8ff", "#1b1b21", "#454651"]
+    // The Rime OS default wallpaper (tests/fixtures/wallpapers/), the look every
+    // harness uses; then the six shipped rime-shell-default-* wallpapers.
+    ["rime-wallpaper-default.jpg", "dark",  "#121315", "#e3e2e5", "#c4c6ce"],
+    ["rime-wallpaper-default.jpg", "light", "#faf9fb", "#1b1c1e", "#44474d"],
+    ["rime-shell-default-0.png", "dark",  "#141311", "#e6e2dd", "#ccc6b9"],
+    ["rime-shell-default-0.png", "light", "#fdf9f3", "#1d1b19", "#4a473c"],
+    ["rime-shell-default-1.png", "dark",  "#121316", "#e2e2e5", "#c2c7cf"],
+    ["rime-shell-default-1.png", "light", "#f9f9fc", "#1a1c1e", "#42474e"],
+    ["rime-shell-default-2.jpg", "dark",  "#111410", "#e2e3dc", "#c2c9bc"],
+    ["rime-shell-default-2.jpg", "light", "#f9faf3", "#1a1c18", "#42493f"],
+    ["rime-shell-default-3.jpg", "dark",  "#111319", "#e1e2ea", "#c2c6d4"],
+    ["rime-shell-default-3.jpg", "light", "#f9f9ff", "#191c21", "#424752"],
+    ["rime-shell-default-4.jpg", "dark",  "#121414", "#e2e2e2", "#c0c8c9"],
+    ["rime-shell-default-4.jpg", "light", "#f9f9f9", "#1a1c1c", "#414849"],
+    ["rime-shell-default-5.jpg", "dark",  "#121318", "#e3e1e9", "#c5c5d3"],
+    ["rime-shell-default-5.jpg", "light", "#fbf8ff", "#1b1b21", "#454651"]
 ].map(([wall, mode, background, text, subtext]) => ({
     wall, mode, background, text, subtext,
     card:  blend(background, text, 0.03),
@@ -200,7 +200,7 @@ const MIN_CONTRAST = 4.5;
 // touching are separable well below this; two rows apart in a list are not.
 const MIN_DELTA_E = 20;
 
-// apex-agent-core/src/protocol.rs, `enum AgentState`. Transcribed rather than
+// rime-agent-core/src/protocol.rs, `enum AgentState`. Transcribed rather than
 // derived: if the runtime grows an eighth state, this list not knowing about it
 // is the failure that should be reported.
 const RUNTIME_STATES = [
@@ -211,7 +211,7 @@ const RUNTIME_STATES = [
 // ── 1. every runtime state has a tone, and nothing is guessed ───────────────
 {
     const unmapped = RUNTIME_STATES.filter(s => !(s in A.STATE_TONES));
-    check("every state apex-agent-core can publish has a tone",
+    check("every state rime-agent-core can publish has a tone",
           unmapped.length === 0, `unmapped: ${unmapped.join(", ")}`);
     check("a state this build has not been taught is drawn as idle, not guessed",
           A.tone("some_future_state") === "idle" && A.tone("") === "idle",

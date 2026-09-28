@@ -17,7 +17,7 @@ import "../agentlifecycle.js" as Lifecycle
 // they are lifecycle operations the runtime owns and no terminal offers. Diff,
 // undo and checkpoint are NOT here — they change a project's contents, and a
 // destructive action behind one unconfirmed click in a status list is how
-// people lose work. Those stay in the CLI where `apex agent undo` asks first.
+// people lose work. Those stay in the CLI where `rime agent undo` asks first.
 //
 // ── THE THREE PLACES THE STATE IS VISIBLE ───────────────────────────────────
 //
@@ -46,14 +46,14 @@ import "../agentlifecycle.js" as Lifecycle
 //
 // §4.1 criterion 3 asks that the agent-native permission mode be visible here.
 // The obvious field is `session.native`, and it is the wrong one: it says what
-// APEX did, and for the case that matters APEX did nothing. Andre runs Claude
-// in `bypassPermissions` as his profile default, §4.1 says APEX must not
+// Rime did, and for the case that matters Rime did nothing. Andre runs Claude
+// in `bypassPermissions` as his profile default, §4.1 says Rime must not
 // override that, so `native` reads `inherit` — and a chip showing "inherit"
 // beside a session running with confirmations off satisfies the criterion's
 // words and answers none of its question.
 //
 // So the agent's own report wins. Claude puts `permission_mode` on every hook
-// payload, apex-agentd records it as `native_observed`, and
+// payload, rime-agentd records it as `native_observed`, and
 // `Policy.sessionNativeLabel` prefers it. The chip then reads
 // `project · bypassPermissions`, which is Claude's own word for its own mode.
 //
@@ -129,7 +129,7 @@ Rectangle {
     readonly property string sandboxMode: Policy.sessionSandbox(session)
     readonly property bool unconfined: row.sandboxMode === Policy.UNRESTRICTED
 
-    // Dimension 1 as the agent reports it, or as APEX selected it, or "" when
+    // Dimension 1 as the agent reports it, or as Rime selected it, or "" when
     // neither has anything to say. See the header.
     readonly property string nativeLabel: Policy.sessionNativeLabel(session)
 
@@ -203,7 +203,7 @@ Rectangle {
         height: theme.px(52) + (row.telemetry ? theme.px(13) : 0)
 
     // The whole row focuses the terminal. §3: "Focus the existing terminal when
-    // the user clicks an agent in APEX Shell."
+    // the user clicks an agent in Rime Shell."
     TapHandler {
         onTapped: row.primary()
     }
@@ -326,7 +326,7 @@ Rectangle {
                         // The sandbox, and dimension 1 beside it whenever
                         // anything is known about it — which for a managed
                         // Claude is the mode Claude itself reports. Empty only
-                        // when APEX passed no flag AND the agent has said
+                        // when Rime passed no flag AND the agent has said
                         // nothing, where naming a mode would claim knowledge of
                         // a settings file the runtime never read.
                         text: row.sandboxMode

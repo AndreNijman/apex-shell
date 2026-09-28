@@ -31,7 +31,7 @@ import QtQuick
 // grid because it IS the grid's tile.
 //
 // ── On the 1 Hz timer ─────────────────────────────────────────────────────────
-// apex-worldclock deliberately ticks once a MINUTE, because it shows no seconds
+// rime-worldclock deliberately ticks once a MINUTE, because it shows no seconds
 // and a 1 Hz timer would wake the shell sixty times per visible change. This
 // one ticks once a second, and the difference is not carelessness:
 //

@@ -55,7 +55,7 @@ StatCard {
     }
 
     function _notify(title, body) {
-        notifyProc.command = ["notify-send", "-a", "APEX Shell", "-i", "alarm", title, body]
+        notifyProc.command = ["notify-send", "-a", "Rime Shell", "-i", "alarm", title, body]
         notifyProc.running = false
         notifyProc.running = true
     }
@@ -361,7 +361,7 @@ StatCard {
             visible: root._mode === "timer"
 
             // "+" / "x" toggle — top-right corner
-            ApexPressable {
+            RimePressable {
                 id: addTimerBtn
                 anchors { top: parent.top; right: parent.right; topMargin: 8; rightMargin: 8 }
                 width: 24; height: 24; radius: 7; hitMargin: 4
@@ -383,7 +383,7 @@ StatCard {
                         font.pixelSize: theme.fs(14); color: Theme.active
                     }
                 }
-                ApexFocusRing { target: addTimerBtn }
+                RimeFocusRing { target: addTimerBtn }
             }
 
             Column {
@@ -443,7 +443,7 @@ StatCard {
                     visible: !root._addTimerOpen && !root._timerRunning
                     Repeater {
                         model: [5, 10, 15, 30]
-                        delegate: ApexPressable {
+                        delegate: RimePressable {
                             id: presetBtn
                             required property int modelData
                             required property int index
@@ -469,7 +469,7 @@ StatCard {
                                 font.pixelSize: theme.fs(9); font.family: "JetBrains Mono"; font.weight: Font.Bold
                                 color: Theme.textSecondary
                             }
-                            ApexFocusRing { target: presetBtn }
+                            RimeFocusRing { target: presetBtn }
                         }
                     }
                 }
@@ -492,7 +492,7 @@ StatCard {
                             minuteStep: 1
                         }
 
-                        ApexPressable {
+                        RimePressable {
                             id: setTimerBtn
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: 58; height: 26; radius: 8; hitMargin: 3
@@ -527,7 +527,7 @@ StatCard {
                                 font.pixelSize: theme.fs(11); font.weight: Font.Medium
                                 color: Theme.active
                             }
-                            ApexFocusRing { target: setTimerBtn }
+                            RimeFocusRing { target: setTimerBtn }
                         }
                     }
                 }
@@ -539,7 +539,7 @@ StatCard {
                     visible: !root._addTimerOpen
 
                     // Start / Pause
-                    ApexPressable {
+                    RimePressable {
                         id: timerStartBtn
                         width: 58; height: 26; radius: 8; hitMargin: 3
                         Accessible.name: root._timerRunning ? "Pause timer" : "Start timer"
@@ -563,11 +563,11 @@ StatCard {
                             font.pixelSize: theme.fs(10); font.weight: Font.Medium
                             color: Theme.active
                         }
-                        ApexFocusRing { target: timerStartBtn }
+                        RimeFocusRing { target: timerStartBtn }
                     }
 
                     // Reset
-                    ApexPressable {
+                    RimePressable {
                         id: timerResetBtn
                         width: 58; height: 26; radius: 8; hitMargin: 3
                         Accessible.name: "Reset timer"
@@ -592,7 +592,7 @@ StatCard {
                             font.pixelSize: theme.fs(10); font.weight: Font.Medium
                             color: Theme.textSecondary
                         }
-                        ApexFocusRing { target: timerResetBtn }
+                        RimeFocusRing { target: timerResetBtn }
                     }
                 }
             }
@@ -619,7 +619,7 @@ StatCard {
                         color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.7)
                     }
 
-                    ApexPressable {
+                    RimePressable {
                         id: addAlarmBtn
                         anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                         width: 24; height: 24; radius: 7; hitMargin: 4
@@ -655,7 +655,7 @@ StatCard {
                                 font.pixelSize: theme.fs(14); color: Theme.active
                             }
                         }
-                        ApexFocusRing { target: addAlarmBtn }
+                        RimeFocusRing { target: addAlarmBtn }
                     }
                 }
 
@@ -685,7 +685,7 @@ StatCard {
                             minuteStep: 1
                         }
 
-                        ApexPressable {
+                        RimePressable {
                             id: setAlarmBtn
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: 58; height: 26; radius: 8; hitMargin: 3
@@ -710,7 +710,7 @@ StatCard {
                                 font.pixelSize: theme.fs(11); font.weight: Font.Medium
                                 color: Theme.active
                             }
-                            ApexFocusRing { target: setAlarmBtn }
+                            RimeFocusRing { target: setAlarmBtn }
                         }
                     }
                 }
@@ -749,7 +749,7 @@ StatCard {
                         }
 
                         // Toggle
-                        ApexPressable {
+                        RimePressable {
                             id: toggleBtn
                             anchors { right: deleteBtn.left; rightMargin: 6; verticalCenter: parent.verticalCenter }
                             width: 28; height: 18; radius: 9; hitMargin: 7
@@ -775,11 +775,11 @@ StatCard {
                                     Behavior on color { MotionColor { role: "state" } }
                                 }
                             }
-                            ApexFocusRing { target: toggleBtn }
+                            RimeFocusRing { target: toggleBtn }
                         }
 
                         // Delete
-                        ApexPressable {
+                        RimePressable {
                             id: deleteBtn
                             anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
                             width: 22; height: 22; radius: 6; hitMargin: 5
@@ -795,7 +795,7 @@ StatCard {
                                 Behavior on color { MotionColor {} }
                             }
                             Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: theme.fs(10); color: Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b,0.6) }
-                            ApexFocusRing { target: deleteBtn }
+                            RimeFocusRing { target: deleteBtn }
                         }
                     }
 
@@ -835,7 +835,7 @@ StatCard {
                     spacing: 6
 
                     // Start / Stop
-                    ApexPressable {
+                    RimePressable {
                         id: swStartBtn
                         width: 58; height: 26; radius: 8; hitMargin: 3
                         Accessible.name: root._swRunning ? "Stop stopwatch" : "Start stopwatch"
@@ -854,10 +854,10 @@ StatCard {
                             font.pixelSize: theme.fs(10); font.weight: Font.Medium
                             color: Theme.active
                         }
-                        ApexFocusRing { target: swStartBtn }
+                        RimeFocusRing { target: swStartBtn }
                     }
                     // Reset
-                    ApexPressable {
+                    RimePressable {
                         id: swResetBtn
                         width: 58; height: 26; radius: 8; hitMargin: 3
                         Accessible.name: "Reset stopwatch"
@@ -875,7 +875,7 @@ StatCard {
                             font.pixelSize: theme.fs(10); font.weight: Font.Medium
                             color: Theme.textSecondary
                         }
-                        ApexFocusRing { target: swResetBtn }
+                        RimeFocusRing { target: swResetBtn }
                     }
                 }
             }

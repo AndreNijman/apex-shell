@@ -28,23 +28,23 @@
 #  XDG_RUNTIME_DIR, and the library aborts the run if the socket it ends up
 #  talking to is not inside that directory. Nothing lands on anybody's desk.
 #
-#  ── The `apex` here is a STUB, and it has to be ─────────────────────────────
+#  ── The `rime` here is a STUB, and it has to be ─────────────────────────────
 #
-#  `apex lid pin` WRITES the invoking user's ~/.config/apex/lid.toml, and the
+#  `rime lid pin` WRITES the invoking user's ~/.config/rime/lid.toml, and the
 #  ROOT driver reads that file to decide whether the machine suspends when its
 #  lid shuts. A suite that ran the real command would repin the laptop it is
 #  running on, several times per run, and leave it repinned. The stub answers
 #  `status --json` and `report --json` from tests/fixtures/lid/ and records
-#  every argv. Never `headless_unstub apex` here — that hands the page the real
+#  every argv. Never `headless_unstub rime` here — that hands the page the real
 #  binary and the real policy file.
 #
 #  ── Five phases ─────────────────────────────────────────────────────────────
 #
 #    docked       the real L16 capture: an external display, so logind ignores
-#                 the lid and APEX is not why
+#                 the lid and Rime is not why
 #    working      undocked and pinned on, with a real closed period to report
 #    guard        a thermal guard, which must outrank the docked frame
-#    unreadable   `apex` fails. The page must say so and must not throw
+#    unreadable   `rime` fails. The page must say so and must not throw
 #    pixels       the built page is rasterised and the PNG inspected
 #
 #  `pixels` is the only one that proves the scene graph ran. Everything else
@@ -53,7 +53,7 @@
 #
 #  ── Two of the five fixtures are DERIVED, and the derivation is here ────────
 #
-#  Under `APEX_LID_ROOT` the driver logs rather than runs every external
+#  Under `RIME_LID_ROOT` the driver logs rather than runs every external
 #  program, so busctl never answers and `logind.docked` comes back null: the
 #  binary cannot produce an undocked machine. The `working` and `guard`
 #  documents are therefore built by editing `logind` on documents the binary
@@ -78,7 +78,7 @@ trap cleanup EXIT INT TERM
 headless_begin
 
 W="$HEADLESS_W"
-CALLS="$W/apex-calls.log"
+CALLS="$W/rime-calls.log"
 : > "$CALLS"
 FIX="$here/fixtures/lid"
 
@@ -112,9 +112,9 @@ PY
 # Overwrites the one headless_begin installed. Every invocation is recorded
 # before anything else happens, so an assertion about what the page ASKED FOR
 # holds even when the answer is a failure.
-cat > "$W/bin/apex" <<'STUB'
+cat > "$W/bin/rime" <<'STUB'
 #!/usr/bin/env bash
-printf '%s\n' "$*" >> "$APEX_LP_CALLS"
+printf '%s\n' "$*" >> "$RIME_LP_CALLS"
 
 if [[ "${1:-}" != "lid" ]]; then
     exit 0
@@ -122,32 +122,32 @@ fi
 
 case "${2:-}" in
 status)
-    if [[ "${APEX_LP_FAIL:-0}" == "1" ]]; then
+    if [[ "${RIME_LP_FAIL:-0}" == "1" ]]; then
         # What a real refusal looks like: a sentence on stderr and nothing at
         # all on stdout. The page must not read that as a calm machine.
-        echo "apex: the lid policy could not be read" >&2
+        echo "rime: the lid policy could not be read" >&2
         exit 1
     fi
-    cat "$APEX_LP_STATUS"
+    cat "$RIME_LP_STATUS"
     exit 0
     ;;
 report)
-    if [[ "${APEX_LP_FAIL:-0}" == "1" ]]; then
-        echo "apex: the record could not be read" >&2
+    if [[ "${RIME_LP_FAIL:-0}" == "1" ]]; then
+        echo "rime: the record could not be read" >&2
         exit 1
     fi
-    cat "$APEX_LP_REPORT"
+    cat "$RIME_LP_REPORT"
     exit 0
     ;;
 pin)
     # Records its argv above and writes nothing. The real one rewrites the
-    # owner's ~/.config/apex/lid.toml, which the root driver then obeys.
+    # owner's ~/.config/rime/lid.toml, which the root driver then obeys.
     exit 0
     ;;
 esac
 exit 0
 STUB
-chmod +x "$W/bin/apex"
+chmod +x "$W/bin/rime"
 
 # Quickshell refuses to import QML modules from outside the directory holding
 # the entry point, so the suite is staged into the repository root.
@@ -169,12 +169,12 @@ phase() {
     echo "── $name ────────────────────────────────────────────────"
 
     ( cd "$root" && env \
-        APEX_LP_PHASE="$name" \
-        APEX_LP_CALLS="$CALLS" \
-        APEX_LP_STATUS="$status" \
-        APEX_LP_REPORT="$report" \
-        APEX_LP_FAIL="$failread" \
-        APEX_LP_GRAB="$W/lid-page.png" \
+        RIME_LP_PHASE="$name" \
+        RIME_LP_CALLS="$CALLS" \
+        RIME_LP_STATUS="$status" \
+        RIME_LP_REPORT="$report" \
+        RIME_LP_FAIL="$failread" \
+        RIME_LP_GRAB="$W/lid-page.png" \
         QT_LOGGING_RULES="qml=true" \
         timeout 180 quickshell -p "$staged" ) > "$log" 2>&1
 

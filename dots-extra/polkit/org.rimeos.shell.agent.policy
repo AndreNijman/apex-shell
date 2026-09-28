@@ -4,15 +4,15 @@
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 
 <!--
-  APEX Shell — the password behind "Always unrestricted agents"
+  Rime Shell — the password behind "Always unrestricted agents"
 
-  ROADMAP.md §42.1 asks that turning the APEX sandbox OFF for new sessions take
+  ROADMAP.md §42.1 asks that turning the Rime sandbox OFF for new sessions take
   a real local password at a prompt the agent cannot reach, and that turning it
   back ON again be immediate and ask for nothing. This action is that password.
 
   Config → Agents raises it by running pkcheck against this action id, for the
   shell's own process, with user interaction allowed, and writes
-  ~/.config/apex/agent.json only when that exits 0. The argv is in
+  ~/.config/rime/agent.json only when that exits 0. The argv is in
   src/services/AgentPolicyService.qml rather than quoted here: an XML comment
   may not contain a double hyphen, and every flag it uses starts with one.
 
@@ -20,7 +20,7 @@
 
   The setting does not grant root and must not be authenticated as though it
   did. It changes which sandbox the user's own agent sessions start in, and the
-  invariants in apex-agent-core hold either way: a session keeps
+  invariants in rime-agent-core hold either way: a session keeps
   PR_SET_NO_NEW_PRIVS whichever sandbox it has, and secrets stay behind the
   broker. auth_admin would ask the wrong question and, on a single-user
   machine, teach the user to type the root password at a dialog that is not
@@ -44,10 +44,10 @@
   challenged.
 
   Install (regular systemd host):
-    sudo install -Dm644 dots-extra/polkit/org.apexos.shell.agent.policy \
-         /usr/share/polkit-1/actions/org.apexos.shell.agent.policy
+    sudo install -Dm644 dots-extra/polkit/org.rimeos.shell.agent.policy \
+         /usr/share/polkit-1/actions/org.rimeos.shell.agent.policy
 
-  Image builds (e.g. APEX-OS): ship it read-only at the same path.
+  Image builds (e.g. Rime OS): ship it read-only at the same path.
 
   polkitd re-reads actions on change. Until it is installed, pkcheck exits 127
   with "is not registered" and the toggle says so instead of failing silently.
@@ -55,11 +55,11 @@
 
 <policyconfig>
 
-  <vendor>APEX Shell</vendor>
-  <vendor_url>https://github.com/AndreNijman/apex-shell</vendor_url>
+  <vendor>Rime Shell</vendor>
+  <vendor_url>https://github.com/AndreNijman/apex-shell</vendor_url> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
 
-  <action id="org.apexos.shell.agent.set-always-unrestricted">
-    <description>Start new agents with no APEX sandbox</description>
+  <action id="org.rimeos.shell.agent.set-always-unrestricted">
+    <description>Start new agents with no Rime sandbox</description>
     <message>Authentication is required to let new agent sessions read and write your whole home directory.</message>
     <defaults>
       <allow_any>no</allow_any>

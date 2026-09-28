@@ -36,7 +36,7 @@ ShellRoot {
     }
 
     readonly property string outPath:
-        Quickshell.env("XDG_RUNTIME_DIR") + "/apex-niri-keybinds-test.kdl"
+        Quickshell.env("XDG_RUNTIME_DIR") + "/rime-niri-keybinds-test.kdl"
 
     property string kdl: ""
 
@@ -85,7 +85,7 @@ ShellRoot {
 
         // The whole point of this branch: app launches now reach niri.
         check("the browser bind is emitted",
-              root.kdl.indexOf("apex-open-browser") >= 0)
+              root.kdl.indexOf("rime-open-browser") >= 0)
         check("the terminal bind is emitted",
               root.kdl.indexOf('spawn "alacritty"') >= 0)
         check("the file manager bind is emitted",
@@ -98,15 +98,15 @@ ShellRoot {
         // P2-003. The image ships orca and autostarts nothing, so this bind is
         // the only way in for the user who needs a reader. niri spawns without
         // a shell, so the command has to arrive as separate quoted argv tokens
-        // — a single `"…/apex-screen-reader toggle"` token would be looked up
+        // — a single `"…/rime-screen-reader toggle"` token would be looked up
         // as a filename with a space in it and fail silently, which for a
         // screen reader means a key that does nothing at all.
         check("the screen-reader bind reaches niri",
-              root.kdl.indexOf("apex-screen-reader") >= 0)
+              root.kdl.indexOf("rime-screen-reader") >= 0)
         check("and its argv is split rather than handed over as one filename",
-              root.kdl.indexOf('"/usr/libexec/apex-screen-reader" "toggle"') >= 0)
+              root.kdl.indexOf('"/usr/libexec/rime-screen-reader" "toggle"') >= 0)
         check("on the combination a screen-reader user already knows (Mod+Alt+S)",
-              /Mod\+Alt\+S\s+\{[^}]*apex-screen-reader/.test(root.kdl))
+              /Mod\+Alt\+S\s+\{[^}]*rime-screen-reader/.test(root.kdl))
 
         // Native window actions, mapped onto niri's column model.
         check("close-window is emitted",   root.kdl.indexOf("close-window;") >= 0)
@@ -119,10 +119,10 @@ ShellRoot {
               root.kdl.indexOf("no niri equivalent of") >= 0)
 
         // niri's own ALT+Tab, written out rather than inherited. The Hyprland
-        // session binds APEX's switcher; niri has no key-RELEASE binding for it
+        // session binds Rime's switcher; niri has no key-RELEASE binding for it
         // to commit on, and 26.04 ships a hold-and-release switcher of its own.
-        // Pinned here so APEX's ALT+Tab cannot change because upstream changed
-        // a default — the same reason apex-os writes `cursor { no_warps =
+        // Pinned here so Rime's ALT+Tab cannot change because upstream changed
+        // a default — the same reason rime-os writes `cursor { no_warps =
         // false }` into the Hyprland seed when that is also the default.
         check("niri's recent-windows switcher is configured, not inherited",
               /recent-windows\s*\{[\s\S]*Alt\+Tab\s*\{\s*next-window;/.test(root.kdl))

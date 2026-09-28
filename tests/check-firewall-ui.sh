@@ -126,26 +126,26 @@ check_tree() {
         not_in_fn "$svc" 'readonly property var _stepArgv' '"(allow|deny|reload|start|stop|enable)"'
 
     # ── 3b. the status read has a shape ──────────────────────────────────────
-    # The page used to parse the helper's prose, and apex-os moving one
+    # The page used to parse the helper's prose, and rime-os moving one
     # paragraph made it report "DHCP and DNS are open on those links only" as
     # the traffic the firewall never drops — silently, with both suites green.
     # `--json` is the fix; these assert the shell actually asks for it, and
     # that the machines which cannot answer still get an answer.
     want "the sweep reads the machine-readable status, not the prose" \
         in_fn "$svc" 'readonly property var _stepArgv' \
-            '^[[:space:]]+statusJson:[[:space:]]+\["apex", "firewall", "status", "--json"\]'
+            '^[[:space:]]+statusJson:[[:space:]]+\["rime", "firewall", "status", "--json"\]'
     want "and that is the step the sweep queues" \
         in_fn "$svc" 'function _beginSweep' '_queue = \["unit", "statusJson", "catalogue"\]'
     want "a document that is not the contract is not rendered anyway" \
         in_fn "$svc" 'function _resolve' 'if \(parsed\.ok\)'
-    # An `apex` that predates the flag rejects it in clap, writes usage to
+    # An `rime` that predates the flag rejects it in clap, writes usage to
     # stderr and leaves stdout EMPTY — so the fallback cannot be "parse the same
     # text as prose", it has to be a second process.
-    want "an apex too old for --json still gets read, through a prose fallback" \
+    want "a rime too old for --json still gets read, through a prose fallback" \
         in_fn "$svc" 'function _resolve' '_queue = \["status"\]\.concat\(root\._queue\)'
 
     # ── 4. no argv here is privileged ────────────────────────────────────────
-    # `sudo apex firewall allow` appears in this tree as a string SHOWN to the
+    # `sudo rime firewall allow` appears in this tree as a string SHOWN to the
     # user; it is never executed. The distinction is that an executed argv is
     # an array assigned to a `command`, so that is what is scanned.
     local argvs
@@ -224,7 +224,7 @@ if [ "${1:-}" = "--self-test" ]; then
       "svc|s/refCount <= 0 \&\& !force/false/|the sweep may run with nobody watching"
       "svc|s/root\._proc\.running = false/:/|_standDown leaves the sweep running"
       "svc|s/unit: \+\[\"systemctl\", \"show\"/unit:       [\"systemctl\", \"start\"/|the unit step starts the service instead of reading it"
-      "svc|s|_proc.command = root._stepArgv\[step\]|_proc.command = [\"apex\", \"firewall\", \"reload\"]|;|a timer can reach a verb that changes the machine"
+      "svc|s|_proc.command = root._stepArgv\[step\]|_proc.command = [\"rime\", \"firewall\", \"reload\"]|;|a timer can reach a verb that changes the machine"
       "page|s/lifecycle: \"live\"/lifecycle: \"\"/|the page does not say what its controls do"
       "page|s/label:       \"Turn it on\"/label:       \"Commit\"/|a control uses a banned word"
       "page|s/statusWarns: modelData\.rejected/statusWarns: false/|a rejected exception is drawn like a working one"
@@ -239,7 +239,7 @@ if [ "${1:-}" = "--self-test" ]; then
       "svc|s/statusJson: /statusProse: /|a sweep step is renamed out from under the argv-table count"
       "svc|s/, \"--json\"//|the status read asks for prose again"
       "svc|s/_queue = \[\"unit\", \"statusJson\", \"catalogue\"\]/_queue = [\"unit\", \"status\", \"catalogue\"]/|the sweep goes back to reading the prose first"
-      "svc|s/root\._queue = \[\"status\"\]\.concat(root\._queue)/root._queue = root._queue/|an apex too old for --json gets no fallback and the page goes blank"
+      "svc|s/root\._queue = \[\"status\"\]\.concat(root\._queue)/root._queue = root._queue/|a rime too old for --json gets no fallback and the page goes blank"
       "svc|s/if (parsed\.ok) {/if (true) {/|a document that is not the contract is rendered anyway"
       "page|s/label:       FirewallService\.hotspotLine/label:       \"Sharing this connection\"/|the shared-links sentence is written into the page"
       "svc|s/Fw\.hotspotLine(root\.status)/\"\"/|the service decides the shared-links sentence itself"
@@ -278,8 +278,8 @@ if [ "${1:-}" = "--self-test" ]; then
     rm -rf "$tmp/t"; cp -r "$repo" "$tmp/t"
     cat >> "$tmp/t/src/services/FirewallService.qml" <<'PROSE'
 // Prose mutant. None of these may be read as code: this service never runs
-// sudo apex firewall allow, pkexec, run0, systemd-run, systemctl start
-// apex-firewall, or command: ["sudo", "apex", "firewall", "reload"]. It also
+// sudo rime firewall allow, pkexec, run0, systemd-run, systemctl start
+// rime-firewall, or command: ["sudo", "rime", "firewall", "reload"]. It also
 // does not label anything Discard, Undo, Forget, Restore, Commit or Write.
 PROSE
     pass=0; fail=0; quiet=1; check_tree "$tmp/t"; quiet=0

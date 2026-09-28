@@ -14,7 +14,7 @@ import "../"
 //     EmptyState {
 //         glyph: "󰚩"; title: "No agent sessions"
 //         hint: "Start one with a terminal command:"
-//         command: "apex agent run"
+//         command: "rime agent run"
 //     }
 //
 // centred in the free area of a surface, or with `inline: true` left-aligned

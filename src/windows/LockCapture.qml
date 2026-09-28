@@ -30,7 +30,7 @@ Scope {
     id: root
 
     readonly property string runtime: Quickshell.env("XDG_RUNTIME_DIR") || ""
-    readonly property string dir: root.runtime + "/apex-shell"
+    readonly property string dir: root.runtime + "/rime-shell"
 
     property bool _grim: false
     property Process _probe: Process {

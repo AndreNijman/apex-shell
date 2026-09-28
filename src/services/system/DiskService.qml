@@ -28,7 +28,7 @@ Singleton {
 
     // Pseudo-filesystems are excluded by TYPE rather than by requiring a
     // "/dev/..." source. The old `grep '^/dev/'` dropped every root that is not
-    // a plain block device — composefs/ostree (APEX-OS's own base), ZFS
+    // a plain block device — composefs/ostree (Rime OS's own base), ZFS
     // ("rpool/ROOT"), btrfs subvolumes and network mounts all vanished, leaving
     // the disk card blank or showing only /boot.
     readonly property Process proc: Process {

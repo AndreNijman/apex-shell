@@ -6,7 +6,7 @@ import "../../../components/config"
 
 // Config → Firewall  (roadmap P1-044)
 //
-// APEX drops incoming connections by default. That is the right default and
+// Rime drops incoming connections by default. That is the right default and
 // also the kind of change a user meets as a symptom rather than as a setting:
 // a phone that stops casting, a printer that stops being found, a game that
 // will not stream. A firewall a user cannot see is a firewall they disable at
@@ -15,7 +15,7 @@ import "../../../components/config"
 //
 // ── WHY IT ONLY READS ───────────────────────────────────────────────────────
 //
-// `apex firewall allow` needs root. The shell's route to root is polkit, and
+// `rime firewall allow` needs root. The shell's route to root is polkit, and
 // P0-016 is the roadmap item where that stops being guesswork. Until then the
 // page shows the command rather than running it — the same choice RecoveryPage
 // makes for rollback, and for the same reason: a button that raises an
@@ -72,7 +72,7 @@ CfgScroll {
             // The unit's state is not the same question as "is the ruleset
             // loaded" — someone with root can flush the table behind a running
             // unit — and the page must not pretend it is.
-            detail: "apex-firewall.service: " + FirewallService.unit
+            detail: "rime-firewall.service: " + FirewallService.unit
                 + "  ·  to read the live ruleset: " + FirewallService.readCommand
             // Wrapped, not elided: the tail is the command the line exists to
             // show, and at the sheet's width it was the part cut to "…".
@@ -89,7 +89,7 @@ CfgScroll {
 
         CfgRow {
             label:       "Turn it on"
-            description: "The firewall ships enabled. If it is off, this is how it comes back. It needs root, so APEX Shell shows the command instead of asking for a password."
+            description: "The firewall ships enabled. If it is off, this is how it comes back. It needs root, so Rime Shell shows the command instead of asking for a password."
             // Not shown for `absent`: the unit is not on this machine, so
             // enabling it cannot work and offering the command would send the
             // user looking for the fault in the wrong place.
@@ -115,7 +115,7 @@ CfgScroll {
         CfgRow {
             label:       FirewallService.alwaysAllowed
             hoverable:   false
-            description: "These are in the policy itself and cannot be closed from here. ssh is the load-bearing one: APEX remote agents and `apex host run` are ssh, so closing it would strand you on the machine you were driving from."
+            description: "These are in the policy itself and cannot be closed from here. ssh is the load-bearing one: Rime remote agents and `rime host run` are ssh, so closing it would strand you on the machine you were driving from."
         }
 
         // Sharing a connection opens DHCP and DNS on the shared link, and the
@@ -127,7 +127,7 @@ CfgScroll {
             label:       FirewallService.hotspotLine
             hoverable:   false
             visible:     FirewallService.hotspotLine !== ""
-            description: "This machine is sharing its connection. The policy opens DHCP and DNS on those links so clients can get an address and resolve names, and on no others. `apex firewall hotspot list` says the same thing in a terminal."
+            description: "This machine is sharing its connection. The policy opens DHCP and DNS on those links so clients can get an address and resolve names, and on no others. `rime firewall hotspot list` says the same thing in a terminal."
         }
     }
 

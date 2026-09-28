@@ -1,6 +1,6 @@
-// Pure logic behind §10's blueprint editor: reading `apex blueprint show --json`,
-// classifying a plan from `apex blueprint diff --json`, and building the JSON
-// that goes back out through `apex blueprint set --json -`.
+// Pure logic behind §10's blueprint editor: reading `rime blueprint show --json`,
+// classifying a plan from `rime blueprint diff --json`, and building the JSON
+// that goes back out through `rime blueprint set --json -`.
 //
 // Kept out of the QML files so tests/blueprint-editor-test.js can exercise it
 // under Node — the same file the shell loads, not a copy of it. Nothing here
@@ -12,7 +12,7 @@
 // ── THE ONE RULE THIS FILE EXISTS TO ENFORCE ─────────────────────────────────
 //
 // The editor never authors TOML. It reads a blueprint as JSON, mutates that
-// object, and writes the object back. `apex blueprint set --json -` puts it
+// object, and writes the object back. `rime blueprint set --json -` puts it
 // through the same normalise() + validate() + to_toml() + atomic write a
 // hand-edited file goes through, so what this page writes is indistinguishable
 // from what a human types, and an invalid one is refused with the identical
@@ -22,7 +22,7 @@
 
 // ── vocabularies ─────────────────────────────────────────────────────────────
 //
-// Mirrors of the closed sets in apexd/apexd-core/src/blueprint.rs. They exist
+// Mirrors of the closed sets in rimed/rimed-core/src/blueprint.rs. They exist
 // to populate dropdowns, so the user picks a valid value instead of typing one
 // and finding out on save.
 //
@@ -31,7 +31,7 @@
 // is the property the write verb was built for. These lists only decide what the
 // UI offers. tests/blueprint-editor-test.js asserts their exact contents so a
 // silent edit here is loud, and tests/check-blueprint-editor.sh checks they
-// still match the Rust source when apex-os is checked out beside the shell.
+// still match the Rust source when rime-os is checked out beside the shell.
 //
 // There is no vocabulary-discovery verb, so a mirrored constant plus a parity
 // test is the honest ceiling. A `blueprint schema --json` would close it.
@@ -59,7 +59,7 @@ function _clone(v) {
     return JSON.parse(JSON.stringify(v === undefined ? null : v))
 }
 
-// ── reading `apex blueprint show --json` ─────────────────────────────────────
+// ── reading `rime blueprint show --json` ─────────────────────────────────────
 
 // Parse what `show --json` printed.
 //
@@ -72,7 +72,7 @@ function readShow(raw) {
     if (text === "")
         return { ok: false, blueprint: null, source: null, digest: "",
                  paths: {}, applied: null,
-                 error: "apex blueprint show printed nothing" }
+                 error: "rime blueprint show printed nothing" }
 
     var obj
     try {
@@ -85,7 +85,7 @@ function readShow(raw) {
     if (!_isObject(obj) || !_isObject(obj.blueprint))
         return { ok: false, blueprint: null, source: null, digest: "",
                  paths: {}, applied: null,
-                 error: "apex blueprint show did not return a blueprint" }
+                 error: "rime blueprint show did not return a blueprint" }
 
     return {
         ok: true,
@@ -108,8 +108,8 @@ function readShow(raw) {
 function saveNotice(show) {
     if (!show || !show.ok)
         return ""
-    var user = (show.paths && show.paths.user) ? show.paths.user : "~/.config/apex/blueprint.toml"
-    var site = (show.paths && show.paths.site) ? show.paths.site : "/etc/apex/blueprint.toml"
+    var user = (show.paths && show.paths.user) ? show.paths.user : "~/.config/rime/blueprint.toml"
+    var site = (show.paths && show.paths.site) ? show.paths.site : "/etc/rime/blueprint.toml"
 
     if (show.source === null || show.source === "")
         return "No blueprint exists yet. Saving creates " + user + "."
@@ -136,7 +136,7 @@ function saveNotice(show) {
 //
 // The buckets, from the CLI's own shape:
 //   blocked != null  ⇒ step == null, domain == null. Cannot be converged at all.
-//   domain == "user" ⇒ a plain `apex apply` performs it.
+//   domain == "user" ⇒ a plain `rime apply` performs it.
 //   domain == "root" ⇒ information only. This page never escalates.
 function classify(raw) {
     var text = String(raw === undefined || raw === null ? "" : raw).trim()
@@ -146,7 +146,7 @@ function classify(raw) {
         digest: "", source: null
     }
     if (text === "") {
-        empty.error = "apex blueprint diff printed nothing"
+        empty.error = "rime blueprint diff printed nothing"
         return empty
     }
     var obj
@@ -157,7 +157,7 @@ function classify(raw) {
         return empty
     }
     if (!_isObject(obj)) {
-        empty.error = "apex blueprint diff did not return a plan"
+        empty.error = "rime blueprint diff did not return a plan"
         return empty
     }
 
@@ -201,7 +201,7 @@ function classify(raw) {
 
 // The informational line about root-domain changes, or "" when there are none.
 //
-// Information, deliberately, with no button behind it. `apex apply` converges
+// Information, deliberately, with no button behind it. `rime apply` converges
 // the domain it is already running in and reports the other; it never runs
 // sudo, which is the reason it cannot raise an authentication prompt at all.
 // A button here that tried to escalate would undo that property.
@@ -210,7 +210,7 @@ function rootNotice(plan) {
     var n = plan.root.length
     if (n === 0) return ""
     return n + (n === 1 ? " change needs" : " changes need") +
-           " root — run `sudo apex apply`"
+           " root — run `sudo rime apply`"
 }
 
 // One line summarising a plan, covering the converged-but-blocked case.
@@ -228,7 +228,7 @@ function summary(plan) {
     if (plan.blocked.length > 0)
         parts.push(plan.blocked.length +
                    (plan.blocked.length === 1 ? " thing" : " things") +
-                   " APEX cannot converge.")
+                   " Rime cannot converge.")
     return parts.join(" ")
 }
 
@@ -242,7 +242,7 @@ function summary(plan) {
 //
 // Read off the two values the CLI already sends. An empty `current` means the
 // machine does not have it yet; an empty `desired` means the blueprint does not
-// want it. The addition case is the fixture `apex blueprint diff` produces for
+// want it. The addition case is the fixture `rime blueprint diff` produces for
 // a package the blueprint lists and the machine lacks:
 // { what: "[apps] install", current: "", desired: "firefox" }.
 //
@@ -460,7 +460,7 @@ function staleNotice() {
            "current file, then make the change again."
 }
 
-// The exact bytes handed to `apex blueprint set --json -` on stdin.
+// The exact bytes handed to `rime blueprint set --json -` on stdin.
 //
 // Passed to the process as an argv element and printf'd into the pipe, never
 // interpolated into a shell string: package names come off disk and out of

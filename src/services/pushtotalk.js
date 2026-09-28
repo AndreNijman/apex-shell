@@ -17,7 +17,7 @@
 //
 // ROADMAP.md:122 records hold-to-talk as a profile assumption, and the first
 // instinct is to bind press and release. Read against the three compositors
-// APEX actually supports, that only works on two of them:
+// Rime actually supports, that only works on two of them:
 //
 //   Hyprland 0.56.2  `bindr` fires on release.
 //   labwc 0.9.6      `<keybind key="..." onRelease="yes">` fires on release.

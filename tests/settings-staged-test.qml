@@ -123,7 +123,7 @@ ShellRoot {
     property string savedJson: ""
     property var readBack: Process {
         command: ["bash", "-c",
-                  "cat \"$HOME/.config/apex-shell/src/user_data/keybinds.json\" 2>/dev/null || echo '{}'"]
+                  "cat \"$HOME/.config/rime-shell/src/user_data/keybinds.json\" 2>/dev/null || echo '{}'"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: rootScope.savedJson = text.trim()
@@ -137,7 +137,7 @@ ShellRoot {
     property string savedSettings: ""
     property var readSettings: Process {
         command: ["bash", "-c",
-                  "cat \"$HOME/.config/apex-shell/src/user_data/settings.json\" 2>/dev/null || echo '{}'"]
+                  "cat \"$HOME/.config/rime-shell/src/user_data/settings.json\" 2>/dev/null || echo '{}'"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: rootScope.savedSettings = text.trim()
@@ -190,7 +190,7 @@ ShellRoot {
     // assertions pass for the wrong reason and then fail once the file existed.
     property var chmodProc: Process { command: []; running: false }
     function setConfigWritable(on) {
-        const dir = "\"$HOME/.config/apex-shell/src/user_data\""
+        const dir = "\"$HOME/.config/rime-shell/src/user_data\""
         chmodProc.command = ["bash", "-c", on
             ? "chmod 0700 " + dir + "; chmod 0600 " + dir + "/*.json 2>/dev/null; true"
             : "chmod 0400 " + dir + "/*.json 2>/dev/null; chmod 0500 " + dir + "; true"]

@@ -21,9 +21,9 @@
 #  Skips (status 0) without quickshell, labwc, wtype, gdbus or dbus-run-session.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
-if [ "${APEX_CAPTURE_BUS:-}" != private ]; then
+if [ "${RIME_CAPTURE_BUS:-}" != private ]; then
     command -v dbus-run-session >/dev/null 2>&1 || { echo "SKIP: dbus-run-session is not installed"; exit 0; }
-    exec env -u WAYLAND_DISPLAY -u DISPLAY dbus-run-session -- env APEX_CAPTURE_BUS=private "$0" "$@"
+    exec env -u WAYLAND_DISPLAY -u DISPLAY dbus-run-session -- env RIME_CAPTURE_BUS=private "$0" "$@"
 fi
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/.." && pwd)"
@@ -49,9 +49,9 @@ trap cleanup EXIT INT TERM
 [ -e /dev/dri/renderD128 ] && export HEADLESS_WLR_RENDERER=gles2
 headless_start labwc 1920x1080 || exit 0
 
-ud="$HOME/.config/apex-shell/src/user_data"; mkdir -p "$ud" "$HOME/.cache/apex-shell"
+ud="$HOME/.config/rime-shell/src/user_data"; mkdir -p "$ud" "$HOME/.cache/rime-shell"
 printf '{"barEnabled":false,"animDuration":320,"motionScale":1}' > "$ud/settings.json"
-headless_apex_palette dark   # the APEX-OS default look (tests/lib/headless.sh)
+headless_rime_palette dark   # the Rime OS default look (tests/lib/headless.sh)
 log="$HEADLESS_W/shell.log"
 quickshell -p "$root/shell.qml" > "$log" 2>&1 &
 qs=$!

@@ -23,7 +23,7 @@
 #
 #  The result was a tab whose spacing rhythm and corner radii matched nothing
 #  else in the shell — reported by the developer as "the agent tab didn't match
-#  apex shell at all". Every unit test passed throughout: nothing was broken,
+#  rime shell at all". Every unit test passed throughout: nothing was broken,
 #  the wrong function was simply being called, and no check looked.
 #
 #  It also spread. When a later change added a remote-agents section, it copied

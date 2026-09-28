@@ -46,9 +46,9 @@ trap cleanup EXIT INT TERM
 [ -e /dev/dri/renderD128 ] && export HEADLESS_WLR_RENDERER=gles2
 headless_start labwc 1920x1080 || exit 0
 
-ud="$HOME/.config/apex-shell/src/user_data"; mkdir -p "$ud" "$HOME/.cache/apex-shell"
+ud="$HOME/.config/rime-shell/src/user_data"; mkdir -p "$ud" "$HOME/.cache/rime-shell"
 printf '{"barEnabled":false,"animDuration":320,"motionScale":1}' > "$ud/settings.json"
-headless_apex_palette dark   # the APEX-OS default look (tests/lib/headless.sh)
+headless_rime_palette dark   # the Rime OS default look (tests/lib/headless.sh)
 log="$HEADLESS_W/shell.log"
 quickshell -p "$root/shell.qml" > "$log" 2>&1 &
 qs=$!
@@ -101,10 +101,10 @@ keys Tab
 wtype "X"; sleep 0.3
 keys Tab Tab Tab Return
 sleep 1
-if grep -q '"ssid":"ApexShellX"' "$HOME/.config/apex-shell/src/user_data/hotspot.json" 2>/dev/null; then
+if grep -q '"ssid":"RimeShellX"' "$HOME/.config/rime-shell/src/user_data/hotspot.json" 2>/dev/null; then
     ok "Hotspot: Tab to the name, type, Tab to Save, Return — saved"
 else
-    bad "Hotspot: saved file holds: $(cat "$HOME/.config/apex-shell/src/user_data/hotspot.json" 2>/dev/null)"
+    bad "Hotspot: saved file holds: $(cat "$HOME/.config/rime-shell/src/user_data/hotspot.json" 2>/dev/null)"
 fi
 keys Escape; sleep 1
 

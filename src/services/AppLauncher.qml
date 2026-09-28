@@ -8,7 +8,7 @@ import "../nexus"
 import "answer.js" as Answer
 import "search.js" as Search
 
-// AppLauncher — APEX Search: one text field over apps, files, settings,
+// AppLauncher — Rime Search: one text field over apps, files, settings,
 // windows, clipboard, calculator, commands, projects, agents, SSH hosts and
 // package search (roadmap §15).
 //
@@ -54,7 +54,7 @@ import "search.js" as Search
 //   * Enter on a non-safe row opens the preview. It does not run it. The
 //     preview shows what the action does, what privilege it needs, whether it
 //     can be undone, and THE EXACT ARGV — for a package it also runs
-//     `apex resolve`, which is read-only and needs no root.
+//     `rime resolve`, which is read-only and needs no root.
 //   * Committing needs a different gesture: Ctrl+Enter, or the Run control
 //     inside the preview. A held Enter cannot repeat through both stages,
 //     because the second stage is not Enter.
@@ -173,7 +173,7 @@ Item {
     // ── The selection is anchored to a ROW, not to an index ───────────────────
     // Search.merge() is independent of which provider answered first, so the
     // order is stable — but it is not stable against rows being INSERTED, and
-    // they are: `apex project list` lands about 160 ms after typing stops, and
+    // they are: `rime project list` lands about 160 ms after typing stops, and
     // a project that scores above the selection appears ABOVE it. The integer
     // index then points one row further down than the user is looking at, and
     // the next thing they press acts on something they did not choose.
@@ -215,7 +215,7 @@ Item {
 
     function openPreview(row) {
         root.previewRow = row
-        // `apex resolve` is started HERE — by activation — and never by
+        // `rime resolve` is started HERE — by activation — and never by
         // selection. Arrowing down twenty package rows must not run twenty of
         // them: resolve reaches the package metadata and dnf5 may refresh it
         // over the network.
@@ -399,7 +399,7 @@ Item {
     // true. tests/run-terminal-entry-test.sh measured the third under a headless
     // compositor: execute() parses Terminal=true into runInTerminal and then
     // starts the program on pipes anyway, so nvim — Terminal=true, shipped in
-    // the image, unremovable by apex-pkg because the image already provides it —
+    // the image, unremovable by rime-pkg because the image already provides it —
     // could be clicked and did nothing. DesktopExec is that missing third.
     function launch(exec) {
         launcher.command = ["bash", "-c", "setsid " + exec + " &>/dev/null &"]
@@ -917,14 +917,14 @@ Item {
                 }
 
                 // For a package, the preview is not prose this shell wrote: it
-                // is `apex resolve`, which is read-only and needs no root.
+                // is `rime resolve`, which is read-only and needs no root.
                 Text {
                     width: parent.width
                     visible: root.previewInfo !== null && root.previewInfo.resolves
                     text: SearchService.resolveBusy
-                              ? "Checking which source APEX would use…"
+                              ? "Checking which source Rime would use…"
                               : (SearchService.resolveText === ""
-                                 ? "apex resolve had nothing to say about that name."
+                                 ? "rime resolve had nothing to say about that name."
                                  : SearchService.resolveText)
                     font.family: "monospace"
                     font.pixelSize: theme.fs(10)

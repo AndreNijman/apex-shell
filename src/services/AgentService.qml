@@ -6,10 +6,10 @@ import "agentstate.js" as AgentState
 import "notifybus.js" as NotifyBus
 
 // ─── AgentService ─────────────────────────────────────────────────────────────
-// The shell's view of the APEX agent runtime (roadmap §2, §3, §7).
+// The shell's view of the Rime agent runtime (roadmap §2, §3, §7).
 //
 // The runtime owns every PTY, sandbox and project. This service only reads it
-// and asks it to do things, through the `apex` CLI — never by talking to the
+// and asks it to do things, through the `rime` CLI — never by talking to the
 // control socket itself. Two reasons: the CLI is a stability surface that
 // already handles a daemon which is absent or a protocol version that does not
 // match, and duplicating the socket protocol in QML would mean two things to
@@ -61,8 +61,8 @@ QtObject {
     // Unlike most services this one never stops entirely. Notifications have to
     // arrive whether or not anything is on screen — "an agent finished while I
     // was in a browser" is the common case, not the edge one — so zero refs
-    // means SLOW, not off. The cost at rest is one `apex agent list` and one
-    // `apex request pending` every fifteen seconds.
+    // means SLOW, not off. The cost at rest is one `rime agent list` and one
+    // `rime request pending` every fifteen seconds.
     readonly property int _interval: refCount > 0 ? 2000 : 15000
 
     function refresh() {
@@ -82,7 +82,7 @@ QtObject {
     }
 
     property var _sessionProc: Process {
-        command: ["apex", "agent", "list", "--all", "--json"]
+        command: ["rime", "agent", "list", "--all", "--json"]
         running: false
         stdout: SplitParser { onRead: function(line) { root._sessionBuf += line } }
         onExited: function(code) {
@@ -131,7 +131,7 @@ QtObject {
     property bool _announced: false
 
     property var _requestProc: Process {
-        command: ["apex", "request", "pending", "--json"]
+        command: ["rime", "request", "pending", "--json"]
         running: false
         stdout: SplitParser { onRead: function(line) { root._requestBuf += line } }
         onExited: function(code) {
@@ -159,13 +159,13 @@ QtObject {
     // ── AND ON TRANSITIONS ALONE WAS NOT ENOUGH (P1-022) ─────────────────────
     //
     // Six agents were running against this repository while this was written,
-    // and a transition is a much noisier thing than it sounds. apexd's PTY
+    // and a transition is a much noisier thing than it sounds. rimed's PTY
     // fallback promotes a session that has been silent for
     // IDLE_TO_WAITING_SECS = 10 to `waiting_for_user`, so an agent thinking
     // between two tool calls transitions into an attention state and back out
     // of it several times a minute. Worse, one event genuinely arrives twice:
     // an agent asking for a privilege decision shows up as a session state
-    // here AND as a record in `apex request pending` a poll later, and both
+    // here AND as a record in `rime request pending` a poll later, and both
     // paths raised their own notification about the same decision.
     //
     // notifybus.js decides what a person actually sees. Every notification
@@ -320,15 +320,15 @@ QtObject {
         // notification's helper exits rather than lingering.
         root._raise(kind, session.id, who + " " + what,
             function(key, replaceId) {
-                return 'a=$(notify-send --app-name "APEX Agents" --wait ' +
+                return 'a=$(notify-send --app-name "Rime Agents" --wait ' +
                     '--urgency ' + urgency + ' ' +
                     '--replace-id ' + Number(replaceId) + ' ' +
-                    '--hint=string:x-apex-key:' + _q(key) + ' ' +
+                    '--hint=string:x-rime-key:' + _q(key) + ' ' +
                     '--action focus=Focus\\ terminal --action logs=View\\ output ' +
                     _q(who + " " + what) + " " + _q(where) + ' 2>/dev/null); ' +
                     'case "$a" in ' +
-                    '  focus) exec /usr/libexec/apex-agent-focus ' + Number(session.id) + ' ;; ' +
-                    '  logs)  exec /usr/libexec/apex-agent-focus ' + Number(session.id) + ' ;; ' +
+                    '  focus) exec /usr/libexec/rime-agent-focus ' + Number(session.id) + ' ;; ' +
+                    '  logs)  exec /usr/libexec/rime-agent-focus ' + Number(session.id) + ' ;; ' +
                     'esac'
             })
     }
@@ -338,7 +338,7 @@ QtObject {
         // deliberate: acting on it performs the operation with the user's own
         // authority, so it belongs in a terminal where the prompt and the
         // authentication are visible. The action opens that terminal.
-        var op = "apex " + (req.verb === "install" || req.verb === "remove"
+        var op = "rime " + (req.verb === "install" || req.verb === "remove"
             ? req.verb + " " + (req.packages || []).join(" ")
             : req.verb)
         // The body is richer than the state change's, and that is the point:
@@ -348,14 +348,14 @@ QtObject {
         // duplicated" is that sentence.
         root._raise("permission", root._requestSubject(req), op,
             function(key, replaceId) {
-                return 'a=$(notify-send --app-name "APEX Agents" --wait ' +
+                return 'a=$(notify-send --app-name "Rime Agents" --wait ' +
                     '--urgency critical ' +
                     '--replace-id ' + Number(replaceId) + ' ' +
-                    '--hint=string:x-apex-key:' + _q(key) + ' ' +
+                    '--hint=string:x-rime-key:' + _q(key) + ' ' +
                     '--action review=Review ' +
                     _q((req.agent || "An agent") + " requests privilege") + " " +
                     _q(op + "\n" + (req.reason || "")) + ' 2>/dev/null); ' +
-                    '[ "$a" = review ] && exec /usr/libexec/apex-agent-review '
+                    '[ "$a" = review ] && exec /usr/libexec/rime-agent-review '
                     + Number(req.id)
             })
     }
@@ -387,29 +387,29 @@ QtObject {
 
     function focusTerminal(id) {
         root.lastFocusedId = String(id)
-        _actionProc.command = ["/usr/libexec/apex-agent-focus", String(id)]
+        _actionProc.command = ["/usr/libexec/rime-agent-focus", String(id)]
         _actionProc.running = true
     }
     function reviewRequest(id) {
-        _actionProc.command = ["/usr/libexec/apex-agent-review", String(id)]
+        _actionProc.command = ["/usr/libexec/rime-agent-review", String(id)]
         _actionProc.running = true
     }
-    function pause(id)  { _act(["apex", "agent", "pause",  String(id)]) }
-    function resume(id) { _act(["apex", "agent", "resume", String(id)]) }
-    function kill(id)   { _act(["apex", "agent", "kill",   String(id)]) }
-    // Forget a FINISHED session and delete its transcript (`apex agent rm`),
-    // or every finished one (`apex agent prune`). The runtime refuses either
+    function pause(id)  { _act(["rime", "agent", "pause",  String(id)]) }
+    function resume(id) { _act(["rime", "agent", "resume", String(id)]) }
+    function kill(id)   { _act(["rime", "agent", "kill",   String(id)]) }
+    // Forget a FINISHED session and delete its transcript (`rime agent rm`),
+    // or every finished one (`rime agent prune`). The runtime refuses either
     // for a session that is still running, so a stale row cannot be used to
     // take a live one off the list.
-    function dismiss(id)       { _act(["apex", "agent", "rm", String(id)]) }
-    function dismissFinished() { _act(["apex", "agent", "prune"]) }
+    function dismiss(id)       { _act(["rime", "agent", "rm", String(id)]) }
+    function dismissFinished() { _act(["rime", "agent", "prune"]) }
     // §3.4: "revocation control always visible". Immediate and unauthenticated
     // — giving up privilege is free, the same rule the Always Unrestricted
     // toggle follows for turning itself off. The runtime ends the session
     // afterwards if it was break-glass, because no_new_privs cannot be put
     // back on a running process; nothing here has to know that.
     function revokeGrant(id) {
-        _act(["apex", "agent", "revoke-grant", String(id)])
+        _act(["rime", "agent", "revoke-grant", String(id)])
     }
     function _act(cmd) {
         _actionProc.command = cmd

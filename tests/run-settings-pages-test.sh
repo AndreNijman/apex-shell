@@ -21,7 +21,7 @@
 #  ── AND ITS OWN EVERYTHING ELSE ─────────────────────────────────────────────
 #
 #  Building all ten pages at once instantiates most of the shell's services.
-#  Left alone they would run `apex recover status`, `hyprctl`, `wlr-randr`,
+#  Left alone they would run `rime recover status`, `hyprctl`, `wlr-randr`,
 #  `git describe`, `df`, a matugen wallpaper scan and a package count against
 #  the developer's own machine, and the Appearance page would list — and could
 #  apply — his wallpapers. So a scratch home, a scratch config root, and fakes
@@ -87,7 +87,7 @@ esac
 exit 0
 FAKE
 chmod +x "$W/bin/_stub"
-for n in apex hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
+for n in rime hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
          brightnessctl pkcheck notify-send swww; do
     ln -sf "$W/bin/_stub" "$W/bin/$n"
 done
@@ -110,7 +110,7 @@ export HOME="$W/home"
 export XDG_CONFIG_HOME="$W/home/.config"
 export XDG_STATE_HOME="$W/state"
 export XDG_CACHE_HOME="$W/cache"
-mkdir -p "$HOME/.config/apex-shell/src/user_data" "$HOME/.local/share" \
+mkdir -p "$HOME/.config/rime-shell/src/user_data" "$HOME/.local/share" \
          "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$HOME/Pictures/Wallpapers"
 ln -sfn "$real_home/.local/share/fonts" "$HOME/.local/share/fonts" 2>/dev/null
 

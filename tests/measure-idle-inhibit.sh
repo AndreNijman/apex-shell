@@ -80,7 +80,7 @@ command -v "$([ "$target" = labwc ] && echo labwc || echo Hyprland)" >/dev/null 
 # Asked for explicitly rather than left to fall back onto whoever is at the
 # keyboard:
 #
-#     APEX_TEST_ALLOW_NESTED_ON_DESK=1 tests/measure-idle-inhibit.sh
+#     RIME_TEST_ALLOW_NESTED_ON_DESK=1 tests/measure-idle-inhibit.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/headless.sh"
 headless_require_nested_optin "measuring idle inhibition"
 
@@ -140,7 +140,7 @@ bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
 p = Gio.DBusProxy.new_sync(bus, Gio.DBusProxyFlags.NONE, None,
     "org.freedesktop.ScreenSaver", "/org/freedesktop/ScreenSaver",
     "org.freedesktop.ScreenSaver", None)
-c = p.call_sync("Inhibit", GLib.Variant("(ss)", ("apex-shell-probe", "measuring")),
+c = p.call_sync("Inhibit", GLib.Variant("(ss)", ("rime-shell-probe", "measuring")),
                 Gio.DBusCallFlags.NONE, -1, None).unpack()[0]
 print("INHIBIT-COOKIE %d" % c, flush=True)
 loop = GLib.MainLoop()
@@ -252,7 +252,7 @@ arm() {
         holder=""
         case "$P_MECH" in
             logind)
-                systemd-inhibit --what=idle --who="APEX Shell probe" \
+                systemd-inhibit --what=idle --who="Rime Shell probe" \
                     --why="measuring" --mode=block sleep 120 >/dev/null 2>&1 &
                 holder=$!
                 sleep 1

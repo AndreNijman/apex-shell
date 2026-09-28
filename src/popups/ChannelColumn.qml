@@ -151,7 +151,7 @@ Item {
         }
 
         // Icon & Mute Toggle — a real button (it was pointer-only).
-        ApexPressable {
+        RimePressable {
             id: muteBtn
             objectName: "channelMuteButton"
             anchors.horizontalCenter: parent.horizontalCenter
@@ -200,7 +200,7 @@ Item {
                 color: muteBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05) : "transparent"
                 Behavior on color { MotionColor {} }
             }
-            ApexFocusRing { target: muteBtn }
+            RimeFocusRing { target: muteBtn }
         }
 
         // Label

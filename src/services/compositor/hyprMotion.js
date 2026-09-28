@@ -1,9 +1,9 @@
 // ─── hyprMotion.js ───────────────────────────────────────────────────────────
 // The compositor on the shell's motion settings (UI/UX roadmap v3 Phase 21).
 //
-// APEX Shell's Motion has a speed (Snappy / Balanced / Relaxed × a duration
+// Rime Shell's Motion has a speed (Snappy / Balanced / Relaxed × a duration
 // scale) and Reduce Motion. Hyprland's motion lives in its own config
-// (apex-os appearance.lua), so without this a user who asked for slower or
+// (rime-os appearance.lua), so without this a user who asked for slower or
 // less motion got it in the shell and not in the windows around it.
 //
 // Nothing here knows Hyprland's numbers. The base is read back from Hyprland
@@ -23,10 +23,10 @@
 // A leaf on a spring reads back as bezier "spring:<name>" and nothing more —
 // Hyprland reports neither its stiffness nor its damping, and ignores `speed`
 // for it (a spring is stepped in real time until it is at rest). So a spring
-// is scaled inside Hyprland's own Lua: apex-os appearance.lua keeps every
-// spring it declares in the global APEX_SPRINGS, and the push derives a copy
+// is scaled inside Hyprland's own Lua: rime-os appearance.lua keeps every
+// spring it declares in the global RIME_SPRINGS, and the push derives a copy
 // from that entry — stiffness / s², dampening / s, the same motion s times
-// slower — named <name>__apexs<percent>. A spring with no entry (someone's own
+// slower — named <name>__rimes<percent>. A spring with no entry (someone's own
 // config) is re-declared unscaled rather than guessed at: it still follows
 // Reduce Motion and "no motion". The copy's suffix is stripped on read, so a
 // copy is never mistaken for a base. Copies outlive `hyprctl reload` (it keeps
@@ -50,12 +50,16 @@ var NAME_RE  = /^[A-Za-z][A-Za-z0-9_]*$/;
 var STYLE_RE = /^[a-z]+( [a-z]+| -?[0-9.]+%?)*$/;
 
 var SPRING_PREFIX = "spring:";
-var SCALED_RE     = /__apexs[0-9]+$/;
+// A scaled copy made by this shell is <name>__rimes<pct>. Copies outlive a
+// `hyprctl reload`, so a session the shell was restarted into can still hold
+// the ones the shell made before the rename, __apexs<pct>; either suffix is a
+// copy, never a base of its own.
+var SCALED_RE     = /__(rime|apex)s[0-9]+$/;  // rime-rename: keep (the suffix the APEX shell gave its copies)
 
 /// The name of `spring` at `scale`: itself at 100 %, else its scaled copy.
 function scaledSpring(spring, scale) {
     var pct = Math.round(scale * 100);
-    return pct === 100 ? spring : spring + "__apexs" + pct;
+    return pct === 100 ? spring : spring + "__rimes" + pct;
 }
 
 /// The leaves worth re-declaring, from `hyprctl -j animations` output.
@@ -92,7 +96,7 @@ function _round(v) { return Math.round(v * 100) / 100; }
 /// bezier?, spring?, scaled?, style? }]. Also what a later read is compared
 /// against, to tell "this is our own push" from "the config was reloaded".
 /// A spring entry names its base (`bezier`) and the copy the push asks for
-/// (`scaled`); which of the two Hyprland ends up on depends on APEX_SPRINGS.
+/// (`scaled`); which of the two Hyprland ends up on depends on RIME_SPRINGS.
 function expected(base, scale, reduced) {
     // Scale 0 switches animations off globally and leaves every leaf as it is.
     if (!(scale > 0)) return expected(base, 1, false);
@@ -105,7 +109,7 @@ function expected(base, scale, reduced) {
         if (b.spring && reduced) {
             // An effect on a spring cannot be capped (a spring has no length):
             // under Reduce Motion it runs on Hyprland's default curve instead,
-            // capped like every other effect. apex-os puts no effect on one.
+            // capped like every other effect. rime-os puts no effect on one.
             out.push({ name: b.name, enabled: true, speed: s, bezier: "default", style: b.style });
         } else if (b.spring) {
             out.push({ name: b.name, enabled: true, speed: s, bezier: b.bezier, spring: true,
@@ -122,7 +126,9 @@ function _springLine(w, scale) {
     var head = 'hl.animation({ leaf = "' + w.name + '", enabled = true, speed = ' + w.speed + ", spring = ";
     if (w.scaled === w.bezier) return head + '"' + w.bezier + '"' + tail;
     var f = Math.round(scale * 100) / 100;
-    return "do local s = APEX_SPRINGS and APEX_SPRINGS[\"" + w.bezier + "\"]; "
+    // RIME_SPRINGS is the table rime-os appearance.lua keeps; an appearance.lua
+    // written before the rename kept the same table as APEX_SPRINGS.
+    return "do local S = RIME_SPRINGS or APEX_SPRINGS; local s = S and S[\"" + w.bezier + "\"]; "  // rime-rename: keep (the table an APEX appearance.lua declares)
         + 'local ok = type(s) == "table" and type(s.stiffness) == "number" and type(s.dampening) == "number"; '
         + 'if ok then hl.curve("' + w.scaled + '", { type = "spring", mass = type(s.mass) == "number" and s.mass or 1, '
         + "stiffness = s.stiffness / " + Math.round(f * f * 1e6) / 1e6 + ", dampening = s.dampening / " + f + " }) end; "
@@ -146,7 +152,7 @@ function plan(base, scale, reduced) {
 
 /// The same leaves as `table` in a live read? A disabled leaf compares on its
 /// flag alone: Hyprland resets the rest when it is switched off. A spring leaf
-/// may be on its scaled copy or, with no APEX_SPRINGS entry, on its base; the
+/// may be on its scaled copy or, with no RIME_SPRINGS entry, on its base; the
 /// speed still tells a push from a reload, since the push scales it too (at
 /// 100 % the two are the same values, and re-pushing them changes nothing).
 function matches(json, table) {

@@ -5,30 +5,30 @@ import Quickshell.Io
 import "agentpolicy.js" as Policy
 
 // ─── AgentPolicyService ───────────────────────────────────────────────────────
-// The APEX sandbox default for new agent sessions (ROADMAP.md §42.1, P0-016):
+// The Rime sandbox default for new agent sessions (ROADMAP.md §42.1, P0-016):
 // what it is, what changing it would mean, and the password that gates one
 // direction of the change.
 //
 // Separate from AgentService, which polls the runtime for what is RUNNING. This
 // one owns a single file and a single decision, and the two have different
-// costs: AgentService forks `apex agent list` every two seconds while somebody
+// costs: AgentService forks `rime agent list` every two seconds while somebody
 // is looking, and this reads one small JSON file when it changes and never
 // otherwise. Folding a settings read into a poller would have made it a poll.
 //
 // ── WHY THE RUNTIME'S OWN CONFIGURATION FILE ────────────────────────────────
 //
-// `~/.config/apex/agent.json` is what `apex agent run` reads for a default, and
+// `~/.config/rime/agent.json` is what `rime agent run` reads for a default, and
 // it is the only thing that can answer criterion 2. A setting stored in the
 // shell's own configuration would be read by nothing: `a` launches from a
 // terminal that never asks the shell anything, and a session started that way
 // has to come up unconfined for the toggle to have meant anything.
 //
 // It also answers criterion 6 for free. The file is on disk, under $HOME, and
-// the runtime reads it at every `apex agent run` — so the setting survives a
+// the runtime reads it at every `rime agent run` — so the setting survives a
 // logout, a reboot and a reinstall of the shell, without this service having to
 // be running at all.
 //
-// The path is resolved the way apexd/apex-agent-core/src/paths.rs resolves it:
+// The path is resolved the way rimed/rime-agent-core/src/paths.rs resolves it:
 // $XDG_CONFIG_HOME when it is set and non-empty, otherwise $HOME/.config. A
 // shell that guessed ~/.config would edit the wrong file for anybody who moves
 // their config root, and would then report a setting no session has.
@@ -42,7 +42,7 @@ import "agentpolicy.js" as Policy
 //      interaction` asks polkitd, which asks the session's registered
 //      authentication agent, which is a different process with its own Wayland
 //      surface. The password goes keyboard → compositor → that surface. A PTY
-//      is a file descriptor pair between apex-agentd and the agent program;
+//      is a file descriptor pair between rime-agentd and the agent program;
 //      nothing written into it reaches another process's window.
 //
 //   2. The subject checked is this shell, and the only thing that starts the
@@ -52,30 +52,43 @@ import "agentpolicy.js" as Policy
 //
 //   3. The file itself is outside a default session's world. `project` masks
 //      the rest of $HOME with a tmpfs, so a session started under the default
-//      policy cannot see ~/.config/apex at all, let alone write it.
+//      policy cannot see ~/.config/rime at all, let alone write it.
 //
 // The honest limit, which is worth writing down where the next reader will find
 // it: point 3 protects the transition AWAY from the default, not the state
 // after it. A session that is ALREADY unrestricted is the user for filesystem
 // purposes and can edit the file directly. That is what unrestricted means; the
 // gate exists so nothing arrives there without a person, and the durable fix
-// for the rest is on the runtime side, where the write can be owned by `apex`.
+// for the rest is on the runtime side, where the write can be owned by `rime`.
 // ──────────────────────────────────────────────────────────────────────────────
 
 QtObject {
     id: root
 
-    // apexd/apex-agent-core/src/paths.rs: config_file() is
-    // config_home().join("apex/agent.json"), and config_home() is
+    // rimed/rime-agent-core/src/paths.rs: config_file() is
+    // config_home().join("rime/agent.json"), and config_home() is
     // $XDG_CONFIG_HOME or $HOME/.config.
     readonly property string configHome: {
         const x = Quickshell.env("XDG_CONFIG_HOME")
         return (x && x !== "") ? x : (Quickshell.env("HOME") + "/.config")
     }
-    readonly property string configPath: root.configHome + "/apex/agent.json"
+    readonly property string configPath: root._legacy ? root.legacyConfigPath
+                                                      : root.configHome + "/rime/agent.json"
 
-    // The polkit action id, matching dots-extra/polkit/org.apexos.shell.agent.policy.
-    readonly property string actionId: "org.apexos.shell.agent.set-always-unrestricted"
+    // Where the same file was before the rename. The OS moves ~/.config/apex to
+    // ~/.config/rime at login, before this shell starts; until it has (a boot
+    // where that did not run), the user's settings are still here. So when the
+    // new file cannot be read, this one is tried, and if it is there it is the
+    // file read and written: a write under ~/.config/rime would create that
+    // directory, and a new directory existing is what makes the OS's move of
+    // the old one refuse. Never the other way round: once the new file exists,
+    // the old one is not looked at.
+    readonly property string legacyConfigPath: root.configHome + "/apex/agent.json"  // rime-rename: keep (the runtime's config path before the rename)
+    property bool _legacy: false
+    property bool _triedLegacy: false
+
+    // The polkit action id, matching dots-extra/polkit/org.rimeos.shell.agent.policy.
+    readonly property string actionId: "org.rimeos.shell.agent.set-always-unrestricted"
 
     // ── What the file says ────────────────────────────────────────────────────
     property string _text: ""
@@ -114,6 +127,17 @@ QtObject {
             root.loaded = true
         }
         onLoadFailed: {
+            if (!root._triedLegacy) {
+                root._triedLegacy = true
+                // Later, not here: a path changed from inside FileView's own
+                // loadFailed is dropped with the operation that failed
+                // ("got operation finished from dropped operation"), and the
+                // old file would never be read.
+                Qt.callLater(function () { root._legacy = true })
+                return
+            }
+            // Neither exists: a write goes to the new name.
+            if (root._legacy) Qt.callLater(function () { root._legacy = false })
             root._text = ""
             root.loaded = true
         }

@@ -114,7 +114,7 @@ ShellRoot {
     // plus the percentages a user can dial in by hand: 100, 125, 150, 175, 200.
     readonly property var scales: [0.85, 1.00, 1.20, 1.25, 1.35, 1.50, 1.75, 2.00]
 
-    // Every output APEX is asked to run on, including the developer's own two.
+    // Every output Rime is asked to run on, including the developer's own two.
     readonly property var screens: [
         { w: 1280, h:  720, name: "720p"        },
         { w: 1920, h: 1080, name: "1080p"       },
@@ -168,7 +168,7 @@ ShellRoot {
     // ── Rig ──────────────────────────────────────────────────────────────────
     FloatingWindow {
         id: win
-        title:          "apex-nav-geometry"
+        title:          "rime-nav-geometry"
         visible:        true
         implicitWidth:  1500
         implicitHeight: 1000

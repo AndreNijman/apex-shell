@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// APEX Search — the decision half of the unified command surface (roadmap §15).
+// Rime Search — the decision half of the unified command surface (roadmap §15).
 //
 // §15 asks the launcher to stop being an app list and become "a universal
 // command surface": apps, files, settings, windows, clipboard, calculator,
@@ -96,7 +96,7 @@
 // Three kinds of query:
 //
 //   a SIGIL query   "?…" "=…" ">…" "~/…" "/…" "./…"
-//   a VERB query    "install blender", "ssh katana", "open apex-os"
+//   a VERB query    "install blender", "ssh katana", "open rime-os"
 //   a PLAIN query   everything else
 //
 // A plain query goes only to providers that answer from data the shell already
@@ -311,15 +311,15 @@ function networkProviders() {
 //              inside a directory is a cache hit rather than a process.
 //   packages   the only one whose argv contains what the user typed, and the
 //              only one reachable exclusively from a verb they typed on
-//              purpose. `apex search` runs `dnf5 search`, which may refresh
+//              purpose. `rime search` runs `dnf5 search`, which may refresh
 //              repository metadata over the network — so it is never on the
 //              path of a plain query.
 function requestArgv(id, parsed, ctx) {
     if (!providerWants(id, parsed)) return [];
     var term = parsed.term;
 
-    if (id === "projects") return ["apex", "project", "list", "--json"];
-    if (id === "hosts")    return ["apex", "host", "list", "--json"];
+    if (id === "projects") return ["rime", "project", "list", "--json"];
+    if (id === "hosts")    return ["rime", "host", "list", "--json"];
     if (id === "files") {
         var argv = listDirArgv(splitPath(term).dir,
                                ctx && typeof ctx.home === "string" ? ctx.home : "");
@@ -331,7 +331,7 @@ function requestArgv(id, parsed, ctx) {
         // down it goes. Refuse rather than strip: a search for "-x" that
         // silently became a search for "x" is a search that lied.
         if (v === "" || v.charAt(0) === "-") return [];
-        return ["apex", "search", v];
+        return ["rime", "search", v];
     }
     return [];
 }
@@ -340,7 +340,7 @@ function requestArgv(id, parsed, ctx) {
 //  THE SETTINGS INDEX
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// §15's example is "APEX setting: 144 Hz", which is a search for a VALUE, not
+// §15's example is "Rime setting: 144 Hz", which is a search for a VALUE, not
 // for a page title. Nothing in PageRegistry contains the string "144 Hz" — the
 // page is called "Display" — so a settings provider that only matched page
 // titles would answer that example with nothing.
@@ -432,7 +432,7 @@ function score(text, term) {
         return TIER.PREFIX - lenPenalty;
 
     // Word start: after a space, dash, underscore, dot or slash. This is what
-    // makes "settings" find "APEX Shell Settings" and "code" find "VS Code".
+    // makes "settings" find "Rime Shell Settings" and "code" find "VS Code".
     var words = t.split(/[^a-z0-9]+/);
     for (var i = 0; i < words.length; i++)
         if (words[i] !== "" && words[i].slice(0, q.length) === q)
@@ -604,7 +604,7 @@ function rowsFrom(desc, raw, term) {
 // `groups` is an array of already-sanitised arrays. The sort is total and has
 // no dependence on arrival order, which is the property that matters: results
 // come back from subprocesses out of order, and a list that reshuffled itself
-// depending on which `apex` returned first would move the row under the user's
+// depending on which `rime` returned first would move the row under the user's
 // finger between keystrokes.
 //
 // score desc, then provider order asc, then name asc, then index asc. The last
@@ -665,8 +665,8 @@ function merge(groups, limit) {
 //                right, and there is no output worth reading afterwards.
 //
 //   a terminal   for anything with a transaction to watch: package install and
-//                remove, `apex update`, `apex rollback`. This is the house rule
-//                the agent runtime already follows — /usr/libexec/apex-agent-
+//                remove, `rime update`, `rime rollback`. This is the house rule
+//                the agent runtime already follows — /usr/libexec/rime-agent-
 //                review opens a terminal "because approving PERFORMS the
 //                operation, with the reviewing human's own root, so the
 //                decision has to happen somewhere sudo can authenticate and
@@ -710,7 +710,7 @@ var PERMISSION = {
     USER:    "your own user services",
     POLKIT:  "root, via a polkit password prompt",
     SUDO:    "root, via sudo in a terminal you can watch",
-    RUNTIME: "the APEX agent runtime"
+    RUNTIME: "the Rime agent runtime"
 };
 
 // `ctx` is what the host knows and this file must not guess:
@@ -860,7 +860,7 @@ var ACTIONS = {
 
     // ── packages (§9) ───────────────────────────────────────────────────────
     // The preview for these is not prose this file wrote: it is the output of
-    // `apex resolve <name>`, which exists for exactly this purpose and says so
+    // `rime resolve <name>`, which exists for exactly this purpose and says so
     // in its own help — "Read-only, so it needs no root: 'what would this do'
     // should never cost a password."
     "pkg.install": {
@@ -870,9 +870,9 @@ var ACTIONS = {
         permission: PERMISSION.SUDO,
         arg: "package",
         titleWith: "Install %s",
-        undoes: "sudo apex remove <package>",
+        undoes: "sudo rime remove <package>",
         what: "Adds the package to this machine's system extension. The OS "
-            + "keeps updating normally and `apex rollback` still works.",
+            + "keeps updating normally and `rime rollback` still works.",
         argv: function (arg, ctx) {
             var s = _script(ctx, "SearchRun.sh");
             if (s === null || !arg) return null;
@@ -902,9 +902,9 @@ var ACTIONS = {
         permission: PERMISSION.SUDO,
         arg: "",
         titleWith: "",
-        undoes: "sudo apex rollback",
+        undoes: "sudo rime rollback",
         what: "Fetches the next image and stages it for the next boot. Nothing "
-            + "changes until you restart, and `apex rollback` returns to this "
+            + "changes until you restart, and `rime rollback` returns to this "
             + "deployment.",
         argv: function (arg, ctx) {
             var s = _script(ctx, "SearchRun.sh");
@@ -960,7 +960,7 @@ var ACTIONS = {
             + "navigator, not a replacement for it.",
         argv: function (arg, ctx) {
             if (!arg) return null;
-            return ["/usr/libexec/apex-agent-focus", String(arg)];
+            return ["/usr/libexec/rime-agent-focus", String(arg)];
         }
     },
     "agent.kill": {
@@ -975,7 +975,7 @@ var ACTIONS = {
             + "through is not resumed.",
         argv: function (arg, ctx) {
             if (!arg) return null;
-            return ["apex", "agent", "kill", String(arg)];
+            return ["rime", "agent", "kill", String(arg)];
         }
     },
     "project.open": {
@@ -989,7 +989,7 @@ var ACTIONS = {
         what: "Switches to the workspace this project's windows are on.",
         argv: function (arg, ctx) {
             if (!arg) return null;
-            return ["apex", "project", "switch", String(arg)];
+            return ["rime", "project", "switch", String(arg)];
         }
     },
     "file.open": {
@@ -1091,7 +1091,7 @@ function actionPreview(id, arg, ctx) {
         // new action cannot forget to ask for one.
         needsCommit: a.klass !== KLASS.SAFE,
         // Whether the preview itself can be filled in by running something
-        // read-only first. Only the package actions can, through `apex resolve`.
+        // read-only first. Only the package actions can, through `rime resolve`.
         resolves:    id === "pkg.install" || id === "pkg.remove"
     };
 }
@@ -1103,18 +1103,18 @@ function _shellish(s) {
 
 // The read-only command whose output fills in a package preview.
 //
-// `apex resolve` prints every candidate across the repositories, Flathub and
-// the user's capsules, which source APEX would pick and why, and the exact
+// `rime resolve` prints every candidate across the repositories, Flathub and
+// the user's capsules, which source Rime would pick and why, and the exact
 // command for each alternative. It needs no root, which is the property that
 // makes it usable as a preview at all.
 //
 // It is started by ACTIVATION and never by selection. Arrowing down a list of
-// twenty packages must not run twenty of these — `apex resolve` reaches the
+// twenty packages must not run twenty of these — `rime resolve` reaches the
 // package metadata, and dnf5 may refresh it over the network.
 function resolveArgv(name) {
     var v = _plain(name, MAX_ARG);
     if (v === "") return null;
-    return ["apex", "resolve", v];
+    return ["rime", "resolve", v];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1266,7 +1266,7 @@ function rowId(row) {
 //
 // ── Why the cache is keyed by ARGV ──────────────────────────────────────────
 //
-// Because that is what makes typing free. `apex project list --json` has one
+// Because that is what makes typing free. `rime project list --json` has one
 // argv for every query, so it is fetched once per launcher session. A directory
 // listing's argv is the DIRECTORY, so walking "~/Doc" → "~/Documents/pro" costs
 // one listing per directory rather than one per keystroke. And a package search
@@ -1446,10 +1446,10 @@ function _needList(s, wants) {
 //  READING WHAT THE CLI SAID
 // ─────────────────────────────────────────────────────────────────────────────
 
-// `apex project list --json` prints a JSON ARRAY of project records. Read from
-// the serialiser rather than imagined: apexd/apex/src/agent.rs prints
+// `rime project list --json` prints a JSON ARRAY of project records. Read from
+// the serialiser rather than imagined: rimed/rime/src/agent.rs prints
 // `serde_json::to_string_pretty(&project::list())` in its
-// `ProjectCmd::List { json: true }` arm, and apexd/apex-agent-core/src/
+// `ProjectCmd::List { json: true }` arm, and rimed/rime-agent-core/src/
 // project.rs declares the struct — root, name, slug, languages, last_opened,
 // and capsule with #[serde(default)] so an older record simply has no key.
 //
@@ -1485,8 +1485,8 @@ function parseProjectList(text) {
     return { ok: true, reason: "", projects: out };
 }
 
-// `apex host list --json` prints a JSON OBJECT KEYED BY HOST NAME, not an
-// array: apexd/apex/src/host.rs builds a `serde_json::Map` from the registry's
+// `rime host list --json` prints a JSON OBJECT KEYED BY HOST NAME, not an
+// array: rimed/rime/src/host.rs builds a `serde_json::Map` from the registry's
 // own map in its `HostCmd::List { json: true }` arm.
 //
 // That is worth stating loudly, because the house pattern next door is
@@ -1496,7 +1496,7 @@ function parseProjectList(text) {
 // wrong; a top-level array is therefore refused BY NAME so a change of shape
 // fails loudly instead of quietly.
 //
-// `caps` is null for a host `apex host add --no-probe` registered and nothing
+// `caps` is null for a host `rime host add --no-probe` registered and nothing
 // has looked at since. This provider does not care what a host can do — it
 // lists devices so a terminal can be opened on one — but it must not present a
 // never-probed host as anything else, and it must never probe one to find out.
@@ -1532,13 +1532,13 @@ function parseHostRegistry(text) {
             // Explicitly `=== true`, never truthiness: a hand-edited cache
             // holding the string "false" is truthy, and this decides what the
             // user is told about their own machine.
-            apex: probed && caps.agentd === true
+            rime: probed && caps.agentd === true
         });
     }
     return { ok: true, reason: "", hosts: out };
 }
 
-// `apex search <term>` prints two human-readable sections — `dnf5 search`
+// `rime search <term>` prints two human-readable sections — `dnf5 search`
 // output under a "repository packages" rule, then `flatpak search` under
 // another — and there is no --json. So this reads the human form, which is a
 // deliberate choice over adding a machine-readable mode to the OS side: this is
@@ -1560,11 +1560,11 @@ function parseHostRegistry(text) {
 // "Matched fields:" header repeats between groups rather than appearing once.
 // The dnf4-shaped regex matched NOTHING, so the flagship §15 example —
 // "install Blender" — returned the Flatpak and never the RPM that
-// `apex install` would actually use for a bare name. It failed silently,
+// `rime install` would actually use for a bare name. It failed silently,
 // because "a parser that fails yields no rows" is exactly what it did.
 //
 // Both separators are accepted now: a TAB where dnf5 puts one, and " : " for
-// the dnf4 form, since apex-pkg calls whichever dnf5 is installed and the
+// the dnf4 form, since rime-pkg calls whichever dnf5 is installed and the
 // output of a tool is not a contract. The fixtures in tests/search-test.js are
 // the captured bytes, not a reconstruction.
 //
@@ -1581,7 +1581,7 @@ function parsePackageSearch(text) {
         if (line.replace(/^[ \t]+|[ \t]+$/g, "") === "") continue;
         if (line.indexOf("── Flatpak") === 0) { section = "flatpak"; continue; }
         if (line.indexOf("── repository") === 0) { section = "repo"; continue; }
-        if (line.indexOf("apex resolve") === 0) continue;
+        if (line.indexOf("rime resolve") === 0) continue;
         if (line.indexOf("(no Flatpak remote") === 0) continue;
         // dnf5's own group headers. It prints one per match class, so this is
         // not a once-at-the-top rule — "Matched fields: name, summary" appears
@@ -1618,7 +1618,7 @@ function parsePackageSearch(text) {
             summary = m[2];
         }
 
-        // Strip the architecture: `apex install` takes a bare name, and a row
+        // Strip the architecture: `rime install` takes a bare name, and a row
         // offering to install "blender.x86_64" would be offering something the
         // user cannot type back.
         nm = nm.replace(/\.(x86_64|noarch|i686|aarch64|src)$/, "");

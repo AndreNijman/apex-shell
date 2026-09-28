@@ -25,7 +25,7 @@
 #      working             a child that prints, so the output detector sees it
 #      waiting_for_user    a child that prints nothing, past the runtime's own
 #                          IDLE_TO_WAITING_SECS of 10
-#      permission_request  `apex agent event`, which is the ONLY way — apexd
+#      permission_request  `rime agent event`, which is the ONLY way — rimed
 #                          refuses to infer this one from output, on the
 #                          grounds that guessing it wrong is worse than not
 #                          guessing
@@ -55,7 +55,7 @@
 #  ISOLATION. The daemon runs with its own XDG_RUNTIME_DIR and XDG_STATE_HOME,
 #  so the developer's own sessions, requests, grants and audit log are never
 #  touched. It is never `pkill`ed either: this starts a daemon on a socket of
-#  its own and kills that pid, because a stray `pkill apex-agentd` in here once
+#  its own and kills that pid, because a stray `pkill rime-agentd` in here once
 #  took down a developer's live runtime mid-session.
 #
 #  ── ONE WAY TO GET A COMPOSITOR ─────────────────────────────────────────────
@@ -69,7 +69,7 @@
 #  proves it, and the one ERROR line PipeWire leaves behind is filtered by name
 #  at the bottom. What the mirror bought instead was the whole agent centre
 #  appearing on the desktop of whoever ran the suite, one symlink away from the
-#  live apex-agentd and the sessions they had open.
+#  live rime-agentd and the sessions they had open.
 #
 #  Skips cleanly without quickshell, without a compositor to host one, or
 #  without the runtime built.
@@ -79,18 +79,18 @@ set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/.." && pwd)"
 # The OS repo sits beside the shell checkout in the normal layout.
-osroot="${APEX_OS_ROOT:-$(cd "$root/../apex-os" 2>/dev/null && pwd)}"
+osroot="${RIME_OS_ROOT:-$(cd "$root/../rime-os" 2>/dev/null && pwd)}"
 
 . "$here/lib/headless.sh"
 
 headless_require quickshell
-[[ -n "$osroot" && -d "$osroot/apexd" ]] || { echo "SKIP: apex-os checkout not found (set APEX_OS_ROOT)"; exit 0; }
+[[ -n "$osroot" && -d "$osroot/rimed" ]] || { echo "SKIP: rime-os checkout not found (set RIME_OS_ROOT)"; exit 0; }
 
-BIN="$osroot/apexd/target/debug"
-if [[ ! -x "$BIN/apex-agentd" || ! -x "$BIN/apex" ]]; then
+BIN="$osroot/rimed/target/debug"
+if [[ ! -x "$BIN/rime-agentd" || ! -x "$BIN/rime" ]]; then
     echo "building the runtime..."
-    cargo build --manifest-path "$osroot/apexd/Cargo.toml" \
-        --bin apex-agentd --bin apex >/dev/null 2>&1 \
+    cargo build --manifest-path "$osroot/rimed/Cargo.toml" \
+        --bin rime-agentd --bin rime >/dev/null 2>&1 \
         || { echo "SKIP: cannot build the agent runtime"; exit 0; }
 fi
 
@@ -116,23 +116,23 @@ trap cleanup EXIT INT TERM
 # ── an isolated runtime, on a compositor of its own ──────────────────────────
 # The library owns XDG_RUNTIME_DIR, XDG_STATE_HOME, XDG_CONFIG_HOME and HOME,
 # so the daemon started below writes into the same sandbox the shell reads, and
-# the live apex-agentd is not reachable from here at all.
+# the live rime-agentd is not reachable from here at all.
 headless_begin
 # The fixture project is a real git repository, because a session records the
 # branch it was started on.
 headless_unstub git
 headless_start || exit 0
 
-# The shell talks to the runtime by running `apex`, so the dev build has to win.
+# The shell talks to the runtime by running `rime`, so the dev build has to win.
 export PATH="$BIN:$PATH"
 
-"$BIN/apex-agentd" > "$W/agentd.log" 2>&1 &
+"$BIN/rime-agentd" > "$W/agentd.log" 2>&1 &
 daemon_pid=$!
 for _ in $(seq 1 50); do
-    [[ -S "$XDG_RUNTIME_DIR/apex-agentd/control.sock" ]] && break
+    [[ -S "$XDG_RUNTIME_DIR/rime-agentd/control.sock" ]] && break
     sleep 0.1
 done
-[[ -S "$XDG_RUNTIME_DIR/apex-agentd/control.sock" ]] || {
+[[ -S "$XDG_RUNTIME_DIR/rime-agentd/control.sock" ]] || {
     echo "FAIL: the agent runtime never came up"; tail -10 "$W/agentd.log"; exit 1; }
 
 # ── content, so the page draws rows and not its empty state ─────────────────
@@ -140,10 +140,10 @@ mkdir -p "$W/proj"
 git -C "$W/proj" init -q 2>/dev/null
 git -C "$W/proj" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init 2>/dev/null
 
-run_agent() { apex agent run --agent generic --sandbox unrestricted \
+run_agent() { rime agent run --agent generic --sandbox unrestricted \
                   --cwd "$W/proj" -d -- /bin/sh -c "$1" 2>/dev/null; }
 
-# Ids are printed by `apex agent run -d`; captured so the event below can be
+# Ids are printed by `rime agent run -d`; captured so the event below can be
 # aimed at one session rather than at whatever happens to be newest.
 # Named rather than discarded: the names are what make the five states below
 # readable, and two of them are never referenced again on purpose — the session
@@ -156,12 +156,12 @@ id_blocked="$(run_agent 'sleep 600'                                | grep -o '[0
 run_agent 'exit 0' >/dev/null
 run_agent 'exit 3' >/dev/null
 
-# The only way to reach permission_request: apexd will not infer it. See
-# apex-agent-core/src/session.rs — "a wrong guess here is worse than no guess".
-[[ -n "$id_blocked" ]] && apex agent event permission_request \
+# The only way to reach permission_request: rimed will not infer it. See
+# rime-agent-core/src/session.rs — "a wrong guess here is worse than no guess".
+[[ -n "$id_blocked" ]] && rime agent event permission_request \
     --session "$id_blocked" --detail "install clang" >/dev/null 2>&1
 
-apex request ask install clang --reason "Required to compile the project" \
+rime request ask install clang --reason "Required to compile the project" \
     --no-wait >/dev/null 2>&1
 
 # waiting_for_user is a TIMEOUT, not an event: the runtime promotes a silent
@@ -171,9 +171,9 @@ apex request ask install clang --reason "Required to compile the project" \
 echo "waiting out the runtime's idle-to-waiting timer..."
 sleep 13
 
-listing="$(apex agent list --all --json 2>/dev/null)"
+listing="$(rime agent list --all --json 2>/dev/null)"
 sessions="$(printf '%s' "$listing" | grep -c '"id"')"
-requests="$(apex request pending --json 2>/dev/null | grep -c '"id"')"
+requests="$(rime request pending --json 2>/dev/null | grep -c '"id"')"
 
 missing=""
 for st in working waiting_for_user permission_request complete failed; do
@@ -223,7 +223,7 @@ sleep 0.5
 # paused. (Return would open its terminal through /usr/libexec, so not here.)
 if command -v wtype >/dev/null 2>&1; then
     paused_ids() {
-        apex agent list --all --json 2>/dev/null | python3 -c '
+        rime agent list --all --json 2>/dev/null | python3 -c '
 import json, sys
 def walk(o):
     if isinstance(o, dict):
@@ -248,7 +248,7 @@ print(" ".join(sorted(set(walk(json.load(sys.stdin))))))'
         *)  echo "FAIL: the keyboard path paused '${got:-nothing}' (wanted exactly one of the sessions that need you: $id_blocked or $id_waiting)"
             exit 1 ;;
     esac
-    apex agent resume "$got" >/dev/null 2>&1
+    rime agent resume "$got" >/dev/null 2>&1
 fi
 
 # ── what counts as an error ──────────────────────────────────────────────────
@@ -341,7 +341,7 @@ echo "--- §43 Agents & Workspaces help ---"
 ipc() { quickshell -p "$root/shell.qml" ipc call "$@" 2>&1; }
 fail() { echo "FAIL: $1"; exit 1; }
 
-state_file="$XDG_STATE_HOME/apex-shell/agent-help.json"
+state_file="$XDG_STATE_HOME/rime-shell/agent-help.json"
 
 # The state directory is this run's own, so the shell under test has never been
 # opened by anybody. If a dismissal is already on disk the rest of this phase

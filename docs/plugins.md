@@ -1,10 +1,10 @@
-# APEX Shell plugins
+# Rime Shell plugins
 
 Roadmap §16. A plugin is a directory with a manifest and one QML file:
 
 ```
-~/.config/apex-shell/plugins/<id>/plugin.json
-~/.config/apex-shell/plugins/<id>/<Entry>.qml
+~/.config/rime-shell/plugins/<id>/plugin.json
+~/.config/rime-shell/plugins/<id>/<Entry>.qml
 ```
 
 The shell finds them once at startup, validates each one, and mounts the ones it
@@ -13,9 +13,9 @@ are written to be read:
 
 | Example | Point | Permissions | What it does |
 |---|---|---|---|
-| `plugins/apex-worldclock/` | `bar-widget` | `files` | A second timezone in the bar. |
-| `plugins/apex-snippets/` | `launcher-provider` | `files` | Text snippets in the launcher; Enter copies one. |
-| `plugins/apex-pomodoro/` | `quick-settings-tile` | none | A 25-minute focus timer as a tile. |
+| `plugins/rime-worldclock/` | `bar-widget` | `files` | A second timezone in the bar. |
+| `plugins/rime-snippets/` | `launcher-provider` | `files` | Text snippets in the launcher; Enter copies one. |
+| `plugins/rime-pomodoro/` | `quick-settings-tile` | none | A 25-minute focus timer as a tile. |
 
 ## What the permission model guarantees
 
@@ -42,7 +42,7 @@ doing.
 
 ```json
 {
-  "id": "apex-worldclock",
+  "id": "rime-worldclock",
   "name": "World Clock",
   "description": "A second timezone in the bar.",
   "version": "1.0.0",
@@ -382,7 +382,7 @@ power profiles are all commands, and *run a command* is the `system` permission,
 which is **not implemented** and refused at load. This point lets a plugin add a
 tile, which is less than adding a quick setting: the tile surfaces information
 the plugin has, and acting on a click means acting inside whatever the plugin
-was granted. `plugins/apex-pomodoro` holds no permissions at all on purpose: if
+was granted. `plugins/rime-pomodoro` holds no permissions at all on purpose: if
 the round trip works with nothing granted, nothing about it hides behind a
 permission.
 
@@ -403,7 +403,7 @@ Refusing forward-dated plugins is the main reason the field exists: a check that
 only caught major bumps would let the common case through.
 
 `1.0` → `1.1` applied that policy: it added two extension points and removed or
-renamed nothing. `apex-worldclock` still declares `1.0` and is still granted. A
+renamed nothing. `rime-worldclock` still declares `1.0` and is still granted. A
 plugin that needs one of the new points should declare `1.1`, so an older host
 refuses it with *"built for a different plugin API"* rather than *"unknown
 extension point"*. The second message tells an author their manifest is wrong;

@@ -12,7 +12,7 @@
 # So everything here is grep-able and runs headless. There is nothing in this
 # file that can be skipped: it either runs and passes, or runs and fails.
 #
-# It deliberately never invokes `apex`. No P1 verb is merged and no image is
+# It deliberately never invokes `rime`. No P1 verb is merged and no image is
 # built, so the installed binary has none of them; shelling out would mean an
 # unconditional skip, which is the outcome being avoided.
 set -uo pipefail
@@ -108,7 +108,7 @@ want "no --file argument is passed to blueprint set" \
 #
 # The hard rule, and the one worth the most assertions: a blueprint editor
 # exists to write the user's config, so the ONLY acceptable write path is
-# `apex blueprint set --json -`. That verb runs the same normalise + validate +
+# `rime blueprint set --json -`. That verb runs the same normalise + validate +
 # atomic write a hand-edited file gets, refuses empty stdin, refuses anything
 # validate() rejects, and leaves the previous good blueprint intact on every
 # refusal. A path that bypassed it would be a second, unvalidated writer aimed
@@ -195,7 +195,7 @@ want "the write path does not call apply" \
     bash -c '! grep -q "apply(" < <(sed -n "/function _write()/,/^    }/p" "$1")' _ "$csvc"
 
 # ── APPLY NEVER ESCALATES ───────────────────────────────────────────────────
-# `apex apply` converges the privilege domain it is already running in and
+# `rime apply` converges the privilege domain it is already running in and
 # reports the other. That is the reason it cannot raise an authentication
 # prompt at all, and a button that ran sudo would throw it away.
 want "the service never runs sudo" \
@@ -205,7 +205,7 @@ want "the page never runs sudo as a command" \
 # The root-domain changes must be reported as information. The notice text is
 # built in the logic module, and there must be no clickable control beside it.
 want "the root notice names the command for the user to run" \
-    grep -q 'run `sudo apex apply`' "$clogic"
+    grep -q 'run `sudo rime apply`' "$clogic"
 want "the root notice section has no button" \
     bash -c '! grep -q "CfgButton" < <(sed -n "/title: \"Needs root\"/,/^    }$/p" "$1")' _ "$cpage"
 want "the page explains that it does not escalate" \
@@ -225,7 +225,7 @@ want "the service guards against writing an empty blueprint" \
 want "the page surfaces the erase warning"    grep -q "eraseWarning" "$cpage"
 
 # ── No shell injection ──────────────────────────────────────────────────────
-# Package names come off disk and out of `apex sync import` bundles. CI already
+# Package names come off disk and out of `rime sync import` bundles. CI already
 # checks that neither the Display nor the Input service splices its model into
 # a shell string; this service passes the JSON as a bash argv element too.
 want "the JSON payload is a bash argument, not interpolated" \
@@ -236,7 +236,7 @@ want "the draft is serialised through toStdin" \
     grep -qF "BP.toStdin(root.draft)" "$csvc"
 
 # ── The absent-CLI path ─────────────────────────────────────────────────────
-# Nothing is merged and no image is built, so /usr/bin/apex has none of these
+# Nothing is merged and no image is built, so /usr/bin/rime has none of these
 # verbs. A process that never STARTS emits neither stdout nor stderr, so
 # without an onExited handler the page renders blank with nothing to explain it.
 want "the service handles a CLI that never starts" \
@@ -250,7 +250,7 @@ want "the page shows a not-available explanation" \
 want "the explanation is the page's first section when the CLI is missing" \
     bash -c 'grep -q "first: true" < <(grep -B8 "Not available on this image" "$1")' _ "$cpage"
 want "the CLI path is overridable for local testing" \
-    grep -q "APEX_BLUEPRINT_CLI" "$csvc"
+    grep -q "RIME_BLUEPRINT_CLI" "$csvc"
 
 # ONLY THE SHOW PATH MAY DECIDE THE CLI IS ABSENT.
 #
@@ -281,12 +281,12 @@ want "a failed read yields a null draft, not an empty one" \
 # Two invocation shapes are hunted, because those are the two ways a test could
 # actually run the thing:
 #
-#   argv    Process { command: ["apex", "apply"] }  — and the QML/JS spelling
-#   shell   a line whose COMMAND is apex/$APEX_BIN followed by apply
+#   argv    Process { command: ["rime", "apply"] }  — and the QML/JS spelling
+#   shell   a line whose COMMAND is rime/$RIME_BIN followed by apply
 #
 # Anchoring the shell form at the start of a command is what distinguishes an
 # invocation from a mention: a test may legitimately assert on the STRING
-# "run `sudo apex apply`", which is exactly what blueprint-editor-test.js does.
+# "run `sudo rime apply`", which is exactly what blueprint-editor-test.js does.
 apply_leak=""
 set_leak=""
 for t in "$root"/tests/*; do
@@ -294,12 +294,12 @@ for t in "$root"/tests/*; do
     [ "$t" = "$here/check-blueprint-editor.sh" ] && continue
     body="$(grep -vE '^[[:space:]]*(//|#)' "$t" 2>/dev/null)"
 
-    # argv form: "apex" and "apply" adjacent as separate array elements.
+    # argv form: "rime" and "apply" adjacent as separate array elements.
     argv_hit="$(printf '%s\n' "$body" \
-        | grep -oE "[\"'](apex|/usr/bin/apex)[\"'][[:space:]]*,[[:space:]]*[\"']apply[\"']" || true)"
-    # shell form: apex/$VAR as the command word, then apply.
+        | grep -oE "[\"'](rime|/usr/bin/rime)[\"'][[:space:]]*,[[:space:]]*[\"']apply[\"']" || true)"
+    # shell form: rime/$VAR as the command word, then apply.
     sh_hit="$(printf '%s\n' "$body" \
-        | grep -oE "(^|[;&|]|\\\$\()[[:space:]]*(sudo[[:space:]]+)?(apex|\\\$[A-Z_]+)[[:space:]]+apply\b" || true)"
+        | grep -oE "(^|[;&|]|\\\$\()[[:space:]]*(sudo[[:space:]]+)?(rime|\\\$[A-Z_]+)[[:space:]]+apply\b" || true)"
 
     for hit in "$argv_hit" "$sh_hit"; do
         [ -z "$hit" ] && continue
@@ -313,14 +313,14 @@ for t in "$root"/tests/*; do
     grep -qE "blueprint[\"',[:space:]]+set" <<<"$body" \
         && set_leak="$set_leak $(basename "$t")"
 done
-want "no test reaches a non-dry-run apex apply" test -z "$apply_leak"
+want "no test reaches a non-dry-run rime apply" test -z "$apply_leak"
 [ -n "$apply_leak" ] && echo "        live apply in:$apply_leak"
 want "no test invokes blueprint set" test -z "$set_leak"
 [ -n "$set_leak" ] && echo "        blueprint set in:$set_leak"
 
 # The headless suite must stay headless: the moment it spawns a process it can
 # fail for reasons that have nothing to do with the logic, and on a runner with
-# no `apex` it would be tempted into skipping.
+# no `rime` it would be tempted into skipping.
 want "the logic module spawns no process" \
     bash -c '! grep -qE "require\(.child_process.\)|execSync|spawn\(|Process[[:space:]]*\{" "$1"' _ "$logic"
 want "the logic module touches no filesystem" \
@@ -342,18 +342,18 @@ want "the preview path literally carries --dry-run" \
 want "there is exactly one live apply command in the service" \
     bash -c 'test "$(grep -cE "^[[:space:]]*command: \[root\.cli, \"apply\"\]$" "$1")" = 1' _ "$csvc"
 
-# ── Vocabulary parity with apexd-core ───────────────────────────────────────
+# ── Vocabulary parity with rimed-core ───────────────────────────────────────
 # The dropdown lists mirror closed sets in the Rust source. They are not a
 # reimplementation of validate() — the CLI decides validity and its stderr is
 # shown verbatim — but a mirror that has drifted offers the user a value the CLI
-# will refuse. When apex-os is checked out beside the shell, compare them.
+# will refuse. When rime-os is checked out beside the shell, compare them.
 #
 # There is no vocabulary-discovery verb, so this is the honest ceiling; a
 # `blueprint schema --json` would close it. Absence of the sibling checkout is
 # not a skip of this suite: every other assertion above still runs.
 rust=""
-for cand in "$root/../apex-os/apexd/apexd-core/src/blueprint.rs" \
-            "$root/../../apex-os/apexd/apexd-core/src/blueprint.rs"; do
+for cand in "$root/../rime-os/rimed/rimed-core/src/blueprint.rs" \
+            "$root/../../rime-os/rimed/rimed-core/src/blueprint.rs"; do
     [ -f "$cand" ] && { rust="$cand"; break; }
 done
 
@@ -411,7 +411,7 @@ if [ -n "$rust" ]; then
         echo "        js:   $j"
     fi
 else
-    echo "        apex-os is not checked out beside this repo;"
+    echo "        rime-os is not checked out beside this repo;"
     echo "        vocabularies are asserted by tests/blueprint-editor-test.js instead"
 fi
 

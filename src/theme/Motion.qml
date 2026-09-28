@@ -7,7 +7,7 @@ import "motion.js" as M
 // ─────────────────────────────────────────────────────────────────────────────
 // Motion — the shell's one motion system.
 //
-// Every animation in APEX takes its duration and its curve from here, by what it
+// Every animation in Rime takes its duration and its curve from here, by what it
 // MEANS rather than by a number: a hover tint is `Motion.hover`, a tab's moving
 // selection is `Motion.selection`, the Dashboard growing out of the notch is
 // `Motion.morphEnter`. The numbers live in motion.js, where node can read them
@@ -40,7 +40,7 @@ import "motion.js" as M
 // ── Curves ──────────────────────────────────────────────────────────────────
 // Bind a curve as
 //     easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.standardDecel
-// None of them overshoot. APEX's springs are continuity, not bounce.
+// None of them overshoot. Rime's springs are continuity, not bounce.
 // ─────────────────────────────────────────────────────────────────────────────
 QtObject {
     id: motion
@@ -49,11 +49,13 @@ QtObject {
     /// Reduce Motion, the accessibility mode. Spatial tokens are 0 while it is on.
     readonly property bool reduced: SettingsService.reduceMotion
 
-    // Frame pacing (UI/UX roadmap v3 Phase 22): APEX_PACING_LOG=1 in the shell's
+    // Frame pacing (UI/UX roadmap v3 Phase 22): RIME_PACING_LOG=1 in the shell's
     // environment makes every SurfaceLifecycle log the frames it delivered while
     // opening and closing. Read once; off, it costs nothing — no FrameAnimation
     // runs. tests/visual/frame-pacing.sh reads the lines.
-    readonly property bool pacingLog: Quickshell.env("APEX_PACING_LOG") === "1"
+    // APEX_PACING_LOG is the name it had before the rename, and the one a
+    // developer's own launcher unit may still set.
+    readonly property bool pacingLog: (Quickshell.env("RIME_PACING_LOG") || Quickshell.env("APEX_PACING_LOG")) === "1"  // rime-rename: keep (the variable's pre-rename name)
 
     /// The combined speed multiplier every token is scaled by.
     readonly property real scale: M.speedScale(SettingsService.motionSpeed,

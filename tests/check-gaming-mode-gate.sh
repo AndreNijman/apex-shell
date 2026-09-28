@@ -2,20 +2,20 @@
 # Whether the power menu offers Gaming Mode, decided the way the greeter decides.
 #
 # ── The defect this exists for ───────────────────────────────────────────────
-# gamescope and Steam are ON-DEMAND packages in APEX, not image content. So
-# /usr/share/wayland-sessions/apex-gaming.desktop ships on every machine while
+# gamescope and Steam are ON-DEMAND packages in Rime, not image content. So
+# /usr/share/wayland-sessions/rime-gaming.desktop ships on every machine while
 # /usr/bin/gamescope does not, and the entry itself says so: it carries
 # `TryExec=/usr/bin/gamescope`, which is the desktop-entry spec's own mechanism
-# for "do not offer this unless the program exists". apex-greet's enumeration
-# honours it, and Containerfile.apex has a build gate asserting the greeter
+# for "do not offer this unless the program exists". rime-greet's enumeration
+# honours it, and Containerfile.rime has a build gate asserting the greeter
 # hides the entry while gamescope is absent.
 #
 # PowerMenu.qml's probe tested the helper and the session FILE and nothing else.
-# So on any APEX install without gamescope the two surfaces disagreed: the menu
+# So on any Rime install without gamescope the two surfaces disagreed: the menu
 # offered "Gaming Mode", taking it logged the user out, and the greeter then HID
 # the session they had just chosen — landing them back on the desktop with
-# `last-session=apex-gaming` written. On the old greeter that then selected by
-# sort order at the next login, which is the lockout fixed in apex-os by the
+# `last-session=rime-gaming` written. On the old greeter that then selected by
+# sort order at the next login, which is the lockout fixed in rime-os by the
 # companion commit to this one.
 #
 # The build asserted the greeter's half. Nothing asserted the menu agreed, and
@@ -26,10 +26,10 @@
 # and ignored it, and would pass on one whose shell quoting was broken so that
 # every branch exited 0 — which is the failure that matters here, because this
 # gate FAILS CLOSED only if it actually runs. So the probe's own `sh -c` script
-# is lifted out of the QML and executed against fixtures, exactly as apex-os's
-# tests/test-apex-greet-sessions.sh lifts and runs the greeter's enumeration.
+# is lifted out of the QML and executed against fixtures, exactly as rime-os's
+# tests/test-rime-greet-sessions.sh lifts and runs the greeter's enumeration.
 #
-# The probe reads APEX_SESSION_HELPER and APEX_SESSION_DIR when they are set —
+# The probe reads RIME_SESSION_HELPER and RIME_SESSION_DIR when they are set —
 # the same pair PowerControl.sh honours — so the fixtures need no path rewriting
 # and nothing here touches /usr.
 #
@@ -111,16 +111,16 @@ case "$probe_src" in
     *) bad "…and it is the code that reads TryExec out of the entry" "no TryExec in the extract" ;;
 esac
 case "$probe_src" in
-    *apex-gaming.desktop*) ok "…and it still names the gaming session entry" ;;
+    *rime-gaming.desktop*) ok "…and it still names the gaming session entry" ;;
     *) bad "…and it still names the gaming session entry" "entry name missing" ;;
 esac
 
 # ── The fixtures ─────────────────────────────────────────────────────────────
 mkdir -p "$WORK/sessions" "$WORK/bin"
 printf '#!/bin/sh\nexit 0\n' > "$WORK/helper"; chmod +x "$WORK/helper"
-# The entry as APEX ships it: TryExec names the on-demand binary.
-printf '[Desktop Entry]\nName=APEX Gaming Mode\nExec=/usr/libexec/apex-gaming-session\nTryExec=%s/bin/gamescope\nType=Application\n' \
-    "$WORK" > "$WORK/sessions/apex-gaming.desktop"
+# The entry as Rime ships it: TryExec names the on-demand binary.
+printf '[Desktop Entry]\nName=Rime Gaming Mode\nExec=/usr/libexec/rime-gaming-session\nTryExec=%s/bin/gamescope\nType=Application\n' \
+    "$WORK" > "$WORK/sessions/rime-gaming.desktop"
 
 # The probe needs sed and head; it must NOT be able to find a gamescope that
 # happens to be installed on the machine running this file, or the fixture's
@@ -136,7 +136,7 @@ SH="$(command -v sh)"
 # entirely the wrong reason, and the positive control is what caught it.
 gate() {
     local helper="$1" dir="$2"
-    env -i PATH="$WORK/bin" APEX_SESSION_HELPER="$helper" APEX_SESSION_DIR="$dir" \
+    env -i PATH="$WORK/bin" RIME_SESSION_HELPER="$helper" RIME_SESSION_DIR="$dir" \
         "$SH" "$PROBE" >/dev/null 2>&1
     echo "$?"
 }
@@ -144,8 +144,8 @@ gate() {
 install_gamescope()   { printf '#!/bin/sh\nexit 0\n' > "$WORK/bin/gamescope"; chmod +x "$WORK/bin/gamescope"; }
 uninstall_gamescope() { rm -f "$WORK/bin/gamescope"; }
 
-# THE DEFECT. Helper present, entry present, binary absent — which is every APEX
-# install that has not run `apex install gamescope steam`.
+# THE DEFECT. Helper present, entry present, binary absent — which is every Rime
+# install that has not run `rime install gamescope steam`.
 uninstall_gamescope
 is "the row is refused when gamescope is not installed" "1" \
    "$(gate "$WORK/helper" "$WORK/sessions")"
@@ -167,8 +167,8 @@ is "the row is refused with no session entry" "1" \
 # An entry with no TryExec at all is offered: the spec says an absent TryExec is
 # not a refusal, and reading one as "hide it" would make the gate depend on a
 # key the entry is not required to carry.
-printf '[Desktop Entry]\nName=APEX Gaming Mode\nExec=/usr/libexec/apex-gaming-session\nType=Application\n' \
-    > "$WORK/sessions/apex-gaming.desktop"
+printf '[Desktop Entry]\nName=Rime Gaming Mode\nExec=/usr/libexec/rime-gaming-session\nType=Application\n' \
+    > "$WORK/sessions/rime-gaming.desktop"
 uninstall_gamescope
 is "an entry with no TryExec is not refused for lacking one" "0" \
    "$(gate "$WORK/helper" "$WORK/sessions")"

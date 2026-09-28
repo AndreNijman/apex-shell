@@ -7,7 +7,7 @@ Run it as::
 
 ── Why the oracle is patched, and why that is not cheating ───────────────────
 
-segno is the independent implementation this suite checks apex-shell's encoder
+segno is the independent implementation this suite checks rime-shell's encoder
 against. It is used here with ONE correction, applied below as
 `iso_write_padding_bits`, because segno 1.6.6 deviates from ISO/IEC 18004 in
 the padding path. Its own source quotes the clause and then drops the
@@ -32,7 +32,7 @@ it exactly on one, and segno therefore always emits one stray 0x00 before the
 
 It is invisible in practice — a decoder stops at the terminator and never
 reads a pad codeword — which is why it has survived. It is not invisible to a
-byte-for-byte comparison, so it would otherwise force apex-shell's encoder to
+byte-for-byte comparison, so it would otherwise force rime-shell's encoder to
 reproduce a bug in order to pass.
 
 Two things keep this honest, and both are checked rather than asserted in
@@ -85,9 +85,9 @@ def capacity(version, error):
 
 
 def realistic(n_lan, relay):
-    """Exactly the field set of apex_remote_core::pairing::PairingOffer, behind
+    """Exactly the field set of rime_remote_core::pairing::PairingOffer, behind
     the SCHEME that crate declares. A fixture that encoded some other shape
-    would prove the encoder works on a payload APEX never produces."""
+    would prove the encoder works on a payload Rime never produces."""
     offer = {
         "v": 1, "machine": "l16",
         "key": base64.urlsafe_b64encode(bytes(range(32))).decode().rstrip("="),
@@ -97,11 +97,11 @@ def realistic(n_lan, relay):
         "expires_ms": 1789155000000,
     }
     body = json.dumps(offer, separators=(",", ":")).encode()
-    return "apex-remote:" + base64.urlsafe_b64encode(body).decode().rstrip("=")
+    return "apex-remote:" + base64.urlsafe_b64encode(body).decode().rstrip("=")  # rime-rename: keep (the pairing scheme installed phones parse)
 
 
 P1 = realistic(1, None)
-P2 = realistic(3, "wss://apex-remote-relay.andre.workers.dev")
+P2 = realistic(3, "wss://rime-remote-relay.andre.workers.dev")
 
 
 def smallest_version(payload):
@@ -155,7 +155,7 @@ def build():
     add("v10-l-m0-short", "short payload, plenty of padding after it", 10, "l", 0)
     add("v4-l-m0-oneshort", "A" * (capacity(4, "l") - 1), 4, "l", 0)
 
-    # ── and the real thing: what an APEX pairing code actually looks like.
+    # ── and the real thing: what a Rime pairing code actually looks like.
     add("offer-lan-only", P1, smallest_version(P1), "l", 0)
     add("offer-with-relay", P2, smallest_version(P2), "l", 0)
     return cases

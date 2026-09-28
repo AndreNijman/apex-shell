@@ -15,11 +15,11 @@ import "../../shapes/materialpath.js" as MaterialPath
 // end-4's lock screen, which is modelled on it (Andre, 2026-09-27: "make lock
 // pin typing animation like end4"). The shapes are Google's (AndroidX
 // graphics-shapes, vendored under src/shapes/material, Apache-2.0), drawn as
-// GPU paths (src/shapes/materialpath.js); the code here is APEX's own.
+// GPU paths (src/shapes/materialpath.js); the code here is Rime's own.
 //
-// The lock screen (src/windows/Lockscreen.qml) and the login screen (apex-os
-// files/desktop/apex-greet/GreetSurface.qml, which loads this very file from
-// /usr/share/apex-shell) draw it over their password fields, so the two are one
+// The lock screen (src/windows/Lockscreen.qml) and the login screen (rime-os
+// files/desktop/rime-greet/GreetSurface.qml, which loads this very file from
+// /usr/share/rime-shell) draw it over their password fields, so the two are one
 // implementation, not two that drift. Everything it imports is by relative
 // path, so it loads outside the shell too.
 //

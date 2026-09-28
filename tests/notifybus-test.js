@@ -25,12 +25,12 @@
 //
 //  Not invented. It is the shape of the run that was live while this was
 //  written: six agents dispatched against one repository
-//  (ROADMAP/state/dispatch.json), each a Claude session under apex-agentd,
-//  each pausing between tool calls for longer than apexd's
+//  (ROADMAP/state/dispatch.json), each a Claude session under rime-agentd,
+//  each pausing between tool calls for longer than rimed's
 //  IDLE_TO_WAITING_SECS = 10 and therefore flapping working →
 //  waiting_for_user → working, and one of them asking for a privilege
 //  decision, which arrives BOTH as a session state and as a record in
-//  `apex request pending`.
+//  `rime request pending`.
 //
 //  The numbers below are the point of the file:
 //
@@ -46,7 +46,7 @@ const path = require("path");
 const os = require("os");
 const { execFileSync } = require("child_process");
 
-const SRC = process.env.APEX_SHELL_SRC
+const SRC = process.env.RIME_SHELL_SRC
     || path.join(__dirname, "..", "src");
 
 let passed = 0, failed = 0;
@@ -59,7 +59,7 @@ function check(name, cond, detail) {
 //
 // Six agents, 40 minutes, one second per step is far too slow to write out, so
 // each entry is (t seconds, session id, state). Between entries a session holds
-// the state it was last given — which is exactly how `apex agent list` reads.
+// the state it was last given — which is exactly how `rime agent list` reads.
 //
 // Sessions 1-4 flap. Session 5 asks for a privilege decision and the pending
 // request lands a second later. Session 6 runs to completion and then a second
@@ -70,7 +70,7 @@ const PAUSES = 8;
 function timeline() {
     const ev = [];
     // Four agents, each working a long turn made of tool calls with thinking
-    // between them. A think that outlives apexd's IDLE_TO_WAITING_SECS = 10
+    // between them. A think that outlives rimed's IDLE_TO_WAITING_SECS = 10
     // is promoted to `waiting_for_user`, and the next PreToolUse hook pulls it
     // back to `working` — so a normal, healthy turn produces a run of
     // transitions into an attention state that nobody needs to be told about.
@@ -142,7 +142,7 @@ function replay(bus, opts) {
                 // request id — that is the collision this file is about.
                 news.push({ kind: "permission", subject: p.session,
                             summary: "Claude requests privilege",
-                            body: "apex " + p.verb + " " + p.packages.join(" ") });
+                            body: "rime " + p.verb + " " + p.packages.join(" ") });
             }
         }
 
@@ -343,7 +343,7 @@ function wiring() {
     // server for the whole session, so that would leave out every other source
     // of "an agent needs you" — which is most of the point.
     check("the key is put on the wire as a hint",
-          /--hint=string:x-apex-key:/.test(code));
+          /--hint=string:x-rime-key:/.test(code));
     check("and a replace id is passed, so a repeat rewrites rather than stacks",
           /--replace-id/.test(code));
 
@@ -356,9 +356,9 @@ function wiring() {
     // like a shell that is not the notification server at all — a silent
     // failure, and the reason it is asserted rather than assumed.
     check("the notification server passes that hint through rather than dropping it",
-          /extraHints:\s*\[[^\]]*"x-apex-key"/.test(nsCode));
+          /extraHints:\s*\[[^\]]*"x-rime-key"/.test(nsCode));
     check("it can find a standing notification by key",
-          /function byKey\(/.test(nsCode) && /x-apex-key/.test(nsCode));
+          /function byKey\(/.test(nsCode) && /x-rime-key/.test(nsCode));
     check("and retract one whose condition has ended",
           /function retract\(/.test(nsCode) && /\.dismiss\(\)/.test(nsCode));
 }

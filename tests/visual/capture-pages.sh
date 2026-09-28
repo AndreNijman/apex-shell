@@ -13,13 +13,13 @@
 #  fake-mpris.py for the player, fake-brightnessctl, a tasks.json with cards in
 #  every column, and notifications sent to the shell on the private bus. The
 #  palette is the fixture's (tests/fixtures/palettes-matugen-4.2.0.json) for the
-#  APEX-OS default wallpaper (tests/fixtures/wallpapers/), dark and light.
+#  Rime OS default wallpaper (tests/fixtures/wallpapers/), dark and light.
 #
 #  Writes OUTDIR/<scheme>/<page>.png — one settled 1920x1080 frame per page.
 #  CAPTURE_PAGES="home tasks" captures only those pages (default: all). The
 #  floating surfaces are pages too: toast, context-menu.
 #  CAPTURE_UNRESTRICTED=1 turns Always Unrestricted on (the harness's own
-#  ~/.config/apex/agent.json), so the Agents panel shows its indicator.
+#  ~/.config/rime/agent.json), so the Agents panel shows its indicator.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -50,16 +50,16 @@ capture_scheme() {   # capture_scheme <dark|light> — one shell, every page
         swaybg -m fill -i "$HEADLESS_WALLPAPER" >/dev/null 2>&1 & wallpid=$!
     fi
 
-    local ud="$HOME/.config/apex-shell/src/user_data"
-    mkdir -p "$ud" "$HOME/.cache/apex-shell"
+    local ud="$HOME/.config/rime-shell/src/user_data"
+    mkdir -p "$ud" "$HOME/.cache/rime-shell"
     printf '{"barEnabled":true,"animDuration":320,"motionScale":1,"dashboardWidth":900,"dashboardHeight":520}' > "$ud/settings.json"
-    headless_apex_palette "$scheme"
+    headless_rime_palette "$scheme"
     # ...and that wallpaper is the current one, as the first run makes it, so the
     # Appearance page and the lock screen show it too.
     printf '{"currentWall":"%s","wallpaperDir":"~/Pictures/Wallpapers","scheme":"content"}' \
         "$HEADLESS_WALLPAPER" > "$ud/wallpaper.json"
     if [ "${CAPTURE_UNRESTRICTED:-0}" = 1 ]; then
-        mkdir -p "$HOME/.config/apex"; printf '{"sandbox":"unrestricted"}' > "$HOME/.config/apex/agent.json"
+        mkdir -p "$HOME/.config/rime"; printf '{"sandbox":"unrestricted"}' > "$HOME/.config/rime/agent.json"
     fi
     python3 - "$ud/tasks.json" <<'PY'
 import json, sys, datetime
@@ -85,16 +85,16 @@ PY
     mkdir -p "$out/$scheme"
 
     local n
-    for n in "Build finished|apex-os roadmap/v2.2: 0 failures, 1,240 commits" \
+    for n in "Build finished|rime-os roadmap/v2.2: 0 failures, 1,240 commits" \
              "Sam Rivera|Are we still on for the robotics meeting at 4?" \
-             "Update ready|APEX-OS 2.2.1 is staged and applies on the next restart" \
+             "Update ready|Rime OS 2.2.1 is staged and applies on the next restart" \
              "Battery|18 % remaining"; do
         gdbus call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications \
             --method org.freedesktop.Notifications.Notify "Pages" 0 "" "${n%%|*}" "${n#*|}" "[]" "{}" 0 >/dev/null 2>&1
         sleep 0.3
         # The toast is a floating surface (UI/UX Phase 18b): one frame of it on
         # screen, taken as the first one arrives.
-        if [ "$n" = "Build finished|apex-os roadmap/v2.2: 0 failures, 1,240 commits" ] && want toast; then
+        if [ "$n" = "Build finished|rime-os roadmap/v2.2: 0 failures, 1,240 commits" ] && want toast; then
             sleep 1.2; shot toast
         fi
     done

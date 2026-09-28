@@ -2,7 +2,7 @@
 # Static invariants for §20's remote agent status (P2 phase 9.3).
 #
 # ── Why this exists next to the smoke test ───────────────────────────────────
-# run-remote-agent-smoke.sh needs a Wayland session and an apex-os checkout and
+# run-remote-agent-smoke.sh needs a Wayland session and a rime-os checkout and
 # skips without either, so on a CI runner it proves nothing. Everything here is
 # grep-able and runs headless, which matters: these invariants are each one
 # careless edit away from regressing with no visible symptom. An ungated sweep
@@ -218,7 +218,7 @@ check_tree() {
                  | grep -nE 'root\._queryProc\.running = false' | cut -d: -f1 | head -1)"
     # Measured, not assumed: a binary that cannot exec emits neither exited nor
     # streamFinished, only runningChanged. Without this the first sweep would
-    # hang forever on a machine with no `apex`.
+    # hang forever on a machine with no `rime`.
     want "a binary that never starts is caught by a settle timer" \
         in_fn "$svc" 'property Timer _listSettle:' \
               'if \(root\._listPending\) root\._onRegistry\(false, ""\)'
@@ -227,14 +227,30 @@ check_tree() {
               'onRunningChanged: if \(!running\) root\._listSettle\.restart\(\)'
 
     # ── the CLI owns the ssh argv ────────────────────────────────────────────
-    # `apex host run <name> -- <argv…>` passes the remote arguments with their
+    # `rime host run <name> -- <argv…>` passes the remote arguments with their
     # boundaries intact, which plain `ssh host cmd a b` does not: ssh joins them
     # with spaces and hands the string to the remote shell. Assembling that
     # here is also where an injection would land.
-    want "the query goes through apex host run" \
-        in_fn "$svc" 'function _next\(\)' '"apex", "host", "run", name,'
-    want "the remote argv is separated by --" \
-        in_fn "$svc" 'function _next\(\)' '"--", "apex", "agent", "list", "--all", "--json"'
+    want "the query argv comes from remoteagents.js" \
+        in_fn "$svc" 'function _next\(\)' 'root\._queryProc\.command = Remote\.queryArgv\(name\)$'
+    want "the query goes through rime host run, the remote argv after --" \
+        in_fn "$js" '^function queryArgv' '\["rime", "host", "run", String\(hostName\), "--"\]'
+    want "and asks the far side for its session list" \
+        in_fn "$js" '^function queryArgv' 'remoteArgv\(\["agent", "list", "--all", "--json"\]\)'
+    # A device that has not taken the Rime update answers to `apex`. Asking for
+    # `rime` by name would label every such device "not installed there" for as
+    # long as the fleet is half updated. The name is resolved on the far side,
+    # rime first, by a constant script that takes its arguments as "$@".
+    want "the far side runs rime when it has it" \
+        has "$js" "^var REMOTE_CLI = 'if command -v rime >/dev/null 2>&1; then exec rime \"\\\$@\"; fi; '"
+    want "and apex on a device still on APEX" \
+        has "$js" "^ +\+ 'if command -v apex >/dev/null 2>&1; then exec apex \"\\\$@\"; fi; '"
+    want "and 127 (read as not installed) on neither" \
+        has "$js" "^ +\+ 'exit 127'$"
+    want "the remote script is handed its arguments, never built from them" \
+        in_fn "$js" '^function remoteArgv' 'return \["sh", "-c", REMOTE_CLI, "sh"\]\.concat\('
+    want "a probe that says apex_version is read as rime_version" \
+        has "$js" '^ +rime_version: \["apex_version"\]'
     want "the service never builds a shell command line" \
         lacks "$svc" '"(ba)?sh", *"-c"'
     # The host name is passed as its own argv element and never concatenated
@@ -274,9 +290,9 @@ check_tree() {
     fi
 
     capkeys="$(obj_keys "$js" 'var CAPS_SCHEMA = {')"
-    want "the caps schema declares every HostCaps field apex host list prints" \
+    want "the caps schema declares every HostCaps field rime host list prints" \
         test "$(echo "$capkeys" | tr '\n' ' ')" = \
-             "accel agentd ai apex_version cpus free_mib gpus memory_mib os podman probed_at variant "
+             "accel agentd ai cpus free_mib gpus memory_mib os podman probed_at rime_version variant "
 
     # ── A REMOTE ROW MUST NOT ACT ────────────────────────────────────────────
     # The concrete defect this design avoids, so it gets a check and not just a
@@ -505,6 +521,20 @@ sed -i 's|_hasRemote: RemoteAgentService.hosts.length > 0|_hasRemote: true|' \
 assert_changed "$MUT/m10" src/services/agents/AgentCenter.qml \
     && expect "an unconditional remote section is caught" "$MUT/m10" red
 
+# The fallback for a device that has not taken the Rime update. Without it,
+# every such device reads as "rime not installed there".
+fresh_copy "$MUT/m12"
+sed -i "/^ *+ 'if command -v apex >\/dev\/null 2>&1; then exec apex \"\$@\"; fi; '/d" \
+    "$MUT/m12/src/services/remoteagents.js"
+assert_changed "$MUT/m12" src/services/remoteagents.js \
+    && expect "dropping the apex fallback on the far side is caught" "$MUT/m12" red
+
+fresh_copy "$MUT/m13"
+sed -i 's|^\( *\)rime_version: \["apex_version"\].*$|\1rime_version: []|' \
+    "$MUT/m13/src/services/remoteagents.js"
+assert_changed "$MUT/m13" src/services/remoteagents.js \
+    && expect "forgetting that an APEX probe says apex_version is caught" "$MUT/m13" red
+
 # The guard clause with no test behind it until now. Dropping it from
 # _beginSweep leaves the identical text in `busy` two dozen lines up, so a
 # file-wide grep would still find it — this is the third mutant that only a
@@ -535,7 +565,7 @@ fresh_copy "$MUT/c1"
     echo '// The first draft had `running: true` on the sweep timer, and'
     echo '//     root._cooldown.restart()'
     echo '// with no refCount guard, so it polled forever. It also did'
-    echo '//     command: ["sh", "-c", "ssh " + name + " apex agent list"]'
+    echo '//     command: ["sh", "-c", "ssh " + name + " rime agent list"]'
     echo '// splicing a host name into a shell line, and read caps with'
     echo '//     out[k] = !!v'
     echo '// so a missing key came back truthy. It killed the query AFTER'

@@ -2,7 +2,7 @@
 # Static invariants for Caffeine's idle inhibition.
 #
 # ── Why this exists, and why it is greps and not a QML suite ─────────────────
-# Caffeine has to keep working on every compositor APEX ships. Whether it
+# Caffeine has to keep working on every compositor Rime ships. Whether it
 # ACTUALLY suppresses idle can only be measured against a live compositor and a
 # live idle daemon (tests/measure-idle-inhibit.sh does that, manually, and its
 # header records the numbers). No CI runner has either, so a behavioural suite

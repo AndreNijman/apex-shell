@@ -32,7 +32,7 @@ Item {
 
     activeFocusOnTab: true
 
-    // Focus a pointer gave lights no ring; the next key does (ApexPressable's
+    // Focus a pointer gave lights no ring; the next key does (RimePressable's
     // rule — Qt Quick 6.10 has no Item.focusReason, so it is tracked).
     property bool _pointerFocus: false
     onActiveFocusChanged: if (!activeFocus) _pointerFocus = false

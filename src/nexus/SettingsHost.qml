@@ -144,7 +144,7 @@ Item {
                 elide: Text.ElideRight
             }
 
-            ApexIconButton {
+            RimeIconButton {
                 id: closeBtn
                 anchors {
                     right: parent.right

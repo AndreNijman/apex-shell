@@ -58,7 +58,7 @@ Rectangle {
         return out
     }
 
-    // The scratchpad overlay. Hyprland is the only compositor APEX ships that
+    // The scratchpad overlay. Hyprland is the only compositor Rime ships that
     // has the concept, and the capability says so rather than a name check.
     readonly property bool isScratchpad: CompositorService.specialWorkspaceOpen
 

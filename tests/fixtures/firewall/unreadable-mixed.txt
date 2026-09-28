@@ -1,5 +1,5 @@
-apex-firewall: policy: cannot read the ruleset; reading it needs root
-apex-firewall:   try: sudo apex firewall status
+rime-firewall: policy: cannot read the ruleset; reading it needs root
+rime-firewall:   try: sudo rime firewall status
 
 always allowed, and not removable here:
   established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh

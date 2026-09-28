@@ -14,19 +14,19 @@ import "./src/modules/Right"
 import "./src"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Behavioural test for the APEX Shell plugin platform — roadmap §16.
+// Behavioural test for the Rime Shell plugin platform — roadmap §16.
 //
 //     ./tests/run-plugin-host-test.sh
 // Exit status 0 = all assertions passed, 1 = at least one failed.
 //
 // ── It writes nothing outside its own fixture tree ───────────────────────────
 // The harness builds a fixture tree under XDG_RUNTIME_DIR and passes its path
-// in APEX_PLUGIN_FIXTURES; this file points PluginService.pluginDir at that and
+// in RIME_PLUGIN_FIXTURES; this file points PluginService.pluginDir at that and
 // rescans. The last two phases then point it at the checkout's own plugins/
-// directory (APEX_PLUGIN_REPO) to exercise the plugin this repo ships — read
+// directory (RIME_PLUGIN_REPO) to exercise the plugin this repo ships — read
 // only, and nothing in this file ever writes to either location.
 //
-// On a normal install the shell is checked out AT ~/.config/apex-shell, so that
+// On a normal install the shell is checked out AT ~/.config/rime-shell, so that
 // second directory is the very path PluginService defaults to. Reading it is
 // the point; the suite must never modify it.
 //
@@ -69,13 +69,13 @@ ShellRoot {
         else      { root.failed++; console.log("  FAIL  " + name) }
     }
 
-    readonly property string fixtures: Quickshell.env("APEX_PLUGIN_FIXTURES")
+    readonly property string fixtures: Quickshell.env("RIME_PLUGIN_FIXTURES")
 
     // The repo's own plugins/ directory. On a normal install the shell is
-    // checked out at ~/.config/apex-shell, so this is literally the path
+    // checked out at ~/.config/rime-shell, so this is literally the path
     // PluginService defaults to — which is what makes the last two phases a
     // test of the shipped plugin rather than of another fixture.
-    readonly property string repoPlugins: Quickshell.env("APEX_PLUGIN_REPO")
+    readonly property string repoPlugins: Quickshell.env("RIME_PLUGIN_REPO")
 
     function stateOf(id) {
         const r = PluginService.recordFor(id)
@@ -425,7 +425,7 @@ ShellRoot {
             // Everything above ran against fixtures this harness wrote, which
             // proves the platform and proves nothing about the three examples.
             // Point the real thing at the real directory: on a normal install
-            // the shell lives at ~/.config/apex-shell, so repoPlugins IS the
+            // the shell lives at ~/.config/rime-shell, so repoPlugins IS the
             // path PluginService would use by itself.
             PluginService.pluginDir = root.repoPlugins
             PluginService.rescan()
@@ -439,15 +439,15 @@ ShellRoot {
             check("three plugins ship with this repo",
                   PluginService.found.length === 3)
             check("the bar widget example is granted",
-                  root.stateOf("apex-worldclock") === "loaded")
+                  root.stateOf("rime-worldclock") === "loaded")
             check("the launcher provider example is granted",
-                  root.stateOf("apex-snippets") === "loaded")
+                  root.stateOf("rime-snippets") === "loaded")
             check("the quick-settings tile example is granted",
-                  root.stateOf("apex-pomodoro") === "loaded")
+                  root.stateOf("rime-pomodoro") === "loaded")
 
-            const wc = PluginService.recordFor("apex-worldclock")
-            const sn = PluginService.recordFor("apex-snippets")
-            const pm = PluginService.recordFor("apex-pomodoro")
+            const wc = PluginService.recordFor("rime-worldclock")
+            const sn = PluginService.recordFor("rime-snippets")
+            const pm = PluginService.recordFor("rime-pomodoro")
 
             check("the world clock is a bar widget",
                   wc.grant.extensionPoint === "bar-widget")
@@ -498,9 +498,9 @@ ShellRoot {
             // each parsed and constructed. A plugin that failed here would have
             // turned into a load-error refusal, exactly like `broken` did.
             check("every shipped example survived being mounted",
-                  root.stateOf("apex-worldclock") === "loaded"
-                  && root.stateOf("apex-snippets")   === "loaded"
-                  && root.stateOf("apex-pomodoro")   === "loaded")
+                  root.stateOf("rime-worldclock") === "loaded"
+                  && root.stateOf("rime-snippets")   === "loaded"
+                  && root.stateOf("rime-pomodoro")   === "loaded")
 
             // And the shipped provider actually answers. This is the end of the
             // chain the static suites cannot reach: a real plugin reading a
@@ -509,7 +509,7 @@ ShellRoot {
             const rows = root.providerHost.rows
             check("the shipped provider produced a row", rows.length === 1)
             check("its row came from the snippets plugin",
-                  rows[0].pluginId === "apex-snippets")
+                  rows[0].pluginId === "rime-snippets")
             check("its row names the snippet it matched",
                   rows[0].detail === "shrug · Snippets")
             check("its title is the snippet text, which is what Enter copies",

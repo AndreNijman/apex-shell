@@ -44,9 +44,9 @@ import "./src/nexus"
 // a fresh directory, and tests/lib/headless.sh aborts the run if the socket it
 // ends up on is not inside that directory. No window reaches anybody's desk.
 //
-// ── The `apex` here is a STUB, and it has to be ─────────────────────────────
+// ── The `rime` here is a STUB, and it has to be ─────────────────────────────
 //
-// `apex permissions revoke` WRITES: it puts `no` into the portal permission
+// `rime permissions revoke` WRITES: it puts `no` into the portal permission
 // store or edits a `flatpak override`. A suite that ran the real command would
 // take a camera or a microphone grant away from whoever is logged in, several
 // times per run, and a page test is not worth that. The runner replaces the
@@ -61,7 +61,7 @@ import "./src/nexus"
 // ── Three phases ────────────────────────────────────────────────────────────
 //
 //   fixture      the captured report: 3 applications, 30 rows, 15 controls
-//   unreadable   `apex` fails. The page must say so and must not throw
+//   unreadable   `rime` fails. The page must say so and must not throw
 //   pixels       the built page is rasterised and the image inspected
 //
 // `unreadable` is the phase that caught the defect above, and it is the one
@@ -72,9 +72,9 @@ import "./src/nexus"
 ShellRoot {
     id: root
 
-    readonly property string phase: Quickshell.env("APEX_PP_PHASE") || "fixture"
-    readonly property string callLog: Quickshell.env("APEX_PP_CALLS") || ""
-    readonly property string grabPath: Quickshell.env("APEX_PP_GRAB") || ""
+    readonly property string phase: Quickshell.env("RIME_PP_PHASE") || "fixture"
+    readonly property string callLog: Quickshell.env("RIME_PP_CALLS") || ""
+    readonly property string grabPath: Quickshell.env("RIME_PP_GRAB") || ""
 
     property int passed: 0
     property int failed: 0
@@ -341,7 +341,7 @@ ShellRoot {
         // at runs no `flatpak info` per installed application every thirty
         // seconds, and this is the assertion that says the gate holds.
         root.readLog(function () {
-            root.eq("nothing was asked of apex before the page was shown",
+            root.eq("nothing was asked of rime before the page was shown",
                     root.lines.length, 0)
             root.page.onScreen = true
             root.waitFor("the first sweep to return",
@@ -511,7 +511,7 @@ ShellRoot {
         if (never.length !== 1) { root.next(); return }
 
         never[0].press()
-        root.waitFor("the revocation to be handed to apex",
+        root.waitFor("the revocation to be handed to rime",
                      function () { return !PermissionsService.busy },
                      function () {
                          root.readLog(function () {
@@ -555,7 +555,7 @@ ShellRoot {
 
     // ── phase: unreadable ────────────────────────────────────────────────────
     //
-    // `apex` fails. This is the phase that found the TypeError quoted at the
+    // `rime` fails. This is the phase that found the TypeError quoted at the
     // top of this file, and the runner treats any TypeError in the log as a
     // failure for exactly that reason.
 

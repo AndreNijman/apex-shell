@@ -71,7 +71,7 @@ QtObject {
         // niri has no fullscreen-shader hook of any kind.
         screenShader:         false,
         // wlsunset is the wlroots-world equivalent of hyprsunset and would work
-        // here through wlr-gamma-control, but APEX does not ship it. Declared
+        // here through wlr-gamma-control, but Rime does not ship it. Declared
         // false rather than dispatching a binary that is probably absent — the
         // day it ships, this is the one line that changes.
         nightLight:           true,

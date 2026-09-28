@@ -50,7 +50,7 @@ ShellRoot {
         }
     }
 
-    // apex-agent-core/src/protocol.rs, enum AgentState.
+    // rime-agent-core/src/protocol.rs, enum AgentState.
     readonly property var states: [
         "starting", "working", "waiting_for_user", "permission_request",
         "complete", "failed", "exited"
@@ -78,7 +78,7 @@ ShellRoot {
     }
     function hex(c) { return String(c) }
 
-    // A synthetic SessionInfo. The shapes are apexd's: exit_code and
+    // A synthetic SessionInfo. The shapes are rimed's: exit_code and
     // exit_signal are null while a session is alive, and the shell's `live`
     // test is exactly that pair being null.
     function session(state, agent) {

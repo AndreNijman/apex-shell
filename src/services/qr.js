@@ -4,8 +4,8 @@
 //
 // ── Why this exists at all ───────────────────────────────────────────────────
 //
-// P1-051's first criterion is a pairing code a phone can scan, shown by APEX
-// Shell. `apex remote pair` deliberately refuses to draw one in the terminal
+// P1-051's first criterion is a pairing code a phone can scan, shown by Rime
+// Shell. `rime remote pair` deliberately refuses to draw one in the terminal
 // and says why in its own source: "no encoder is vendored, and a wrong QR is
 // worse than none — a phone scans it, fails, and the person concludes their
 // camera is broken." That sentence is the whole specification for this file.
@@ -19,7 +19,7 @@
 // correct answer. tests/qr-test.js compares this encoder against every module
 // of every one of them: versions 1 through 40, all four levels, all eight
 // masks at two versions, the padding path, and the two payloads an actual
-// APEX pairing code produces.
+// Rime pairing code produces.
 //
 // Thirty-two of those 36 are stock segno. The other four are segno with a
 // one-line correction, because segno 1.6.6 appends a spurious 0x00 codeword
@@ -39,11 +39,11 @@
 //
 // ── Why not a library ────────────────────────────────────────────────────────
 //
-// apex-shell vendors no JavaScript and has no package manager in its build;
+// rime-shell vendors no JavaScript and has no package manager in its build;
 // `src/services/` is hand-written .js that both QML and `node` load directly.
 // A QR encoder is one file with no I/O and a total specification, which is the
 // kind of thing this tree has repeatedly chosen to write rather than depend on
-// — see net.rs on getifaddrs, and apex-secretd on curl.
+// — see net.rs on getifaddrs, and rime-secretd on curl.
 //
 // Nothing here does I/O, knows about Theme, or touches Quickshell. Data in,
 // data out, so `node` can drive all of it.
@@ -163,7 +163,7 @@ function alignmentPositions(version) {
 }
 
 // ── the bit stream ──────────────────────────────────────────────────────────
-// Byte mode only. The pairing payload is `apex-remote:` followed by URL-safe
+// Byte mode only. The pairing payload is `apex-remote:` followed by URL-safe  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 // base64, which alphanumeric mode cannot carry — it has no lower case — so
 // choosing a mode is not a decision this has to make.
 function segmentBits(bytes, version) {
@@ -471,7 +471,7 @@ Symbol_.prototype.penalty = function () {
 
 // ── the one entry point ─────────────────────────────────────────────────────
 //
-//   encode("apex-remote:…")                       smallest version, best mask
+//   encode("apex-remote:…")                       smallest version, best mask  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 //   encode(text, { level: "m", version: 7, mask: 3 })
 //
 // Returns { version, size, level, mask, modules } where `modules` is an array

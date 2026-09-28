@@ -32,7 +32,7 @@ cleanup() { rm -rf "$stage"; }
 trap cleanup EXIT INT TERM
 
 mkdir -p "$stage/components"
-# The controls the config components are built on (ApexPressable & co.,
+# The controls the config components are built on (RimePressable & co.,
 # UI/UX roadmap Phase 3), at the same relative path.
 cp -r "$root/src/components/controls" "$stage/components/controls"
 mkdir -p "$stage/popups"

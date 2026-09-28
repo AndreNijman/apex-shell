@@ -13,7 +13,7 @@ import "./src"
 //     ./tests/run-display-transaction-test.sh
 //
 // Everything here runs against a REAL wlroots session with two virtual outputs
-// and the REAL /usr/libexec/apex-display-apply. Nothing is mocked except one
+// and the REAL /usr/libexec/rime-display-apply. Nothing is mocked except one
 // thing, named where it happens: a wrapper that can hide an output from `list`,
 // because "the monitor was unplugged between staging and Apply" cannot be
 // produced any other way — a headless output can be disabled but not removed.
@@ -53,7 +53,7 @@ ShellRoot {
         else      { root.failed++; console.log("  FAIL  " + name) }
     }
 
-    readonly property string sandbox: Quickshell.env("APEX_TEST_SANDBOX") || ""
+    readonly property string sandbox: Quickshell.env("RIME_TEST_SANDBOX") || ""
     readonly property string modelPath: DisplayService.modelPath
     readonly property string kanshiPath: Quickshell.env("HOME") + "/.config/kanshi/config"
     readonly property string txnDir: DisplayService.txnDir

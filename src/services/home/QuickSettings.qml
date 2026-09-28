@@ -180,13 +180,13 @@ StatCard {
     //
     //  logind consults `HandleLidSwitchDocked` (default `ignore`) BEFORE any
     //  inhibitor, so a machine with an external display already ignores its lid
-    //  and APEX is not why. The sublabel says so, because the tile is where
+    //  and Rime is not why. The sublabel says so, because the tile is where
     //  somebody looks before they trust it. A guard that is about to suspend
-    //  the machine outranks even that — it is APEX calling `systemctl suspend`
+    //  the machine outranks even that — it is Rime calling `systemctl suspend`
     //  itself, so it happens docked or not.
     //
-    //  No privilege anywhere: `apex lid pin` writes the owner's own
-    //  ~/.config/apex/lid.toml and the inhibitor is `allow_active=yes` for an
+    //  No privilege anywhere: `rime lid pin` writes the owner's own
+    //  ~/.config/rime/lid.toml and the inhibitor is `allow_active=yes` for an
     //  ordinary session. A polkit prompt from this tile would be a defect.
     // ─────────────────────────────────────────────────────────────────────────
     readonly property var lidTile: LidService.tile
@@ -195,7 +195,7 @@ StatCard {
         LidService.toggle()
     }
 
-    // The service polls two short-lived `apex` processes per sweep, so it runs
+    // The service polls two short-lived `rime` processes per sweep, so it runs
     // while this card is genuinely in front of somebody and not otherwise.
     ServiceRef {
         service: LidService
@@ -216,7 +216,13 @@ StatCard {
     property bool   hotspotBusy:   false
     property bool   _hsWifiWasOff: false  // wifi radio was off when hotspot started; restore on stop
     property string hotspotLabel:  ""    // sublabel: "Active" | "Not on ethernet" | ""
-    property string _hsSSID:       "ApexShell"
+    property string _hsSSID:       "RimeShell"
+    // The connection profile the hotspot was saved under before the rename. It
+    // is a NetworkManager profile, stored outside this shell, and one left
+    // behind (a hotspot that was on when the machine went down) would sit next
+    // to the new one for good. Every place that deletes the current profile
+    // deletes this one too; the "is a hotspot up" poll already matches both.
+    readonly property string _hsOldConDelete: "nmcli con delete ApexShellHotspot 2>/dev/null; "  // rime-rename: keep (NM profile name the APEX shell created)
     property string _hsPassword:   "changeme1"
     // Empty until hsIfaceProc resolves the real device. It used to default to
     // "wlan0", so the first hotspot toggle on a wlp*-named card (or on a machine
@@ -224,7 +230,7 @@ StatCard {
     property string _hsWifiIface:  ""
 
     readonly property string _hsCfgPath:
-        Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/hotspot.json"
+        Quickshell.env("HOME") + "/.config/rime-shell/src/user_data/hotspot.json"
 
     // Load config on startup
     Process {
@@ -232,7 +238,7 @@ StatCard {
         command: ["bash", "-c",
             "[ -f '" + root._hsCfgPath + "' ] || " +
             "(mkdir -p \"$(dirname '" + root._hsCfgPath + "')\" && " +
-            "printf '%s' '{\"ssid\":\"ApexShell\",\"password\":\"changeme1\"}' > '" + root._hsCfgPath + "'); " +
+            "printf '%s' '{\"ssid\":\"RimeShell\",\"password\":\"changeme1\"}' > '" + root._hsCfgPath + "'); " +
             "cat '" + root._hsCfgPath + "'"]
         running: false
         stdout: StdioCollector {
@@ -363,7 +369,7 @@ StatCard {
         // Disconnect by interface — works regardless of what nmcli named the connection
         command: ["bash", "-c",
             "nmcli device disconnect " + root._hsWifiIface + " 2>/dev/null; " +
-            "nmcli con delete ApexShellHotspot 2>/dev/null; true"]
+            "nmcli con delete RimeShellHotspot 2>/dev/null; " + root._hsOldConDelete + "true"]
         running: false
         onRunningChanged: if (!running) {
             root.hotspotBusy   = false
@@ -406,7 +412,7 @@ StatCard {
                     // Rebuild stop command with current iface before running
                     hsStopProc.command = ["bash", "-c",
                         "nmcli device disconnect " + root._hsWifiIface + " 2>/dev/null; " +
-                        "nmcli con delete ApexShellHotspot 2>/dev/null; true"]
+                        "nmcli con delete RimeShellHotspot 2>/dev/null; " + root._hsOldConDelete + "true"]
                     hsStopProc.running = false; hsStopProc.running = true
                     hsLabelResetTimer.restart()
                 }
@@ -431,10 +437,10 @@ StatCard {
             "sleep 1; " +
             // Disconnect whatever is currently on the interface
             "nmcli device disconnect \"$IFACE\" 2>/dev/null; " +
-            "nmcli con delete ApexShellHotspot 2>/dev/null; " +
+            "nmcli con delete RimeShellHotspot 2>/dev/null; " + root._hsOldConDelete +
             "nmcli device wifi hotspot " +
                 "ifname \"$IFACE\" ssid \"$1\" password \"$2\" " +
-                "con-name ApexShellHotspot 2>&1",
+                "con-name RimeShellHotspot 2>&1",
             "--", root._hsSSID, root._hsPassword, root._hsWifiIface]
         hsStartProc.running = false; hsStartProc.running = true
     }
@@ -447,7 +453,7 @@ StatCard {
             // Rebuild with current iface (detected after startup)
             hsStopProc.command = ["bash", "-c",
                 "nmcli device disconnect \"" + root._hsWifiIface + "\" 2>/dev/null; " +
-                "nmcli con delete ApexShellHotspot 2>/dev/null; true"]
+                "nmcli con delete RimeShellHotspot 2>/dev/null; " + root._hsOldConDelete + "true"]
             hsStopProc.running = false; hsStopProc.running = true
         } else {
             root.hotspotBusy  = true
@@ -582,7 +588,7 @@ StatCard {
 
     // Add your standard shader directories here (space-separated)
     // Shell-owned shaders are resolved from Quickshell.shellDir so they are found
-    // wherever the shell is checked out, not only at ~/.local/src/apex-shell.
+    // wherever the shell is checked out, not only at ~/.local/src/rime-shell.
     property string shaderPaths: "~/.config/hypr/shaders ~/.local/share/hypr/shaders /usr/share/hyprshade/shaders "
                                  + "'" + Quickshell.shellDir + "/src/config/shaders'"
 
@@ -837,7 +843,7 @@ StatCard {
                 id: flick
                 // 4 px past the column on every side, and the grid inset by the
                 // same 4: the tiles sit where they did, and the clip leaves room
-                // for a focus ring (ApexFocusRing draws 4 px outside its tile).
+                // for a focus ring (RimeFocusRing draws 4 px outside its tile).
                 anchors.fill:   parent
                 anchors.margins: -4
                 contentWidth:   width
@@ -855,7 +861,7 @@ StatCard {
                                                   y + item.height + 4 - flick.height)
                 }
 
-                component TglBtn: ApexPressable {
+                component TglBtn: RimePressable {
                     id: btn
                     required property bool   on
                     required property string icon
@@ -915,7 +921,7 @@ StatCard {
                             }
                         }
                     }
-                    ApexFocusRing { target: btn }
+                    RimeFocusRing { target: btn }
                 }
 
                 Grid {
@@ -1137,7 +1143,7 @@ StatCard {
                 }
 
                 // "Off" row — always first
-                ApexPressable {
+                RimePressable {
                     id: offBtn
                     width:  parent.width
                     height: 28
@@ -1174,7 +1180,7 @@ StatCard {
                             Behavior on color { MotionColor { role: "state" } }
                         }
                     }
-                    ApexFocusRing { target: offBtn }
+                    RimeFocusRing { target: offBtn }
                 }
 
                 // Divider
@@ -1186,7 +1192,7 @@ StatCard {
                 // Shader rows — populated by hyprshade ls
                 Repeater {
                     model: root.filterList
-                    delegate: ApexPressable {
+                    delegate: RimePressable {
                         id: shaderBtn
                         required property string modelData
                         property bool isActive: root.currentFilter === modelData
@@ -1227,7 +1233,7 @@ StatCard {
                                 Behavior on color { MotionColor { role: "state" } }
                             }
                         }
-                        ApexFocusRing { target: shaderBtn }
+                        RimeFocusRing { target: shaderBtn }
                     }
                 }
 

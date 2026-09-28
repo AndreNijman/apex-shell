@@ -17,7 +17,7 @@
 #
 # It now runs on a headless labwc from tests/lib/headless.sh with a private
 # HOME and a private XDG_RUNTIME_DIR. The private runtime dir is doing real work
-# beyond politeness: the shell looks for apex-agentd's control socket there, and
+# beyond politeness: the shell looks for rime-agentd's control socket there, and
 # on the ambient one it would find the live daemon and start driving the agent
 # sessions somebody has open.
 set -uo pipefail

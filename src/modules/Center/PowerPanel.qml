@@ -2,9 +2,9 @@ import QtQuick
 import "../../"
 import "../../components"
 
-// Power Profile panel — the named tiers apexd will actually accept, backed by
+// Power Profile panel — the named tiers rimed will actually accept, backed by
 // PowerProfileService. The count is deliberately not repeated here: this comment
-// said "5 named tiers (Ultra Max … Power Saver)" for a whole release after apexd
+// said "5 named tiers (Ultra Max … Power Saver)" for a whole release after rimed
 // had dropped two of them, so it documented buttons that could only fail. The
 // list lives in PowerProfileService and nowhere else.
 //

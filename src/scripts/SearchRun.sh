@@ -21,7 +21,7 @@
 #
 #  WHY A TERMINAL FOR THE PACKAGE VERBS
 #
-#  The house rule, already followed by /usr/libexec/apex-agent-review: a
+#  The house rule, already followed by /usr/libexec/rime-agent-review: a
 #  privileged operation belongs "somewhere sudo can authenticate and where the
 #  full prompt, the reason and the resulting output are all visible". A package
 #  transaction has output worth reading and a failure worth seeing. Swallowing
@@ -36,9 +36,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
-APEX="${APEX_BIN:-$(command -v apex || echo /usr/bin/apex)}"
+Rime="${RIME_BIN:-$(command -v rime || echo /usr/bin/rime)}"
 
-die() { printf 'apex-search: %s\n' "$1" >&2; exit 2; }
+die() { printf 'rime-search: %s\n' "$1" >&2; exit 2; }
 
 usage() {
     cat >&2 <<'EOF'
@@ -46,10 +46,10 @@ usage: SearchRun.sh <verb> [argument]
 
   unit-restart <unit>   restart one allow-listed system unit, via pkexec
   audio-restart         restart PipeWire for this user; no root
-  install <package>     open a terminal on `sudo apex install <package>`
-  remove <package>      open a terminal on `sudo apex remove <package>`
-  os-update             open a terminal on `sudo apex update`
-  os-rollback           open a terminal on `sudo apex rollback`
+  install <package>     open a terminal on `sudo rime install <package>`
+  remove <package>      open a terminal on `sudo rime remove <package>`
+  os-update             open a terminal on `sudo rime update`
+  os-rollback           open a terminal on `sudo rime rollback`
   ssh <device>          open a terminal connected to a trusted device
 EOF
     exit 2
@@ -60,7 +60,7 @@ EOF
 # not a smaller capability than "run anything as root" — systemd units run
 # arbitrary ExecStart lines, and a user-writable unit file under
 # ~/.config/systemd would make this an escalation. Two units, both system
-# services APEX ships and neither of them user-writable.
+# services Rime ships and neither of them user-writable.
 unit_allowed() {
     case "$1" in
         bluetooth|NetworkManager) return 0 ;;
@@ -87,7 +87,7 @@ valid_dest() {
 # ── Opening a terminal ───────────────────────────────────────────────────────
 # Candidates in preference order, each with its own exec flag, because getting
 # the flag wrong opens an empty terminal and that looks like the action did
-# nothing. Same list and same reasoning as /usr/libexec/apex-agent-review.
+# nothing. Same list and same reasoning as /usr/libexec/rime-agent-review.
 #
 # The command is passed to the terminal as ONE argument, and it is built here
 # from constants plus a single already-validated word. It is never built from
@@ -103,8 +103,8 @@ open_terminal() {
         command -v "$name" >/dev/null 2>&1 || continue
         exec "$name" "$flag" bash -c "$script"
     done
-    printf 'apex-search: no terminal emulator found\n' >&2
-    printf 'apex-search: run it yourself:\n  %s\n' "$script" >&2
+    printf 'rime-search: no terminal emulator found\n' >&2
+    printf 'rime-search: run it yourself:\n  %s\n' "$script" >&2
     exit 3
 }
 
@@ -135,39 +135,39 @@ case "$verb" in
     install)
         [ "$#" -eq 1 ] || usage
         valid_name "$1" || die "'$1' is not a package name"
-        [ -x "$APEX" ] || die "apex is not installed"
+        [ -x "$Rime" ] || die "rime is not installed"
         open_terminal "$(printf '%s resolve %s; printf "\\n"; sudo %s install %s; %s' \
-            "$APEX" "$1" "$APEX" "$1" "$HOLD")"
+            "$Rime" "$1" "$Rime" "$1" "$HOLD")"
         ;;
 
     remove)
         [ "$#" -eq 1 ] || usage
         valid_name "$1" || die "'$1' is not a package name"
-        [ -x "$APEX" ] || die "apex is not installed"
-        open_terminal "$(printf 'sudo %s remove %s; %s' "$APEX" "$1" "$HOLD")"
+        [ -x "$Rime" ] || die "rime is not installed"
+        open_terminal "$(printf 'sudo %s remove %s; %s' "$Rime" "$1" "$HOLD")"
         ;;
 
     os-update)
         [ "$#" -eq 0 ] || usage
-        [ -x "$APEX" ] || die "apex is not installed"
-        open_terminal "$(printf 'sudo %s update; %s' "$APEX" "$HOLD")"
+        [ -x "$Rime" ] || die "rime is not installed"
+        open_terminal "$(printf 'sudo %s update; %s' "$Rime" "$HOLD")"
         ;;
 
     os-rollback)
         [ "$#" -eq 0 ] || usage
-        [ -x "$APEX" ] || die "apex is not installed"
-        open_terminal "$(printf 'sudo %s rollback; %s' "$APEX" "$HOLD")"
+        [ -x "$Rime" ] || die "rime is not installed"
+        open_terminal "$(printf 'sudo %s rollback; %s' "$Rime" "$HOLD")"
         ;;
 
     ssh)
         [ "$#" -eq 1 ] || usage
         valid_dest "$1" || die "'$1' is not an ssh destination"
-        # `apex host run -t` when the trusted-device registry knows this name,
+        # `rime host run -t` when the trusted-device registry knows this name,
         # plain ssh otherwise. Either way the connection is made HERE, by a
         # terminal the user opened — never while they were typing. §15 is
         # explicit that an SSH-host provider lists hosts and does not reach them.
-        if [ -x "$APEX" ] && "$APEX" host list --json >/dev/null 2>&1; then
-            open_terminal "$(printf '%s host run -t %s' "$APEX" "$1")"
+        if [ -x "$Rime" ] && "$Rime" host list --json >/dev/null 2>&1; then
+            open_terminal "$(printf '%s host run -t %s' "$Rime" "$1")"
         else
             open_terminal "$(printf 'ssh %s' "$1")"
         fi

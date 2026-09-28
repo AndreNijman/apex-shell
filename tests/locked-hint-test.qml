@@ -485,7 +485,7 @@ ShellRoot {
     // is nothing for logind to be told, and dropping it is harmless. While
     // `_confirmed` is undefined the newer value differs from BOTH, and
     // dropping it is a lock the user engaged that logind is never told about.
-    // apex-agentd polls exactly that property (ROADMAP.md §7, P0-015
+    // rime-agentd polls exactly that property (ROADMAP.md §7, P0-015
     // criterion 1), so this is the criterion, not an edge case.
     //
     // The same window is the only place the opposite mistake is visible: an

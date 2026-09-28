@@ -18,7 +18,7 @@ import "../../"
 //     StatusHero {
 //         glyph: "󰕥"; tone: Theme.active
 //         title: "Incoming connections are blocked"
-//         detail: "apex-firewall.service: active"
+//         detail: "rime-firewall.service: active"
 //         CfgButton { label: "Re-check"; onClicked: … }   // trailing actions
 //     }
 //

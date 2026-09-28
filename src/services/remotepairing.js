@@ -1,5 +1,5 @@
 // ─── remotepairing.js ────────────────────────────────────────────────────────
-// What `apex remote` says, turned into what the two APEX Remote pages show:
+// What `rime remote` says, turned into what the two Rime Remote pages show:
 // the pairing payload, the paired-device list, and what each device's state
 // looks like.
 //
@@ -15,7 +15,7 @@
 // two different row files. Every colour in it was a theme token, so the
 // colour-literal check passed, and it was still wrong: seven runtime states
 // collapsed onto three values, two of which were the palette's foreground.
-// That shipped, and was reported as "APEX agents display only in white".
+// That shipped, and was reported as "Rime agents display only in white".
 //
 // So a device row does not decide what a state looks like. This file does,
 // once, and tests/remote-pairing-test.js measures the result.
@@ -37,8 +37,8 @@
 //
 // The desktop cannot see a fingerprint. What the flag records is that the
 // device SAID its key is held behind a biometric or device lock, and
-// apex-remote-core/src/device.rs says so at length: "recorded as a requirement
-// the owner set and not as a fact about the device". `apex remote devices`
+// rime-remote-core/src/device.rs says so at length: "recorded as a requirement
+// the owner set and not as a fact about the device". `rime remote devices`
 // prints it as a sentence at the end rather than a column, on the stated
 // grounds that "a tick in a table would read as a fact this machine had
 // verified".
@@ -49,21 +49,21 @@
 
 "use strict"
 
-// apex_remote_core::pairing::SCHEME. A payload that does not start with this
+// rime_remote_core::pairing::SCHEME. A payload that does not start with this
 // is not a pairing offer, and encoding it would produce a QR code that a phone
 // scans, fails to understand, and blames itself for.
-var SCHEME = "apex-remote:"
+var SCHEME = "apex-remote:"  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 
 // ── the pairing payload ──────────────────────────────────────────────────────
 
-// `apex remote pair --text` prints the payload alone on stdout; the sentences
+// `rime remote pair --text` prints the payload alone on stdout; the sentences
 // for the person go to stderr. Without --text it prints qr_block()'s prose as
 // well, which is why the service passes --text and why this refuses anything
 // that is not one clean payload line.
 //
 // Returns "" for anything that is not a pairing offer. The caller shows the
 // error it got instead — a QR code drawn from a truncated or prose-wrapped
-// payload is exactly the failure `apex remote pair` refuses to risk.
+// payload is exactly the failure `rime remote pair` refuses to risk.
 function payloadOf(stdout) {
     if (!stdout) return ""
     var lines = String(stdout).split("\n")
@@ -74,7 +74,7 @@ function payloadOf(stdout) {
     return ""
 }
 
-// base64url, no padding -- what apex_remote_core::pairing writes. Hand-rolled
+// base64url, no padding -- what rime_remote_core::pairing writes. Hand-rolled
 // because QML's JS engine has no `atob`, and because a 20-line decoder is a
 // better trade than a dependency in a tree that vendors no JavaScript.
 // Returns null for anything that is not valid base64url, so a truncated
@@ -113,7 +113,7 @@ function fromBase64Url(text) {
 
 // The PairingOffer inside the payload, or null.
 //
-// The expiry is read from here rather than scraped out of `apex remote pair`'s
+// The expiry is read from here rather than scraped out of `rime remote pair`'s
 // stderr sentence ("good for N seconds"), which is prose and would break the
 // countdown the first time somebody reworded it. Decoding also proves the
 // payload is a well-formed offer before a QR is drawn from it -- which is the
@@ -150,8 +150,8 @@ function countdown(seconds) {
 
 // ── the device list ──────────────────────────────────────────────────────────
 
-// `apex remote devices --json` prints a JSON array of
-// apex_remote_core::device::Device. Anything else — a daemon that is not
+// `rime remote devices --json` prints a JSON array of
+// rime_remote_core::device::Device. Anything else — a daemon that is not
 // running, a version that predates the command, a partial read — is an empty
 // list rather than a throw, because a settings page that raises does not
 // render at all.
@@ -194,7 +194,7 @@ function isActive(device) {
 }
 
 // The four states a row can be in. `connected` is not a field on Device — it
-// comes from `apex remote status --json`, which lists the connections open
+// comes from `rime remote status --json`, which lists the connections open
 // right now — so it is passed in rather than guessed from lastSeenMs. A device
 // seen four seconds ago is not necessarily connected now.
 var STATES = ["connected", "paired", "never", "revoked"]
@@ -229,8 +229,8 @@ function label(state) { return (TONES[state] || TONES.paired).label }
 
 // ── time ─────────────────────────────────────────────────────────────────────
 
-// The same units and the same boundaries as `apex remote devices` prints in a
-// terminal (apexd/apex/src/remote.rs::ago). Deliberately identical: a person
+// The same units and the same boundaries as `rime remote devices` prints in a
+// terminal (rimed/rime/src/remote.rs::ago). Deliberately identical: a person
 // who runs the command and then opens the page should not have to work out
 // whether "2m ago" and "a couple of minutes ago" are the same reading.
 function ago(ms, nowMs) {
@@ -255,7 +255,7 @@ function summary(devices, checked) {
     return active === 1 ? "1 device paired." : active + " devices paired."
 }
 
-// The sentence `apex remote devices` prints, for the same reason and in the
+// The sentence `rime remote devices` prints, for the same reason and in the
 // same shape. "" when no active device claims it, so the page draws nothing
 // rather than an empty reassurance.
 function verificationNote(devices) {
@@ -269,7 +269,7 @@ function verificationNote(devices) {
         "device lock. That is the device's own claim; this machine cannot verify it."
 }
 
-// ── `apex remote status --json` ──────────────────────────────────────────────
+// ── `rime remote status --json` ──────────────────────────────────────────────
 
 // Only the parts the two pages need: whether the service answered at all, and
 // which device ids have a connection open right now.
@@ -301,17 +301,17 @@ function parseStatus(text) {
 //
 // Named here so tests/check-remote-pairing.sh can assert what the page is able
 // to run, rather than reading it out of QML. Everything goes through the
-// `apex` CLI: it is the stability surface that already handles an absent
+// `rime` CLI: it is the stability surface that already handles an absent
 // daemon and a version mismatch, and — the part that matters under test — it
 // is what `headless_begin` stubs. A page that opened the control socket
 // directly would walk straight past the stub and mint a real pairing token on
 // whatever machine the suite ran on.
-var PAIR_COMMAND = ["apex", "remote", "pair", "--text"]
-var DEVICES_COMMAND = ["apex", "remote", "devices", "--json"]
-var STATUS_COMMAND = ["apex", "remote", "status", "--json"]
+var PAIR_COMMAND = ["rime", "remote", "pair", "--text"]
+var DEVICES_COMMAND = ["rime", "remote", "devices", "--json"]
+var STATUS_COMMAND = ["rime", "remote", "status", "--json"]
 
 function revokeCommand(id) {
-    return ["apex", "remote", "revoke", String(id)]
+    return ["rime", "remote", "revoke", String(id)]
 }
 
 // Node (tests) sees `module`; the QML engine does not, and ignores this.

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 #
 # ─────────────────────────────────────────────────────────────────────────────
-#  PROVENANCE — this file is a byte-for-byte copy of apex-os
-#  tests/atspi-walk.py at apex-os 23a862b5, sha256
+#  PROVENANCE — this file is a byte-for-byte copy of rime-os
+#  tests/atspi-walk.py at rime-os 23a862b5, sha256
 #  8593c3f89f0885536426af1d5d7d5670611308c79706c6efff838097f43637cc, with only
 #  this block added -- check it rather than believe it:
-#      diff <(sed '2,11d' tests/atspi-walk.py) ../apex-os/tests/atspi-walk.py
+#      diff <(sed '2,11d' tests/atspi-walk.py) ../rime-os/tests/atspi-walk.py
 #  See the same block in tests/lib/atspi.sh for why it is duplicated and what
 #  that obliges. FIX BOTH.
 # ─────────────────────────────────────────────────────────────────────────────

@@ -11,7 +11,7 @@ import "firewall.js" as Fw
 //
 //  ── WHY THIS EXISTS AT ALL ──────────────────────────────────────────────────
 //
-//  APEX now drops incoming connections by default. That is the right default
+//  Rime now drops incoming connections by default. That is the right default
 //  and it is also the kind of change a user meets as a symptom: a phone that
 //  stops casting, a printer that stops being found, a game that will not
 //  stream. A firewall a user cannot see is a firewall they turn off at the
@@ -20,7 +20,7 @@ import "firewall.js" as Fw
 //
 //  ── THREE READS, NO WRITES ──────────────────────────────────────────────────
 //
-//  Everything below is a question. `apex firewall allow` needs root, the
+//  Everything below is a question. `rime firewall allow` needs root, the
 //  shell's route to root is polkit, and P0-016 is where that stops being
 //  guesswork; until then this shows the command instead of running it — the
 //  same choice RecoveryPage makes for rollback, and for the same reason.
@@ -127,7 +127,7 @@ Singleton {
     }
 
     // Every one of these is a read. `systemctl show` reports without touching
-    // anything; `apex firewall status` and `list` are the helper's two
+    // anything; `rime firewall status` and `list` are the helper's two
     // unprivileged verbs. There is deliberately no fifth entry.
     //
     // `show` and not `is-active`: is-active says "inactive" for a unit that
@@ -141,13 +141,13 @@ Singleton {
     // the shape the helper's contract promises.
     //
     // It cannot be "parse the same output as prose instead". Measured on an
-    // APEX laptop, 2026-09-14:
+    // Rime laptop, 2026-09-14:
     //
-    //     $ apex firewall status --json
+    //     $ rime firewall status --json
     //     error: unrecognized subcommand 'firewall'      (stderr)
     //     rc=2                                           (stdout EMPTY)
     //
-    // `apex` is clap. An older binary rejects `--json` — or, on an image that
+    // `rime` is clap. An older binary rejects `--json` — or, on an image that
     // predates the firewall entirely, the whole `firewall` verb — before any
     // helper runs, and writes its usage to stderr. There is no prose left in
     // hand to fall back ON, so the fallback has to be a second process.
@@ -157,11 +157,11 @@ Singleton {
     // process per sweep on a page nobody has open, and both reads reach the
     // same `ok: false`, which is the honest answer there.
     readonly property var _stepArgv: ({
-        unit:       ["systemctl", "show", "apex-firewall.service",
+        unit:       ["systemctl", "show", "rime-firewall.service",
                      "-p", "LoadState", "-p", "ActiveState"],
-        statusJson: ["apex", "firewall", "status", "--json"],
-        status:     ["apex", "firewall", "status"],
-        catalogue:  ["apex", "firewall", "list"]
+        statusJson: ["rime", "firewall", "status", "--json"],
+        status:     ["rime", "firewall", "status"],
+        catalogue:  ["rime", "firewall", "list"]
     })
 
     function _next() {
@@ -246,7 +246,7 @@ Singleton {
         onExited: function (code) { root._resolve(code, root._buf) }
         // The "never started" case: a binary that cannot exec emits neither
         // `exited` nor `streamFinished`, only `runningChanged` -> false. An
-        // image with no `apex firewall` verb reaches the page through here.
+        // image with no `rime firewall` verb reaches the page through here.
         onRunningChanged: if (!running) {
             root._settleFor = root._pending
             root._settle.restart()

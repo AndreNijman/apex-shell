@@ -8,7 +8,7 @@ import "permissions.js" as Perm
 // The data behind Config → Privacy & Permissions (roadmap P1-061).
 //
 // Same rule as RecoveryService and AgentService: everything goes through the
-// `apex` CLI. `apex permissions` owns the argv, already knows how to read the
+// `rime` CLI. `rime permissions` owns the argv, already knows how to read the
 // portal permission store, a Flatpak's merged sandbox context and a device
 // node's ACL, and already refuses a revocation it cannot perform. Re-deriving
 // any of that in QML would produce a second answer that could disagree with
@@ -18,7 +18,7 @@ import "permissions.js" as Perm
 //
 // Polled, and the only thing that ever may be:
 //
-//   apex permissions list --json   reads busctl introspection, the permission
+//   rime permissions list --json   reads busctl introspection, the permission
 //                                  store, each Flatpak's manifest, and
 //                                  access(2) on two device nodes. It writes
 //                                  nothing and it changes nothing, so it
@@ -26,7 +26,7 @@ import "permissions.js" as Perm
 //
 // User-initiated ONLY, once, on an explicit press:
 //
-//   apex permissions revoke …      writes to the portal permission store, or
+//   rime permissions revoke …      writes to the portal permission store, or
 //                                  writes a `flatpak override`. Both are the
 //                                  user's own files and neither needs root, so
 //                                  no polkit agent is involved here either.
@@ -35,7 +35,7 @@ import "permissions.js" as Perm
 //
 // ── A REFUSAL IS THE ANSWER, NOT AN ERROR ────────────────────────────────────
 //
-// `apex permissions revoke` exits NON-ZERO when nothing can be revoked, and
+// `rime permissions revoke` exits NON-ZERO when nothing can be revoked, and
 // prints why. That is the correct behaviour and this must not render it as a
 // failed command: the page never offers a control for such a row in the first
 // place (permissions.js's `controlsFor` returns an empty list), so a non-zero
@@ -108,7 +108,7 @@ Singleton {
         root._pending = "list"
         root._buf = ""
         root._proc.running = false
-        root._proc.command = ["apex", "permissions", "list", "--json"]
+        root._proc.command = ["rime", "permissions", "list", "--json"]
         root._proc.running = true
         root._watchdog.interval = root.queryTimeout
         root._watchdog.restart()

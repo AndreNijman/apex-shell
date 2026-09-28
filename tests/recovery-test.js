@@ -6,17 +6,17 @@
 //
 // ── Where the fixtures come from ─────────────────────────────────────────────
 //
-// Every payload below was CAPTURED, not invented: the `apex` binary was built
-// from the apex-os worktree on branch `p3/base` and run read-only on this
+// Every payload below was CAPTURED, not invented: the `rime` binary was built
+// from the rime-os worktree on branch `p3/base` and run read-only on this
 // machine —
 //
-//   apex recover status --json          (exit 0; this machine has no attention)
-//   apex doctor --json
-//   apex recover reset --scope desktop --json    (a DRY RUN; --commit absent)
-//   apex recover reset --scope user --json       (likewise)
-//   apex recover repair --json                   (likewise)
+//   rime recover status --json          (exit 0; this machine has no attention)
+//   rime doctor --json
+//   rime recover reset --scope desktop --json    (a DRY RUN; --commit absent)
+//   rime recover reset --scope user --json       (likewise)
+//   rime recover repair --json                   (likewise)
 //
-// The shapes are therefore apexd's, including the parts a hand-written fixture
+// The shapes are therefore rimed's, including the parts a hand-written fixture
 // would have got wrong: `action` is null on most rows rather than absent,
 // `available` is null (not false) on `installer-media`, the doctor indents
 // continuation lines by two spaces, and the reset plan lists targets that do
@@ -44,12 +44,12 @@ function check(name, got, want) {
 function truthy(name, v) { check(name, !!v, true); }
 function falsy(name, v)  { check(name, !!v, false); }
 
-// ── captured: apex recover status --json ─────────────────────────────────────
+// ── captured: rime recover status --json ─────────────────────────────────────
 
 const STATUS_ROWS = [
     { action: null, id: "current-deployment", label: "Current deployment",
-      state: "verified", detail: "ostree 96351335ae0b — APEX-OS 43 daily" },
-    { action: "sudo apex rollback", id: "previous-deployment",
+      state: "verified", detail: "ostree 96351335ae0b — Rime OS 43 daily" },
+    { action: "sudo rime rollback", id: "previous-deployment",
       label: "Previous deployment", state: "available",
       detail: "2 deployments present, so there is one to go back to. Nothing has verified that it boots." },
     { action: null, id: "secure-boot", label: "Secure Boot",
@@ -58,8 +58,8 @@ const STATUS_ROWS = [
       state: "verified", detail: "/usr is read-only on a overlay root, ostree-booted" },
     { action: null, id: "gpu-driver", label: "GPU driver",
       state: "verified", detail: "1 — AMD via amdgpu" },
-    { action: null, id: "apex-shell", label: "APEX Shell",
-      state: "verified", detail: "vendored in the image at /usr/share/apex-shell" },
+    { action: null, id: "rime-shell", label: "Rime Shell",
+      state: "verified", detail: "vendored in the image at /usr/share/rime-shell" },
     { action: null, id: "network", label: "Network",
       state: "available", detail: "a default route exists. Nothing was contacted." },
     { action: null, id: "package-extensions", label: "Package extensions",
@@ -72,31 +72,31 @@ const STATUS = JSON.stringify({
     rows: STATUS_ROWS,
     actions: [
         { id: "repair", label: "Repair automatically",
-          command: "apex recover repair                  (dry run; --commit runs it)" },
+          command: "rime recover repair                  (dry run; --commit runs it)" },
         { id: "bootPrevious", label: "Boot previous deployment",
-          command: "sudo apex rollback                   then reboot" },
+          command: "sudo rime rollback                   then reboot" },
         { id: "factoryReset", label: "Factory reset",
-          command: "apex recover reset --scope desktop|user   (a dry run)" },
+          command: "rime recover reset --scope desktop|user   (a dry run)" },
         { id: "diagnostics", label: "Hardware diagnostics",
-          command: "apex doctor                          (--json for a UI)" }
+          command: "rime doctor                          (--json for a UI)" }
     ],
     routes: [
-        { id: "previous-deployment", available: true, how: "`sudo apex rollback` then reboot." },
+        { id: "previous-deployment", available: true, how: "`sudo rime rollback` then reboot." },
         { id: "rescue-target", available: true, how: "at the grub menu, edit the entry." },
         { id: "boot-counting", available: false, how: "not in effect: this machine boots through GRUB." },
-        { id: "disposable-environment", available: false, how: "`apex disposable run` gives you a throwaway userspace." },
-        { id: "recovery-boot-entry", available: false, how: "APEX ships no recovery boot entry." },
+        { id: "disposable-environment", available: false, how: "`rime disposable run` gives you a throwaway userspace." },
+        { id: "recovery-boot-entry", available: false, how: "Rime ships no recovery boot entry." },
         // The one that is genuinely unknown. A running system cannot tell.
         { id: "installer-media", available: null, how: "cannot be determined from a running system." }
     ],
     resetScopes: [
-        { id: "desktop", summary: "APEX Shell's settings, keybinds and caches for this account" },
+        { id: "desktop", summary: "Rime Shell's settings, keybinds and caches for this account" },
         { id: "user", summary: "everything under `desktop`, PLUS your blueprint…" }
     ]
 });
 
 // ── 1. exit 1 is a REPORT, not a failure ─────────────────────────────────────
-// `apex recover status` returns 1 when anything needs attention:
+// `rime recover status` returns 1 when anything needs attention:
 //     return if attention > 0 { 1 } else { 0 }
 // A consumer that treated non-zero as failure would blank the panel on exactly
 // the machines it exists for. This is the single most important assertion in
@@ -107,8 +107,8 @@ const ATTENTION = JSON.stringify(Object.assign(JSON.parse(STATUS), {
     // EDITED from the capture: this machine reports no attention, and the
     // attention path is the one the whole page is for.
     rows: STATUS_ROWS.map(r =>
-        (r.id === "secure-boot" || r.id === "apex-shell")
-            ? Object.assign({}, r, { state: "attention", action: "sudo apex update" })
+        (r.id === "secure-boot" || r.id === "rime-shell")
+            ? Object.assign({}, r, { state: "attention", action: "sudo rime update" })
             : r)
 }));
 
@@ -118,10 +118,10 @@ check("…with all eight rows", att.rows.length, 8);
 check("…and its attention count", att.needsAttention, 2);
 check("…and the rows really say attention",
       att.rows.filter(r => r.state === "attention").map(r => r.id),
-      ["secure-boot", "apex-shell"]);
+      ["secure-boot", "rime-shell"]);
 
 // The inverse: exit 0 with nothing on stdout is genuinely unavailable. That is
-// the shape an `apex` predating `recover` produces.
+// the shape an `rime` predating `recover` produces.
 falsy("empty stdout is not a status, whatever the exit code", R.parseStatus(0, "").ok);
 falsy("an error message on stdout is not a status",
       R.parseStatus(2, "error: unrecognized subcommand 'recover'").ok);
@@ -141,7 +141,7 @@ check("unavailable is not called fine", R.stateLabel("unavailable"), "Unknown");
 check("attention names itself", R.stateLabel("attention"), "Needs attention");
 
 // A state this build has never heard of must degrade to `unavailable`, never
-// to `verified`. A future apexd row state rendering as a green tick is a lie
+// to `verified`. A future rimed row state rendering as a green tick is a lie
 // that nothing else here would catch.
 check("an unknown state degrades to unavailable", R.normalizeState("degraded"), "unavailable");
 check("…and gets the neutral tone, not ok", R.stateTone(R.normalizeState("degraded")), "neutral");
@@ -152,10 +152,10 @@ check("an empty state degrades too", R.normalizeState(""), "unavailable");
 const ordered = R.parseStatus(0, STATUS);
 check("rows come out in §19's order", ordered.rows.map(r => r.id), R.ROW_ORDER);
 
-// A row apexd grows that this build does not know about is APPENDED, not
+// A row rimed grows that this build does not know about is APPENDED, not
 // dropped. A row nobody rendered is the failure mode this page exists to end.
 const EXTRA = JSON.stringify(Object.assign(JSON.parse(STATUS), {
-    // EDITED: an id from a hypothetical later apexd, with a state to match.
+    // EDITED: an id from a hypothetical later rimed, with a state to match.
     rows: STATUS_ROWS.concat([
         { id: "tpm-sealing", label: "TPM sealing", state: "degraded",
           detail: "invented for this test", action: null }
@@ -175,7 +175,7 @@ check("a row with no id is dropped",
 // `action` is null on most rows in the real payload. Normalised to "" so the
 // view tests one thing rather than two.
 check("a null action becomes the empty string", ordered.rows[0].action, "");
-check("a real action survives", ordered.rows[1].action, "sudo apex rollback");
+check("a real action survives", ordered.rows[1].action, "sudo rime rollback");
 
 // needsAttention is recomputed when the key is missing rather than defaulted
 // to 0 — 0 reads as "all fine", which is the wrong direction to guess in.
@@ -195,14 +195,14 @@ check("undefined is unknown too", R.routeMark(undefined), "unknown");
 check("a route with a null available keeps it null",
       ordered.routes[5].available, null);
 
-// ── 5. captured: apex doctor --json ──────────────────────────────────────────
+// ── 5. captured: rime doctor --json ──────────────────────────────────────────
 // Note the two-space indent on the continuation lines. It is the only thing
 // carrying "this belongs to the check above", so it is parsed rather than
 // trimmed away and lost.
 
 const DOCTOR = JSON.stringify({
     checks: [
-        { check: "apexd running (owns org.apexos.Apexd1)", ok: true },
+        { check: "rimed running (owns org.rimeos.Rimed1)", ok: true },
         { check: "cpufreq scaling driver present (amd-pstate-epp)", ok: true },
         { check: "touchpad: ELAN06DA:00 04F3:320B Touchpad", ok: true },
         { check: "  multitouch slots (ABS_MT_SLOT): present", ok: true },
@@ -219,7 +219,7 @@ check("…every check", doc.total, 7);
 check("…the pass count", doc.passed, 6);
 check("…the warn count", doc.warned, 1);
 
-// `apex doctor` ALWAYS exits 0, even with warnings — cmd_doctor ends `0`
+// `rime doctor` ALWAYS exits 0, even with warnings — cmd_doctor ends `0`
 // unconditionally. Reading its exit code as a health verdict would report
 // every machine healthy, so the counts are the verdict and this proves it.
 check("a doctor that exited 0 can still have warnings", R.parseDoctor(0, DOCTOR).warned, 1);
@@ -241,17 +241,17 @@ check("a non-boolean ok is not a pass",
 falsy("a doctor payload with no checks array is not a doctor",
       R.parseDoctor(0, JSON.stringify({ passed: 3 })).ok);
 
-// ── 6. captured: apex recover reset --scope desktop --json (DRY RUN) ─────────
+// ── 6. captured: rime recover reset --scope desktop --json (DRY RUN) ─────────
 // Nine targets, of which four exist. The token is `desktop:4:5d7f91ba` — and
-// the 4 is exactly the number that exist, because apexd's `token_paths()`
+// the 4 is exactly the number that exist, because rimed's `token_paths()`
 // filters on the same thing `lossList` does.
 
 const PLAN_DESKTOP = JSON.stringify({
     committed: false,
     confirmToken: "desktop:4:5d7f91ba",
     scope: "desktop",
-    summary: "APEX Shell's settings, keybinds and caches for this account",
-    provisioner: "/usr/libexec/apex-shell-firstrun",
+    summary: "Rime Shell's settings, keybinds and caches for this account",
+    provisioner: "/usr/libexec/rime-shell-firstrun",
     reprovision: true,
     preserved: [
         "every document, project, checkout and credential in your home directory",
@@ -259,31 +259,31 @@ const PLAN_DESKTOP = JSON.stringify({
     ],
     preservedLandmarks: [".ssh", ".gnupg"],
     targets: [
-        { path: "/var/home/andre/.config/apex-shell/display.json", relative: ".config/apex-shell/display.json",
+        { path: "/var/home/andre/.config/rime-shell/display.json", relative: ".config/rime-shell/display.json",
           disposition: "delete", kind: "file", exists: false, backedUp: true,
           what: "saved monitor layout, scale and refresh rate" },
-        { path: "/var/home/andre/.config/apex-shell/input.json", relative: ".config/apex-shell/input.json",
+        { path: "/var/home/andre/.config/rime-shell/input.json", relative: ".config/rime-shell/input.json",
           disposition: "delete", kind: "file", exists: false, backedUp: true,
           what: "keyboard, pointer and touchpad settings" },
-        { path: "/var/home/andre/.config/apex-shell/ApexShellInput.kdl", relative: ".config/apex-shell/ApexShellInput.kdl",
+        { path: "/var/home/andre/.config/rime-shell/RimeShellInput.kdl", relative: ".config/rime-shell/RimeShellInput.kdl",
           disposition: "delete", kind: "file", exists: false, backedUp: true,
           what: "the generated niri input block" },
-        { path: "/var/home/andre/.config/apex-shell/ApexShellKeybinds.conf", relative: ".config/apex-shell/ApexShellKeybinds.conf",
+        { path: "/var/home/andre/.config/rime-shell/RimeShellKeybinds.conf", relative: ".config/rime-shell/RimeShellKeybinds.conf",
           disposition: "delete", kind: "file", exists: true, backedUp: true,
           what: "the retired hyprlang keybind fragment" },
-        { path: "/var/home/andre/.config/apex-shell/ApexShellKeybinds.kdl", relative: ".config/apex-shell/ApexShellKeybinds.kdl",
+        { path: "/var/home/andre/.config/rime-shell/RimeShellKeybinds.kdl", relative: ".config/rime-shell/RimeShellKeybinds.kdl",
           disposition: "delete", kind: "file", exists: true, backedUp: true,
           what: "the generated niri keybinds" },
-        { path: "/var/home/andre/.config/apex-shell/ApexShellKeybinds.lua", relative: ".config/apex-shell/ApexShellKeybinds.lua",
+        { path: "/var/home/andre/.config/rime-shell/RimeShellKeybinds.lua", relative: ".config/rime-shell/RimeShellKeybinds.lua",
           disposition: "delete", kind: "file", exists: true, backedUp: true,
           what: "the generated labwc keybinds" },
-        { path: "/var/home/andre/.cache/apex-shell", relative: ".cache/apex-shell",
+        { path: "/var/home/andre/.cache/rime-shell", relative: ".cache/rime-shell",
           disposition: "delete", kind: "dir", exists: true, backedUp: false,
           what: "the shell's cache: generated colour scheme, thumbnails" },
-        { path: "/var/home/andre/.config/hypr/apex/input.lua", relative: ".config/hypr/apex/input.lua",
+        { path: "/var/home/andre/.config/hypr/rime/input.lua", relative: ".config/hypr/rime/input.lua",
           disposition: "truncate", kind: "file", exists: false, backedUp: true,
           what: "the generated Hyprland input overrides (emptied, not removed)" },
-        { path: "/var/home/andre/.config/hypr/apex/monitors.lua", relative: ".config/hypr/apex/monitors.lua",
+        { path: "/var/home/andre/.config/hypr/rime/monitors.lua", relative: ".config/hypr/rime/monitors.lua",
           disposition: "truncate", kind: "file", exists: false, backedUp: true,
           what: "the generated Hyprland monitor layout (emptied, not removed)" }
     ]
@@ -293,14 +293,14 @@ const plan = R.parseResetPlan(0, PLAN_DESKTOP);
 truthy("the dry run parses", plan.ok);
 check("…and the loss list is only what exists", plan.losses.length, 4);
 check("…named", plan.losses.map(l => l.relative), [
-    ".config/apex-shell/ApexShellKeybinds.conf",
-    ".config/apex-shell/ApexShellKeybinds.kdl",
-    ".config/apex-shell/ApexShellKeybinds.lua",
-    ".cache/apex-shell"
+    ".config/rime-shell/RimeShellKeybinds.conf",
+    ".config/rime-shell/RimeShellKeybinds.kdl",
+    ".config/rime-shell/RimeShellKeybinds.lua",
+    ".cache/rime-shell"
 ]);
 
 // THE assertion that makes "the token cannot be had without rendering the
-// list" checkable rather than merely intended: apexd hashes the paths that
+// list" checkable rather than merely intended: rimed hashes the paths that
 // exist, so the count in the token equals the number of rows a correct panel
 // renders. If lossList's filter ever drifts from token_paths()'s, this breaks.
 check("the token's count equals the number of rows rendered",
@@ -319,7 +319,7 @@ check("an unknown disposition is not silently a deletion",
 
 // The cache is the one thing not copied aside, and the row must say so.
 check("the un-backed-up target is flagged",
-      plan.losses.filter(l => !l.backedUp).map(l => l.relative), [".cache/apex-shell"]);
+      plan.losses.filter(l => !l.backedUp).map(l => l.relative), [".cache/rime-shell"]);
 
 check("the preserved list is carried through", plan.preserved.length, 2);
 truthy("the provisioner is reported", plan.provisioner.length > 0);
@@ -327,12 +327,12 @@ truthy("the provisioner is reported", plan.provisioner.length > 0);
 // The wider scope, captured the same way: 14 targets, 5 of them present.
 const plan5 = R.parseResetPlan(0, JSON.stringify({
     confirmToken: "user:5:ea0526cd", scope: "user", summary: "",
-    targets: plan.losses.concat([{ path: "/var/home/andre/.local/state/apex",
-        relative: ".local/state/apex", disposition: "delete", kind: "dir",
+    targets: plan.losses.concat([{ path: "/var/home/andre/.local/state/rime",
+        relative: ".local/state/rime", disposition: "delete", kind: "dir",
         exists: true, backedUp: true, what: "applied-blueprint record" }])
         .map(l => ({ path: l.path, relative: l.relative, disposition: l.disposition,
                      kind: l.kind, exists: true, backedUp: l.backedUp, what: l.what })),
-    preserved: [], reprovision: true, provisioner: "/usr/libexec/apex-shell-firstrun"
+    preserved: [], reprovision: true, provisioner: "/usr/libexec/rime-shell-firstrun"
 }));
 check("the user scope's token count matches its own list",
       R.tokenCount(plan5.confirmToken), plan5.losses.length);
@@ -343,7 +343,7 @@ truthy("a real token is well formed", R.looksLikeToken("desktop:4:5d7f91ba"));
 falsy("a scope alone is not a token", R.looksLikeToken("desktop"));
 falsy("a token with no hash is not a token", R.looksLikeToken("desktop:4:"));
 falsy("a token with a non-hex hash is not a token", R.looksLikeToken("desktop:4:zzzz"));
-falsy("a sentence is not a token", R.looksLikeToken("apex: nothing has been changed."));
+falsy("a sentence is not a token", R.looksLikeToken("rime: nothing has been changed."));
 falsy("an empty string is not a token", R.looksLikeToken(""));
 falsy("a number is not a token", R.looksLikeToken(4));
 check("an unparseable token has no count", R.tokenCount("nonsense"), -1);
@@ -373,7 +373,7 @@ check("the sentinel for 'never acknowledged', no argv", R.commitArgv(plan, -1, T
 
 check("the token and the rendered list agreeing is what produces an argv",
       R.commitArgv(plan, 4, TOKEN),
-      ["apex", "recover", "reset", "--scope", "desktop", "--commit", "--confirm", TOKEN]);
+      ["rime", "recover", "reset", "--scope", "desktop", "--commit", "--confirm", TOKEN]);
 
 // A plan whose token count disagrees with its own loss list — the shape a
 // machine that changed between plan and render would produce — is refused even
@@ -385,7 +385,7 @@ check("a token whose count disagrees with the plan it came with, no argv",
 // ── 9. planArgv can never commit ─────────────────────────────────────────────
 
 check("the dry run's argv", R.planArgv("desktop"),
-      ["apex", "recover", "reset", "--scope", "desktop", "--json"]);
+      ["rime", "recover", "reset", "--scope", "desktop", "--json"]);
 falsy("the dry run's argv contains no --commit",
       R.planArgv("desktop").indexOf("--commit") >= 0);
 falsy("…nor for the user scope",
@@ -395,21 +395,21 @@ check("an empty scope gets no argv", R.planArgv(""), null);
 check("a scope that is a flag gets no argv", R.planArgv("--commit"), null);
 
 // ── 10. reading a commit back ────────────────────────────────────────────────
-// apexd exits 2 for both "--commit needs --confirm" and "the confirmation does
+// rimed exits 2 for both "--commit needs --confirm" and "the confirmation does
 // not match this plan", and its message names both tokens. Swallowing that in
 // favour of "failed" throws away the only sentence that says what to do.
 
 check("exit 0 is done", R.readCommit(0, "Factory reset complete.", "").result, "ok");
 check("exit 2 is stale, not a generic failure",
-      R.readCommit(2, "", "apex: the confirmation does not match this plan.").result, "stale");
+      R.readCommit(2, "", "rime: the confirmation does not match this plan.").result, "stale");
 check("…and the message survives verbatim",
-      R.readCommit(2, "", "apex: the confirmation does not match this plan.").message,
-      "apex: the confirmation does not match this plan.");
-check("exit 1 is a refusal", R.readCommit(1, "", "apex: refusing this reset").result, "refused");
+      R.readCommit(2, "", "rime: the confirmation does not match this plan.").message,
+      "rime: the confirmation does not match this plan.");
+check("exit 1 is a refusal", R.readCommit(1, "", "rime: refusing this reset").result, "refused");
 check("a process that never ran is not a refusal",
       R.readCommit(null, "", "").result, "not_run");
 
-// ── 11. apex recover repair --json ───────────────────────────────────────────
+// ── 11. rime recover repair --json ───────────────────────────────────────────
 // Captured on this machine, which needs nothing: `{"committed": false,
 // "domain": "user", "steps": []}`. A button that proposes work on a healthy
 // machine is one people learn to ignore, so an empty list must stay empty.
@@ -419,17 +419,17 @@ truthy("an empty repair plan still parses", repairNone.ok);
 check("…with no steps", repairNone.steps.length, 0);
 
 const REPAIR = JSON.stringify({ committed: false, domain: "user", steps: [
-    { id: "reprovision-desktop", domain: "user", what: "re-run the APEX Shell provisioner",
+    { id: "reprovision-desktop", domain: "user", what: "re-run the Rime Shell provisioner",
       whySafe: "idempotent; writes only files it owns", runnableHere: true,
-      command: ["/usr/libexec/apex-shell-firstrun"] },
+      command: ["/usr/libexec/rime-shell-firstrun"] },
     { id: "rebuild-package-extension", domain: "system", what: "rebuild the package extension",
       whySafe: "removes nothing", runnableHere: false,
-      command: ["/usr/libexec/apex-pkg", "rebuild"] }
+      command: ["/usr/libexec/rime-pkg", "rebuild"] }
 ]});
 const repair = R.parseRepair(0, REPAIR);
 check("both steps parse", repair.steps.map(s => s.id),
       ["reprovision-desktop", "rebuild-package-extension"]);
-check("runnableHere is apexd's answer, not a guess",
+check("runnableHere is rimed's answer, not a guess",
       repair.steps.map(s => s.runnableHere), [true, false]);
 // The wrong direction on this runs a system step as the user and reports
 // success at doing nothing, so anything that is not an explicit true is false.
@@ -437,15 +437,15 @@ check("a missing runnableHere is not runnable here",
       R.parseRepair(0, JSON.stringify({ steps: [{ id: "x", what: "y" }] })).steps[0].runnableHere,
       false);
 check("the argv is joined for display, not executed",
-      repair.steps[0].command, "/usr/libexec/apex-shell-firstrun");
+      repair.steps[0].command, "/usr/libexec/rime-shell-firstrun");
 falsy("a repair payload with no steps array is not a repair plan",
       R.parseRepair(0, JSON.stringify({ domain: "user" })).ok);
 
 // ── 12. rollback is shown, and its hint comes from the row ───────────────────
 
 check("the rollback command is the one docs/recovery.md names",
-      R.ROLLBACK_COMMAND, "sudo apex rollback");
-check("and the pin command", R.PIN_COMMAND, "sudo apex pin");
+      R.ROLLBACK_COMMAND, "sudo rime rollback");
+check("and the pin command", R.PIN_COMMAND, "sudo rime pin");
 check("the hint is the previous-deployment row's own detail",
       R.rollbackHint(ordered.rows), ordered.rows[1].detail);
 check("a machine with no such row says so, rather than inventing advice",
@@ -455,7 +455,7 @@ check("an unavailable previous deployment says there is nothing to go back to",
       "Nothing to roll back to on this machine.");
 
 // ── 13. nothing here throws on rubbish ───────────────────────────────────────
-// Each of these is a shape a broken `apex`, a truncated read or a future
+// Each of these is a shape a broken `rime`, a truncated read or a future
 // schema could produce. A throw inside a QML binding is a silently dead panel.
 
 const RUBBISH = [null, undefined, "", "   ", "null", "[]", "42", '"a string"',

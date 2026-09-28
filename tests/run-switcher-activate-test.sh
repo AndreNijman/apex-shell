@@ -97,8 +97,8 @@ headless_assert_private || exit 1
 mkdir -p "$HOME/.config/hypr"
 cat > "$HOME/.config/hypr/hyprland.lua" <<'LUA'
 -- The two settings this suite is about, and nothing else. The SEEDED tree is
--- apex-os's to test (tests/test-apex-hypr-focus.sh); what is under test here is
--- the shell's switcher against a compositor configured the way APEX configures
+-- rime-os's to test (tests/test-rime-hypr-focus.sh); what is under test here is
+-- the shell's switcher against a compositor configured the way Rime configures
 -- it.
 hl.config({
     general = { gaps_in = 0, gaps_out = 0, border_size = 2 },

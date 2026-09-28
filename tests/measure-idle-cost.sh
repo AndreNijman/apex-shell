@@ -4,7 +4,7 @@
 #
 # ── Why not `perf stat -e sched:sched_process_exec` ─────────────────────────────
 # That needs perf installed and either root or perf_event_paranoid <= -1. On a
-# stock APEX-OS install perf is absent and paranoid is 2, so the documented
+# stock Rime OS install perf is absent and paranoid is 2, so the documented
 # command cannot run at all. The kernel's own cumulative fork counter,
 # /proc/stat "processes", answers exactly the same question with no privileges
 # and no tooling: its delta over a window IS the number of process creations in
@@ -38,7 +38,7 @@
 # Every other runner under tests/ was changed to bring its own headless
 # compositor. This one is asked for explicitly instead:
 #
-#     APEX_TEST_ALLOW_NESTED_ON_DESK=1 tests/measure-idle-cost.sh
+#     RIME_TEST_ALLOW_NESTED_ON_DESK=1 tests/measure-idle-cost.sh
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -65,7 +65,7 @@ trap cleanup EXIT INT TERM
 
 case "$target" in
 packaged)
-    pid="$(pgrep -f 'quickshell -c /usr/share/apex-shell' | head -1 || true)"
+    pid="$(pgrep -f 'quickshell -c /usr/share/rime-shell' | head -1 || true)"
     [[ -z "$pid" ]] && { echo "no packaged shell running"; exit 1; }
     ;;
 worktree)

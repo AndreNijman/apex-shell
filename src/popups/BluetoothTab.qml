@@ -440,7 +440,7 @@ Item {
                 // Paired: connect/disconnect — one action style (UI/UX Phase 17).
                 // The row's subtitle already says "Connected", so the connected
                 // state is a "Disconnect" button rather than a filled pill with a dot.
-                ApexPressable {
+                RimePressable {
                     id: togBtn
                     visible: dRow.isPaired && !dRow.inAction && !dRow.inRemove
                     anchors.verticalCenter: parent.verticalCenter
@@ -453,13 +453,13 @@ Item {
                     // On the selected row: Theme.surfaceOnSelected (roles.js says why).
                     Rectangle { anchors.fill: parent; radius: parent.radius; color: togBtn.tint(dRow.isConnected ? Theme.surfaceOnSelected : Theme.surfaceHigh); Behavior on color { MotionColor { role: "state" } } }
                     Text { id: togLbl; anchors.centerIn: parent; text: dRow.isConnected ? "Disconnect" : "Connect"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
-                    ApexFocusRing { target: togBtn }
+                    RimeFocusRing { target: togBtn }
                 }
 
                 // Paired: remove — opens the confirmation below; same non-destructive
                 // action style as everything else (the destructive fill lives on the
                 // confirmation's own Remove button).
-                ApexPressable {
+                RimePressable {
                     id: rmBtn
                     visible: dRow.isPaired && !dRow.inAction && !dRow.inRemove
                     anchors.verticalCenter: parent.verticalCenter
@@ -470,7 +470,7 @@ Item {
                     onActivated: { root._pairingMac = ""; root._removeMac = dRow.isRemovePending ? "" : dRow.device.mac }
                     Rectangle { anchors.fill: parent; radius: parent.radius; color: rmBtn.tint(dRow.isConnected ? Theme.surfaceOnSelected : Theme.surfaceHigh); Behavior on color { MotionColor { role: "state" } } }
                     Text { id: rmLbl; anchors.centerIn: parent; text: "Remove"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
-                    ApexFocusRing { target: rmBtn }
+                    RimeFocusRing { target: rmBtn }
                 }
 
                 // Available: Pair + PIN icon
@@ -479,7 +479,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
 
-                    ApexPressable {
+                    RimePressable {
                         id: pairBtn
                         width: pairLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
                         hitMargin: 2
@@ -489,10 +489,10 @@ Item {
                         onActivated: { root._removeMac = ""; root._pairingMac = ""; root._pair(dRow.device.mac, ""); devFlick.forceActiveFocus() }
                         Rectangle { anchors.fill: parent; radius: parent.radius; color: pairBtn.tint(Theme.surfaceHigh); Behavior on color { MotionColor {} } }
                         Text { id: pairLbl; anchors.centerIn: parent; text: "Pair"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
-                        ApexFocusRing { target: pairBtn }
+                        RimeFocusRing { target: pairBtn }
                     }
 
-                    ApexPressable {
+                    RimePressable {
                         id: pinBtn
                         width: 24; height: 28; radius: 6; anchors.verticalCenter: parent?.verticalCenter
                         hitMargin: 4
@@ -506,7 +506,7 @@ Item {
                         }
                         Rectangle { anchors.fill: parent; radius: parent.radius; color: pinBtn.hovered ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.10) : dRow.isPairingOpen ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.12) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.04); border.color: dRow.isPairingOpen ? Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.30) : Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.09); border.width: 1; Behavior on color { MotionColor { role: "state" } } }
                         Text { anchors.centerIn: parent; text: "󰌾"; font.pixelSize: theme.fs(12); color: dRow.isPairingOpen ? Theme.active : pinBtn.hovered ? Theme.textPrimary : Theme.textTertiary; Behavior on color { MotionColor { role: "state" } } }
-                        ApexFocusRing { target: pinBtn }
+                        RimeFocusRing { target: pinBtn }
                     }
                 }
             }
@@ -533,18 +533,18 @@ Item {
                     Row {
                         anchors.centerIn: parent; spacing: 12
                         Text { anchors.verticalCenter: parent.verticalCenter; text: "Remove this device?"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
-                        ApexPressable {
+                        RimePressable {
                             id: cxBtn
                             width: cxLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS; hitMargin: 2
                             Accessible.name: "Keep " + dRow.device.name
                             onActivated: { root._removeMac = ""; rmBtn.forceActiveFocus() }
                             Rectangle { anchors.fill: parent; radius: parent.radius; color: cxBtn.tint(Theme.surfaceHigh); Behavior on color { MotionColor {} } }
                             Text { id: cxLbl; anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
-                            ApexFocusRing { target: cxBtn }
+                            RimeFocusRing { target: cxBtn }
                         }
                         // The one destructive action in this pane — Theme.dangerFill,
                         // matching every other confirm-to-delete button in the shell.
-                        ApexPressable {
+                        RimePressable {
                             id: rxBtn
                             width: rxLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS; hitMargin: 2
                             Accessible.name: "Remove " + dRow.device.name
@@ -556,7 +556,7 @@ Item {
                                 Behavior on opacity { MotionFade {} }
                             }
                             Text { id: rxLbl; anchors.centerIn: parent; text: "Remove"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.fixedLight }
-                            ApexFocusRing { target: rxBtn }
+                            RimeFocusRing { target: rxBtn }
                         }
                     }
                 }
@@ -594,14 +594,14 @@ Item {
                                 Keys.onReturnPressed: root._pair(dRow.device.mac, text)
                             }
                         }
-                        ApexPressable {
+                        RimePressable {
                             id: pairConfBtn; width: pairConfLbl.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
                             Accessible.name: "Pair with " + dRow.device.name
                             // Pairing clears _pairingMac and collapses this row; the keys go back to the list.
                             onActivated: { root._pair(dRow.device.mac, pinInput.text); devFlick.forceActiveFocus() }
                             Rectangle { anchors.fill: parent; radius: parent.radius; color: pairConfBtn.tint(Theme.surfaceHigh); Behavior on color { MotionColor {} } }
                             Text { id: pairConfLbl; anchors.centerIn: parent; text: "Pair"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: Theme.textPrimary }
-                            ApexFocusRing { target: pairConfBtn }
+                            RimeFocusRing { target: pairConfBtn }
                         }
                     }
                 }
@@ -628,7 +628,7 @@ Item {
                 spacing: 8
 
                 // Power toggle — borderless, state layer only (UI/UX Phase 17)
-                ApexPressable {
+                RimePressable {
                     id: pwrBtn
                     width: 32; height: 32; radius: 8
                     Accessible.name: root._btPowered ? "Turn Bluetooth off" : "Turn Bluetooth on"
@@ -641,25 +641,25 @@ Item {
                         color: !root._btPowered ? Theme.active : pwrBtn.hovered ? Theme.danger : Theme.iconDefault
                         Behavior on color { MotionColor { role: "state" } }
                     }
-                    ApexFocusRing { target: pwrBtn }
+                    RimeFocusRing { target: pwrBtn }
                 }
 
                 // Settings — blueman-manager
-                ApexPressable {
+                RimePressable {
                     id: setBtn
                     width: 32; height: 32; radius: 8
                     Accessible.name: "Bluetooth device manager"
                     onActivated: { bluemanProc.running = false; bluemanProc.running = true }
                     Rectangle { anchors.fill: parent; radius: parent.radius; color: setBtn.stateLayer() }
                     Text { anchors.centerIn: parent; text: "󰒓"; font.pixelSize: theme.fs(14); color: setBtn.hovered ? Theme.textPrimary : Theme.iconDefault; Behavior on color { MotionColor {} } }
-                    ApexFocusRing { target: setBtn }
+                    RimeFocusRing { target: setBtn }
                 }
 
                 // Scan / Stop — one action style (UI/UX Phase 17): scanning is a
                 // real running state, so it takes the same ON treatment as the
                 // VPN Kill Switch (surfaceSelected + accentText); the pulsing dot
                 // is genuine state, the same class as the header refresh spin.
-                ApexPressable {
+                RimePressable {
                     id: scanBtn
                     width: scanRow.implicitWidth + 20; height: theme.controlStandard; radius: theme.radiusS
                     hitMargin: 2
@@ -684,7 +684,7 @@ Item {
                         }
                         Text { anchors.verticalCenter: parent.verticalCenter; text: root._scanning ? "Stop" : "Scan"; font.pixelSize: theme.typeCaption; font.weight: Font.Medium; color: root._scanning ? Theme.accentText : Theme.textPrimary; Behavior on color { MotionColor { role: "state" } } }
                     }
-                    ApexFocusRing { target: scanBtn }
+                    RimeFocusRing { target: scanBtn }
                 }
             }
         }
@@ -784,7 +784,7 @@ Item {
             anchors.centerIn: parent; spacing: 16
             Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰂲"; font.pixelSize: theme.fs(42); color: Theme.textTertiary }
             Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Bluetooth is off"; font.pixelSize: theme.fs(14); font.weight: Font.Medium; color: Theme.textTertiary }
-            ApexPressable {
+            RimePressable {
                 id: onBtn
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: enableRow.implicitWidth + 24; height: 34; radius: 17
@@ -800,7 +800,7 @@ Item {
                     Text { anchors.verticalCenter: parent.verticalCenter; text: "󰂯"; font.pixelSize: theme.fs(14); color: Theme.active }
                     Text { anchors.verticalCenter: parent.verticalCenter; text: "Turn On"; font.pixelSize: theme.fs(12); font.weight: Font.Medium; color: Theme.active }
                 }
-                ApexFocusRing { target: onBtn }
+                RimeFocusRing { target: onBtn }
             }
         }
     }

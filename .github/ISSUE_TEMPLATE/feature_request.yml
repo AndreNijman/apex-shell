@@ -1,10 +1,10 @@
 name: Feature Request
-description: Suggest an idea for APEX Shell
+description: Suggest an idea for Rime Shell
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
-      value: Have an idea to make APEX Shell better? Let us know! (Note to save time, please check Discord to see if this has been suggested already).
+      value: Have an idea to make Rime Shell better? Let us know! (Note to save time, please check Discord to see if this has been suggested already).
   - type: textarea
     id: description
     attributes:

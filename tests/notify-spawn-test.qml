@@ -59,7 +59,7 @@ import QtQuick
 ShellRoot {
     id: root
 
-    readonly property string dir: Quickshell.env("APEX_NOTIFY_TEST_DIR") || "/tmp"
+    readonly property string dir: Quickshell.env("RIME_NOTIFY_TEST_DIR") || "/tmp"
 
     property int passed: 0
     property int failed: 0

@@ -84,7 +84,7 @@ cp "$here/colour-page-test.qml" "$staged"
 #
 # It is the sentence the real engine composes when no ICC loader is installed
 # and the compositor's gamma LUT is the one the night light writes — which is
-# every APEX build measured so far, on labwc, sway and niri.
+# every Rime build measured so far, on labwc, sway and niri.
 printf %s 'no ICC curve loader is installed (xcalib, argyll'"'"'s dispwin and wl-gammactl are all absent), so an assigned profile'"'"'s vcgt is stored and reported but not pushed into the hardware; and on this compositor the gamma LUT is the same slot the night light writes, so a curve and a night light cannot both be active' \
     > "$W/reason.txt"
 
@@ -122,14 +122,14 @@ state = {
         # extension block with no HDR static metadata block and no colorimetry
         # block, and NO serial in its EDID — so its device id is make and model
         # only.
-        {"name": "eDP-1", "device": "apex-display-LEN-MNG007QT1-2",
+        {"name": "eDP-1", "device": "rime-display-LEN-MNG007QT1-2",
          "make": "LEN", "model": "MNG007QT1-2", "serial": None,
          "hdr": {"edid": True, "static_metadata": False,
                  "colorimetry": False, "eotf": None},
          "profile": profiles[0]},
         # And a desk monitor that does advertise HDR, so the verdict is proven
         # to be per output and read from that output's own EDID.
-        {"name": "DP-2", "device": "apex-display-DEL-U2723QE-7NKM3T3",
+        {"name": "DP-2", "device": "rime-display-DEL-U2723QE-7NKM3T3",
          "make": "DEL", "model": "U2723QE", "serial": "7NKM3T3",
          "hdr": {"edid": True, "static_metadata": True,
                  "colorimetry": True, "eotf": 6},
@@ -144,8 +144,8 @@ GEN
 
 # ── The fake engines ─────────────────────────────────────────────────────────
 # Deliberately NOT in a directory that goes on PATH: nothing may pick this up
-# as `apex-display-apply` by accident, and the only way to reach it is the
-# APEX_DISPLAY_ENGINE the shell is handed.
+# as `rime-display-apply` by accident, and the only way to reach it is the
+# RIME_DISPLAY_ENGINE the shell is handed.
 #
 # `color` re-reads the assignment state each time it is asked, so the readback
 # after an assign is a real readback — a fake that answered the same JSON twice
@@ -156,7 +156,7 @@ printf '%s\n' "\$*" >> "$W/calls.log"
 case "\${1:-list}" in
     --help|-h)
         cat <<'HELP'
-usage: apex-display-apply [-h] [--model MODEL] [--dry-run] [--no-persist]
+usage: rime-display-apply [-h] [--model MODEL] [--dry-run] [--no-persist]
                           [--self-test]
                           [{list,apply,save,compositor,color,color-assign}]
                           [rest ...]
@@ -176,16 +176,16 @@ HELP
 s=json.load(open(sys.argv[1]))
 print(next((p["title"] for p in s["profiles"] if p["id"]==sys.argv[2]), ""))' "$W/colour.json" "\$want")"
         if [ -z "\$title" ]; then
-            printf 'apex-display: no colord profile matches %s\n' "\$want" >&2
+            printf 'rime-display: no colord profile matches %s\n' "\$want" >&2
             exit 1
         fi
         printf '%s\t%s\n' "\$out" "\$want" >> "$W/assigned"
-        printf 'apex-display: %s is now the profile for %s\n' "\$title" "\$out" >&2
+        printf 'rime-display: %s is now the profile for %s\n' "\$title" "\$out" >&2
         vcgt="\$(python3 -c 'import json,sys
 s=json.load(open(sys.argv[1]))
 print(next((repr(p["vcgt"]) for p in s["profiles"] if p["id"]==sys.argv[2]), ""))' "$W/colour.json" "\$want")"
         if [ "\$vcgt" = "False" ]; then
-            printf 'apex-display: this profile carries no vcgt, so there is no curve to load even where one could be\n' >&2
+            printf 'rime-display: this profile carries no vcgt, so there is no curve to load even where one could be\n' >&2
         fi
         exit 0 ;;
 esac
@@ -201,7 +201,7 @@ printf '%s\n' "\$*" >> "$W/calls.log"
 case "\${1:-list}" in
     --help|-h)
         cat <<'HELP'
-usage: apex-display-apply [-h] [--model MODEL] [--dry-run] [--no-persist]
+usage: rime-display-apply [-h] [--model MODEL] [--dry-run] [--no-persist]
                           [--self-test] [{list,apply,save,compositor}] [rest ...]
 
 positional arguments:
@@ -211,8 +211,8 @@ HELP
     list)
         printf '[]\n'; exit 0 ;;
     color|color-assign)
-        printf "usage: apex-display-apply [-h] [--model MODEL] [--dry-run]\n" >&2
-        printf "apex-display-apply: error: argument action: invalid choice: '%s'\n" "\$1" >&2
+        printf "usage: rime-display-apply [-h] [--model MODEL] [--dry-run]\n" >&2
+        printf "rime-display-apply: error: argument action: invalid choice: '%s'\n" "\$1" >&2
         exit 2 ;;
 esac
 exit 0
@@ -250,7 +250,7 @@ FAKE
 chmod +x "$W/bin/_stub"
 # colormgr among them, and named first: if any path in this suite ever reaches
 # for the real colour daemon, it finds a stub that says nothing instead.
-for n in colormgr apex hyprctl wlr-randr niri matugen xdg-open playerctl \
+for n in colormgr rime hyprctl wlr-randr niri matugen xdg-open playerctl \
          wpctl brightnessctl pkcheck notify-send swww kanshi gammastep \
          hyprsunset; do
     ln -sf "$W/bin/_stub" "$W/bin/$n"
@@ -271,7 +271,7 @@ export HOME="$W/home"
 export XDG_CONFIG_HOME="$W/home/.config"
 export XDG_STATE_HOME="$W/state"
 export XDG_CACHE_HOME="$W/cache"
-mkdir -p "$HOME/.config/apex-shell/src/user_data" "$HOME/.local/share" \
+mkdir -p "$HOME/.config/rime-shell/src/user_data" "$HOME/.local/share" \
          "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$HOME/Pictures/Wallpapers"
 ln -sfn "$real_home/.local/share/fonts" "$HOME/.local/share/fonts" 2>/dev/null
 
@@ -338,11 +338,11 @@ phase() {
 
     local log="$W/$name.log"
     ( cd "$root" && env \
-        APEX_DISPLAY_ENGINE="$W/engine/$name" \
-        APEX_DISPLAY_TXN_DIR="$W/txn-$name" \
-        APEX_COLOUR_PHASE="$name" \
-        APEX_COLOUR_CALLS="$W/calls.log" \
-        APEX_COLOUR_REASON="$W/reason.txt" \
+        RIME_DISPLAY_ENGINE="$W/engine/$name" \
+        RIME_DISPLAY_TXN_DIR="$W/txn-$name" \
+        RIME_COLOUR_PHASE="$name" \
+        RIME_COLOUR_CALLS="$W/calls.log" \
+        RIME_COLOUR_REASON="$W/reason.txt" \
         QT_LOGGING_RULES="qml=true" \
         timeout 180 quickshell -p "$staged" ) >"$log" 2>&1
 

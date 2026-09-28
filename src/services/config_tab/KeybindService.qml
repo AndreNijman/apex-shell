@@ -9,24 +9,31 @@ QtObject {
     id: root
 
     readonly property string _shellDir: Quickshell.shellDir
-    readonly property string _configDir: Quickshell.env("HOME") + "/.config/apex-shell"
+    readonly property string _configDir: Quickshell.env("HOME") + "/.config/rime-shell"
     // The Hyprland artifact is a Lua module under the compositor's own config
-    // directory, because that is the only place `require("apex.shell-keybinds")`
+    // directory, because that is the only place `require("rime.shell-keybinds")`
     // resolves: Hyprland prepends the config FILE's directory to package.path,
     // so a module anywhere else cannot be named. It used to be a hyprlang
-    // fragment beside the niri one in ~/.config/apex-shell, sourced by an
+    // fragment beside the niri one in ~/.config/rime-shell, sourced by an
     // absolute path (P0-025).
     readonly property string _hyprDir:  Quickshell.env("HOME") + "/.config/hypr"
-    readonly property string _luaPath:  _hyprDir + "/apex/shell-keybinds.lua"
-    readonly property string _kdlPath:  _configDir + "/ApexShellKeybinds.kdl"
+    readonly property string _luaPath:  _hyprDir + "/rime/shell-keybinds.lua"
+    readonly property string _kdlPath:  _configDir + "/RimeShellKeybinds.kdl"
     readonly property string _jsonPath: _configDir + "/src/user_data/keybinds.json"
 
     // How the generator recognises its own output, and the module the user's
     // own binds are moved to when it does not. Both are read by
-    // src/scripts/apex-keybinds-rescue.sh, which runs before every write.
-    readonly property string _luaMarker: "APEX-SHELL-GENERATED"
-    readonly property string _userModule: "apex.shell-keybinds-user"
-    readonly property string _rescue: _shellDir + "/src/scripts/apex-keybinds-rescue.sh"
+    // src/scripts/rime-keybinds-rescue.sh, which runs before every write (and
+    // also accepts the marker the shell wrote before the rename).
+    //
+    // The user module is named by its last part only: the generated file
+    // requires it, and the Rime defaults, under the prefix it was itself
+    // required by (see _genLua), so it works from ~/.config/hypr/rime and from
+    // an ~/.config/hypr/apex the OS has not moved yet.
+    readonly property string _luaMarker: "RIME-SHELL-GENERATED"
+    readonly property string _legacyLuaMarker: "APEX-SHELL-GENERATED"   // rime-rename: keep (read by the APEX shell's rescue, see _genLua)
+    readonly property string _userModule: "shell-keybinds-user"
+    readonly property string _rescue: _shellDir + "/src/scripts/rime-keybinds-rescue.sh"
 
     // ── Capture gate ──────────────────────────────────────────────────────────
     // Set true by KeybindsPage while a combo is being recorded.
@@ -83,9 +90,9 @@ QtObject {
         // that is not a style choice — it is the only form that reaches all
         // three compositors. An untyped entry becomes
         // `qs -p <shell> ipc call voice-ptt toggle` in _genLua and _genKdl
-        // automatically, and apex-os's /usr/libexec/apex-labwc-keybinds
+        // automatically, and rime-os's /usr/libexec/rime-labwc-keybinds
         // translates the ACTION ID through its VERBS allowlist
-        // (`"voice-ptt": "voice"` -> `apex shell voice`). Written the obvious
+        // (`"voice-ptt": "voice"` -> `rime shell voice`). Written the obvious
         // way instead — `type: "exec", command: "$qsIpc voice-ptt toggle"` —
         // it would work on Hyprland and niri and be silently skipped on
         // labwc, because that generator's exec arm substitutes only
@@ -118,11 +125,11 @@ QtObject {
         // routes the reader's on-switch through the shell's own IPC — so a
         // shell that has crashed, or has not started, takes the switch down
         // with it, and a user with no reader and no visible desktop has nothing
-        // left to press. apex-os's labwc generator drops a command only when it
+        // left to press. rime-os's labwc generator drops a command only when it
         // still begins with `$` after variable substitution, so an absolute
         // path reaches all three sessions: _genLua (Hyprland), _genKdl (niri)
-        // and /usr/libexec/apex-labwc-keybinds (Floating).
-        "screenreader-toggle":{ mods: "SUPER + ALT",  key: "S",      label: "Screen Reader",        group: "Quick Settings", type: "exec", command: "/usr/libexec/apex-screen-reader toggle" },
+        // and /usr/libexec/rime-labwc-keybinds (Floating).
+        "screenreader-toggle":{ mods: "SUPER + ALT",  key: "S",      label: "Screen Reader",        group: "Quick Settings", type: "exec", command: "/usr/libexec/rime-screen-reader toggle" },
         "screenshot-area":    { mods: "",             key: "PRINT",  label: "Screenshot Area",      group: "Window Management", type: "exec", command: "bash " + root._shellDir + "/src/scripts/screenshot.sh area" },
         "screenshot-screen":  { mods: "SUPER",        key: "PRINT",  label: "Screenshot Screen",    group: "Window Management", type: "exec", command: "bash " + root._shellDir + "/src/scripts/screenshot.sh screen" },
         "window-fullscreen":  { mods: "SUPER",        key: "F",      label: "Toggle Fullscreen",    group: "Window Management", type: "dispatch", dispatcher: "fullscreen", arg: "0" },
@@ -260,7 +267,7 @@ QtObject {
         return mask
     }
 
-    // Combos (modmask + lowercased key) that APEX Shell itself claims: every
+    // Combos (modmask + lowercased key) that Rime Shell itself claims: every
     // bound action of the saved map, plus the caller's staged edits.
     // `hyprctl binds -j` reports the shell's own generated binds back to us, and
     // both sides are needed to recognise them: the saved map is what was last
@@ -279,14 +286,14 @@ QtObject {
         return owned
     }
 
-    // Returns a short description of a conflicting Hyprland bind that APEX Shell
+    // Returns a short description of a conflicting Hyprland bind that Rime Shell
     // does not own, or "".
     // Matching on `ipc call` used to be the "own binds" filter, which only
     // covered IPC actions: every dispatch/exec default (scratchpad move,
     // screenshots, workspace switches, app launches) is reported back by
     // hyprctl too and so conflicted with itself. Ownership is decided by combo
     // instead. Limitation: hyprctl carries no provenance, so an external bind
-    // sharing a combo APEX Shell already owns is not reported.
+    // sharing a combo Rime Shell already owns is not reported.
     function wouldConflictHypr(mods, key, overlay) {
         var mask  = _modsToMask(mods)
         var k     = key.toLowerCase()
@@ -586,23 +593,33 @@ QtObject {
         // write one would produce a file that looks current, is read by nothing,
         // and gives no error to say so.
         //
-        // mkdir -p because ~/.config/hypr/apex may not exist yet: the
+        // mkdir -p because ~/.config/hypr/rime may not exist yet: the
         // provisioner deliberately stopped pre-creating the generated modules
         // once hyprland.lua's loader learned to skip an absent one.
         // The rescue runs FIRST, and its exit status is ignored on purpose.
         //
-        // apex/shell-keybinds.lua is not a file only this generator writes:
-        // apex-hypr-migrate converts the user's old ApexShellKeybinds.conf and
+        // rime/shell-keybinds.lua is not a file only this generator writes:
+        // rime-hypr-migrate converts the user's old RimeShellKeybinds.conf and
         // writes the result there, because that is the only name `require` can
         // reach it by. Overwriting it whole on the next start is how a
         // migration that carefully preserved a hand-edited keybind loses it
         // anyway, without a word — P0-025's "no user custom keybind is
         // silently discarded", broken by the shell rather than by the
-        // migration. See src/scripts/apex-keybinds-rescue.sh.
+        // migration. See src/scripts/rime-keybinds-rescue.sh.
+        //
+        // ~/.config/hypr/rime is where it goes. The one exception is a machine
+        // the rename has not finished with: while ~/.config/hypr/rime does not
+        // exist and ~/.config/hypr/apex is still a real directory, the OS has
+        // not moved Hyprland's modules yet, the user's hyprland.lua still
+        // requires them from there, and a mkdir of hypr/rime here would make
+        // that move refuse to run. So the module is written beside the others
+        // in hypr/apex, and moves with them.
         _writeProc.command = ["bash", "-c",
-            'mkdir -p "$(dirname "$3")" "$(dirname "$4")"\n'
-            + 'bash "$5" "$3" ' + root._luaMarker + ' || true\n'
-            + 'printf %s "$1" > "$3"\n'
+            'lua="$3"; new="$(dirname "$3")"; old="$(dirname "$new")/apex"\n'  // rime-rename: keep (Hyprland's module directory before the rename)
+            + '[ ! -e "$new" ] && [ -d "$old" ] && [ ! -L "$old" ] && lua="$old/$(basename "$3")"\n'
+            + 'mkdir -p "$(dirname "$lua")" "$(dirname "$4")"\n'
+            + 'bash "$5" "$lua" ' + root._luaMarker + ' || true\n'
+            + 'printf %s "$1" > "$lua"\n'
             + 'printf %s "$2" > "$4"\n',
             "--", lua, kdl, root._luaPath, root._kdlPath, root._rescue]
 
@@ -619,7 +636,7 @@ QtObject {
     // into rc.xml, which needs an XML-aware edit that preserves the rest of a
     // file the user also owns.
     //
-    // That is what /usr/libexec/apex-labwc-keybinds does. Until it existed, a
+    // That is what /usr/libexec/rime-labwc-keybinds does. Until it existed, a
     // labwc user could rebind the launcher, watch the UI confirm it, and get
     // nothing: three files written, none of which labwc reads.
     //
@@ -632,8 +649,8 @@ QtObject {
     // on a machine running an older image logs a failed spawn.
     property var _labwcProc: Process {
         command: ["bash", "-c",
-                  "test -x /usr/libexec/apex-labwc-keybinds "
-                  + "&& exec /usr/libexec/apex-labwc-keybinds apply"]
+                  "test -x /usr/libexec/rime-labwc-keybinds "
+                  + "&& exec /usr/libexec/rime-labwc-keybinds apply"]
         running: false
     }
 
@@ -701,15 +718,15 @@ QtObject {
     }
 
     // Command variables, resolved. Matches _niriApps below — `$browser` is NOT
-    // a browser name: apex-open-browser opens whichever browser the user has
-    // set as default, which is the whole reason nothing in APEX hardcodes one.
+    // a browser name: rime-open-browser opens whichever browser the user has
+    // set as default, which is the whole reason nothing in Rime hardcodes one.
     // This generator used to substitute `firefox` here while the niri and conf
     // paths used the helper, so a Hyprland user's SUPER+W ignored their own
     // default browser and every other session honoured it.
     function _luaCommand(command) {
         return String(command)
             .replace("$terminal",    "alacritty")
-            .replace("$browser",     "/usr/libexec/apex-open-browser")
+            .replace("$browser",     "/usr/libexec/rime-open-browser")
             .replace("$fileManager", "thunar")
             .replace("$qsIpc",       "qs -p " + root._shellDir + " ipc call")
     }
@@ -719,47 +736,71 @@ QtObject {
 
         var lines = [
             "-- ==============================================================================",
-            "-- APEX Shell Keybinds",
+            "-- Rime Shell Keybinds",
             "-- " + root._luaMarker + " — rewritten in full every time the shell starts.",
-            "-- Edit the Keybinds page in APEX Settings, or put your own binds in",
-            "-- apex/shell-keybinds-user.lua, which is required at the bottom of this file",
+            // The APEX shell's marker too. After a rollback to APEX, its
+            // apex-keybinds-rescue.sh takes any shell-keybinds.lua without that
+            // string for the user's and moves it into shell-keybinds-user.lua,
+            // where this module then required itself (C stack overflow, every
+            // bind registered dozens of times; measured in the VM rollback).
+            "-- " + root._legacyLuaMarker + " as well, so an APEX shell after a rollback regenerates this file too.",  // rime-rename: keep (the marker the APEX shell's rescue looks for)
+            "-- Edit the Keybinds page in Rime Settings, or put your own binds in",
+            "-- shell-keybinds-user.lua beside it, which is required at the bottom of this file",
             "-- and is never regenerated.",
             "--",
-            "-- Required by ~/.config/hypr/hyprland.lua as `apex.shell-keybinds`, and loaded",
-            "-- after apex/keybindings.lua so these win.",
+            "-- Required by ~/.config/hypr/hyprland.lua as `rime.shell-keybinds`, and loaded",
+            "-- after rime/keybindings.lua so these win.",
             "-- ==============================================================================",
             "",
             "local shell = " + root._luaStr(root._shellDir),
             "",
+            "-- The prefix this module was required under: `rime.shell-keybinds` from",
+            "-- ~/.config/hypr/rime, or `apex.shell-keybinds` from a hyprland.lua written",  // rime-rename: keep (the module name an APEX hyprland.lua requires)
+            "-- before the rename. The Rime defaults and your own module are required",
+            "-- under the SAME prefix, so a module hyprland.lua already loaded is found in",
+            "-- package.loaded instead of being run a second time under the other name,",
+            "-- which would register every default bind twice.",
+            "local modname = ...",
+            "",
+            "-- Loaded under any other name, this is a stale copy that a shell which did not",
+            "-- recognise it carried into shell-keybinds-user.lua. It does nothing: run, it",
+            "-- would register every bind a second time and require that module from inside",
+            "-- itself.",
+            "if type(modname) == \"string\" and modname ~= \"shell-keybinds\"",
+            "        and not modname:match(\"%.shell%-keybinds$\") then",
+            "    return",
+            "end",
+            "local prefix = type(modname) == \"string\" and modname:match(\"^(.*)%.shell%-keybinds$\") or \"rime\"",
+            "",
             "-- ==============================================================================",
-            "-- ApexShell Capture Submap (Disables all normal binds during recording)",
+            "-- RimeShell Capture Submap (Disables all normal binds during recording)",
             "-- ==============================================================================",
-            "hl.define_submap(\"ApexShell_clean\", function()",
+            "hl.define_submap(\"RimeShell_clean\", function()",
             "    -- Emergency exit in case the shell crashes during capture",
             "    hl.bind(\"CTRL + ESCAPE\", function()",
-            "        hl.dispatch(hl.dsp.exec_cmd(\"notify-send 'ApexShell' 'Emergency Exit: Keybinds re-enabled.'\"))",
+            "        hl.dispatch(hl.dsp.exec_cmd(\"notify-send 'RimeShell' 'Emergency Exit: Keybinds re-enabled.'\"))",
             "        hl.dispatch(hl.dsp.submap(\"reset\"))",
             "    end, { description = \"Emergency return to global submap\" })",
             "end)",
             "",
             "-- ==============================================================================",
-            "-- Switch off the APEX default on every combo this file claims",
+            "-- Switch off the Rime default on every combo this file claims",
             "-- ==============================================================================",
             "-- hl.bind returns a handle with :set_enabled(false), and",
-            "-- apex/keybindings.lua keeps one per default under a canonical combo key. So",
-            "-- a combo bound here has its APEX default switched off first, and the key",
+            "-- rime/keybindings.lua keeps one per default under a canonical combo key. So",
+            "-- a combo bound here has its Rime default switched off first, and the key",
             "-- does ONE thing — Hyprland fires BOTH actions for a doubly-bound combo,",
             "-- which is how SUPER+Q once closed the window AND opened the launcher.",
             "--",
-            "-- The hyprlang generator emitted an `unbind` line for every APEX default on",
+            "-- The hyprlang generator emitted an `unbind` line for every Rime default on",
             "-- every write, whether or not the user had touched it, because hyprlang could",
             "-- only remove a bind by key and had no way to disable one. disable() touches",
             "-- exactly the bind being replaced and is a no-op when there is nothing there.",
             "--",
-            "-- pcall because a hand-written hyprland.lua need not load the APEX modules at",
-            "-- all; without the APEX defaults there is nothing to disable and these binds",
+            "-- pcall because a hand-written hyprland.lua need not load the Rime modules at",
+            "-- all; without the Rime defaults there is nothing to disable and these binds",
             "-- stand alone.",
-            "local ok, defaults = pcall(require, \"apex.keybindings\")",
+            "local ok, defaults = pcall(require, prefix .. \".keybindings\")",
             "local function claim(mods, key)",
             "    if ok and defaults and defaults.disable then defaults.disable(mods, key) end",
             "end",
@@ -768,8 +809,8 @@ QtObject {
 
         // ── Release the combo an action was moved OFF ────────────────────────
         //
-        // Claiming the combo each bind now uses is only half of it. apex-os's
-        // apex/keybindings.lua binds SUPER+T, SUPER+Q, SUPER+W, SUPER+E,
+        // Claiming the combo each bind now uses is only half of it. rime-os's
+        // rime/keybindings.lua binds SUPER+T, SUPER+Q, SUPER+W, SUPER+E,
         // SUPER+L and both Print keys — the same actions this file owns. Rebind
         // Terminal from SUPER+T to SUPER+SHIFT+T and the loop below claims the
         // new combo, while SUPER+T keeps opening a terminal from the OS module.
@@ -777,7 +818,7 @@ QtObject {
         // UI says the key is free and SUPER+T still fires.
         //
         // The hyprlang generator did not have this bug: it emitted an `unbind`
-        // for every APEX default on every write, indiscriminately, because
+        // for every Rime default on every write, indiscriminately, because
         // hyprlang could not disable a bind by handle. Moving to disable() lost
         // the indiscriminate pass and did not replace it. This is the
         // replacement, and it is narrow: only defaults the user has actually
@@ -846,16 +887,16 @@ QtObject {
         lines.push("-- ==============================================================================")
         lines.push("-- Your own binds")
         lines.push("-- ==============================================================================")
-        lines.push("-- Anything you wrote yourself, or that apex-hypr-migrate carried over from")
-        lines.push("-- the hyprlang ApexShellKeybinds fragment, was moved to " + root._userModule)
+        lines.push("-- Anything you wrote yourself, or that rime-hypr-migrate carried over from")
+        lines.push("-- the hyprlang RimeShellKeybinds fragment, was moved to " + root._userModule + ".lua")
         lines.push("-- so this file could be regenerated without discarding it. Loaded last.")
-        lines.push("pcall(require, " + root._luaStr(root._userModule) + ")")
+        lines.push("pcall(require, prefix .. " + root._luaStr("." + root._userModule) + ")")
         lines.push("")
         return lines.join("\n")
     }
 
     // _genConf is gone. It wrote the hyprlang fragment the seeded
-    // hyprland.conf sourced, and emitted an `unbind` line for every APEX
+    // hyprland.conf sourced, and emitted an `unbind` line for every Rime
     // default on every save because hyprlang had no way to disable one.
     // Hyprland 0.56.2 loads hyprland.lua and never mentions a .conf beside
     // it, so keeping the generator would have produced a file that looks
@@ -890,7 +931,7 @@ QtObject {
         return String(s).replace(/\\/g, "\\\\").replace(/"/g, "\\\"")
     }
 
-    // ── niri: what an APEX default becomes ────────────────────────────────────
+    // ── niri: what a Rime default becomes ────────────────────────────────────
     // Every name here was verified against the installed `niri msg action
     // --help` rather than remembered. A wrong verb is silent: niri rejects the
     // include and the user loses every binding in it, not just the bad one.
@@ -923,7 +964,7 @@ QtObject {
         // Not a browser name: opens whichever browser the user has set as
         // default, the same reason hyprland.conf and labwc's rc.xml stopped
         // naming one.
-        "$browser":     "/usr/libexec/apex-open-browser",
+        "$browser":     "/usr/libexec/rime-open-browser",
         "$fileManager": "thunar"
     })
 
@@ -956,7 +997,7 @@ QtObject {
 
         var lines = [
             "// ==============================================================================",
-            "// APEX Shell Keybinds (niri)",
+            "// Rime Shell Keybinds (niri)",
             "// Auto-generated by Quickshell. Do not edit manually.",
             "//",
             "// niri supports config includes since v25.11. To load these bindings, add this",
@@ -1029,7 +1070,7 @@ QtObject {
 
         // ── niri's own ALT+Tab ───────────────────────────────────────────────
         //
-        // The Hyprland session binds APEX's window switcher; niri keeps its own
+        // The Hyprland session binds Rime's window switcher; niri keeps its own
         // `recent-windows`, which has been a real hold-ALT-tap-Tab-release-ALT
         // switcher with MRU ordering and live previews since 25.11. The shell's
         // could not be given a hold-and-release there: it needs the compositor
@@ -1038,8 +1079,8 @@ QtObject {
         // about to activate), and niri has no release binding.
         //
         // Written out even though it is niri's DEFAULT, for the same reason
-        // apex-os writes `cursor { no_warps = false }` into the Hyprland seed
-        // when that too is the default: APEX's ALT+Tab must not be a thing a
+        // rime-os writes `cursor { no_warps = false }` into the Hyprland seed
+        // when that too is the default: Rime's ALT+Tab must not be a thing a
         // later upstream release can change its mind about. Only the binds are
         // named; every other recent-windows setting is deliberately left at
         // niri's value rather than re-stated here where it would rot.
@@ -1069,8 +1110,8 @@ QtObject {
         // breaking pre-v25.11 niri.
         if (!Compositor.isHyprland) return
 
-        // The APEX-seeded hyprland.lua already requires this module, so on an
-        // APEX machine this is a no-op every time. It exists for a hyprland.lua
+        // The Rime-seeded hyprland.lua already requires this module, so on an
+        // Rime machine this is a no-op every time. It exists for a hyprland.lua
         // the user wrote themselves, or one from before the module existed.
         //
         // `require`, not `dofile`. The previous Lua branch appended
@@ -1078,29 +1119,32 @@ QtObject {
         // home directory and re-ran the chunk on every reload without going
         // through package.loaded. require resolves because Hyprland prepends the
         // config file's own directory to package.path — which is also why the
-        // module had to move into ~/.config/hypr/apex to be nameable at all.
+        // module had to move into ~/.config/hypr/rime to be nameable at all.
         //
-        // Appended at the END so it loads after the APEX defaults, which is what
+        // Appended at the END so it loads after the Rime defaults, which is what
         // makes claim()/disable() reach a bind that already exists.
         // A machine still on hyprlang gets NOTHING out of this, and would get it
         // silently: the module is written, no hyprland.lua exists to require it,
         // and the Keybinds page looks like it worked. That is the exact shape of
         // the regression ShellState documents, so it is said out loud instead.
-        // /usr/libexec/apex-hypr-migrate is what fixes it, and on APEX it has
+        // /usr/libexec/rime-hypr-migrate is what fixes it, and on Rime it has
         // already run at login.
         if (ShellState.configProvider !== "lua") {
             console.warn("KeybindService: this session has no ~/.config/hypr/hyprland.lua, "
                          + "so the generated keybinds are not loaded by anything. "
                          + "Hyprland 0.55 deprecated hyprlang; run "
-                         + "/usr/libexec/apex-hypr-migrate to convert the config.")
+                         + "/usr/libexec/rime-hypr-migrate to convert the config.")
         }
 
         _includeProc.command = ["bash", "-c", [
             "LUA=\"$HOME/.config/hypr/hyprland.lua\"",
             "[ -f \"$LUA\" ] || exit 0",
-            "grep -q 'apex\\.shell-keybinds' \"$LUA\" && exit 0",
-            "grep -q 'apex(\"shell-keybinds\")' \"$LUA\" && exit 0",
-            "printf '\\n-- APEX Shell keybinds\\nrequire(\"apex.shell-keybinds\")\\n' >> \"$LUA\"",
+            // A hyprland.lua from before the rename requires the same module as
+            // apex.shell-keybinds; appending the rime name to it would load the
+            // generated binds twice.
+            "grep -qE '(rime|apex)\\.shell-keybinds' \"$LUA\" && exit 0",  // rime-rename: keep (the name an APEX hyprland.lua uses)
+            "grep -qE '(rime|apex)\\(\"shell-keybinds\"\\)' \"$LUA\" && exit 0",  // rime-rename: keep (the name an APEX hyprland.lua uses)
+            "printf '\\n-- Rime Shell keybinds\\nrequire(\"rime.shell-keybinds\")\\n' >> \"$LUA\"",
         ].join("\n")]
 
         _includeProc.running = false

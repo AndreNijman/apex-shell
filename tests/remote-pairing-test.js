@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Tests the APEX Remote pairing logic against the file the shell loads
+// Tests the Rime Remote pairing logic against the file the shell loads
 // (src/services/remotepairing.js), not a copy of it.
 //
 //   node tests/remote-pairing-test.js
@@ -7,14 +7,14 @@
 // ── Where the fixtures come from ─────────────────────────────────────────────
 //
 // The JSON below is transcribed from the OS side's own serialisation rather
-// than invented. `apex remote devices --json` prints a serde array of
-// apex_remote_core::device::Device (apexd/apex-remote-core/src/device.rs),
+// than invented. `rime remote devices --json` prints a serde array of
+// rime_remote_core::device::Device (rimed/rime-remote-core/src/device.rs),
 // whose optional fields carry `#[serde(default)]` and are therefore present as
 // `null` rather than absent — which is why the null cases below are the normal
-// shape and not a corner one. Read on the apex-os branch task/p1-052-relay at
+// shape and not a corner one. Read on the rime-os branch task/p1-052-relay at
 // 4cc8cb0c.
 //
-// The `ago` boundaries are transcribed from apexd/apex/src/remote.rs::ago, and
+// The `ago` boundaries are transcribed from rimed/rime/src/remote.rs::ago, and
 // asserted to match it, because a person who runs the command and then opens
 // the page should not have to work out whether two different readings mean the
 // same thing.
@@ -38,13 +38,13 @@ function check(name, got, want) {
 const NOW = 1789155000000;
 
 // ── the pairing payload ──────────────────────────────────────────────────────
-// `apex remote pair` without --text wraps the payload in qr_block()'s prose.
+// `rime remote pair` without --text wraps the payload in qr_block()'s prose.
 // The service passes --text, but the parser refuses prose anyway: a QR drawn
-// from a line of explanation is the exact failure `apex remote pair` refuses
+// from a line of explanation is the exact failure `rime remote pair` refuses
 // to risk, and "a phone scans it, fails, and the person concludes their camera
 // is broken" is the reason it refuses.
 
-const PAYLOAD = "apex-remote:eyJ2IjoxLCJtYWNoaW5lIjoibDE2In0";
+const PAYLOAD = "apex-remote:eyJ2IjoxLCJtYWNoaW5lIjoibDE2In0";  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 
 check("the payload is taken from stdout as printed", R.payloadOf(PAYLOAD + "\n"), PAYLOAD);
 check("surrounding whitespace is not part of the payload",
@@ -53,24 +53,24 @@ check("the payload is found even when prose is printed around it",
       R.payloadOf(PAYLOAD + "\n\n(No QR code here yet: this terminal build does not\n" +
                   "vendor an encoder, and a wrong QR is worse than none.)\n"), PAYLOAD);
 check("prose alone is not a payload",
-      R.payloadOf("apex: the service is not running\n"), "");
+      R.payloadOf("rime: the service is not running\n"), "");
 check("a bare scheme with nothing after it is not a payload",
-      R.payloadOf("apex-remote:"), "");
+      R.payloadOf("apex-remote:"), "");  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 check("another scheme is not a payload",
       R.payloadOf("https://example.invalid/pair"), "");
 check("empty stdout is not a payload", R.payloadOf(""), "");
 check("no stdout at all is not a crash", R.payloadOf(null), "");
-check("the scheme is the one apex-remote-core declares", R.SCHEME, "apex-remote:");
+check("the scheme is the one rime-remote-core declares", R.SCHEME, "apex-remote:");  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 
 // ── the offer inside the payload ─────────────────────────────────────────────
-// The expiry is read by decoding the payload, not by scraping `apex remote
+// The expiry is read by decoding the payload, not by scraping `rime remote
 // pair`'s stderr sentence ("It is good for N seconds"), which is prose and
 // would break the countdown the first time somebody reworded it. Decoding is
 // also the check that a truncated read is refused before a QR is drawn from
 // it -- a half-read payload is exactly the "phone scans it, fails, blames its
 // camera" failure the whole feature is built around avoiding.
 
-// Built the way apex_remote_core::pairing writes it: compact JSON, base64url,
+// Built the way rime_remote_core::pairing writes it: compact JSON, base64url,
 // no padding, behind the scheme.
 function offerPayload(offer) {
     return R.SCHEME + Buffer.from(JSON.stringify(offer)).toString("base64url");
@@ -88,7 +88,7 @@ check("a machine named in something other than ascii is not mojibake",
       R.decodeOffer(offerPayload({ machine: "l16-café-日本", expires_ms: 1 })).machine,
       "l16-café-日本");
 check("a payload that is not base64url is refused, not half-decoded",
-      R.decodeOffer("apex-remote:!!! not base64 !!!"), null);
+      R.decodeOffer("apex-remote:!!! not base64 !!!"), null);  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 check("a truncated payload is refused rather than parsed as much as fits",
       R.decodeOffer(R.SCHEME + Buffer.from('{"v":1,').toString("base64url")), null);
 check("an offer with no expiry is not an offer",
@@ -143,14 +143,14 @@ check("a device with no name falls back to its id, not to blank",
 
 check("a daemon that is not running does not raise", R.parseDevices(""), []);
 check("unparseable output does not raise",
-      R.parseDevices("apex: could not reach the service"), []);
+      R.parseDevices("rime: could not reach the service"), []);
 check("output that is not an array does not raise",
       R.parseDevices('{"reply":"error"}'), []);
 check("an entry with no id is dropped rather than rendered as a blank row",
       R.parseDevices('[{"name":"nameless"},{"id":"OK","name":"kept"}]').length, 1);
 
 // ── revoked is decided by revoked_ms alone, as the daemon decides it ─────────
-// Device::is_active() in apex-remote-core reads this field and nothing else.
+// Device::is_active() in rime-remote-core reads this field and nothing else.
 // A page that disagreed would offer a revoke button for a device that is
 // already gone, or withhold one from a device that can still connect.
 
@@ -192,7 +192,7 @@ check("an unknown state degrades to the quiet one rather than throwing",
       [R.token("nonsense"), R.weight("nonsense")], ["subtext", "plain"]);
 
 // ── time, in the units the terminal already uses ─────────────────────────────
-// Transcribed from apexd/apex/src/remote.rs::ago -- 0..=59 seconds, 60..=3599
+// Transcribed from rimed/rime/src/remote.rs::ago -- 0..=59 seconds, 60..=3599
 // minutes, 3600..=86399 hours, then days. Both sides of every boundary.
 
 check("a device never seen says never, not 'a long time ago'",
@@ -219,7 +219,7 @@ check("a revoked device is not counted as paired",
       R.summary(parsed, true), "2 devices paired.");
 
 // ── the verification claim, as a sentence and never as a tick ────────────────
-// apex-remote-core: "recorded as a requirement the owner set and not as a fact
+// rime-remote-core: "recorded as a requirement the owner set and not as a fact
 // about the device". The CLI prints it once at the end rather than as a column
 // because "a tick in a table would read as a fact this machine had verified".
 
@@ -254,22 +254,22 @@ check("a service that did answer is marked ok",
       R.parseStatus('{"version":1}').ok, true);
 
 // ── the argv the pages can run ───────────────────────────────────────────────
-// Everything through the `apex` CLI. That is the stability surface which
+// Everything through the `rime` CLI. That is the stability surface which
 // already handles an absent daemon and a version mismatch, and -- the part
 // that matters under test -- it is what headless_begin stubs. A page that
 // opened the control socket would walk past the stub and mint a real pairing
 // token on whatever machine the suite ran on.
 
-check("every command goes through the apex CLI",
+check("every command goes through the rime CLI",
       [R.PAIR_COMMAND[0], R.DEVICES_COMMAND[0], R.STATUS_COMMAND[0],
-       R.revokeCommand("x")[0]], ["apex", "apex", "apex", "apex"]);
+       R.revokeCommand("x")[0]], ["rime", "rime", "rime", "rime"]);
 check("pairing asks for the payload alone, not for qr_block's prose",
-      R.PAIR_COMMAND, ["apex", "remote", "pair", "--text"]);
+      R.PAIR_COMMAND, ["rime", "remote", "pair", "--text"]);
 check("the device list is read as json rather than scraped from the table",
-      R.DEVICES_COMMAND, ["apex", "remote", "devices", "--json"]);
-check("status is read as json", R.STATUS_COMMAND, ["apex", "remote", "status", "--json"]);
+      R.DEVICES_COMMAND, ["rime", "remote", "devices", "--json"]);
+check("status is read as json", R.STATUS_COMMAND, ["rime", "remote", "status", "--json"]);
 check("revoke names the device by id", R.revokeCommand("AAAA"),
-      ["apex", "remote", "revoke", "AAAA"]);
+      ["rime", "remote", "revoke", "AAAA"]);
 check("revoke is the only command that changes anything",
       [R.PAIR_COMMAND, R.DEVICES_COMMAND, R.STATUS_COMMAND]
           .filter(c => /revoke|remove|delete|reset/.test(c.join(" "))), []);

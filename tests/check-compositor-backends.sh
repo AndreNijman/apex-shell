@@ -218,7 +218,7 @@ HYPRCTL_ALLOWED=(
     # `hyprctl binds -j` (the capture-conflict cache) and `hyprctl reload`.
     # Keybind generation is 5.3, not 5.2, and there is nothing to migrate these
     # onto: `binds` has no analogue anywhere else — labwc's bindings are
-    # generated into rc.xml by apex-labwc-keybinds and niri live-reloads its
+    # generated into rc.xml by rime-labwc-keybinds and niri live-reloads its
     # own config — so a capability here would wrap a one-backend feature in a
     # one-backend capability and answer false everywhere it was asked.
     "src/services/config_tab/KeybindService.qml"
@@ -298,15 +298,15 @@ done
 # could not see, and did not see, that PowerControl.sh's logout had no labwc
 # branch at all, that its desktopmode passed a hardcoded `hyprland`, or that
 # DpmsControl.sh fell out of its if/elif into `exit 0` on labwc. Three functions
-# were dead on a session APEX ships and every assertion in this file passed.
+# were dead on a session Rime ships and every assertion in this file passed.
 #
 # So this section asks the opposite question, by NAME and never by count: for
-# each compositor APEX ships, does each dispatching script resolve a real,
+# each compositor Rime ships, does each dispatching script resolve a real,
 # distinct command?
 #
 # It drives the scripts' own entry points rather than the resolver functions
 # they call. Testing the resolver would reproduce the original hole one level
-# down — apex_dpms_command could cover labwc perfectly while DpmsControl.sh
+# down — rime_dpms_command could cover labwc perfectly while DpmsControl.sh
 # still failed to call it.
 COMPOSITORS=(hyprland niri labwc)
 
@@ -350,29 +350,29 @@ DISPATCH=(
 # `covers` above demands a DISTINCT command per compositor, which is the right
 # question for a verb whose whole risk is hardcoding one compositor's tool —
 # desktopmode did exactly that and sent labwc and niri users into Hyprland.
-# gamingmode is the opposite case: APEX ships ONE gaming session, so the same
+# gamingmode is the opposite case: Rime ships ONE gaming session, so the same
 # command is correct everywhere and `covers` would fail it for being right.
 #
 # The consequence was that gamingmode was the only verb in PowerControl.sh with
 # no assertion of any kind. That matters more than the others, not less,
-# because of what it invokes: `apex-session-select <id> --switch` is
+# because of what it invokes: `rime-session-select <id> --switch` is
 # `loginctl terminate-user`, which ends EVERY logind session for the uid and
 # tears down user-<uid>.slice. So the argv is pinned exactly, rather than merely
 # being required to exist.
 #
 # %HELPER% is substituted with the fixture's stub helper path.
 IDENTICAL=(
-    "src/scripts/PowerControl.sh	gamingmode	sudo -n %HELPER% apex-gaming --switch"
+    "src/scripts/PowerControl.sh	gamingmode	sudo -n %HELPER% rime-gaming --switch"
 )
 
 # ── The fixture ──────────────────────────────────────────────────────────────
 # Two things make it safe to run a logout script on the developer's desktop.
 #
-# 1. APEX_COMPOSITOR_DRY_RUN makes apex_run print its argv and return instead of
+# 1. RIME_COMPOSITOR_DRY_RUN makes rime_run print its argv and return instead of
 #    exec'ing, and this file asserts below that no `exec` survives outside
-#    apex_run — so "the dry run cannot act" is checked, not promised.
+#    rime_run — so "the dry run cannot act" is checked, not promised.
 # 2. PATH is replaced with a directory holding only dirname/tr/mkdir. Even if
-#    (1) were broken, apex_run's own `command -v` guard would find no hyprctl,
+#    (1) were broken, rime_run's own `command -v` guard would find no hyprctl,
 #    no labwc, no niri, no sudo and no loginctl, and return 127 before exec.
 fix="$(mktemp -d)"
 trap 'rm -rf "$fix"' EXIT
@@ -380,26 +380,26 @@ mkdir -p "$fix/bin" "$fix/wayland-sessions"
 for u in dirname tr mkdir; do
     p="$(command -v "$u" 2>/dev/null)" && ln -sf "$p" "$fix/bin/$u"
 done
-# The session ids apex-session-select would validate against, so desktopmode has
-# something installed to choose. apex-labwc, not labwc: that is the name APEX
+# The session ids rime-session-select would validate against, so desktopmode has
+# something installed to choose. rime-labwc, not labwc: that is the name Rime
 # ships, and picking the wrong one is the bug this pair of names exists to catch.
-for s in hyprland niri apex-labwc apex-gaming; do
+for s in hyprland niri rime-labwc rime-gaming; do
     printf '[Desktop Entry]\nName=%s\n' "$s" > "$fix/wayland-sessions/$s.desktop"
 done
-printf '#!/bin/sh\nexit 0\n' > "$fix/apex-session-select"
-chmod +x "$fix/apex-session-select"
+printf '#!/bin/sh\nexit 0\n' > "$fix/rime-session-select"
+chmod +x "$fix/rime-session-select"
 
 # resolve <scripts-root> <script> <verb> <compositor> — the command that script
 # would run. Empty when it resolves nothing, which is what a missing branch does.
 resolve() {
     env -i \
         PATH="$fix/bin" \
-        APEX_COMPOSITOR="$4" \
-        APEX_COMPOSITOR_DRY_RUN=1 \
-        APEX_SESSION_LOGOUT="$fix/absent-session-logout" \
-        APEX_SESSION_HELPER="$fix/apex-session-select" \
-        APEX_SESSION_DIR="$fix/wayland-sessions" \
-        APEX_DESKTOP_SESSION_STATE="$fix/absent-desktop-session" \
+        RIME_COMPOSITOR="$4" \
+        RIME_COMPOSITOR_DRY_RUN=1 \
+        RIME_SESSION_LOGOUT="$fix/absent-session-logout" \
+        RIME_SESSION_HELPER="$fix/rime-session-select" \
+        RIME_SESSION_DIR="$fix/wayland-sessions" \
+        RIME_DESKTOP_SESSION_STATE="$fix/absent-desktop-session" \
         "$BASH" "$1/$2" "$3" 2>/dev/null
 }
 # By absolute path: `env -i` resolves the program it runs against the PATH it
@@ -447,7 +447,7 @@ for d in "${IDENTICAL[@]}"; do
     script="$(printf '%s' "$d" | cut -f1)"
     verb="$(printf '%s' "$d" | cut -f2)"
     expect="$(printf '%s' "$d" | cut -f3)"
-    expect="${expect//%HELPER%/$fix/apex-session-select}"
+    expect="${expect//%HELPER%/$fix/rime-session-select}"
 
     first=""
     same=1
@@ -479,7 +479,7 @@ for d in "${IDENTICAL[@]}"; do
         echo "          got: $first"
     fi
 
-    # The destructive call lives INSIDE apex-session-select, which is a stub
+    # The destructive call lives INSIDE rime-session-select, which is a stub
     # here. If either name ever appears in what PowerControl.sh itself resolves,
     # this file is one broken dry-run away from ending the developer's session.
     for danger in terminate-user loginctl; do
@@ -491,8 +491,8 @@ for d in "${IDENTICAL[@]}"; do
     done
 done
 
-# ── The dry run is only safe while apex_run is the only exec ─────────────────
-# One `exec` in compositor.sh (inside apex_run) and none anywhere else. A new
+# ── The dry run is only safe while rime_run is the only exec ─────────────────
+# One `exec` in compositor.sh (inside rime_run) and none anywhere else. A new
 # `exec sudo …` in PowerControl.sh would be invisible to the coverage probe and
 # would make running this check on a live desktop destructive.
 execs_in() {
@@ -502,14 +502,14 @@ execs_in() {
 for f in src/scripts/PowerControl.sh src/scripts/DpmsControl.sh; do
     hits="$(execs_in "$f")"
     if [ -z "$hits" ]; then
-        ok "$f execs nothing outside apex_run"
+        ok "$f execs nothing outside rime_run"
     else
-        bad "$f execs outside apex_run"
+        bad "$f execs outside rime_run"
         echo "$hits" | sed 's/^/          /'
     fi
 done
 adapter_execs="$(execs_in src/scripts/compositor.sh)"
-want "compositor.sh keeps exactly one exec (apex_run's)" \
+want "compositor.sh keeps exactly one exec (rime_run's)" \
     test "$(grep -c . <<< "$adapter_execs")" -eq 1
 
 # ── Prose cannot satisfy any of the above ────────────────────────────────────

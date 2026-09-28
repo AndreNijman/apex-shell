@@ -13,3 +13,4 @@
 /.service-tier-test.qml
 /.compositor-facade-test.qml
 /.plugin-host-test.qml
+/.agent-settings-legacy-test.qml

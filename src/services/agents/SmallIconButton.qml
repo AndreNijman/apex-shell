@@ -5,11 +5,11 @@ import "../../components/controls"
 
 // A small glyph button with a tooltip (the Agent Center's row actions).
 //
-// ApexIconButton (UI/UX roadmap v3 Phase 16): transparent at rest, the state
+// RimeIconButton (UI/UX roadmap v3 Phase 16): transparent at rest, the state
 // layer on hover and press, a .96 dip, a ring for keyboard focus only, and
 // reachable with Tab and operable with Space/Return — it was pointer-only. A
 // press does not take focus, so it never takes the keys from a field beside it.
-ApexIconButton {
+RimeIconButton {
     id: btn
 
     property string icon: ""

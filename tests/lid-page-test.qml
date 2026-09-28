@@ -36,9 +36,9 @@ import "./src/nexus"
 // aborts the run if the socket it ends up on is not inside that directory. No
 // window reaches anybody's desk, which on this machine is not a nicety.
 //
-// ── The `apex` here is a STUB, and it has to be ─────────────────────────────
+// ── The `rime` here is a STUB, and it has to be ─────────────────────────────
 //
-// `apex lid pin` WRITES the invoking user's ~/.config/apex/lid.toml, and the
+// `rime lid pin` WRITES the invoking user's ~/.config/rime/lid.toml, and the
 // root driver reads that file to decide whether this laptop suspends. A suite
 // that ran the real command would repin the machine it is running on, several
 // times per run. The runner replaces the stub tests/lib/headless.sh installs
@@ -52,20 +52,20 @@ import "./src/nexus"
 // ── Five phases ─────────────────────────────────────────────────────────────
 //
 //   docked       the real L16 capture: an external display, so logind ignores
-//                the lid and APEX is not why. The page must say that and must
+//                the lid and Rime is not why. The page must say that and must
 //                render `policy_error` as a note rather than a failure.
 //   working      undocked, pinned on, with a real closed period to report
 //   guard        a thermal guard, which must outrank the docked frame because
-//                a guard suspend is APEX calling systemctl itself
-//   unreadable   `apex` fails. The page must say so and must not throw
+//                a guard suspend is Rime calling systemctl itself
+//   unreadable   `rime` fails. The page must say so and must not throw
 //   pixels       the built page is rasterised and the image inspected
 // ─────────────────────────────────────────────────────────────────────────────
 ShellRoot {
     id: root
 
-    readonly property string phase: Quickshell.env("APEX_LP_PHASE") || "docked"
-    readonly property string callLog: Quickshell.env("APEX_LP_CALLS") || ""
-    readonly property string grabPath: Quickshell.env("APEX_LP_GRAB") || ""
+    readonly property string phase: Quickshell.env("RIME_LP_PHASE") || "docked"
+    readonly property string callLog: Quickshell.env("RIME_LP_CALLS") || ""
+    readonly property string grabPath: Quickshell.env("RIME_LP_GRAB") || ""
 
     property int passed: 0
     property int failed: 0
@@ -290,7 +290,7 @@ ShellRoot {
         }
         // Nothing has been asked of the machine yet. LidService is refcounted
         // on `onScreen` precisely so that a page nobody is looking at spawns no
-        // pair of `apex` processes every fifteen seconds.
+        // pair of `rime` processes every fifteen seconds.
         //
         // The call log alone does NOT prove that, and this suite measured it:
         // an ungated `running: true` on the sweep timer SURVIVED the log
@@ -298,7 +298,7 @@ ShellRoot {
         // read in the first second of the run. So the timer itself is
         // inspected, which is the only thing that can fail in the first second.
         root.readLog(function () {
-            root.eq("nothing was asked of apex before the page was shown",
+            root.eq("nothing was asked of rime before the page was shown",
                     root.lines.length, 0)
             root.eq("nobody holds a reference on the service yet",
                     LidService.refCount, 0)
@@ -324,7 +324,7 @@ ShellRoot {
             const before = root.lines.length
             root.settle(function () {
                 root.readLog(function () {
-                    root.eq("and nothing further was asked of apex",
+                    root.eq("and nothing further was asked of rime",
                             root.lines.length, before)
                     root.next()
                 })
@@ -354,7 +354,7 @@ ShellRoot {
     // The real L16 capture. This is the case the page is SHAPED around: an
     // external display means logind consults HandleLidSwitchDocked (default
     // `ignore`) before any inhibitor, so the lid does nothing whatever the pin
-    // says and APEX is not the reason it stays awake.
+    // says and Rime is not the reason it stays awake.
 
     function dockedSteps() {
         return [
@@ -379,14 +379,14 @@ ShellRoot {
         // refuses to claim credit for somebody else's behaviour.
         root.check("the page says the machine already ignores the lid",
                    root.showing("already ignores the lid") !== null)
-        root.check("…and that APEX is not why",
-                   root.showing("APEX is not why") !== null)
+        root.check("…and that Rime is not why",
+                   root.showing("Rime is not why") !== null)
         root.check("…and names the setting that beats the inhibitor",
                    root.showing("HandleLidSwitchDocked") !== null)
         root.check("…and tells the owner what to do about it",
                    root.showing("Unplug the display") !== null)
 
-        // The dock is a WARNING, not a failure. A machine whose lid APEX does
+        // The dock is a WARNING, not a failure. A machine whose lid Rime does
         // not control is not a broken machine, and painting it in the danger
         // tone would teach the reader that red means nothing on this page.
         root.eq("the docked frame is drawn as a warning", LidService.logind.tone, "warn")
@@ -549,7 +549,7 @@ ShellRoot {
         root.readLog(function () {
             const before = root.lines.length
             pill.Accessible.onPressAction()
-            root.waitFor("the pin to be handed to apex",
+            root.waitFor("the pin to be handed to rime",
                          function () { return !LidService.busy },
                          function () {
                              root.readLog(function () {
@@ -594,7 +594,7 @@ ShellRoot {
     // it is a defect this suite's node half already found once: a guard suspend
     // is the driver releasing the inhibitor and calling `systemctl suspend`
     // ITSELF, so it fires docked or not, and a page that showed the docked
-    // frame instead would tell an owner their lid does nothing while APEX was
+    // frame instead would tell an owner their lid does nothing while Rime was
     // suspending their laptop.
 
     function guardSteps() {
@@ -619,7 +619,7 @@ ShellRoot {
 
     // ── phase: unreadable ────────────────────────────────────────────────────
     //
-    // `apex` fails. This is the phase the TypeError at the top of this file
+    // `rime` fails. This is the phase the TypeError at the top of this file
     // would be found in, and the runner treats any TypeError in the log as a
     // failure for exactly that reason.
 

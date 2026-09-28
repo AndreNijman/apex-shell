@@ -57,7 +57,7 @@
 #  ── How the files get put back ─────────────────────────────────────────────
 #
 #  A pristine copy into a per-run mktemp directory, restored with plain `cp`,
-#  every restore VERIFIED by sha256. Not `git checkout --`: apex-shell's
+#  every restore VERIFIED by sha256. Not `git checkout --`: rime-shell's
 #  arch-validate job installs git AFTER actions/checkout, so the workspace has
 #  no .git at all.
 #
@@ -405,7 +405,7 @@ hold G1 "$LOCK" '                        Accessible.passwordEdit: true' \
     'the suite reads the BUS, not the QML source'
 
 hold G2 "$LOCK" '                        Accessible.role:         Accessible.EditableText' \
-                '                        objectName: "apex-mutation-hold"
+                '                        objectName: "rime-mutation-hold"
                         Accessible.role:         Accessible.EditableText' \
     'a property nothing asserts is not a failure'
 

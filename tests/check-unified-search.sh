@@ -322,7 +322,7 @@ check_tree() {
         has "$al" 'root\.previewInfo\.commandLine'
     want "the preview says when something cannot be undone" \
         has "$al" 'This cannot be undone\.'
-    # `apex resolve` is read-only and needs no root, which is what makes it
+    # `rime resolve` is read-only and needs no root, which is what makes it
     # usable as a preview. It must be started by ACTIVATION and never by
     # selection: arrowing down twenty package rows must not run twenty of them.
     want "resolve is started when a preview opens" \
@@ -716,7 +716,7 @@ fresh_copy "$MUT/c1"
     echo '// and had a timer with'
     echo '//     running: true'
     echo '// on it, plus a Process { } of its own and an import Quickshell.Io.'
-    echo '//     command: ["bash", "-c", "apex search " + term]'
+    echo '//     command: ["bash", "-c", "rime search " + term]'
     echo '// None of that is here now.'
 } >> "$MUT/c1/src/services/SearchService.qml"
 {

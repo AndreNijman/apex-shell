@@ -9,8 +9,8 @@ import "../"
 // Audio routing (fixed):
 //   none        → no -a flag; launch directly
 //   mic only    → pactl get-default-source → pass directly to wf-recorder
-//   system only → ApexShellMixer null sink + loopback from sink.monitor
-//   both        → ApexShellMixer null sink + loopback from sink.monitor
+//   system only → RimeShellMixer null sink + loopback from sink.monitor
+//   both        → RimeShellMixer null sink + loopback from sink.monitor
 //                 + loopback from default source (mic)
 //
 // The null sink is torn down after every recording (saved or discarded).
@@ -55,7 +55,7 @@ QtObject {
     property int    elapsed:        0
     property string _currentFile:   ""   // tracked so discard can delete it
     property bool   _discarding:    false // true when discardRecording() was called
-    property bool   _usingNullSink: false // true while ApexShellMixer is active
+    property bool   _usingNullSink: false // true while RimeShellMixer is active
 
     readonly property string elapsedDisplay: {
         var m = Math.floor(elapsed / 60)
@@ -87,7 +87,7 @@ QtObject {
     }
 
     Component.onCompleted: {
-        var path = Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/screenrec.json"
+        var path = Quickshell.env("HOME") + "/.config/rime-shell/src/user_data/screenrec.json"
         configView.path = path
         _initConfig.command = [
             "bash", "-c",
@@ -110,7 +110,7 @@ QtObject {
     }
 
     function saveConfig() {
-        var path = Quickshell.env("HOME") + "/.config/apex-shell/src/user_data/screenrec.json"
+        var path = Quickshell.env("HOME") + "/.config/rime-shell/src/user_data/screenrec.json"
         var data = JSON.stringify({
             captureTarget: root.captureTarget,
             audioMic:      root.audioMic,
@@ -194,8 +194,8 @@ QtObject {
     //
     // none:        call _launch() immediately — no audio device, no null sink.
     // mic only:    get default PulseAudio source; pass straight to wf-recorder.
-    // system only: create ApexShellMixer null sink, route sink.monitor into it.
-    // both:        create ApexShellMixer null sink, route sink.monitor AND
+    // system only: create RimeShellMixer null sink, route sink.monitor into it.
+    // both:        create RimeShellMixer null sink, route sink.monitor AND
     //              default source (mic) into it via two loopback modules.
     //
     function _resolveAudio() {
@@ -217,7 +217,7 @@ QtObject {
             return
         }
 
-        // System audio (alone or combined with mic) — needs ApexShellMixer
+        // System audio (alone or combined with mic) — needs RimeShellMixer
         root._usingNullSink = true
 
         var script =
@@ -226,20 +226,20 @@ QtObject {
             "pactl unload-module module-null-sink 2>/dev/null; " +
             "sleep 0.3; " +
             // Create the virtual mixer sink
-            "pactl load-module module-null-sink sink_name=ApexShellMixer >/dev/null; " +
+            "pactl load-module module-null-sink sink_name=RimeShellMixer >/dev/null; " +
             "sleep 0.3; " +
-            // Route system audio (default sink monitor) into ApexShellMixer
+            // Route system audio (default sink monitor) into RimeShellMixer
             "pactl load-module module-loopback " +
-            "sink=ApexShellMixer source=$(pactl get-default-sink).monitor >/dev/null"
+            "sink=RimeShellMixer source=$(pactl get-default-sink).monitor >/dev/null"
 
         if (root.audioMic && root.audioSystem) {
-            // Also route mic into ApexShellMixer
+            // Also route mic into RimeShellMixer
             script += "; pactl load-module module-loopback " +
-                      "sink=ApexShellMixer source=$(pactl get-default-source) >/dev/null"
+                      "sink=RimeShellMixer source=$(pactl get-default-source) >/dev/null"
         }
 
         // Emit the recording device name as the final stdout line
-        script += "; printf 'ApexShellMixer.monitor\\n'"
+        script += "; printf 'RimeShellMixer.monitor\\n'"
 
         _audioDeviceProc.command = ["bash", "-c", script]
         _audioDeviceProc.running = false
@@ -476,10 +476,10 @@ QtObject {
 
         _cavaRecProc.command = [
             "bash", "-c",
-            "mkdir -p /tmp/apex_shell && printf '%s\\n' '" +
+            "mkdir -p /tmp/rime_shell && printf '%s\\n' '" +
             config.replace(/'/g, "'\\''") +
-            "' > /tmp/apex_shell/cava_rec.ini && " +
-            "exec cava -p /tmp/apex_shell/cava_rec.ini 2>/dev/null"
+            "' > /tmp/rime_shell/cava_rec.ini && " +
+            "exec cava -p /tmp/rime_shell/cava_rec.ini 2>/dev/null"
         ]
         _cavaRecProc.running = false
         _cavaRecProc.running = true

@@ -87,7 +87,7 @@ esac
 exit 0
 FAKE
 chmod +x "$W/bin/_stub"
-for n in apex hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
+for n in rime hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
          brightnessctl pkcheck notify-send swww nmcli bluetoothctl \
          systemd-inhibit grimblast grim slurp wl-copy; do
     ln -sf "$W/bin/_stub" "$W/bin/$n"
@@ -109,7 +109,7 @@ export XDG_RUNTIME_DIR="$W/run"
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 0700 "$XDG_RUNTIME_DIR"
 export HOME="$W/home"
-mkdir -p "$HOME/.config/apex-shell/src/user_data" "$HOME/.local/share" \
+mkdir -p "$HOME/.config/rime-shell/src/user_data" "$HOME/.local/share" \
          "$HOME/Pictures/Wallpapers"
 export XDG_CONFIG_HOME="$HOME/.config"
 export XDG_DATA_HOME="$HOME/.local/share"
@@ -179,7 +179,7 @@ import QtQuick
 
 ShellRoot {
     FloatingWindow {
-        title:          "apex-labwc-matrix-filler"
+        title:          "rime-labwc-matrix-filler"
         visible:        true
         implicitWidth:  360
         implicitHeight: 240

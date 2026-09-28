@@ -54,7 +54,7 @@
 #         value-bar file holds one.
 #
 #  Run from anywhere: ./tests/check-wheel-value.sh
-#  Point it at another tree with APEX_WHEEL_SRC=/path/to/src (used to prove it
+#  Point it at another tree with RIME_WHEEL_SRC=/path/to/src (used to prove it
 #  fails on the code as it was before UI-004 was fixed).
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
@@ -65,7 +65,7 @@ pass=0; fail=0
 ok()  { printf '  ok   %s\n' "$1"; pass=$((pass+1)); }
 bad() { printf '  FAIL %s\n' "$1"; fail=$((fail+1)); }
 
-SRC="${APEX_WHEEL_SRC:-src}"
+SRC="${RIME_WHEEL_SRC:-src}"
 [ -d "$SRC" ] || { echo "FATAL: no $SRC directory" >&2; exit 2; }
 
 # ── The allowlist: wheel sites that are navigation or scrolling ─────────────
@@ -367,8 +367,8 @@ mutate "a wheel handler on the brightness bar" \
 recheck_cfg() { grep -q "^src/components/config/" < <(mut_found); }
 mutate "a bare onWheel on a MouseArea in a settings control" \
     "src/components/config/CfgSwitch.qml" \
-    "    ApexFocusRing { target: root }" \
-    "    ApexFocusRing { target: root }
+    "    RimeFocusRing { target: root }" \
+    "    RimeFocusRing { target: root }
     MouseArea {
         anchors.fill: parent
         onWheel:      function(w) { root.toggle() }

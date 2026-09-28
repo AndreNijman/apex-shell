@@ -5,7 +5,7 @@
 #
 #  ONLY ever run on a private session bus (dbus-run-session). On the desktop's
 #  bus it would register in the real tray; the caller refuses unless
-#  APEX_CAPTURE_BUS=private, and this refuses too.
+#  RIME_CAPTURE_BUS=private, and this refuses too.
 #
 #  The menu is First / Second / — / Third. A row that is chosen prints
 #  `CLICKED <label>` on stdout, so the caller can tell which one the keyboard
@@ -16,8 +16,8 @@ import gi
 gi.require_version("Gio", "2.0")
 from gi.repository import Gio, GLib
 
-if os.environ.get("APEX_CAPTURE_BUS") != "private":
-    sys.exit("fake-tray-item: refusing — APEX_CAPTURE_BUS=private (a dbus-run-session bus) is required")
+if os.environ.get("RIME_CAPTURE_BUS") != "private":
+    sys.exit("fake-tray-item: refusing — RIME_CAPTURE_BUS=private (a dbus-run-session bus) is required")
 
 ITEM_XML = """
 <node><interface name="org.kde.StatusNotifierItem">
@@ -76,7 +76,7 @@ def on_item_call(conn, sender, path, iface, method, params, inv):
     inv.return_value(None)
 
 def on_item_prop(conn, sender, path, iface, prop):
-    return {"Category": GLib.Variant("s", "ApplicationStatus"), "Id": GLib.Variant("s", "apex-fake-tray"),
+    return {"Category": GLib.Variant("s", "ApplicationStatus"), "Id": GLib.Variant("s", "rime-fake-tray"),
             "Title": GLib.Variant("s", "Fake tray item"), "Status": GLib.Variant("s", "Active"),
             "IconName": GLib.Variant("s", "dialog-information"), "ItemIsMenu": GLib.Variant("b", True),
             "Menu": GLib.Variant("o", "/Menu")}[prop]

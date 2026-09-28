@@ -10,7 +10,7 @@ import "scaling.js" as Scaling
 //
 // Every size in here used to be an absolute pixel literal calibrated against a
 // 1080p panel, which is why the shell looked correct on exactly one class of
-// monitor and wrong on every other. APEX-OS deliberately runs outputs at
+// monitor and wrong on every other. Rime OS deliberately runs outputs at
 // Hyprland scale 1.0 (an `auto` scale that cannot resolve to an integer buffer
 // size errors the monitor rule out entirely, which is a worse failure than a
 // small UI), so compensating for pixel density is the shell's job, not the

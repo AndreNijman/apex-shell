@@ -30,7 +30,7 @@ import "../agentstate.js" as AgentState
 //
 // ── WHY REMOTE AGENT STATUS LIVES HERE AND NOT IN THE BAR ───────────────────
 //
-// §20 asks for remote agent status "in the local APEX Shell", and there were
+// §20 asks for remote agent status "in the local Rime Shell", and there were
 // two candidate surfaces: this page, or an indicator in the top bar next to
 // the tray. The bar was rejected, and the reason is worth writing down because
 // it looks like a UX preference and is actually a hard constraint.
@@ -47,7 +47,7 @@ import "../agentstate.js" as AgentState
 // icon that is usually absent, is not a feature.
 //
 // Conditional appearance is still honoured — just at the level where it is
-// free. `apex host list` is a local file read, so "is any device registered at
+// free. `rime host list` is a local file read, so "is any device registered at
 // all?" costs nothing, and on a machine with no trusted devices the section
 // does not exist and this page looks exactly as it did before. The per-device
 // ssh only ever happens while this page is genuinely in front of the user.
@@ -94,7 +94,7 @@ Item {
         _requests.length === 0 && AgentService.sessions.length === 0
 
     // Whether §20's remote section has anything at all to draw. This is a
-    // local file read (`apex host list`), never an ssh, so it is safe to ask
+    // local file read (`rime host list`), never an ssh, so it is safe to ask
     // it in a binding.
     readonly property bool _hasRemote: RemoteAgentService.hosts.length > 0
 
@@ -232,7 +232,7 @@ Item {
             title: "The agent runtime is not running"
             hint: "It is opt-in. Running claude, opencode or codex directly "
                 + "works exactly as it always did. To turn it on:"
-            command: "apex agent enable"
+            command: "rime agent enable"
         }
 
         // ── Nothing to show ──────────────────────────────────────────────────────
@@ -246,7 +246,7 @@ Item {
             glyph: "󰚩"
             title: "No agent sessions"
             hint: "Start one from a terminal with the a command, or:"
-            command: "apex agent run"
+            command: "rime agent run"
         }
 
         // ── The list ─────────────────────────────────────────────────────────────
@@ -387,7 +387,7 @@ Item {
                         anchors.leftMargin: theme.px(4)
                         anchors.bottom: parent.bottom
                         text: "This machine's agent runtime is not running  ·  "
-                              + "apex agent enable"
+                              + "rime agent enable"
                         color: Theme.subtext
                         font.pixelSize: theme.fs(10)
                     }
@@ -464,7 +464,7 @@ Item {
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
                         wrapMode: Text.WordWrap
-                        text: "Attach with  apex host run -t <device> -- apex agent attach <id>"
+                        text: "Attach with  rime host run -t <device> -- rime agent attach <id>"
                         color: Theme.subtext
                         font.pixelSize: theme.fs(9)
                     }

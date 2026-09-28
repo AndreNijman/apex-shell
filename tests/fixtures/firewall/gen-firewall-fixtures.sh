@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
 #  gen-firewall-fixtures.sh — regenerate tests/fixtures/firewall/* from the
-#  REAL `apex-firewall` helper in an apex-os checkout (roadmap P1-044/P2-006).
+#  REAL `rime-firewall` helper in a rime-os checkout (roadmap P1-044/P2-006).
 #
 #  ── WHY THIS FILE EXISTS ────────────────────────────────────────────────────
 #
@@ -11,7 +11,7 @@
 #  record of the machine and becomes a record of the machine on the day
 #  somebody ran the command. Two of them had already drifted by 2026-09-14:
 #
-#    * STATUS_LOADED was captured before apex-os `c7a28f2c` put the shared-links
+#    * STATUS_LOADED was captured before rime-os `c7a28f2c` put the shared-links
 #      block into the status screen. With the policy loaded the helper now
 #      prints two more lines, between the "always allowed" heading and the
 #      "exceptions you have added" heading — and the shell's parser assigned
@@ -21,7 +21,7 @@
 #      longer print.
 #
 #    * LIST was captured with eleven services. The shipped catalogue
-#      (files/system/firewall/services) has had twelve since `apex-remote
+#      (files/system/firewall/services) has had twelve since `rime-remote
 #      tcp 7717` was added. The suite asserted the count was eleven, so it was
 #      asserting the catalogue of an older image.
 #
@@ -31,26 +31,26 @@
 #
 #  ── WHAT --check CAN AND CANNOT BE ──────────────────────────────────────────
 #
-#  It needs BOTH repositories, so it cannot run in apex-shell's CI, which
-#  checks out apex-shell alone. Stated plainly rather than hidden behind a
+#  It needs BOTH repositories, so it cannot run in rime-shell's CI, which
+#  checks out rime-shell alone. Stated plainly rather than hidden behind a
 #  skip: this is a gate for a machine that has both trees — a developer's, or
 #  the integrator's — and it is not a pipeline step.
 #
 #  What defends the user's machine is not this script. It is
-#  src/services/firewall.js validating the SHAPE of `apex firewall status
+#  src/services/firewall.js validating the SHAPE of `rime firewall status
 #  --json` and answering "could not be read" when it does not match, instead of
 #  rendering whatever a prose line happened to land on. Drift is loud there.
 #  This script is how the fixtures stop being stale between now and then.
 #
 #  ── USAGE ───────────────────────────────────────────────────────────────────
 #
-#      tests/fixtures/firewall/gen-firewall-fixtures.sh [--check] [APEX_OS_DIR]
-#      APEX_OS=/path/to/apex-os tests/fixtures/firewall/gen-firewall-fixtures.sh
+#      tests/fixtures/firewall/gen-firewall-fixtures.sh [--check] [RIME_OS_DIR]
+#      RIME_OS=/path/to/rime-os tests/fixtures/firewall/gen-firewall-fixtures.sh
 #
 #  ── WHY A COPY OF THE HELPER ────────────────────────────────────────────────
 #
 #  CONF_DIR is a readonly constant naming the live machine's
-#  /etc/apex/firewall.d. This runs on a developer's laptop and must never write
+#  /etc/rime/firewall.d. This runs on a developer's laptop and must never write
 #  exception files there, so the fixtures go in a temporary directory and the
 #  helper that is driven is a COPY whose one constant is redirected.
 #
@@ -58,7 +58,7 @@
 #  copy is identical to its source and every capture below silently becomes a
 #  capture of whatever happens to be in the live machine's exception directory.
 #  So the redirect is asserted, as a hard failure and not a skip — the same
-#  guard apex-os's tests/test-apex-firewall.sh puts on the same copy.
+#  guard rime-os's tests/test-rime-firewall.sh puts on the same copy.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
@@ -72,27 +72,27 @@ for a in "$@"; do
         *)       osdir="$a" ;;
     esac
 done
-[ -n "$osdir" ] || osdir="${APEX_OS:-}"
+[ -n "$osdir" ] || osdir="${RIME_OS:-}"
 if [ -z "$osdir" ]; then
     # Siblings and the canonical checkout only. A scratch worktree path was
     # listed here once and taken straight back out: a stale tree sitting at a
     # remembered path is a SOURCE that has drifted, and capturing from it
     # without being asked is precisely the failure this script exists to stop.
-    for c in "$here/../../../../apex-os" "$here/../../../../../apex/apex-os" \
-             "$HOME/Projects/apex/apex-os"; do
-        [ -r "$c/files/system/libexec/apex-firewall" ] && osdir="$c" && break
+    for c in "$here/../../../../rime-os" "$here/../../../../../rime/rime-os" \
+             "$HOME/Projects/rime/rime-os"; do
+        [ -r "$c/files/system/libexec/rime-firewall" ] && osdir="$c" && break
     done
 fi
 
-HELPER="$osdir/files/system/libexec/apex-firewall"
+HELPER="$osdir/files/system/libexec/rime-firewall"
 CAT="$osdir/files/system/firewall/services"
 if [ ! -r "$HELPER" ] || [ ! -r "$CAT" ]; then
-    echo "FATAL: no apex-os checkout with files/system/libexec/apex-firewall." >&2
-    echo "       Pass one as an argument or set APEX_OS." >&2
+    echo "FATAL: no rime-os checkout with files/system/libexec/rime-firewall." >&2
+    echo "       Pass one as an argument or set RIME_OS." >&2
     exit 2
 fi
 osdir="$(cd "$osdir" && pwd)"
-HELPER="$osdir/files/system/libexec/apex-firewall"
+HELPER="$osdir/files/system/libexec/rime-firewall"
 CAT="$osdir/files/system/firewall/services"
 
 WORK="$(mktemp -d)"
@@ -105,7 +105,7 @@ sed -e "s#^readonly CONF_DIR=.*#readonly CONF_DIR=$WORK/conf#" \
     "$HELPER" > "$WORK/fw"
 grep -q "^readonly CONF_DIR=$WORK/conf\$" "$WORK/fw" || {
     echo "FATAL: the CONF_DIR redirect did not apply. Every fixture below would" >&2
-    echo "       have been a capture of the LIVE machine's /etc/apex/firewall.d." >&2
+    echo "       have been a capture of the LIVE machine's /etc/rime/firewall.d." >&2
     exit 1
 }
 grep -q "^readonly CATALOGUE=$CAT\$" "$WORK/fw" || {
@@ -124,7 +124,7 @@ done
 
 nft_shim() {  # $1 = loaded|notloaded|unreadable|absent, $2 = set body when loaded
     case "$1" in
-        loaded)     printf '#!/bin/bash\ncase "$*" in\n  "list table inet apex") echo ok; exit 0;;\n  "list set inet apex hotspot_ifaces") printf %%s "%s"; exit 0;;\nesac\nexit 0\n' "$2" > "$WORK/bin/nft"
+        loaded)     printf '#!/bin/bash\ncase "$*" in\n  "list table inet rime") echo ok; exit 0;;\n  "list set inet rime hotspot_ifaces") printf %%s "%s"; exit 0;;\nesac\nexit 0\n' "$2" > "$WORK/bin/nft"
                     chmod +x "$WORK/bin/nft" ;;
         notloaded)  printf '#!/bin/bash\necho "Error: No such file or directory" >&2\nexit 1\n' > "$WORK/bin/nft"
                     chmod +x "$WORK/bin/nft" ;;
@@ -160,7 +160,7 @@ nft_shim unreadable;  exceptions;                                             ca
 nft_shim unreadable;  exceptions broken='tcp notaport' mdns='udp 5353' syncthing='tcp 22000'
                                                                               capture unreadable-mixed  shim
 nft_shim loaded '';   exceptions;                                             capture loaded-none       shim
-nft_shim loaded 'elements = { "apexhost",
+nft_shim loaded 'elements = { "rimehost",
              "wlan0" }'
                       exceptions mdns='udp 5353' broken='tcp notaport';       capture loaded-hotspot    shim
 nft_shim notloaded;   exceptions mdns='udp 5353';                             capture notloaded         shim
@@ -201,7 +201,7 @@ fi
 
 cp "$WORK"/out/* "$here/"
 printf 'captured from %s\n' "$osdir" 
-( cd "$osdir" && git log -1 --format='  apex-firewall at %H  %ad' --date=short 2>/dev/null ) || true
+( cd "$osdir" && git log -1 --format='  rime-firewall at %H  %ad' --date=short 2>/dev/null ) || true
 for f in "$here"/*.txt "$here"/*.json; do
     [ -e "$f" ] && printf '  %s\n' "$(basename "$f")"
 done

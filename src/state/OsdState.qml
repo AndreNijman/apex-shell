@@ -13,7 +13,7 @@ import "../nexus"
 // It used to be a floating capsule (popups/Osd.qml) that detected changes and
 // drew itself below the notch. Andre, 2026-09-27: "make it actually part of
 // the top notch, like clean and part of the top notch, following the proper
-// design of apex." So the detection lives here and the NOTCH draws it
+// design of rime." So the detection lives here and the NOTCH draws it
 // (modules/Center/NotchOsd.qml inside TopBar: the island widens and the level
 // scrolls in like any other island item). The capsule is kept only for where
 // there is no notch to draw in — a fullscreen window unmaps the bar, focus

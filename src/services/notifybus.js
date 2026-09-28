@@ -16,16 +16,16 @@
 //   1. AgentService._noticeChanges sees the session's state become
 //      `permission_request` and notifies.
 //   2. AgentService._noticeRequests sees the matching record appear in
-//      `apex request pending` and notifies again. Same agent, same decision,
+//      `rime request pending` and notifies again. Same agent, same decision,
 //      two toasts, a second apart.
 //   3. Claude's own `PermissionRequest` hook published the state in (1), and
 //      its `Notification` hook publishes `waiting_for_user` for the same
 //      moment when the request is not a privilege escalation.
 //
 // And a fourth. This one is flapping rather than duplication, and it is the
-// worse of the two. apexd's PTY fallback promotes a silent session to
+// worse of the two. rimed's PTY fallback promotes a silent session to
 // `waiting_for_user` after IDLE_TO_WAITING_SECS = 10
-// (apex-agent-core/src/session.rs). An agent that
+// (rime-agent-core/src/session.rs). An agent that
 // thinks for twelve seconds between two tool calls therefore goes
 // working → waiting_for_user → working, and `_noticeChanges` fires on
 // transitions, so that is one CRITICAL notification per pause. Over a long
@@ -92,7 +92,7 @@
 
 // How long a standing attention notification suppresses a repeat of itself.
 //
-// Longer than apexd's IDLE_TO_WAITING_SECS (10) by enough that the flap it
+// Longer than rimed's IDLE_TO_WAITING_SECS (10) by enough that the flap it
 // exists to absorb cannot outlive it, and short enough that a genuinely new
 // question asked five minutes later still interrupts. A pause long enough to
 // re-fire at 180s is a pause a person would call "it is still stuck", which is
@@ -246,7 +246,7 @@ function kindForState(state) {
 }
 
 // Every key that should be standing, given the sessions as they are now.
-// The input is the session list exactly as `apex agent list --json` returns
+// The input is the session list exactly as `rime agent list --json` returns
 // it, so nothing upstream has to pre-digest it.
 function liveKeys(sessions) {
     var out = []

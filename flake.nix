@@ -1,5 +1,5 @@
 {
-  description = "APEX Shell — Modular Quickshell/QML desktop shell for Hyprland";
+  description = "Rime Shell — Modular Quickshell/QML desktop shell for Hyprland";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -85,9 +85,9 @@
           (nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
         ];
 
-        # ── The APEX Shell package ────────────────────────────────────────
-        apex-shell = pkgs.stdenv.mkDerivation {
-          pname   = "apex-shell";
+        # ── The Rime Shell package ────────────────────────────────────────
+        rime-shell = pkgs.stdenv.mkDerivation {
+          pname   = "rime-shell";
           version = "0.1.0";
 
           src = ./.;
@@ -98,12 +98,12 @@
           installPhase = ''
             runHook preInstall
 
-            mkdir -p $out/share/apex-shell
-            cp -r . $out/share/apex-shell/
+            mkdir -p $out/share/rime-shell
+            cp -r . $out/share/rime-shell/
 
             mkdir -p $out/bin
-            makeWrapper ${pkgs.quickshell}/bin/quickshell $out/bin/apex-shell \
-              --add-flags "-c $out/share/apex-shell" \
+            makeWrapper ${pkgs.quickshell}/bin/quickshell $out/bin/rime-shell \
+              --add-flags "-c $out/share/rime-shell" \
               --set  QT_QPA_PLATFORMTHEME qt6ct \
               --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}
 
@@ -112,10 +112,10 @@
 
           meta = with pkgs.lib; {
             description  = "A modular Quickshell/QML desktop shell for Hyprland";
-            homepage     = "https://github.com/AndreNijman/apex-shell";
+            homepage     = "https://github.com/AndreNijman/apex-shell";  # rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed)
             license      = licenses.mit;
             platforms    = platforms.linux;
-            mainProgram  = "apex-shell";
+            mainProgram  = "rime-shell";
           };
         };
 
@@ -123,23 +123,23 @@
       {
         # ── Packages ───────────────────────────────────────────────────────
         packages = {
-          default     = apex-shell;
-          apex-shell = apex-shell;
+          default     = rime-shell;
+          rime-shell = rime-shell;
         };
 
         # ── Dev shell (nix develop) ────────────────────────────────────────
         devShells.default = pkgs.mkShell {
-          name = "apex-shell-dev";
+          name = "rime-shell-dev";
 
           buildInputs = runtimeDeps ++ devDeps ++ fonts;
 
           shellHook = ''
             export QT_QPA_PLATFORMTHEME=qt6ct
-            export APEX_SHELL_ROOT="$(pwd)"
+            export RIME_SHELL_ROOT="$(pwd)"
 
             echo ""
-            echo "  APEX Shell dev environment"
-            echo "  Run:  quickshell -c \$APEX_SHELL_ROOT"
+            echo "  Rime Shell dev environment"
+            echo "  Run:  quickshell -c \$RIME_SHELL_ROOT"
             echo "  Lint: shellcheck install.sh dots-extra/install-arch.sh"
             echo ""
           '';
@@ -147,24 +147,24 @@
 
         # ── NixOS module ───────────────────────────────────────────────────
         nixosModules.default = { config, lib, pkgs, ... }:
-          let cfg = config.programs.apex-shell;
+          let cfg = config.programs.rime-shell;
           in {
-            options.programs.apex-shell = {
-              enable = lib.mkEnableOption "APEX Shell desktop shell";
+            options.programs.rime-shell = {
+              enable = lib.mkEnableOption "Rime Shell desktop shell";
 
               autostart = lib.mkOption {
                 type    = lib.types.bool;
                 default = true;
-                description = "Add apex-shell to Hyprland exec-once.";
+                description = "Add rime-shell to Hyprland exec-once.";
               };
             };
 
             config = lib.mkIf cfg.enable {
-              environment.systemPackages = [ apex-shell ];
+              environment.systemPackages = [ rime-shell ];
 
               wayland.windowManager.hyprland.settings = lib.mkIf cfg.autostart {
                 exec-once = [
-                  "apex-shell"
+                  "rime-shell"
                   "hypridle"
                   "awww-daemon"
                   "systemctl --user start hyprpolkitagent"
@@ -177,7 +177,7 @@
 
         # ── Checks (run by `nix flake check`) ─────────────────────────────
         checks = {
-          build = apex-shell;
+          build = rime-shell;
         };
       }
     );

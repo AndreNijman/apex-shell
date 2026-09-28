@@ -24,7 +24,7 @@
 #  in the game cannot reach the compositor's GPU.
 #
 #  ── Why switcherooctl ───────────────────────────────────────────────────────
-#  switcheroo-control is enabled on every APEX image (Containerfile.core) and
+#  switcheroo-control is enabled on every Rime image (Containerfile.core) and
 #  already publishes the right environment per GPU — on katana
 #  `__GLX_VENDOR_LIBRARY_NAME=nvidia __NV_PRIME_RENDER_OFFLOAD=1
 #  __VK_LAYER_NV_optimus=NVIDIA_only VK_LOADER_DRIVERS_SELECT=*nvidia*`, on an

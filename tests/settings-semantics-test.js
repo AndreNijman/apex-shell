@@ -3,7 +3,7 @@
 //  The settings vocabulary, and the pages that have to speak it (P0-023).
 //
 //      node tests/settings-semantics-test.js
-//      APEX_SHELL_SRC=/path/to/other/src node tests/settings-semantics-test.js
+//      RIME_SHELL_SRC=/path/to/other/src node tests/settings-semantics-test.js
 //
 //  ── Why a node suite as well as two QML ones ────────────────────────────────
 //
@@ -33,7 +33,7 @@ const fs = require("fs");
 const path = require("path");
 
 const root = path.resolve(__dirname, "..");
-const SRC = process.env.APEX_SHELL_SRC || path.join(root, "src");
+const SRC = process.env.RIME_SHELL_SRC || path.join(root, "src");
 
 let passed = 0;
 let failed = 0;

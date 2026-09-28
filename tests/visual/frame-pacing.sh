@@ -6,9 +6,9 @@
 #      tests/visual/frame-pacing.sh OUTDIR [warm-repeats]
 #
 #  The shell runs in headless.sh's private labwc on the machine's GPU (gles2,
-#  when /dev/dri/renderD128 exists) with APEX_PACING_LOG=1, so every
+#  when /dev/dri/renderD128 exists) with RIME_PACING_LOG=1, so every
 #  SurfaceLifecycle logs, when an open or a close ends:
-#      APEX pacing: <surface> <Opening|Closing> ms=<n> frames=<n> worst=<ms>
+#      Rime pacing: <surface> <Opening|Closing> ms=<n> frames=<n> worst=<ms>
 #  Each surface is opened and closed once cold, then N times warm (default 5).
 #  Frames expected at 60 Hz are ms / 16.67; the difference is the miss count,
 #  and `worst` is the longest gap between two delivered frames.
@@ -53,12 +53,12 @@ python3 "$root/tests/lib/fake-mpris.py" /dev/null & player=$!
 qs=""; watcher=""
 trap 'kill $player $qs $watcher 2>/dev/null; headless_cleanup' EXIT
 
-ud="$HOME/.config/apex-shell/src/user_data"; mkdir -p "$ud"
+ud="$HOME/.config/rime-shell/src/user_data"; mkdir -p "$ud"
 # PACING_SETTINGS='{...}' replaces the settings (an experiment: a surface off, a
 # border width, a motion speed); the default is the shipped look.
 printf '%s' "${PACING_SETTINGS:-{\"barEnabled\":true,\"animDuration\":320,\"motionScale\":1,\"dashboardWidth\":900,\"dashboardHeight\":520}}" > "$ud/settings.json"
 
-env APEX_PACING_LOG=1 ${PACING_ENV:-} quickshell -p "$root/shell.qml" > "$HEADLESS_W/shell.log" 2>&1 & qs=$!
+env RIME_PACING_LOG=1 ${PACING_ENV:-} quickshell -p "$root/shell.qml" > "$HEADLESS_W/shell.log" 2>&1 & qs=$!
 for _ in $(seq 1 120); do grep -q "Configuration Loaded" "$HEADLESS_W/shell.log" && break; sleep 0.25; done
 grep -q "Configuration Loaded" "$HEADLESS_W/shell.log" || { echo "FAIL: the shell did not load"; tail -20 "$HEADLESS_W/shell.log"; exit 1; }
 sleep 4   # startup's own processes (probes, pollers) settle before anything is timed
@@ -124,7 +124,7 @@ for entry in "${surfaces[@]}"; do
 done
 
 kill "$qs" "$player" 2>/dev/null; sleep 0.3; kill "$watcher" 2>/dev/null
-grep -a 'APEX pacing:' "$HEADLESS_W/shell.log" | sed 's/.*APEX pacing: //' > "$out/pacing.log"
+grep -a 'Rime pacing:' "$HEADLESS_W/shell.log" | sed 's/.*Rime pacing: //' > "$out/pacing.log"
 grep -aE 'TypeError|ReferenceError|is not a type' "$HEADLESS_W/shell.log" | head -3
 headless_cleanup
 

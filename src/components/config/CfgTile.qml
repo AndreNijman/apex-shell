@@ -4,11 +4,11 @@ import "../controls"
 
 // Compact toggle/action tile (mirrors the QuickSettings tiles). Use in a Grid.
 //
-// Built on ApexPressable (UI/UX roadmap v3 Phase 3): the tile dips when
+// Built on RimePressable (UI/UX roadmap v3 Phase 3): the tile dips when
 // pressed, by pointer or Space/Return, hovers and presses as a state layer
 // over its own surface, and shows a focus ring only for keyboard focus. On,
 // it fills with the accent container and its glyph turns to the accent.
-ApexPressable {
+RimePressable {
     id: root
 
     property bool   on:       false
@@ -71,5 +71,5 @@ ApexPressable {
             width:   root.width - 18; elide: Text.ElideRight
         }
     }
-    ApexFocusRing { target: root }
+    RimeFocusRing { target: root }
 }

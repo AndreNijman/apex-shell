@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# APEX Shell — Post-Installation Validator
+# Rime Shell — Post-Installation Validator
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -61,7 +61,7 @@ check_package() {
 }
 
 clear
-echo "APEX Shell — Post-Installation Validator"
+echo "Rime Shell — Post-Installation Validator"
 echo "Verify all dependencies are installed"
 echo ""
 
@@ -142,10 +142,10 @@ echo "# CONFIGURATION FILES"
 if [[ -f "$HOME/.config/hypr/hyprland.conf" ]]; then
     log_installed "Hyprland config"
     
-    if grep -q "quickshell.*-c.*apex-shell" "$HOME/.config/hypr/hyprland.conf"; then
-        log_installed "APEX Shell exec-once in hyprland.conf"
+    if grep -q "quickshell.*-c.*rime-shell" "$HOME/.config/hypr/hyprland.conf"; then
+        log_installed "Rime Shell exec-once in hyprland.conf"
     else
-        log_missing "APEX Shell exec-once in hyprland.conf"
+        log_missing "Rime Shell exec-once in hyprland.conf"
     fi
 else
     log_missing "Hyprland config"
@@ -154,25 +154,25 @@ fi
 if [[ -f "$HOME/.config/hypr/hyprland.lua" ]]; then
     log_installed "Hyprland Lua config"
     
-    if grep -q "quickshell.*apex-shell" "$HOME/.config/hypr/hyprland.lua"; then
-        log_installed "APEX Shell exec-once in hyprland.lua"
+    if grep -q "quickshell.*rime-shell" "$HOME/.config/hypr/hyprland.lua"; then
+        log_installed "Rime Shell exec-once in hyprland.lua"
     else
-        log_optional "APEX Shell exec-once in hyprland.lua (optional)"
+        log_optional "Rime Shell exec-once in hyprland.lua (optional)"
     fi
 else
     log_optional "Hyprland Lua config (optional)"
 fi
 
-if [[ -d "$HOME/.local/src/apex-shell" ]]; then
-    log_installed "APEX Shell repository"
+if [[ -d "$HOME/.local/src/rime-shell" ]]; then
+    log_installed "Rime Shell repository"
 else
-    log_missing "APEX Shell repository"
+    log_missing "Rime Shell repository"
 fi
 
-if [[ -d "$HOME/.config/apex-shell" ]]; then
-    log_installed "APEX Shell config directory"
+if [[ -d "$HOME/.config/rime-shell" ]]; then
+    log_installed "Rime Shell config directory"
 else
-    log_missing "APEX Shell config directory"
+    log_missing "Rime Shell config directory"
 fi
 
 echo ""

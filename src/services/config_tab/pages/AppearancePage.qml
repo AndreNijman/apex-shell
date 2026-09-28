@@ -256,7 +256,7 @@ CfgScroll {
                     anchors.verticalCenter: parent ? parent.verticalCenter : undefined
 
                     readonly property bool active: WallpaperService.currentWall === modelData
-                    // ApexFocusRing's contract: radius + focusVisible. The
+                    // RimeFocusRing's contract: radius + focusVisible. The
                     // container (wallStrip) is the actual Tab stop; this is
                     // never itself focused, so focusVisible just tracks
                     // whether it is the keyboard's current thumbnail.
@@ -300,7 +300,7 @@ CfgScroll {
                             Behavior on border.width { MotionFade {} }
                         }
                     }
-                    ApexFocusRing { target: thumb }
+                    RimeFocusRing { target: thumb }
                     HoverHandler { id: wh; cursorShape: Qt.PointingHandCursor }
                     MouseArea {
                         anchors.fill: parent
@@ -393,7 +393,7 @@ CfgScroll {
             description: CompositorService.nightLightSupported
                 ? "Warms the screen using " + CompositorService.nightLightMechanism
                   + " on " + Compositor.name
-                : "This session is not a compositor APEX Shell has a "
+                : "This session is not a compositor Rime Shell has a "
                   + "colour-temperature mechanism for, so there is nothing to warm "
                   + "the screen with."
             disabledReason: CompositorService.nightLightSupported

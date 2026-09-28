@@ -17,13 +17,13 @@
 //
 // ── THE FIELD IS ALREADY ON THE WIRE. THAT WAS THE SURPRISE ─────────────────
 //
-// apex-agentd has reported `request_origin` on every session record since §7,
+// rime-agentd has reported `request_origin` on every session record since §7,
 // with seven values, and the shell reads NONE of them: `git grep request_origin
 // -- src/` on roadmap/v2.2 @ 690014a returns nothing. So most of P1-029 is not
-// a daemon change at all. Measured against apex-agent-core/src/policy.rs's
+// a daemon change at all. Measured against rime-agent-core/src/policy.rs's
 // `RequestOrigin::as_str`, the vocabulary is exactly:
 //
-//     local-terminal  apex-shell  claude-remote-control
+//     local-terminal  rime-shell  claude-remote-control
 //     scheduled-job   mcp         subagent   cloud-job
 //
 // ── WHY THIS IS NOT A LOOKUP TABLE ON THAT FIELD ────────────────────────────
@@ -54,7 +54,7 @@
 // ── ABSENT IS NOT LOCAL ─────────────────────────────────────────────────────
 //
 // `request_origin` is missing from a record written by a daemon that predates
-// origin tracking, and apex-agentd is explicit that this is not a measurement:
+// origin tracking, and rime-agentd is explicit that this is not a measurement:
 // policy.rs refuses to default it to `local-terminal` precisely because that
 // is the origin §7 reserves root for. The same rule applies one layer up, so an
 // absent or unrecognised origin resolves to UNKNOWN and the row is expected to
@@ -94,7 +94,7 @@ var FROM_DAEMON = "daemon";
 var FROM_HOST   = "host";
 var SOURCES = [FROM_DAEMON, FROM_HOST];
 
-// apex-agent-core/src/policy.rs `RequestOrigin::as_str`, and its `parse`
+// rime-agent-core/src/policy.rs `RequestOrigin::as_str`, and its `parse`
 // accepts "remote-control" as well as the canonical spelling, so both are
 // mapped here. Anything not in this table is UNKNOWN by omission, which is the
 // behaviour that has to hold for a value a NEWER daemon invents.
@@ -104,7 +104,11 @@ var ORIGINS = {
     // separate "started from the shell" from "started in a terminal", and
     // inventing a kind the roadmap does not ask for would be as wrong as
     // collapsing two it does.
-    "apex-shell":            LOCAL,
+    "rime-shell":            LOCAL,
+    // The same origin under its name before the rename. The daemon reads it
+    // as rime-shell (RequestOrigin's serde alias), but a trusted device that
+    // has not taken the update still reports it this way.
+    "apex-shell":            LOCAL,  // rime-rename: keep (the origin a device still on APEX reports)
     "claude-remote-control": REMOTE_CTL,
     "remote-control":        REMOTE_CTL,
     "scheduled-job":         SCHEDULED,

@@ -7,7 +7,7 @@
 #
 #  The suite it guards does something no other suite in this tree does: it
 #  DRIVES the product's most destructive flow over the accessibility bus and
-#  reads a recording `apex` stub's argv to see what really happened. That makes
+#  reads a recording `rime` stub's argv to see what really happened. That makes
 #  its headline claims — "a reader can finish this" and "a reader cannot finish
 #  it early" — checkable facts rather than readings of the markup. It also
 #  makes them expensive to get wrong: a green run that could not tell a
@@ -66,7 +66,7 @@
 #  ── How the files get put back ─────────────────────────────────────────────
 #
 #  A pristine copy into a per-run mktemp directory, restored with plain `cp`,
-#  every restore VERIFIED by sha256. Not `git checkout --`: apex-shell's
+#  every restore VERIFIED by sha256. Not `git checkout --`: rime-shell's
 #  arch-validate job installs git AFTER actions/checkout, so the workspace has
 #  no .git at all.
 #
@@ -483,7 +483,7 @@ hold G1 "$PAGE" '                Accessible.name: (compRow.row ? compRow.row.lab
 
 hold G2 "$PAGE" '                            id: commitBtn' \
                 '                            id: commitBtn
-                            objectName: "apex-mutation-hold"' \
+                            objectName: "rime-mutation-hold"' \
     'a property nothing asserts is not a failure'
 
 # The strongest of the three. The state icon is a private-use glyph already and

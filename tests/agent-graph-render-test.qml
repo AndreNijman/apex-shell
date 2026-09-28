@@ -87,7 +87,7 @@ ShellRoot {
         }
     }
 
-    // apexd's own shape. `children` is ABSENT on the first one on purpose:
+    // rimed's own shape. `children` is ABSENT on the first one on purpose:
     // that is what a daemon which predates the graph writes, and telling it
     // apart from an empty list is the whole point of the field.
     function bare() {

@@ -15,7 +15,7 @@
 #    3. Reduce Motion switches the spatial classes off and caps the fades;
 #    4. `hyprctl reload` (which restores the config's values) is followed by a
 #       fresh push;
-#    and springs through all of it: a spring leaf with an APEX_SPRINGS entry
+#    and springs through all of it: a spring leaf with a RIME_SPRINGS entry
 #    moves onto a scaled copy of its spring, one without an entry stays on its
 #    own (Hyprland reports a spring leaf as "spring:<name>", nothing more);
 #    and the control: with no shell running, the config's own values stand.
@@ -64,7 +64,7 @@ lw=$!
 host="$(headless_wait_socket "$before")"
 [ -n "$host" ] || { echo "SKIP: labwc did not come up headless"; exit 0; }
 
-# A config of its own: the test is about the shell's sync, not apex-os's numbers.
+# A config of its own: the test is about the shell's sync, not rime-os's numbers.
 mkdir -p "$HOME/.config/hypr"
 cat > "$HOME/.config/hypr/hyprland.lua" <<'LUA'
 hl.curve("tDecel", { type = "bezier", points = { { 0.05, 0.7 }, { 0.1, 1.0 } } })
@@ -74,7 +74,7 @@ hl.animation({ leaf = "windowsOut", enabled = true, speed = 1.6, bezier = "tDece
 hl.animation({ leaf = "workspaces", enabled = true, speed = 2.0, bezier = "tDecel", style = "slide" })
 hl.animation({ leaf = "fadeIn",     enabled = true, speed = 1.2, bezier = "tFx" })
 hl.animation({ leaf = "border",     enabled = true, speed = 0.4, bezier = "tFx" })
-APEX_SPRINGS = { tGlide = { mass = 1, stiffness = 246.74, dampening = 27.02 } }
+RIME_SPRINGS = { tGlide = { mass = 1, stiffness = 246.74, dampening = 27.02 } }
 hl.curve("tGlide", { type = "spring", mass = 1, stiffness = 246.74, dampening = 27.02 })
 hl.curve("tBare",  { type = "spring", mass = 1, stiffness = 200, dampening = 24 })
 hl.animation({ leaf = "windowsMove",      enabled = true, speed = 4.0, spring = "tGlide" })
@@ -118,9 +118,9 @@ for x in a:
 else: print("missing")' "$1"; }
 
 settings() {   # settings <motionSpeed> <motionScale> <reduceMotion>
-    mkdir -p "$HOME/.config/apex-shell/src/user_data"
+    mkdir -p "$HOME/.config/rime-shell/src/user_data"
     printf '{"motionSpeed":"%s","motionScale":%s,"reduceMotion":%s,"barEnabled":false}' "$1" "$2" "$3" \
-        > "$HOME/.config/apex-shell/src/user_data/settings.json"
+        > "$HOME/.config/rime-shell/src/user_data/settings.json"
 }
 start_shell() {
     local log="$HEADLESS_W/shell-$1.log"
@@ -146,8 +146,8 @@ w="$(leaf windowsIn)"; f="$(leaf fadeIn)"; b="$(leaf border)"
     && ok "a slower shell is a slower compositor: every class × 2.5 (windowsIn 6, fadeIn 3, border 1)" \
     || bad "scale 2.5 — windowsIn $w, fadeIn $f, border $b"
 m="$(leafc windowsMove)"; sw="$(leafc specialWorkspace)"
-[ "$m" = "on 10 spring:tGlide__apexs250" ] \
-    && ok "a spring with an APEX_SPRINGS entry moves onto its copy 2.5x slower (windowsMove on tGlide__apexs250)" \
+[ "$m" = "on 10 spring:tGlide__rimes250" ] \
+    && ok "a spring with a RIME_SPRINGS entry moves onto its copy 2.5x slower (windowsMove on tGlide__rimes250)" \
     || bad "spring scale 2.5 — windowsMove $m"
 [ "$sw" = "on 7.5 spring:tBare" ] \
     && ok "…and one without an entry stays on its own spring, not guessed at (specialWorkspace on tBare)" \
@@ -160,7 +160,7 @@ w="$(leaf windowsIn)"
 [ "$w" = "on 6" ] && ok "a shell restart does not scale its own push again (still 6, not 15)" \
     || bad "restart compounded — windowsIn $w"
 m="$(leafc windowsMove)"
-[ "$m" = "on 10 spring:tGlide__apexs250" ] && ok "…nor its springs (windowsMove still 10 on tGlide__apexs250)" \
+[ "$m" = "on 10 spring:tGlide__rimes250" ] && ok "…nor its springs (windowsMove still 10 on tGlide__rimes250)" \
     || bad "restart compounded a spring — windowsMove $m"
 
 # ── 3. Reduce Motion ─────────────────────────────────────────────────────────

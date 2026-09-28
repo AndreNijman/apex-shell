@@ -6,14 +6,14 @@ import "../../../components/config"
 
 // Config → Input  (roadmap §18, settings parity; UI-003)
 //
-// Every control writes one key of ~/.config/apex-shell/input.json, and
-// InputService then runs /usr/libexec/apex-input-apply, which regenerates the
+// Every control writes one key of ~/.config/rime-shell/input.json, and
+// InputService then runs /usr/libexec/rime-input-apply, which regenerates the
 // Hyprland Lua module, the niri KDL and labwc's <libinput> block from that
 // single model. Nothing on this page knows which compositor is running.
 //
 // ── Why every control asks before it offers itself ───────────────────────────
 //
-// "Changing Input configuration in APEX Shell has no effect" was true of nine
+// "Changing Input configuration in Rime Shell has no effect" was true of nine
 // of these, and each was true for a different reason: an option the generator
 // never emitted, a value the compositor has no spelling for, a setting that
 // exists on Hyprland only as a named device. None of it was visible from here,
@@ -89,7 +89,7 @@ CfgScroll {
                          + "each compositor supports, so nothing below is switched off — the "
                          + "controls behave as they did before"
                 if (InputService.compositor === "")
-                    return "APEX could not tell which compositor is running, so nothing below is known to work"
+                    return "Rime could not tell which compositor is running, so nothing below is known to work"
                 return "What these settings are applied to, and what decides which of them can be"
             }
             hoverable: false
@@ -407,7 +407,7 @@ CfgScroll {
         }
 
         // The layout is NOT here. It is chosen at the greeter and written into
-        // every compositor config by apex-shell-firstrun, which greps the
+        // every compositor config by rime-shell-firstrun, which greps the
         // seeded configs to verify it took. Offering a second, competing place
         // to set it would give two sources of truth for one value.
         CfgRow {
@@ -428,7 +428,7 @@ CfgScroll {
         CfgRow {
             label: "Detected"
             description: InputService.devices.length === 0
-                ? "APEX has not been able to enumerate this machine's input devices"
+                ? "Rime has not been able to enumerate this machine's input devices"
                 : "Read from the kernel and udev, which need no extra permission — unlike libinput's own device list"
             hoverable: false
             status: InputService.configurableDevices.length + " configurable"

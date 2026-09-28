@@ -7,9 +7,9 @@ import "../../theme/scaling.js" as Scaling
 // ─── DisplayService ───────────────────────────────────────────────────────────
 // The graphical half of §18's display settings parity.
 //
-//     display.json  ──►  /usr/libexec/apex-display-apply  ──►  hyprctl eval
+//     display.json  ──►  /usr/libexec/rime-display-apply  ──►  hyprctl eval
 //                                                         ├─►  wlr-randr
-//                                                         ├─►  apex/monitors.lua
+//                                                         ├─►  rime/monitors.lua
 //                                                         └─►  kanshi profile
 //
 // APPLY AND SAVE ARE DIFFERENT ACTIONS, AND THAT MATTERS
@@ -43,7 +43,7 @@ import "../../theme/scaling.js" as Scaling
 //
 //   The countdown lived in the shell.  A shell that dies during the countdown
 //   takes the revert with it, and the machine stays on the layout nobody could
-//   confirm. src/scripts/apex-display-guard.sh is now the second owner of the
+//   confirm. src/scripts/rime-display-guard.sh is now the second owner of the
 //   deadline, detached from this process.
 //
 //   A failed apply had already persisted.  display.json was written BEFORE the
@@ -65,20 +65,20 @@ QtObject {
     id: root
 
     readonly property string modelPath:
-        Quickshell.env("HOME") + "/.config/apex-shell/display.json"
+        Quickshell.env("HOME") + "/.config/rime-shell/display.json"
     // Overridable for development and for the smoke test, which has to exercise
     // the real enumeration path without installing into /usr. The default is
     // the installed path, so a normal session needs no environment at all.
     readonly property string engine: {
-        const override = Quickshell.env("APEX_DISPLAY_ENGINE") || ""
-        return override !== "" ? override : "/usr/libexec/apex-display-apply"
+        const override = Quickshell.env("RIME_DISPLAY_ENGINE") || ""
+        return override !== "" ? override : "/usr/libexec/rime-display-apply"
     }
 
     readonly property string guard:
-        Quickshell.shellDir + "/src/scripts/apex-display-guard.sh"
+        Quickshell.shellDir + "/src/scripts/rime-display-guard.sh"
 
     // ── Does the engine below us understand --no-persist? ────────────────────
-    // APEX Shell and the OS image land independently, and this shell also runs
+    // Rime Shell and the OS image land independently, and this shell also runs
     // on machines whose image predates the flag. An engine that does not know
     // it exits 2 on the argument itself, which would turn EVERY temporary apply
     // into a failure until the next image build — so it is asked first, and the
@@ -126,24 +126,24 @@ QtObject {
     // display transaction has, and a fixed name is what lets a restarted shell
     // find a transaction its predecessor left open.
     readonly property string txnDir: {
-        const override = Quickshell.env("APEX_DISPLAY_TXN_DIR") || ""
+        const override = Quickshell.env("RIME_DISPLAY_TXN_DIR") || ""
         if (override !== "") return override
         const rt = Quickshell.env("XDG_RUNTIME_DIR") || "/tmp"
-        return rt + "/apex-display"
+        return rt + "/rime-display"
     }
 
     // Fifteen seconds is the number the page promises and the number the user
     // was told. It is a property only so the transaction suite does not have to
     // sit through it six times; nothing in the shell writes it.
     readonly property int confirmTotal: {
-        const override = parseInt(Quickshell.env("APEX_DISPLAY_CONFIRM_SECONDS") || "", 10)
+        const override = parseInt(Quickshell.env("RIME_DISPLAY_CONFIRM_SECONDS") || "", 10)
         return (!isNaN(override) && override > 0) ? override : 15
     }
 
     // ── What the hardware says ────────────────────────────────────────────────
     // Enumerated from the compositor, never guessed. `modes` is per-output and
     // is the only legitimate source for what a monitor will accept.
-    property var outputs: []          // as reported by `apex-display-apply list`
+    property var outputs: []          // as reported by `rime-display-apply list`
     property bool loaded: false
     property string lastError: ""
     // A one-line account of what the transaction machinery last did on its own:
@@ -236,7 +236,7 @@ QtObject {
     // ── Enumeration ──────────────────────────────────────────────────────────
     // On demand. The singleton is now constructed at startup (shell.qml holds a
     // reference so an abandoned transaction is settled even if nobody opens the
-    // page), and enumerating from here would put an `apex-display-apply list`
+    // page), and enumerating from here would put an `rime-display-apply list`
     // in every login. The Display page calls refresh() when it loads, which is
     // exactly when this used to run.
     property var _listProc: Process {
@@ -276,7 +276,7 @@ QtObject {
             if (code !== 0 && root.outputs.length === 0 && root.lastError === "") {
                 root.lastError =
                     "Could not run " + root.engine + " (exit " + code + "). " +
-                    "It ships with APEX-OS; on another distribution the display " +
+                    "It ships with Rime OS; on another distribution the display " +
                     "page has nothing to talk to."
             }
         }
@@ -294,7 +294,7 @@ QtObject {
     /// preferred. On a panel whose preferred mode is not the one you were
     /// using, undo changed your resolution.
     ///
-    /// Hyprland is still short here: apex-display-apply's Hyprland enumeration
+    /// Hyprland is still short here: rime-display-apply's Hyprland enumeration
     /// hardcodes `current: false` on every mode and emits no `mode` either, so
     /// there is nothing to recover. That needs the engine; see the P0-018
     /// report.
@@ -632,7 +632,7 @@ QtObject {
 
             if (code !== 0) {
                 if (root.lastError === "")
-                    root.lastError = "apex-display-apply exited " + code
+                    root.lastError = "rime-display-apply exited " + code
                 if (action === "apply" && !root._reverting) {
                     // The engine refused the layout. Nothing reached the
                     // hardware on wlr-randr, which applies the whole model in
@@ -678,7 +678,7 @@ QtObject {
     //
     // The shell can die between the apply and the verdict — that is the whole
     // reason the guard exists. When it comes back, one of three things is true
-    // of the transaction directory, and `apex-display-guard.sh reconcile` says
+    // of the transaction directory, and `rime-display-guard.sh reconcile` says
     // which:
     //
     //   pending, guard alive   → the countdown is still running. Re-attach to
@@ -857,7 +857,7 @@ QtObject {
 
     /// How many devices colord has registered, of any kind.
     ///
-    /// Worth its own property because on APEX the answer is ZERO and that is the
+    /// Worth its own property because on Rime the answer is ZERO and that is the
     /// whole finding behind this section: colord ships, runs, and answers, and
     /// nothing on the system had ever registered a display with it, so no
     /// profile could be assigned to one. Measured on the L16 — `colormgr
@@ -885,7 +885,7 @@ QtObject {
             ? root.colour.curve.reason : ""
 
     /// Whether anything on this image can push a curve into the hardware. False
-    /// on every APEX build so far — no xcalib, no argyll, no wl-gammactl — which
+    /// on every Rime build so far — no xcalib, no argyll, no wl-gammactl — which
     /// is why the page states a limit rather than implying a capability.
     readonly property bool curveLoadable:
         !!(root.colour && root.colour.curve && root.colour.curve.loader)
@@ -932,7 +932,7 @@ QtObject {
             // An engine that answers nothing leaves `colour` as it was rather
             // than blanking a page that was correct a moment ago.
             if (code !== 0 && root.colourError === "")
-                root.colourError = "apex-display-apply color exited " + code
+                root.colourError = "rime-display-apply color exited " + code
         }
     }
 
@@ -963,7 +963,7 @@ QtObject {
         }
         stdout: StdioCollector { }
         onExited: function(code) {
-            const notes = root._assignNotes.replace(/^apex-display: /gm, "")
+            const notes = root._assignNotes.replace(/^rime-display: /gm, "")
             if (code === 0) root.colourNotice = notes
             else root.colourError = notes !== ""
                 ? notes : "Could not assign the profile (exit " + code + ")."

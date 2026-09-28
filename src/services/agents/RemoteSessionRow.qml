@@ -22,7 +22,7 @@ import "../agentlifecycle.js" as Lifecycle
 // the question of why it is there. Getting to a remote session means a terminal
 // on the far side of an ssh, and §3 is explicit that the Agent Center is a
 // supervisor and a navigator rather than a replacement for the terminal — so
-// the section prints the `apex host run -t …` line once and this row prints
+// the section prints the `rime host run -t …` line once and this row prints
 // status.
 //
 // It does read AgentService's stateIcon / stateLabel / elapsed. Those are pure

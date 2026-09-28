@@ -1,23 +1,23 @@
-<h1 align=center>APEX Shell</h1>
+<h1 align=center>Rime Shell</h1>
 
 <h3 align="center">
-The standard desktop shell of APEX-OS: a modular Wayland shell built with Quickshell and QML for Hyprland, niri and labwc.
+The standard desktop shell of Rime OS: a modular Wayland shell built with Quickshell and QML for Hyprland, niri and labwc.
 </h3>
 
 <p align="center">
-  <img src="https://img.shields.io/github/last-commit/AndreNijman/apex-shell?style=for-the-badge&color=8D748C&logoColor=D9E0EE&labelColor=252733" alt="Last Commit" />
-  <img src="https://img.shields.io/github/stars/AndreNijman/apex-shell?style=for-the-badge&logo=starship&color=AB6C6A&logoColor=D9E0EE&labelColor=252733" alt="Stars" />
+  <img src="https://img.shields.io/github/last-commit/AndreNijman/apex-shell?style=for-the-badge&color=8D748C&logoColor=D9E0EE&labelColor=252733" alt="Last Commit" /> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
+  <img src="https://img.shields.io/github/stars/AndreNijman/apex-shell?style=for-the-badge&logo=starship&color=AB6C6A&logoColor=D9E0EE&labelColor=252733" alt="Stars" /> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
   <img src="https://img.shields.io/badge/version-0.1.0-8D748C?style=for-the-badge&logoColor=D9E0EE&labelColor=252733" alt="Version 0.1.0" />
   <br>
   <img src="https://img.shields.io/badge/hyprland-v0.55+-5E81AC?style=for-the-badge&logoColor=D9E0EE&labelColor=252733" alt="Hyprland v0.55+" />
   <img src="https://img.shields.io/badge/compositor-niri-5E81AC?style=for-the-badge&logoColor=D9E0EE&labelColor=252733" alt="niri" />
   <img src="https://img.shields.io/badge/framework-quickshell-A1C999?style=for-the-badge&logoColor=D9E0EE&labelColor=252733" alt="Quickshell Framework" />
   <br>
-  <a href="https://github.com/AndreNijman/apex-shell/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/AndreNijman/apex-shell?style=for-the-badge&color=A1C999&logo=opensourceinitiative&logoColor=D9E0EE&labelColor=252733" alt="License" />
+  <a href="https://github.com/AndreNijman/apex-shell/blob/main/LICENSE"> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
+    <img src="https://img.shields.io/github/license/AndreNijman/apex-shell?style=for-the-badge&color=A1C999&logo=opensourceinitiative&logoColor=D9E0EE&labelColor=252733" alt="License" /> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
   </a>
-  <a href="https://github.com/AndreNijman/apex-shell/issues">
-    <img src="https://img.shields.io/github/issues/AndreNijman/apex-shell?style=for-the-badge&logo=github&color=5E81AC&logoColor=D9E0EE&labelColor=252733" alt="Issues" />
+  <a href="https://github.com/AndreNijman/apex-shell/issues"> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
+    <img src="https://img.shields.io/github/issues/AndreNijman/apex-shell?style=for-the-badge&logo=github&color=5E81AC&logoColor=D9E0EE&labelColor=252733" alt="Issues" /> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
   </a>
 </p>
 
@@ -65,9 +65,9 @@ The standard desktop shell of APEX-OS: a modular Wayland shell built with Quicks
   features hide themselves on the other two
 - **Per-output sizing**: each surface sizes itself for the output it is on
 - **Keybinds**: set your own keybind for each popup
-- **Recovery**: Settings → Recovery reads `apex recover status` and
-  `apex doctor` and shows what is wrong, how to roll back, and what a factory
-  reset would delete (APEX-OS only; read-only until you press something)
+- **Recovery**: Settings → Recovery reads `rime recover status` and
+  `rime doctor` and shows what is wrong, how to roll back, and what a factory
+  reset would delete (Rime OS only; read-only until you press something)
 - **Network Manager**: Wi-Fi (incl. WPA2-Enterprise/802.1X), Bluetooth, VPN
   integration
 - **Notifications**: a notification server with a notification centre, toasts
@@ -79,7 +79,7 @@ The standard desktop shell of APEX-OS: a modular Wayland shell built with Quicks
   [docs/plugins.md](docs/plugins.md)
 - **Customizable**: a QML-based UI you can extend
 
-> **Note:** APEX Shell is at `v0.1.0`. The core architecture and theming pipeline are feature-complete, but you may still hit bugs; please report them in GitHub Issues.
+> **Note:** Rime Shell is at `v0.1.0`. The core architecture and theming pipeline are feature-complete, but you may still hit bugs; please report them in GitHub Issues.
 
 ---
 
@@ -87,20 +87,20 @@ The standard desktop shell of APEX-OS: a modular Wayland shell built with Quicks
   Installation
 </h2>
 
-APEX-OS ships the shell in its image, built from this repository's `main`, and
-`sudo apex update` updates it. The installer below is for other distributions.
+Rime OS ships the shell in its image, built from this repository's `main`, and
+`sudo rime update` updates it. The installer below is for other distributions.
 
 ### One line installer
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AndreNijman/apex-shell/refs/heads/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/AndreNijman/apex-shell/refs/heads/main/install.sh | bash  # rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed)
 ```
 
 ### Manual installation
 
 ```bash
-git clone https://github.com/AndreNijman/apex-shell.git
-cd apex-shell
+git clone https://github.com/AndreNijman/apex-shell.git  # rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed)
+cd rime-shell
 chmod +x install.sh
 ./install.sh
 ```
@@ -111,9 +111,9 @@ The installer:
 - ✓ Detects your Window Manager and Hyprland Config
 - ✓ Backs up your entire `~/.config`
 - ✓ Installs all required dependencies
-- ✓ Clones the repository to `~/.local/src/apex-shell`
-- ✓ Updates your Hyprland config to auto-start APEX Shell and required dependencies
-- ✓ Renders a portable matugen config (no hardcoded paths) into `~/.config/apex-shell/matugen.toml`
+- ✓ Clones the repository to `~/.local/src/rime-shell`
+- ✓ Updates your Hyprland config to auto-start Rime Shell and required dependencies
+- ✓ Renders a portable matugen config (no hardcoded paths) into `~/.config/rime-shell/matugen.toml`
 - ✓ Creates configuration directories
 - ✓ Installs a tightly scoped polkit rule for passwordless sing-box VPN toggling (only when sing-box is present)
 - ✓ Registers the polkit action behind the Always Unrestricted agent toggle
@@ -130,9 +130,9 @@ The VPN tab controls the [sing-box](https://sing-box.sagernet.org/) VLESS/Realit
 tunnel through **systemd**: `systemctl start|stop sing-box.service` to
 connect/disconnect and `systemctl is-active sing-box.service` to read status.
 
-To keep the toggle password-free without granting broad `sudo`, APEX Shell ships
+To keep the toggle password-free without granting broad `sudo`, Rime Shell ships
 a tightly scoped **polkit** rule at
-[`dots-extra/polkit/49-apex-shell-singbox.rules`](dots-extra/polkit/49-apex-shell-singbox.rules).
+[`dots-extra/polkit/49-rime-shell-singbox.rules`](dots-extra/polkit/49-rime-shell-singbox.rules).
 It authorizes `start` / `stop` / `restart` of **only** `sing-box.service`
 (`org.freedesktop.systemd1.manage-units`) for an active local session, and
 nothing else. Reading status needs no rule (it is an unprivileged query).
@@ -141,13 +141,13 @@ The Arch installer drops it into `/etc/polkit-1/rules.d/` when it detects
 sing-box. To install it by hand on any systemd host:
 
 ```bash
-sudo install -Dm644 dots-extra/polkit/49-apex-shell-singbox.rules \
-     /etc/polkit-1/rules.d/49-apex-shell-singbox.rules
+sudo install -Dm644 dots-extra/polkit/49-rime-shell-singbox.rules \
+     /etc/polkit-1/rules.d/49-rime-shell-singbox.rules
 ```
 
 polkitd hot-reloads `rules.d/`, so the rule takes effect at once, with no
-restart. On image-based systems (e.g. APEX-OS) ship it read-only under
-`/usr/share/polkit-1/rules.d/` instead. APEX Shell assumes `sing-box.service` is
+restart. On image-based systems (e.g. Rime OS) ship it read-only under
+`/usr/share/polkit-1/rules.d/` instead. Rime Shell assumes `sing-box.service` is
 installed **disabled** (it never autostarts) with its config at
 `/etc/sing-box/config.json`.
 
@@ -158,15 +158,15 @@ installed **disabled** (it never autostarts) with its config at
 </h2>
 
 **Settings → Agents** carries one toggle. On, an agent session started from then
-on runs with no APEX sandbox: it reads and writes any file you can, the same as
+on runs with no Rime sandbox: it reads and writes any file you can, the same as
 a program you launch yourself. Off is the normal default, where the project is
 writable and the rest of `$HOME` is masked.
 
 Switching it **on** takes your password at the desktop's polkit authentication
 prompt. Switching it **off** takes effect at once and asks for nothing.
 
-The toggle writes `sandbox` in `~/.config/apex/agent.json`, the agent runtime's
-own configuration file (the one `apex agent run` reads), so the setting survives
+The toggle writes `sandbox` in `~/.config/rime/agent.json`, the agent runtime's
+own configuration file (the one `rime agent run` reads), so the setting survives
 a reboot and applies to `a` from a terminal as much as to anything started from
 the shell. It moves that one key and no other, so a Claude profile set to
 `bypassPermissions` survives either direction.
@@ -181,8 +181,8 @@ rule). It grants nothing: it declares that the id exists and that your own
 password answers it (`auth_self`, not `auth_admin`, and not cached):
 
 ```bash
-sudo install -Dm644 dots-extra/polkit/org.apexos.shell.agent.policy \
-     /usr/share/polkit-1/actions/org.apexos.shell.agent.policy
+sudo install -Dm644 dots-extra/polkit/org.rimeos.shell.agent.policy \
+     /usr/share/polkit-1/actions/org.rimeos.shell.agent.policy
 ```
 
 The Arch installer does this for you. Without it the toggle cannot be switched
@@ -196,7 +196,7 @@ it read-only at the same path.
 </h2>
 
 > [!IMPORTANT]
-> **Matugen is required** for dynamic color generation. APEX Shell will not function correctly without it.
+> **Matugen is required** for dynamic color generation. Rime Shell will not function correctly without it.
 
 ### Core Dependencies
 
@@ -207,7 +207,7 @@ it read-only at the same path.
 - **Quickshell**: QML shell framework. Needs a build **newer than the 0.3.1
   release**: 0.3.1 publishes a single node to the accessibility bus with nothing
   under it, so a screen reader reaches none of the shell. Upstream fixed it in
-  `916a0dd` seven commits after that tag, and no release carries it yet. APEX-OS
+  `916a0dd` seven commits after that tag, and no release carries it yet. Rime OS
   installs `quickshell-git` for this reason and the image build refuses a
   quickshell that reports no git revision.
 - **Qt6**: Qt6 libraries and QML engine
@@ -375,7 +375,7 @@ Auto-detected; you can override it in Settings → Misc.
 | Night light | `hyprsunset` | no | no |
 | Special/scratchpad workspace | yes | no | no |
 
-¹ **niri.** Every save writes `~/.config/apex-shell/ApexShellKeybinds.kdl`, and
+¹ **niri.** Every save writes `~/.config/rime-shell/RimeShellKeybinds.kdl`, and
 niri live-reloads its config and any file that config `include`s. Add the
 `include` line (the generated file's own header gives it verbatim) to the top
 level of your `~/.config/niri/config.kdl` once, and from then on edits apply
@@ -383,10 +383,10 @@ with no restart. The shell does not add the line for you, because `include`
 needs niri **v25.11 or newer** and rewriting `config.kdl` would break an older
 one; on a pre-v25.11 niri, paste the generated block in instead.
 
-² **labwc.** Every save runs `/usr/libexec/apex-labwc-keybinds apply`, which
+² **labwc.** Every save runs `/usr/libexec/rime-labwc-keybinds apply`, which
 splices the bindings into the marked region of `~/.config/labwc/rc.xml` (an
 XML-aware edit that leaves the rest of a file you also own alone), then runs
-`labwc --reconfigure`. The helper ships in the APEX-OS image. If you are running
+`labwc --reconfigure`. The helper ships in the Rime OS image. If you are running
 this shell from a `$HOME` checkout on a machine without it, the save still
 writes the shell's own files and skips this step (a `test -x` guard covers that
 case), so labwc keeps whatever is already in its `rc.xml`.
@@ -402,7 +402,7 @@ click-to-switch.
 Keybind CAPTURE (recording a shortcut by pressing it inside the editor) is still
 Hyprland-only. It needs the compositor to stop swallowing its own bindings while
 you press them, and the shell does that by switching Hyprland to an empty
-submap, `ApexShell_clean`. The tiling-specific tiles and the layout indicator
+submap, `RimeShell_clean`. The tiling-specific tiles and the layout indicator
 hide themselves on niri and labwc, as the table says.
 
 To verify shell behaviour under labwc without rebooting:
@@ -418,7 +418,7 @@ reports any errors or warnings.
   Performance
 </h2>
 
-APEX Shell used to fork 5-6 processes per second while idle, and far more on a
+Rime Shell used to fork 5-6 processes per second while idle, and far more on a
 machine where someone had opened the dashboard once. The paired measurement
 below put it at **~22 process creations per second** doing nothing.
 
@@ -492,10 +492,10 @@ tier's behaviour (32 assertions against real `/proc` and `/sys`); run it with
   Contributing
 </h2>
 
-APEX Shell is under active development and takes contributions:
+Rime Shell is under active development and takes contributions:
 
-- Found a bug? → [Open an issue](https://github.com/AndreNijman/apex-shell/issues)
-- Have an idea? → [Start a discussion](https://github.com/AndreNijman/apex-shell/discussions)
+- Found a bug? → [Open an issue](https://github.com/AndreNijman/apex-shell/issues) <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
+- Have an idea? → [Start a discussion](https://github.com/AndreNijman/apex-shell/discussions) <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
 - Want to contribute? → Fork, branch, and submit a pull request
 
 ---
@@ -504,7 +504,7 @@ APEX Shell is under active development and takes contributions:
   Credits / Acknowledgements
 </h2>
 
-APEX Shell is inspired by and originally derived from [Brain_Shell](https://github.com/Brainitech/Brain_Shell) by Brainitech (Venkat Saahit Kamu), used under the MIT License. APEX Shell has since diverged as the standard shell for APEX-OS.
+Rime Shell is inspired by and originally derived from [Brain_Shell](https://github.com/Brainitech/Brain_Shell) by Brainitech (Venkat Saahit Kamu), used under the MIT License. Rime Shell has since diverged as the standard shell for Rime OS.
 
 Additional thanks to the projects and communities that make this shell possible:
 
@@ -526,11 +526,11 @@ Additional thanks to the projects and communities that make this shell possible:
 </h2>
 
 <div align="center">
-  <a href="https://www.star-history.com/?repos=AndreNijman%2Fapex-shell&type=date&legend=top-left">
+  <a href="https://www.star-history.com/?repos=AndreNijman%2Frime-shell&type=date&legend=top-left">
    <picture>
-     <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=AndreNijman/apex-shell&type=date&theme=dark&legend=top-left" />
-     <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=AndreNijman/apex-shell&type=date&legend=top-left" />
-     <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=AndreNijman/apex-shell&type=date&legend=top-left" />
+     <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=AndreNijman/apex-shell&type=date&theme=dark&legend=top-left" /> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
+     <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=AndreNijman/apex-shell&type=date&legend=top-left" /> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
+     <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=AndreNijman/apex-shell&type=date&legend=top-left" /> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
    </picture>
   </a>
 </div>

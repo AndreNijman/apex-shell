@@ -4,14 +4,14 @@
 //
 //      node tests/agent-lifecycle-test.js
 //      node tests/agent-lifecycle-test.js --selftest   (mutants; run by default)
-//      APEX_OS_ROOT=/path/to/apex-os node tests/agent-lifecycle-test.js
+//      RIME_OS_ROOT=/path/to/rime-os node tests/agent-lifecycle-test.js
 //
 //  ── What this is defending ──────────────────────────────────────────────────
 //
 //  §19 closes with "Do not treat all of these as one process-state model", and
 //  before this change the Agent Center did exactly that for five of the eight
 //  kinds. The interesting part is that the runtime was never the problem:
-//  apex-agentd has reported `request_origin` on every session record since §7,
+//  rime-agentd has reported `request_origin` on every session record since §7,
 //  and `git grep request_origin -- src/` on roadmap/v2.2 @ 690014a returns
 //  nothing. The data was arriving and being thrown away.
 //
@@ -26,14 +26,14 @@
 //     the record AND the listing it came from, and the listing wins.
 //
 //  2. ABSENT IS NOT LOCAL. A record from a daemon that predates origin
-//     tracking has no `request_origin`, and apex-agentd refuses to default
+//     tracking has no `request_origin`, and rime-agentd refuses to default
 //     that to `local-terminal` because that is the origin §7 reserves root
 //     for. Defaulting it here would put a confident "Terminal" pill on a
 //     session nobody classified, which is worse than no pill: it is the pill a
 //     user would trust.
 //
 //  3. THE VOCABULARY IS ANOTHER REPOSITORY'S. Section 1 reads the real
-//     `RequestOrigin::as_str` arms out of an apex-os checkout when one is
+//     `RequestOrigin::as_str` arms out of a rime-os checkout when one is
 //     present, so the mapping cannot silently drift from the daemon that
 //     produces it. Without a checkout it falls back to a transcribed list and
 //     SAYS SO, because a soft skip on the machine where most people run tests
@@ -48,7 +48,7 @@ const path = require("path");
 const os = require("os");
 const { execFileSync } = require("child_process");
 
-const SRC = process.env.APEX_SHELL_SRC || path.join(__dirname, "..", "src");
+const SRC = process.env.RIME_SHELL_SRC || path.join(__dirname, "..", "src");
 
 let passed = 0, failed = 0;
 function check(name, cond, detail) {
@@ -69,7 +69,7 @@ function s(id, origin) {
 
 const FLEET = [
     s(1, "local-terminal"),
-    s(2, "apex-shell"),
+    s(2, "rime-shell"),
     s(3, "claude-remote-control"),
     s(4, "scheduled-job"),
     s(5, "mcp"),
@@ -80,10 +80,17 @@ const FLEET = [
     s(10, "quantum-entangled")  // a value a NEWER daemon invented
 ];
 
+// Spellings policy.rs's `parse` accepts beside the canonical ones:
+// `remote-control` for claude-remote-control, and `apex-shell`, the shell's
+// origin before the rename, which records on disk and devices still on APEX
+// carry. The daemon never WRITES either, so they are exempt from the fleet
+// coverage and from "the runtime never writes it", and mapped below.
+const PARSE_ALIASES = ["remote-control", "apex-shell"];  // rime-rename: keep (the origin's pre-rename spelling)
+
 function fixture(L) {
     console.log("\n── 0. the fixture is non-trivial ──");
     check("the fleet covers every origin the runtime can report",
-          Object.keys(L.ORIGINS).filter(o => o !== "remote-control")
+          Object.keys(L.ORIGINS).filter(o => PARSE_ALIASES.indexOf(o) === -1)
                 .every(o => FLEET.some(r => r.request_origin === o)),
           Object.keys(L.ORIGINS).join(" "));
     check("the fleet carries an absent origin and a null one",
@@ -95,20 +102,20 @@ function fixture(L) {
 
 // ── 1. the vocabulary is the daemon's, read from it where possible ──────────
 function vocabulary(L) {
-    console.log("\n── 1. the origin vocabulary matches apex-agent-core ──");
+    console.log("\n── 1. the origin vocabulary matches rime-agent-core ──");
 
-    // Transcribed from apex-agent-core/src/policy.rs `RequestOrigin::as_str`.
+    // Transcribed from rime-agent-core/src/policy.rs `RequestOrigin::as_str`.
     // Used only when no checkout is around; the checkout wins whenever it is.
-    let want = ["local-terminal", "apex-shell", "claude-remote-control",
+    let want = ["local-terminal", "rime-shell", "claude-remote-control",
                 "scheduled-job", "mcp", "subagent", "cloud-job"];
-    let note = "transcribed vocabulary (no apex-os checkout found)";
+    let note = "transcribed vocabulary (no rime-os checkout found)";
 
     // POLICY.RS HAS NINE `as_str` FUNCTIONS, one per dimension enum, and the
     // first draft of this reader matched the wrong one. It came back with
     // NativeMode's arms — inherit, ask, bypass — and reported that the runtime
     // writes three origins none of which this file classifies. On a machine
     // with no checkout it said "transcribed vocabulary" and looked fine; the
-    // bug was only visible with APEX_OS_ROOT set, which is the one case the
+    // bug was only visible with RIME_OS_ROOT set, which is the one case the
     // check exists for.
     //
     // So the impl block is anchored FIRST and `as_str` is found inside it. And
@@ -118,10 +125,10 @@ function vocabulary(L) {
     // second is how this check would go back to asserting nothing.
     let hardFail = "";
     const roots = [];
-    if (process.env.APEX_OS_ROOT) roots.push(process.env.APEX_OS_ROOT);
-    roots.push(path.join(__dirname, "..", "..", "apex-os"));
+    if (process.env.RIME_OS_ROOT) roots.push(process.env.RIME_OS_ROOT);
+    roots.push(path.join(__dirname, "..", "..", "rime-os"));
     for (const root of roots) {
-        const file = path.join(root, "apexd", "apex-agent-core", "src", "policy.rs");
+        const file = path.join(root, "rimed", "rime-agent-core", "src", "policy.rs");
         let text;
         try { text = fs.readFileSync(file, "utf8"); } catch (e) { continue; }
         const impl = text.match(/\nimpl RequestOrigin \{[\s\S]*?\n\}/);
@@ -135,7 +142,7 @@ function vocabulary(L) {
         break;
     }
     console.log("  origin source: " + (hardFail || note));
-    check("an apex-os checkout that is present can be read",
+    check("a rime-os checkout that is present can be read",
           hardFail === "", hardFail);
 
     const mapped = Object.keys(L.ORIGINS);
@@ -145,10 +152,10 @@ function vocabulary(L) {
 
     // And the other direction, which catches a typo in this file: a key here
     // that the daemon never writes would be dead code that looks like cover.
-    // `remote-control` is the one legitimate extra — policy.rs's `parse`
+    // `remote-control` and `apex-shell` are the legitimate extras — policy.rs's `parse`
     // accepts it as an alias, so a record hand-written against the short
     // spelling still classifies.
-    const extra = mapped.filter(o => want.indexOf(o) === -1 && o !== "remote-control");
+    const extra = mapped.filter(o => want.indexOf(o) === -1 && PARSE_ALIASES.indexOf(o) === -1);
     check("no origin is classified that the runtime never writes",
           extra.length === 0, "unknown to the daemon: " + extra.join(" "));
 
@@ -188,7 +195,8 @@ function mapping(L) {
     console.log("\n── 3. each origin lands on the kind §19 names ──");
     const cases = [
         ["local-terminal",        L.LOCAL],
-        ["apex-shell",            L.LOCAL],
+        ["rime-shell",            L.LOCAL],
+        ["apex-shell",            L.LOCAL],  // rime-rename: keep (the origin's pre-rename spelling)
         ["claude-remote-control", L.REMOTE_CTL],
         ["remote-control",        L.REMOTE_CTL],
         ["scheduled-job",         L.SCHEDULED],
@@ -327,7 +335,7 @@ function wiring() {
 // hard failure and never a pass.
 function selftest() {
     console.log("\n── self-test: can these checks fail? ──");
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "apex-lifecycle-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rime-lifecycle-"));
     const original = fs.readFileSync(MODULE, "utf8");
     let sp = 0, sf = 0;
 
@@ -344,7 +352,7 @@ function selftest() {
         let code = 0;
         try {
             execFileSync(process.execPath, [__filename, "--child"], {
-                env: Object.assign({}, process.env, { APEX_LIFECYCLE_MODULE: file }),
+                env: Object.assign({}, process.env, { RIME_LIFECYCLE_MODULE: file }),
                 stdio: "pipe"
             });
         } catch (e) { code = e.status === undefined ? 1 : e.status; }
@@ -385,7 +393,7 @@ function selftest() {
 
     // 6. An origin the daemon writes stops being classified. Section 1 is the
     //    only thing that can see this, and only because it reads the arms out
-    //    of apex-os rather than trusting the list in this file.
+    //    of rime-os rather than trusting the list in this file.
     expect("dropping an origin the daemon writes is caught",
            original.replace('    "mcp":                   SIDECAR,\n', ""),
            "red");
@@ -434,7 +442,7 @@ function selftest() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-const MODULE = process.env.APEX_LIFECYCLE_MODULE
+const MODULE = process.env.RIME_LIFECYCLE_MODULE
     || path.join(SRC, "services", "agentlifecycle.js");
 const L = require(MODULE);
 

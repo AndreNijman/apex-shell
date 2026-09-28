@@ -6,9 +6,9 @@
 //
 // ── What this has to establish ───────────────────────────────────────────────
 //
-// P1-051's first criterion is a pairing code a phone can scan. `apex remote
+// P1-051's first criterion is a pairing code a phone can scan. `rime remote
 // pair` refuses to draw one in the terminal and says why in its own source
-// (apexd/apex/src/remote.rs, `qr_block`): "a wrong QR is worse than none — a
+// (rimed/rime/src/remote.rs, `qr_block`): "a wrong QR is worse than none — a
 // phone scans it, fails, and the person concludes their camera is broken."
 // So it is not enough for the output to look like a QR code, and "it renders"
 // is not a test. Every module has to be the right module.
@@ -249,22 +249,22 @@ check("the four levels are l, m, q, h in that order", QR.LEVELS, ["l", "m", "q",
 
 // ── the entry point ──────────────────────────────────────────────────────────
 
-const auto = QR.encode("apex-remote:hello");
+const auto = QR.encode("rime-remote:hello");
 // Version 1 at level l holds 19 data codewords -- 152 bits, of which 12 are
 // the mode indicator and the count -- so 17 bytes fit and 18 do not. Asserting
 // both sides of that boundary is what makes this about choosing a version
 // rather than about one payload happening to land somewhere.
 check("encode picks the smallest version that holds the payload",
-      [QR.toBytes("apex-remote:hello").length, auto.version], [17, 1]);
+      [QR.toBytes("rime-remote:hello").length, auto.version], [17, 1]);
 check("one byte more than version 1 holds moves the symbol up a version",
-      QR.encode("apex-remote:hello!").version, 2);
+      QR.encode("rime-remote:hello!").version, 2);
 check("encode defaults to error correction level l", auto.level, "l");
 check("encode picks a mask in range", auto.mask >= 0 && auto.mask <= 7, true);
 check("encode reports the size its matrix actually is",
       [auto.size, auto.modules.length, auto.modules[0].length],
       [QR.size(auto.version), QR.size(auto.version), QR.size(auto.version)]);
 check("mask selection is deterministic",
-      QR.encode("apex-remote:hello").mask, auto.mask);
+      QR.encode("rime-remote:hello").mask, auto.mask);
 check("the matrix carries no quiet zone: the top-left module is the finder's",
       [auto.modules[0][0], auto.modules[0][7]], [1, 0]);
 
@@ -277,8 +277,8 @@ throws("a payload too big for the version it was given is refused",
 throws("a payload too big for any version is refused",
        () => QR.encode("A".repeat(3000), { level: "h" }));
 
-// ── the payload APEX actually produces ───────────────────────────────────────
-// The two `offer-*` fixtures are apex_remote_core::pairing::PairingOffer's own
+// ── the payload Rime actually produces ───────────────────────────────────────
+// The two `offer-*` fixtures are rime_remote_core::pairing::PairingOffer's own
 // field set, compact-JSON'd and base64url'd behind that crate's SCHEME. The
 // version each lands on is what the pairing page will have to render, so it is
 // pinned: a payload that quietly grew past a version boundary changes how
@@ -290,8 +290,8 @@ check("a LAN-only pairing offer is a version 11 symbol",
       lanOnly && [lanOnly.version, lanOnly.size], [11, 61]);
 check("a pairing offer naming a relay is a version 13 symbol",
       withRelay && [withRelay.version, withRelay.size], [13, 69]);
-check("both pairing offers carry the scheme apex-remote-core declares",
-      [lanOnly, withRelay].every(c => c && c.payload.startsWith("apex-remote:")), true);
+check("both pairing offers carry the scheme rime-remote-core declares",
+      [lanOnly, withRelay].every(c => c && c.payload.startsWith("apex-remote:")), true);  // rime-rename: keep (the pairing scheme)
 check("encode chooses those versions on its own, without being told",
       [QR.encode(lanOnly.payload).version, QR.encode(withRelay.payload).version],
       [11, 13]);

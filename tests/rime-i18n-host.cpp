@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  apex-i18n-host.cpp — a bare QQmlEngine, the shape quickshell uses, so the
-//  Apex.I18n route can be measured on a machine that has no quickshell.
+//  rime-i18n-host.cpp — a bare QQmlEngine, the shape quickshell uses, so the
+//  Rime.I18n route can be measured on a machine that has no quickshell.
 //
 //  ── Why this exists rather than "just run quickshell" ───────────────────────
 //
@@ -56,9 +56,9 @@
 
 static void report(QObject *o, const char *tag)
 {
-    printf("APEXHOST %s entryLabel=%s\n", tag,
+    printf("RIMEHOST %s entryLabel=%s\n", tag,
            qPrintable(o->property("entryLabel").toString()));
-    printf("APEXHOST %s cardRead=%s\n", tag,
+    printf("RIMEHOST %s cardRead=%s\n", tag,
            qPrintable(o->property("cardRead").toString()));
 }
 
@@ -66,17 +66,17 @@ int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
 
-    const QString mode    = qEnvironmentVariable("APEX_I18N_MODE");
-    const QString stage   = qEnvironmentVariable("APEX_I18N_STAGE");
-    const QString imports = qEnvironmentVariable("APEX_I18N_IMPORTS");
-    const QString trdir   = qEnvironmentVariable("APEX_SHELL_TRANSLATIONS");
+    const QString mode    = qEnvironmentVariable("RIME_I18N_MODE");
+    const QString stage   = qEnvironmentVariable("RIME_I18N_STAGE");
+    const QString imports = qEnvironmentVariable("RIME_I18N_IMPORTS");
+    const QString trdir   = qEnvironmentVariable("RIME_SHELL_TRANSLATIONS");
 
     if (mode.isEmpty() || stage.isEmpty()) {
-        fprintf(stderr, "APEX_I18N_MODE and APEX_I18N_STAGE are required\n");
+        fprintf(stderr, "RIME_I18N_MODE and RIME_I18N_STAGE are required\n");
         return 2;
     }
-    printf("APEXHOST mode=%s\n", qPrintable(mode));
-    printf("APEXHOST locale=%s\n", qPrintable(QLocale().name()));
+    printf("RIMEHOST mode=%s\n", qPrintable(mode));
+    printf("RIMEHOST locale=%s\n", qPrintable(QLocale().name()));
 
     // The bare engine. This line, and the import path below it, are the whole
     // host: everything else in this file is measurement.
@@ -86,16 +86,16 @@ int main(int argc, char **argv)
                               || mode == QLatin1String("nocat"));
     if (wantsPlugin) {
         if (imports.isEmpty()) {
-            fprintf(stderr, "mode %s needs APEX_I18N_IMPORTS\n", qPrintable(mode));
+            fprintf(stderr, "mode %s needs RIME_I18N_IMPORTS\n", qPrintable(mode));
             return 2;
         }
         engine.addImportPath(imports);
-        printf("APEXHOST importPath=%s\n", qPrintable(imports));
+        printf("RIMEHOST importPath=%s\n", qPrintable(imports));
     }
 
     const QString probe = wantsPlugin ? QStringLiteral("probe-import.qml")
                                       : QStringLiteral("probe.qml");
-    printf("APEXHOST probe=%s\n", qPrintable(probe));
+    printf("RIMEHOST probe=%s\n", qPrintable(probe));
 
     QQmlComponent component(&engine, QUrl::fromLocalFile(stage + QLatin1Char('/') + probe));
     QObject *root = component.create();
@@ -105,29 +105,29 @@ int main(int argc, char **argv)
         // printed English ones. Say so and leave, loudly.
         const auto errors = component.errors();
         for (const auto &e : errors)
-            fprintf(stderr, "APEXHOST error: %s\n", qPrintable(e.toString()));
-        printf("APEXHOST create=FAILED\n");
+            fprintf(stderr, "RIMEHOST error: %s\n", qPrintable(e.toString()));
+        printf("RIMEHOST create=FAILED\n");
         return 3;
     }
-    printf("APEXHOST create=ok\n");
+    printf("RIMEHOST create=ok\n");
 
     report(root, "first");
 
     if (mode == QLatin1String("late") || mode == QLatin1String("late-retranslate")) {
         auto *tr = new QTranslator(&app);
-        if (tr->load(QLocale(), QStringLiteral("apex-shell"), QStringLiteral("_"), trdir)) {
+        if (tr->load(QLocale(), QStringLiteral("rime-shell"), QStringLiteral("_"), trdir)) {
             QCoreApplication::installTranslator(tr);
-            printf("APEXHOST late-install=%s\n", qPrintable(tr->filePath()));
+            printf("RIMEHOST late-install=%s\n", qPrintable(tr->filePath()));
         } else {
-            printf("APEXHOST late-install=FAILED\n");
+            printf("RIMEHOST late-install=FAILED\n");
         }
         if (mode == QLatin1String("late-retranslate")) {
             engine.retranslate();
-            printf("APEXHOST retranslate=called\n");
+            printf("RIMEHOST retranslate=called\n");
         }
         report(root, "second");
     }
 
-    printf("APEXHOST done=%s\n", qPrintable(mode));
+    printf("RIMEHOST done=%s\n", qPrintable(mode));
     return 0;
 }

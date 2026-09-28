@@ -76,13 +76,13 @@ QtObject {
     property var _proc: Process {
         command: [
             "bash", "-c",
-            "mkdir -p /tmp/apex_shell && " +
+            "mkdir -p /tmp/rime_shell && " +
             "printf '[general]\\nbars = 32\\nframerate = 30\\nnoise_reduction = 77\\n\\n" +
             "[output]\\nmethod = raw\\nraw_target = /dev/stdout\\n" +
             "data_format = ascii\\nascii_max_range = 100\\n" +
             "bar_delimiter = 59\\nframe_delimiter = 10\\n' " +
-            "> /tmp/apex_shell/cava_shared.ini && " +
-            "exec cava -p /tmp/apex_shell/cava_shared.ini 2>/dev/null"
+            "> /tmp/rime_shell/cava_shared.ini && " +
+            "exec cava -p /tmp/rime_shell/cava_shared.ini 2>/dev/null"
         ]
         running: root.wanted
         stdout: SplitParser {

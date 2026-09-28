@@ -26,7 +26,7 @@
 #   CAPTURE_PALETTE    colors.json to seed (default: the shipped example is a
 #                      template, so a fixed dark palette is written instead)
 #   CAPTURE_WALLPAPER  image drawn behind the shell with swaybg, so contrast
-#                      against a real wallpaper is visible (default: the APEX-OS default)
+#                      against a real wallpaper is visible (default: the Rime OS default)
 #
 # Rendering is on the GPU (HEADLESS_WLR_RENDERER=gles2) when a render node is
 # available, because pixman makes Qt fall back to software rasterising and the
@@ -65,18 +65,18 @@ trap cleanup EXIT INT TERM
 headless_start labwc "$mode" || exit 0
 
 # ── seed the sandbox HOME ────────────────────────────────────────────────────
-ud="$HOME/.config/apex-shell/src/user_data"
+ud="$HOME/.config/rime-shell/src/user_data"
 mkdir -p "$ud"
-# The APEX-OS default wallpaper is the current one, as the first run makes it.
+# The Rime OS default wallpaper is the current one, as the first run makes it.
 printf '{"currentWall":"%s","wallpaperDir":"~/Pictures/Wallpapers","scheme":"content"}' "$HEADLESS_WALLPAPER" > "$ud/wallpaper.json"
-mkdir -p "$ud" "$HOME/.cache/apex-shell"
+mkdir -p "$ud" "$HOME/.cache/rime-shell"
 cat > "$ud/settings.json" <<JSON
 {"cornerRadius":17,"borderWidth":6,"notchRadius":15,"notchHeight":40,"barEnabled":false,"spacing":10,"exclusionGap":34,"animDuration":${anim},"reduceMotion":${CAPTURE_REDUCED:-false},"dashboardWidth":900,"dashboardHeight":520,"notificationsWidth":400,"lockBackground":"","scaleMode":"auto","scaleManual":1,"scaleScreen":"","nightLightTemp":5600,"motionSpeed":"balanced","motionScale":$(python3 -c "print(round(${anim}/320, 3))")}
 JSON
 if [ -n "${CAPTURE_PALETTE:-}" ] && [ -f "$CAPTURE_PALETTE" ]; then
-    cp "$CAPTURE_PALETTE" "$HOME/.cache/apex-shell/colors.json"
+    cp "$CAPTURE_PALETTE" "$HOME/.cache/rime-shell/colors.json"
 else
-    headless_apex_palette dark   # the APEX-OS default look (tests/lib/headless.sh)
+    headless_rime_palette dark   # the Rime OS default look (tests/lib/headless.sh)
 fi
 
 if command -v swaybg >/dev/null 2>&1 && [ -f "$wall" ]; then
@@ -176,10 +176,10 @@ pane_switch() {
 
 # A notification toast. It needs a notification to arrive, and this harness
 # must never send one to the user's own desktop, so it runs only on a PRIVATE
-# session bus: dbus-run-session -- env APEX_CAPTURE_BUS=private <this script>.
+# session bus: dbus-run-session -- env RIME_CAPTURE_BUS=private <this script>.
 toast_seq() {
-    if [ "${APEX_CAPTURE_BUS:-}" != private ]; then
-        echo "toast: skipped — needs a private session bus (APEX_CAPTURE_BUS=private under dbus-run-session)"
+    if [ "${RIME_CAPTURE_BUS:-}" != private ]; then
+        echo "toast: skipped — needs a private session bus (RIME_CAPTURE_BUS=private under dbus-run-session)"
         return
     fi
     # gdbus, not notify-send: this host's notify-send never delivered to the
@@ -205,11 +205,11 @@ notify_id() {   # notify_id SUMMARY BODY — prints the id the server assigned
         | sed -nE 's/.*uint32 ([0-9]+).*/\1/p'   # "(uint32 7,)" — not the 32 of uint32
 }
 stack_seq() {
-    if [ "${APEX_CAPTURE_BUS:-}" != private ]; then
-        echo "stack: skipped — needs a private session bus (APEX_CAPTURE_BUS=private under dbus-run-session)"
+    if [ "${RIME_CAPTURE_BUS:-}" != private ]; then
+        echo "stack: skipped — needs a private session bus (RIME_CAPTURE_BUS=private under dbus-run-session)"
         return
     fi
-    notify_id "Build finished" "apex-os image 2026.09.26 is ready to stage." >/dev/null
+    notify_id "Build finished" "rime-os image 2026.09.26 is ready to stage." >/dev/null
     id2="$(notify_id "Agent needs input" "The netinstall agent is waiting on a question.")"
     ipc notification-toggle toggle; sleep 1.5
     t0=$(date +%s%N)

@@ -22,8 +22,8 @@ mkdir -p "$stage/components/auth" "$stage/theme" "$stage/shapes"
 cp "$root/src/components/auth/PasswordShapes.qml" "$stage/components/auth/"
 cp "$root/src/theme/motion.js" "$root/src/theme/spring.js" "$stage/theme/"
 # The Material shapes (vendored, Apache-2.0) and the path helper. Staged by
-# relative path only — which is how apex-greet loads the file from
-# /usr/share/apex-shell, so a load here is a load there.
+# relative path only — which is how rime-greet loads the file from
+# /usr/share/rime-shell, so a load here is a load there.
 cp "$root/src/shapes/materialpath.js" "$stage/shapes/"
 cp -r "$root/src/shapes/material" "$stage/shapes/material"
 cp "$here/password-shapes-test.qml" "$stage/"

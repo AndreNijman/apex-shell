@@ -40,7 +40,7 @@ function check(name, got, want) {
 // A manifest that is valid in every respect, so each test below can change
 // exactly one thing and attribute the refusal to that change.
 const base = {
-    id: "apex-sysmon",
+    id: "rime-sysmon",
     name: "System Monitor",
     version: "1.0.0",
     apiVersion: "1.0",
@@ -52,7 +52,7 @@ const withBase = (over) => Object.assign({}, base, over);
 
 // Refusal reason for a manifest, or "ok".
 const why = (over, dir) => {
-    const r = M.validateManifest(withBase(over), dir === undefined ? "apex-sysmon" : dir);
+    const r = M.validateManifest(withBase(over), dir === undefined ? "rime-sysmon" : dir);
     return r.ok ? "ok" : r.reason;
 };
 
@@ -64,10 +64,10 @@ check("permissions may be omitted entirely",
                            entry: "W.qml", extensionPoint: "bar-widget" }, "a").ok, true);
 check("the grant carries the declared permissions",
       M.validateManifest(withBase({ permissions: ["network", "files"],
-                                    network: ["api.github.com"] }), "apex-sysmon").permissions,
+                                    network: ["api.github.com"] }), "rime-sysmon").permissions,
       ["network", "files"]);
 check("duplicate permissions collapse",
-      M.validateManifest(withBase({ permissions: ["files", "files"] }), "apex-sysmon").permissions,
+      M.validateManifest(withBase({ permissions: ["files", "files"] }), "rime-sysmon").permissions,
       ["files"]);
 
 // ── Required fields ──────────────────────────────────────────────────────────
@@ -79,18 +79,18 @@ for (const f of ["id", "name", "version", "apiVersion", "entry", "extensionPoint
 check("a non-object manifest is refused", M.validateManifest([], "a").reason, "manifest-not-object");
 check("null is refused", M.validateManifest(null, "a").reason, "manifest-not-object");
 check("malformed JSON is refused", M.validateManifest("{nope", "a").reason, "manifest-unparseable");
-check("a JSON string parses", M.validateManifest(JSON.stringify(base), "apex-sysmon").ok, true);
+check("a JSON string parses", M.validateManifest(JSON.stringify(base), "rime-sysmon").ok, true);
 
 // ── id: it becomes a path segment ────────────────────────────────────────────
 console.log("\n── manifest: id ──");
 check("id must match its directory",     why({}, "somewhere-else"), "id-directory-mismatch");
-check("uppercase id refused",            why({ id: "Apex" }, "Apex"), "bad-id");
+check("uppercase id refused",            why({ id: "Rime" }, "Rime"), "bad-id");
 check("id with a slash refused",         why({ id: "a/b" }, "a/b"), "bad-id");
 check("id of .. refused",                why({ id: ".." }, ".."), "bad-id");
 check("id starting with a dash refused", why({ id: "-x" }, "-x"), "bad-id");
 check("id with a dot refused",           why({ id: "a.b" }, "a.b"), "bad-id");
 check("id with a space refused",         why({ id: "a b" }, "a b"), "bad-id");
-check("dashes inside an id are fine",    why({ id: "apex-sys-mon" }, "apex-sys-mon"), "ok");
+check("dashes inside an id are fine",    why({ id: "rime-sys-mon" }, "rime-sys-mon"), "ok");
 
 // ── apiVersion: the compatibility policy ─────────────────────────────────────
 console.log("\n── manifest: apiVersion policy ──");
@@ -153,7 +153,7 @@ check("network with hosts validates",
       why({ permissions: ["network"], network: ["api.github.com"] }), "ok");
 check("hosts are lowercased into the grant",
       M.validateManifest(withBase({ permissions: ["network"], network: ["API.GitHub.com"] }),
-                         "apex-sysmon").networkHosts,
+                         "rime-sysmon").networkHosts,
       ["api.github.com"]);
 check("a wildcard host is refused",
       why({ permissions: ["network"], network: ["*.github.com"] }), "bad-network-hosts");
@@ -375,12 +375,12 @@ check("nothing is run through a shell",
 console.log("\n── directory-name guard ──");
 // PluginService interpolates an enumerated directory name into a path before it
 // can read the manifest inside it, so the name is checked on its own first.
-check("a normal id is valid",        M.validId("apex-sysmon"), true);
+check("a normal id is valid",        M.validId("rime-sysmon"), true);
 check("traversal is not an id",      M.validId(".."), false);
 check("a dot is not an id",          M.validId("."), false);
 check("a slash is not an id",        M.validId("a/b"), false);
 check("a leading slash is not an id", M.validId("/etc"), false);
-check("uppercase is not an id",      M.validId("Apex"), false);
+check("uppercase is not an id",      M.validId("Rime"), false);
 check("empty is not an id",          M.validId(""), false);
 check("a non-string is not an id",   M.validId(null), false);
 check("a newline is not an id",      M.validId("a\nb"), false);

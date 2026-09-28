@@ -18,7 +18,7 @@ NotificationServer {
     // ── The deduplication key (roadmap P1-022) ────────────────────────────────
     //
     // A hint the server would otherwise discard. Quickshell exposes only the
-    // hints named here, so without this line `n.hints["x-apex-key"]` is
+    // hints named here, so without this line `n.hints["x-rime-key"]` is
     // undefined and every lookup below silently answers "no such
     // notification" — which reads exactly like a shell that is not the
     // notification server at all.
@@ -30,7 +30,7 @@ NotificationServer {
     // an agent can arrive from AgentService, from a hook, or from a program
     // nobody has written yet, and only a key that travels with the
     // notification can make those the same piece of news.
-    extraHints: ["x-apex-key"]
+    extraHints: ["x-rime-key"]
 
     signal notificationAdded(var notification)
 
@@ -110,7 +110,7 @@ NotificationServer {
         if (!key || !root.list) return null
         for (const n of root.list) {
             const h = n.hints
-            if (h && h["x-apex-key"] === key) return n
+            if (h && h["x-rime-key"] === key) return n
         }
         return null
     }

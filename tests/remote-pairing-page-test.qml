@@ -8,33 +8,33 @@ import "./src/nexus"
 import "./src/services/qr.js" as QR
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Behavioural test for the two APEX Remote pages (P1-051, criteria 1, 3, 5).
+// Behavioural test for the two Rime Remote pages (P1-051, criteria 1, 3, 5).
 //
 //     ./tests/run-remote-pairing-page-test.sh
 //
-// ── The `apex` here is a STUB, and it has to be ─────────────────────────────
+// ── The `rime` here is a STUB, and it has to be ─────────────────────────────
 //
-// `apex remote pair` mints a ONE-TIME pairing token and arms the real daemon
+// `rime remote pair` mints a ONE-TIME pairing token and arms the real daemon
 // to accept the next device presenting it. A suite that ran the real command
 // would arm the developer's own machine, three times per run, for a phone
-// nobody is holding. tests/lib/headless.sh already puts a stub `apex` on PATH
+// nobody is holding. tests/lib/headless.sh already puts a stub `rime` on PATH
 // for exactly this class of problem; the runner replaces it with one that
 // answers the four `remote` verbs and logs its argv.
 //
 // That is also why the service goes through the CLI rather than opening
-// apex-remoted's control socket directly. A socket client would walk straight
+// rime-remoted's control socket directly. A socket client would walk straight
 // past the stub. The service's own header says so from the other side, and
 // this file is the half that would notice.
 //
 // ── What the phases are for ─────────────────────────────────────────────────
 //
 //   pair-ok     the daemon answers; a code is on screen
-//   pair-fail   `apex remote pair` exits 1; there must be NO code on screen
+//   pair-fail   `rime remote pair` exits 1; there must be NO code on screen
 //   devices     three paired devices, one revoked, one connected right now
 //
 // `pair-fail` is not an error-handling afterthought. "A wrong QR is worse than
 // none — a phone scans it, fails, and the person concludes their camera is
-// broken" is the sentence `apex remote pair` gives for refusing to draw one in
+// broken" is the sentence `rime remote pair` gives for refusing to draw one in
 // a terminal, and it is the whole reason this feature exists as a page. A page
 // that drew a placeholder, a stale code, or a greyed square when it had no
 // offer would reintroduce exactly that. So the central assertion of that phase
@@ -51,9 +51,9 @@ import "./src/services/qr.js" as QR
 ShellRoot {
     id: root
 
-    readonly property string phase: Quickshell.env("APEX_RP_PHASE") || "pair-ok"
-    readonly property string pageId: Quickshell.env("APEX_RP_PAGE") || "remote-pair"
-    readonly property string callLog: Quickshell.env("APEX_RP_CALLS") || ""
+    readonly property string phase: Quickshell.env("RIME_RP_PHASE") || "pair-ok"
+    readonly property string pageId: Quickshell.env("RIME_RP_PAGE") || "remote-pair"
+    readonly property string callLog: Quickshell.env("RIME_RP_CALLS") || ""
 
     property int passed: 0
     property int failed: 0
@@ -255,7 +255,7 @@ ShellRoot {
         // matters more here than on any other settings page, because one of
         // the things it would ask for mints a one-time pairing token.
         root.readLog(function () {
-            root.check("nothing was asked of apex before the page was shown (saw "
+            root.check("nothing was asked of rime before the page was shown (saw "
                        + root.lines.length + " calls)", root.lines.length === 0)
             root.page.onScreen = true
             then()
@@ -276,8 +276,8 @@ ShellRoot {
 
             function () {
                 const payload = RemotePairingService.payload
-                root.check("the payload carries apex-remote-core's scheme",
-                           payload.indexOf("apex-remote:") === 0)
+                root.check("the payload carries rime-remote-core's scheme",
+                           payload.indexOf("apex-remote:") === 0)  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
                 root.check("the offer's expiry came from the payload, not from prose",
                            RemotePairingService.payloadExpiresMs > 0)
                 root.check("the countdown is running and inside the three minutes",
@@ -419,9 +419,9 @@ ShellRoot {
 
             function () {
                 root.check("the page says the command failed, in the command's words",
-                           root.textShowing(root.page, "apex remote pair exited") !== null)
+                           root.textShowing(root.page, "rime remote pair exited") !== null)
                 root.check("...and points at the thing that is usually wrong",
-                           root.textShowing(root.page, "apex remote enable") !== null)
+                           root.textShowing(root.page, "rime remote enable") !== null)
                 root.next()
             },
 

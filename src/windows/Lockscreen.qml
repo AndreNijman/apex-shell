@@ -41,11 +41,11 @@ WlSessionLock {
     // `locked` above: `secure` only flips once ext-session-lock has actually
     // engaged (or been released), so a lock that fails to engage is never
     // reported to logind as engaged. See LockedHintService for why this has
-    // to be the shell's job and not apexd's.
+    // to be the shell's job and not rimed's.
     onSecureStateChanged: {
         LockedHintService.setLocked(sessionLock.secure)
         LockState.lockSecure = sessionLock.secure
-        if (Motion.pacingLog) console.info("APEX pacing: lock secure=" + sessionLock.secure)
+        if (Motion.pacingLog) console.info("Rime pacing: lock secure=" + sessionLock.secure)
     }
 
     // The initial sync, and the reason it cannot live in the service itself.
@@ -53,7 +53,7 @@ WlSessionLock {
     // `onSecureStateChanged` only fires on a CHANGE, so a shell that starts up
     // while logind still believes the session locked — a crash, a restart, a
     // `quickshell` reload mid-lock — would leave the hint reading `yes` until
-    // somebody locked and unlocked the screen by hand. apex-agentd polls that
+    // somebody locked and unlocked the screen by hand. rime-agentd polls that
     // property, so the stale value is not cosmetic: it holds Remote Control
     // sessions and revokes root grants while the owner is sitting in front of
     // the machine.
@@ -284,7 +284,7 @@ WlSessionLock {
             duration: Motion.reduced ? Motion.fadeIn : Motion.hero
             easing.type: Easing.Linear
         }
-        // APEX_PACING_LOG: the arrival's own frames (count, worst gap), the
+        // RIME_PACING_LOG: the arrival's own frames (count, worst gap), the
         // measurement a recording of a nested session cannot make.
         property var _pace: ({ n: 0, worst: 0, last: 0 })
         property Connections _paceFrames: Connections {
@@ -300,7 +300,7 @@ WlSessionLock {
             target: Motion.pacingLog ? enterAnim : null
             function onRunningChanged() {
                 if (enterAnim.running) { surface._pace = { n: 0, worst: 0, last: 0 }; return }
-                console.info("APEX pacing: lock arrival frames=" + surface._pace.n + " worst="
+                console.info("Rime pacing: lock arrival frames=" + surface._pace.n + " worst="
                              + surface._pace.worst + "ms over " + enterAnim.duration + "ms gaps=" + (surface._pace.gaps || ""))
             }
         }
@@ -332,7 +332,7 @@ WlSessionLock {
             surface._presented = true
             surface._presentGuard.stop()
             if (Motion.pacingLog)
-                console.info("APEX pacing: lock arrival start ms=" + (Date.now() - surface._createdAt)
+                console.info("Rime pacing: lock arrival start ms=" + (Date.now() - surface._createdAt)
                              + " picture=" + surface._fromCapture)
             enterAnim.restart()
         }
@@ -783,7 +783,7 @@ WlSessionLock {
 
                     // What the field holds, as shapes — one per character,
                     // chosen by position, never by what was typed. Same
-                    // component the login screen loads (apex-greet).
+                    // component the login screen loads (rime-greet).
                     PasswordShapes {
                         id: shapes
                         anchors.fill:        passwordInput

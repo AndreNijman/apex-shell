@@ -43,8 +43,8 @@ Rectangle {
     readonly property string operation: {
         var v = request.verb
         if (v === "install" || v === "remove")
-            return "apex " + v + " " + (request.packages || []).join(" ")
-        return "apex " + String(v).replace("pkg-", "pkg ")
+            return "rime " + v + " " + (request.packages || []).join(" ")
+        return "rime " + String(v).replace("pkg-", "pkg ")
     }
 
     // What Return does on the list, and what Review's own tap does — one
@@ -137,11 +137,11 @@ Rectangle {
             }
         }
 
-        // ApexPressable (UI/UX roadmap v3 Phase 21): was a bare
+        // RimePressable (UI/UX roadmap v3 Phase 21): was a bare
         // Rectangle/HoverHandler/TapHandler with no keyboard path. A Tab stop
         // only while the list's highlight is on this row (`row.keyed`), same
         // as every other row-level button in the template.
-        ApexPressable {
+        RimePressable {
             id: reviewBtn
             anchors.verticalCenter: parent.verticalCenter
             width: reviewLabel.implicitWidth + theme.fs(18)
@@ -168,7 +168,7 @@ Rectangle {
                 font.pixelSize: theme.fs(11)
             }
 
-            ApexFocusRing { target: reviewBtn }
+            RimeFocusRing { target: reviewBtn }
         }
     }
 }

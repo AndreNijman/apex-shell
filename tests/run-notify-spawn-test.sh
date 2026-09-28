@@ -84,7 +84,7 @@ export WLR_RENDERER=pixman
 export XDG_SESSION_TYPE=wayland
 export QT_QPA_PLATFORM=wayland
 
-export APEX_NOTIFY_TEST_DIR="$W"
+export RIME_NOTIFY_TEST_DIR="$W"
 
 case "$comp" in
     labwc)

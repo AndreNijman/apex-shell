@@ -1,25 +1,25 @@
 ---
-title: "APEX Shell Master UI/UX Roadmap"
+title: "Rime Shell Master UI/UX Roadmap"
 subtitle: "Motion, fluid surfaces, visual design, interaction architecture, performance and rollout"
 version: "3.0"
 date: "2026-09-20"
 status: "Pre-implementation roadmap"
-companion: "APEX-Shell-Fluid-Visual-Design-Roadmap-v1.md"
+companion: "RIME-Shell-Fluid-Visual-Design-Roadmap-v1.md"
 ---
 
-# APEX Shell Master UI/UX Roadmap v3
+# Rime Shell Master UI/UX Roadmap v3
 
 ## 0. Purpose
 
-This is the implementation roadmap for the next APEX Shell UI/UX pass. It replaces the previous motion-only roadmap.
+This is the implementation roadmap for the next Rime Shell UI/UX pass. It replaces the previous motion-only roadmap.
 
 The goal is not simply to make animations smoother. The goal is to make the shell feel like one designed desktop environment with a clear visual language, distinct surface shapes, fluid geometry, responsive controls, coherent navigation, strong accessibility, and measurable frame pacing.
 
-The companion document, **APEX Shell Fluid + Visual Design Roadmap v1**, defines the actual shape families, visual system, motion motifs, component styling and surface-specific design rules. This master roadmap defines the engineering order, dependencies, acceptance gates and rollout.
+The companion document, **Rime Shell Fluid + Visual Design Roadmap v1**, defines the actual shape families, visual system, motion motifs, component styling and surface-specific design rules. This master roadmap defines the engineering order, dependencies, acceptance gates and rollout.
 
 ## 1. Finished-state target
 
-APEX should feel immediate when the user interacts with it and expressive only when the interaction deserves it.
+Rime should feel immediate when the user interacts with it and expressive only when the interaction deserves it.
 
 The finished shell should behave like this:
 
@@ -36,7 +36,7 @@ The finished shell should behave like this:
 - Large shape motion leads content motion, giving the impression that content lives inside the shell surface.
 - Every animation can be interrupted or reversed without visual jumps or stale state.
 - Reduced Motion changes the whole shell, including hardcoded legacy animations.
-- Hyprland windows and workspaces use motion that feels related to APEX Shell.
+- Hyprland windows and workspaces use motion that feels related to Rime Shell.
 - The UI itself has a stronger hierarchy: spacing, typography, surface levels, controls, icon treatment and color roles are standardized.
 
 ## 2. Current implementation findings
@@ -87,7 +87,7 @@ They can resize and join the bar cleanly, but every large popup is still derived
 - concave flare;
 - straight joined edge.
 
-This is why different APEX surfaces can feel like the same blob at different dimensions.
+This is why different Rime surfaces can feel like the same blob at different dimensions.
 
 ### 2.5 Internal layout changes throughout outer shape animation
 
@@ -102,7 +102,7 @@ The new system should separate:
 
 ### 2.6 Visual hierarchy is under-specified
 
-Current APEX has strong individual visual ideas, but many local values remain one-off:
+Current Rime has strong individual visual ideas, but many local values remain one-off:
 
 - radii;
 - padding;
@@ -154,7 +154,7 @@ Animation timing and curves should come from a central motion system unless an e
 
 ### 3.7 No blind performance cargo culting
 
-Do not copy Qt render-loop flags, shaders, blur settings or compositor animation values from another shell without measuring them on APEX.
+Do not copy Qt render-loop flags, shaders, blur settings or compositor animation values from another shell without measuring them on Rime.
 
 ### 3.8 Preserve current functional behavior unless a phase explicitly changes it
 
@@ -391,13 +391,13 @@ Long term, SVG or another normalized icon source can be evaluated, but icon-sour
 Create reusable controls such as:
 
 ```text
-ApexPressable
-ApexButton
-ApexIconButton
-ApexToggle
-ApexSlider
-ApexSelectionPill
-ApexFocusRing
+RimePressable
+RimeButton
+RimeIconButton
+RimeToggle
+RimeSlider
+RimeSelectionPill
+RimeFocusRing
 ```
 
 ### Press behavior
@@ -442,7 +442,7 @@ Avoid scaling everything on hover.
 
 ### Done when
 
-- The most common APEX interactions all share one physical response language.
+- The most common Rime interactions all share one physical response language.
 
 # MILESTONE B - FLUID SURFACE ENGINE
 
@@ -511,7 +511,7 @@ overshoot amount
 - Surface geometry no longer depends on only a handful of fixed Canvas switch branches.
 - At least three visually different fluid families can be expressed by the same underlying system.
 
-## Phase 5. Implement distinct APEX shape families
+## Phase 5. Implement distinct Rime shape families
 
 Use the companion visual roadmap as the geometry specification.
 
@@ -619,7 +619,7 @@ Selection visibly travels rather than disappearing from one item and appearing o
 
 ## Phase 8. Dashboard v2
 
-Dashboard is the primary APEX hero surface.
+Dashboard is the primary Rime hero surface.
 
 ### Shape
 
@@ -832,7 +832,7 @@ Do not apply fluid bar morphs where there is no bar connection.
 
 ## Phase 15. Top bar/notch visual redesign
 
-The top bar is the persistent face of APEX.
+The top bar is the persistent face of Rime.
 
 ### Improve
 
@@ -1008,7 +1008,7 @@ Separate compositor motion classes for:
 - workspace keyboard switches: directional and quick;
 - touchpad workspace gesture: direct while fingers are down, physics only on release.
 
-Avoid double-animation of APEX layer surfaces when the shell already owns their geometry motion.
+Avoid double-animation of Rime layer surfaces when the shell already owns their geometry motion.
 
 ## Phase 21. Accessibility and keyboard UX
 
@@ -1189,8 +1189,8 @@ An implementation agent following this roadmap should obey these rules:
 
 The project is complete when all of the following are true:
 
-- APEX has one central motion language.
-- APEX has a documented visual design token system.
+- Rime has one central motion language.
+- Rime has a documented visual design token system.
 - Large connected surfaces use distinct shape families appropriate to their location and role.
 - Dashboard, right quick surfaces and left quick surfaces no longer look like the same rounded panel animation.
 - Fluid geometry has clean tangents and no visible shape artifacts.
@@ -1211,8 +1211,8 @@ The project is complete when all of the following are true:
 
 # 29. Final design principle
 
-APEX should not feel like a collection of widgets with animation added to them.
+Rime should not feel like a collection of widgets with animation added to them.
 
 It should feel like a desktop made from a small number of related physical materials and surface behaviors. The center of the bar blooms into a workspace. The right side pours into quick controls. The left side spills into system actions. Notifications rearrange as a stack. Command surfaces reveal quickly. Management surfaces remain stable. Controls answer immediately.
 
-The user should notice that APEX feels better long before they notice the individual animations that made it better.
+The user should notice that Rime feels better long before they notice the individual animations that made it better.

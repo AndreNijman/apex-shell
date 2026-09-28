@@ -87,7 +87,7 @@ PanelWindow {
 	color:         "transparent"
 	WlrLayershell.layer:         WlrLayer.Overlay
 	// The keyboard while it is open (UI/UX Phase 21): it took none, so its
-	// power rows — ApexPressable, Tab-ready — could not be reached, and on labwc
+	// power rows — RimePressable, Tab-ready — could not be reached, and on labwc
 	// (where PopupDismiss stands aside for it) nothing closed it but a click.
 	//
 	// Holding it, it must catch the click outside itself too: Hyprland pins the

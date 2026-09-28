@@ -343,7 +343,7 @@ mutate L6 "$LOCK" \
     "a rejected password reaches the description"
 
 # L7 — the one-word mistake. `Accessible.name: <the field>` is how a password
-#      crosses the accessibility bus, and the greeter suite in apex-os asserts
+#      crosses the accessibility bus, and the greeter suite in rime-os asserts
 #      the same property about the same class of field.
 mutate L7 "$LOCK" \
     '                        Accessible.name:         "Password"' \

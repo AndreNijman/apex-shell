@@ -1,7 +1,7 @@
 import QtQuick
 
 // ─── World Clock ──────────────────────────────────────────────────────────────
-// The reference APEX Shell plugin (roadmap §16). A second timezone in the bar,
+// The reference Rime Shell plugin (roadmap §16). A second timezone in the bar,
 // beside the local clock.
 //
 // It is here to be READ as much as to be used, so it exercises each part of the

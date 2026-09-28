@@ -32,12 +32,12 @@
 //
 // ── Where the fixtures come from ─────────────────────────────────────────────
 //
-// The `apex` output shapes below are transcribed from the OS side's own
-// serialisers, not invented. `apex project list --json` prints
+// The `rime` output shapes below are transcribed from the OS side's own
+// serialisers, not invented. `rime project list --json` prints
 // serde_json::to_string_pretty of a Vec<Project> — an ARRAY — from
-// apexd/apex/src/agent.rs, with the struct in apex-agent-core/src/project.rs.
-// `apex host list --json` prints a serde_json::Map keyed by host name — an
-// OBJECT — from apexd/apex/src/host.rs. Read on the apex-os branch p3/base.
+// rimed/rime/src/agent.rs, with the struct in rime-agent-core/src/project.rs.
+// `rime host list --json` prints a serde_json::Map keyed by host name — an
+// OBJECT — from rimed/rime/src/host.rs. Read on the rime-os branch p3/base.
 //
 // The array/object difference is the trap: the house pattern next door is
 // `if (Array.isArray(fresh))`, AgentService does it twice, and writing that for
@@ -64,7 +64,7 @@ function check(name, got, want) {
     }
 }
 
-const CTX = { shellDir: "/opt/apex-shell", home: "/home/andre" };
+const CTX = { shellDir: "/opt/rime-shell", home: "/home/andre" };
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  QUERY PARSING
@@ -103,7 +103,7 @@ check("search is a package verb with no side", S.parseQuery("search blender").in
 check("the verb is stripped from the term",
       S.parseQuery("install blender").term, "blender");
 check("ssh is the hosts verb", S.parseQuery("ssh katana").scope, S.SCOPE.HOSTS);
-check("open is the projects verb", S.parseQuery("open apex-os").scope, S.SCOPE.PROJECTS);
+check("open is the projects verb", S.parseQuery("open rime-os").scope, S.SCOPE.PROJECTS);
 check("a verb is case-insensitive", S.parseQuery("INSTALL blender").scope, S.SCOPE.PACKAGES);
 
 // The space is what makes a verb a verb. Without it "installer" would be read
@@ -145,7 +145,7 @@ check("an empty query reaches nobody",
       S.PROVIDER_IDS.filter(id => S.providerWants(id, S.parseQuery(""))), []);
 
 // ── THE NETWORK BOUNDARY ────────────────────────────────────────────────────
-// `apex search` runs `dnf5 search`, which may refresh repository metadata over
+// `rime search` runs `dnf5 search`, which may refresh repository metadata over
 // the network. §15's constraint is that no provider may reach the network
 // implicitly, so no scope a user can reach WITHOUT typing a package verb may
 // consult it.
@@ -153,7 +153,7 @@ check("the package provider is the only one that can reach the network",
       S.networkProviders(), ["packages"]);
 const IMPLICIT_QUERIES = ["blender", "b", "fire", "reboot", "?weather in perth",
                           "=2+2", ">restart", "~/Doc", "ssh katana",
-                          "open apex-os", "install", "  ", "installer"];
+                          "open rime-os", "install", "  ", "installer"];
 check("no network provider is reachable from a query with no package verb",
       IMPLICIT_QUERIES.filter(q =>
           S.networkProviders().some(id => S.providerWants(id, S.parseQuery(q)))),
@@ -184,15 +184,15 @@ check("a path query reaches only the files provider",
 // ─────────────────────────────────────────────────────────────────────────────
 
 check("a plain query reads the project list and the device registry",
-      S.PROVIDER_IDS.map(id => S.requestArgv(id, S.parseQuery("apex"), CTX))
+      S.PROVIDER_IDS.map(id => S.requestArgv(id, S.parseQuery("rime"), CTX))
           .filter(a => a.length > 0),
-      [["apex", "project", "list", "--json"], ["apex", "host", "list", "--json"]]);
+      [["rime", "project", "list", "--json"], ["rime", "host", "list", "--json"]]);
 check("the project argv does not depend on the query",
-      JSON.stringify(S.requestArgv("projects", S.parseQuery("apex"), CTX))
+      JSON.stringify(S.requestArgv("projects", S.parseQuery("rime"), CTX))
           === JSON.stringify(S.requestArgv("projects", S.parseQuery("zzzz"), CTX)), true);
 check("the package argv carries the term",
       S.requestArgv("packages", S.parseQuery("install blender"), CTX),
-      ["apex", "search", "blender"]);
+      ["rime", "search", "blender"]);
 // A leading "-" is read as a flag by everything downstream. Refused rather
 // than stripped: a search for "-x" that silently became a search for "x" is a
 // search that lied.
@@ -349,7 +349,7 @@ const G3 = [row("hosts", "Zero", 0)];
 check("higher scores come first",
       S.merge([G1, G2, G3]).map(r => r.name), ["Delta", "Alpha", "Gamma", "Beta"]);
 // Results come back from subprocesses out of order. A list that reshuffled
-// itself depending on which `apex` returned first would move the row under the
+// itself depending on which `rime` returned first would move the row under the
 // user's finger between keystrokes.
 check("the order does not depend on which group arrived first",
       S.merge([G2, G1, G3]).map(r => r.name), S.merge([G1, G2, G3]).map(r => r.name));
@@ -438,13 +438,13 @@ check("a control character in the argument is stripped before it becomes argv",
 
 check("installing goes through the script, with the name as its own argument",
       S.actionArgv("pkg.install", "blender", CTX),
-      ["bash", "/opt/apex-shell/src/scripts/SearchRun.sh", "install", "blender"]);
+      ["bash", "/opt/rime-shell/src/scripts/SearchRun.sh", "install", "blender"]);
 check("restarting bluetooth names the unit, and the unit is not the user's",
       S.actionArgv("bluetooth.restart", "", CTX),
-      ["bash", "/opt/apex-shell/src/scripts/SearchRun.sh", "unit-restart", "bluetooth"]);
+      ["bash", "/opt/rime-shell/src/scripts/SearchRun.sh", "unit-restart", "bluetooth"]);
 check("power actions go through the same script the power menu uses",
       S.actionArgv("system.reboot", "", CTX),
-      ["bash", "/opt/apex-shell/src/scripts/PowerControl.sh", "reboot"]);
+      ["bash", "/opt/rime-shell/src/scripts/PowerControl.sh", "reboot"]);
 
 // ── The preview ─────────────────────────────────────────────────────────────
 const PREVIEW = S.actionPreview("pkg.install", "blender", CTX);
@@ -488,7 +488,7 @@ check("only the package actions resolve",
           S.actionPreview(id, S.ACTIONS[id].arg === "" ? "" : "s", CTX).resolves),
       ["pkg.install", "pkg.remove"]);
 check("resolve is read-only and needs no root",
-      S.resolveArgv("blender"), ["apex", "resolve", "blender"]);
+      S.resolveArgv("blender"), ["rime", "resolve", "blender"]);
 check("resolve refuses an empty name", S.resolveArgv(""), null);
 check("an unknown action has no preview", S.actionPreview("nope", "", CTX), null);
 
@@ -600,7 +600,7 @@ check("a nameless row has no identity, so nothing can commit it",
 // ── The identity has to survive an INSERTION, which is the case that bites ──
 // merge() is order-independent w.r.t. which provider answered first, which is
 // tested above. It is not stable against rows being inserted, and they are:
-// `apex project list` lands about 160 ms after typing stops. A selection held
+// `rime project list` lands about 160 ms after typing stops. A selection held
 // as an integer index then points one row further down than the user is
 // looking at. AppLauncher re-anchors by id; this is the property that makes
 // that possible.
@@ -612,10 +612,10 @@ check("a nameless row has no identity, so nothing can commit it",
     const apps = [mk("apps", "Alpha", 900), mk("apps", "Beta", 800)];
     const before = S.merge([apps]);
     const anchor = S.rowId(before[1]);
-    const after = S.merge([apps, [mk("projects", "apex-os", 850)]]);
+    const after = S.merge([apps, [mk("projects", "rime-os", 850)]]);
 
     check("an arriving answer really can move the row under the selection",
-          [before[1].name, after[1].name], ["Beta", "apex-os"]);
+          [before[1].name, after[1].name], ["Beta", "rime-os"]);
     check("but the row's identity is unchanged by other rows arriving",
           after.map(r => S.rowId(r)).indexOf(anchor), 2);
     check("so the anchor finds it again",
@@ -698,7 +698,7 @@ check("MEASURED: fifteen keystrokes at 20 ms apart spawn nothing at all",
 d.tick(S.DEBOUNCE_MS);
 check("MEASURED: one process after the typing stops", d.spawns.length, 1);
 check("and it is the package search the user asked for",
-      d.spawns[0], "packages: apex search blender");
+      d.spawns[0], "packages: rime search blender");
 
 // ── Typing more, once an answer is in ───────────────────────────────────────
 d.finish("packages", true, "── repository packages ──\nblender.x86_64 : 3D suite\n");
@@ -720,7 +720,7 @@ check("MEASURED: backspacing and retyping is a cache hit, not a second process",
 // ── The two constant-argv providers ─────────────────────────────────────────
 d = new Driver();
 d.demand(true);
-for (const t of ["a", "ap", "ape", "apex", "apex-", "apex-o", "apex-os"]) {
+for (const t of ["a", "ap", "ape", "rime", "rime-", "rime-o", "rime-os"]) {
     d.type(t);
     d.tick(20);
 }
@@ -729,10 +729,10 @@ check("MEASURED: seven keystrokes of a plain query cost two processes, not fourt
       d.spawns.length, 2);
 check("and they are the project list and the device registry",
       d.spawns.slice().sort(),
-      ["hosts: apex host list --json", "projects: apex project list --json"]);
+      ["hosts: rime host list --json", "projects: rime project list --json"]);
 d.finish("projects", true, "[]");
 d.finish("hosts", true, "{}");
-for (const t of ["apex-os ", "apex-os x", "apex-os xy"]) { d.type(t); d.tick(200); }
+for (const t of ["rime-os ", "rime-os x", "rime-os xy"]) { d.type(t); d.tick(200); }
 check("MEASURED: typing on costs nothing more — the argv did not change",
       d.spawns.length, 2);
 
@@ -763,21 +763,21 @@ d.tick(S.DEBOUNCE_MS);
 check("MEASURED: and the new one is started", d.spawns.length, 2);
 d.finishStale("packages", staleSeq, "ALPHA RESULT");
 check("the cancelled request's answer is dropped, not cached",
-      S.cached(d.state, "packages", ["apex", "search", "alpha"]), null);
+      S.cached(d.state, "packages", ["rime", "search", "alpha"]), null);
 d.finish("packages", true, "BETA RESULT");
 check("the current request's answer is kept",
-      S.cached(d.state, "packages", ["apex", "search", "beta"]).text, "BETA RESULT");
+      S.cached(d.state, "packages", ["rime", "search", "beta"]).text, "BETA RESULT");
 
 // Two providers answering in the reverse order they were started.
 d = new Driver();
 d.demand(true);
-d.type("apex");
+d.type("rime");
 d.tick(S.DEBOUNCE_MS);
 d.finish("hosts", true, "{}");
 d.finish("projects", true, "[]");
 check("out-of-order answers both land",
-      [S.cached(d.state, "projects", ["apex", "project", "list", "--json"]).text,
-       S.cached(d.state, "hosts", ["apex", "host", "list", "--json"]).text],
+      [S.cached(d.state, "projects", ["rime", "project", "list", "--json"]).text,
+       S.cached(d.state, "hosts", ["rime", "host", "list", "--json"]).text],
       ["[]", "{}"]);
 
 // ── Demand going away ───────────────────────────────────────────────────────
@@ -790,7 +790,7 @@ d.demand(false);
 check("closing the launcher cancels what is in flight", d.cancels, ["packages"]);
 check("and stops the timer", d.deadline, null);
 check("and drops the cache, so a stale answer cannot survive a close",
-      S.cached(d.state, "packages", ["apex", "search", "blender"]), null);
+      S.cached(d.state, "packages", ["rime", "search", "blender"]), null);
 const beforeClosedBurst = d.spawns.length;
 for (let i = 0; i < 50; i++) { d.type("install thing" + i); d.tick(1000); }
 check("MEASURED: fifty queries with the launcher closed spawn nothing",
@@ -807,22 +807,22 @@ for (let i = 0; i < S.CACHE_PER_PROVIDER + 4; i++) {
 check("the cache does not grow without bound",
       d.state.cache["packages"].length, S.CACHE_PER_PROVIDER);
 check("the oldest entry is the one dropped",
-      S.cached(d.state, "packages", ["apex", "search", "p0"]), null);
+      S.cached(d.state, "packages", ["rime", "search", "p0"]), null);
 check("the newest is kept",
-      S.cached(d.state, "packages", ["apex", "search", "p11"]).text, "answer 11");
+      S.cached(d.state, "packages", ["rime", "search", "p11"]).text, "answer 11");
 
 // A failed read is remembered as a failure rather than retried on every
-// keystroke: `apex host list` does not exist on today's installed apex, and a
+// keystroke: `rime host list` does not exist on today's installed rime, and a
 // launcher that retried it per keystroke would spawn one doomed process per
 // character.
 d = new Driver();
 d.demand(true);
-d.type("apex");
+d.type("rime");
 d.tick(S.DEBOUNCE_MS);
 d.finish("hosts", false, "");
 d.finish("projects", false, "");
 const afterFailure = d.spawns.length;
-for (const t of ["apex-", "apex-o", "apex-os"]) { d.type(t); d.tick(1000); }
+for (const t of ["rime-", "rime-o", "rime-os"]) { d.type(t); d.tick(1000); }
 check("MEASURED: a command that does not exist is not retried on every keystroke",
       d.spawns.length, afterFailure);
 
@@ -830,9 +830,9 @@ check("MEASURED: a command that does not exist is not retried on every keystroke
 //  READING WHAT THE CLI SAID
 // ─────────────────────────────────────────────────────────────────────────────
 
-// An ARRAY. From apexd/apex/src/agent.rs's ProjectCmd::List { json: true }.
+// An ARRAY. From rimed/rime/src/agent.rs's ProjectCmd::List { json: true }.
 const PROJECTS = JSON.stringify([
-    { root: "/home/andre/Projects/apex/apex-os", name: "apex-os", slug: "apex-os",
+    { root: "/home/andre/Projects/rime/rime-os", name: "rime-os", slug: "rime-os",
       languages: ["rust", "shell"], last_opened: 1756900000, capsule: null },
     // Written before capsules existed: the key is simply absent, which
     // #[serde(default)] makes normal rather than a parse failure.
@@ -842,7 +842,7 @@ const PROJECTS = JSON.stringify([
 const proj = S.parseProjectList(PROJECTS);
 check("the project list parses", [proj.ok, proj.projects.length], [true, 2]);
 check("a project carries its slug, root and toolchains",
-      [proj.projects[0].slug, proj.projects[0].languages], ["apex-os", ["rust", "shell"]]);
+      [proj.projects[0].slug, proj.projects[0].languages], ["rime-os", ["rust", "shell"]]);
 check("a missing capsule key is no binding, not a failure",
       proj.projects[1].capsule, "");
 check("a null capsule is no binding either", proj.projects[0].capsule, "");
@@ -854,7 +854,7 @@ check("empty project output yields nothing", S.parseProjectList("").reason, "emp
 check("a nameless project record is skipped",
       S.parseProjectList('[{"root":"/x"}]').projects, []);
 
-// An OBJECT KEYED BY HOST NAME. From apexd/apex/src/host.rs's
+// An OBJECT KEYED BY HOST NAME. From rimed/rime/src/host.rs's
 // HostCmd::List { json: true }, which builds a serde_json::Map.
 const HOSTS = JSON.stringify({
     katana: { ssh: "katana", port: null, note: "build box",
@@ -869,11 +869,11 @@ check("the host registry parses", [reg.ok, reg.hosts.length], [true, 3]);
 check("hosts come back sorted by name",
       reg.hosts.map(h => h.name), ["fileserver", "katana", "laptop"]);
 check("a never-probed host is not presented as anything else",
-      [reg.hosts[2].probed, reg.hosts[2].apex], [false, false]);
-check("a probed host without the runtime is probed but not APEX",
-      [reg.hosts[0].probed, reg.hosts[0].apex], [true, false]);
+      [reg.hosts[2].probed, reg.hosts[2].rime], [false, false]);
+check("a probed host without the runtime is probed but not Rime",
+      [reg.hosts[0].probed, reg.hosts[0].rime], [true, false]);
 check("a probed host with the runtime says so",
-      [reg.hosts[1].probed, reg.hosts[1].apex], [true, true]);
+      [reg.hosts[1].probed, reg.hosts[1].rime], [true, true]);
 check("a host with no ssh field falls back to its name",
       S.parseHostRegistry('{"box":{"caps":null}}').hosts[0].ssh, "box");
 check("a null note is an empty note, not the string null",
@@ -892,10 +892,10 @@ check("an empty registry is a valid, empty registry",
 // A hand-edited cache holding the string "false" is truthy, and this decides
 // what a user is told about their own machine.
 check("a capability is read for identity, never for truthiness",
-      S.parseHostRegistry('{"b":{"caps":{"agentd":"false"}}}').hosts[0].apex, false);
+      S.parseHostRegistry('{"b":{"caps":{"agentd":"false"}}}').hosts[0].rime, false);
 
 // ── CAPTURED, NOT RECONSTRUCTED ─────────────────────────────────────────────
-// `apex search` output. Two human-readable sections; there is no --json, so
+// `rime search` output. Two human-readable sections; there is no --json, so
 // this reads the human form and the fixture has to be the real bytes.
 //
 // These lines were captured from dnf5 5.2.18.0 and flatpak on Fedora 43 with
@@ -903,7 +903,7 @@ check("a capability is read for identity, never for truthiness",
 // of parsePackageSearch was written from memory of dnf4's " : " separator.
 // dnf5 uses a TAB and a leading space and repeats its "Matched fields:" header
 // between groups, so the regex matched NOTHING — "install blender" offered the
-// Flatpak and never the RPM that `apex install` uses for a bare name, silently,
+// Flatpak and never the RPM that `rime install` uses for a bare name, silently,
 // because "a parser that fails yields no rows" is exactly what it did.
 const SEARCH_OUT = [
     "── repository packages ─────────────────────────────────────────────",
@@ -919,11 +919,11 @@ const SEARCH_OUT = [
     "org.upbge.UPBGE\tUPBGE\tflathub",
     "de.bforartists.Bforartists\tBforartists\tflathub",
     "",
-    "apex resolve <name>  shows which source APEX would use, and why"
+    "rime resolve <name>  shows which source Rime would use, and why"
 ].join("\n");
 const pkgs = S.parsePackageSearch(SEARCH_OUT);
 
-// The RPM first, because it is the source `apex install` uses for a bare name.
+// The RPM first, because it is the source `rime install` uses for a bare name.
 check("package search finds the repository packages before the Flatpaks",
       pkgs.map(p => p.name),
       ["blender", "YafaRay-blender", "blender-luxcorerender", "blender-rpm-macros",
@@ -941,8 +941,8 @@ check("the summary comes along",
 check("dnf5's repeated group header is not a package",
       pkgs.filter(p => /Matched/.test(p.name)), []);
 check("the rules and the trailing hint are not packages",
-      pkgs.filter(p => p.name.indexOf("─") >= 0 || p.name.indexOf("apex") === 0), []);
-// dnf4's separator still works: apex-pkg calls whichever dnf5 is installed, and
+      pkgs.filter(p => p.name.indexOf("─") >= 0 || p.name.indexOf("rime") === 0), []);
+// dnf4's separator still works: rime-pkg calls whichever dnf5 is installed, and
 // the output of a tool is not a contract.
 check("the older ' : ' separator is still read",
       S.parsePackageSearch("gimp.x86_64 : GNU Image Manipulation Program")

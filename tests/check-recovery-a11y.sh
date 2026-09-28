@@ -8,7 +8,7 @@
 #  src/services/config_tab/pages/RecoveryPage.qml had ZERO `Accessible.`
 #  anything in 892 lines. Read back over real AT-SPI on 2026-09-19 — nested
 #  headless labwc, private session and a11y buses, the shipped shell.qml, Qt's
-#  accessibility factory restored in-process by round 30's shim, and an `apex`
+#  accessibility factory restored in-process by round 30's shim, and an `rime`
 #  answering the captured fixtures — the page published its shared Cfg*
 #  controls and NOT ONE of its 8 component rows, 6 recovery routes, 7 doctor
 #  checks, its headline status line, or a single section title.
@@ -688,7 +688,7 @@ section "§7 the acknowledgement that gates the commit, and the ORDER it needs"
 # ─────────────────────────────────────────────────────────────────────────────
 #
 # Found 2026-09-19 by pressing the Erase button over AT-SPI and watching a
-# recording `apex` stub record nothing: the factory reset COULD NOT BE
+# recording `rime` stub record nothing: the factory reset COULD NOT BE
 # COMMITTED BY ANYBODY. `_onPlan()` assigned `plan` before `resetPhase`; QML
 # property notifications are synchronous, so the loss list acknowledged itself
 # while the phase was still "planning"; acknowledgeLossList() refuses in that

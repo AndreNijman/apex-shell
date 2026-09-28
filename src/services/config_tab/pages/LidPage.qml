@@ -24,7 +24,7 @@ import "../../"
 // often will not — and for a reason that has nothing to do with the switch.
 // logind consults `HandleLidSwitchDocked` (default `ignore`) BEFORE it consults
 // any inhibitor, so an external display makes the lid do nothing at all,
-// whatever this page says and whether or not APEX is running. An owner who
+// whatever this page says and whether or not Rime is running. An owner who
 // unplugs their monitor at school and finds the machine asleep would have been
 // told "on" by that switch every time they looked.
 //
@@ -42,9 +42,9 @@ import "../../"
 //
 // ── What this page is allowed to do ──────────────────────────────────────────
 //
-// Read-only except for the pin. `apex lid status --json` and `apex lid report
-// --json` write nothing. `apex lid pin` writes the owner's own
-// ~/.config/apex/lid.toml and needs no privilege: the inhibitor it controls is
+// Read-only except for the pin. `rime lid status --json` and `rime lid report
+// --json` write nothing. `rime lid pin` writes the owner's own
+// ~/.config/rime/lid.toml and needs no privilege: the inhibitor it controls is
 // `allow_active=yes` for an ordinary session, measured three ways. There is no
 // `sudo` and no `pkexec` on this surface and no polkit prompt can come from it.
 // See LidService's header.
@@ -63,7 +63,7 @@ CfgScroll {
     lifecycleError: LidService.lastError
 
     // Set by SettingsHost (Nexus): "this page is genuinely on screen".
-    // Declared because LidService spawns two `apex` processes per sweep and is
+    // Declared because LidService spawns two `rime` processes per sweep and is
     // refcounted on it; PageRegistry marks this page needsScreen: true so both
     // hosts bind it. NOT `visible` — an Item inside a hidden window still
     // reports visible: true, which is how the stats page kept six pollers
@@ -80,7 +80,7 @@ CfgScroll {
     // and must not: node drives it in tests/lid-test.js.
     //
     // `warn` is its own colour and is NOT `danger`. A docked machine is not
-    // broken — it is a machine whose lid APEX does not control — and painting
+    // broken — it is a machine whose lid Rime does not control — and painting
     // that red would teach the reader that red means nothing here.
     function toneColor(tone) {
         if (tone === "active") return Theme.active

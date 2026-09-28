@@ -2,7 +2,7 @@ import QtQuick
 import "../../"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ApexIconButton — a glyph that is a button (UI/UX roadmap v3 Phase 3; brief
+// RimeIconButton — a glyph that is a button (UI/UX roadmap v3 Phase 3; brief
 // §E "Icon button", §D.6 for the bar).
 //
 // Anywhere but the bar: transparent at rest, the surface's state layer on
@@ -11,7 +11,7 @@ import "../../"
 // glyph alone answers, textPrimary on hover and the accent while pressed — and
 // the target is 24 px however small the glyph.
 // ─────────────────────────────────────────────────────────────────────────────
-ApexPressable {
+RimePressable {
     id: root
 
     property string glyph: ""
@@ -48,5 +48,5 @@ ApexPressable {
         color: root.glyphColor
         Behavior on color { MotionColor { role: "hover" } }
     }
-    ApexFocusRing { target: root }
+    RimeFocusRing { target: root }
 }

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  APEX Shell — Arch Linux Installer
+#  Rime Shell — Arch Linux Installer
 #  Invoked by install.sh:  $1=HYPRLAND_CONF  $2=BACKUP_DIR  $3=CONFIG_TYPE
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -10,7 +10,7 @@ set -eo pipefail
 HYPRLAND_CONF="${1:?Missing arg: HYPRLAND_CONF path}"
 BACKUP_DIR="${2:?Missing arg: BACKUP_DIR}"
 CONFIG_TYPE="${3:?Missing arg: CONFIG_TYPE (conf|lua)}"
-REPO_DIR="$HOME/.local/src/apex-shell"
+REPO_DIR="$HOME/.local/src/rime-shell"
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 RED='\033[0;31m';   GREEN='\033[0;32m';  YELLOW='\033[1;33m'
@@ -284,7 +284,7 @@ fi
 
 # quickshell is non-negotiable
 if ! "$AUR_HELPER" -Q quickshell &>/dev/null 2>&1; then
-    die "quickshell failed to install. APEX Shell cannot run without it."
+    die "quickshell failed to install. Rime Shell cannot run without it."
 fi
 
 
@@ -317,8 +317,8 @@ _svc_user   wireplumber
 # scoped polkit rule (start/stop of ONLY sing-box.service, active local session)
 # — but only when sing-box is actually present, so it is a no-op for everyone
 # else. polkitd hot-reloads rules.d, so no restart is needed.
-POLKIT_RULE_SRC="$REPO_DIR/dots-extra/polkit/49-apex-shell-singbox.rules"
-POLKIT_RULE_DST="/etc/polkit-1/rules.d/49-apex-shell-singbox.rules"
+POLKIT_RULE_SRC="$REPO_DIR/dots-extra/polkit/49-rime-shell-singbox.rules"
+POLKIT_RULE_DST="/etc/polkit-1/rules.d/49-rime-shell-singbox.rules"
 if [[ -f "$POLKIT_RULE_SRC" ]]; then
     if command -v sing-box &>/dev/null \
        || systemctl list-unit-files sing-box.service &>/dev/null; then
@@ -333,7 +333,7 @@ if [[ -f "$POLKIT_RULE_SRC" ]]; then
 fi
 
 # ── Agent sandbox default (polkit action) ────────────────────────────────────
-# Config → Agents switches the APEX sandbox default for new agent sessions, and
+# Config → Agents switches the Rime sandbox default for new agent sessions, and
 # switching it toward unrestricted takes a password at the desktop's polkit
 # agent. That needs an ACTION registered (not a rule): without it pkcheck exits
 # 127 with "is not registered" and the toggle cannot be turned on at all.
@@ -342,8 +342,8 @@ fi
 # id exists and is answered with the user's own password — so it is harmless on
 # a machine with no agent runtime, and installing it later would mean the
 # setting is silently unavailable until somebody re-runs the installer.
-POLKIT_ACTION_SRC="$REPO_DIR/dots-extra/polkit/org.apexos.shell.agent.policy"
-POLKIT_ACTION_DST="/usr/share/polkit-1/actions/org.apexos.shell.agent.policy"
+POLKIT_ACTION_SRC="$REPO_DIR/dots-extra/polkit/org.rimeos.shell.agent.policy"
+POLKIT_ACTION_DST="/usr/share/polkit-1/actions/org.rimeos.shell.agent.policy"
 if [[ -f "$POLKIT_ACTION_SRC" ]]; then
     if sudo install -Dm644 "$POLKIT_ACTION_SRC" "$POLKIT_ACTION_DST" 2>/dev/null; then
         log_ok   "polkit: agent sandbox action → $POLKIT_ACTION_DST"
@@ -359,15 +359,15 @@ fi
 step 5 "Hyprland Config"
 
 # Marker used to detect whether the block was already appended
-_MARKER="quickshell.*apex-shell"
+_MARKER="quickshell.*rime-shell"
 
 _append_conf() {
     cat << 'EOF' >> "$1"
 
-# APEX Shell Autostarts
+# Rime Shell Autostarts
 exec-once = awww-daemon
-exec-once = hypridle -c $HOME/.local/src/apex-shell/src/config/hypridle.conf
-exec-once = quickshell -c $HOME/.local/src/apex-shell/.
+exec-once = hypridle -c $HOME/.local/src/rime-shell/src/config/hypridle.conf
+exec-once = quickshell -c $HOME/.local/src/rime-shell/.
 exec-once = systemctl --user start hyprpolkitagent
 exec-once = wl-paste --type text --watch cliphist store
 exec-once = wl-paste --type image --watch cliphist store
@@ -377,11 +377,11 @@ EOF
 _append_lua() {
     cat << 'EOF' >> "$1"
 
--- APEX Shell Autostarts
+-- Rime Shell Autostarts
 hl.on("hyprland.start", function()
     hl.exec_cmd("awww-daemon")
-    hl.exec_cmd("hypridle -c " .. os.getenv("HOME") .. "/.local/src/apex-shell/src/config/hypridle.conf")
-    hl.exec_cmd("quickshell -c " .. os.getenv("HOME") .. "/.local/src/apex-shell")
+    hl.exec_cmd("hypridle -c " .. os.getenv("HOME") .. "/.local/src/rime-shell/src/config/hypridle.conf")
+    hl.exec_cmd("quickshell -c " .. os.getenv("HOME") .. "/.local/src/rime-shell")
     hl.exec_cmd("systemctl --user start hyprpolkitagent")
     hl.exec_cmd("wl-paste --type text --watch cliphist store")
     hl.exec_cmd("wl-paste --type image --watch cliphist store")
@@ -392,14 +392,14 @@ EOF
 # The shell no longer embeds a web view, so the argc shim Chromium needed is
 # gone. Strip the preload from configs an earlier installer rewrote, otherwise
 # the dynamic loader reports a missing object on every session start.
-if grep -q 'libapex-quickshell-argc.so' "$HYPRLAND_CONF" 2>/dev/null; then
+if grep -q 'librime-quickshell-argc.so' "$HYPRLAND_CONF" 2>/dev/null; then
     sed -i \
-        's|env LD_PRELOAD=$HOME/.local/lib/apex-shell/libapex-quickshell-argc.so quickshell|quickshell|' \
+        's|env LD_PRELOAD=$HOME/.local/lib/rime-shell/librime-quickshell-argc.so quickshell|quickshell|' \
         "$HYPRLAND_CONF"
     sed -i \
-        's|"env LD_PRELOAD=" \.\. os.getenv("HOME") \.\. "/.local/lib/apex-shell/libapex-quickshell-argc.so quickshell -c " \.\. os.getenv("HOME")|"quickshell -c " .. os.getenv("HOME")|' \
+        's|"env LD_PRELOAD=" \.\. os.getenv("HOME") \.\. "/.local/lib/rime-shell/librime-quickshell-argc.so quickshell -c " \.\. os.getenv("HOME")|"quickshell -c " .. os.getenv("HOME")|' \
         "$HYPRLAND_CONF"
-    rm -f "$HOME/.local/lib/apex-shell/libapex-quickshell-argc.so"
+    rm -f "$HOME/.local/lib/rime-shell/librime-quickshell-argc.so"
 fi
 
 if grep -q "$_MARKER" "$HYPRLAND_CONF" 2>/dev/null; then
@@ -412,8 +412,8 @@ else
             ;;
         lua)
             # Extra safety backup before touching a Lua config
-            cp "$HYPRLAND_CONF" "${HYPRLAND_CONF}.pre-apex-shell"
-            log_info "Safety backup: ${HYPRLAND_CONF}.pre-apex-shell"
+            cp "$HYPRLAND_CONF" "${HYPRLAND_CONF}.pre-rime-shell"
+            log_info "Safety backup: ${HYPRLAND_CONF}.pre-rime-shell"
             _append_lua "$HYPRLAND_CONF"
             log_ok "Autostart block appended to hyprland.lua"
             ;;
@@ -425,11 +425,11 @@ fi
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STEP 6 — APEX Shell Config & Keybind Check
+# STEP 6 — Rime Shell Config & Keybind Check
 # ══════════════════════════════════════════════════════════════════════════════
-step 6 "APEX Shell Config"
+step 6 "Rime Shell Config"
 
-USER_DATA="$HOME/.config/apex-shell/src/user_data"
+USER_DATA="$HOME/.config/rime-shell/src/user_data"
 
 mkdir -p "$USER_DATA" \
          "$HOME/.config/hypr/shaders" \
@@ -469,8 +469,8 @@ log_ok "Config dirs created"
 log_ok "config_Provider.json  →  $CONFIG_TYPE"
 
 log_info "Initializing cache directories..."
-mkdir -p "$HOME/.cache/apex-shell"
-touch "$HOME/.cache/apex-shell/colors.json"
+mkdir -p "$HOME/.cache/rime-shell"
+touch "$HOME/.cache/rime-shell/colors.json"
 mkdir -p "$HOME/Pictures/Wallpapers"
 cp -n -r "$REPO_DIR/src/assets/wallpapers"/* "$HOME/Pictures/Wallpapers/" 2>/dev/null || true
 
@@ -555,13 +555,13 @@ for action, info in conflicts.items():
 # a double-bound desktop and a benign-looking warning.
 config_path = os.path.join(
     os.environ.get("HOME", os.path.expanduser("~")),
-    ".config/apex-shell/src/user_data/keybinds.json",
+    ".config/rime-shell/src/user_data/keybinds.json",
 )
 os.makedirs(os.path.dirname(config_path), exist_ok=True)
 with open(config_path, "w") as f:
     json.dump(unbound, f, indent=2)
 
-print("  \033[1;33m⚠\033[0m  Conflicting binds left unbound in APEX Shell.")
+print("  \033[1;33m⚠\033[0m  Conflicting binds left unbound in Rime Shell.")
 print("       Re-assign them: Dashboard  →  Config  →  Keybinds\n")
 PYEOF
 

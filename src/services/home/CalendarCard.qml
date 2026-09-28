@@ -85,7 +85,7 @@ StatCard {
             anchors { left: parent.left; right: parent.right; top: parent.top }
             height: 22
 
-            ApexPressable {
+            RimePressable {
                 id: prevMonthBtn
                 anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                 width: 22; height: 22; radius: 6; hitMargin: 5
@@ -97,14 +97,14 @@ StatCard {
                     color: prevMonthBtn.hovered ? Theme.textPrimary : Theme.textTertiary
                     Behavior on color { MotionColor {} }
                 }
-                ApexFocusRing { target: prevMonthBtn }
+                RimeFocusRing { target: prevMonthBtn }
             }
             Text {
                 anchors.centerIn: parent
                 text: root._label; font.pixelSize: theme.fs(10); font.weight: Font.Bold
                 color: Theme.text
             }
-            ApexPressable {
+            RimePressable {
                 id: nextMonthBtn
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                 width: 22; height: 22; radius: 6; hitMargin: 5
@@ -116,7 +116,7 @@ StatCard {
                     color: nextMonthBtn.hovered ? Theme.textPrimary : Theme.textTertiary
                     Behavior on color { MotionColor {} }
                 }
-                ApexFocusRing { target: nextMonthBtn }
+                RimeFocusRing { target: nextMonthBtn }
             }
         }
 

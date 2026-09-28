@@ -106,13 +106,13 @@ check_tree() {
     done
 
     # ── 1. only two verbs are polled, and they are the safe two ──────────────
-    # `apex recover status --json` and `apex doctor --json` are file reads on
+    # `rime recover status --json` and `rime doctor --json` are file reads on
     # the OS side: no subprocess, no network, no authentication. Everything
-    # else in `apex recover` changes the machine.
+    # else in `rime recover` changes the machine.
     want "the sweep's argv table names 'recover status --json'" \
-        has "$svc" 'status: \["apex", "recover", "status", "--json"\]'
+        has "$svc" 'status: \["rime", "recover", "status", "--json"\]'
     want "the sweep's argv table names 'doctor --json'" \
-        has "$svc" 'doctor: \["apex", "doctor", "--json"\]'
+        has "$svc" 'doctor: \["rime", "doctor", "--json"\]'
     want "the sweep's argv table has exactly those two entries" \
         test "$(in_fn "$svc" 'readonly property var _stepArgv' '.' && \
                 fn_body "$svc" 'readonly property var _stepArgv' | grep -cE '^\s+(status|doctor):')" = 2
@@ -128,21 +128,21 @@ check_tree() {
         not_in_fn "$svc" 'readonly property var _stepArgv' '[-]-commit|reset|repair'
 
     # ── 2. no argv here is privileged ────────────────────────────────────────
-    # `sudo apex rollback` and `sudo apex recover repair --commit` appear in
+    # `sudo rime rollback` and `sudo rime recover repair --commit` appear in
     # this file as strings SHOWN to the user; neither is ever executed. The
     # distinction is that an executed argv is a JSON-ish array assigned to a
     # `command`, so that is what is scanned.
     local argvs
     argvs=$(code "$svc" | grep -E '(^|[^a-zA-Z])command\s*[:=]\s*\[' || true)
-    want "every executed argv starts with apex" \
-        test -z "$(grep -vE 'command\s*[:=]\s*\[\]' <<<"$argvs" | grep -vE '\[\s*"apex"' || true)"
+    want "every executed argv starts with rime" \
+        test -z "$(grep -vE 'command\s*[:=]\s*\[\]' <<<"$argvs" | grep -vE '\[\s*"rime"' || true)"
     want "no executed argv names sudo, pkexec, run0 or systemd-run" \
         test -z "$(grep -E '"(sudo|pkexec|su|run0|systemd-run)"' <<<"$argvs" || true)"
-    want "recovery.js builds no argv that is not apex's" \
-        test -z "$(code "$js" | grep -E '^\s*return \["' | grep -vE 'return \["apex"' || true)"
+    want "recovery.js builds no argv that is not rime's" \
+        test -z "$(code "$js" | grep -E '^\s*return \["' | grep -vE 'return \["rime"' || true)"
 
     # ── 3. the confirm token is evidence, never a parameter ──────────────────
-    # apexd derives it from the scope AND the exact paths the plan found,
+    # rimed derives it from the scope AND the exact paths the plan found,
     # specifically so a UI cannot commit without having rendered the loss list.
     want "exactly one place in recovery.js can emit --commit" \
         test "$(count_in "$js" '"--commit"')" = 1
@@ -269,8 +269,8 @@ check_tree() {
         test "$(count_in "$page" 'required property int index')" -ge 4
 
     # ── 9. an exit code is not a health verdict ──────────────────────────────
-    # `apex recover status` exits 1 when anything needs attention, and
-    # `apex doctor` always exits 0. Reading either as pass/fail inverts it.
+    # `rime recover status` exits 1 when anything needs attention, and
+    # `rime doctor` always exits 0. Reading either as pass/fail inverts it.
     want "parseStatus exists to be checked" fn_exists "$js" 'function parseStatus'
     want "parseStatus does not branch on the exit code" \
         not_in_fn "$js" 'function parseStatus' 'exitCode [!=]=='
@@ -414,8 +414,8 @@ expect "an unmutated copy is green" "$MUT/base" green
 fresh_copy "$MUT/m1"
 edit "$MUT/m1" src/services/RecoveryService.qml \
     's = s.replace(
-        "doctor: [\"apex\", \"doctor\", \"--json\"]",
-        "doctor: [\"apex\", \"recover\", \"repair\", \"--commit\", \"--json\"]", 1)
+        "doctor: [\"rime\", \"doctor\", \"--json\"]",
+        "doctor: [\"rime\", \"recover\", \"repair\", \"--commit\", \"--json\"]", 1)
 p.write_text(s)'
 assert_changed "$MUT/m1" src/services/RecoveryService.qml \
     && expect "a mutating verb on the sweep timer is caught" "$MUT/m1" red 4
@@ -425,7 +425,7 @@ fresh_copy "$MUT/m2"
 edit "$MUT/m2" src/services/RecoveryService.qml \
     's = s.replace(
         "const argv = Rec.commitArgv(root.plan, root._ackCount, root._ackToken)",
-        "const argv = [\"apex\", \"recover\", \"reset\", \"--scope\", root.plan.scope, \"--commit\", \"--confirm\", root.plan.confirmToken]", 1)
+        "const argv = [\"rime\", \"recover\", \"reset\", \"--scope\", root.plan.scope, \"--commit\", \"--confirm\", root.plan.confirmToken]", 1)
 p.write_text(s)'
 assert_changed "$MUT/m2" src/services/RecoveryService.qml \
     && expect "a commit argv assembled outside recovery.js is caught" "$MUT/m2" red 3
@@ -504,8 +504,8 @@ assert_changed "$MUT/m9" src/services/recovery.js \
 fresh_copy "$MUT/m10"
 edit "$MUT/m10" src/services/RecoveryService.qml \
     's = s.replace(
-        "        status: [\"apex\", \"recover\", \"status\", \"--json\"],",
-        "        status: [\"pkexec\", \"apex\", \"recover\", \"status\", \"--json\"],", 1)
+        "        status: [\"rime\", \"recover\", \"status\", \"--json\"],",
+        "        status: [\"pkexec\", \"rime\", \"recover\", \"status\", \"--json\"],", 1)
 p.write_text(s)'
 assert_changed "$MUT/m10" src/services/RecoveryService.qml \
     && expect "a privileged argv anywhere in the service is caught" "$MUT/m10" red 4
@@ -547,11 +547,11 @@ assert_changed "$MUT/m13" src/services/RecoveryService.qml \
 fresh_copy "$MUT/c1"
 {
     echo '// An earlier draft polled the reset:'
-    echo '//     doctor: ["apex", "recover", "reset", "--commit", "--json"]'
+    echo '//     doctor: ["rime", "recover", "reset", "--commit", "--json"]'
     echo '// and ran it through pkexec:'
-    echo '//     status: ["pkexec", "apex", "recover", "status", "--json"]'
+    echo '//     status: ["pkexec", "rime", "recover", "status", "--json"]'
     echo '// It also built the argv by hand —'
-    echo '//     const argv = ["apex", "recover", "reset", "--scope", s, "--commit", "--confirm", t]'
+    echo '//     const argv = ["rime", "recover", "reset", "--scope", s, "--commit", "--confirm", t]'
     echo '// — and re-armed the cooldown with no guard:'
     echo '//     root._cooldown.restart()'
     echo '// and left the plan alive across a close, by dropping _dropPlan()'

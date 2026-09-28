@@ -157,7 +157,7 @@ Item {
         }
 
         // Clear-all — only visible when there are notifications
-        ApexPressable {
+        RimePressable {
             id:      clearBtn
             anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
             width:   clearLabel.width + 16
@@ -181,7 +181,7 @@ Item {
                 color:            Theme.subtext
                 font.pixelSize:   theme.fs(12)
             }
-            ApexFocusRing { target: clearBtn }
+            RimeFocusRing { target: clearBtn }
         }
     }
 
@@ -662,7 +662,7 @@ Item {
 
                     Repeater {
                         model: card.tActions
-                        delegate: ApexPressable {
+                        delegate: RimePressable {
                             id: actBtn
                             required property var modelData
                             width:  actionLbl.width + 20
@@ -688,14 +688,14 @@ Item {
                                 color:            Theme.text
                                 font.pixelSize:   theme.fs(11)
                             }
-                            ApexFocusRing { target: actBtn }
+                            RimeFocusRing { target: actBtn }
                         }
                     }
                 }
             }
 
             // Dismiss ✕
-            ApexPressable {
+            RimePressable {
                 id:     dismissBtn
                 width:  24
                 height: 24
@@ -717,7 +717,7 @@ Item {
                     color:            dismissBtn.hovered ? Theme.textPrimary : Theme.textSecondary
                     font.pixelSize:   theme.fs(13)
                 }
-                ApexFocusRing { target: dismissBtn }
+                RimeFocusRing { target: dismissBtn }
             }
         }
         }

@@ -1,6 +1,6 @@
 // ─── firewall.js ─────────────────────────────────────────────────────────────
 // Pure logic behind FirewallService (roadmap P1-044): reading what
-// `apex firewall status`, `apex firewall list` and `systemctl is-active` say,
+// `rime firewall status`, `rime firewall list` and `systemctl is-active` say,
 // and turning it into something a settings page can render without holding any
 // of the reasoning itself.
 //
@@ -13,22 +13,22 @@
 // ── WHY THE PAGE READS TWO SOURCES AND NOT ONE ──────────────────────────────
 //
 // `nft list` needs CAP_NET_ADMIN. Run as the user the shell runs as,
-// `apex firewall status` answers "cannot read the ruleset" — correctly, and
+// `rime firewall status` answers "cannot read the ruleset" — correctly, and
 // that is the whole point of it saying so rather than reporting an empty one.
 // But a settings page that says "cannot look" every time it is opened has told
 // the user nothing, on a screen that exists to tell them something.
 //
 // So the two halves come from where each is actually readable:
 //
-//   is it enforcing   `systemctl show apex-firewall.service` — no privilege,
+//   is it enforcing   `systemctl show rime-firewall.service` — no privilege,
 //                     and it is the unit that owns the ruleset
-//   what is open      /etc/apex/firewall.d, which is world-readable precisely
+//   what is open      /etc/rime/firewall.d, which is world-readable precisely
 //                     so this question can be answered without root
 //
 // The unit being active is a PROXY for the ruleset being loaded, not the same
 // claim: someone with root can flush the table behind it. statusLine() says
 // "running" rather than "enforcing" for that reason, and the page offers
-// `sudo apex firewall status` as the command that reads the live ruleset.
+// `sudo rime firewall status` as the command that reads the live ruleset.
 //
 // ── WHY NOTHING HERE CHANGES ANYTHING ───────────────────────────────────────
 //
@@ -41,14 +41,14 @@
 
 // ── The unit ────────────────────────────────────────────────────────────────
 //
-// NOT `systemctl is-active`, which was the first version. Measured on an APEX
+// NOT `systemctl is-active`, which was the first version. Measured on a Rime
 // machine whose image predates this firewall:
 //
-//     systemctl is-active apex-firewall.service   →  inactive   (exit 4)
+//     systemctl is-active rime-firewall.service   →  inactive   (exit 4)
 //
 // The same word it gives for a unit that exists and is stopped. A page reading
 // that would have told a user whose image has no such unit to run
-// `systemctl enable --now apex-firewall`, which cannot work — an instruction
+// `systemctl enable --now rime-firewall`, which cannot work — an instruction
 // that fails is worse than no instruction, because it sends them looking for
 // the fault in the wrong place.
 //
@@ -83,22 +83,22 @@ function parseUnit(exitCode, stdout) {
 // ── The exceptions, from the helper's PROSE ─────────────────────────────────
 //
 // THIS IS THE FALLBACK PATH, not the one the page normally takes. See
-// parseStatusJson below: `apex firewall status --json` is the shape this page
-// reads, and prose is what is left on a machine whose `apex` predates the flag.
+// parseStatusJson below: `rime firewall status --json` is the shape this page
+// reads, and prose is what is left on a machine whose `rime` predates the flag.
 // The two are kept side by side rather than one being deleted, because the
 // machine this shell is being written on today — an L16 whose image predates
 // the firewall entirely — answers `unrecognized subcommand 'firewall'`, and a
 // page that only knows how to read the new surface would have nothing to say
 // on the machines where it most needs to say something.
 //
-// The helper prints its own lines prefixed `apex-firewall: `; the two lists are
+// The helper prints its own lines prefixed `rime-firewall: `; the two lists are
 // unprefixed and follow their heading. Parsing the heading rather than the
 // indentation means a future line added above cannot silently become an
 // exception.
 //
 // ── A BLANK LINE ENDS A SECTION ─────────────────────────────────────────────
 //
-// It did not, and that was the bug this whole change exists to close. apex-os
+// It did not, and that was the bug this whole change exists to close. rime-os
 // `c7a28f2c` added a shared-links block to the status screen, set off by blank
 // lines on both sides and sitting between the "always allowed" heading and the
 // "exceptions you have added" heading:
@@ -106,7 +106,7 @@ function parseUnit(exitCode, stdout) {
 //     always allowed, and not removable here:
 //       established replies, loopback, ICMP, DHCP, mDNS/LLMNR, ssh
 //
-//       sharing this machine's connection on: apexhost, wlan0
+//       sharing this machine's connection on: rimehost, wlan0
 //         DHCP and DNS are open on those links only
 //
 //     exceptions you have added:
@@ -137,14 +137,14 @@ function parseStatus(exitCode, stdout) {
         var line = lines[i]
         var trimmed = line.trim()
 
-        if (trimmed.indexOf("apex-firewall: policy:") === 0) {
-            var rest = trimmed.slice("apex-firewall: policy:".length).trim()
+        if (trimmed.indexOf("rime-firewall: policy:") === 0) {
+            var rest = trimmed.slice("rime-firewall: policy:".length).trim()
             if (rest.indexOf("NOT LOADED") === 0)                 out.policy = "notloaded"
             else if (rest.indexOf("cannot read") === 0)           out.policy = "unreadable"
             else if (rest.indexOf("incoming dropped") === 0)      out.policy = "loaded"
             continue
         }
-        if (trimmed.indexOf("apex-firewall: nft is not installed") === 0) {
+        if (trimmed.indexOf("rime-firewall: nft is not installed") === 0) {
             out.policy = "absent"
             continue
         }
@@ -155,7 +155,7 @@ function parseStatus(exitCode, stdout) {
         // reading whatever paragraph the helper printed after it.
         if (trimmed === "") { section = ""; continue }
         // Anything else the helper says about itself belongs to no list.
-        if (trimmed.indexOf("apex-firewall:") === 0) continue
+        if (trimmed.indexOf("rime-firewall:") === 0) continue
 
         if (section === "always") {
             out.alwaysAllowed = trimmed
@@ -185,7 +185,7 @@ function parseExceptionLine(line) {
     return { name: n ? n[1] : line, proto: "", port: "", rejected: true, detail: "unrecognised" }
 }
 
-// ── The exceptions, from `apex firewall status --json` ──────────────────────
+// ── The exceptions, from `rime firewall status --json` ──────────────────────
 //
 //  WHY THERE IS A SECOND READER AT ALL.
 //
@@ -195,14 +195,14 @@ function parseExceptionLine(line) {
 //  so the parser assigns it to a field and the page renders it. The user is
 //  told something false about their firewall and nothing anywhere goes red.
 //
-//  apex-os `3ab3b6ce` gave the helper a surface with a shape. The contract is
+//  rime-os `3ab3b6ce` gave the helper a surface with a shape. The contract is
 //  written where the helper is (`cmd_status_json` in
-//  files/system/libexec/apex-firewall); this is the half that reads it.
+//  files/system/libexec/rime-firewall); this is the half that reads it.
 //
 //  ── WHY THIS VALIDATES INSTEAD OF JUST READING KEYS ────────────────────────
 //
 //  `JSON.parse(...).always_allowed` is the same defect in a new costume. Rename
-//  that key on the apex-os side and this gets `undefined`, which becomes "",
+//  that key on the rime-os side and this gets `undefined`, which becomes "",
 //  which makes the page hide the row — silently, with both suites green again.
 //  The coupling would have moved from sentences to key names and drifted just
 //  as quietly.
@@ -216,7 +216,7 @@ function parseExceptionLine(line) {
 //  Required, not exhaustive: the four keys must be present with the right
 //  types, and extra keys are ignored. Rejecting a document for carrying a
 //  field this shell has not heard of would make any additive change on the
-//  apex-os side blank the page on every machine that had not updated in
+//  rime-os side blank the page on every machine that had not updated in
 //  lockstep, and an addition is not the failure mode — a rename or a removal
 //  is, and those are caught by requiring presence.
 var POLICIES = ["absent", "notloaded", "unreadable", "loaded"]
@@ -233,7 +233,7 @@ function _exceptionOf(e) {
     // reload refused. Showing a port next to that is the single worst answer
     // this surface can give, so proto/port are dropped here rather than
     // trusted: the helper's contract says a rejected entry carries neither,
-    // apex-os's own suite mutation-proves it, and this page does not need to
+    // rime-os's own suite mutation-proves it, and this page does not need to
     // be the second place that is true.
     if (e.rejected) return { name: e.name, proto: "", port: "", rejected: true, detail: e.detail }
     return { name: e.name, proto: e.proto, port: e.port, rejected: false, detail: e.detail }
@@ -241,7 +241,7 @@ function _exceptionOf(e) {
 
 // The exit code is not consulted. The helper answers 0 in every policy state
 // on purpose — "the ruleset could not be read" is an answer, not a failure —
-// and the case that matters, an `apex` with no `--json` and no `firewall` verb
+// and the case that matters, an `rime` with no `--json` and no `firewall` verb
 // at all, writes its usage to stderr and leaves stdout EMPTY. So the document
 // is the test, and there is nothing in the code to read.
 function parseStatusJson(exitCode, stdout) {
@@ -369,7 +369,7 @@ function statusTone(unit) {
 // with no firewall running, so the reassuring half of that sentence was
 // printed on the two machines where it is false.
 //
-// On katana, whose image predates `apex firewall`, the status verb exits
+// On katana, whose image predates `rime firewall`, the status verb exits
 // non-zero with "unrecognized subcommand" and nothing on stdout. The page said
 // the machine's ports were reachable only from itself, three lines under a
 // headline saying nothing was filtering them at all.
@@ -381,7 +381,7 @@ function statusTone(unit) {
 function emptyLine(checked, unit, status) {
     if (!checked) return ""
     if (!status || !status.ok)
-        return "Could not be read. `apex firewall status` did not answer on this machine, "
+        return "Could not be read. `rime firewall status` did not answer on this machine, "
              + "so what is open here is unknown rather than nothing."
     if (unit !== "active")
         return "Nothing opened here — and nothing is filtering either, so every port a "
@@ -390,10 +390,10 @@ function emptyLine(checked, unit, status) {
          + "from this machine itself."
 }
 
-function allowCommand(name) { return "sudo apex firewall allow " + name }
-function denyCommand(name)  { return "sudo apex firewall deny " + name }
-var READ_COMMAND  = "sudo apex firewall status"
-var START_COMMAND = "sudo systemctl enable --now apex-firewall"
+function allowCommand(name) { return "sudo rime firewall allow " + name }
+function denyCommand(name)  { return "sudo rime firewall deny " + name }
+var READ_COMMAND  = "sudo rime firewall status"
+var START_COMMAND = "sudo systemctl enable --now rime-firewall"
 
 // Which catalogue entries are not currently open, so the page can offer them
 // without repeating what is already on.

@@ -5,7 +5,7 @@
 //
 //      node tests/agenttelemetry-test.js
 //      node tests/agenttelemetry-test.js --selftest   (mutants; also run by default)
-//      APEX_SHELL_SRC=/path/to/other/src node tests/agenttelemetry-test.js
+//      RIME_SHELL_SRC=/path/to/other/src node tests/agenttelemetry-test.js
 //
 //  ── The three things this defends ───────────────────────────────────────────
 //
@@ -28,7 +28,7 @@
 //
 //  ── Where the fixture comes from ────────────────────────────────────────────
 //
-//  The records are the shape `apex agent list --json` emits after apex-os
+//  The records are the shape `rime agent list --json` emits after rime-os
 //  `task/p1-020-agent-graph-daemon`, whose `Telemetry` is parsed straight out
 //  of Claude's own status-line document — the same document Andre's
 //  ~/.claude/statusline.sh has been reading on this machine.
@@ -42,7 +42,7 @@ const path = require("path");
 const os = require("os");
 const { execFileSync } = require("child_process");
 
-const SRC = process.env.APEX_SHELL_SRC || path.join(__dirname, "..", "src");
+const SRC = process.env.RIME_SHELL_SRC || path.join(__dirname, "..", "src");
 
 let passed = 0, failed = 0;
 function check(name, cond, detail) {
@@ -55,7 +55,7 @@ const NOW = 1_757_200_000;
 function session(id, telemetry) {
     const s = {
         id: id, agent: "claude", program: "claude", args: [],
-        cwd: "/var/home/andre/Projects/apex", project_name: "apex",
+        cwd: "/var/home/andre/Projects/rime", project_name: "rime",
         state: "working", paused: false, sandbox: "project",
         pid: 1000 + id, started: NOW - 3600, last_activity: NOW - 5,
         exit_code: null, exit_signal: null, attached: 0, children: []
@@ -305,7 +305,7 @@ function selftest() {
     console.log("\n── self-test: break it on purpose ──");
     const file = path.join(SRC, "services", "agenttelemetry.js");
     const original = fs.readFileSync(file, "utf8");
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "apex-tel-mut-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rime-tel-mut-"));
     let sp = 0, sf = 0;
 
     function expect(name, mutated, want) {
@@ -316,7 +316,7 @@ function selftest() {
         try {
             execFileSync(process.execPath, [__filename, "--child"], {
                 env: Object.assign({}, process.env, {
-                    APEX_TELEMETRY_MODULE: path.join(alt, "agenttelemetry.js")
+                    RIME_TELEMETRY_MODULE: path.join(alt, "agenttelemetry.js")
                 }),
                 stdio: "pipe"
             });
@@ -387,7 +387,7 @@ function selftest() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-const MODULE = process.env.APEX_TELEMETRY_MODULE
+const MODULE = process.env.RIME_TELEMETRY_MODULE
     || path.join(SRC, "services", "agenttelemetry.js");
 const T = require(MODULE);
 

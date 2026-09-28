@@ -13,7 +13,7 @@ import "./src/nexus"
 //
 // ── The engine here is a FAKE, and that is deliberate ────────────────────────
 //
-// The transaction suite next door runs the real /usr/libexec/apex-display-apply
+// The transaction suite next door runs the real /usr/libexec/rime-display-apply
 // because the bug it guards is partly in the enumeration. This one must not.
 // `color-assign` writes colord's own database at `normal` scope — the only
 // scope a one-shot tool can use, because a `temp` device dies with the D-Bus
@@ -26,7 +26,7 @@ import "./src/nexus"
 //
 // ── Two engines, because the shell must survive the older one ────────────────
 //
-// APEX Shell and the OS image land independently, and this page ships before
+// Rime Shell and the OS image land independently, and this page ships before
 // the image that answers it. The engine's argparse has the verbs in a `choices`
 // list, so an engine that predates them answers `color` with exit 2 and
 // "invalid choice" — which is why the shell probes `--help` first and why the
@@ -62,10 +62,10 @@ ShellRoot {
         else      { root.failed++; console.log("  FAIL  " + name) }
     }
 
-    readonly property string phase: Quickshell.env("APEX_COLOUR_PHASE") || "modern"
+    readonly property string phase: Quickshell.env("RIME_COLOUR_PHASE") || "modern"
     readonly property bool modern: root.phase === "modern"
-    readonly property string callLog:    Quickshell.env("APEX_COLOUR_CALLS")  || ""
-    readonly property string reasonPath: Quickshell.env("APEX_COLOUR_REASON") || ""
+    readonly property string callLog:    Quickshell.env("RIME_COLOUR_CALLS")  || ""
+    readonly property string reasonPath: Quickshell.env("RIME_COLOUR_REASON") || ""
 
     // The engine's sentence, read from the same file the fake engine's JSON was
     // built from. Compared byte for byte: "the page paraphrases it well" is not
@@ -349,7 +349,7 @@ ShellRoot {
                 // The finding this whole section exists for: colord runs, has
                 // profiles, and had no devices. Zero is a number the page has
                 // to be able to say.
-                root.check("the registered-device count is read (0 on APEX)",
+                root.check("the registered-device count is read (0 on Rime)",
                            DisplayService.colordRegistered === 0)
 
                 const ps = DisplayService.colourProfiles
@@ -384,7 +384,7 @@ ShellRoot {
                 for (const o of outs) by[o.name] = o
                 root.check("an output carries the EDID-derived colord device id",
                            !!by["eDP-1"]
-                           && by["eDP-1"].device === "apex-display-LEN-MNG007QT1-2")
+                           && by["eDP-1"].device === "rime-display-LEN-MNG007QT1-2")
                 root.check("an assigned profile is read back from the engine",
                            !!by["eDP-1"] && !!by["eDP-1"].profile
                            && by["eDP-1"].profile.title === "sRGB")
@@ -434,7 +434,7 @@ ShellRoot {
                     root.check("the note keeps the engine's per-profile caveat",
                                DisplayService.colourNotice.indexOf("carries no vcgt") >= 0)
                     root.check("the engine's log prefix is not shown to the user",
-                               DisplayService.colourNotice.indexOf("apex-display:") < 0)
+                               DisplayService.colourNotice.indexOf("rime-display:") < 0)
                     root.next()
                 })
             },

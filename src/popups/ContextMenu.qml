@@ -200,14 +200,14 @@ PanelWindow {
     // ── entries ─────────────────────────────────────────────────────────────
     // Deliberately short, and deliberately the same set the labwc root menu
     // offered: this replaces that menu, it does not become a second launcher.
-    // APEX Shell already owns app launching, settings and power.
+    // Rime Shell already owns app launching, settings and power.
     readonly property var entries: [
         { label: "Terminal",             action: "terminal",   separator: false },
         { label: "App launcher",         action: "launcher",   separator: false },
         { label: "Wallpaper…",           action: "wallpaper",  separator: false },
         { label: "Settings",             action: "settings",   separator: false },
         { separator: true },
-        { label: "Restart APEX Shell",   action: "restart",    separator: false },
+        { label: "Restart Rime Shell",   action: "restart",    separator: false },
         { label: "Reload compositor",    action: "reload",     separator: false },
         { separator: true },
         { label: "Lock",                 action: "lock",       separator: false },
@@ -239,15 +239,15 @@ PanelWindow {
         root.close()
         switch (action) {
         case "terminal":  proc.exec(["sh", "-c", "${TERMINAL:-alacritty}"]); break
-        case "launcher":  proc.exec(["apex", "shell", "launcher"]); break
-        case "wallpaper": proc.exec(["apex", "shell", "wallpaper"]); break
-        case "settings":  proc.exec(["apex", "shell", "settings"]); break
-        case "restart":   proc.exec(["/usr/libexec/apex-shell-autostart"]); break
+        case "launcher":  proc.exec(["rime", "shell", "launcher"]); break
+        case "wallpaper": proc.exec(["rime", "shell", "wallpaper"]); break
+        case "settings":  proc.exec(["rime", "shell", "settings"]); break
+        case "restart":   proc.exec(["/usr/libexec/rime-shell-autostart"]); break
         // Compositor-neutral: each session's reload verb differs, so ask the
         // helper rather than teaching this menu about three compositors.
-        case "reload":    proc.exec(["/usr/libexec/apex-compositor-reload"]); break
-        case "lock":      proc.exec(["apex", "shell", "lock"]); break
-        case "logout":    proc.exec(["/usr/libexec/apex-session-logout"]); break
+        case "reload":    proc.exec(["/usr/libexec/rime-compositor-reload"]); break
+        case "lock":      proc.exec(["rime", "shell", "lock"]); break
+        case "logout":    proc.exec(["/usr/libexec/rime-session-logout"]); break
         }
     }
 

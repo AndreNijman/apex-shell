@@ -1,4 +1,4 @@
-# Phase 0 baseline: APEX Shell before the UI/UX redesign
+# Phase 0 baseline: Rime Shell before the UI/UX redesign
 
 Measured 2026-09-25 against `origin/main` @ `17eec38` (tray-menu style merge),
 before any redesign change. Everything here is a measurement or a reading of the

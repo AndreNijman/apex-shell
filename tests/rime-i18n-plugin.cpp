@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  apex-i18n-plugin.cpp — the host change P2-004 has been blocked on since
-//  round 3, in 60 lines of C++ that APEX can ship on its own.
+//  rime-i18n-plugin.cpp — the host change P2-004 has been blocked on since
+//  round 3, in 60 lines of C++ that Rime can ship on its own.
 //
 //  ── What was blocked, and why this is the shape of the fix ──────────────────
 //
@@ -18,7 +18,7 @@
 //  constructs a bare QQmlEngine, and a bare QQmlEngine still loads QML modules
 //  off QML_IMPORT_PATH, and a QML module may carry a compiled plugin, and a
 //  compiled plugin runs C++ inside the shell's own process before a single
-//  binding is evaluated. So the host change is a module APEX ships and imports,
+//  binding is evaluated. So the host change is a module Rime ships and imports,
 //  not a patch anybody else has to accept.
 //
 //  ── Why QQmlExtensionPlugin and not QQmlEngineExtensionPlugin ───────────────
@@ -28,7 +28,7 @@
 //  found, dlopen()ed — proved with a library constructor that printed — and the
 //  qmldir is read, and the import STILL fails with
 //
-//      module "Apex.I18n" is not installed
+//      module "Rime.I18n" is not installed
 //
 //  because nothing registered the module and initializeEngine() is therefore
 //  never reached. Adding a plain QML type to the qmldir does not fix it either.
@@ -41,7 +41,7 @@
 //
 //  A QTranslator installed AFTER the QML tree exists changes nothing that was
 //  already evaluated, unless the engine is asked to re-evaluate. That is not an
-//  opinion: tests/apex-i18n-host.cpp runs both and the suite asserts the pair.
+//  opinion: tests/rime-i18n-host.cpp runs both and the suite asserts the pair.
 //  initializeEngine() runs while the import is being resolved, i.e. before the
 //  file that imported it has instantiated anything, which is the one moment
 //  where no re-evaluation is needed. retranslate() is called anyway so that a
@@ -49,10 +49,10 @@
 //
 //  ── Where the catalogue comes from ──────────────────────────────────────────
 //
-//  /usr/share/apex-shell/translations/apex-shell_<lang>.qm by default, and the
-//  directory is overridable through APEX_SHELL_TRANSLATIONS so a test can point
+//  /usr/share/rime-shell/translations/rime-shell_<lang>.qm by default, and the
+//  directory is overridable through RIME_SHELL_TRANSLATIONS so a test can point
 //  it at a stage directory without the shipped path being load-bearing. The
-//  language is the system locale, not an APEX setting: per-user language is a
+//  language is the system locale, not a Rime setting: per-user language is a
 //  separate roadmap row and this file must not quietly become it.
 //
 //  Absence is reported, never swallowed. "no catalogue for de_DE" and "this
@@ -67,7 +67,7 @@
 #include <QTranslator>
 #include <QtQml>
 
-class ApexI18nPlugin : public QQmlExtensionPlugin
+class RimeI18nPlugin : public QQmlExtensionPlugin
 {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID QQmlExtensionInterface_iid)
@@ -77,28 +77,28 @@ public:
     // concerned, whatever the qmldir says and whatever the .so contains.
     void registerTypes(const char *uri) override
     {
-        qInfo("APEXI18N: registerTypes uri=%s", uri);
+        qInfo("RIMEI18N: registerTypes uri=%s", uri);
         qmlRegisterModule(uri, 1, 0);
     }
 
     void initializeEngine(QQmlEngine *engine, const char *uri) override
     {
-        qInfo("APEXI18N: initializeEngine uri=%s", uri);
+        qInfo("RIMEI18N: initializeEngine uri=%s", uri);
 
         const QString dir = qEnvironmentVariable(
-            "APEX_SHELL_TRANSLATIONS",
-            QStringLiteral("/usr/share/apex-shell/translations"));
+            "RIME_SHELL_TRANSLATIONS",
+            QStringLiteral("/usr/share/rime-shell/translations"));
 
         // Parented to the application: the translator has to outlive this
         // call, and an unparented one leaks or is collected depending on
         // nothing you can see from here.
         auto *tr = new QTranslator(QCoreApplication::instance());
-        if (tr->load(QLocale(), QStringLiteral("apex-shell"),
+        if (tr->load(QLocale(), QStringLiteral("rime-shell"),
                      QStringLiteral("_"), dir)) {
             QCoreApplication::installTranslator(tr);
-            qInfo("APEXI18N: installed %s", qPrintable(tr->filePath()));
+            qInfo("RIMEI18N: installed %s", qPrintable(tr->filePath()));
         } else {
-            qInfo("APEXI18N: no catalogue for %s in %s",
+            qInfo("RIMEI18N: no catalogue for %s in %s",
                   qPrintable(QLocale().name()), qPrintable(dir));
             delete tr;
         }
@@ -108,4 +108,4 @@ public:
     }
 };
 
-#include "apex-i18n-plugin.moc"
+#include "rime-i18n-plugin.moc"

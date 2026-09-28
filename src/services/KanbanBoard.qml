@@ -4,7 +4,7 @@ import "../"
 import "../components/controls"
 import "../components"
 
-// KanbanBoard — three columns, JSON at $HOME/.config/apex-shell/src/user_data/tasks.json.
+// KanbanBoard — three columns, JSON at $HOME/.config/rime-shell/src/user_data/tasks.json.
 //
 // Key behaviours:
 //   • Draft: task only saved when Enter pressed or focus lost with text.
@@ -86,11 +86,11 @@ Item {
             onRead: function(line) {
                 var h = line.trim()
                 if (h === "") return
-                root._filePath = h + "/.config/apex-shell/src/user_data/tasks.json"
+                root._filePath = h + "/.config/rime-shell/src/user_data/tasks.json"
                 mkProc.command = [
                     "bash", "-c",
                     "[ -f '" + root._filePath + "' ] || " +
-                    "(mkdir -p \"$HOME/.config/apex-shell/src/user_data\" && " +
+                    "(mkdir -p \"$HOME/.config/rime-shell/src/user_data\" && " +
                     "printf '%s' '{\"tasks\":[],\"nextId\":0}' > '" + root._filePath + "')"
                 ]
                 mkProc.running = false; mkProc.running = true
@@ -481,7 +481,7 @@ Item {
                         }
 
                         // Add (+) button — column-level, an ordinary Tab stop.
-                        ApexPressable {
+                        RimePressable {
                             id: addBtn
                             anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                             width: 22; height: 22; radius: 6; hitMargin: 5
@@ -497,7 +497,7 @@ Item {
                                 Behavior on color { MotionColor { role: "state" } }
                             }
                             Text { anchors.centerIn: parent; text: "+"; color: Theme.active; font.pixelSize: theme.fs(15) }
-                            ApexFocusRing { target: addBtn }
+                            RimeFocusRing { target: addBtn }
                         }
                     }
 
@@ -678,7 +678,7 @@ Item {
             // ── Month nav ──────────────────────────────────────────────────────
             Item {
                 width: parent.width; height: 22
-                ApexPressable {
+                RimePressable {
                     id: prevMonthBtn
                     anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                     width: 20; height: 20; hitMargin: 6
@@ -694,14 +694,14 @@ Item {
                         color: prevMonthBtn.hovered ? Theme.textPrimary : Theme.textTertiary
                         Behavior on color { MotionColor {} }
                     }
-                    ApexFocusRing { target: prevMonthBtn }
+                    RimeFocusRing { target: prevMonthBtn }
                 }
                 Text {
                     anchors.centerIn: parent
                     text:  root._monthNames[root.pickerMonth].substring(0,3) + "  " + root.pickerYear
                     color: Theme.text; font.pixelSize: theme.fs(11); font.weight: Font.DemiBold
                 }
-                ApexPressable {
+                RimePressable {
                     id: nextMonthBtn
                     anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                     width: 20; height: 20; hitMargin: 6
@@ -716,7 +716,7 @@ Item {
                         color: nextMonthBtn.hovered ? Theme.textPrimary : Theme.textTertiary
                         Behavior on color { MotionColor {} }
                     }
-                    ApexFocusRing { target: nextMonthBtn }
+                    RimeFocusRing { target: nextMonthBtn }
                 }
             }
 
@@ -790,14 +790,14 @@ Item {
 
                 Repeater {
                     model: root.pickerDays
-                    delegate: ApexPressable {
+                    delegate: RimePressable {
                         id: dayBtn
                         required property var modelData
                         required property int index
                         width: dayGrid.cW; height: dayGrid.cH
                         radius: Math.min(dayGrid.cW, dayGrid.cH) / 2   // matches the circular hit target, for the focus ring
                         interactive: modelData.cur
-                        // ApexPressable dims a non-interactive control to 0.38 opacity
+                        // RimePressable dims a non-interactive control to 0.38 opacity
                         // (it means "disabled" there); here it just means "not this
                         // month", which the original always drew at full opacity —
                         // only the digit's colour dims. Cancelled so the look doesn't
@@ -870,7 +870,7 @@ Item {
                         // ── Hour col ──────────────────────────────────────────
                         Column {
                             spacing: 2; anchors.verticalCenter: parent.verticalCenter
-                            ApexPressable {
+                            RimePressable {
                                 id: hourUpBtn
                                 width: 26; height: 18; radius: 4; hitMargin: 7   // 32 px: the digit box between ▲ and ▼ takes no clicks
                                 Accessible.name: "Increase hour"
@@ -882,7 +882,7 @@ Item {
                                     Behavior on color { MotionColor {} }
                                 }
                                 Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: theme.fs(7); color: Theme.textSecondary }
-                                ApexFocusRing { target: hourUpBtn }
+                                RimeFocusRing { target: hourUpBtn }
                             }
                             Rectangle {
                                 width: 26; height: 24; radius: 4
@@ -894,7 +894,7 @@ Item {
                                     color: Theme.active
                                 }
                             }
-                            ApexPressable {
+                            RimePressable {
                                 id: hourDownBtn
                                 width: 26; height: 18; radius: 4; hitMargin: 7
                                 Accessible.name: "Decrease hour"
@@ -906,7 +906,7 @@ Item {
                                     Behavior on color { MotionColor {} }
                                 }
                                 Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: theme.fs(7); color: Theme.textSecondary }
-                                ApexFocusRing { target: hourDownBtn }
+                                RimeFocusRing { target: hourDownBtn }
                             }
                         }
 
@@ -915,7 +915,7 @@ Item {
                         // ── Minute col ────────────────────────────────────────
                         Column {
                             spacing: 2; anchors.verticalCenter: parent.verticalCenter
-                            ApexPressable {
+                            RimePressable {
                                 id: minUpBtn
                                 width: 26; height: 18; radius: 4; hitMargin: 7
                                 Accessible.name: "Increase minute"
@@ -927,7 +927,7 @@ Item {
                                     Behavior on color { MotionColor {} }
                                 }
                                 Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: theme.fs(7); color: Theme.textSecondary }
-                                ApexFocusRing { target: minUpBtn }
+                                RimeFocusRing { target: minUpBtn }
                             }
                             Rectangle {
                                 width: 26; height: 24; radius: 4
@@ -939,7 +939,7 @@ Item {
                                     color: Theme.active
                                 }
                             }
-                            ApexPressable {
+                            RimePressable {
                                 id: minDownBtn
                                 width: 26; height: 18; radius: 4; hitMargin: 7
                                 Accessible.name: "Decrease minute"
@@ -951,12 +951,12 @@ Item {
                                     Behavior on color { MotionColor {} }
                                 }
                                 Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: theme.fs(7); color: Theme.textSecondary }
-                                ApexFocusRing { target: minDownBtn }
+                                RimeFocusRing { target: minDownBtn }
                             }
                         }
 
                         // Clear time ✕
-                        ApexPressable {
+                        RimePressable {
                             id: clearTimeBtn
                             anchors.verticalCenter: parent.verticalCenter
                             // 28 px: at 5 its margin just meets the minute ▲'s corner
@@ -969,12 +969,12 @@ Item {
                                 Behavior on color { MotionColor {} }
                             }
                             Text { anchors.centerIn: parent; text: "󰅖"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
-                            ApexFocusRing { target: clearTimeBtn }
+                            RimeFocusRing { target: clearTimeBtn }
                         }
                     }
 
                     // "Add time" pill (shown when no time set)
-                    ApexPressable {
+                    RimePressable {
                         id: addTimeBtn
                         visible: !root.pickerHasTime
                         anchors.verticalCenter: parent.verticalCenter
@@ -995,7 +995,7 @@ Item {
                             color: addTimeBtn.hovered ? Theme.active : Theme.textSecondary
                             Behavior on color { MotionColor {} }
                         }
-                        ApexFocusRing { target: addTimeBtn }
+                        RimeFocusRing { target: addTimeBtn }
                     }
                 }
             }
@@ -1007,7 +1007,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 10; bottomPadding: 0
 
-                ApexPressable {
+                RimePressable {
                     id: pickerClearBtn
                     width: 86; height: 28; radius: 8; hitMargin: 2
                     Accessible.name: "Clear due date"
@@ -1019,10 +1019,10 @@ Item {
                         Behavior on color { MotionColor {} }
                     }
                     Text { anchors.centerIn: parent; text: "Clear"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
-                    ApexFocusRing { target: pickerClearBtn }
+                    RimeFocusRing { target: pickerClearBtn }
                 }
 
-                ApexPressable {
+                RimePressable {
                     id: doneBtn
                     width: 86; height: 28; radius: 8; hitMargin: 2
                     KeyNavigation.tab: prevMonthBtn
@@ -1038,7 +1038,7 @@ Item {
                         anchors.centerIn: parent; text: "Done"
                         font.pixelSize: theme.fs(11); font.weight: Font.Medium; color: Theme.active
                     }
-                    ApexFocusRing { target: doneBtn }
+                    RimeFocusRing { target: doneBtn }
                 }
             }
         }
@@ -1162,7 +1162,7 @@ Item {
 
         // Release: the card returns from wherever the pointer let go of it,
         // decelerating into place. (It used to snap back on an elastic curve
-        // and wobble; APEX's physics is continuity, not bounce.)
+        // and wobble; Rime's physics is continuity, not bounce.)
         NumberAnimation {
             id: snapAnim; target: card; property: "dragX"; to: 0
             duration: Motion.selection
@@ -1260,7 +1260,7 @@ Item {
                         Repeater {
                             id: urgRepeater
                             model: ["", "low", "medium", "high"]
-                            delegate: ApexPressable {
+                            delegate: RimePressable {
                                 id: urgBtn
                                 required property string modelData
                                 required property int index
@@ -1288,7 +1288,7 @@ Item {
                                     text: urgBtn.modelData === "" ? "None" : urgBtn.modelData.charAt(0).toUpperCase() + urgBtn.modelData.slice(1)
                                     color: (urgBtn.sel && urgBtn.modelData !== "") ? Theme.fixedDark : Theme.textSecondary
                                 }
-                                ApexFocusRing { target: urgBtn }
+                                RimeFocusRing { target: urgBtn }
                             }
                         }
                     }
@@ -1298,7 +1298,7 @@ Item {
                         spacing: 6
                         Text { anchors.verticalCenter: parent.verticalCenter; text: "Due"; font.pixelSize: theme.typeCaption; color: Theme.textSecondary }
 
-                        ApexPressable {
+                        RimePressable {
                             id: dueBtn
                             anchors.verticalCenter: parent.verticalCenter
                             width:  dueLbl.implicitWidth + 20; height: 20; radius: 10
@@ -1320,11 +1320,11 @@ Item {
                                 color: (card.taskData.dueDate || "") !== "" ? Theme.active : Theme.textSecondary
                                 Behavior on color { MotionColor { role: "state" } }
                             }
-                            ApexFocusRing { target: dueBtn }
+                            RimeFocusRing { target: dueBtn }
                         }
 
                         // Clear ✕
-                        ApexPressable {
+                        RimePressable {
                             id: clrDueBtn
                             visible: (card.taskData.dueDate || "") !== ""
                             anchors.verticalCenter: parent.verticalCenter
@@ -1341,7 +1341,7 @@ Item {
                                 Behavior on color { MotionColor { role: "state" } }
                             }
                             Text { anchors.centerIn: parent; text: "󰅖"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
-                            ApexFocusRing { target: clrDueBtn }
+                            RimeFocusRing { target: clrDueBtn }
                         }
                     }
                 }
@@ -1351,7 +1351,7 @@ Item {
                     width: parent.width; height: 22
 
                     // ▾/▴ extra fields — isolated from other buttons, full hitMargin.
-                    ApexPressable {
+                    RimePressable {
                         id: expandBtn
                         anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                         width: 20; height: 20; radius: 5; hitMargin: 6
@@ -1364,7 +1364,7 @@ Item {
                             Behavior on color { MotionColor {} }
                         }
                         Text { anchors.centerIn: parent; text: card.showExtra ? "▴" : "▾"; font.pixelSize: theme.fs(9); color: expandBtn.hovered ? Theme.textPrimary : Theme.textTertiary }
-                        ApexFocusRing { target: expandBtn }
+                        RimeFocusRing { target: expandBtn }
                     }
 
                     Row {
@@ -1375,7 +1375,7 @@ Item {
                         spacing: 12
 
                         // ← left
-                        ApexPressable {
+                        RimePressable {
                             id: leftBtn
                             visible: card.colIdx > 0
                             width: 20; height: 20; radius: 5; hitMargin: 6
@@ -1388,11 +1388,11 @@ Item {
                                 Behavior on color { MotionColor {} }
                             }
                             Text { anchors.centerIn: parent; text: "←"; font.pixelSize: theme.fs(10); color: leftBtn.hovered ? Theme.textPrimary : Theme.textSecondary }
-                            ApexFocusRing { target: leftBtn }
+                            RimeFocusRing { target: leftBtn }
                         }
 
                         // → right
-                        ApexPressable {
+                        RimePressable {
                             id: rightBtn
                             visible: card.colIdx < 2
                             width: 20; height: 20; radius: 5; hitMargin: 6
@@ -1405,11 +1405,11 @@ Item {
                                 Behavior on color { MotionColor {} }
                             }
                             Text { anchors.centerIn: parent; text: "→"; font.pixelSize: theme.fs(10); color: rightBtn.hovered ? Theme.textPrimary : Theme.textSecondary }
-                            ApexFocusRing { target: rightBtn }
+                            RimeFocusRing { target: rightBtn }
                         }
 
                         // ✕ delete — opens the confirmation overlay below.
-                        ApexPressable {
+                        RimePressable {
                             id: delBtn
                             width: 20; height: 20; radius: 5; hitMargin: 6
                             activeFocusOnTab: card.keyed || card.open
@@ -1425,7 +1425,7 @@ Item {
                                 color: delBtn.hovered ? Theme.danger : Theme.textSecondary
                                 Behavior on color { MotionColor {} }
                             }
-                            ApexFocusRing { target: delBtn }
+                            RimeFocusRing { target: delBtn }
                         }
                     }
                 }
@@ -1451,7 +1451,7 @@ Item {
                         // Only visible while this overlay is showing, so — like
                         // WifiTab's own Forget-confirm Cancel/Forget — an ordinary
                         // Tab stop rather than gated on card.keyed || card.open.
-                        ApexPressable {
+                        RimePressable {
                             id: cancelDelBtn
                             width: 64; height: 24; radius: 6; hitMargin: 4
                             Accessible.name: "Keep task"
@@ -1465,9 +1465,9 @@ Item {
                                 Behavior on color { MotionColor {} }
                             }
                             Text { anchors.centerIn: parent; text: "Cancel"; font.pixelSize: theme.fs(11); color: Theme.textSecondary }
-                            ApexFocusRing { target: cancelDelBtn }
+                            RimeFocusRing { target: cancelDelBtn }
                         }
-                        ApexPressable {
+                        RimePressable {
                             id: confirmDelBtn
                             width: 64; height: 24; radius: 6; hitMargin: 4
                             Accessible.name: "Delete task permanently"
@@ -1480,7 +1480,7 @@ Item {
                                 Behavior on color { MotionColor {} }
                             }
                             Text { anchors.centerIn: parent; text: "Delete"; font.pixelSize: theme.fs(11); font.weight: Font.Bold; color: Theme.fixedLight }
-                            ApexFocusRing { target: confirmDelBtn }
+                            RimeFocusRing { target: confirmDelBtn }
                         }
                     }
                     Text {

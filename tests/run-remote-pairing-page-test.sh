@@ -1,30 +1,30 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  run-remote-pairing-page-test.sh — the two APEX Remote pages, built by the
+#  run-remote-pairing-page-test.sh — the two Rime Remote pages, built by the
 #  real engine and driven headlessly (roadmap P1-051, criteria 1, 3 and 5).
 #
-#  ── Why the `apex` here is a stub, and why that is not optional ─────────────
+#  ── Why the `rime` here is a stub, and why that is not optional ─────────────
 #
-#  `apex remote pair` MINTS A ONE-TIME PAIRING TOKEN and arms the real daemon
+#  `rime remote pair` MINTS A ONE-TIME PAIRING TOKEN and arms the real daemon
 #  to accept the next device that presents it. A suite that ran the real
 #  command would arm the developer's own machine several times per run for a
-#  phone nobody is holding, and `apex remote revoke` would take a real device's
-#  access away. tests/lib/headless.sh already installs a stub `apex` on PATH
+#  phone nobody is holding, and `rime remote revoke` would take a real device's
+#  access away. tests/lib/headless.sh already installs a stub `rime` on PATH
 #  for this class of problem; this file replaces it with one that answers the
 #  four `remote` verbs from fixtures and records its argv.
 #
 #  That is also the reason the service under test goes through the CLI instead
-#  of opening apex-remoted's control socket: a socket client would walk
+#  of opening rime-remoted's control socket: a socket client would walk
 #  straight past the stub, and no PATH or HOME isolates a unix socket in
 #  $XDG_RUNTIME_DIR. The stub is the isolation, so the CLI is the only way in.
 #
 #  ── Three phases, and the negative one is the important one ────────────────
 #
 #    pair-ok     the daemon answers; a scannable code is on screen
-#    pair-fail   `apex remote pair` exits 1; there must be NO code on screen
+#    pair-fail   `rime remote pair` exits 1; there must be NO code on screen
 #    devices     three paired devices, one revoked, one connected right now
 #
-#  `pair-fail` carries the assertion the whole feature turns on. `apex remote
+#  `pair-fail` carries the assertion the whole feature turns on. `rime remote
 #  pair` refuses to draw a QR in a terminal and says why in its own source: "a
 #  wrong QR is worse than none — a phone scans it, fails, and the person
 #  concludes their camera is broken". A page that drew a placeholder, a greyed
@@ -72,9 +72,9 @@ CALLS="$W/calls.log"
 # Overwrites the one headless_begin installed. Every invocation is recorded
 # before anything else happens, so an assertion about what the page ASKED FOR
 # holds even when the answer is a failure.
-cat > "$HEADLESS_W/bin/apex" <<'STUB'
+cat > "$HEADLESS_W/bin/rime" <<'STUB'
 #!/usr/bin/env bash
-printf '%s\n' "$*" >> "$APEX_RP_CALLS"
+printf '%s\n' "$*" >> "$RIME_RP_CALLS"
 
 if [[ "${1:-}" != "remote" ]]; then
     exit 0
@@ -82,11 +82,11 @@ fi
 
 case "${2:-}" in
 pair)
-    if [[ "${APEX_RP_PAIR_FAIL:-0}" == "1" ]]; then
-        echo "apex: the service is not running" >&2
+    if [[ "${RIME_RP_PAIR_FAIL:-0}" == "1" ]]; then
+        echo "rime: the service is not running" >&2
         exit 1
     fi
-    # apex_remote_core::pairing::PairingOffer's own field set, compact JSON,
+    # rime_remote_core::pairing::PairingOffer's own field set, compact JSON,
     # base64url without padding, behind that crate's SCHEME -- the same shape
     # tests/fixtures/gen-qr-vectors.py builds its `offer-*` cases from. The
     # expiry is minted fresh, because the page refuses to show an offer whose
@@ -102,7 +102,7 @@ offer = {
     "expires_ms": int(time.time() * 1000) + 180000,
 }
 body = json.dumps(offer, separators=(",", ":")).encode()
-payload = "apex-remote:" + base64.urlsafe_b64encode(body).decode().rstrip("=")
+payload = "apex-remote:" + base64.urlsafe_b64encode(body).decode().rstrip("=")  # rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 # 275 bytes, which at error correction level m is a version 12 symbol, 65
 # modules on a side. The driver asserts that number; if this offer ever
 # changes shape, that assertion is what says so.
@@ -113,7 +113,7 @@ PY
     # A parser that scraped stdout for prose would pass against a stub that
     # printed none, so the stub prints it.
     echo "" >&2
-    echo "Scan this with APEX Remote. It is good for 180 seconds and pairs one device." >&2
+    echo "Scan this with Rime Remote. It is good for 180 seconds and pairs one device." >&2
     exit 0
     ;;
 devices)
@@ -153,7 +153,7 @@ revoke)
 esac
 exit 0
 STUB
-chmod +x "$HEADLESS_W/bin/apex"
+chmod +x "$HEADLESS_W/bin/rime"
 
 # Quickshell refuses to import QML modules from outside the directory holding
 # the entry point, so the suite is staged into the repository root.
@@ -175,10 +175,10 @@ phase() {
     echo "── $name ────────────────────────────────────────────────"
 
     ( cd "$root" && env \
-        APEX_RP_PHASE="$name" \
-        APEX_RP_PAGE="$page" \
-        APEX_RP_CALLS="$CALLS" \
-        APEX_RP_PAIR_FAIL="$pairfail" \
+        RIME_RP_PHASE="$name" \
+        RIME_RP_PAGE="$page" \
+        RIME_RP_CALLS="$CALLS" \
+        RIME_RP_PAIR_FAIL="$pairfail" \
         QT_LOGGING_RULES="qml=true" \
         timeout 180 quickshell -p "$staged" ) > "$log" 2>&1
 

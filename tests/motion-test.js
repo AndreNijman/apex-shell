@@ -14,7 +14,7 @@
 
 const path = require("path");
 const fs = require("fs");
-const SRC = process.env.APEX_SHELL_SRC || path.join(__dirname, "..", "src");
+const SRC = process.env.RIME_SHELL_SRC || path.join(__dirname, "..", "src");
 const M = require(path.join(SRC, "theme", "motion.js"));
 
 let passed = 0, failed = 0;

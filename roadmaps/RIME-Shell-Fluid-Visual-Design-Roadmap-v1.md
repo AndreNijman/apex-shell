@@ -1,13 +1,13 @@
 ---
-title: "APEX Shell Fluid + Visual Design Roadmap"
+title: "Rime Shell Fluid + Visual Design Roadmap"
 subtitle: "Shape language, animation motifs, visual system and per-surface UI specification"
 version: "1.0"
 date: "2026-09-20"
 status: "Design specification before implementation"
-companion: "APEX-Shell-Master-UIUX-Roadmap-v3.md"
+companion: "RIME-Shell-Master-UIUX-Roadmap-v3.md"
 ---
 
-# APEX Shell Fluid + Visual Design Roadmap v1
+# Rime Shell Fluid + Visual Design Roadmap v1
 
 ## 0. Why this document exists
 
@@ -15,13 +15,13 @@ The previous roadmap correctly addressed timing, interruption, lifecycle and int
 
 A shell can be perfectly smooth and still look generic.
 
-APEX needs its own visual and motion character. The persistent notches, connected popups and dark Matugen-driven surface already give it a base identity. The next pass should turn that identity into a deliberate system with several related fluid behaviors instead of one rounded-rectangle treatment reused everywhere.
+Rime needs its own visual and motion character. The persistent notches, connected popups and dark Matugen-driven surface already give it a base identity. The next pass should turn that identity into a deliberate system with several related fluid behaviors instead of one rounded-rectangle treatment reused everywhere.
 
 This document defines what those shapes and interfaces should look and feel like.
 
 # 1. Design character
 
-APEX should feel:
+Rime should feel:
 
 - compact;
 - technical;
@@ -32,7 +32,7 @@ APEX should feel:
 - dynamic without constant visual noise;
 - clearly desktop-oriented, not a phone UI stretched across a monitor.
 
-APEX should avoid:
+Rime should avoid:
 
 - jelly animation on every object;
 - huge Material cards everywhere;
@@ -47,7 +47,7 @@ APEX should avoid:
 
 # 2. Shape language overview
 
-APEX gets eight motion/shape families.
+Rime gets eight motion/shape families.
 
 | ID | Family | Primary use | Character |
 | --- | --- | --- | --- |
@@ -154,7 +154,7 @@ The target should be visually close to C1 continuity at joins, even if the rende
 
 Used for Dashboard and only a small number of major center-notch transformations.
 
-This is the signature APEX motion.
+This is the signature Rime motion.
 
 ## 4.2 Starting silhouette
 
@@ -484,13 +484,13 @@ Derive stable surface roles from the loaded palette so a wallpaper change change
 
 ## 12.3 Fixed status colors
 
-Keep danger/warning/success as reliable semantic colors where current APEX intentionally does so.
+Keep danger/warning/success as reliable semantic colors where current Rime intentionally does so.
 
 Do not let a red wallpaper make danger state invisible.
 
 # 13. Depth and separation
 
-APEX should use restrained depth.
+Rime should use restrained depth.
 
 Use a small number of techniques:
 
@@ -520,7 +520,7 @@ Avoid:
 
 # 14. Typography
 
-APEX needs a clearer type ladder.
+Rime needs a clearer type ladder.
 
 Suggested semantic levels:
 
@@ -600,7 +600,7 @@ Visual character:
 
 Role:
 
-- primary APEX identity;
+- primary Rime identity;
 - time/media/active state;
 - Dashboard origin.
 
@@ -627,7 +627,7 @@ Visual character:
 
 # 18. Buttons
 
-APEX buttons should feel physical without becoming playful.
+Rime buttons should feel physical without becoming playful.
 
 ## Default
 
@@ -750,7 +750,7 @@ Use status surface/icon treatment rather than constant pulse animations.
 
 ## 23.4 Tasks
 
-Kanban can retain cards, but spacing, actions and drag feedback should use the same component system as the rest of APEX.
+Kanban can retain cards, but spacing, actions and drag feedback should use the same component system as the rest of Rime.
 
 ## 23.5 Apps
 
@@ -973,7 +973,7 @@ Score each new primary surface from 1-5 on:
 
 | Category | Question |
 | --- | --- |
-| Identity | Does it look like APEX rather than a generic Qt panel? |
+| Identity | Does it look like Rime rather than a generic Qt panel? |
 | Origin | Is its connection to the invoking control obvious? |
 | Shape quality | Are intermediate silhouettes clean? |
 | Motion quality | Does it react immediately and settle naturally? |
@@ -983,11 +983,11 @@ Score each new primary surface from 1-5 on:
 | Accessibility | Does it remain clear with Reduced Motion? |
 | Performance | Does it hold frame pacing on target hardware? |
 
-A primary surface should not ship with any category below 3. The target for major APEX surfaces is 4+ in every category.
+A primary surface should not ship with any category below 3. The target for major Rime surfaces is 4+ in every category.
 
 # 35. Final visual target
 
-The strongest APEX identity should come from three things working together:
+The strongest Rime identity should come from three things working together:
 
 1. **Connected geometry** - important surfaces actually grow out of the shell regions that own them.
 2. **Different physical roles** - Dashboard blooms, right quick controls pour, left system controls spill, notifications reflow, Launcher reveals, Nexus stays calm.
@@ -995,4 +995,4 @@ The strongest APEX identity should come from three things working together:
 
 The result should look more advanced without looking busier.
 
-When APEX is idle, the desktop should remain quiet. When the user acts, the shell should answer immediately and move with enough character that the interface feels designed rather than assembled.
+When Rime is idle, the desktop should remain quiet. When the user acts, the shell should answer immediately and move with enough character that the interface feels designed rather than assembled.

@@ -6,8 +6,8 @@ import "../../../components/config"
 
 // Config → Display  (roadmap §18, settings parity)
 //
-// One model, ~/.config/apex-shell/display.json, applied live through hyprctl eval or
-// wlr-randr and persisted as ~/.config/hypr/apex/monitors.lua plus a kanshi profile.
+// One model, ~/.config/rime-shell/display.json, applied live through hyprctl eval or
+// wlr-randr and persisted as ~/.config/hypr/rime/monitors.lua plus a kanshi profile.
 // Nothing here knows which compositor is running.
 //
 // THIS PAGE DOES NOT WRITE AS YOU DRAG
@@ -104,7 +104,7 @@ CfgScroll {
     //
     // What this section says HAD to change when the shell learned to size
     // itself per output, and it is worth saying why rather than just editing
-    // the string. It used to tell the user that "APEX Shell has one size to
+    // the string. It used to tell the user that "Rime Shell has one size to
     // give, so its bar and panels will be wrong on at least one of them". That
     // was true and it is now false: every surface resolves its own output's
     // factor, and a 4K beside a 1080p at compositor scale 1 gets a 60px bar and
@@ -127,7 +127,7 @@ CfgScroll {
         CfgRow {
             label: "Mixed display densities"
             description: DisplayService.scalesDisagree
-                ? "These displays land in different size classes. APEX Shell "
+                ? "These displays land in different size classes. Rime Shell "
                   + "sizes its bar and panels for each display separately, so "
                   + "it is the right size on all of them — but your other "
                   + "applications are drawn at the display's own scale, so they "
@@ -146,7 +146,7 @@ CfgScroll {
         CfgRow {
             label:       "Recommended scales"
             description: DisplayService.offRecommendation === 0
-                ? "Every display is already on the scale APEX Shell would pick."
+                ? "Every display is already on the scale Rime Shell would pick."
                 : DisplayService.offRecommendation
                   + (DisplayService.offRecommendation === 1
                         ? " display is not on it." : " displays are not on it.")
@@ -254,7 +254,7 @@ CfgScroll {
                 label: "Scale"
                 // The recommendation is per output and it is arithmetic, not a
                 // taste: the value that brings this panel's LOGICAL size into
-                // the band APEX Shell's own token set was calibrated against.
+                // the band Rime Shell's own token set was calibrated against.
                 description: {
                     const rec = DisplayService.recommendedScale(card.out)
                     const now = Number(card.out.scale || 1)
@@ -344,7 +344,7 @@ CfgScroll {
     // independent reasons, both measured: nothing on the image can load an ICC
     // curve (no xcalib, no argyll dispwin, no wl-gammactl — gammastep does
     // colour temperature and takes no ICC input), and on the wlroots
-    // compositors the gamma LUT is a single slot that APEX's own Night Light
+    // compositors the gamma LUT is a single slot that Rime's own Night Light
     // already occupies. Overstating this would be worse than omitting it: a
     // creator would trust a calibration that is not on screen.
     CfgSection {
@@ -356,7 +356,7 @@ CfgScroll {
         // colord ships with the image and runs as a system service, and it has
         // profiles — six or seven come with the image. What it has none of is
         // DEVICES: measured on the L16, `colormgr get-devices` on a fresh
-        // session prints nothing, because nothing on APEX had ever registered a
+        // session prints nothing, because nothing on Rime had ever registered a
         // display with it. So the registered count is shown next to the profile
         // count on purpose. Profiles with no device to put them on is exactly
         // the state this section was written for, and a page that showed only
@@ -528,7 +528,7 @@ CfgScroll {
         error: DisplayService.lastError
 
         // "module", not "conf": P0-018 made the Hyprland artifact a Lua module
-        // at ~/.config/hypr/apex/monitors.lua. The sentence is the only part of
+        // at ~/.config/hypr/rime/monitors.lua. The sentence is the only part of
         // the bar this page owns, so this is where that fact belongs.
         note: "Do nothing after an apply and the previous layout comes back in "
               + DisplayService.confirmTotal + " seconds. Save writes the "

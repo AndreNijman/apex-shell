@@ -95,7 +95,7 @@ QtObject {
     property int spaceXXL: px(32)
 
     // ── Control heights (UI/UX roadmap v3 Phase 2, brief §C.3) ──────────────
-    // Visual size and hit size are separate (ApexPressable): a 20 px glyph in
+    // Visual size and hit size are separate (RimePressable): a 20 px glyph in
     // the bar still has a 24 px target, a control anywhere else 32.
     property int controlCompact:     px(28)   // bar pills, chips
     property int controlStandard:    px(32)   // buttons, inputs, row actions

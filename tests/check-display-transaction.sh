@@ -24,7 +24,7 @@ root="$(cd "$here/.." && pwd)"
 svc="$root/src/services/config_tab/DisplayService.qml"
 page="$root/src/services/config_tab/pages/DisplayPage.qml"
 win="$root/src/windows/DisplayConfirm.qml"
-guard="$root/src/scripts/apex-display-guard.sh"
+guard="$root/src/scripts/rime-display-guard.sh"
 
 pass=0
 fail=0
@@ -38,8 +38,8 @@ code() { grep -vE '^\s*(//|#)' "$1" 2>/dev/null; }
 
 # ── The files exist ──────────────────────────────────────────────────────────
 want "DisplayConfirm.qml exists and is non-empty"      test -s "$win"
-want "apex-display-guard.sh exists and is non-empty"   test -s "$guard"
-want "apex-display-guard.sh is executable"             test -x "$guard"
+want "rime-display-guard.sh exists and is non-empty"   test -s "$guard"
+want "rime-display-guard.sh is executable"             test -x "$guard"
 
 # ── The confirmation is a window, on every output ────────────────────────────
 #
@@ -108,7 +108,7 @@ want "the service detaches a guard for the transaction" \
 want "the guard detaches itself from the shell's process group" \
     grep -qE '^\s*setsid -f bash "\$0" run "\$dir"' "$guard"
 # Through an interpreter, never on the mode bit. The shipped tree is
-# /usr/share/apex-shell and nothing in the build asserts +x, while `setsid -f`
+# /usr/share/rime-shell and nothing in the build asserts +x, while `setsid -f`
 # reports success whether or not the child execs — so a lost bit would leave the
 # countdown with one owner again and say nothing.
 want "neither caller relies on the guard being executable" \
@@ -125,7 +125,7 @@ want "no path records a revert without checking that it happened" \
 want "a failed restore is recorded as such, not as a revert" \
     bash -c 'grep -q "state revert-failed" < <(sed -n "/^settle_revert()/,/^}/p" "$1")' _ "$guard"
 want "a failed restore is retried before it is given up on" \
-    bash -c 'grep -q "APEX_DISPLAY_GUARD_RESTORE_TRIES" < <(sed -n "/^settle_revert()/,/^}/p" "$1")' _ "$guard"
+    bash -c 'grep -q "RIME_DISPLAY_GUARD_RESTORE_TRIES" < <(sed -n "/^settle_revert()/,/^}/p" "$1")' _ "$guard"
 want "reconcile treats a failed revert as work still to do" \
     bash -c 'grep -q "revert-failed" < <(sed -n "/^cmd_reconcile()/,/^}/p" "$1")' _ "$guard"
 want "the shell tells the user when the previous layout could not be restored" \
@@ -226,7 +226,7 @@ want "the countdown defaults to 15 seconds" \
 # detachment is exercised rather than grepped: spawn one, and see whether a
 # process is still watching the transaction after the caller has returned.
 #
-# Nothing here can reach a compositor. APEX_DISPLAY_ENGINE is /bin/true, so the
+# Nothing here can reach a compositor. RIME_DISPLAY_ENGINE is /bin/true, so the
 # worst a guard can do is write files in a temp directory — and the verdict is
 # written immediately, so it exits at once rather than sitting on a deadline.
 mut="$(mktemp -d)"
@@ -246,7 +246,7 @@ spawns() {
     local script="$1" dir="$mut/txn"
     rm -rf "$dir"
     arm_txn "$dir"
-    APEX_DISPLAY_ENGINE=/bin/true APEX_DISPLAY_GUARD_POLL=0.1 \
+    RIME_DISPLAY_ENGINE=/bin/true RIME_DISPLAY_GUARD_POLL=0.1 \
         bash "$script" spawn "$dir" >/dev/null 2>&1
     local pid=""
     for _ in $(seq 1 30); do
@@ -257,7 +257,7 @@ spawns() {
     [ -n "$pid" ] || return 1
     kill -0 "$pid" 2>/dev/null || return 1
     # Stand it down rather than leaving it to sit out the hour.
-    APEX_DISPLAY_ENGINE=/bin/true bash "$script" verdict "$dir" cancel >/dev/null 2>&1
+    RIME_DISPLAY_ENGINE=/bin/true bash "$script" verdict "$dir" cancel >/dev/null 2>&1
     return 0
 }
 

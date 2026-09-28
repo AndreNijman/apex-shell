@@ -19,7 +19,7 @@
 #  ── Restores ────────────────────────────────────────────────────────────────
 #
 #  From a pristine copy in a per-run mktemp -d, every restore VERIFIED by
-#  sha256. Not `git checkout --`: apex-shell's arch-validate job installs git
+#  sha256. Not `git checkout --`: rime-shell's arch-validate job installs git
 #  AFTER actions/checkout, so the workspace has no .git at all. The signal
 #  handlers EXIT rather than return — FOUND 24: a `trap … EXIT INT TERM` whose
 #  handler only returns lets bash resume at the next line after the signal,
@@ -420,7 +420,7 @@ hold G1 "$PAGE" '    // ── Header ─' \
     'prose quoting every rule this suite enforces stays green'
 
 hold G2 "$PAGE" '                            Accessible.name: commitBtn.a11yLabel' \
-                '                            objectName: "apex-mutation-hold"
+                '                            objectName: "rime-mutation-hold"
                             Accessible.name: commitBtn.a11yLabel' \
     'a property nothing asserts is not a failure'
 

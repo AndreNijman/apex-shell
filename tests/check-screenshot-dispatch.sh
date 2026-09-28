@@ -220,7 +220,7 @@ shot hypr_area grimblast grim slurp wl-copy notify-send hyprctl hyprpicker \
      -- area
 want "a Hyprland area capture succeeds"           test "$RC" -eq 0
 case "$(argv_of hyprctl)" in
-    "eval if not APEX_SCREENSHOT_NO_ANIM then hl.layer_rule("*'namespace = "^(hyprpicker|selection)$"'*"no_anim = true"*"APEX_SCREENSHOT_NO_ANIM = true end")
+    "eval if not RIME_SCREENSHOT_NO_ANIM then hl.layer_rule("*'namespace = "^(hyprpicker|selection)$"'*"no_anim = true"*"RIME_SCREENSHOT_NO_ANIM = true end")
         ok "the freeze and selection layers are exempted from animation, once per load" ;;
     *)  bad "no guarded no_anim rule for hyprpicker|selection: $(argv_of hyprctl)" ;;
 esac
@@ -478,7 +478,7 @@ fi
 # Mutant 6: the layer rule is not pushed, so on a Lua config the still fades
 # in and slurp's border is captured on its way out.
 drop_layer_rule() {
-    sed -i 's/&& apex_screenshot_layers_command hyprland; then/\&\& false; then/' "$1"
+    sed -i 's/&& rime_screenshot_layers_command hyprland; then/\&\& false; then/' "$1"
 }
 if m="$(mutate no-layer-rule drop_layer_rule)"; then
     mutants=$((mutants + 1))

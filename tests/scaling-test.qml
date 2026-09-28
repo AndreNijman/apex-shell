@@ -64,7 +64,7 @@ ShellRoot {
                     screenName: modelData.name
                     Component.onCompleted: root.perOutput.push({
                         kind: "DisplayConfirm", win: this, screen: modelData,
-                        card: "apex-display-confirm-card"
+                        card: "rime-display-confirm-card"
                     })
                 }
 
@@ -72,7 +72,7 @@ ShellRoot {
                     screen: modelData
                     Component.onCompleted: root.perOutput.push({
                         kind: "ConfirmDialog", win: this, screen: modelData,
-                        card: "apex-confirm-dialog-card"
+                        card: "rime-confirm-dialog-card"
                     })
                 }
 

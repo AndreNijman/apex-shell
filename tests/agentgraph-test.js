@@ -5,7 +5,7 @@
 //
 //      node tests/agentgraph-test.js
 //      node tests/agentgraph-test.js --selftest    (mutants; also run by default)
-//      APEX_SHELL_SRC=/path/to/other/src node tests/agentgraph-test.js
+//      RIME_SHELL_SRC=/path/to/other/src node tests/agentgraph-test.js
 //
 //  ── What this is defending ──────────────────────────────────────────────────
 //
@@ -30,8 +30,8 @@
 //
 //  ── Where the fixture comes from ────────────────────────────────────────────
 //
-//  The records are the shape `apex agent list --json` emits after
-//  apex-os `task/p1-020-agent-graph-daemon`: SessionInfo verbatim, with
+//  The records are the shape `rime agent list --json` emits after
+//  rime-os `task/p1-020-agent-graph-daemon`: SessionInfo verbatim, with
 //  `children` carrying { id, kind, label, started, ended, ended_by, parent,
 //  pid, rss_kb }. The process trees are the shape a CONFINED session has,
 //  which is the one that catches people out — the session's pid is the bwrap
@@ -49,7 +49,7 @@ const path = require("path");
 const os = require("os");
 const { execFileSync } = require("child_process");
 
-const SRC = process.env.APEX_SHELL_SRC || path.join(__dirname, "..", "src");
+const SRC = process.env.RIME_SHELL_SRC || path.join(__dirname, "..", "src");
 
 let passed = 0, failed = 0;
 function check(name, cond, detail) {
@@ -84,7 +84,7 @@ function proc(pid, label, parent, rssKb, started) {
 function session(over) {
     const base = {
         id: 1, agent: "claude", program: "claude", args: [],
-        cwd: "/var/home/andre/Projects/apex", project_name: "apex",
+        cwd: "/var/home/andre/Projects/rime", project_name: "rime",
         state: "working", detail: null, paused: false, sandbox: "project",
         pid: 1000, started: NOW - 3600, last_activity: NOW - 5,
         exit_code: null, exit_signal: null, attached: 0
@@ -392,7 +392,7 @@ function selftest() {
     console.log("\n── self-test: break it on purpose ──");
     const file = path.join(SRC, "services", "agentgraph.js");
     const original = fs.readFileSync(file, "utf8");
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "apex-graph-mut-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rime-graph-mut-"));
     let sp = 0, sf = 0;
 
     function expect(name, mutated, want) {
@@ -406,7 +406,7 @@ function selftest() {
         try {
             execFileSync(process.execPath, [__filename, "--child"], {
                 env: Object.assign({}, process.env, {
-                    APEX_GRAPH_MODULE: path.join(alt, "agentgraph.js")
+                    RIME_GRAPH_MODULE: path.join(alt, "agentgraph.js")
                 }),
                 stdio: "pipe"
             });
@@ -480,7 +480,7 @@ function selftest() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-const MODULE = process.env.APEX_GRAPH_MODULE
+const MODULE = process.env.RIME_GRAPH_MODULE
     || path.join(SRC, "services", "agentgraph.js");
 const G = require(MODULE);
 

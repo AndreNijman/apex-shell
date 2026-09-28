@@ -1,7 +1,7 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  APEX Shell — Main Installer
-#  github.com/AndreNijman/apex-shell  v0.1.0
+#  Rime Shell — Main Installer
+#  github.com/AndreNijman/apex-shell  v0.1.0  # rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed)
 # ─────────────────────────────────────────────────────────────────────────────
 # Hesitation is Defeat — Isshin Ashina
 set -eo pipefail
@@ -39,7 +39,7 @@ echo " ▒███▒▒▒▒▒███ ▒███▒▒▒▒▒███
 echo " ▒███    ▒███ ▒███    ▒███  ▒███    ▒███  ▒███  ▒███  ▒▒█████     ███    ▒███ ▒███    ▒███  ▒███ ▒   █ ▒███      █ ▒███      █"
 echo " ███████████  █████   █████ █████   █████ █████ █████  ▒▒█████   ▒▒█████████  █████   █████ ██████████ ███████████ ███████████"
 echo -e "${NC}"
-echo -e "  ${DIM}v0.1.0  ·  github.com/AndreNijman/apex-shell${NC}"
+echo -e "  ${DIM}v0.1.0  ·  github.com/AndreNijman/apex-shell${NC}"  # rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed)
 echo ""
 
 
@@ -117,7 +117,7 @@ fi
 step 2 "Backup"
 
 BACKUP_TS=$(date +%Y%m%d_%H%M%S)
-BACKUP_DIR="$HOME/.config.backup-${BACKUP_TS}-apex-shell"
+BACKUP_DIR="$HOME/.config.backup-${BACKUP_TS}-rime-shell"
 mkdir -p "$BACKUP_DIR"
 
 if [[ -d "$HYPR_DIR" ]]; then
@@ -134,8 +134,25 @@ fi
 step 3 "Repository"
 
 REPO_PARENT="$HOME/.local/src"
-REPO_DIR="$REPO_PARENT/apex-shell"
+REPO_DIR="$REPO_PARENT/rime-shell"
 mkdir -p "$REPO_PARENT"
+
+# A checkout made before the rename lives at ~/.local/src/apex-shell, and the
+# Hyprland config this installer wrote then names that path. Move it to the
+# new name once and leave a symlink, so both keep working; never over a
+# checkout that is already at the new name.
+LEGACY_REPO_DIR="$REPO_PARENT/apex-shell"  # rime-rename: keep (where the installer cloned before the rename)
+if [[ -d "$LEGACY_REPO_DIR/.git" && ! -L "$LEGACY_REPO_DIR" && ! -e "$REPO_DIR" && ! -L "$REPO_DIR" ]]; then
+    if mv -n -T "$LEGACY_REPO_DIR" "$REPO_DIR" && [[ ! -e "$LEGACY_REPO_DIR" ]]; then
+        if ln -s rime-shell "$LEGACY_REPO_DIR"; then
+            log_ok "Moved the checkout: $LEGACY_REPO_DIR → $REPO_DIR (a symlink stays)"
+        else
+            log_warn "Moved the checkout to $REPO_DIR, but could not leave a symlink at $LEGACY_REPO_DIR"
+        fi
+    else
+        log_warn "Could not move $LEGACY_REPO_DIR to $REPO_DIR; cloning afresh"
+    fi
+fi
 
 if [[ -d "$REPO_DIR/.git" ]]; then
     log_info "Existing clone found — updating..."
@@ -145,8 +162,17 @@ if [[ -d "$REPO_DIR/.git" ]]; then
     log_ok "Repository updated: $REPO_DIR"
 else
     log_info "Cloning from GitHub..."
-    git clone -b main https://github.com/AndreNijman/apex-shell.git "$REPO_DIR"
+    git clone -b main https://github.com/AndreNijman/apex-shell.git "$REPO_DIR"  # rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed)
     log_ok "Repository cloned: $REPO_DIR"
+fi
+
+
+# The shell's own data moves to its Rime names before the distro installer and
+# the theming step below create ~/.config/rime-shell: once that directory
+# exists, the migration will not touch the old one. The shell runs the same
+# script at every start; this is the same move, made first.
+if [[ -f "$REPO_DIR/src/scripts/rime-shell-migrate.sh" ]]; then
+    bash "$REPO_DIR/src/scripts/rime-shell-migrate.sh" || true
 fi
 
 
@@ -173,7 +199,7 @@ bash "$DISTRO_INSTALLER" "$HYPRLAND_CONF" "$BACKUP_DIR" "$CONFIG_TYPE"
 step 5 "Theming Config"
 
 MATUGEN_TEMPLATE="$REPO_DIR/src/config/matugen.toml.in"
-MATUGEN_CONFIG="$HOME/.config/apex-shell/matugen.toml"
+MATUGEN_CONFIG="$HOME/.config/rime-shell/matugen.toml"
 
 if [[ -f "$MATUGEN_TEMPLATE" ]]; then
     mkdir -p "$(dirname "$MATUGEN_CONFIG")"
@@ -191,15 +217,15 @@ fi
 step 6 "Done"
 
 echo ""
-log_ok "APEX Shell is installed."
+log_ok "Rime Shell is installed."
 echo ""
-echo -e "  ${BOLD}Restart Hyprland to activate APEX Shell:${NC}"
+echo -e "  ${BOLD}Restart Hyprland to activate Rime Shell:${NC}"
 log_info "Log out and log back in  ${DIM}(recommended)${NC}"
 log_info "hyprctl dispatch exit"
 log_info "Ctrl+Alt+Q               ${DIM}(if configured)${NC}"
 echo ""
 echo -e "  ${BOLD}Paths:${NC}"
-log_info "Config:  ~/.config/apex-shell"
+log_info "Config:  ~/.config/rime-shell"
 log_info "Source:  $REPO_DIR"
 echo ""
 

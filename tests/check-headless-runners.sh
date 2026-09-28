@@ -416,7 +416,7 @@ def scan(path, src, in_lib, lib_test=False):
             neutral = min(neutral, m.start())
 
     # A suite behind the opt-in gate is allowed to look at the session it nests
-    # in: refusing unless APEX_TEST_ALLOW_NESTED_ON_DESK=1 is the sanctioned
+    # in: refusing unless RIME_TEST_ALLOW_NESTED_ON_DESK=1 is the sanctioned
     # way to touch the desk, and measure-idle-inhibit.sh has no other option.
     gated = re.search(r"\bheadless_require_nested_optin\b", bare) is not None
 

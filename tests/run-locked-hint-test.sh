@@ -3,10 +3,10 @@
 #  Run tests/locked-hint-test.qml — the shell half of P0-015's lock-state
 #  policy (ROADMAP.md §7).
 #
-#  APEX Shell locks the session with ext-session-lock and, until 8d081ff, told
+#  Rime Shell locks the session with ext-session-lock and, until 8d081ff, told
 #  logind nothing about it: `loginctl show-session -p LockedHint` answered "no"
 #  on a session that had been locked for an hour, which is what it answers on
-#  one nobody has touched. apex-agentd polls exactly that property to decide
+#  one nobody has touched. rime-agentd polls exactly that property to decide
 #  whether Remote Control keeps running and whether a short-lived root grant
 #  survives, so the value is load-bearing rather than cosmetic.
 #
@@ -46,7 +46,7 @@
 #     was. A lock that arrives while a chain is in flight is only recorded in
 #     `_desired`; if that chain then fails, the lock has never been tried at
 #     all, and dropping it is a lock the user engaged that logind is never
-#     told about. apex-agentd polls exactly that property.
+#     told about. rime-agentd polls exactly that property.
 #   * neither direction is measurable in the same process: the drop is only
 #     observable while `_confirmed` is undefined (see the second scenario),
 #     and a process whose startup sync succeeded can never return to that
@@ -165,7 +165,7 @@ esac
 exit 0
 FAKE
 chmod +x "$W/bin/loginctl" "$W/bin/busctl" "$W/bin/_stub"
-for n in apex hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
+for n in rime hyprctl wlr-randr niri matugen xdg-open playerctl wpctl \
          brightnessctl pkcheck notify-send swww hypridle; do
     ln -sf "$W/bin/_stub" "$W/bin/$n"
 done
@@ -177,7 +177,7 @@ export XDG_RUNTIME_DIR="$W/run"
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 0700 "$XDG_RUNTIME_DIR"
 export HOME="$W/home"
-mkdir -p "$HOME/.config/apex-shell/src/user_data" "$HOME/.local/share" "$HOME/Pictures/Wallpapers"
+mkdir -p "$HOME/.config/rime-shell/src/user_data" "$HOME/.local/share" "$HOME/Pictures/Wallpapers"
 export XDG_STATE_HOME="$W/state"
 export XDG_CONFIG_HOME="$W/config"
 export XDG_CACHE_HOME="$W/cache"

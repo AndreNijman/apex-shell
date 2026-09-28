@@ -11,14 +11,14 @@
 #  proves nothing, and this repository has already shipped assertions that
 #  passed because they never ran.
 #
-#  Everything here is grep-able and runs headless. It never invokes `apex`:
-#  `apex mode set` changes the machine it runs on, and a test suite that
+#  Everything here is grep-able and runs headless. It never invokes `rime`:
+#  `rime mode set` changes the machine it runs on, and a test suite that
 #  switched the developer's power policy to run an assertion would be a worse
 #  bug than any it could catch.
 #
 #  ── THE INVARIANT WORTH THE MOST ASSERTIONS ─────────────────────────────────
 #  No timer. P1-049 asks for a master "optimise games automatically" control,
-#  and `apex mode set --auto` is documented one-shot: "APEX ships nothing that
+#  and `rime mode set --auto` is documented one-shot: "Rime ships nothing that
 #  re-evaluates this on a timer." A poller in the shell would be this page
 #  inventing the daemon the OS declined to ship, and it would do it invisibly —
 #  the page would simply appear to work, while quietly overriding a mode the
@@ -88,7 +88,7 @@ want "the registry does not claim this page needs refcounting" \
 
 # ── NOTHING ESCALATES ───────────────────────────────────────────────────────
 # Installing the packages needs root. The page shows the command as text for the
-# user to run, the way BlueprintService shows `sudo apex apply`, because `apex`
+# user to run, the way BlueprintService shows `sudo rime apply`, because `rime`
 # reports across a privilege boundary it does not cross and a button here that
 # ran sudo would throw that away.
 want "the service never runs sudo" \
@@ -101,11 +101,11 @@ want "the page still tells the user the command to run" \
     grep -q "installLine" "$cpage"
 
 # ── EXACTLY ONE COMMAND CAN CHANGE ANYTHING ─────────────────────────────────
-# Two read verbs and one write verb. `apex gaming` and `apex mode status` are
-# read-only; `apex mode set` is the only thing here that moves the machine.
-want "the service reads apex gaming --json" \
+# Two read verbs and one write verb. `rime gaming` and `rime mode status` are
+# read-only; `rime mode set` is the only thing here that moves the machine.
+want "the service reads rime gaming --json" \
     grep -q '"gaming", "--json"' "$csvc"
-want "the service reads apex mode status" \
+want "the service reads rime mode status" \
     grep -q '"mode", "status"' "$csvc"
 want "exactly one command in the service can write" \
     test "$(grep -c '"mode", "set"' "$csvc")" -eq 1
@@ -145,7 +145,7 @@ want "the page does not switch modes on load" \
     bash -c '! grep -qE "Component.onCompleted.*setMode" "$1"' _ "$cpage"
 
 # ── THE NOT-INSTALLED STATE COMES FIRST ─────────────────────────────────────
-# Steam, gamescope and mangoapp are on-demand `apex install` packages and a
+# Steam, gamescope and mangoapp are on-demand `rime install` packages and a
 # fresh image has none of them. A page whose first screen is a row of controls
 # would be offering to configure software that is not there.
 want "the page has a not-installed section" \
@@ -159,7 +159,7 @@ want "the blockers are the CLI's own sentences" \
     grep -q "GamingService.blockers" "$cpage"
 
 # ── A FAILED PROBE IS NOT A MISSING FEATURE ─────────────────────────────────
-# `apex gaming` EXITS NON-ZERO when Gaming Mode would not start. That is the
+# `rime gaming` EXITS NON-ZERO when Gaming Mode would not start. That is the
 # answer, not a failure, and a page that latched itself off on it would tell a
 # user with working games that its probe broke.
 want "only one place decides the CLI is unavailable" \
@@ -173,7 +173,7 @@ want "the not-available section offers a retry" \
 want "the explanation is the page's first section when the CLI is missing" \
     bash -c 'grep -B8 "Not available on this image" "$1" | grep -q "first: true"' _ "$cpage"
 want "the CLI path is overridable for local testing" \
-    grep -q "APEX_GAMING_CLI" "$csvc"
+    grep -q "RIME_GAMING_CLI" "$csvc"
 
 # ── THE NODE SUITE CANNOT SKIP ──────────────────────────────────────────────
 # Against the comment-stripped copy: the suite's own header explains at length
@@ -183,10 +183,10 @@ want "the node suite has no skip mechanism" \
     bash -c '! grep -qiE "skip|process.exit\(0\)" "$1"' _ "$cjstest"
 want "the node suite exits non-zero on failure" \
     grep -q "process.exit(1)" "$jstest"
-# `apex mode set` changes the machine it runs on. A suite that switched the
+# `rime mode set` changes the machine it runs on. A suite that switched the
 # developer's power policy to prove an assertion would be a worse bug than any
 # it could catch.
-want "no test invokes apex mode set" \
+want "no test invokes rime mode set" \
     bash -c '! grep -qE "child_process|execSync|spawnSync|execFileSync" "$1"' _ "$cjstest"
 
 echo
