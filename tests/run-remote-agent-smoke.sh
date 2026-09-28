@@ -204,7 +204,15 @@ cat > "$W/bin/rime" <<'SHIM'
 # argv-boundary assertion be made at all: `ssh host a b c` joins its remote
 # arguments with spaces, which is the bug `rime host run` exists to avoid, so a
 # log that also joined them could not tell the two apart.
-{ printf '%s\t' "$@"; printf '\n'; } >> "$RIME_SMOKE_CALLS"
+#
+# ONE write per invocation. Two printfs per argument interleaved when the
+# shell ran two of these at once (AgentService's `agent list` beside the
+# registry read): the log held "agent list --all --json host list --json" on
+# one line, the registry read did not start a line, and "opening the page
+# reads the registry" failed on a run that had read it. A single short
+# O_APPEND write lands whole.
+line="$(printf '%s\t' "$@")"
+printf '%s\n' "$line" >> "$RIME_SMOKE_CALLS"
 
 if [[ "${1:-}" == "host" && "${2:-}" == "list" ]]; then
     cat "$RIME_SMOKE_FIXTURE"
@@ -297,9 +305,20 @@ want "a device that has NEVER been probed is never queried" \
 # Built with $'\t' rather than typed as literal tabs: a literal tab in a
 # source file is one editor away from becoming spaces, and this assertion
 # is entirely about the difference between a tab and a space.
-expected_argv="host"$'\t'"run"$'\t'"katana"$'\t'"--"$'\t'"rime"$'\t'"agent"$'\t'"list"$'\t'"--all"$'\t'"--json"$'\t'
+#
+# The far side's CLI is resolved over there (rime, or apex on a device that
+# has not taken the Rime update), so the remote argv is `sh -c <script> sh`
+# and then the verbs, each its own argument: the script is a constant and the
+# verbs reach it as "$@". The shim runs that argv locally, so the katana query
+# going through it and still returning real sessions is the proof it works.
+T=$'\t'
+expected_head="host${T}run${T}katana${T}--${T}sh${T}-c${T}"
+expected_tail="${T}sh${T}agent${T}list${T}--all${T}--json${T}"
+katana_call="$(grep -F "$expected_head" "$RIME_SMOKE_CALLS" | head -1)"
 want "the remote argv arrives as separate arguments" \
-    grep -qF "$expected_argv" "$RIME_SMOKE_CALLS"
+    test -n "$katana_call" -a "${katana_call%"$expected_tail"}" != "$katana_call"
+want "  and the far side runs rime first, then apex" \
+    grep -qF 'if command -v rime >/dev/null 2>&1; then exec rime "$@"; fi; if command -v apex' "$RIME_SMOKE_CALLS"
 
 # The page must have actually READ the remote, not merely rendered without
 # complaint. A section that never queried anything produces no errors at all

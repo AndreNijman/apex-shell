@@ -106,6 +106,8 @@ grade() {
     want "HOME/.cache/rime-shell is a real directory holding colors.json" \
         test -s "$HOME/.cache/rime-shell/colors.json" -a ! -L "$HOME/.cache/rime-shell"
     want "the state directory moved" test -s "$XDG_STATE_HOME/rime-shell/desktop-session"
+    want "the migration left the marker the next start builds on" \
+        test -s "$HOME/.config/rime-shell/.rime-shell-migrated"
 }
 
 echo "the shipped shell.qml on an APEX home"
@@ -114,6 +116,19 @@ start "$root" "$HEADLESS_W/shell.log"
 grade "$HEADLESS_W/shell.log"
 real_pass=$pass real_fail=$fail
 [ "$real_fail" -eq 0 ] || { echo "--- shell log (tail) ---"; tail -30 "$HEADLESS_W/shell.log"; }
+
+# ── The next start ──────────────────────────────────────────────────────────
+# With the marker there the gate is open from the first frame and the script
+# does not run at all; the settings are simply where they now live.
+echo
+echo "the next start, on the migrated home"
+start "$root" "$HEADLESS_W/second.log"
+pass=0 fail=0
+want "the shell loaded" grep -q "Configuration Loaded" "$HEADLESS_W/second.log"
+want "the migration did not run again" bash -c '! grep -q "rime-shell-migrate" "$1"' _ "$HEADLESS_W/second.log"
+want "settings.json still holds cornerRadius 23" \
+    json_is "$HOME/.config/rime-shell/src/user_data/settings.json" cornerRadius 23
+real_pass=$((real_pass + pass)) real_fail=$((real_fail + fail))
 
 # ── A saved wallpaper the rename moved ──────────────────────────────────────
 # The bundled wallpapers were apex-shell-default-N and are rime-shell-default-N
@@ -142,11 +157,12 @@ echo "mutant: the gate open at once, the migration three seconds late"
 tree="$HEADLESS_W/tree"
 mkdir -p "$tree"
 cp -a "$root/shell.qml" "$root/src" "$tree/"
-perl -0pi -e 's/property bool _ready: false/property bool _ready: true/;
+perl -0pi -e 's/property bool _ready: migratedMarker\.text\(\) !== ""/property bool _ready: true/;
+              s/running: !shellRoot\._ready/running: true/;
               s/command: \["bash", Quickshell\.shellDir \+ "\/src\/scripts\/rime-shell-migrate\.sh"\]/command: ["bash", "-c", "sleep 3; exec bash \\"\$0\\"", Quickshell.shellDir + "\/src\/scripts\/rime-shell-migrate.sh"]/' \
     "$tree/shell.qml"
 if cmp -s "$root/shell.qml" "$tree/shell.qml" || ! grep -q '_ready: true' "$tree/shell.qml" \
-   || ! grep -q 'sleep 3' "$tree/shell.qml"; then
+   || ! grep -q 'sleep 3' "$tree/shell.qml" || ! grep -q '^ *running: true$' "$tree/shell.qml"; then
     echo "  FAIL  the mutant did not apply (shell.qml changed shape?)"
     real_fail=$((real_fail + 1))
 else

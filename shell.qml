@@ -46,11 +46,24 @@ ShellRoot {
     // bound on a home directory that hangs (a dead NFS mount): a desktop with
     // no bar is worse than one on defaults, so after two seconds the shell
     // starts anyway and says so.
-    property bool _ready: false
+    //
+    // Once the script has found nothing left under the old names it leaves
+    // ~/.config/rime-shell/.rime-shell-migrated, read here synchronously: with
+    // it the gate is open from the first frame and the script does not run,
+    // so every start after the one that migrated builds exactly as it did
+    // before the rename, finished by the time quickshell says the
+    // configuration loaded.
+    FileView {
+        id: migratedMarker
+        path: Quickshell.env("HOME") + "/.config/rime-shell/.rime-shell-migrated"
+        blockLoading: true
+        printErrors: false
+    }
+    property bool _ready: migratedMarker.text() !== ""
 
     Process {
         id: migrateProc
-        running: true
+        running: !shellRoot._ready
         command: ["bash", Quickshell.shellDir + "/src/scripts/rime-shell-migrate.sh"]
         stdout: SplitParser { onRead: data => console.info(data) }
         stderr: SplitParser { onRead: data => console.warn(data) }

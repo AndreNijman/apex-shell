@@ -136,6 +136,12 @@ FAKE
     export HOME="$HEADLESS_W/home"
     mkdir -p "$HOME/.config/rime-shell/src/user_data" \
              "$HOME/.local/share" "$HOME/Pictures/Wallpapers"
+    # A home the APEX -> Rime migration has already finished with, which is
+    # what every machine is after its first Rime start: shell.qml then builds
+    # at once rather than after src/scripts/rime-shell-migrate.sh, and
+    # "Configuration Loaded" means what the runners take it to mean. The
+    # migration itself is run-shell-migrate-test.sh's, which removes this.
+    printf 'headless: nothing to migrate\n' > "$HOME/.config/rime-shell/.rime-shell-migrated"
     export XDG_CONFIG_HOME="$HOME/.config"
     export XDG_STATE_HOME="$HEADLESS_W/state"
     export XDG_CACHE_HOME="$HEADLESS_W/cache"

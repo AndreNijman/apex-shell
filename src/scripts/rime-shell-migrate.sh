@@ -58,6 +58,10 @@
 # Success is read off the state afterwards, never off mv's exit code: GNU mv -n
 # exits 0 when it declines to replace, measured on coreutils 9.7.
 #
+# When nothing under an old name is left, it writes ~/.config/rime-shell/
+# .rime-shell-migrated, and a shell that finds that file starts without waiting
+# for this script (see the end of this file).
+#
 # Idempotent. Always exits 0 — a shell that will not start because a migration
 # failed is worse than a shell that starts on defaults and says why. One line
 # per action on stdout, conflicts and failures on stderr.
@@ -191,6 +195,8 @@ move_one() {
 
 cfg_old="${HOME}/.config/apex-shell"   # rime-rename: keep (the path an APEX shell wrote)
 cfg_new="${HOME}/.config/rime-shell"
+# Written when nothing is left to move; see the end of this file.
+MARKER="${cfg_new}/.rime-shell-migrated"
 cache_old="${HOME}/.cache/apex-shell"  # rime-rename: keep (the path an APEX shell wrote)
 cache_new="${HOME}/.cache/rime-shell"
 state_old="${STATE_BASE}/apex-shell"   # rime-rename: keep (the path an APEX shell wrote)
@@ -215,5 +221,28 @@ fi
 # matugen outputs outside the shell's own directories.
 move_one file "${HOME}/.config/hypr/apex-shell-colors.conf" "${HOME}/.config/hypr/rime-shell-colors.conf"  # rime-rename: keep (old output name)
 move_one file "${HOME}/.config/ghostty/apex-shell-colors"   "${HOME}/.config/ghostty/rime-shell-colors"    # rime-rename: keep (old output name)
+
+# ── Done for good: the marker ────────────────────────────────────────────────
+# shell.qml reads this file synchronously and, when it is there, builds at once
+# instead of waiting for this script — so a machine that has nothing left to
+# move starts exactly as it did before the rename. It is written only when
+# NOTHING under an old name is still a real file or directory (a conflict left
+# for a person keeps the shell waiting for this script at every start, which
+# is the safe side), and only into a config directory that already exists: on
+# a fresh install this never creates ~/.config/rime-shell.
+pending=0
+for p in "$cfg_old" "$cache_old" "$state_old" \
+         "${HOME}/.config/hypr/apex-shell-colors.conf" \
+         "${HOME}/.config/ghostty/apex-shell-colors"; do  # rime-rename: keep (old output names)
+    is_real "$p" && pending=1
+done
+for base in Keybinds.kdl Input.kdl Keybinds.conf Keybinds.lua; do
+    is_real "${cfg_new}/ApexShell${base}" && pending=1  # rime-rename: keep (old file names)
+done
+if [ "$DRY" = 0 ] && [ "$pending" = 0 ] && is_real "$cfg_new" && [ -d "$cfg_new" ] \
+   && [ ! -s "$MARKER" ]; then
+    printf 'rime-shell-migrate: nothing is left under the APEX names\n' > "$MARKER" 2>/dev/null \
+        || warn "could not write $MARKER; the shell will wait for this script at every start"
+fi
 
 exit 0

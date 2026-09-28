@@ -115,6 +115,10 @@ suite() {
         links_to "$h/.config/ghostty/apex-shell-colors" rime-shell-colors
     want "stdout says what moved" grep -q 'moved .*/.config/apex-shell -> .*/.config/rime-shell' "$out"
     want "a clean migration writes nothing to stderr" test ! -s "$err"
+    # shell.qml builds at once when this is there, so it may only appear once
+    # nothing is left under an old name.
+    want "a finished migration leaves the marker the shell starts on" \
+        test -s "$h/.config/rime-shell/.rime-shell-migrated"
 
     # ── 2. Running it again changes nothing ─────────────────────────────────
     before="$(listing "$h")"
@@ -133,6 +137,8 @@ suite() {
     want "  with its settings" holds "$h/.config/apex-shell/src/user_data/settings.json" '{"uiScale":1.37}'
     want "  and the new one keeps its own" holds "$h/.config/rime-shell/src/user_data/settings.json" '{"uiScale":1}'
     want "  and stderr names the conflict" grep -q 'conflict: both .*/.config/apex-shell and .*/.config/rime-shell exist' "$err"
+    want "  and no marker: the shell must keep waiting for the migration" \
+        test ! -e "$h/.config/rime-shell/.rime-shell-migrated"
 
     h="$work/h3b"; rm -rf "$h"; mkdir -p "$h"; seed_apex_home "$h"
     mkdir -p "$h/.config/rime-shell"
@@ -170,6 +176,8 @@ suite() {
     want "  and the old name becomes a symlink to it" links_to "$h/.config/rime-shell/ApexShellInput.kdl" RimeShellInput.kdl
     want "a NON-empty RimeShellKeybinds.kdl is not overwritten" holds "$h/.config/rime-shell/RimeShellKeybinds.kdl" new-binds
     want "  and the old file is left as it was" holds "$h/.config/rime-shell/ApexShellKeybinds.kdl" old-binds
+    want "  and with a file still under its old name there is no marker" \
+        test ! -e "$h/.config/rime-shell/.rime-shell-migrated"
 
     # ── 7. A fresh install has nothing to move and gets nothing made ────────
     h="$work/h7"; rm -rf "$h"; mkdir -p "$h"
@@ -239,6 +247,7 @@ mutate "moves a dangling link into place" 's/    if \[ -L "\$old" \]; then\n/   
 mutate "skips the files named for the old shell" 's/for base in Keybinds\.kdl Input\.kdl Keybinds\.conf Keybinds\.lua; do/for base in; do/'
 mutate "overwrites a non-empty new file" 's/\[ ! -s "\$new" \]/true/'
 mutate "ignores XDG_STATE_HOME" 's/\$\{XDG_STATE_HOME:-\$\{HOME\}\/\.local\/state\}/\${HOME}\/.local\/state/'
+mutate "writes the marker with a conflict left" 's/\[ "\$pending" = 0 \]/true/'
 mutate "does not follow a user's own link" 's/elif ln -s -- "\$\(readlink -- "\$old"\)" "\$new" 2>\/dev\/null; then/elif false; then/'
 
 echo
