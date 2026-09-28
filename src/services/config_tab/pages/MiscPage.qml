@@ -115,11 +115,11 @@ CfgScroll {
 
         CfgRow {
             label:       "Repository"
-            description: "github.com/AndreNijman/rime-shell"
+            description: "github.com/AndreNijman/apex-shell"  // rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed)
             CfgButton {
                 label: "Open"
                 icon:  "󰈺"
-                onClicked: root.openPath("https://github.com/AndreNijman/rime-shell")
+                onClicked: root.openPath("https://github.com/AndreNijman/apex-shell")  // rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed)
             }
         }
 

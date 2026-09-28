@@ -52,7 +52,7 @@
 // rime_remote_core::pairing::SCHEME. A payload that does not start with this
 // is not a pairing offer, and encoding it would produce a QR code that a phone
 // scans, fails to understand, and blames itself for.
-var SCHEME = "rime-remote:"
+var SCHEME = "apex-remote:"  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 
 // ── the pairing payload ──────────────────────────────────────────────────────
 

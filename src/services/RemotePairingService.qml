@@ -85,7 +85,7 @@ Singleton {
 
     // ── The pairing offer ────────────────────────────────────────────────────
 
-    // The `rime-remote:` payload currently on screen, or "".
+    // The `apex-remote:` payload currently on screen, or "".  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
     property string payload: ""
     property real payloadExpiresMs: 0
     // Why there is no code, in the words the command used. Shown instead of a

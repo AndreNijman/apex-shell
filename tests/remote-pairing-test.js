@@ -44,7 +44,7 @@ const NOW = 1789155000000;
 // to risk, and "a phone scans it, fails, and the person concludes their camera
 // is broken" is the reason it refuses.
 
-const PAYLOAD = "rime-remote:eyJ2IjoxLCJtYWNoaW5lIjoibDE2In0";
+const PAYLOAD = "apex-remote:eyJ2IjoxLCJtYWNoaW5lIjoibDE2In0";  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 
 check("the payload is taken from stdout as printed", R.payloadOf(PAYLOAD + "\n"), PAYLOAD);
 check("surrounding whitespace is not part of the payload",
@@ -55,12 +55,12 @@ check("the payload is found even when prose is printed around it",
 check("prose alone is not a payload",
       R.payloadOf("rime: the service is not running\n"), "");
 check("a bare scheme with nothing after it is not a payload",
-      R.payloadOf("rime-remote:"), "");
+      R.payloadOf("apex-remote:"), "");  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 check("another scheme is not a payload",
       R.payloadOf("https://example.invalid/pair"), "");
 check("empty stdout is not a payload", R.payloadOf(""), "");
 check("no stdout at all is not a crash", R.payloadOf(null), "");
-check("the scheme is the one rime-remote-core declares", R.SCHEME, "rime-remote:");
+check("the scheme is the one rime-remote-core declares", R.SCHEME, "apex-remote:");  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 
 // ── the offer inside the payload ─────────────────────────────────────────────
 // The expiry is read by decoding the payload, not by scraping `rime remote
@@ -88,7 +88,7 @@ check("a machine named in something other than ascii is not mojibake",
       R.decodeOffer(offerPayload({ machine: "l16-café-日本", expires_ms: 1 })).machine,
       "l16-café-日本");
 check("a payload that is not base64url is refused, not half-decoded",
-      R.decodeOffer("rime-remote:!!! not base64 !!!"), null);
+      R.decodeOffer("apex-remote:!!! not base64 !!!"), null);  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 check("a truncated payload is refused rather than parsed as much as fits",
       R.decodeOffer(R.SCHEME + Buffer.from('{"v":1,').toString("base64url")), null);
 check("an offer with no expiry is not an offer",

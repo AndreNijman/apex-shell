@@ -102,7 +102,7 @@ offer = {
     "expires_ms": int(time.time() * 1000) + 180000,
 }
 body = json.dumps(offer, separators=(",", ":")).encode()
-payload = "rime-remote:" + base64.urlsafe_b64encode(body).decode().rstrip("=")
+payload = "apex-remote:" + base64.urlsafe_b64encode(body).decode().rstrip("=")  # rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 # 275 bytes, which at error correction level m is a version 12 symbol, 65
 # modules on a side. The driver asserts that number; if this offer ever
 # changes shape, that assertion is what says so.

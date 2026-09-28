@@ -48,7 +48,7 @@ Item {
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
-    // The `rime-remote:` payload. Empty draws nothing at all -- deliberately
+    // The `apex-remote:` payload. Empty draws nothing at all -- deliberately  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
     // not a placeholder pattern, because a QR-shaped thing that is not a QR
     // code is the failure `rime remote pair` refuses to risk.
     property string payload: ""

@@ -277,7 +277,7 @@ ShellRoot {
             function () {
                 const payload = RemotePairingService.payload
                 root.check("the payload carries rime-remote-core's scheme",
-                           payload.indexOf("rime-remote:") === 0)
+                           payload.indexOf("apex-remote:") === 0)  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
                 root.check("the offer's expiry came from the payload, not from prose",
                            RemotePairingService.payloadExpiresMs > 0)
                 root.check("the countdown is running and inside the three minutes",

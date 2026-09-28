@@ -163,7 +163,7 @@ function alignmentPositions(version) {
 }
 
 // ── the bit stream ──────────────────────────────────────────────────────────
-// Byte mode only. The pairing payload is `rime-remote:` followed by URL-safe
+// Byte mode only. The pairing payload is `apex-remote:` followed by URL-safe  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 // base64, which alphanumeric mode cannot carry — it has no lower case — so
 // choosing a mode is not a decision this has to make.
 function segmentBits(bytes, version) {
@@ -471,7 +471,7 @@ Symbol_.prototype.penalty = function () {
 
 // ── the one entry point ─────────────────────────────────────────────────────
 //
-//   encode("rime-remote:…")                       smallest version, best mask
+//   encode("apex-remote:…")                       smallest version, best mask  // rime-rename: keep (the pairing scheme rime-remote-core prints and the installed phone app parses)
 //   encode(text, { level: "m", version: 7, mask: 3 })
 //
 // Returns { version, size, level, mask, modules } where `modules` is an array
