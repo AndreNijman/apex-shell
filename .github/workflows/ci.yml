@@ -261,6 +261,17 @@ jobs:
           # the bar, the bar's line handed to the strips' rim.
           ./tests/check-frame-fillets.sh
 
+      - name: A home from APEX keeps its settings under the Rime names
+        run: |
+          # The rename moved the shell's data from ~/.config/apex-shell,
+          # ~/.cache/apex-shell and ~/.local/state/apex-shell to the rime-shell
+          # names; src/scripts/rime-shell-migrate.sh moves an existing home
+          # once, by rename, and leaves a symlink at each old path. Every rule
+          # runs on a fixture HOME, and eight mutants of the script (copy
+          # instead of rename, no symlink, move over an existing directory, …)
+          # must each fail a case.
+          ./tests/check-shell-migrate.sh
+
       - name: Firewall surface logic
         run: |
           # P1-044. Drives src/services/firewall.js — the file the shell loads
@@ -672,6 +683,11 @@ jobs:
           # private HOME, and reports the shell's own ERROR count — the same
           # shape as run-popup-smoke.sh above it, which CI has always run.
           ./tests/run-nexus-smoke.sh
+          # The whole shell on a home that still has only the APEX names: it
+          # must migrate before any service writes the new paths, or the first
+          # write strands the user's settings. A staged shell.qml whose
+          # migration runs late must fail the same assertions.
+          ./tests/run-shell-migrate-test.sh
 
       - name: Floating/labwc behavioural matrix
         run: |
