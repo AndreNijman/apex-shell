@@ -118,7 +118,7 @@ QtObject {
             } else if (root.currentWall === "") {
                 root._applyDefault()
             } else {
-                root.rethemeIfStale()
+                root._followRename()
             }
             root.refresh()
         }
@@ -142,6 +142,47 @@ QtObject {
             onStreamFinished: {
                 const path = String(this.text).trim()
                 if (path !== "" && root.currentWall === "") root.apply(path)
+            }
+        }
+    }
+
+    // ── A wallpaper the rename moved ──────────────────────────────────────────
+    // wallpaper.json outlives the image it was written on. Two kinds of path in
+    // it were renamed along with APEX: the OS default under
+    // /usr/share/backgrounds/apex/, and the wallpapers this shell bundles,
+    // which were apex-shell-default-N and are rime-shell-default-N now. A saved
+    // path of either kind no longer exists, and the daemon's own restore finds
+    // nothing. So at start, a saved wallpaper that is missing is looked for
+    // under its new name, and if it is there it is applied — which puts it back
+    // on screen, re-derives the palette and saves the new path. Anything else
+    // that is missing is left exactly as it was.
+    function renamedWallpaper(path) {
+        const p = String(path || "")
+        const bundled = p.match(/\/apex-shell-default-([0-9]+\.[A-Za-z0-9]+)$/)  // rime-rename: keep (a bundled wallpaper's name before the rename)
+        if (bundled)
+            return Quickshell.shellDir + "/src/assets/wallpapers/rime-shell-default-" + bundled[1]
+        const oldDir = "/usr/share/backgrounds/apex/"  // rime-rename: keep (the OS wallpaper directory before the rename)
+        if (p.indexOf(oldDir) === 0)
+            return "/usr/share/backgrounds/rime/" + p.slice(oldDir.length)
+        return ""
+    }
+
+    function _followRename() {
+        const moved = root.renamedWallpaper(root.currentWall)
+        if (moved === "") { root.rethemeIfStale(); return }
+        root._renameProc.command = ["bash", "-c",
+            "[ -e \"$1\" ] || { [ -e \"$2\" ] && printf %s \"$2\"; }; exit 0",
+            "--", root.currentWall, moved]
+        root._renameProc.running = true
+    }
+
+    property var _renameProc: Process {
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const moved = String(this.text).trim()
+                if (moved === "") { root.rethemeIfStale(); return }
+                console.info("WallpaperService: " + root.currentWall + " was renamed; applying " + moved)
+                root.apply(moved)
             }
         }
     }

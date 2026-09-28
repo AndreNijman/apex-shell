@@ -14,9 +14,12 @@
 #  migration has exited; this starts the real shell.qml and grades the home it
 #  leaves.
 #
-#  The second run is a staged copy of the tree whose shell.qml opens the gate
-#  at once and runs the migration three seconds late. It must FAIL the same
-#  assertions, which is what shows they measure the ordering.
+#  The second run saves a wallpaper under a bundled file's pre-rename name;
+#  the shell has to find it under the new one and apply that.
+#
+#  The third is a staged copy of the tree whose shell.qml opens the gate at
+#  once and runs the migration three seconds late. It must FAIL the first
+#  run's assertions, which is what shows they measure the ordering.
 #
 #  Headless labwc from tests/lib/headless.sh, private HOME and runtime dir.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -111,6 +114,27 @@ start "$root" "$HEADLESS_W/shell.log"
 grade "$HEADLESS_W/shell.log"
 real_pass=$pass real_fail=$fail
 [ "$real_fail" -eq 0 ] || { echo "--- shell log (tail) ---"; tail -30 "$HEADLESS_W/shell.log"; }
+
+# ── A saved wallpaper the rename moved ──────────────────────────────────────
+# The bundled wallpapers were apex-shell-default-N and are rime-shell-default-N
+# now, so a wallpaper.json that names one points at nothing. The shell has to
+# find it under the new name and apply it. (Nothing is drawn: the wallpaper
+# setter and matugen are the harness's stubs, so the file is only a path here.)
+echo
+echo "a saved wallpaper under its pre-rename name"
+seed
+renamed_from="$root/src/assets/wallpapers/apex-shell-default-3.jpg"   # rime-rename: keep (a bundled wallpaper's old name)
+renamed_to="$root/src/assets/wallpapers/rime-shell-default-3.jpg"
+printf '{"currentWall": "%s", "wallpaperDir": "~/Pictures/Wallpapers", "scheme": "content", "mode": "dark"}\n' \
+    "$renamed_from" > "$(dirname "$settings_old")/wallpaper.json"
+start "$root" "$HEADLESS_W/wall.log"
+pass=0 fail=0
+want "the bundled wallpaper exists under its new name (fixture sanity)" test -f "$renamed_to"
+want "the old name really is gone (fixture sanity)" test ! -e "$renamed_from"
+want "the shell says it followed the rename" grep -q "was renamed; applying .*rime-shell-default-3.jpg" "$HEADLESS_W/wall.log"
+want "wallpaper.json now names the wallpaper under its new name" \
+    json_is "$HOME/.config/rime-shell/src/user_data/wallpaper.json" currentWall "$renamed_to"
+real_pass=$((real_pass + pass)) real_fail=$((real_fail + fail))
 
 # ── The late-migration mutant ───────────────────────────────────────────────
 echo

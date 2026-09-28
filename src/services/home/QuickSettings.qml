@@ -217,6 +217,12 @@ StatCard {
     property bool   _hsWifiWasOff: false  // wifi radio was off when hotspot started; restore on stop
     property string hotspotLabel:  ""    // sublabel: "Active" | "Not on ethernet" | ""
     property string _hsSSID:       "RimeShell"
+    // The connection profile the hotspot was saved under before the rename. It
+    // is a NetworkManager profile, stored outside this shell, and one left
+    // behind (a hotspot that was on when the machine went down) would sit next
+    // to the new one for good. Every place that deletes the current profile
+    // deletes this one too; the "is a hotspot up" poll already matches both.
+    readonly property string _hsOldConDelete: "nmcli con delete ApexShellHotspot 2>/dev/null; "  // rime-rename: keep (NM profile name the APEX shell created)
     property string _hsPassword:   "changeme1"
     // Empty until hsIfaceProc resolves the real device. It used to default to
     // "wlan0", so the first hotspot toggle on a wlp*-named card (or on a machine
@@ -363,7 +369,7 @@ StatCard {
         // Disconnect by interface — works regardless of what nmcli named the connection
         command: ["bash", "-c",
             "nmcli device disconnect " + root._hsWifiIface + " 2>/dev/null; " +
-            "nmcli con delete RimeShellHotspot 2>/dev/null; true"]
+            "nmcli con delete RimeShellHotspot 2>/dev/null; " + root._hsOldConDelete + "true"]
         running: false
         onRunningChanged: if (!running) {
             root.hotspotBusy   = false
@@ -406,7 +412,7 @@ StatCard {
                     // Rebuild stop command with current iface before running
                     hsStopProc.command = ["bash", "-c",
                         "nmcli device disconnect " + root._hsWifiIface + " 2>/dev/null; " +
-                        "nmcli con delete RimeShellHotspot 2>/dev/null; true"]
+                        "nmcli con delete RimeShellHotspot 2>/dev/null; " + root._hsOldConDelete + "true"]
                     hsStopProc.running = false; hsStopProc.running = true
                     hsLabelResetTimer.restart()
                 }
@@ -431,7 +437,7 @@ StatCard {
             "sleep 1; " +
             // Disconnect whatever is currently on the interface
             "nmcli device disconnect \"$IFACE\" 2>/dev/null; " +
-            "nmcli con delete RimeShellHotspot 2>/dev/null; " +
+            "nmcli con delete RimeShellHotspot 2>/dev/null; " + root._hsOldConDelete +
             "nmcli device wifi hotspot " +
                 "ifname \"$IFACE\" ssid \"$1\" password \"$2\" " +
                 "con-name RimeShellHotspot 2>&1",
@@ -447,7 +453,7 @@ StatCard {
             // Rebuild with current iface (detected after startup)
             hsStopProc.command = ["bash", "-c",
                 "nmcli device disconnect \"" + root._hsWifiIface + "\" 2>/dev/null; " +
-                "nmcli con delete RimeShellHotspot 2>/dev/null; true"]
+                "nmcli con delete RimeShellHotspot 2>/dev/null; " + root._hsOldConDelete + "true"]
             hsStopProc.running = false; hsStopProc.running = true
         } else {
             root.hotspotBusy  = true
