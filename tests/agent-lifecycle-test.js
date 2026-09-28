@@ -80,10 +80,17 @@ const FLEET = [
     s(10, "quantum-entangled")  // a value a NEWER daemon invented
 ];
 
+// Spellings policy.rs's `parse` accepts beside the canonical ones:
+// `remote-control` for claude-remote-control, and `apex-shell`, the shell's
+// origin before the rename, which records on disk and devices still on APEX
+// carry. The daemon never WRITES either, so they are exempt from the fleet
+// coverage and from "the runtime never writes it", and mapped below.
+const PARSE_ALIASES = ["remote-control", "apex-shell"];  // rime-rename: keep (the origin's pre-rename spelling)
+
 function fixture(L) {
     console.log("\n── 0. the fixture is non-trivial ──");
     check("the fleet covers every origin the runtime can report",
-          Object.keys(L.ORIGINS).filter(o => o !== "remote-control")
+          Object.keys(L.ORIGINS).filter(o => PARSE_ALIASES.indexOf(o) === -1)
                 .every(o => FLEET.some(r => r.request_origin === o)),
           Object.keys(L.ORIGINS).join(" "));
     check("the fleet carries an absent origin and a null one",
@@ -145,10 +152,10 @@ function vocabulary(L) {
 
     // And the other direction, which catches a typo in this file: a key here
     // that the daemon never writes would be dead code that looks like cover.
-    // `remote-control` is the one legitimate extra — policy.rs's `parse`
+    // `remote-control` and `apex-shell` are the legitimate extras — policy.rs's `parse`
     // accepts it as an alias, so a record hand-written against the short
     // spelling still classifies.
-    const extra = mapped.filter(o => want.indexOf(o) === -1 && o !== "remote-control");
+    const extra = mapped.filter(o => want.indexOf(o) === -1 && PARSE_ALIASES.indexOf(o) === -1);
     check("no origin is classified that the runtime never writes",
           extra.length === 0, "unknown to the daemon: " + extra.join(" "));
 
@@ -189,6 +196,7 @@ function mapping(L) {
     const cases = [
         ["local-terminal",        L.LOCAL],
         ["rime-shell",            L.LOCAL],
+        ["apex-shell",            L.LOCAL],  // rime-rename: keep (the origin's pre-rename spelling)
         ["claude-remote-control", L.REMOTE_CTL],
         ["remote-control",        L.REMOTE_CTL],
         ["scheduled-job",         L.SCHEDULED],

@@ -105,6 +105,10 @@ var ORIGINS = {
     // inventing a kind the roadmap does not ask for would be as wrong as
     // collapsing two it does.
     "rime-shell":            LOCAL,
+    // The same origin under its name before the rename. The daemon reads it
+    // as rime-shell (RequestOrigin's serde alias), but a trusted device that
+    // has not taken the update still reports it this way.
+    "apex-shell":            LOCAL,  // rime-rename: keep (the origin a device still on APEX reports)
     "claude-remote-control": REMOTE_CTL,
     "remote-control":        REMOTE_CTL,
     "scheduled-job":         SCHEDULED,
