@@ -144,9 +144,11 @@ mkdir -p "$REPO_PARENT"
 LEGACY_REPO_DIR="$REPO_PARENT/apex-shell"  # rime-rename: keep (where the installer cloned before the rename)
 if [[ -d "$LEGACY_REPO_DIR/.git" && ! -L "$LEGACY_REPO_DIR" && ! -e "$REPO_DIR" && ! -L "$REPO_DIR" ]]; then
     if mv -n -T "$LEGACY_REPO_DIR" "$REPO_DIR" && [[ ! -e "$LEGACY_REPO_DIR" ]]; then
-        ln -s rime-shell "$LEGACY_REPO_DIR" \
-            && log_ok "Moved the checkout: $LEGACY_REPO_DIR → $REPO_DIR (a symlink stays)" \
-            || log_warn "Moved the checkout to $REPO_DIR, but could not leave a symlink at $LEGACY_REPO_DIR"
+        if ln -s rime-shell "$LEGACY_REPO_DIR"; then
+            log_ok "Moved the checkout: $LEGACY_REPO_DIR → $REPO_DIR (a symlink stays)"
+        else
+            log_warn "Moved the checkout to $REPO_DIR, but could not leave a symlink at $LEGACY_REPO_DIR"
+        fi
     else
         log_warn "Could not move $LEGACY_REPO_DIR to $REPO_DIR; cloning afresh"
     fi
