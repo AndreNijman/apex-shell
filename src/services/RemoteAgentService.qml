@@ -340,11 +340,12 @@ Singleton {
         root._pending = name
         root._buf = ""
 
-        // The argv is built here and quoted by `rime host run`, which is the
-        // only reason a host name or a path with a space in it is safe. Nothing
-        // in this file interpolates a model value into a shell string.
-        root._queryProc.command = ["rime", "host", "run", name,
-                                   "--", "rime", "agent", "list", "--all", "--json"]
+        // The argv is built by remoteagents.js and quoted by `rime host run`,
+        // which is the only reason a host name or a path with a space in it is
+        // safe. Nothing in this file interpolates a model value into a shell
+        // string. The far side runs its own CLI under whichever name it has —
+        // `rime`, or `apex` on a device that has not taken the update.
+        root._queryProc.command = Remote.queryArgv(name)
         root._queryProc.running = false
         root._queryProc.running = true
         root._watchdog.restart()
@@ -438,7 +439,10 @@ Singleton {
     function sessionsFor(name) {
         return Remote.visibleSessions(root.resultFor(name).sessions)
     }
-    function attachCommand(name, id) { return Remote.attachCommand(name, id) }
+    function attachCommand(name, id) {
+        const h = root.hosts.find(x => x.name === name)
+        return Remote.attachCommand(name, id, h ? h.cli : "rime")
+    }
 
     // Which glyph a host's status gets. Same vocabulary as AgentService's
     // stateIcons, and every status in remoteagents.js has an entry — a missing

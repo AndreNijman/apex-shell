@@ -97,6 +97,39 @@ var SSH_FAILED = 255
 // cached probe is out of date and no longer has `rime` looks like.
 var COMMAND_NOT_FOUND = 127
 
+// The far side of every command this file sends, as argv for `rime host run`.
+//
+// A device that has not taken the Rime update yet has `apex` where a Rime box
+// has `rime` — the same verbs and the same JSON under the old name. Asking for
+// `rime` by name would read every such device as "rime not installed there"
+// for as long as the fleet is half updated, so the name is looked up on the
+// far side: rime, then apex, then 127, which readSessions already reads as
+// NO_RIME. The script is a constant and the arguments reach it as positional
+// parameters ("$@"), so nothing is ever spliced into a shell line; `rime host
+// run` quotes every element for the remote shell on its own.
+var REMOTE_CLI = 'if command -v rime >/dev/null 2>&1; then exec rime "$@"; fi; '
+               + 'if command -v apex >/dev/null 2>&1; then exec apex "$@"; fi; '  // rime-rename: keep (the CLI on a device still on APEX)
+               + 'exit 127'
+
+// remoteArgv(["agent", "list"]) -> the argv to put after `rime host run <h> --`.
+function remoteArgv(args) {
+    return ["sh", "-c", REMOTE_CLI, "sh"].concat((args || []).map(String))
+}
+
+// Which name the device's own CLI answers to, when its probe says so. A probe
+// taken from a device still on APEX describes itself with `apex_version`; one
+// on Rime with `rime_version`. Anything else is taken to be Rime.
+function remoteCli(rawCaps) {
+    if (rawCaps === null || typeof rawCaps !== "object" || Array.isArray(rawCaps))
+        return "rime"
+    var rime = rawCaps.rime_version
+    var old  = rawCaps.apex_version  // rime-rename: keep (HostCaps field an APEX device prints)
+    if ((rime === undefined || rime === null || rime === "")
+        && typeof old === "string" && old !== "")
+        return "apex"  // rime-rename: keep (the CLI on a device still on APEX)
+    return "rime"
+}
+
 // How old a probe may be before it is worth mentioning, in seconds.
 //
 // Seven days, which is `PROBE_FRESH_SECS` in rimed/rime/src/host.rs. Copied
@@ -122,7 +155,7 @@ var SESSION_DISPLAY_CAP = 6
 // reading of a malformed reply about whether a machine can run agents.
 var CAPS_SCHEMA = {
     probed_at:    0,
-    rime_version: null,
+    rime_version: null,  // read from apex_version too; see CAPS_ALIASES
     variant:      null,
     os:           null,
     cpus:         null,
@@ -133,6 +166,14 @@ var CAPS_SCHEMA = {
     agentd:       false,
     ai:           false,
     podman:       false
+}
+
+// Names a HostCaps field had before the rename. A device still on APEX
+// describes itself as `apex_version`, and a probe cached before the local
+// machine was renamed says the same, so the old name is read when the new one
+// is absent. The record handed on only ever carries the new name.
+var CAPS_ALIASES = {
+    rime_version: ["apex_version"]  // rime-rename: keep (HostCaps field an APEX device prints)
 }
 
 // Turn whatever arrived into a record with every schema key present.
@@ -149,6 +190,9 @@ function normalizeCaps(raw) {
         var k = keys[i]
         var fallback = CAPS_SCHEMA[k]
         var v = raw[k]
+        var aliases = CAPS_ALIASES[k] || []
+        for (var a = 0; (v === undefined || v === null) && a < aliases.length; a++)
+            v = raw[aliases[a]]
 
         if (typeof fallback === "boolean") {
             // Explicitly `=== true`, never a truthiness test: a string "false"
@@ -216,7 +260,9 @@ function parseHostList(text) {
             caps:    caps === null ? normalizeCaps({}) : caps,
             // The one question this whole service turns on, answered once here
             // so no call site has to remember the three-way distinction.
-            agentd:  caps !== null && caps.agentd === true
+            agentd:  caps !== null && caps.agentd === true,
+            // What to tell a person to type on that device (attachCommand).
+            cli:     remoteCli(entry.caps)
         })
     }
     return { ok: true, reason: "", hosts: hosts }
@@ -247,6 +293,13 @@ function restingStatus(host) {
 }
 
 // ── one query's result ───────────────────────────────────────────────────────
+
+// The argv that asks a device for its sessions: `rime host run <name> --`
+// and then the far side's own CLI, whichever name it answers to.
+function queryArgv(hostName) {
+    return ["rime", "host", "run", String(hostName), "--"]
+        .concat(remoteArgv(["agent", "list", "--all", "--json"]))
+}
 
 // Read what `rime host run <name> -- rime agent list --all --json` did.
 //
@@ -389,9 +442,13 @@ function hostSummary(host, result, nowSecs) {
 // The command that gets a person to a remote session, for the one line of
 // guidance the section carries. There is no button: attaching means a terminal
 // on the far side of an ssh, and this page is a supervisor, not a terminal.
-function attachCommand(hostName, sessionId) {
+//
+// `cli` is the host record's own (parseHostList): a device whose probe says it
+// is still on APEX has no `rime` to attach with.
+function attachCommand(hostName, sessionId, cli) {
+    var far = cli === "apex" ? "apex" : "rime"  // rime-rename: keep (the CLI on a device still on APEX)
     return "rime host run -t " + String(hostName)
-         + " -- rime agent attach " + String(sessionId)
+         + " -- " + far + " agent attach " + String(sessionId)
 }
 
 // ── the whole picture, for the section header and the one-shot log line ─────
@@ -449,6 +506,11 @@ if (typeof module !== "undefined" && module.exports)
         SESSION_DISPLAY_CAP: SESSION_DISPLAY_CAP,
         SSH_FAILED: SSH_FAILED,
         COMMAND_NOT_FOUND: COMMAND_NOT_FOUND,
+        REMOTE_CLI: REMOTE_CLI,
+        CAPS_ALIASES: CAPS_ALIASES,
+        remoteArgv: remoteArgv,
+        remoteCli: remoteCli,
+        queryArgv: queryArgv,
         normalizeCaps: normalizeCaps,
         parseHostList: parseHostList,
         queryTargets: queryTargets,

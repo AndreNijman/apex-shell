@@ -231,10 +231,26 @@ check_tree() {
     # boundaries intact, which plain `ssh host cmd a b` does not: ssh joins them
     # with spaces and hands the string to the remote shell. Assembling that
     # here is also where an injection would land.
-    want "the query goes through rime host run" \
-        in_fn "$svc" 'function _next\(\)' '"rime", "host", "run", name,'
-    want "the remote argv is separated by --" \
-        in_fn "$svc" 'function _next\(\)' '"--", "rime", "agent", "list", "--all", "--json"'
+    want "the query argv comes from remoteagents.js" \
+        in_fn "$svc" 'function _next\(\)' 'root\._queryProc\.command = Remote\.queryArgv\(name\)$'
+    want "the query goes through rime host run, the remote argv after --" \
+        in_fn "$js" '^function queryArgv' '\["rime", "host", "run", String\(hostName\), "--"\]'
+    want "and asks the far side for its session list" \
+        in_fn "$js" '^function queryArgv' 'remoteArgv\(\["agent", "list", "--all", "--json"\]\)'
+    # A device that has not taken the Rime update answers to `apex`. Asking for
+    # `rime` by name would label every such device "not installed there" for as
+    # long as the fleet is half updated. The name is resolved on the far side,
+    # rime first, by a constant script that takes its arguments as "$@".
+    want "the far side runs rime when it has it" \
+        has "$js" "^var REMOTE_CLI = 'if command -v rime >/dev/null 2>&1; then exec rime \"\\\$@\"; fi; '"
+    want "and apex on a device still on APEX" \
+        has "$js" "^ +\+ 'if command -v apex >/dev/null 2>&1; then exec apex \"\\\$@\"; fi; '"
+    want "and 127 (read as not installed) on neither" \
+        has "$js" "^ +\+ 'exit 127'$"
+    want "the remote script is handed its arguments, never built from them" \
+        in_fn "$js" '^function remoteArgv' 'return \["sh", "-c", REMOTE_CLI, "sh"\]\.concat\('
+    want "a probe that says apex_version is read as rime_version" \
+        has "$js" '^ +rime_version: \["apex_version"\]'
     want "the service never builds a shell command line" \
         lacks "$svc" '"(ba)?sh", *"-c"'
     # The host name is passed as its own argv element and never concatenated
@@ -504,6 +520,20 @@ sed -i 's|_hasRemote: RemoteAgentService.hosts.length > 0|_hasRemote: true|' \
     "$MUT/m10/src/services/agents/AgentCenter.qml"
 assert_changed "$MUT/m10" src/services/agents/AgentCenter.qml \
     && expect "an unconditional remote section is caught" "$MUT/m10" red
+
+# The fallback for a device that has not taken the Rime update. Without it,
+# every such device reads as "rime not installed there".
+fresh_copy "$MUT/m12"
+sed -i "/^ *+ 'if command -v apex >\/dev\/null 2>&1; then exec apex \"\$@\"; fi; '/d" \
+    "$MUT/m12/src/services/remoteagents.js"
+assert_changed "$MUT/m12" src/services/remoteagents.js \
+    && expect "dropping the apex fallback on the far side is caught" "$MUT/m12" red
+
+fresh_copy "$MUT/m13"
+sed -i 's|^\( *\)rime_version: \["apex_version"\].*$|\1rime_version: []|' \
+    "$MUT/m13/src/services/remoteagents.js"
+assert_changed "$MUT/m13" src/services/remoteagents.js \
+    && expect "forgetting that an APEX probe says apex_version is caught" "$MUT/m13" red
 
 # The guard clause with no test behind it until now. Dropping it from
 # _beginSweep leaves the identical text in `busy` two dozen lines up, so a

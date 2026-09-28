@@ -342,6 +342,68 @@ check("no devices means no heading suffix",
       R.overviewLabel({ hosts: 0 }), "");
 check("a null overview is not a crash", R.overviewLabel(null), "");
 
+// ── a device that has not taken the Rime update ─────────────────────────────
+// Until every machine has booted the renamed image, a trusted device can still
+// be on APEX. It describes itself with the fields it has always used, and its
+// CLI is `apex`. This is the same katana probe as above, as it read before the
+// rename (os and version field included), not a made-up shape.
+const KATANA_APEX = {
+    probed_at: 1788439662, apex_version: "0.1.0", variant: "gaming",  // rime-rename: keep (what an APEX device prints)
+    os: "APEX-OS", cpus: 20, memory_mib: 63997,  // rime-rename: keep (what an APEX device prints)
+    gpus: ["i915", "nvidia"], accel: ["cuda", "vulkan"],
+    agentd: true, ai: false, podman: true
+};
+check("an APEX probe's apex_version is read as rime_version",
+      R.normalizeCaps(KATANA_APEX).rime_version, "0.1.0");
+check("  and the record carries only the new name",
+      Object.prototype.hasOwnProperty.call(R.normalizeCaps(KATANA_APEX), "apex_version"), false);
+check("rime_version wins when a probe carries both",
+      R.normalizeCaps({ rime_version: "0.2.0", apex_version: "0.1.0" }).rime_version, "0.2.0");
+check("an APEX probe is still a device with an agent runtime",
+      R.normalizeCaps(KATANA_APEX).agentd, true);
+const apexHosts = R.parseHostList(JSON.stringify({
+    katana: { ssh: "katana", port: null, note: null, caps: KATANA_APEX },
+    desk:   { ssh: "desk",   port: null, note: null, caps: KATANA_REAL }
+})).hosts;
+check("the host record says which CLI each device answers to",
+      apexHosts.map(h => [h.name, h.cli]), [["desk", "rime"], ["katana", "apex"]]);
+check("an unprobed device is taken to be Rime", R.remoteCli(null), "rime");
+check("the attach command for a device still on APEX names its own CLI",
+      R.attachCommand("katana", 7, "apex"),
+      "rime host run -t katana -- apex agent attach 7");  // rime-rename: keep (the CLI on a device still on APEX)
+check("  and a Rime device's is unchanged",
+      R.attachCommand("katana", 7, "rime"),
+      "rime host run -t katana -- rime agent attach 7");
+
+// The query argv, and the far side's script run for real against stand-in
+// binaries: a grep of the script cannot say it picks the right one.
+check("the query is rime host run <name> -- sh -c <script> sh agent list --all --json",
+      R.queryArgv("katana"),
+      ["rime", "host", "run", "katana", "--", "sh", "-c", R.REMOTE_CLI, "sh",
+       "agent", "list", "--all", "--json"]);
+{
+    const fs = require("fs"), os = require("os"), cp = require("child_process");
+    const dir = fs.mkdtempSync(path.join(process.env.TMPDIR || os.tmpdir(), "remote-cli-"));
+    const shPath = cp.execFileSync("sh", ["-c", "command -v sh"]).toString().trim();
+    const bin = (name) => {
+        const d = path.join(dir, name + "-only");
+        fs.mkdirSync(d, { recursive: true });
+        fs.writeFileSync(path.join(d, name), `#!${shPath}\necho "${name}:$*"\n`, { mode: 0o755 });
+        return d;
+    };
+    const run = (pathDirs) => cp.spawnSync(shPath, R.remoteArgv(["agent", "list", "--all"]).slice(1),
+                                           { env: { PATH: pathDirs.join(":") } });
+    const rimeOnly = bin("rime"), apexOnly = bin("apex");  // rime-rename: keep (the CLI on a device still on APEX)
+    const both = run([rimeOnly, apexOnly]), apex = run([apexOnly]), none = run([path.join(dir, "empty")]);
+    check("the far side runs rime when it has rime (and apex too)",
+          [both.status, String(both.stdout).trim()], [0, "rime:agent list --all"]);
+    check("the far side runs apex on a device still on APEX",
+          [apex.status, String(apex.stdout).trim()], [0, "apex:agent list --all"]);  // rime-rename: keep
+    check("with neither it exits 127, which reads as not installed there",
+          [none.status, R.readSessions(none.status, "").status], [127, R.STATUS.NO_RIME]);
+    fs.rmSync(dir, { recursive: true, force: true });
+}
+
 if (failed > 0) {
     console.error(`\n${failed} assertion(s) failed`);
     process.exit(1);
