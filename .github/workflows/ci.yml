@@ -260,6 +260,15 @@ jobs:
           # with what it does; the choice is saved and put back after a reload.
           ./tests/check-layout-menu.sh
 
+      - name: Every singleton a file uses is imported there
+        run: |
+          # IpcManager called WindowSwitcherService without importing
+          # ../services, so every ALT+Tab threw a ReferenceError at runtime and
+          # did nothing, from the day the switcher landed until 2026-09-29. QML
+          # does not reject that at load, and the switcher suites stage their
+          # own IpcHandler. This scans every file's imports statically.
+          ./tests/check-singleton-imports.sh
+
       - name: The frame's corners merge into its strips
         run: |
           # The frame's three strips are layer surfaces sized to the corner
