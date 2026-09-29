@@ -5,19 +5,19 @@ The standard desktop shell of Rime OS: a modular Wayland shell built with Quicks
 </h3>
 
 <p align="center">
-  <img src="https://img.shields.io/github/last-commit/AndreNijman/apex-shell?style=for-the-badge&color=8D748C&logoColor=D9E0EE&labelColor=252733" alt="Last Commit" /> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
-  <img src="https://img.shields.io/github/stars/AndreNijman/apex-shell?style=for-the-badge&logo=starship&color=AB6C6A&logoColor=D9E0EE&labelColor=252733" alt="Stars" /> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
+  <img src="https://img.shields.io/github/last-commit/AndreNijman/rime-shell?style=for-the-badge&color=8D748C&logoColor=D9E0EE&labelColor=252733" alt="Last Commit" />
+  <img src="https://img.shields.io/github/stars/AndreNijman/rime-shell?style=for-the-badge&logo=starship&color=AB6C6A&logoColor=D9E0EE&labelColor=252733" alt="Stars" />
   <img src="https://img.shields.io/badge/version-0.1.0-8D748C?style=for-the-badge&logoColor=D9E0EE&labelColor=252733" alt="Version 0.1.0" />
   <br>
   <img src="https://img.shields.io/badge/hyprland-v0.55+-5E81AC?style=for-the-badge&logoColor=D9E0EE&labelColor=252733" alt="Hyprland v0.55+" />
   <img src="https://img.shields.io/badge/compositor-niri-5E81AC?style=for-the-badge&logoColor=D9E0EE&labelColor=252733" alt="niri" />
   <img src="https://img.shields.io/badge/framework-quickshell-A1C999?style=for-the-badge&logoColor=D9E0EE&labelColor=252733" alt="Quickshell Framework" />
   <br>
-  <a href="https://github.com/AndreNijman/apex-shell/blob/main/LICENSE"> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
-    <img src="https://img.shields.io/github/license/AndreNijman/apex-shell?style=for-the-badge&color=A1C999&logo=opensourceinitiative&logoColor=D9E0EE&labelColor=252733" alt="License" /> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
+  <a href="https://github.com/AndreNijman/rime-shell/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/AndreNijman/rime-shell?style=for-the-badge&color=A1C999&logo=opensourceinitiative&logoColor=D9E0EE&labelColor=252733" alt="License" />
   </a>
-  <a href="https://github.com/AndreNijman/apex-shell/issues"> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
-    <img src="https://img.shields.io/github/issues/AndreNijman/apex-shell?style=for-the-badge&logo=github&color=5E81AC&logoColor=D9E0EE&labelColor=252733" alt="Issues" /> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
+  <a href="https://github.com/AndreNijman/rime-shell/issues">
+    <img src="https://img.shields.io/github/issues/AndreNijman/rime-shell?style=for-the-badge&logo=github&color=5E81AC&logoColor=D9E0EE&labelColor=252733" alt="Issues" />
   </a>
 </p>
 
@@ -93,13 +93,13 @@ Rime OS ships the shell in its image, built from this repository's `main`, and
 ### One line installer
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AndreNijman/apex-shell/refs/heads/main/install.sh | bash  # rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed)
+curl -fsSL https://raw.githubusercontent.com/AndreNijman/rime-shell/refs/heads/main/install.sh | bash
 ```
 
 ### Manual installation
 
 ```bash
-git clone https://github.com/AndreNijman/apex-shell.git  # rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed)
+git clone https://github.com/AndreNijman/rime-shell.git
 cd rime-shell
 chmod +x install.sh
 ./install.sh
@@ -494,8 +494,8 @@ tier's behaviour (32 assertions against real `/proc` and `/sys`); run it with
 
 Rime Shell is under active development and takes contributions:
 
-- Found a bug? → [Open an issue](https://github.com/AndreNijman/apex-shell/issues) <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
-- Have an idea? → [Start a discussion](https://github.com/AndreNijman/apex-shell/discussions) <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
+- Found a bug? → [Open an issue](https://github.com/AndreNijman/rime-shell/issues)
+- Have an idea? → [Start a discussion](https://github.com/AndreNijman/rime-shell/discussions)
 - Want to contribute? → Fork, branch, and submit a pull request
 
 ---
@@ -528,9 +528,9 @@ Additional thanks to the projects and communities that make this shell possible:
 <div align="center">
   <a href="https://www.star-history.com/?repos=AndreNijman%2Frime-shell&type=date&legend=top-left">
    <picture>
-     <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=AndreNijman/apex-shell&type=date&theme=dark&legend=top-left" /> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
-     <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=AndreNijman/apex-shell&type=date&legend=top-left" /> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
-     <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=AndreNijman/apex-shell&type=date&legend=top-left" /> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
+     <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=AndreNijman/rime-shell&type=date&theme=dark&legend=top-left" />
+     <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=AndreNijman/rime-shell&type=date&legend=top-left" />
+     <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=AndreNijman/rime-shell&type=date&legend=top-left" />
    </picture>
   </a>
 </div>

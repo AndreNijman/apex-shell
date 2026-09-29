@@ -56,7 +56,7 @@
 <policyconfig>
 
   <vendor>Rime Shell</vendor>
-  <vendor_url>https://github.com/AndreNijman/apex-shell</vendor_url> <!-- rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed) -->
+  <vendor_url>https://github.com/AndreNijman/rime-shell</vendor_url>
 
   <action id="org.rimeos.shell.agent.set-always-unrestricted">
     <description>Start new agents with no Rime sandbox</description>
