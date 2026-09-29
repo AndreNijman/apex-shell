@@ -560,6 +560,35 @@ QtObject {
         }
     }
 
+    // ── Workspace overview (SUPER+Tab) ───────────────────────────────────────
+    // Rime's own where the compositor gives it what the grid needs: workspaces
+    // in fixed slots, windows with geometry, and their live pictures — Hyprland.
+    // niri draws an overview of its own, so the same key asks for that one; on
+    // labwc there is neither and the key does nothing (rime-os's labwc keybind
+    // generator does not carry this action).
+    readonly property bool overviewSupported:
+        CompositorService.can.workspaces && CompositorService.can.windowGeometry
+        && CompositorService.can.windowPreview && CompositorService.workspaceSlots > 0
+    function toggleOverview() {
+        if (!root.overviewSupported) {
+            CompositorService.toggleOverview()
+            return
+        }
+        const next = !Popups.overviewOpen
+        Popups.closeAll()
+        if (next) Popups.overviewScreen = focusedScreenName()
+        Popups.overviewOpen = next
+    }
+    property var overview: IpcHandler {
+        target: "overview-toggle"
+        function toggle() { root.toggleOverview() }
+        function open(): string {
+            if (!Popups.overviewOpen) root.toggleOverview()
+            return Popups.overviewOpen ? "open on " + Popups.overviewScreen : "not supported here"
+        }
+        function close() { Popups.overviewOpen = false }
+    }
+
     property var focusMode: IpcHandler {
         target: "focus-toggle"
         function toggle() {

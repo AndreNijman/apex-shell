@@ -172,6 +172,7 @@ QtObject {
         windowFocus:          false,
         windowMove:           false,   // can move a window between workspaces
         windowClose:          false,
+        windowPreview:        false,   // a window's live picture (previewSources)
         overview:             false,
         accentBorder:         false,   // can retheme the active-window border
         gaps:                 false,   // can change window gaps at runtime
@@ -380,6 +381,17 @@ QtObject {
     }
 
     function toggleOverview()           { return root._act("overview", "toggleOverview", []) }
+
+    // ── Window previews (the workspace overview) ──────────────────────────────
+    // { <window handle>: <what a ScreencopyView captures> } — the handles are
+    // CompositorService.windows' own. Only where can.windowPreview: Hyprland
+    // exports any window's buffer to a client (hyprland-toplevel-export), which
+    // is what lets a shell outside the compositor draw live thumbnails at all
+    // (the window switcher, written for every compositor, draws icons).
+    // Pushed by the compositor, not polled, so it holds no ref.
+    readonly property var previewSources:
+        (root.can.windowPreview && root.backend && root.backend.previewSources)
+            ? root.backend.previewSources : ({})
 
     // hex is six digits, no leading '#'.
     function setAccentBorder(hex)       { return root._act("accentBorder", "setAccentBorder", [hex]) }

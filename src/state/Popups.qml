@@ -17,6 +17,10 @@ QtObject {
     // Desktop right-click menu. Replaces the compositor's own root menu; see
     // popups/ContextMenu.qml.
     property bool contextMenuOpen:   false
+    // The workspace overview (SUPER+Tab): every workspace of the focused one's
+    // group of ten, its windows live, out of the centre notch. popups/Overview.qml.
+    property bool overviewOpen:      false
+    property string overviewScreen:  ""
 
     // ── Dashboard — per-page state ───────────────────────────────────────────
     property int    dashboardPageWidth: 900
@@ -68,7 +72,7 @@ QtObject {
     readonly property bool anyOpen: audioOpen || networkOpen
                                     || notificationsOpen || archMenuOpen
                                     || dashboardOpen || wallpaperOpen || quickOpen
-                                    || clipboardOpen || contextMenuOpen
+                                    || clipboardOpen || contextMenuOpen || overviewOpen
 
     function closeAll() {
         audioOpen         = false
@@ -80,5 +84,6 @@ QtObject {
         quickOpen         = false
         clipboardOpen     = false
         contextMenuOpen   = false
+        overviewOpen      = false
     }
 }

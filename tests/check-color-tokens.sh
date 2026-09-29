@@ -91,6 +91,7 @@ src/windows/ConfirmDialog.qml|#99000000|modal scrim — has to darken every wall
 src/windows/DisplayConfirm.qml|#99000000|modal scrim over a layout the user may not be able to read — same reason as ConfirmDialog's, and it must not follow a palette generated from the wallpaper behind it
 src/windows/Lockscreen.qml|black|opaque lock base, so there is never a transparent flash before the wallpaper paints
 src/nexus/Nexus.qml|black|desktop dim behind the settings window; the opacity does the work, the colour must not move
+src/popups/Overview.qml|black|desktop dim behind the workspace overview, the Nexus's own scrim; the opacity does the work, the colour must not move
 "
 
 # Colours written as Qt.rgba component fractions. Same rule, separate list,
@@ -106,7 +107,8 @@ src/nexus/Nexus.qml|black|desktop dim behind the settings window; the opacity do
 ALLOW_FRAC_RAW="
 "
 
-EXPECT_TOTAL=9   # 10 → 9: the PowerMenu row tint is a tint of Theme.danger (UI/UX Phase 17)
+EXPECT_TOTAL=10  # 9 → 10: the workspace overview dims the desk as the Nexus does (2026-09-29)
+#                  10 → 9 earlier: the PowerMenu row tint is a tint of Theme.danger (UI/UX Phase 17)
 EXPECT_FRAC=0   # 2 → 0: TimeInput's digits are the palette's text (UI/UX Phase 21)
 
 # ── The Agent Center's own rule (roadmap P0-021) ────────────────────────────

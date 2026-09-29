@@ -59,6 +59,7 @@ QtObject {
         windowFocus:          true,
         windowMove:           true,
         windowClose:          true,
+        windowPreview:        false,
         overview:             true,
         // Border colour and gaps are config.kdl, reloaded from disk — there is
         // no live keyword equivalent of `hyprctl keyword`.
@@ -142,6 +143,8 @@ QtObject {
     readonly property string layoutName:        ""
     readonly property int    layoutWindowCount: 0
     readonly property var    layouts:           []
+    // niri draws its own overview (toggleOverview); no previews for ours.
+    readonly property var    previewSources:    ({})
 
     readonly property string windowBoxScript: ""            // no geometry
     readonly property string outputBoxScript: Boxes.WLR_OUTPUTS

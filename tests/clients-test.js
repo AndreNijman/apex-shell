@@ -49,7 +49,7 @@ is("a mapped client becomes one adapter record",
    C.readClients(JSON.stringify([client({ address: "0xaa", title: "vim — notes",
                                           class: "kitty" })])),
    [{ handle: "0xaa", title: "vim — notes", appId: "kitty", workspaceId: 1,
-      output: "0", focused: false, x: 10, y: 20, width: 800, height: 600 }]);
+      output: "0", focused: false, x: 10, y: 20, width: 800, height: 600, recency: -1 }]);
 
 // 2. `[]` is Hyprland's answer for "no windows are open" and MUST clear the
 //    list. This is the case that makes "ignore empty output" the wrong rule.
@@ -91,7 +91,14 @@ is("a junk element is skipped, not fatal to the list",
 is("missing fields default and monitor 0 survives",
    C.readClients('[{"address":"0xcc","mapped":true,"monitor":0}]'),
    [{ handle: "0xcc", title: "", appId: "", workspaceId: -1, output: "0",
-      focused: false, x: 0, y: 0, width: 0, height: 0 }]);
+      focused: false, x: 0, y: 0, width: 0, height: 0, recency: -1 }]);
+
+// 8. Hyprland's focus history carries through as `recency` (0 = the focused
+//    window), which the workspace overview stacks a workspace's windows by.
+is("focusHistoryID becomes recency, 0 included",
+   C.readClients(JSON.stringify([client({ address: "0xd0", focusHistoryID: 0 }),
+                                 client({ address: "0xd1", focusHistoryID: 3 })])).map(w => w.recency),
+   [0, 3]);
 
 console.log("\nclients: " + pass + " passed, " + fail + " failed");
 process.exit(fail === 0 ? 0 : 1);

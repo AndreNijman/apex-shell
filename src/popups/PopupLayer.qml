@@ -95,6 +95,15 @@ Scope {
         }
     }
 
+    // Workspace overview (SUPER+Tab) — grows out of the centre notch, as the
+    // Dashboard does, on the output it was asked for (Popups.overviewScreen).
+    LazyPopup {
+        wanted: Popups.overviewOpen
+        Overview {
+            anchorWindow: root.topBar
+        }
+    }
+
     // Desktop right-click menu. Full-screen overlay rather than an anchored
     // popup: it places itself at the pointer, so it has no anchor window.
     LazyPopup {

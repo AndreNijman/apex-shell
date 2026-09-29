@@ -30,6 +30,11 @@ import "../theme"
 //  frame capture of windows on workspaces that are not even composited. labwc
 //  and niri draw real thumbnails because they are the compositor and already
 //  have the buffers; a shell on the outside does not.
+//
+//  Hyprland is the exception: it exports any window's buffer to a client
+//  (hyprland-toplevel-export), which is what the workspace overview's live
+//  pictures use (CompositorService.previewSources, popups/Overview.qml). The
+//  switcher stays icons because it serves all three compositors, on every ALT.
 // ─────────────────────────────────────────────────────────────────────────────
 
 PanelWindow {

@@ -85,7 +85,7 @@ ShellRoot {
     readonly property var expectedCaps: [
         "workspaces", "workspaceSwitch", "specialWorkspace",
         "windows", "windowGeometry", "outputGeometry",
-        "windowFocus", "windowMove", "windowClose",
+        "windowFocus", "windowMove", "windowClose", "windowPreview",
         "overview", "accentBorder", "gaps", "tilingLayout",
         "keyboardInterception", "screenShader", "nightLight", "motion"
     ]

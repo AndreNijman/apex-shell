@@ -69,6 +69,7 @@ QtObject {
         // activate a window, but no protocol moves a window between workspaces.
         windowMove:           false,
         windowClose:          true,
+        windowPreview:        false,
         overview:             false,
         // The border colour lives in themerc-override, which matugen generates
         // from the wallpaper. There is no live keyword equivalent, and having
@@ -184,6 +185,8 @@ QtObject {
     readonly property string layoutName:        ""
     readonly property int    layoutWindowCount: 0
     readonly property var    layouts:           []
+    // No window pixels from outside the compositor here (capability false).
+    readonly property var    previewSources:    ({})
 
     readonly property string windowBoxScript: ""            // no geometry
     readonly property string outputBoxScript: Boxes.WLR_OUTPUTS

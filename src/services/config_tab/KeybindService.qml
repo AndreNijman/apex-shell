@@ -166,6 +166,10 @@ QtObject {
         "move-workspace-10":  { mods: "SUPER + SHIFT", key: "0",      label: "Move to Workspace 10", group: "Workspaces", type: "dispatch", dispatcher: "movetoworkspace", arg: "10" },
         "scratchpad-toggle":  { mods: "SUPER",         key: "S",      label: "Toggle Scratchpad",    group: "Workspaces", type: "dispatch", dispatcher: "togglespecialworkspace", arg: "magic" },
         "scratchpad-move":    { mods: "SUPER + SHIFT", key: "S",      label: "Move to Scratchpad",   group: "Workspaces", type: "dispatch", dispatcher: "movetoworkspace", arg: "special:magic" },
+        // The workspace overview (IpcManager `overview-toggle`). Untyped, so it
+        // is `qs -p <shell> ipc call overview-toggle toggle` on Hyprland and niri
+        // (where the handler asks niri for its own overview).
+        "overview-toggle":    { mods: "SUPER",         key: "TAB",    label: "Workspace Overview",   group: "Workspaces" },
     })
 
     property var keybinds: ({})

@@ -694,8 +694,10 @@ win_mirrored="$(grep -rlE '^\s*PanelWindow\b|^\s*FloatingWindow\b' "$root/src" 2
 # became PanelWindows spanning their strips (both were PopupWindows placed by
 # an anchor rectangle). 18 since Fluid F3: UnlockCurtain, the desktop wallpaper
 # that fades the desktop back in after an unlock (it draws one Image — nothing
-# in it has a reading direction).
-WIN_TOTAL_EXPECT=18
+# in it has a reading direction). 19 since 2026-09-29: popups/Overview.qml, the
+# workspace overview (SUPER+Tab). Its caption and the workspace order DO have a
+# reading direction, and like every other root here it does not mirror yet.
+WIN_TOTAL_EXPECT=19
 WIN_MIRRORED_EXPECT=0
 [ "$win_total" -eq "$WIN_TOTAL_EXPECT" ] \
     && ok "the shell paints from $WIN_TOTAL_EXPECT window roots — counted $win_total" \

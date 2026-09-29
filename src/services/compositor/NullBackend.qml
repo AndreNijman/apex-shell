@@ -38,6 +38,7 @@ QtObject {
         windowFocus:          false,
         windowMove:           false,
         windowClose:          false,
+        windowPreview:        false,
         overview:             false,
         accentBorder:         false,
         gaps:                 false,
@@ -71,6 +72,7 @@ QtObject {
     readonly property string layoutName:        ""
     readonly property int    layoutWindowCount: 0
     readonly property var    layouts:           []
+    readonly property var    previewSources:    ({})
 
     readonly property string windowBoxScript: ""
     readonly property string outputBoxScript: ""

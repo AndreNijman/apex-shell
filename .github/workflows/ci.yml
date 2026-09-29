@@ -1733,6 +1733,17 @@ jobs:
       - name: The fluid surface geometry
         run: node tests/fluid-geometry-test.js
 
+      # The workspace overview (SUPER+Tab): its grid arithmetic — the group of
+      # ten, cells that keep the monitor's aspect and fit the screen, a window
+      # placed on its OWN monitor and scaled to the cell, back-to-front by focus
+      # history, arrows that stop at the edge, digits 1–0 — and the rules that
+      # keep it the notch's surface, capturing only while it is up, keyed by
+      # window handle, on Lua dispatch names Hyprland 0.56.2 has.
+      - name: The workspace overview
+        run: |
+          node tests/overview-test.js
+          ./tests/check-overview.sh
+
       # The surface and text roles (src/theme/roles.js) against every palette
       # the shell ships — six wallpapers, both matugen schemes — with the
       # fallback rule applied and the fallbacks that fire pinned.
