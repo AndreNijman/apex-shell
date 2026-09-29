@@ -48,6 +48,10 @@ Shape {
     // their flare's radius, windows/Border.qml): the hairline stops there and
     // the strip's own carries it round the flare.
     property int frameInset: theme.borderWidth + theme.cornerRadius
+    // …and the radius of that flare, so the line's ends carry on round the
+    // rim's first pixels, which lie under this surface (geometry.js
+    // barHairline). 0 = the line just stops at frameInset.
+    property int frameRadius: theme.cornerRadius
 
     readonly property var result: Geo.barSilhouette({
         w:            root.width,
@@ -85,7 +89,8 @@ Shape {
         rightW:        root.rightWidth,
         rightBottomL:  root.rightBottomRadius,
         rightAttached: root.rightAttached,
-        frameInset:    root.frameInset
+        frameInset:    root.frameInset,
+        frameRadius:   root.frameRadius
     })
     ShapePath {
         fillColor:   "transparent"

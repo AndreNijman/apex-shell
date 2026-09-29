@@ -295,6 +295,30 @@ function barSilhouette(g) {
 // same line on round its flare and down (windows/Border.qml); drawn to the
 // screen edge, the line cut straight across the flare instead (Andre,
 // 2026-09-27: "the corners fillets dont merge properly").
+//
+// …but the strip's first row IS the bar's last one (Border's `overlap`), and
+// the bar's surface is drawn over it: the rim's first few pixels, where it
+// leaves the line, lay under the bar's fill and were never seen. On the panel
+// the line ended in a flat ledge and the rim reappeared a row lower, 5 px
+// further out — "a little weird bump" at both top corners (Andre, 2026-09-29).
+// So with g.frameRadius given, each end of the line carries on round that same
+// circle (centre (frameInset, h + frameRadius), radius frameRadius + ½) to a
+// point a pixel below the bar's edge: the bar's surface clips it there, and
+// the strip's own rim carries on from the row beneath.
+function _rimLeadIn(cx, cy, R, yEnd, side) {
+    // The rim's point at angle φ from its top, on `side` (−1 left, +1 right):
+    // (cx + side·R·sin φ, cy − R·cos φ). φ is where that point is at yEnd, and
+    // the arc from the top to it is one cubic with k = 4/3·tan(φ/4)·R (the
+    // radial error is under a thousandth of a pixel for the ~24° drawn here).
+    var phi = Math.acos(Math.max(-1, Math.min(1, (cy - yEnd) / R)));
+    var k = 4 / 3 * Math.tan(phi / 4) * R;
+    var ex = cx + side * R * Math.sin(phi), ey = cy - R * Math.cos(phi);
+    // The circle's tangent at that point, pointing away from the top.
+    var tx = side * Math.cos(phi), ty = Math.sin(phi);
+    return { x: ex, y: ey, k: k,
+             near: [ex - tx * k, ey - ty * k],     // the control point by the far end
+             top:  [cx + side * k, cy - R] };      // …and the one by the top
+}
 function barHairline(g) {
     var w = g.w, b = g.strip, h = g.h, r = g.shoulder, i = 0.5;
     var fi = Math.max(0, g.frameInset || 0);
@@ -306,8 +330,17 @@ function barHairline(g) {
     var rS = w - rW;
     var rbL = rb(g.bottom, lW), rbC = rb(g.bottom, cE - cS), rbR = rb(g.rightBottomL, rW);
 
-    var P = new Path();
-    P.move(Math.min(fi, lW - rbL), h - i);
+    var fr = Math.max(0, g.frameRadius || 0);
+    var leadL = fi > 0 && fr > 0 && fi <= lW - rbL;
+    var P = new Path(), lead = null;
+    if (leadL) {
+        lead = _rimLeadIn(fi, h + fr, fr + i, h + 1, -1);
+        P.move(lead.x, lead.y);
+        P.cubic(lead.near[0], lead.near[1], lead.top[0], lead.top[1], fi, h - i);
+    } else {
+        P.move(Math.min(fi, lW - rbL), h - i);
+    }
+    var leadStart = leadL ? [lead.x, lead.y] : null;
     P.line(lW - rbL, h - i);
     P.corner(lW - i, h - rbL, "h");
     P.line(lW - i, b + r);
@@ -327,7 +360,16 @@ function barHairline(g) {
         P.corner(rS + rbR, h - i, "v");
         P.line(Math.max(w - fi, rS + rbR), h - i);
     }
-    return { path: P.toString(), segs: P.segs, params: { rS: rS, start: Math.min(fi, lW - rbL), end: P.x } };
+    var end = P.x, leadEnd = null;
+    if (!g.rightAttached && fi > 0 && fr > 0 && w - fi >= rS + rbR) {
+        var rl = _rimLeadIn(w - fi, h + fr, fr + i, h + 1, 1);
+        P.cubic(rl.top[0], rl.top[1], rl.near[0], rl.near[1], rl.x, rl.y);
+        leadEnd = [rl.x, rl.y];
+    }
+    return { path: P.toString(), segs: P.segs,
+             params: { rS: rS, start: Math.min(fi, lW - rbL), end: end,
+                       leadStart: leadStart, leadEnd: leadEnd,
+                       rim: fr > 0 ? { left: [fi, h + fr], right: [w - fi, h + fr], R: fr + i } : null } };
 }
 
 // ── Window corners, concentric with the frame ───────────────────────────────

@@ -18,6 +18,12 @@
 #   RIM     the bar's hairline stops at the strips (SeamlessBarShape passes
 #           frameInset = borderWidth + cornerRadius), and Border strokes the
 #           rim on
+#   LEAD    …and the bar draws the rim's first pixels itself: the strip's
+#           first row is the bar's last, under the bar's surface, so the rim
+#           was hidden there and the line ended in a ledge with the rim a row
+#           lower (Andre, 2026-09-29: "theres a little weird bump"). The bar
+#           passes frameRadius = cornerRadius (Border's radius) to
+#           barHairline, which carries each end round the rim's circle
 #   INPUT   the input region stays the strips' old footprint (a radius): the
 #           wider box is drawing only, over the edges of the windows beside it
 #   WINDOWS Hyprland's window rounding follows the frame (HyprlandBackend
@@ -63,6 +69,13 @@ stroke = "ctx.stroke()" in b and "rimColor" in b
 verdict("RIM", bool(fi) and "borderWidth" in fi.group(1) and "cornerRadius" in fi.group(1) and passes and stroke,
         "frameInset: " + (fi.group(1).strip() if fi else "(none)") + (", passed" if passes else ", NOT passed")
         + (", rim stroked" if stroke else ", no rim"))
+fr = re.search(r'property\s+int\s+frameRadius\s*:\s*([^\n]+)', sb)
+fr_passed = re.search(r'frameRadius\s*:\s*root\.frameRadius', sb) is not None
+brad = re.search(r'property\s+int\s+radius\s*:\s*([^\n]+)', b)
+same = bool(fr) and bool(brad) and fr.group(1).strip() == brad.group(1).strip()
+verdict("LEAD", same and fr_passed,
+        "bar frameRadius: " + (fr.group(1).strip() if fr else "(none)") + ", Border radius: "
+        + (brad.group(1).strip() if brad else "(none)") + (", passed" if fr_passed else ", NOT passed"))
 ia = re.search(r'id:\s*inputArea(.*?)\n\s*\}', b, re.S)
 body = ia.group(1) if ia else ""
 masked = re.search(r'mask\s*:\s*Region\s*\{\s*item\s*:\s*inputArea\s*\}', b) is not None
@@ -86,6 +99,7 @@ label() {
         TILE)   echo "a side strip ends where the bottom strip's fillet begins" ;;
         JOIN)   echo "a side strip starts one row inside the bar, its flare meeting the bar's edge" ;;
         RIM)    echo "the bar's hairline stops at the strips and the strips carry it on" ;;
+        LEAD)   echo "the bar draws the rim's first pixels, the ones under its own surface" ;;
         INPUT)  echo "the input region stays a radius wide: the wider box only draws" ;;
         WINDOWS) echo "Hyprland's window rounding follows the frame, and is re-applied whenever it could drift" ;;
     esac
@@ -97,7 +111,7 @@ while read -r rule verdict detail; do
     [ -n "$rule" ] || continue
     if [ "$verdict" = PASS ]; then ok "$(label "$rule")"; else bad "$(label "$rule") — $detail"; fi
 done <<<"$verdicts"
-[ "$(grep -c . <<<"$verdicts")" -eq 7 ] && ok "all seven rules were evaluated" || bad "expected seven verdicts, got: $verdicts"
+[ "$(grep -c . <<<"$verdicts")" -eq 8 ] && ok "all eight rules were evaluated" || bad "expected eight verdicts, got: $verdicts"
 
 echo "── self-test: can these checks fail? ──"
 MW="$(mktemp -d)"; trap 'rm -rf "$MW"' EXIT INT TERM
@@ -126,6 +140,10 @@ mutant "side strips starting below the bar" src/windows/Border.qml \
     ' - root.overlap : 0' ' : 0' JOIN
 mutant "the bar's line drawn to the screen edge" src/shapes/SeamlessBarShape.qml \
     'frameInset:    root.frameInset' 'frameInset:    0' RIM
+mutant "the bar leaving the rim's first pixels to a surface it covers" src/shapes/SeamlessBarShape.qml \
+    $',\n        frameRadius:   root.frameRadius' '' LEAD
+mutant "a lead-in on a different radius than the strips'" src/shapes/SeamlessBarShape.qml \
+    'property int frameRadius: theme.cornerRadius' 'property int frameRadius: theme.radiusM' LEAD
 mutant "no input mask: the whole box takes clicks" src/windows/Border.qml \
     'mask: Region { item: inputArea }' '' INPUT
 mutant "a config reload leaves the windows' rounding to the config" src/services/compositor/HyprlandBackend.qml \
