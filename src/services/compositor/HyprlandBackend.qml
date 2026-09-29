@@ -322,12 +322,14 @@ QtObject {
                 root.specialWorkspaceOpen = String(event.data).split(",")[0] !== ""
             else if (event.name === "destroyworkspace")
                 root.specialWorkspaceOpen = false
-            // A reload restores the config's own motion and drops every rule
-            // declared at runtime: read the motion again, re-declare the rules.
+            // A reload restores the config's own motion and layout and drops
+            // every rule declared at runtime: read the motion again, re-declare
+            // the rules, put the chosen layout back.
             else if (event.name === "configreloaded") {
                 root._motionReread()
                 root._pushLayerRules()
                 root.syncWindowCorners()
+                root._applyPreferredLayout()
             }
         }
     }
@@ -380,6 +382,7 @@ QtObject {
         if (root._lua && root._mWanted) root._motionReread()
         if (root._lua) root._pushLayerRules()
         root.syncWindowCorners()
+        root._applyPreferredLayout()
     }
 
     // ── Window corners follow the frame ───────────────────────────────────────
@@ -555,12 +558,37 @@ QtObject {
         onTriggered: root._refreshLayout()
     }
 
+    // Its own Process, not _keywordProc: the kept layout is put back at start
+    // and after a reload, the same moments the accent border is written, and a
+    // shared Process kills whichever write started first (see above).
+    property Process _layoutWriteProc: Process {
+        command: []; running: false
+        // Read back what Hyprland ended up with, not what was asked for.
+        onRunningChanged: if (!running) root._refreshLayout()
+    }
+
     function setLayout(name) {
-        root._keyword("general:layout", name,
-                      `hl.config({ general = { layout = "${name}" } })`)
+        if (root.layouts.indexOf(name) < 0) return
+        if (root._lua) root._start(root._layoutWriteProc,
+            ["hyprctl", "eval", `hl.config({ general = { layout = "${name}" } })`])
+        else           root._start(root._layoutWriteProc,
+            ["hyprctl", "keyword", "general:layout", name])
         // Optimistic, so the indicator changes under the cursor rather than on
         // the next poll.
         root.layoutName = name
+    }
+
+    // The layout chosen from the bar (SettingsService.windowLayout, pushed in
+    // by the facade). "" = never chosen, and the config's own layout stands.
+    // A reload puts the config's back and so does a login, so it is re-applied
+    // then (configreloaded), when it arrives (the settings file is read after
+    // this backend is built), and when the config dialect becomes known.
+    property string preferredLayout: ""
+    // A choice from the menu has already been written (the facade writes,
+    // then keeps it): only a kept layout arriving from the file is news.
+    onPreferredLayoutChanged: if (root.preferredLayout !== root.layoutName) root._applyPreferredLayout()
+    function _applyPreferredLayout() {
+        if (root.preferredLayout !== "") root.setLayout(root.preferredLayout)
     }
 
     // ── Screenshot picker boxes ───────────────────────────────────────────────

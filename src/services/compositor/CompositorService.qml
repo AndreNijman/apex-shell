@@ -242,7 +242,14 @@ QtObject {
         property alias refCount: root.layoutRefCount
     }
 
-    function setLayout(name) { return root._act("tilingLayout", "setLayout", [name]) }
+    // A layout chosen from the bar is kept: Hyprland drops a runtime layout at
+    // every config reload and every login, which read as the shell forgetting
+    // the choice. The backend is handed the kept one (below) and puts it back.
+    function setLayout(name) {
+        if (!root._act("tilingLayout", "setLayout", [name])) return false
+        SettingsService.set("windowLayout", name)
+        return true
+    }
 
     // [{ handle, title, appId, workspaceId, output, focused, x, y, width, height }]
     // Geometry is present only when can.windowGeometry; otherwise all four are 0.
@@ -341,6 +348,13 @@ QtObject {
         property: "layoutWanted"
         value:    root.layoutRefCount > 0
         when:     root.backend !== null
+    }
+    // Only the backends with named layouts have somewhere to put it.
+    property Binding _layoutPreferred: Binding {
+        target:   root.backend
+        property: "preferredLayout"
+        value:    SettingsService.windowLayout
+        when:     root.backend !== null && root.can.tilingLayout
     }
 
     // ── Actions ───────────────────────────────────────────────────────────────
