@@ -112,7 +112,7 @@
 
           meta = with pkgs.lib; {
             description  = "A modular Quickshell/QML desktop shell for Hyprland";
-            homepage     = "https://github.com/AndreNijman/apex-shell";  # rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed)
+            homepage     = "https://github.com/AndreNijman/rime-shell";
             license      = licenses.mit;
             platforms    = platforms.linux;
             mainProgram  = "rime-shell";

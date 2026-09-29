@@ -1,7 +1,7 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
 #  Rime Shell — Main Installer
-#  github.com/AndreNijman/apex-shell  v0.1.0  # rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed)
+#  github.com/AndreNijman/rime-shell  v0.1.0
 # ─────────────────────────────────────────────────────────────────────────────
 # Hesitation is Defeat — Isshin Ashina
 set -eo pipefail
@@ -39,7 +39,7 @@ echo " ▒███▒▒▒▒▒███ ▒███▒▒▒▒▒███
 echo " ▒███    ▒███ ▒███    ▒███  ▒███    ▒███  ▒███  ▒███  ▒▒█████     ███    ▒███ ▒███    ▒███  ▒███ ▒   █ ▒███      █ ▒███      █"
 echo " ███████████  █████   █████ █████   █████ █████ █████  ▒▒█████   ▒▒█████████  █████   █████ ██████████ ███████████ ███████████"
 echo -e "${NC}"
-echo -e "  ${DIM}v0.1.0  ·  github.com/AndreNijman/apex-shell${NC}"  # rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed)
+echo -e "  ${DIM}v0.1.0  ·  github.com/AndreNijman/rime-shell${NC}"
 echo ""
 
 
@@ -162,7 +162,7 @@ if [[ -d "$REPO_DIR/.git" ]]; then
     log_ok "Repository updated: $REPO_DIR"
 else
     log_info "Cloning from GitHub..."
-    git clone -b main https://github.com/AndreNijman/apex-shell.git "$REPO_DIR"  # rime-rename: keep (the repository's GitHub name; it redirects once the repository is renamed)
+    git clone -b main https://github.com/AndreNijman/rime-shell.git "$REPO_DIR"
     log_ok "Repository cloned: $REPO_DIR"
 fi
 
