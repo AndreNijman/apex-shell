@@ -21,6 +21,7 @@ singleton ScreenRecService 1.0 ScreenRecService.qml
 # The ALT+Tab switcher's state. A singleton because the overlay is built per
 # output and all of them show one selection.
 singleton WindowSwitcherService 1.0 WindowSwitcherService.qml
+singleton ReleaseService 1.0 ReleaseService.qml
 singleton SettingsService 1.0 SettingsService.qml
 KanbanBoard KanbanBoard.qml
 AppLauncher AppLauncher.qml
