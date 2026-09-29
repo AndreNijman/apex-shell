@@ -4,6 +4,13 @@ import Quickshell
 import Quickshell.Io
 import "../"
 import "../nexus"
+// WindowSwitcherService is exported by services/qmldir only. Without this the
+// window-switcher target threw "WindowSwitcherService is not defined" on every
+// call, so ALT+Tab did nothing from the day it landed (afcb4fd1): its suites
+// stage their own IpcHandler and never reached this one.
+// tests/check-singleton-imports.sh now fails a file that uses a singleton none
+// of its imports export.
+import "../services"
 
 // ─────────────────────────────────────────────────────────────
 // IpcManager — centralized entry point for all external IPC signals.

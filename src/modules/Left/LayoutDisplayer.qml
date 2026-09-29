@@ -2,27 +2,31 @@ import QtQuick
 import Quickshell
 import "../../"
 import "../../components"
+import "../../components/controls"
+import "layouts.js" as Layouts
 
 // ─── LayoutDisplayer ────────────────────────────────────────────────────────
-// Small icon button beside the Workspaces module.
-// Shows the active tiling layout for the focused workspace.
+// The window-layout button beside the Workspaces module: a picture of the
+// focused workspace's tiling layout (LayoutGlyph), and a click opens the menu
+// that names every layout and says what it does (LayoutMenu).
 //
-// Layout → symbol map:
-//   dwindle  →       (nf-md-view_quilt)
-//   master   →       (nf-md-view_split_vertical)
-//   monocle  → 󰊓     (nf-md-fullscreen)
-//   scroller → 󰔧     (nf-md-scroll_horizontal)
+// It used to be `><` / `M` / `|n|` / `<n>` in a monospace font, and a left
+// click jumped to the next layout, a right click to the previous one (Andre,
+// 2026-09-29: "its so hard to understand what each option does, it has to be
+// intuitive, the thing thats like 2 arrows pointg into each other"). Nothing
+// said which layout was on or what a click would do, and one click could land
+// on monocle, which hides every window but one. Blind cycling is gone: the
+// wheel and right click did the same thing without the menu, so they went too.
 //
-// Update triggers (event-driven, no forever-loop):
-// The reading itself lives in CompositorService's Hyprland backend, refreshed
-// from the compositor's own event stream with a slow safety timer behind it.
-// This file is the button.
+// The reading lives in CompositorService's Hyprland backend, refreshed from the
+// compositor's own event stream with a slow safety timer behind it. The choice
+// is kept (SettingsService.windowLayout) and put back after a config reload or
+// a login, which used to reset it to the config's own without a word.
 // ────────────────────────────────────────────────────────────────────────────
 
 Item {
     id: root
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
-
 
     // Which output this indicator is on, so the ref below can be released when
     // this bar is unmapped.
@@ -37,8 +41,8 @@ Item {
     readonly property bool available: CompositorService.can.tilingLayout
 
     visible:        available
-    implicitWidth:  available ? 26 : 0
-    implicitHeight: 26
+    implicitWidth:  available ? button.implicitWidth : 0
+    implicitHeight: button.implicitHeight
 
     // Keeping the layout current costs a poll, so the ref is held only while the
     // indicator is genuinely on screen.
@@ -58,87 +62,71 @@ Item {
     // ── State ────────────────────────────────────────────────────────────────
 
     readonly property string currentLayout: CompositorService.layoutName
-    readonly property string numWindows:
-        CompositorService.layoutWindowCount > 0
-            ? String(CompositorService.layoutWindowCount) : "  "
-    readonly property var availableLayouts: CompositorService.layouts
+    readonly property int    windowCount:   CompositorService.layoutWindowCount
 
-    // ── Symbol map ───────────────────────────────────────────────────────────
+    // ── The button ───────────────────────────────────────────────────────────
+    // The tray toggle's shape and states: a bar pill with the open state on the
+    // OpenPill, the state layer on hover, and a 24 px target.
+    RimePressable {
+        id: button
+        anchors.centerIn: parent
 
-    function layoutSymbol(name) {
-        switch (name.toLowerCase()) {
-            case "dwindle":  return "><"   // nf-md-view_quilt
-            case "master":   return "M"   // nf-md-view_split_vertical
-            case "monocle":  return "|"+root.numWindows+"|"  // nf-md-fullscreen
-            case "scrolling": return "<"+root.numWindows+">"  // nf-md-scroll_horizontal (hyprscroller)
-            default:         return "Unknown"  // nf-md-view_dashboard (unknown fallback)
-        }
-    }
+        readonly property bool open: menu.visible
 
-    // ── Layout Changer ───────────────────────────────────────────────────────
+        implicitWidth:  root.theme.px(30)
+        implicitHeight: root.theme.px(24)
+        radius: height / 2
+        pressedScale: 0.96
+        hitMargin: Math.max(0, (root.theme.hitBar - implicitHeight) / 2)
+        Accessible.name: "Window layout: " + Layouts.name(root.currentLayout) + ". Choose a layout"
+        onActivated: menu.toggle()
 
-    function cycleLayout(step) {
-        const list = root.availableLayouts
-        if (list.length === 0) return
-
-        let idx = list.indexOf(root.currentLayout)
-        if (idx === -1) idx = 0 // Fallback if unknown
-
-        // Handles negative steps for right-click.
-        idx = (idx + step + list.length) % list.length
-        CompositorService.setLayout(list[idx])
-    }
-
-    // ── Visual ───────────────────────────────────────────────────────────────
-
-    Rectangle {
-        id: bg
-        anchors.fill: parent
-        radius: 6
-        color: mouseArea.containsMouse ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.08) : "transparent"
-
-        Behavior on color { MotionColor {} }
-
-        MouseArea {
-            id: mouseArea
+        Rectangle {
             anchors.fill: parent
-            hoverEnabled: true
-            acceptedButtons: Qt.LeftButton | Qt.RightButton
-            
-            onClicked: (mouse) => {
-                if (mouse.button === Qt.LeftButton) {
-                    cycleLayout(1)  // Forward
-                } else if (mouse.button === Qt.RightButton) {
-                    cycleLayout(-1) // Backward
-                }
-            }
+            radius: button.radius
+            color: button.open ? "transparent" : button.stateLayer()
+            Behavior on color { MotionColor { role: "hover" } }
+        }
+        OpenPill {
+            shown: button.open
+            size: button.height
+            width: button.width
         }
 
-        Text {
-            id: icon
+        LayoutGlyph {
             anchors.centerIn: parent
-            text: root.currentLayout !== "" ? layoutSymbol(root.currentLayout) : "…"
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: theme.fs(14)
-            color: Theme.text
-
-            // Brief scale-pop on symbol change
-            Behavior on text {
-                SequentialAnimation {
-                    NumberAnimation {
-                        target: icon; property: "scale"
-                        to: 0.6; duration: Motion.pressIn
-                        easing.type: Easing.BezierSpline
-                        easing.bezierCurve: Motion.standardAccel
-                    }
-                    NumberAnimation {
-                        target: icon; property: "scale"
-                        to: 1.0; duration: Motion.pressOut
-                        easing.type: Easing.BezierSpline
-                        easing.bezierCurve: Motion.standardDecel
-                    }
-                }
-            }
+            width:  root.theme.px(18)
+            height: root.theme.px(13)
+            layout: root.currentLayout
+            gap:    root.theme.px(1)
+            tileRadius: root.theme.px(1)
+            ink: button.open || button.pressed ? Theme.accentText
+               : button.hovered ? Theme.textPrimary : Theme.iconDefault
+            surface: button.open ? Theme.surfaceSelected : Theme.background
+            Behavior on ink { MotionColor { role: "hover" } }
         }
+
+        RimeFocusRing { target: button }
+
+        BarTooltip {
+            target: button
+            text: {
+                const n = Layouts.name(root.currentLayout)
+                if (n === "") return "Window layout"
+                // Monocle's other windows are the ones you cannot see: say how many.
+                if (root.currentLayout === "monocle" && root.windowCount > 1)
+                    return "Window layout: " + n + " (" + root.windowCount + " windows, Alt+Tab switches)"
+                return "Window layout: " + n
+            }
+            shown: button.hovered && !button.pressed && !button.open
+        }
+    }
+
+    LayoutMenu {
+        id: menu
+        target: button
+        layouts: CompositorService.layouts
+        current: root.currentLayout
+        onChosen: (layout) => CompositorService.setLayout(layout)
     }
 }

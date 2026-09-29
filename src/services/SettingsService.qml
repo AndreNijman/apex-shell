@@ -78,6 +78,14 @@ QtObject {
     property string recordingDir:       ""         // empty → ~/Videos/screen_recordings
     property string avatarPath:         ""         // empty → a still of the wallpaper
 
+    // ── Window layout (2026-09-29) ───────────────────────────────────────────
+    // The tiling layout chosen from the bar's layout menu. Hyprland forgets a
+    // layout set at runtime at every config reload and every login, so the
+    // choice is kept here and the Hyprland backend puts it back. Empty = never
+    // chosen: the config's own layout stands, which is what the shell did
+    // before.
+    property string windowLayout:       ""         // "" | dwindle | master | monocle | scrolling
+
     /// A path a person typed, made absolute: "~" and "$HOME" expanded.
     function expandPath(p) {
         let d = String(p || "").trim()
@@ -104,7 +112,8 @@ QtObject {
         "dashboardWidth", "dashboardHeight", "notificationsWidth",
         "lockBackground", "scaleMode", "scaleManual", "scaleScreen",
         "nightLightTemp",
-        "showVolumePercent", "showBatteryPercent", "clockFormat", "recordingDir", "avatarPath"
+        "showVolumePercent", "showBatteryPercent", "clockFormat", "recordingDir", "avatarPath",
+        "windowLayout"
     ]
     readonly property var _defaults: ({
         cornerRadius: 17, borderWidth: 6, notchRadius: 15, notchHeight: 40,
@@ -116,7 +125,8 @@ QtObject {
         scaleMode: "auto", scaleManual: 1.0, scaleScreen: "",
         nightLightTemp: 5600,
         showVolumePercent: false, showBatteryPercent: false, clockFormat: "system",
-        recordingDir: "", avatarPath: ""
+        recordingDir: "", avatarPath: "",
+        windowLayout: ""
     })
 
     // Bounds used by the UI sliders AND clamped on load so a hand-edited file
@@ -155,7 +165,8 @@ QtObject {
     // as a preset name nobody defined.
     readonly property var _choices: ({
         motionSpeed: ["snappy", "balanced", "relaxed"],
-        clockFormat: ["system", "12", "24"]
+        clockFormat: ["system", "12", "24"],
+        windowLayout: ["", "dwindle", "master", "monocle", "scrolling"]
     })
     function _choice(k, v) {
         var c = _choices[k]
@@ -217,6 +228,7 @@ QtObject {
     onClockFormatChanged:       _scheduleSave()
     onRecordingDirChanged:      _scheduleSave()
     onAvatarPathChanged:        _scheduleSave()
+    onWindowLayoutChanged:      _scheduleSave()
 
     function _scheduleSave() { if (_loaded) _saveTimer.restart() }
 
