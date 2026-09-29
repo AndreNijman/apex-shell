@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "compositorPin.js" as Pin
 
 // ─── Compositor ───────────────────────────────────────────────────────────────
 // Single source of truth for which Wayland compositor the shell is running under.
@@ -16,8 +17,10 @@ import Quickshell.Io
 //
 // Manual override: the optional "compositor" key in
 //   ~/.config/rime-shell/src/user_data/config_Provider.json
-// wins over detection. Values: "hyprland" | "niri" | "labwc" | "auto"/""
-// (= use detection).
+// wins over detection only when that compositor is actually here (its own
+// signal is in the environment) or nothing was detected; otherwise it is
+// ignored and `overrideIgnored` says so. compositorPin.js holds the rule.
+// Values: "hyprland" | "niri" | "labwc" | "auto"/"" (= use detection).
 // Written by the Config → Misc page through setOverride(); the sibling
 // "configProvider" key (read by ShellState) is preserved on every write.
 // ──────────────────────────────────────────────────────────────────────────────
@@ -60,15 +63,34 @@ QtObject {
     property string overrideName: ""
 
     // ── Public API ────────────────────────────────────────────────────────────
-    // Resolved compositor — a valid override wins, otherwise detection.
     // The compositors this shell has explicit support for. Anything else stays
     // unknown so compositor-specific paths remain off rather than guessing.
     function isValidName(n) {
         return n === "hyprland" || n === "niri" || n === "labwc"
     }
 
-    readonly property string name:
-        root.isValidName(overrideName) ? overrideName : detected
+    // Whether the environment carries each compositor's own signal. Not the
+    // same question as `detected`, which picks one: a nested niri inside
+    // Hyprland carries both, and that is the case a pin exists to settle.
+    readonly property var _present: ({
+        hyprland: _hyprSig  !== "" || _desktop.indexOf("hyprland") >= 0,
+        niri:     _niriSock !== "" || _desktop.indexOf("niri")     >= 0,
+        labwc:    _desktop.indexOf("labwc") >= 0
+    })
+
+    readonly property var _resolved:
+        Pin.resolve(detected, root.isValidName(overrideName) ? overrideName : "", _present)
+
+    // Resolved compositor — a pin compositorPin.js allows, otherwise detection.
+    readonly property string name: _resolved.name
+
+    // True when config_Provider.json pins a compositor that is not the one
+    // running. The pin is left in the file (it is the user's, and a login on
+    // that compositor honours it again); Settings says it is being ignored.
+    readonly property bool overrideIgnored: _resolved.ignored
+    onOverrideIgnoredChanged: if (overrideIgnored)
+        console.warn("Rime Shell: ignoring the \"" + overrideName + "\" compositor pin in config_Provider.json; "
+                     + "this session is " + (detected || "unknown"))
 
     // ── How a compositor is NAMED, and to whom ────────────────────────────────
     // Three names exist in this shell and collapsing any two of them is a bug:

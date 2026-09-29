@@ -203,7 +203,8 @@ CfgScroll {
                 // by design.
                 text:        (Compositor.modeName !== "" ? Compositor.modeName
                                                          : "Not a compositor Rime supports")
-                             + (Compositor.overrideName === "" ? "  ·  auto" : "  ·  override")
+                             + (Compositor.overrideName === "" || Compositor.overrideIgnored
+                                ? "  ·  auto" : "  ·  override")
                 font.family: Theme.fontMono
                 font.pixelSize: theme.fs(11)
                 color:       Theme.active
@@ -224,7 +225,7 @@ CfgScroll {
             // screenShader and specialWorkspace are Hyprland's alone; overview
             // is niri's alone; windowMove is false on labwc only; nightLight is
             // true on all three, so it is deliberately NOT listed as degrading.
-            text:     "Auto follows what Rime detects at login; pick one to pin it instead. Tiling is the only one the shell can give window gaps, an accent border, a layout indicator, a shader filter and a special workspace. Scrolling has an overview the other two do not. On Floating the shell cannot move a window to another workspace."
+            text:     "This tells the shell which compositor it is talking to. It does not switch compositor or change how windows are arranged: that is the session you pick at login, and the layout button in the bar. Auto follows what Rime detects at login; a pin only applies while that compositor is the one running. Tiling is the only one the shell can give window gaps, an accent border, a layout indicator, a shader filter and a special workspace. Scrolling has an overview the other two do not. On Floating the shell cannot move a window to another workspace."
             font.pixelSize: theme.typeCaption
             color:    Theme.textSecondary
             wrapMode: Text.WordWrap
@@ -256,9 +257,28 @@ CfgScroll {
                     { value: "niri",     label: "Scrolling" },
                     { value: "labwc",    label: "Floating"  }
                 ]
-                value: Compositor.overrideName === "" ? "auto" : Compositor.overrideName
+                // An ignored pin is not in effect, so Auto is what is running
+                // and Auto is what is lit; the note below says why. Choosing
+                // Auto again is what clears the pin from the file.
+                value: Compositor.overrideName === "" || Compositor.overrideIgnored
+                     ? "auto" : Compositor.overrideName
                 onSelected: function(v) { Compositor.setOverride(v) }
             }
+        }
+        Text {
+            // A pin for a compositor that is not running used to win anyway,
+            // which pointed the whole shell at an adapter with nothing behind
+            // it (no workspace dots, no layout button, no overview). It is
+            // ignored now; this is where the user finds out it is still there.
+            visible:  Compositor.overrideIgnored
+            width:    parent.width
+            topPadding: 6
+            text:     "Pinned to " + Compositor.presentedName(Compositor.overrideName)
+                      + ", but this session is " + (Compositor.modeName !== "" ? Compositor.modeName : "another compositor")
+                      + ", so the pin is ignored. Choose Auto to clear it."
+            font.pixelSize: theme.typeCaption
+            color:    Theme.textSecondary
+            wrapMode: Text.WordWrap
         }
         Item { width: parent.width; height: 4 }
     }
