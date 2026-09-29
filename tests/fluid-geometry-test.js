@@ -321,6 +321,43 @@ for (const scale of [0.85, 1.0, 1.5]) {
         const free = G.barHairline(bg);
         check("bar hairline without the frame still runs edge to edge",
               Math.abs(free.params.start) < 1e-6 && Math.abs(free.params.end - bw) < 1e-6);
+
+        // The rim's first pixels lie in the bar's last row, under the bar's
+        // surface (Border's overlap), so the bar draws them (Andre, 2026-09-29:
+        // "theres a little weird bump"): each end carries on round the rim's own
+        // circle to a pixel below the bar's edge, where the surface clips it.
+        const fr = G.barHairline(Object.assign({}, bg, { frameInset: fi, frameRadius: r }));
+        const L = fr.segs[0], Rs = fr.segs[fr.segs.length - 1];
+        check("with the frame radius, the line's ends are arcs (cubics), not a stop",
+              L.t === "C" && Rs.t === "C" && fr.params.leadStart && fr.params.leadEnd);
+        const onRim = (seg, c) => {
+            let e = 0;
+            for (let k = 0; k <= 32; k++) {
+                const u = k / 32, v = 1 - u, P = seg.p;
+                const x = v*v*v*P[0][0] + 3*v*v*u*P[1][0] + 3*v*u*u*P[2][0] + u*u*u*P[3][0];
+                const y = v*v*v*P[0][1] + 3*v*v*u*P[1][1] + 3*v*u*u*P[2][1] + u*u*u*P[3][1];
+                e = Math.max(e, Math.abs(Math.hypot(x - c[0], y - c[1]) - R));
+            }
+            return e;
+        };
+        const eL = onRim(L, [cx, cy]), eR = onRim(Rs, [bw - fi, cy]);
+        check("both lead-ins lie on the flare rim's circle (centre (t + r, h + r), radius r + ½)",
+              eL < 1e-3 && eR < 1e-3, "radial error " + eL.toExponential(1) + ", " + eR.toExponential(1));
+        check("the lead-ins reach a full pixel below the bar's edge, so its whole last row is drawn",
+              fr.params.leadStart[1] >= bg.h + 1 - 1e-6 && fr.params.leadEnd[1] >= bg.h + 1 - 1e-6,
+              "left ends at y " + fr.params.leadStart[1] + ", right at " + fr.params.leadEnd[1]);
+        check("…and they meet the straight line where it always started and ended",
+              Math.abs(L.p[3][0] - fi) < 1e-6 && Math.abs(L.p[3][1] - (bg.h - 0.5)) < 1e-6
+              && Math.abs(Rs.p[0][0] - (bw - fi)) < 1e-6 && Math.abs(Rs.p[0][1] - (bg.h - 0.5)) < 1e-6);
+        const fk = [];
+        for (let k = 1; k < fr.segs.length; k++) {
+            const a = tangentEnd(fr.segs[k - 1]), b = tangentStart(fr.segs[k]);
+            if (a && b && a[0] * b[0] + a[1] * b[1] < 0.9995) fk.push(k);
+        }
+        check("the line with its lead-ins has no kinks", fk.length === 0, fk.join(","));
+        const fa = G.barHairline(Object.assign({}, bg, { frameInset: fi, frameRadius: r, rightAttached: true }));
+        check("a pane under the right notch takes the right lead-in with the rest of that end",
+              fa.params.leadStart && fa.params.leadEnd === null);
     }
 
     // Window corners, concentric with the frame (Andre, 2026-09-27: "make it
