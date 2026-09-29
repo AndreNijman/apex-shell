@@ -267,6 +267,17 @@ CfgScroll {
     CfgSection {
         title: "Updates"
 
+        // rimeos.com spec §7.4. ReleaseService opens the page once, when it
+        // is published; off, a notification offers it instead.
+        CfgRow {
+            label:       "Open what's new after an update"
+            description: "After Rime updates, open that release's page on rimeos.com once"
+            CfgSwitch {
+                checked: SettingsService.openReleaseNotes
+                onToggled: function(v) { SettingsService.set("openReleaseNotes", v) }
+            }
+        }
+
         CfgRow {
             label:       "Automatic updates"
             description: "Check origin/main on startup"

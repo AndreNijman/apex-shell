@@ -107,6 +107,11 @@ ShellRoot {
             property var _niri:       NiriService
             property var _keybinds:   KeybindService
             property var _updater:    UpdateService
+            // Opens the booted release's page on rimeos.com once after an update
+            // (it decides on its own timer whether there is anything to open).
+            // Here, not in the Variants below: one per screen would open one tab
+            // per monitor.
+            property var _release:    ReleaseService
             property var _ipc:        IpcManager
 
             // Must exist without anything referencing it: it is what raises the

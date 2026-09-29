@@ -78,6 +78,12 @@ QtObject {
     property string recordingDir:       ""         // empty → ~/Videos/screen_recordings
     property string avatarPath:         ""         // empty → a still of the wallpaper
 
+    // ── What's new after an update (2026-09-29) ─────────────────────────────
+    // ReleaseService opens the booted release's page on rimeos.com once after
+    // an update (rimeos.com spec §7.4, "Open what's new after an update",
+    // default on). Off: a notification offers the page instead.
+    property bool   openReleaseNotes:   true
+
     // ── Window layout (2026-09-29) ───────────────────────────────────────────
     // The tiling layout chosen from the bar's layout menu. Hyprland forgets a
     // layout set at runtime at every config reload and every login, so the
@@ -113,7 +119,7 @@ QtObject {
         "lockBackground", "scaleMode", "scaleManual", "scaleScreen",
         "nightLightTemp",
         "showVolumePercent", "showBatteryPercent", "clockFormat", "recordingDir", "avatarPath",
-        "windowLayout"
+        "windowLayout", "openReleaseNotes"
     ]
     readonly property var _defaults: ({
         cornerRadius: 17, borderWidth: 6, notchRadius: 15, notchHeight: 40,
@@ -126,7 +132,8 @@ QtObject {
         nightLightTemp: 5600,
         showVolumePercent: false, showBatteryPercent: false, clockFormat: "system",
         recordingDir: "", avatarPath: "",
-        windowLayout: ""
+        windowLayout: "",
+        openReleaseNotes: true
     })
 
     // Bounds used by the UI sliders AND clamped on load so a hand-edited file
@@ -229,6 +236,7 @@ QtObject {
     onRecordingDirChanged:      _scheduleSave()
     onAvatarPathChanged:        _scheduleSave()
     onWindowLayoutChanged:      _scheduleSave()
+    onOpenReleaseNotesChanged:  _scheduleSave()
 
     function _scheduleSave() { if (_loaded) _saveTimer.restart() }
 
