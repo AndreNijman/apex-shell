@@ -86,7 +86,12 @@ function readClients(text) {
             x:           c.at   ? c.at[0]   : 0,
             y:           c.at   ? c.at[1]   : 0,
             width:       c.size ? c.size[0] : 0,
-            height:      c.size ? c.size[1] : 0
+            height:      c.size ? c.size[1] : 0,
+            // Hyprland's focus history: 0 is the focused window, 1 the one
+            // before it, … (-1: never focused). The workspace overview draws a
+            // workspace's windows back to front by it, so a monocle workspace
+            // shows the one in front that the screen does.
+            recency:     typeof c.focusHistoryID === "number" ? c.focusHistoryID : -1
         });
     }
     return out;

@@ -92,6 +92,7 @@ QtObject {
         // Hyprland has no built-in overview dispatch — hyprexpo is a plugin and
         // Rime does not ship it. Declared false rather than dispatching into a
         // plugin that is probably not loaded.
+        windowPreview:        true,
         overview:             false,
         accentBorder:         true,
         gaps:                 true,
@@ -525,6 +526,21 @@ QtObject {
 
     readonly property var layouts: ["dwindle", "master", "monocle", "scrolling"]
 
+    // ── Window previews ───────────────────────────────────────────────────────
+    // Every window's wayland handle, keyed by this backend's own window handle.
+    // hyprctl's addresses are "0x…"; a HyprlandToplevel's `address` is the same
+    // hex WITHOUT the prefix (measured), and its `wayland` can arrive after the
+    // object does, so a toplevel is listed once it has one. Event-driven: no poll.
+    readonly property var previewSources: {
+        const out = {}
+        const src = Hyprland.toplevels ? Hyprland.toplevels.values : []
+        for (let i = 0; i < src.length; i++) {
+            const t = src[i]
+            if (t && t.wayland) out["0x" + t.address] = t.wayland
+        }
+        return out
+    }
+
     property Process _layoutProc: Process {
         command: ["hyprctl", "-j", "activeworkspace"]
         running: false
@@ -610,14 +626,20 @@ QtObject {
                        `hl.dsp.focus({ window = "address:${handle}" })`)
     }
 
+    // Both Lua forms were names Hyprland 0.56.2 does not have — `hl.dsp.close`
+    // and `hl.dsp.window.move_to_workspace` — so on the Lua config each call was
+    // "attempt to call a nil value": the launcher's close-window row closed
+    // nothing, and no window could be moved (measured in a nested 0.56.2; the
+    // forms below are the ones it takes). `follow = false` keeps the view where
+    // it is, as `movetoworkspacesilent` does.
     function closeWindow(handle) {
         root._dispatch("closewindow address:" + handle,
-                       `hl.dsp.close({ window = "address:${handle}" })`)
+                       `hl.dsp.window.close({ window = "address:${handle}" })`)
     }
 
     function moveWindowToWorkspace(handle, ws) {
         root._dispatch(`movetoworkspacesilent ${ws},address:${handle}`,
-                       `hl.dsp.window.move_to_workspace({ workspace = "${ws}", window = "address:${handle}" })`)
+                       `hl.dsp.window.move({ workspace = "${ws}", follow = false, window = "address:${handle}" })`)
     }
 
     function toggleOverview() { /* unreachable: capabilities.overview is false */ }
