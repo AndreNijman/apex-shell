@@ -1744,6 +1744,19 @@ jobs:
           node tests/overview-test.js
           ./tests/check-overview.sh
 
+      # After an update, the Shell opens that release's rimeos.com page once
+      # (ReleaseService, rimeos.com spec §7): every decision (first install,
+      # update, ?from= across skipped releases, pending until the page exists,
+      # rollback, the setting off), the properties that keep it once-only and
+      # private, and the real service end to end with curl, rpm-ostree,
+      # notify-send and the browser opener stubbed. The last SKIPS without
+      # labwc and quickshell, as the other headless suites do here.
+      - name: What's new after an update
+        run: |
+          node tests/release-test.js
+          ./tests/check-release-service.sh
+          ./tests/run-release-service-test.sh
+
       # The surface and text roles (src/theme/roles.js) against every palette
       # the shell ships — six wallpapers, both matugen schemes — with the
       # fallback rule applied and the fallbacks that fire pinned.
