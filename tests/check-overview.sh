@@ -11,8 +11,11 @@
 #             `qs ipc call overview-toggle toggle` on Hyprland and niri alike)
 #   IPC       IpcManager's `overview-toggle` opens it on the focused output,
 #             and asks niri for its own overview where Rime's cannot run
-#   NOTCH     the body is the centre notch's CENTER_BLOOM (notchW is the bar's
-#             live cWidth) on its own lifecycle — and it is NOT a Dashboard tab
+#   NOTCH     it comes off the centre notch as the Nexus does: NOTCH_EXTRUDE
+#             (FluidDrop) from the bar's live cWidth to a card centred on the
+#             screen, on its own lifecycle — not hung from the notch as a
+#             bloom (Andre: "i dont like it in the top notch, make it come off
+#             like the nexus"), and NOT a Dashboard tab
 #   CAPTURE   a window's picture captures only while the overview is live:
 #             the source drops to null and `live` to false with it, and the
 #             capture is sized to the tile
@@ -63,8 +66,12 @@ verdict("IPC", bool(h) and "toggleOverview()" in h.group(1) and "CompositorServi
 ov = code("src/popups/Overview.qml")
 dlf = re.search(r'readonly property var tabs\s*:\s*\[(.*?)\]', code("src/state/DashboardLayout.qml"), re.S)
 dl = dlf.group(1) if dlf else "(no tabs list found)overview"
-notch = ('family:   "centerBloom"' in ov or re.search(r'family\s*:\s*"centerBloom"', ov) is not None) \
+fd = re.search(r'FluidDrop\s*\{(.*?)\n        \}', ov, re.S)
+notch = bool(fd) and re.search(r'geometry\s*:\s*root\.dropGeometry', fd.group(1)) is not None \
+    and "centerBloom" not in ov \
     and re.search(r'notchW\s*:\s*root\.anchorWindow\s*\?\s*root\.anchorWindow\.cWidth', ov) is not None \
+    and re.search(r'cardX\s*:\s*Math\.round\(\(root\.width - root\.cardW\) / 2\)', ov) is not None \
+    and re.search(r'cardY\s*:\s*Math\.round\(\(root\.height - root\.cardH\) / 2\)', ov) is not None \
     and re.search(r'SurfaceLifecycle\s*\{[^}]*name\s*:\s*"overview"', ov, re.S) is not None
 verdict("NOTCH", notch and "overview" not in dl.lower(),
         "centerBloom from the notch: %s, a Dashboard tab: %s" % (notch, "overview" in dl.lower()))
@@ -101,7 +108,7 @@ label() {
     case "$1" in
         BIND)     echo "SUPER+Tab is an untyped shell default (overview-toggle)" ;;
         IPC)      echo "overview-toggle opens it on the focused output, or niri's own" ;;
-        NOTCH)    echo "it grows out of the centre notch on its own lifecycle, not as a Dashboard tab" ;;
+        NOTCH)    echo "it comes off the centre notch as the Nexus does, to a centred card, not as a tab" ;;
         CAPTURE)  echo "window pictures capture only while the overview is live, at tile size" ;;
         REF)      echo "the window list is held only while the overview is mapped" ;;
         KEYED)    echo "tiles are keyed by window handle, so a list refresh keeps them" ;;
@@ -140,6 +147,8 @@ mutant "no fallback to niri's overview" src/state/IpcManager.qml \
             return' '            return' IPC
 mutant "a body that does not start at the notch" src/popups/Overview.qml \
     'notchW:      root.anchorWindow ? root.anchorWindow.cWidth : theme.cNotchMinWidth,' 'notchW:      theme.cNotchMinWidth,' NOTCH
+mutant "the card hung under the notch instead of centred" src/popups/Overview.qml \
+    'readonly property real cardY: Math.round((root.height - root.cardH) / 2)' 'readonly property real cardY: theme.notchHeight' NOTCH
 mutant "the overview made a Dashboard tab" src/state/DashboardLayout.qml \
     'readonly property var tabs: [' $'readonly property var tabs: [\n        { key: "overview", label: "Overview" },' NOTCH
 mutant "a capture that runs with the overview closed" src/modules/Overview/OverviewWindowTile.qml \

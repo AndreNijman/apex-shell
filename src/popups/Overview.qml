@@ -11,27 +11,31 @@ import "../"
 import "../components/controls"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Overview — every workspace at once, out of the centre notch (SUPER+Tab).
+// Overview — every workspace at once (SUPER+Tab).
 //
 // Andre, 2026-09-29: "make our own version of end4s super+tab workspace
-// overview … same function BUT RIME style … make it come from the top notch
-// like dashboard, but its not a tab in the top notch, it just uses the top
-// notch as a surface when you press super+tab".
+// overview … same function BUT RIME style". It first grew the centre notch
+// itself into a wide slab hanging from the bar (the Dashboard's CENTER_BLOOM);
+// Andre: "i dont like it in the top notch, make it come off like the nexus,
+// also make it smaller its too fat". So it now comes off the notch as the
+// Nexus does — NOTCH_EXTRUDE (shapes/fluid/FluidDrop, geometry.js
+// notchExtrudeField): the notch's bottom sags, a broad neck comes down with a
+// bulb on it, the bulb becomes a card in the middle of the screen and the neck
+// draws back into the notch, leaving the card on its own over a dimmed desk,
+// its rim and shadow arriving once the neck has gone. Closing draws the mass
+// back up into the notch. The same springs and beats as the Nexus (its
+// lifecycle's tuning is copied below with the reasons it carries there).
 //
-// So it is the Dashboard's surface and not the Dashboard: the same CENTER_BLOOM
-// (geometry.js centerBloom) grows out of the bar's centre notch — at progress 0
-// it IS that notch, so the bar does not move — to a body the size of the grid,
-// and the notch's own band becomes the overview's caption line: what the
-// pointer is on, where a dragged window would go. The content is laid out once
-// at its finished size and revealed by the bloom's clip, arriving a beat after
-// the body starts and leaving before it (SurfaceLifecycle.content).
+// Smaller than the first cut: a cell is 0.13 of its monitor (end-4's 0.18
+// filled the screen's width), the card at most two thirds of the screen wide,
+// and the caption is a line inside the card rather than the notch's band.
 //
-// The window scaffolding is Dashboard.qml's, for the reasons written there:
-// fullscreen on its output on the Overlay layer, the whole window its input
-// region while open and none while it closes, a backdrop that closes on a click
-// outside the body, exclusive keyboard focus taken 15 ms after the open and
-// dropped at once on close, focus reset to the content on the way out (or the
-// next open's Escape reaches nothing).
+// It is a popup, not the Nexus's window: a click outside the card closes it,
+// as Escape and SUPER+Tab do. The rest of the window scaffolding is the
+// Dashboard's: fullscreen on its output on the Overlay layer, the whole
+// window its input region while open and none while it closes, exclusive
+// keyboard focus taken 15 ms after the open and dropped at once on close,
+// focus handed back to the content on the way out.
 //
 // The grid itself — cells, live windows, drag, the focused ring — is
 // modules/Overview/OverviewGrid.qml, and its arithmetic overview.js.
@@ -45,21 +49,29 @@ PanelWindow {
     readonly property bool open: Popups.overviewOpen && Popups.overviewScreen === screenName
     screen: anchorWindow.screen
 
-    // ── Lifecycle ───────────────────────────────────────────────────────────
+    // ── Lifecycle: the Nexus's extrusion ────────────────────────────────────
     SurfaceLifecycle {
         name: "overview"
         id: life
-        open: root.open
-        enterDuration: Motion.morphEnter
-        exitDuration:  Motion.morphExit
-        liquid:  true
-        surface: body
+        open:          root.open
+        enterDuration: Motion.hero
+        exitDuration:  Motion.morphEnter
+        liquid:        true
+        surface:       body
+        openRelease:   0.2
+        closeRelease:  0.2
+        bodyIn:        0.98
+        bodyDamping:   0.85
+        trailScale:    0.38
+        contentAt:     0.82
+        contentOut:      Motion.fadeOut
+        contentOutCurve: Motion.standardDecel
     }
 
     // Live — capturing windows, reacting to the pointer — from the moment the
     // open finishes until the window is gone (Dashboard's latch, same reason:
-    // starting forty captures under the bloom is the hitch, and dropping them
-    // at the close's start blanks the pictures mid-exit).
+    // starting every capture under the extrusion is the hitch, and dropping
+    // them at the close's start blanks the pictures mid-exit).
     property bool _settled: false
     Connections {
         target: life
@@ -69,9 +81,9 @@ PanelWindow {
         }
     }
     readonly property bool live: life.mapped && !LockState.locked
-    // The pictures start with the body; before it has any size there is
+    // The pictures start as the card forms; before it has a shape there is
     // nothing to show them in.
-    readonly property bool capturing: root.live && (root._settled || life.progress > 0.2)
+    readonly property bool capturing: root.live && (root._settled || life.body > 0.6)
 
     // The window list costs a hyprctl per event while held: only while mapped.
     ServiceRef {
@@ -113,7 +125,12 @@ PanelWindow {
 
     function close() { Popups.overviewOpen = false }
 
-    // ── Backdrop — a click outside the body closes it ───────────────────────
+    // ── The desk behind: dimmed with the liquid, and a click on it closes ───
+    Rectangle {
+        anchors.fill: parent
+        color: "black"
+        opacity: 0.35 * life.progress * life.alpha
+    }
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
@@ -121,76 +138,37 @@ PanelWindow {
     }
 
     // ── Size ────────────────────────────────────────────────────────────────
-    // The grid is the screen at 0.18 a cell (end-4's scale), shrunk until five
-    // cells fit the screen with a margin either side and two rows fit 60 % of
-    // its height. The body is the grid, its padding, and the notch's band.
-    readonly property int pad: theme.spaceL
+    // A cell is its monitor at 0.13, shrunk until five fit two thirds of the
+    // screen's width and two rows half its height. The card is the grid, its
+    // padding and the caption line.
+    readonly property int pad: theme.spaceM
     readonly property int gap: theme.spaceS
-    readonly property int band: theme.notchHeight
+    readonly property int captionH: theme.px(28)
     readonly property var cell: {
         const sw = root.screen ? root.screen.width : 1920
         const sh = root.screen ? root.screen.height : 1080
-        const maxW = sw - 2 * (theme.borderWidth + theme.spaceXXL) - 2 * root.pad
-        const maxH = Math.round(sh * 0.6) - root.band - root.gap - root.pad
-        return O.cellSize(sw, sh, maxW, maxH, root.gap, 0.18)
+        const maxW = Math.round(sw * 0.66) - 2 * root.pad
+        const maxH = Math.round(sh * 0.5) - root.captionH - root.gap - 2 * root.pad
+        return O.cellSize(sw, sh, maxW, maxH, root.gap, 0.13)
     }
     readonly property var gridSz: O.gridSize(root.cell, root.gap)
-    readonly property int bodyW: root.gridSz.w + 2 * root.pad
-    readonly property int bodyH: root.band + root.gap + root.gridSz.h + root.pad
+    readonly property real cardW: root.gridSz.w + 2 * root.pad
+    readonly property real cardH: root.pad + root.captionH + root.gap + root.gridSz.h + root.pad
+    readonly property real cardX: Math.round((root.width - root.cardW) / 2)
+    readonly property real cardY: Math.round((root.height - root.cardH) / 2)
 
-    readonly property var bloomGeometry: ({
+    readonly property var dropGeometry: ({
         cx:          root.width / 2,
-        strip:       theme.borderWidth,
         notchW:      root.anchorWindow ? root.anchorWindow.cWidth : theme.cNotchMinWidth,
         notchH:      theme.notchHeight,
-        shoulder:    theme.notchShoulder,
         notchBottom: theme.notchBottom,
-        w:           root.bodyW,
-        h:           root.bodyH,
-        r:           theme.radiusXL,
-        shoulderW1:  theme.px(28),
-        shoulderH1:  theme.px(22)
+        card:        { x: root.cardX, y: root.cardY, w: root.cardW, h: root.cardH },
+        r:           theme.radiusXL
     })
-
-    // The notch's label is left showing through the body until the bloom has
-    // grown enough to take over, then covered (Dashboard.qml's `_hole`).
-    readonly property real _coverK: Geo.smooth(Geo.span(life.progress, 0.22, 0.6))
-    readonly property var _hole: {
-        const g = root.bloomGeometry, inset = theme.px(2)
-        const L0 = Math.round(g.cx) - Math.round(g.notchW / 2)
-        return { x: L0 + inset, y: g.strip, w: Math.round(g.notchW) - 2 * inset,
-                 h: g.notchH - g.strip - inset, rb: Math.max(0, g.notchBottom - inset) }
-    }
-
-    FluidShape {
-        id: body
-        anchors.fill: parent
-        family:   "centerBloom"
-        progress: life.progress
-        channels: ({ w: life.lead, d: life.body, n: life.trail, fw: life.leadFlow, fd: life.bodyFlow })
-        hole:     (life.alpha >= 1 && root._coverK < 1)
-                  ? Geo.notchHole(root._hole.x, root._hole.y, root._hole.w, root._hole.h, root._hole.rb) : ""
-        geometry: root.bloomGeometry
-        color:    Theme.background
-        opacity:  life.alpha
-
-        // The body keeps its clicks from the backdrop.
-        MouseArea {
-            x: body.result.bounds.x; y: body.result.bounds.y
-            width: body.result.bounds.w; height: body.result.bounds.h
-            acceptedButtons: Qt.AllButtons
-            onClicked: {}
-        }
-    }
-
-    Rectangle {
-        visible: body.hole !== ""
-        x: root._hole.x; y: root._hole.y
-        width: root._hole.w; height: root._hole.h
-        bottomLeftRadius: root._hole.rb; bottomRightRadius: root._hole.rb
-        color: Theme.background
-        opacity: root._coverK
-    }
+    // The rim and the shadow, in as the neck finishes drawing back and out as
+    // the card begins to contract (Nexus.qml, `_rim`).
+    readonly property real _rim: life.alpha * Geo.smooth(Geo.span(life.trail, 0.9, 1))
+                                            * Geo.smooth(Geo.span(life.body, 0.6, 1))
 
     // ── What the workspace, window or drag in front of you is ───────────────
     readonly property int activeId: {
@@ -230,73 +208,102 @@ PanelWindow {
         return "Workspace " + root.activeId + " · " + root._count(root.activeId)
     }
 
-    // ── Content, at its finished layout, revealed by the bloom's clip ───────
-    readonly property real finalLeft: Math.round(root.width / 2) - Math.round(root.bodyW / 2)
-
     Item {
-        id: reveal
-        x: body.result.clip.x; y: body.result.clip.y
-        width: body.result.clip.w; height: body.result.clip.h
-        clip: true
+        id: content
+        anchors.fill: parent
+        focus: true
+        // Keys go to the focused item and then up through its parents: Escape
+        // and the grid's keys live on the outermost item that holds focus
+        // (Dashboard.qml records the day that mattered).
+        Keys.onPressed: function (event) {
+            InputModality.key(event)
+            const k = event.key
+            if (k === Qt.Key_Escape) root.close()
+            else if (k === Qt.Key_Left)  grid.moveSel("left")
+            else if (k === Qt.Key_Right) grid.moveSel("right")
+            else if (k === Qt.Key_Up)    grid.moveSel("up")
+            else if (k === Qt.Key_Down)  grid.moveSel("down")
+            else if (k === Qt.Key_Return || k === Qt.Key_Enter || k === Qt.Key_Space)
+                grid.goTo(grid.selIndex >= 0 ? grid.selIndex : grid.activeIndex)
+            else if (O.digitIndex(event.text) >= 0) grid.goTo(O.digitIndex(event.text))
+            else return
+            event.accepted = true
+        }
 
+        Elevation { target: card; level: "modal" }
+
+        // The neck, the bulb and the card: one liquid body.
+        FluidDrop {
+            id: body
+            anchors.fill: parent
+            channels: ({ w: life.lead, d: life.body, n: life.trail })
+            geometry: root.dropGeometry
+            color:    Theme.background
+            opacity:  life.alpha
+        }
+
+        // The card's rim (and the shadow's target), following the body's own
+        // box so it never outlives the body it outlines.
+        Rectangle {
+            id: card
+            readonly property var _box: body.result.card
+            x: _box.cx - _box.hw; y: _box.cy - _box.hh
+            width: 2 * _box.hw; height: 2 * _box.hh
+            radius: _box.r
+            color: "transparent"
+            border.color: Theme.outlineSoft
+            border.width: 1
+            opacity: root._rim
+        }
+
+        // Content at its finished layout, revealed where the card already is.
         Item {
-            id: content
-            focus: true
-            // Keys go to the focused item and then up through its parents:
-            // Escape and the grid's keys live on the outermost item that holds
-            // focus (Dashboard.qml records the day that mattered).
-            Keys.onPressed: function (event) {
-                InputModality.key(event)
-                const k = event.key
-                if (k === Qt.Key_Escape) root.close()
-                else if (k === Qt.Key_Left)  grid.moveSel("left")
-                else if (k === Qt.Key_Right) grid.moveSel("right")
-                else if (k === Qt.Key_Up)    grid.moveSel("up")
-                else if (k === Qt.Key_Down)  grid.moveSel("down")
-                else if (k === Qt.Key_Return || k === Qt.Key_Enter || k === Qt.Key_Space)
-                    grid.goTo(grid.selIndex >= 0 ? grid.selIndex : grid.activeIndex)
-                else if (O.digitIndex(event.text) >= 0) grid.goTo(O.digitIndex(event.text))
-                else return
-                event.accepted = true
-            }
+            id: reveal
+            x: body.result.clip.x; y: body.result.clip.y
+            width: body.result.clip.w; height: body.result.clip.h
+            clip: true
 
-            x: root.finalLeft - reveal.x
-            y: 0 - reveal.y
-            width: root.bodyW
-            height: root.bodyH
+            Item {
+                x: root.cardX - reveal.x
+                y: root.cardY - reveal.y
+                width: root.cardW; height: root.cardH
+                opacity: life.alpha * life.content
+                transform: Translate { y: (1 - life.content) * Motion.travel(theme.px(8)) }
 
-            opacity: life.content
-            transform: Translate { y: (1 - life.content) * Motion.travel(theme.px(10)) }
+                // The card keeps its clicks from the desk behind it.
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.AllButtons
+                }
 
-            // The caption, in the notch's band, where the notch's own label was.
-            Text {
-                x: root.pad; width: parent.width - 2 * root.pad
-                y: theme.borderWidth
-                height: root.band - theme.borderWidth
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
-                text: root.caption
-                color: Theme.textPrimary
-                font.pixelSize: theme.typeBody
-                font.weight: Font.DemiBold
-                elide: Text.ElideMiddle
-            }
+                Text {
+                    x: root.pad; width: parent.width - 2 * root.pad
+                    y: root.pad; height: root.captionH
+                    verticalAlignment: Text.AlignVCenter
+                    horizontalAlignment: Text.AlignHCenter
+                    text: root.caption
+                    color: Theme.textPrimary
+                    font.pixelSize: theme.typeBody
+                    font.weight: Font.DemiBold
+                    elide: Text.ElideMiddle
+                }
 
-            OverviewGrid {
-                id: grid
-                x: root.pad
-                y: root.band + root.gap
-                theme: root.theme
-                screen: root.screen
-                screens: Quickshell.screens
-                live: root.capturing
-                cell: root.cell
-                gap: root.gap
-                activeId: root.activeId
-                windows: CompositorService.windows
-                previewSources: CompositorService.previewSources
-                wallpaper: root.wallpaper
-                onDone: root.close()
+                OverviewGrid {
+                    id: grid
+                    x: root.pad
+                    y: root.pad + root.captionH + root.gap
+                    theme: root.theme
+                    screen: root.screen
+                    screens: Quickshell.screens
+                    live: root.capturing
+                    cell: root.cell
+                    gap: root.gap
+                    activeId: root.activeId
+                    windows: CompositorService.windows
+                    previewSources: CompositorService.previewSources
+                    wallpaper: root.wallpaper
+                    onDone: root.close()
+                }
             }
         }
     }
