@@ -494,9 +494,10 @@ tier's behaviour (32 assertions against real `/proc` and `/sys`); run it with
 
 Rime Shell is under active development and takes contributions:
 
-- Found a bug? → [Open an issue](https://github.com/AndreNijman/rime-shell/issues)
-- Have an idea? → [Start a discussion](https://github.com/AndreNijman/rime-shell/discussions)
-- Want to contribute? → Fork, branch, and submit a pull request
+- Found a bug? → [Open an issue](https://github.com/AndreNijman/rime-shell/issues/new/choose)
+- Have an idea? → [Suggest a feature](https://github.com/AndreNijman/rime-shell/issues/new?template=feature_request.yml)
+- Want to contribute? → Read [CONTRIBUTING.md](CONTRIBUTING.md), then fork, branch, and open a pull request
+- Found a security problem? → Report it privately; see [SECURITY.md](SECURITY.md)
 
 ---
 

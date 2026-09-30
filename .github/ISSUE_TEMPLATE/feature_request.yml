@@ -1,19 +1,23 @@
-name: Feature Request
-description: Suggest an idea for Rime Shell
+name: Feature request
+description: Suggest something Rime Shell should do.
 labels: ["enhancement"]
 body:
-  - type: markdown
-    attributes:
-      value: Have an idea to make Rime Shell better? Let us know! (Note to save time, please check Discord to see if this has been suggested already).
   - type: textarea
-    id: description
+    id: problem
     attributes:
-      label: Feature Description
-      description: A clear and concise description of what you want to happen.
+      label: The problem
+      description: What you are trying to do, and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: How the shell could solve it. A sketch or a screenshot of another shell helps.
     validations:
       required: true
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternatives Considered
-      description: Are there any workarounds you are currently using?
+      label: What you do now instead
+      description: Workarounds or other tools you use for this today.

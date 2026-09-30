@@ -1,65 +1,55 @@
-name: Bug Report
-description: Create a report to help fix a bug in Rime Shell
-labels: ["bug", "needs-triage"]
+name: Bug report
+description: Something in Rime Shell is broken or behaves wrongly.
+labels: ["bug"]
 body:
   - type: markdown
     attributes:
-      value: Thanks for taking the time to report a bug! Please fill out the details below.
+      value: |
+        Thanks for reporting. Security problems go through [private vulnerability reporting](https://github.com/AndreNijman/rime-shell/security/advisories/new), not here.
   - type: textarea
-    id: description
+    id: what
     attributes:
-      label: Bug Description
-      description: A clear and concise description of what the bug is.
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to reproduce it
+      description: The steps from a known state. Say if it happens every time or only sometimes.
+      placeholder: |
+        1. …
+        2. …
+    validations:
+      required: true
+  - type: dropdown
+    id: compositor
+    attributes:
+      label: Compositor
+      options:
+        - Hyprland
+        - niri
+        - labwc
     validations:
       required: true
   - type: input
-    id: os
+    id: system
     attributes:
-      label: OS / Distro
-      placeholder: e.g., Arch Linux, NixOS
+      label: System and version
+      description: On Rime OS, the digest from `bootc status`. Anywhere else, the distribution and the rime-shell commit (`git -C ~/.local/src/rime-shell rev-parse --short HEAD` for an install.sh install).
     validations:
       required: true
   - type: input
-    id: resolution
+    id: displays
     attributes:
-      label: Hardware & Resolution
-      placeholder: e.g., 1920x1080 primary, 4K secondary
+      label: Displays
+      description: Each monitor's resolution and scale.
+      placeholder: e.g. 1920x1200 at 1.25 (laptop), 3840x2160 at 1.5 (external)
     validations:
       required: true
   - type: textarea
     id: logs
     attributes:
-      label: Logs / Screenshots
-      description: Please paste any relevant Quickshell logs or drag-and-drop screenshots here.name: Bug Report
-description: Create a report to help fix a bug in Rime Shell
-labels: ["bug", "needs-triage"]
-body:
-  - type: markdown
-    attributes:
-      value: Thanks for taking the time to report a bug! Please fill out the details below.
-  - type: textarea
-    id: description
-    attributes:
-      label: Bug Description
-      description: A clear and concise description of what the bug is.
-    validations:
-      required: true
-  - type: input
-    id: os
-    attributes:
-      label: OS / Distro
-      placeholder: e.g., Arch Linux, NixOS
-    validations:
-      required: true
-  - type: input
-    id: resolution
-    attributes:
-      label: Hardware & Resolution
-      placeholder: e.g., 1920x1080 primary, 4K secondary
-    validations:
-      required: true
-  - type: textarea
-    id: logs
-    attributes:
-      label: Logs / Screenshots
-      description: Please paste any relevant Quickshell logs or drag-and-drop screenshots here.
+      label: Logs and screenshots
+      description: The end of Quickshell's log (`qs log -c /usr/share/rime-shell --tail 200` on Rime OS), and a screenshot or recording if the problem is visual.
