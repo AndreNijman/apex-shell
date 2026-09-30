@@ -72,10 +72,13 @@ Item {
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: AgentState.agentName(srow.session.agent)
+            // Its name when it has one, as on the local row and the phone.
+            text: AgentState.sessionName(srow.session) || AgentState.agentName(srow.session.agent)
             color: Theme.text
             font.pixelSize: theme.fs(11)
             font.bold: true
+            elide: Text.ElideRight
+            width: Math.min(implicitWidth, theme.px(200))
         }
 
         Text {

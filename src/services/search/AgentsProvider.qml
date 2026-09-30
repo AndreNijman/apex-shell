@@ -1,5 +1,6 @@
 import QtQuick
 import "../search.js" as Search
+import "../agentstate.js" as AgentState
 import "../"
 
 // AgentsProvider — the agent sessions the runtime is supervising (§2, §3).
@@ -37,8 +38,10 @@ QtObject {
                 continue
             const who = String(s.agent ?? "agent")
             const where = String(s.project_name ?? "")
-            const label = who + (where === "" ? "" : " · " + where)
-            const meta = where + " " + who + " " + String(s.state ?? "")
+            // A named session is found, and shown, by its name first.
+            const named = AgentState.sessionName(s)
+            const label = (named !== "" ? named + " · " + who : who) + (where === "" ? "" : " · " + where)
+            const meta = named + " " + where + " " + who + " " + String(s.state ?? "")
             const sc = Search.scoreFields(label, meta + " agent session attach", term)
             if (sc <= 0)
                 continue
