@@ -480,5 +480,33 @@ if (Object.keys(COLORS.pairs).length) {
           /wallpaper\.json/.test(colors) && /setMode\(\)/.test(colors));
 }
 
+// ── What a session is called (names shared with the phone) ─────────────────
+{
+    const live = { exit_code: null, exit_signal: null };
+    check("a person's name wins over the agent's title",
+          A.sessionName({ name: "auth refactor", title: "✳ something" }) === "auth refactor");
+    check("without a name, the agent's own terminal title is used",
+          A.sessionName({ name: null, title: "Rime showcase studio" }) === "Rime showcase studio");
+    check("neither: empty, so the row falls back to the adapter's name",
+          A.sessionName({ agent: "claude" }) === "" && A.sessionName(null) === "");
+    check("control characters never reach a row, and the ends are trimmed",
+          A.sessionName({ name: "  a\u0007b\u001b[31m  " }) === "ab[31m");
+    check("a whitespace-only name falls through to the title",
+          A.sessionName({ name: "   ", title: "t" }) === "t");
+    check("rename is offered when the runtime reports `name` (null counts)",
+          A.canRename(Object.assign({ name: null }, live)));
+    check("…not by a runtime that predates names (no key at all)",
+          !A.canRename(Object.assign({}, live)));
+    check("…and not for a finished session",
+          !A.canRename({ name: "x", exit_code: 0, exit_signal: null }));
+    check("an empty name clears it",
+          A.checkName("   ").ok && A.checkName("   ").value === null);
+    check("a name is trimmed", A.checkName("  x  ").value === "x");
+    check("64 characters is the limit, counted as characters",
+          A.checkName("é".repeat(64)).ok && !A.checkName("é".repeat(65)).ok);
+    check("a control character is refused with a reason, not stripped",
+          !A.checkName("a\tb").ok && /control/.test(A.checkName("a\tb").why));
+}
+
 console.log(`\nagent-state: passed=${passed} failed=${failed}`);
 process.exit(failed === 0 ? 0 : 1);

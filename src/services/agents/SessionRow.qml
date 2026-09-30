@@ -108,6 +108,30 @@ Rectangle {
         session.exit_code === null && session.exit_signal === null
     readonly property bool needsYou: AgentState.needsYou(session.state)
 
+    // Its name when it has one (a person's, or the title the agent set on its
+    // terminal), and whether this runtime can take a new one. The same name
+    // the phone shows and sets.
+    readonly property string givenName: AgentState.sessionName(session)
+    readonly property bool canRename: AgentState.canRename(session)
+    property bool renaming: false
+    property string renameError: ""
+    function startRename() {
+        row.renameError = ""
+        row.renaming = true
+        nameEdit.text = row.session.name || ""
+        nameEdit.forceActiveFocus()
+        nameEdit.selectAll()
+    }
+    function finishRename(commit) {
+        if (commit) {
+            var why = AgentService.rename(row.session.id, nameEdit.text)
+            if (why !== "") { row.renameError = why; return }
+        }
+        row.renaming = false
+        row.renameError = ""
+        if (row.list) row.list.forceActiveFocus()
+    }
+
     // The graph, or the runtime's admission that it has none. Three-valued —
     // see the header, and agentgraph.js for the failure it prevents.
     readonly property string graphState: Graph.supported(row.session)
@@ -152,7 +176,7 @@ Rectangle {
     }
 
     Accessible.role: Accessible.ListItem
-    Accessible.name: AgentState.agentName(row.session.agent) + " session #" + row.session.id
+    Accessible.name: AgentService.displayName(row.session) + " session #" + row.session.id
                      + ", " + AgentService.stateLabel(row.session.state)
 
     height: header.height + (row.expanded ? kidsBlock.height + theme.px(8) : 0)
@@ -247,10 +271,48 @@ Rectangle {
             Row {
                 spacing: theme.px(6)
                 Text {
-                    text: AgentState.agentName(row.session.agent)
+                    visible: !row.renaming
+                    text: AgentService.displayName(row.session)
                     color: Theme.text
                     font.pixelSize: theme.fs(12)
                     font.bold: true
+                    elide: Text.ElideRight
+                    width: Math.min(implicitWidth, theme.px(260))
+                }
+                // Inline rename: Return keeps it, Escape or leaving the field
+                // drops it, an empty field clears the name.
+                Rectangle {
+                    visible: row.renaming
+                    width: theme.px(220)
+                    height: theme.px(22)
+                    radius: theme.px(6)
+                    color: Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.06)
+                    border.width: 1
+                    border.color: row.renameError !== ""
+                        ? Qt.rgba(Theme.danger.r, Theme.danger.g, Theme.danger.b, 0.7)
+                        : Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.55)
+                    Text {
+                        anchors { left: parent.left; leftMargin: theme.px(8); verticalCenter: parent.verticalCenter }
+                        visible: nameEdit.text === ""
+                        text: "Name this session…"
+                        color: Theme.textTertiary
+                        font.pixelSize: theme.fs(11)
+                    }
+                    TextInput {
+                        id: nameEdit
+                        anchors { fill: parent; leftMargin: theme.px(8); rightMargin: theme.px(8) }
+                        verticalAlignment: TextInput.AlignVCenter
+                        color: Theme.text
+                        font.pixelSize: theme.fs(11)
+                        maximumLength: AgentState.NAME_MAX
+                        clip: true
+                        selectionColor: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.35)
+                        Accessible.name: "Name for session #" + row.session.id
+                        Keys.onReturnPressed: row.finishRename(true)
+                        Keys.onEnterPressed: row.finishRename(true)
+                        Keys.onEscapePressed: row.finishRename(false)
+                        onActiveFocusChanged: if (!activeFocus && row.renaming) row.finishRename(false)
+                    }
                 }
                 Text {
                     text: "#" + row.session.id
@@ -374,10 +436,15 @@ Rectangle {
                 width: parent.width
                 spacing: 0
 
-                readonly property string where:
-                    row.session.project_name
-                    || AgentService._basename(row.session.cwd)
-                    || ""
+                // A named row keeps saying which agent it is, beside where.
+                readonly property string where: {
+                    var place = row.session.project_name
+                        || AgentService._basename(row.session.cwd) || ""
+                    if (row.renameError !== "") return row.renameError
+                    if (row.givenName === "") return place
+                    var agent = AgentState.agentName(row.session.agent)
+                    return place === "" ? agent : agent + "  ·  " + place
+                }
                 readonly property string tail: {
                     var bits = []
                     var e = AgentService.elapsed(row.session)
@@ -515,6 +582,13 @@ Rectangle {
                     AgentService.revokeGrant(Policy.sessionGrant(row.session))
                     if (row.list) row.list.forceActiveFocus()
                 }
+            }
+            SmallIconButton {
+                visible: row.canRename && !row.renaming
+                activeFocusOnTab: row.keyed
+                icon: "󰏫"
+                tip: row.givenName !== "" ? "Rename" : "Name this session"
+                onActivated: row.startRename()
             }
             SmallIconButton {
                 visible: row.live

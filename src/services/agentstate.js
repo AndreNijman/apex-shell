@@ -163,8 +163,53 @@ function agentName(agent) {
     return String(agent).charAt(0).toUpperCase() + String(agent).slice(1)
 }
 
+// ── What a session is called ─────────────────────────────────────────────────
+// A person's name for it first (`rime agent run --name`, `rime agent rename`,
+// a rename from this page or from the phone), then the title the agent sets on
+// its own terminal (Claude Code's OSC 0, captured by the daemon), then "" —
+// and the caller falls back to agentName(). Control characters are dropped
+// here too although the daemon refuses them: a row is drawn from whatever the
+// list JSON holds, and that must never be what breaks a row.
+var NAME_MAX = 64
+var CONTROL = /[\u0000-\u001f\u007f-\u009f]/g
+
+function _clean(v) {
+    if (v === null || v === undefined) return ""
+    return String(v).replace(CONTROL, "").trim()
+}
+
+function sessionName(s) {
+    if (!s) return ""
+    var given = _clean(s.name)
+    return given !== "" ? given : _clean(s.title)
+}
+
+// A daemon that knows about names always writes `name` (null when unset); one
+// that predates them omits the key. The rename control is absent — not
+// disabled — for the second, for the reason the graph button is.
+function canRename(s) {
+    return !!s && s.name !== undefined
+        && s.exit_code === null && s.exit_signal === null
+}
+
+// The daemon's rule, checked before asking it, so a mistake is a sentence on
+// the row rather than a failed command nobody sees. Empty clears the name.
+function checkName(text) {
+    var v = (text === null || text === undefined) ? "" : String(text).trim()
+    if (v === "") return { ok: true, value: null, why: "" }
+    if (/[\u0000-\u001f\u007f-\u009f]/.test(v))
+        return { ok: false, value: null, why: "A name cannot contain control characters" }
+    if (Array.from(v).length > NAME_MAX)
+        return { ok: false, value: null, why: "A name can be at most " + NAME_MAX + " characters" }
+    return { ok: true, value: v, why: "" }
+}
+
 if (typeof module !== "undefined" && module.exports)
     module.exports = {
+        sessionName: sessionName,
+        canRename: canRename,
+        checkName: checkName,
+        NAME_MAX: NAME_MAX,
         STATE_TONES: STATE_TONES,
         TONES: TONES,
         DISTINCT_TONES: DISTINCT_TONES,
