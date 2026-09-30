@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/AndreNijman/rime-shell/security/advisories/new
+    about: Report it privately. Please don't open a public issue with exploit details.
+  - name: Rime OS (the operating system)
+    url: https://github.com/AndreNijman/rime-os/issues
+    about: Updates, installing, drivers, the login screen, coding agents.
