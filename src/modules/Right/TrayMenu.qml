@@ -204,12 +204,13 @@ PopupWindow {
             && entry.buttonType !== QsMenuButtonType.None
         readonly property bool checked: checkable && entry.checkState === Qt.Checked
         readonly property bool lit: hov.hovered && enabledRow
-        readonly property color ink: lit ? Theme.fixedDark : Theme.text
+        readonly property color ink: Theme.textPrimary
 
         width: parent ? parent.width : 0
         height: root.rowH
         radius: root.radius - 2
-        color: lit ? Theme.active : "transparent"
+        // The state layer, not a full accent flood (brief §E list row).
+        color: lit ? Theme.surfaceHover(Theme.background) : "transparent"
         opacity: enabledRow ? 1 : 0.4
         Behavior on color { MotionColor { role: "state" } }
 

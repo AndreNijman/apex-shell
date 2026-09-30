@@ -20,7 +20,7 @@ Item {
     readonly property ThemeSet theme: ThemeSet { scale: Theme.factorForHeight(Screen.height) }   // P1-040: this output's sizes
 
 
-    implicitWidth:  row.implicitWidth + 6
+    implicitWidth:  row.implicitWidth
     implicitHeight: row.implicitHeight
 
     // Strongest signal among connected wifi networks, as a percentage; 0 when
@@ -78,7 +78,7 @@ Item {
         if (_offline)                   return Theme.danger
         if (_limited)                   return Theme.warning
         if (root._openOn("wifi"))       return Theme.accentText
-        return hov.hovered ? Theme.textPrimary : Theme.iconDefault
+        return Theme.iconDefault
     }
 
     // Whether the network panel is up on this tab — the glyph that opened it
@@ -115,93 +115,74 @@ Item {
     Row {
         id: row
         anchors.centerIn: parent
-        spacing: 4
+        spacing: theme.spaceS   // 8, like the rest of the cluster (design review 2)
+
+        // Each glyph is its own bar button (IconBtn): it dips when pressed,
+        // turns to the accent while held, and lights on its own hover — the
+        // three used to be one Text + MouseArea each under one shared hover,
+        // so they lit as one and did not answer a press.
 
         // VPN sits before the transport icon and appears only once connected.
         // Connecting state remains visible in the VPN page itself; the bar is a
-        // durable status strip, not a transient progress indicator.
-        Text {
-            visible:        ShellState.vpnActive
-            text:           "󰦝"
-            font.pixelSize: theme.typeIcon
-            font.family:    Theme.fontIcon
+        // durable status strip, not a transient progress indicator. A tunnel
+        // up is a state, so the accent (brief §D.3).
+        IconBtn {
+            visible:   ShellState.vpnActive
+            text:      "󰦝"
+            label:     "VPN connected"
+            textColor: Theme.accentText
             anchors.verticalCenter: parent.verticalCenter
-            color:          root._openOn("vpn") ? Theme.accentText : hov.hovered ? Theme.textPrimary : Theme.iconDefault
-            Behavior on color { MotionColor {} }
-            OpenPill { shown: root._openOn("vpn") }
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    Popups.closeAll()
-                    Popups.networkPage = "vpn"
-                    Popups.networkOpen = true
-                }
+            onClicked: {
+                Popups.closeAll()
+                Popups.networkPage = "vpn"
+                Popups.networkOpen = true
             }
+            OpenPill { shown: root._openOn("vpn") }
         }
 
         // WiFi/ethernet icon — opens to wifi tab
-        Text {
+        IconBtn {
             id: netIcon
-            text:           root._netIcon
-            color:          root._netColor
-            font.pixelSize: theme.typeIcon
-            font.family:    Theme.fontIcon
+            text:      root._netIcon
+            label:     "Network"
+            textColor: root._netColor
             anchors.verticalCenter: parent.verticalCenter
-            Behavior on color { MotionColor { role: "state" } }
-            OpenPill { shown: root._openOn("wifi") }
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    Popups.closeAll()
-                    Popups.networkPage = "wifi"
-                    Popups.networkOpen = true
-                }
+            onClicked: {
+                Popups.closeAll()
+                Popups.networkPage = "wifi"
+                Popups.networkOpen = true
             }
+            OpenPill { shown: root._openOn("wifi") }
         }
 
         // Bluetooth — opens to bluetooth tab
-        Text {
-            visible:        root._bluetoothConnected
-            text:           "󰂱"
-            font.pixelSize: theme.typeIcon
-            font.family:    Theme.fontIcon
+        IconBtn {
+            visible:   root._bluetoothConnected
+            text:      "󰂱"
+            label:     "Bluetooth connected"
+            textColor: root._openOn("bluetooth") ? Theme.accentText : Theme.iconDefault
             anchors.verticalCenter: parent.verticalCenter
-            color:          root._openOn("bluetooth") ? Theme.accentText : hov.hovered ? Theme.textPrimary : Theme.iconDefault
-            Behavior on color { MotionColor {} }
-            OpenPill { shown: root._openOn("bluetooth") }
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    Popups.closeAll()
-                    Popups.networkPage = "bluetooth"
-                    Popups.networkOpen = true
-                }
+            onClicked: {
+                Popups.closeAll()
+                Popups.networkPage = "bluetooth"
+                Popups.networkOpen = true
             }
+            OpenPill { shown: root._openOn("bluetooth") }
         }
 
-        // Hotspot — opens to hotspot tab
-        Text {
-            visible:        ShellState.hotspot
-            text:           "󰀂"
-            font.pixelSize: theme.typeIcon
-            font.family:    Theme.fontIcon
+        // Hotspot — opens to hotspot tab. Running is a state, so the accent.
+        IconBtn {
+            visible:   ShellState.hotspot
+            text:      "󰀂"
+            label:     "Hotspot on"
+            textColor: Theme.accentText
             anchors.verticalCenter: parent.verticalCenter
-            // A hotspot running is a state, so the accent.
-            color:          Theme.accentText
-            Behavior on color { MotionColor { role: "state" } }
-            OpenPill { shown: root._openOn("hotspot") }
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    Popups.closeAll()
-                    Popups.networkPage = "hotspot"
-                    Popups.networkOpen = true
-                }
+            onClicked: {
+                Popups.closeAll()
+                Popups.networkPage = "hotspot"
+                Popups.networkOpen = true
             }
+            OpenPill { shown: root._openOn("hotspot") }
         }
     }
 }

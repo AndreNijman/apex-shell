@@ -153,8 +153,10 @@ PanelWindow {
             anchors.fill: parent
             radius: theme.cornerRadius
             color: Theme.background
-            border.width: theme.borderWidth
-            border.color: Theme.border
+            // A hairline, not the strip's width: this used theme.borderWidth,
+            // a 6 px frame round a floating menu (design review 2).
+            border.width: 1
+            border.color: Theme.outlineSoft
         }
 
         // Swallow clicks on the card itself, so choosing an item does not also
@@ -227,9 +229,8 @@ PanelWindow {
             Rectangle {
                 anchors.centerIn: parent
                 width: parent.width - 20
-                height: Math.max(1, theme.borderWidth)
-                color: Theme.border
-                opacity: 0.7
+                height: 1
+                color: Theme.outlineSoft
             }
         }
     }
@@ -241,7 +242,9 @@ PanelWindow {
             property string action: ""
 
             height: 32
-            color: hover.hovered ? Theme.active : "transparent"
+            // The state layer, not a full accent flood (brief §E list row).
+            color: hover.hovered ? Theme.surfaceHover(Theme.background) : "transparent"
+            Behavior on color { MotionColor {} }
             radius: theme.cornerRadius > 6 ? 6 : theme.cornerRadius
 
             // Inset so the hover highlight does not touch the card's border.
@@ -255,7 +258,7 @@ PanelWindow {
                     verticalCenter: parent.verticalCenter
                 }
                 text: parent.label
-                color: hover.hovered ? Theme.background : Theme.text
+                color: Theme.textPrimary
                 // No explicit family: inherit the shell's, like every other
                 // popup. Theme.fs() scales a size calibrated at 1080p, which is
                 // the house convention — a literal pixelSize would be wrong on

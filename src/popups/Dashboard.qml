@@ -74,7 +74,11 @@ PanelWindow {
         enterDuration: Motion.morphEnter
         exitDuration:  Motion.morphExit
         onClosed: tabBar.reset()
+        // The launcher page is the one worth building ahead: once the first
+        // open has finished, build it in the background (LazyPage.prewarm).
+        onOpened: root._warmLauncher = true
     }
+    property bool _warmLauncher: false
 
     // "A user can actually see this window right now." Pages hand this down to
     // their ServiceRefs; it is the difference between a poller that stops when
@@ -288,6 +292,7 @@ PanelWindow {
                         // Its field is the anchor (LENS_REVEAL): the page is
                         // there at once and reveals its own results.
                         anchored: true
+                        prewarm: root._warmLauncher
                         sourceComponent: Component {
                             // The launcher is the one page that took no
                             // `onScreen` before §15, because it consumed no

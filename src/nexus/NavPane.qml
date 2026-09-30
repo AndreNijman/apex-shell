@@ -84,8 +84,8 @@ Item {
         y: sel.target ? col.y + sel.target.y : 0
         width: col.width
         height: sel.target ? sel.target.height : 0
-        radius: theme.cornerRadius
-        color: Qt.rgba(Theme.active.r, Theme.active.g, Theme.active.b, 0.16)
+        radius: theme.radiusM
+        color: Theme.surfaceSelected
         Behavior on y { enabled: sel._placed; MotionMove { curve: Motion.emphasizedDecel } }
         Behavior on height { enabled: sel._placed; MotionMove { curve: Motion.emphasizedDecel } }
         onTargetChanged: if (sel.target && !sel._placed) armTimer.restart()
@@ -143,11 +143,13 @@ Item {
                 readonly property bool active: root.currentPage === row.modelData.id
 
                 width: parent.width
-                height: theme.px(44)
-                radius: theme.cornerRadius
+                // 36, not 44: sixteen pages nearly fit the sheet without
+                // scrolling (brief §E "Nav rows", §F.8).
+                height: theme.controlComfortable
+                radius: theme.radiusM
                 // Hover only; the selection is the shared pill above.
                 color: !row.active && hov.hovered
-                       ? Qt.rgba(Theme.text.r, Theme.text.g, Theme.text.b, 0.05) : "transparent"
+                       ? Theme.surfaceHover(Theme.background) : "transparent"
 
                 Behavior on color { MotionColor {} }
 
@@ -159,7 +161,7 @@ Item {
                         verticalCenter: parent.verticalCenter
                     }
                     text: row.modelData.icon
-                    color: row.active ? Theme.active : Theme.icon
+                    color: row.active ? Theme.accentText : Theme.iconDefault
                     font.pixelSize: theme.fs(15)
                     Behavior on color { MotionColor { role: "state" } }
                 }
@@ -173,9 +175,9 @@ Item {
                         verticalCenter: parent.verticalCenter
                     }
                     text: row.modelData.title
-                    color: row.active ? Theme.text : Theme.subtext
+                    // Selection is fill and colour, never bold (brief §C.4).
+                    color: row.active ? Theme.textPrimary : Theme.textSecondary
                     font.pixelSize: theme.fs(12)
-                    font.bold: row.active
                     elide: Text.ElideRight
                     Behavior on color { MotionColor { role: "state" } }
                 }
