@@ -306,7 +306,7 @@ QtObject {
     }
 
     function _notify(session, what, urgency) {
-        var who = _agentLabel(session)
+        var who = displayName(session)
         var where = session.project_name || _basename(session.cwd)
         var kind = NotifyBus.kindForState(session.state)
         if (kind === null) return
@@ -397,6 +397,19 @@ QtObject {
     function pause(id)  { _act(["rime", "agent", "pause",  String(id)]) }
     function resume(id) { _act(["rime", "agent", "resume", String(id)]) }
     function kill(id)   { _act(["rime", "agent", "kill",   String(id)]) }
+    // Name a session, or clear its name with "" (`rime agent rename`). The
+    // same name the phone sets and `rime agent run --name` starts with; the
+    // runtime keeps it. Returns "" when asked, or the sentence saying why the
+    // name was refused before asking. `--` so a name that starts with a dash
+    // is a name, not a flag.
+    function rename(id, name) {
+        var c = AgentState.checkName(name)
+        if (!c.ok) return c.why
+        _act(c.value === null
+            ? ["rime", "agent", "rename", String(id), "--clear"]
+            : ["rime", "agent", "rename", String(id), "--", c.value])
+        return ""
+    }
     // Forget a FINISHED session and delete its transcript (`rime agent rm`),
     // or every finished one (`rime agent prune`). The runtime refuses either
     // for a session that is still running, so a stale row cannot be used to
@@ -434,6 +447,11 @@ QtObject {
     // and the notifications cannot disagree.
     function _agentLabel(s) {
         return AgentState.agentName(s ? s.agent : "")
+    }
+    // What a notification or a row calls it: the session's name when it has
+    // one (a person's, or the title the agent set), the adapter otherwise.
+    function displayName(s) {
+        return AgentState.sessionName(s) || _agentLabel(s)
     }
 
     readonly property var stateIcons: ({
