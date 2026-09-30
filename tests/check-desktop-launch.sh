@@ -43,7 +43,15 @@ tag="$1"; shift
     for a in "$@"; do printf 'arg=%s\n' "$a"; done
 } > "$OUT/$tag"
 REC
-chmod +x "$w/bin/switcherooctl" "$w/bin/probe"
+# Stands in for /usr/bin/steam: records like probe, into $OUT/steam.last.
+cat > "$w/bin/steam" <<'REC'
+#!/usr/bin/env bash
+{
+    printf 'prime=%s\n' "${__NV_PRIME_RENDER_OFFLOAD:-}"
+    for a in "$@"; do printf 'arg=%s\n' "$a"; done
+} > "$OUT/steam.last"
+REC
+chmod +x "$w/bin/switcherooctl" "$w/bin/probe" "$w/bin/steam"
 
 entry() {  # entry <dir> <file-id> <body…>
     local d="$1" f="$2"; shift 2
@@ -63,6 +71,16 @@ entry "$S" system-only   'PrefersNonDefaultGPU=true'
 entry "$S/vendor" app    'PrefersNonDefaultGPU=true'
 printf '[Desktop Entry]\r\nType=Application\r\nName=crlf\r\nExec=probe crlf\r\nPrefersNonDefaultGPU=true\r\n' \
     > "$H/crlf.desktop"
+# Steam's own entry, as /usr/share/applications/steam.desktop ships it, and the
+# shortcuts Steam writes for a game, which state no GPU.
+printf '[Desktop Entry]\nType=Application\nName=Steam\nExec=steam %%U\nPrefersNonDefaultGPU=true\n' \
+    > "$S/steam.desktop"
+printf '[Desktop Entry]\nType=Application\nName=tModLoader\nExec=steam steam://rungameid/1281930\n' \
+    > "$H/tModLoader.desktop"
+printf '[Desktop Entry]\nType=Application\nName=g\nExec=steam steam://rungameid/1\nPrefersNonDefaultGPU=false\n' \
+    > "$H/game-says-false.desktop"
+mkdir -p "$w/sys2/applications"
+printf '[Desktop Entry]\nType=Application\nName=Steam\nExec=steam %%U\n' > "$w/sys2/applications/steam.desktop"
 { printf '[Desktop Entry]\nType=Application\nName=action\nExec=probe action-key\n\n'
   printf '[Desktop Action big]\nName=Big\nExec=probe x\nPrefersNonDefaultGPU=true\n'; } \
     > "$H/action-key.desktop"
@@ -103,6 +121,37 @@ expect wants-dgpu.desktop dotted 1  "an id given with its .desktop suffix still 
 expect no-such-id   unknown      "" "an id with no file still launches, untouched"
 
 echo
+echo "── game shortcuts follow Steam's own entry ──"
+steam_prime() { sed -n 's/^prime=//p' "$w/out/steam.last" 2>/dev/null; }
+steam_case() {  # steam_case <want-prime> <description> <run args…>
+    local want="$1" what="$2"; shift 2
+    rm -f "$w/out/steam.last"
+    "$@"
+    if [ ! -f "$w/out/steam.last" ]; then bad "$what (Steam never ran)"; return; fi
+    if [ "$(steam_prime)" = "$want" ]; then ok "$what"; else
+        bad "$what (prime='$(steam_prime)', wanted '$want')"; fi
+}
+steam_case 1  "a shortcut running 'steam steam://rungameid/…' with no key is offloaded (katana 09-30)" \
+    run tModLoader -- steam steam://rungameid/1281930
+if grep -qx 'arg=steam://rungameid/1281930' "$w/out/steam.last"; then
+    ok "the steam:// URL reaches Steam unchanged"; else bad "the steam:// URL reaches Steam unchanged"; fi
+steam_case 1  "Steam given by its full path counts as Steam" \
+    run tModLoader -- "$w/bin/steam" steam://rungameid/1281930
+steam_case "" "a shortcut that says PrefersNonDefaultGPU=false keeps its own answer" \
+    run game-says-false -- steam steam://rungameid/1
+steam_case "" "no answer from Steam's entry means no offload" \
+    env OUT="$w/out" PATH="$w/bin:/usr/bin:/bin" XDG_DATA_HOME="$w/home" XDG_DATA_DIRS="$w/sys2" \
+        bash "$script" tModLoader -- steam steam://rungameid/1281930
+rm -f "$w/out/viaurl"
+run no-key -- probe viaurl steam://rungameid/1
+if [ "$(prime viaurl)" = "1" ]; then ok "any program handed a steam:// URL is offloaded too"
+else bad "any program handed a steam:// URL is offloaded too (prime='$(prime viaurl)')"; fi
+rm -f "$w/out/plainword"
+run no-key -- probe plainword steam
+if [ "$(prime plainword)" = "" ]; then ok "the bare word 'steam' as an argument is not a Steam launch"
+else bad "the bare word 'steam' as an argument is not a Steam launch"; fi
+
+echo
 echo "── the argv arrives intact ──"
 run wants-dgpu -- probe argv "a b" '$HOME' '*'
 if [ "$(sed -n 's/^argc=//p' "$w/out/argv")" = "3" ] \
@@ -140,6 +189,19 @@ else
         bash "$mutant" wants-dgpu -- probe wants-dgpu
     if [ "$(prime wants-dgpu)" = "" ]; then ok "the mutant is caught by the first check"
     else bad "the mutant is caught by the first check"; fi
+fi
+
+
+mutant2="$w/mutant2.sh"
+sed 's/^if \[ -z "\$want" \] && runs_steam "\$@"; then$/if false; then/' "$script" > "$mutant2"
+if cmp -s "$script" "$mutant2"; then
+    bad "the Steam mutation applied (the runs_steam line moved; update the sed)"
+else
+    rm -f "$w/out/steam.last"
+    OUT="$w/out" PATH="$w/bin:/usr/bin:/bin" XDG_DATA_HOME="$w/home" XDG_DATA_DIRS="$w/sys" \
+        bash "$mutant2" tModLoader -- steam steam://rungameid/1281930
+    if [ "$(steam_prime)" = "" ]; then ok "a launcher without the Steam rule is caught (Steam starts on the iGPU)"
+    else bad "a launcher without the Steam rule is caught (Steam starts on the iGPU)"; fi
 fi
 
 echo
