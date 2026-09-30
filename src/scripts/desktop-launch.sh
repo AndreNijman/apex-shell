@@ -35,6 +35,16 @@
 #  so a one-GPU machine needs no branch here.
 #
 #  It takes no `--`: a first argument of `--` would be exec'd as the program.
+#
+#  ── Game shortcuts inherit Steam's answer ───────────────────────────────────
+#  The shortcuts Steam writes for a game (`Exec=steam steam://rungameid/<id>`)
+#  state no GPU at all. When Steam is not running yet, that command STARTS
+#  Steam, and every game after it inherits Steam's environment. On 2026-09-30
+#  katana's tModLoader shortcut did exactly that: Steam came up on the Iris Xe,
+#  the game hung it twice (the same ecode) and Hyprland aborted both times. So
+#  an entry that runs `steam`, or hands a `steam://` URL to anything, and says
+#  nothing itself takes the answer of Steam's own entry. An entry that states
+#  the key, true or false, keeps its own answer.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
@@ -71,7 +81,8 @@ find_entry() {
 # Only the [Desktop Entry] group counts: an action group may carry keys of its
 # own. PrefersNonDefaultGPU is the standard key and wins when present;
 # X-KDE-RunOnDiscreteGpu is the older KDE spelling some entries still use.
-prefers_discrete() {
+# Prints "true" or "false", or nothing when the file states neither key.
+gpu_pref() {
     local line key val group="" std="" kde=""
     while IFS= read -r line || [ -n "$line" ]; do
         line="${line%$'\r'}"
@@ -90,12 +101,34 @@ prefers_discrete() {
             X-KDE-RunOnDiscreteGpu) [ -z "$kde" ] && kde="$val" ;;
         esac
     done < "$1"
-    if [ -n "$std" ]; then [ "$std" = "true" ]; return; fi
-    [ "$kde" = "true" ]
+    val="${std:-$kde}"
+    [ -n "$val" ] || return 0
+    if [ "$val" = "true" ]; then echo true; else echo false; fi
 }
 
-if file="$(find_entry "$id")" && prefers_discrete "$file" \
-        && command -v switcherooctl >/dev/null 2>&1; then
+# The program is Steam (any path to it), or some argument is a steam:// URL
+# (xdg-open, a Flatpak Steam's `flatpak run … steam://…`).
+runs_steam() {
+    local a
+    [ "${1##*/}" = "steam" ] && return 0
+    for a in "$@"; do
+        case "$a" in steam://*) return 0 ;; esac
+    done
+    return 1
+}
+
+want=""
+if file="$(find_entry "$id")"; then want="$(gpu_pref "$file")"; fi
+if [ -z "$want" ] && runs_steam "$@"; then
+    for steam_id in steam com.valvesoftware.Steam; do
+        if file="$(find_entry "$steam_id")"; then
+            want="$(gpu_pref "$file")"
+            [ -n "$want" ] && break
+        fi
+    done
+fi
+
+if [ "$want" = "true" ] && command -v switcherooctl >/dev/null 2>&1; then
     exec switcherooctl launch "$@"
 fi
 exec "$@"
